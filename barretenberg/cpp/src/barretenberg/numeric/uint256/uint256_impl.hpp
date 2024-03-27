@@ -73,7 +73,42 @@ constexpr uint64_t uint256_t::mac_discard_hi(const uint64_t a,
 {
     return (b * c + a + carry_in);
 }
-
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+constexpr void uint256_t::wasm_madd(const uint64_t& left_limb,
+                                    const uint64_t* right_limbs,
+                                    uint64_t& result_0,
+                                    uint64_t& result_1,
+                                    uint64_t& result_2,
+                                    uint64_t& result_3,
+                                    uint64_t& result_4,
+                                    uint64_t& result_5,
+                                    uint64_t& result_6,
+                                    uint64_t& result_7,
+                                    uint64_t& result_8)
+{
+    result_0 += left_limb * right_limbs[0];
+    result_1 += left_limb * right_limbs[1];
+    result_2 += left_limb * right_limbs[2];
+    result_3 += left_limb * right_limbs[3];
+    result_4 += left_limb * right_limbs[4];
+    result_5 += left_limb * right_limbs[5];
+    result_6 += left_limb * right_limbs[6];
+    result_7 += left_limb * right_limbs[7];
+    result_8 += left_limb * right_limbs[8];
+}
+constexpr std::array<uint64_t, 9> uint256_t::wasm_convert(const uint64_t* data)
+{
+    return { data[0] & 0x1fffffff,
+             (data[0] >> 29) & 0x1fffffff,
+             ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
+             (data[1] >> 23) & 0x1fffffff,
+             ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
+             (data[2] >> 17) & 0x1fffffff,
+             ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
+             (data[3] >> 11) & 0x1fffffff,
+             (data[3] >> 40) & 0x1fffffff };
+}
+#endif
 constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) const
 {
     if (*this == 0 || b == 0) {
@@ -149,24 +184,8 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::mul_extended(const uint256_
     uint256_t hi(r4, r5, r6, r7);
     return { lo, hi };
 #else
-    uint64_t left[9] = { data[0] & 0x1fffffff,
-                         (data[0] >> 29) & 0x1fffffff,
-                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
-                         (data[1] >> 23) & 0x1fffffff,
-                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
-                         (data[2] >> 17) & 0x1fffffff,
-                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
-                         (data[3] >> 11) & 0x1fffffff,
-                         (data[3] >> 40) & 0x1fffffff };
-    uint64_t right[9] = { other.data[0] & 0x1fffffff,
-                          (other.data[0] >> 29) & 0x1fffffff,
-                          ((other.data[0] >> 58) & 0x3f) | ((other.data[1] & 0x7fffff) << 6),
-                          (other.data[1] >> 23) & 0x1fffffff,
-                          ((other.data[1] >> 52) & 0xfff) | ((other.data[2] & 0x1ffff) << 12),
-                          (other.data[2] >> 17) & 0x1fffffff,
-                          ((other.data[2] >> 46) & 0x3ffff) | ((other.data[3] & 0x7ff) << 18),
-                          (other.data[3] >> 11) & 0x1fffffff,
-                          (other.data[3] >> 40) & 0x1fffffff };
+    const auto left = wasm_convert(data);
+    const auto right = wasm_convert(other.data);
     constexpr uint64_t mask = 0x1fffffff;
     uint64_t temp_0 = 0;
     uint64_t temp_1 = 0;
@@ -186,87 +205,15 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::mul_extended(const uint256_
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
 
-    temp_0 += left[0] * right[0];
-    temp_1 += left[0] * right[1];
-    temp_2 += left[0] * right[2];
-    temp_3 += left[0] * right[3];
-    temp_4 += left[0] * right[4];
-    temp_5 += left[0] * right[5];
-    temp_6 += left[0] * right[6];
-    temp_7 += left[0] * right[7];
-    temp_8 += left[0] * right[8];
-    temp_1 += left[1] * right[0];
-    temp_2 += left[1] * right[1];
-    temp_3 += left[1] * right[2];
-    temp_4 += left[1] * right[3];
-    temp_5 += left[1] * right[4];
-    temp_6 += left[1] * right[5];
-    temp_7 += left[1] * right[6];
-    temp_8 += left[1] * right[7];
-    temp_9 += left[1] * right[8];
-    temp_2 += left[2] * right[0];
-    temp_3 += left[2] * right[1];
-    temp_4 += left[2] * right[2];
-    temp_5 += left[2] * right[3];
-    temp_6 += left[2] * right[4];
-    temp_7 += left[2] * right[5];
-    temp_8 += left[2] * right[6];
-    temp_9 += left[2] * right[7];
-    temp_10 += left[2] * right[8];
-    temp_3 += left[3] * right[0];
-    temp_4 += left[3] * right[1];
-    temp_5 += left[3] * right[2];
-    temp_6 += left[3] * right[3];
-    temp_7 += left[3] * right[4];
-    temp_8 += left[3] * right[5];
-    temp_9 += left[3] * right[6];
-    temp_10 += left[3] * right[7];
-    temp_11 += left[3] * right[8];
-    temp_4 += left[4] * right[0];
-    temp_5 += left[4] * right[1];
-    temp_6 += left[4] * right[2];
-    temp_7 += left[4] * right[3];
-    temp_8 += left[4] * right[4];
-    temp_9 += left[4] * right[5];
-    temp_10 += left[4] * right[6];
-    temp_11 += left[4] * right[7];
-    temp_12 += left[4] * right[8];
-    temp_5 += left[5] * right[0];
-    temp_6 += left[5] * right[1];
-    temp_7 += left[5] * right[2];
-    temp_8 += left[5] * right[3];
-    temp_9 += left[5] * right[4];
-    temp_10 += left[5] * right[5];
-    temp_11 += left[5] * right[6];
-    temp_12 += left[5] * right[7];
-    temp_13 += left[5] * right[8];
-    temp_6 += left[6] * right[0];
-    temp_7 += left[6] * right[1];
-    temp_8 += left[6] * right[2];
-    temp_9 += left[6] * right[3];
-    temp_10 += left[6] * right[4];
-    temp_11 += left[6] * right[5];
-    temp_12 += left[6] * right[6];
-    temp_13 += left[6] * right[7];
-    temp_14 += left[6] * right[8];
-    temp_7 += left[7] * right[0];
-    temp_8 += left[7] * right[1];
-    temp_9 += left[7] * right[2];
-    temp_10 += left[7] * right[3];
-    temp_11 += left[7] * right[4];
-    temp_12 += left[7] * right[5];
-    temp_13 += left[7] * right[6];
-    temp_14 += left[7] * right[7];
-    temp_15 += left[7] * right[8];
-    temp_8 += left[8] * right[0];
-    temp_9 += left[8] * right[1];
-    temp_10 += left[8] * right[2];
-    temp_11 += left[8] * right[3];
-    temp_12 += left[8] * right[4];
-    temp_13 += left[8] * right[5];
-    temp_14 += left[8] * right[6];
-    temp_15 += left[8] * right[7];
-    temp_16 += left[8] * right[8];
+    wasm_madd(left[0], &right[0], temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
+    wasm_madd(left[1], &right[0], temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
+    wasm_madd(left[2], &right[0], temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
+    wasm_madd(left[3], &right[0], temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11);
+    wasm_madd(left[4], &right[0], temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12);
+    wasm_madd(left[5], &right[0], temp_5, temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13);
+    wasm_madd(left[6], &right[0], temp_6, temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14);
+    wasm_madd(left[7], &right[0], temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
+    wasm_madd(left[8], &right[0], temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
     temp_1 += temp_0 >> 29;
     temp_0 &= mask;
@@ -407,24 +354,8 @@ constexpr uint256_t uint256_t::operator*(const uint256_t& other) const
 
     return { r0, r1, r2, r3 };
 #else
-    uint64_t left[9] = { data[0] & 0x1fffffff,
-                         (data[0] >> 29) & 0x1fffffff,
-                         ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
-                         (data[1] >> 23) & 0x1fffffff,
-                         ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
-                         (data[2] >> 17) & 0x1fffffff,
-                         ((data[2] >> 46) & 0x3ffff) | ((data[3] & 0x7ff) << 18),
-                         (data[3] >> 11) & 0x1fffffff,
-                         (data[3] >> 40) & 0x1fffffff };
-    uint64_t right[9] = { other.data[0] & 0x1fffffff,
-                          (other.data[0] >> 29) & 0x1fffffff,
-                          ((other.data[0] >> 58) & 0x3f) | ((other.data[1] & 0x7fffff) << 6),
-                          (other.data[1] >> 23) & 0x1fffffff,
-                          ((other.data[1] >> 52) & 0xfff) | ((other.data[2] & 0x1ffff) << 12),
-                          (other.data[2] >> 17) & 0x1fffffff,
-                          ((other.data[2] >> 46) & 0x3ffff) | ((other.data[3] & 0x7ff) << 18),
-                          (other.data[3] >> 11) & 0x1fffffff,
-                          (other.data[3] >> 40) & 0x1fffffff };
+    const auto left = wasm_convert(data);
+    const auto right = wasm_convert(other.data);
     uint64_t temp_0 = 0;
     uint64_t temp_1 = 0;
     uint64_t temp_2 = 0;
@@ -434,15 +365,8 @@ constexpr uint256_t uint256_t::operator*(const uint256_t& other) const
     uint64_t temp_6 = 0;
     uint64_t temp_7 = 0;
     uint64_t temp_8 = 0;
-    temp_0 += left[0] * right[0];
-    temp_1 += left[0] * right[1];
-    temp_2 += left[0] * right[2];
-    temp_3 += left[0] * right[3];
-    temp_4 += left[0] * right[4];
-    temp_5 += left[0] * right[5];
-    temp_6 += left[0] * right[6];
-    temp_7 += left[0] * right[7];
-    temp_8 += left[0] * right[8];
+
+    wasm_madd(left[0], &right[0], temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     temp_1 += left[1] * right[0];
     temp_2 += left[1] * right[1];
     temp_3 += left[1] * right[2];
