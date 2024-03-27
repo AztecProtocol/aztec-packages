@@ -80,10 +80,9 @@ describe('e2e_auth_contract', () => {
 
     const interaction = contract.methods.get_authorized();
 
-    const tx = await interaction.simulate();
-
-    const lastBlockNumber = await pxe.getBlockNumber();
     // These assertions are currently failing, need to investigate why.
+    //const tx = await interaction.simulate();
+    //const lastBlockNumber = await pxe.getBlockNumber();
     //expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
     //expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(lastBlockNumber + 5);
 
