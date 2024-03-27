@@ -591,21 +591,7 @@ template <class Params_> struct alignas(32) field {
                                                 uint64_t& result_6,
                                                 uint64_t& result_7,
                                                 uint64_t& result_8);
-    BB_INLINE static constexpr void wasm_karatsuba_madd(const uint64_t* left_limbs,
-                                                        const uint64_t* right_limbs,
-                                                        uint64_t& result_0,
-                                                        uint64_t& result_1,
-                                                        uint64_t& result_2);
-    BB_INLINE static constexpr void wasm_karatsuba_reduce(uint64_t& result_0,
-                                                          uint64_t& result_1,
-                                                          uint64_t& result_2,
-                                                          uint64_t& result_3,
-                                                          uint64_t& result_4,
-                                                          uint64_t& result_5,
-                                                          uint64_t& result_6,
-                                                          uint64_t& result_7,
-                                                          uint64_t& result_8,
-                                                          uint64_t& result_9);
+    BB_INLINE static constexpr std::array<uint64_t, 9> wasm_convert(const uint64_t* data);
 #endif
     BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
 
