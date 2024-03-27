@@ -568,7 +568,6 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     uint64_t temp_14 = 0;
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
-    uint64_t temp_17 = 0;
 
     wasm_madd(left[0], &right[0], temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
@@ -603,12 +602,10 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     temp_14 &= mask;
     temp_16 += temp_15 >> 29;
     temp_15 &= mask;
-    temp_17 = temp_16 >> 29;
-    temp_16 &= mask;
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
              (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
-             (temp_15 >> 18) | (temp_16 << 11) | (temp_17 << 40) };
+             (temp_15 >> 18) | (temp_16 << 11) };
 #endif
 }
 
@@ -688,7 +685,6 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     uint64_t temp_14 = 0;
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
-    uint64_t temp_17 = 0;
     uint64_t acc;
     temp_0 += left[0] * left[0];
     acc = 0;
@@ -789,12 +785,10 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     temp_14 &= mask;
     temp_16 += temp_15 >> 29;
     temp_15 &= mask;
-    temp_17 += temp_16 >> 29;
-    temp_16 &= mask;
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
              (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
-             (temp_15 >> 18) | (temp_16 << 11) | (temp_17 << 40) };
+             (temp_15 >> 18) | (temp_16 << 11) };
 #endif
 }
 
