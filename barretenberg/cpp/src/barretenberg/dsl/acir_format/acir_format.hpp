@@ -60,7 +60,8 @@ struct AcirFormat {
     std::vector<poly_triple_<curve::BN254::ScalarField>,
                 ContainerSlabAllocator<poly_triple_<curve::BN254::ScalarField>>>
         poly_triple_constraints;
-    std::vector<mul_quad_<curve::BN254::ScalarField>> quad_constraints;
+    std::vector<mul_quad_<curve::BN254::ScalarField>, ContainerSlabAllocator<mul_quad_<curve::BN254::ScalarField>>>
+        quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
     // For serialization, update with any new fields
