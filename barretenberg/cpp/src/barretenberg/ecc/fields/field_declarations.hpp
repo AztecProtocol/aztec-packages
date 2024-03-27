@@ -30,6 +30,11 @@ template <class Params_> struct alignas(32) field {
     using out_buf = uint8_t*;
     using vec_out_buf = uint8_t**;
 
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+#define WASM_NUM_LIMBS 9
+#define WASM_LIMB_BITS 29
+#endif
+
     // We don't initialize data in the default constructor since we'd lose a lot of time on huge array initializations.
     // Other alternatives have been noted, such as casting to get around constructors where they matter,
     // however it is felt that sanitizer tools (e.g. MSAN) can detect garbage well, whereas doing
@@ -591,7 +596,7 @@ template <class Params_> struct alignas(32) field {
                                                 uint64_t& result_6,
                                                 uint64_t& result_7,
                                                 uint64_t& result_8);
-    BB_INLINE static constexpr std::array<uint64_t, 9> wasm_convert(const uint64_t* data);
+    BB_INLINE static constexpr std::array<uint64_t, WASM_NUM_LIMBS> wasm_convert(const uint64_t* data);
 #endif
     BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
 

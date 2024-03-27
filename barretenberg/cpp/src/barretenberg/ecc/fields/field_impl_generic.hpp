@@ -378,21 +378,21 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     wasm_madd(left[8], &right[0], temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
-    temp_10 += temp_9 >> 29;
+    temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
-    temp_11 += temp_10 >> 29;
+    temp_11 += temp_10 >> WASM_LIMB_BITS;
     temp_10 &= mask;
-    temp_12 += temp_11 >> 29;
+    temp_12 += temp_11 >> WASM_LIMB_BITS;
     temp_11 &= mask;
-    temp_13 += temp_12 >> 29;
+    temp_13 += temp_12 >> WASM_LIMB_BITS;
     temp_12 &= mask;
-    temp_14 += temp_13 >> 29;
+    temp_14 += temp_13 >> WASM_LIMB_BITS;
     temp_13 &= mask;
-    temp_15 += temp_14 >> 29;
+    temp_15 += temp_14 >> WASM_LIMB_BITS;
     temp_14 &= mask;
-    temp_16 += temp_15 >> 29;
+    temp_16 += temp_15 >> WASM_LIMB_BITS;
     temp_15 &= mask;
-    temp_17 += temp_16 >> 29;
+    temp_17 += temp_16 >> WASM_LIMB_BITS;
     temp_16 &= mask;
 
     uint64_t r_temp_0;
@@ -473,7 +473,7 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
     constexpr uint64_t r_inv = T::r_inv & mask;
     uint64_t k = (result_0 * r_inv) & mask;
     result_0 += k * wasm_modulus[0];
-    result_1 += k * wasm_modulus[1] + (result_0 >> 29);
+    result_1 += k * wasm_modulus[1] + (result_0 >> WASM_LIMB_BITS);
     result_2 += k * wasm_modulus[2];
     result_3 += k * wasm_modulus[3];
     result_4 += k * wasm_modulus[4];
@@ -482,10 +482,10 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
     result_7 += k * wasm_modulus[7];
     result_8 += k * wasm_modulus[8];
 }
-template <class T> constexpr std::array<uint64_t, 9> field<T>::wasm_convert(const uint64_t* data)
+template <class T> constexpr std::array<uint64_t, WASM_NUM_LIMBS> field<T>::wasm_convert(const uint64_t* data)
 {
     return { data[0] & 0x1fffffff,
-             (data[0] >> 29) & 0x1fffffff,
+             (data[0] >> WASM_LIMB_BITS) & 0x1fffffff,
              ((data[0] >> 58) & 0x3f) | ((data[1] & 0x7fffff) << 6),
              (data[1] >> 23) & 0x1fffffff,
              ((data[1] >> 52) & 0xfff) | ((data[2] & 0x1ffff) << 12),
@@ -588,19 +588,19 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     wasm_madd(left[8], &right[0], temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
-    temp_10 += temp_9 >> 29;
+    temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
-    temp_11 += temp_10 >> 29;
+    temp_11 += temp_10 >> WASM_LIMB_BITS;
     temp_10 &= mask;
-    temp_12 += temp_11 >> 29;
+    temp_12 += temp_11 >> WASM_LIMB_BITS;
     temp_11 &= mask;
-    temp_13 += temp_12 >> 29;
+    temp_13 += temp_12 >> WASM_LIMB_BITS;
     temp_12 &= mask;
-    temp_14 += temp_13 >> 29;
+    temp_14 += temp_13 >> WASM_LIMB_BITS;
     temp_13 &= mask;
-    temp_15 += temp_14 >> 29;
+    temp_15 += temp_14 >> WASM_LIMB_BITS;
     temp_14 &= mask;
-    temp_16 += temp_15 >> 29;
+    temp_16 += temp_15 >> WASM_LIMB_BITS;
     temp_15 &= mask;
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
@@ -771,19 +771,19 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
-    temp_10 += temp_9 >> 29;
+    temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
-    temp_11 += temp_10 >> 29;
+    temp_11 += temp_10 >> WASM_LIMB_BITS;
     temp_10 &= mask;
-    temp_12 += temp_11 >> 29;
+    temp_12 += temp_11 >> WASM_LIMB_BITS;
     temp_11 &= mask;
-    temp_13 += temp_12 >> 29;
+    temp_13 += temp_12 >> WASM_LIMB_BITS;
     temp_12 &= mask;
-    temp_14 += temp_13 >> 29;
+    temp_14 += temp_13 >> WASM_LIMB_BITS;
     temp_13 &= mask;
-    temp_15 += temp_14 >> 29;
+    temp_15 += temp_14 >> WASM_LIMB_BITS;
     temp_14 &= mask;
-    temp_16 += temp_15 >> 29;
+    temp_16 += temp_15 >> WASM_LIMB_BITS;
     temp_15 &= mask;
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
@@ -848,37 +848,37 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
     wasm_madd(left[7], &right[0], temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_madd(left[8], &right[0], temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
-    temp_1 += temp_0 >> 29;
+    temp_1 += temp_0 >> WASM_LIMB_BITS;
     temp_0 &= mask;
-    temp_2 += temp_1 >> 29;
+    temp_2 += temp_1 >> WASM_LIMB_BITS;
     temp_1 &= mask;
-    temp_3 += temp_2 >> 29;
+    temp_3 += temp_2 >> WASM_LIMB_BITS;
     temp_2 &= mask;
-    temp_4 += temp_3 >> 29;
+    temp_4 += temp_3 >> WASM_LIMB_BITS;
     temp_3 &= mask;
-    temp_5 += temp_4 >> 29;
+    temp_5 += temp_4 >> WASM_LIMB_BITS;
     temp_4 &= mask;
-    temp_6 += temp_5 >> 29;
+    temp_6 += temp_5 >> WASM_LIMB_BITS;
     temp_5 &= mask;
-    temp_7 += temp_6 >> 29;
+    temp_7 += temp_6 >> WASM_LIMB_BITS;
     temp_6 &= mask;
-    temp_8 += temp_7 >> 29;
+    temp_8 += temp_7 >> WASM_LIMB_BITS;
     temp_7 &= mask;
-    temp_9 += temp_8 >> 29;
+    temp_9 += temp_8 >> WASM_LIMB_BITS;
     temp_8 &= mask;
-    temp_10 += temp_9 >> 29;
+    temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
-    temp_11 += temp_10 >> 29;
+    temp_11 += temp_10 >> WASM_LIMB_BITS;
     temp_10 &= mask;
-    temp_12 += temp_11 >> 29;
+    temp_12 += temp_11 >> WASM_LIMB_BITS;
     temp_11 &= mask;
-    temp_13 += temp_12 >> 29;
+    temp_13 += temp_12 >> WASM_LIMB_BITS;
     temp_12 &= mask;
-    temp_14 += temp_13 >> 29;
+    temp_14 += temp_13 >> WASM_LIMB_BITS;
     temp_13 &= mask;
-    temp_15 += temp_14 >> 29;
+    temp_15 += temp_14 >> WASM_LIMB_BITS;
     temp_14 &= mask;
-    temp_16 += temp_15 >> 29;
+    temp_16 += temp_15 >> WASM_LIMB_BITS;
     temp_15 &= mask;
     return { (temp_0 << 0) | (temp_1 << 29) | (temp_2 << 58),
              (temp_2 >> 6) | (temp_3 << 23) | (temp_4 << 52),
