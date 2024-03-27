@@ -108,6 +108,34 @@ contract DocsExample {
         assert(read.points == expected.points, "Invalid points");
     }
 
+    #[aztec(private)]
+    fn get_shared_immutable_constrained_private_indirect() -> pub Leader {
+        let ret = context.call_private_function_no_args(
+            context.this_address(),
+            FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
+        );
+        Leader::deserialize([ret[0], ret[1]])
+    }
+
+    #[aztec(public)]
+    fn get_shared_immutable_constrained_indirect() -> pub Leader {
+        let ret = context.call_public_function_no_args(
+            context.this_address(),
+            FunctionSelector::from_signature("get_shared_immutable_constrained()")
+        );
+        Leader::deserialize([ret[0], ret[1]])
+    }
+
+    #[aztec(public)]
+    fn get_shared_immutable_constrained() -> pub Leader {
+        storage.shared_immutable.read_public()
+    }
+
+    #[aztec(private)]
+    fn get_shared_immutable_constrained_private() -> pub Leader {
+        storage.shared_immutable.read_private()
+    }
+
     unconstrained fn get_shared_immutable() -> pub Leader {
         storage.shared_immutable.read_public()
     }

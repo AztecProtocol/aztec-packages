@@ -1,5 +1,5 @@
-import { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, FunctionData } from '@aztec/circuits.js';
+import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { AztecAddress, FunctionData, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 
 import { Wallet } from '../account/wallet.js';
@@ -63,18 +63,37 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   }
 
   /**
-   * Execute a view (read-only) transaction on an unconstrained function.
-   * This method is used to call functions that do not modify the contract state and only return data.
-   * Throws an error if called on a non-unconstrained function.
+   * Simulate a transaction and get its return values
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the view transaction as returned by the contract function.
    */
-  public view(options: ViewMethodOptions = {}) {
-    if (this.functionDao.functionType !== FunctionType.UNCONSTRAINED) {
-      throw new Error('Can only call `view` on an unconstrained function.');
+  public async simulate(options: ViewMethodOptions = {}): Promise<any> {
+    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
+      return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, options.from);
     }
 
-    const { from } = options;
-    return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, from);
+    // TODO: If not unconstrained, we return a size 4 array of fields.
+    // TODO: It should instead return the correctly decoded value
+    // TODO: The return type here needs to be fixed! @LHerskind
+
+    if (this.functionDao.functionType == FunctionType.SECRET) {
+      const nodeInfo = await this.wallet.getNodeInfo();
+      const packedArgs = PackedArguments.fromArgs(encodeArguments(this.functionDao, this.args));
+
+      const txRequest = TxExecutionRequest.from({
+        argsHash: packedArgs.hash,
+        origin: this.contractAddress,
+        functionData: FunctionData.fromAbi(this.functionDao),
+        txContext: TxContext.empty(nodeInfo.chainId, nodeInfo.protocolVersion),
+        packedArguments: [packedArgs],
+        authWitnesses: [],
+      });
+      const vue = await this.pxe.simulateTx(txRequest, false, options.from ?? this.wallet.getAddress());
+      return vue.privateReturnValues && vue.privateReturnValues[0];
+    } else {
+      const txRequest = await this.create();
+      const vue = await this.pxe.simulateTx(txRequest, true);
+      return vue.publicReturnValues && vue.publicReturnValues[0];
+    }
   }
 }

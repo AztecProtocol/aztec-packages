@@ -13,6 +13,7 @@ import {
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  Vue,
 } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
@@ -95,8 +96,11 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.simulateTx(txRequest, simulatePublic);
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.pxe.proveTx(txRequest, simulatePublic);
+  }
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<Vue> {
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);

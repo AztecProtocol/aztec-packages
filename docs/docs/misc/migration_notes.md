@@ -935,13 +935,13 @@ To parse a `AztecAddress` to BigInt, use `.inner`
 Before:
 
 ```js
-const tokenBigInt = await bridge.methods.token().view();
+const tokenBigInt = await bridge.methods.token().simulate();
 ```
 
 Now:
 
 ```js
-const tokenBigInt = (await bridge.methods.token().view()).inner;
+const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ```
 
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml
