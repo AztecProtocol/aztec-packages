@@ -142,6 +142,6 @@ pub fn execute_program<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
     let main_witness =
         executor.execute_circuit(main, initial_witness, blackbox_solver, foreign_call_executor)?;
     executor.witness_stack.push(0, main_witness);
-    dbg!(executor.witness_stack.clone());
+
     Ok(executor.finalize())
 }
