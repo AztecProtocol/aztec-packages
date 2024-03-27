@@ -11,7 +11,7 @@ RUN apk add clang lld curl build-base linux-headers git \
 RUN [[ "$TARGETARCH" = "arm64" ]] && echo "export CFLAGS=-mno-outline-atomics" >> $HOME/.profile || true
 
 WORKDIR /opt
-RUN git clone --depth 1 --branch nightly-de33b6af53005037b463318d2628b5cfcaf39916 https://github.com/foundry-rs/foundry.git
+RUN git clone --depth 1 --branch nightly-9148dbc2fe0c72e249669b11d04caae593fa6113 https://github.com/foundry-rs/foundry.git
 WORKDIR /opt/foundry
 
 RUN source $HOME/.profile && cargo build --release \
