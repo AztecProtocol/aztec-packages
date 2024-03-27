@@ -34,6 +34,11 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
         scheduled_value_change.get_current_at(block_number)
     }
 
+    pub fn get_scheduled_value_in_public(self) -> (T, u32) {
+        let scheduled_value_change: ScheduledValueChange<T, DELAY> = public_storage::read(self.get_derived_storage_slot());
+        scheduled_value_change.get_scheduled()
+    }
+
     pub fn get_current_value_in_private(self) -> T where T: FromField {
         let mut context = self.context.private.unwrap();
 

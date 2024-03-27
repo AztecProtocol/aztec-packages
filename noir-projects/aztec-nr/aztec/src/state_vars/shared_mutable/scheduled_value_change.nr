@@ -20,6 +20,10 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
         }
     }
 
+    pub fn get_scheduled(self) -> (T, u32) {
+        (self.post, self.block_of_change)
+    }
+
     pub fn get_block_horizon(self, historical_block_number: u32) -> u32 {
         if historical_block_number < self.block_of_change {
             min(self.block_of_change, historical_block_number + DELAY)
@@ -75,6 +79,17 @@ mod test {
         assert_eq(value.get_current_at(block_of_change - 1), pre);
         assert_eq(value.get_current_at(block_of_change), post);
         assert_eq(value.get_current_at(block_of_change + 1), post);
+    }
+
+    #[test]
+    fn test_get_scheduled() {
+        let pre = 1;
+        let post = 2;
+        let block_of_change = 50;
+
+        let value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(pre, post, block_of_change);
+
+        assert_eq(value.get_scheduled(), (post, block_of_change));
     }
 
     #[test]
