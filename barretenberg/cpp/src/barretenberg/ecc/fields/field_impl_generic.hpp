@@ -337,6 +337,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     return { r0, r1, r2, r3 };
 #else
 
+    // Convert 4 64-bit limbs to 9 29-bit limbs
     auto left = wasm_convert(data);
     auto right = wasm_convert(other.data);
     constexpr uint64_t mask = 0x1fffffff;
@@ -359,8 +360,11 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     uint64_t temp_16 = 0;
     uint64_t temp_17 = 0;
 
+    // Multiply-add 0th limb of the left argument by all 9 limbs of the right arguemnt
     wasm_madd(left[0], &right[0], temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
+    // Instantly reduce
     wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
+    // Continue for other limbs
     wasm_madd(left[1], &right[0], temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_madd(left[2], &right[0], temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
@@ -378,6 +382,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     wasm_madd(left[8], &right[0], temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
+    // After all multiplications and additions, convert relaxed form to strict (all limbs are 29 bits)
     temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
     temp_11 += temp_10 >> WASM_LIMB_BITS;
@@ -404,6 +409,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     uint64_t r_temp_6;
     uint64_t r_temp_7;
     uint64_t r_temp_8;
+    // Subtract modulus from result
     r_temp_0 = temp_9 - wasm_modulus[0];
     r_temp_1 = temp_10 - wasm_modulus[1] - ((r_temp_0) >> 63);
     r_temp_2 = temp_11 - wasm_modulus[2] - ((r_temp_1) >> 63);
@@ -413,6 +419,8 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     r_temp_6 = temp_15 - wasm_modulus[6] - ((r_temp_5) >> 63);
     r_temp_7 = temp_16 - wasm_modulus[7] - ((r_temp_6) >> 63);
     r_temp_8 = temp_17 - wasm_modulus[8] - ((r_temp_7) >> 63);
+
+    // Depending on whether the subtraction underflowed, choose original value or the result of subtraction
     uint64_t new_mask = 0 - (r_temp_8 >> 63);
     uint64_t inverse_mask = (~new_mask) & mask;
     temp_9 = (temp_9 & new_mask) | (r_temp_0 & inverse_mask);
@@ -425,6 +433,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     temp_16 = (temp_16 & new_mask) | (r_temp_7 & inverse_mask);
     temp_17 = (temp_17 & new_mask) | (r_temp_8 & inverse_mask);
 
+    // Convert back to 4 64-bit limbs
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
              (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
@@ -434,6 +443,11 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
 }
 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+
+/**
+ * @brief Multiply left limb by a sequence of 9 limbs and put into result variables
+ *
+ */
 template <class T>
 constexpr void field<T>::wasm_madd(uint64_t& left_limb,
                                    const uint64_t* right_limbs,
@@ -458,6 +472,10 @@ constexpr void field<T>::wasm_madd(uint64_t& left_limb,
     result_8 += left_limb * right_limbs[8];
 }
 
+/**
+ * @brief Perform 29-bit montgomery reduction on 1 limb (result_0 should be zero modulo 2**29 after this)
+ *
+ */
 template <class T>
 constexpr void field<T>::wasm_reduce(uint64_t& result_0,
                                      uint64_t& result_1,
@@ -482,6 +500,10 @@ constexpr void field<T>::wasm_reduce(uint64_t& result_0,
     result_7 += k * wasm_modulus[7];
     result_8 += k * wasm_modulus[8];
 }
+/**
+ * @brief Convert 4 64-bit limbs into 9 29-bit limbs
+ *
+ */
 template <class T> constexpr std::array<uint64_t, WASM_NUM_LIMBS> field<T>::wasm_convert(const uint64_t* data)
 {
     return { data[0] & 0x1fffffff,
@@ -548,6 +570,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     return { t0, t1, t2, t3 };
 #else
 
+    // Convert 4 64-bit limbs to 9 29-bit ones
     auto left = wasm_convert(data);
     auto right = wasm_convert(other.data);
     constexpr uint64_t mask = 0x1fffffff;
@@ -569,6 +592,8 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
 
+    // Perform a series of multiplications and reductions (we multiply 1 limb of left argument by the whole right
+    // argument and then reduce)
     wasm_madd(left[0], &right[0], temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     wasm_madd(left[1], &right[0], temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
@@ -588,6 +613,7 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     wasm_madd(left[8], &right[0], temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
+    // Convert result to unrelaxed form (all limbs are 29 bits)
     temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
     temp_11 += temp_10 >> WASM_LIMB_BITS;
@@ -602,6 +628,8 @@ template <class T> constexpr field<T> field<T>::montgomery_mul(const field& othe
     temp_14 &= mask;
     temp_16 += temp_15 >> WASM_LIMB_BITS;
     temp_15 &= mask;
+
+    // Convert back to 4 64-bit limbs form
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
              (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
@@ -663,9 +691,7 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     t3 = carry_lo + round_carry;
     return { t0, t1, t2, t3 };
 #else
-    // We use ‘montgomery_mul' instead of 'square_accumulate'. The number of additions and comparisons in
-    // 'square_accumulate' makes it slower in this particular case.
-    // return montgomery_mul(*this);
+    // Convert from 4 64-bit limbs to 9 29-bit ones
     auto left = wasm_convert(data);
     constexpr uint64_t mask = 0x1fffffff;
     uint64_t temp_0 = 0;
@@ -686,6 +712,7 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
     uint64_t acc;
+    // Perform multiplications, but accumulated results for limb k=i+j so that we can double them at the same time
     temp_0 += left[0] * left[0];
     acc = 0;
     acc += left[0] * left[1];
@@ -761,6 +788,8 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     acc += left[7] * left[8];
     temp_15 += (acc << 1);
     temp_16 += left[8] * left[8];
+
+    // Perform reductions
     wasm_reduce(temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     wasm_reduce(temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_reduce(temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
@@ -771,6 +800,7 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     wasm_reduce(temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_reduce(temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
+    // Convert to unrelaxed 29-bit form
     temp_10 += temp_9 >> WASM_LIMB_BITS;
     temp_9 &= mask;
     temp_11 += temp_10 >> WASM_LIMB_BITS;
@@ -785,6 +815,7 @@ template <class T> constexpr field<T> field<T>::montgomery_square() const noexce
     temp_14 &= mask;
     temp_16 += temp_15 >> WASM_LIMB_BITS;
     temp_15 &= mask;
+    // Convert to 4 64-bit form
     return { (temp_9 << 0) | (temp_10 << 29) | (temp_11 << 58),
              (temp_11 >> 6) | (temp_12 << 23) | (temp_13 << 52),
              (temp_13 >> 12) | (temp_14 << 17) | (temp_15 << 46),
@@ -817,6 +848,7 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
 
     return { r0, r1, r2, r3, r4, r5, r6, carry_2 };
 #else
+    // Convert from 4 64-bit limbs to 9 29-bit limbs
     auto left = wasm_convert(data);
     auto right = wasm_convert(other.data);
     constexpr uint64_t mask = 0x1fffffff;
@@ -838,6 +870,7 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
     uint64_t temp_15 = 0;
     uint64_t temp_16 = 0;
 
+    // Multiply-add all limbs
     wasm_madd(left[0], &right[0], temp_0, temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8);
     wasm_madd(left[1], &right[0], temp_1, temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9);
     wasm_madd(left[2], &right[0], temp_2, temp_3, temp_4, temp_5, temp_6, temp_7, temp_8, temp_9, temp_10);
@@ -848,6 +881,7 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
     wasm_madd(left[7], &right[0], temp_7, temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15);
     wasm_madd(left[8], &right[0], temp_8, temp_9, temp_10, temp_11, temp_12, temp_13, temp_14, temp_15, temp_16);
 
+    // Convert to unrelaxed 29-bit form
     temp_1 += temp_0 >> WASM_LIMB_BITS;
     temp_0 &= mask;
     temp_2 += temp_1 >> WASM_LIMB_BITS;
@@ -880,6 +914,8 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
     temp_14 &= mask;
     temp_16 += temp_15 >> WASM_LIMB_BITS;
     temp_15 &= mask;
+
+    // Convert to 8 64-bit limbs
     return { (temp_0 << 0) | (temp_1 << 29) | (temp_2 << 58),
              (temp_2 >> 6) | (temp_3 << 23) | (temp_4 << 52),
              (temp_4 >> 12) | (temp_5 << 17) | (temp_6 << 46),
