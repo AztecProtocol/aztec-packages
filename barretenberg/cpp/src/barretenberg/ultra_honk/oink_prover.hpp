@@ -70,5 +70,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
+    RelationSeparator generate_alphas();
 };
 } // namespace bb

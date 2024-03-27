@@ -39,6 +39,15 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
     proof = transcript->proof_data;
     return proof;
 }
+template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
+{
+    std::vector<FF> gate_challenges(numeric::get_msb(instance->proving_key->circuit_size));
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
+        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+    }
+    instance->gate_challenges = gate_challenges;
+}
+
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
     auto [relation_params, alphas] = oink_prover.prove();
@@ -46,22 +55,9 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
     instance->alphas = alphas;
     instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
-    std::vector<FF> gate_challenges(numeric::get_msb(instance->proving_key->circuit_size));
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-    instance->gate_challenges = gate_challenges;
+    generate_gate_challenges();
 
     DeciderProver_<Flavor> decider_prover(instance, transcript);
-
-    // // Fiat-Shamir: alpha
-    // // Run sumcheck subprotocol.
-    // execute_relation_check_rounds();
-
-    // // Fiat-Shamir: rho, y, x, z
-    // // Execute Zeromorph multilinear PCS
-    // execute_zeromorph_rounds();
-
     return decider_prover.construct_proof();
 }
 

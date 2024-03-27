@@ -50,16 +50,12 @@ BB_PROFILE static void test_round_inner(State& state, GoblinUltraProver& prover,
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { prover.oink_prover.execute_sorted_list_accumulator_round(); });
     time_if_index(LOG_DERIVATIVE_INVERSE, [&] { prover.oink_prover.execute_log_derivative_inverse_round(); });
     time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { prover.oink_prover.execute_grand_product_computation_round(); });
+    prover.instance->alphas = prover.oink_prover.generate_alphas();
     // we need to get the relation_parameters and prover_polynomials from the oink_prover
     prover.instance->relation_parameters = prover.oink_prover.relation_parameters;
     prover.instance->prover_polynomials = GoblinUltraFlavor::ProverPolynomials(prover.instance->proving_key);
 
-    std::vector<GoblinUltraFlavor::FF> gate_challenges(numeric::get_msb(prover.instance->proving_key->circuit_size));
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = prover.transcript->template get_challenge<GoblinUltraFlavor::FF>(
-            "Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
-    prover.instance->gate_challenges = gate_challenges;
+    prover.generate_gate_challenges();
 
     DeciderProver_<GoblinUltraFlavor> decider_prover(prover.instance, prover.transcript);
     time_if_index(RELATION_CHECK, [&] { decider_prover.execute_relation_check_rounds(); });
