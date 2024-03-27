@@ -15,6 +15,7 @@ fn main(mut x: [u8; 5], y: [u8; 5]) {
     let d1 = bigint::Secpk1Fq::from_le_bytes(597243850900842442924.to_le_bytes(10));
     assert(d1 == d);
     // big_int_example(x[0], x[1]);
+    test_u256(x, y);
 }
 
 // docs:start:big_int_example
@@ -31,8 +32,8 @@ fn big_int_example(x: u8, y: u8) {
 
 fn test_u256(mut x: [u8; 5], y: [u8; 5]) {
     // Addition
-    let a = U256::from_le_bytes([x[0], x[1], x[2], x[3], x[4]]);
-    let b = U256::from_le_bytes([y[0], y[1], y[2], y[3], y[4]]);
+    let a = U256::from_le_bytes(&[x[0], x[1], x[2], x[3], x[4]]);
+    let b = U256::from_le_bytes(&[y[0], y[1], y[2], y[3], y[4]]);
     let a_bytes = a.to_le_bytes();
     let b_bytes = b.to_le_bytes();
 
@@ -49,14 +50,13 @@ fn test_u256(mut x: [u8; 5], y: [u8; 5]) {
     assert(d == d1);
 
     // Multiplication
-    ///a*b-b: bigint::U256::from_le_bytes(187983169668514007116912.to_le_bytes(10));
     let d1 = U256::from_le_bytes(187983169668651374662634.to_le_bytes(10));
     let d = a * b;
     assert(d1 == d);
 
     // Division
-    let a = U256::from_le_bytes([6]);
-    let b = U256::from_le_bytes([3]);
+    let a = U256::from_le_bytes(&[6]);
+    let b = U256::from_le_bytes(&[3]);
     let d = a/b;
     assert(d.to_le_bytes()[0] == 2);
 }

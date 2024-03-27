@@ -14,7 +14,7 @@ global secpr1_fq = &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 global secpr1_fr = &[0x51, 0x25, 0x63, 0xFC, 0xC2, 0xCA, 0xB9, 0xF3, 0x84, 0x9E, 0x17, 0xA7, 0xAD, 0xFA, 0xE6, 0xBC,
                            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,0xFF, 0xFF, 0xFF, 0xFF];
 /// Modulus for U256 integers. The modulus for bigints in ACIR is represented as a 32-bytes elements, so zero means 2^256, which is the maximum value supported by the bigint type in ACIR.
-global u256_modulus = [0;32];
+global u256_modulus: [u8;32] = [0;32];
 // docs:start:big_int_definition
 struct BigInt {
     pointer: u32,
@@ -359,7 +359,7 @@ struct U256 {
 impl BigField for U256 {
     fn from_le_bytes(bytes: [u8]) -> U256 {
         U256 {
-            inner: BigInt::from_le_bytes(bytes, u256_modulus)
+            inner: BigInt::from_le_bytes(bytes, u256_modulus.as_slice())
         }
     }
     fn to_le_bytes(self) -> [u8] {
