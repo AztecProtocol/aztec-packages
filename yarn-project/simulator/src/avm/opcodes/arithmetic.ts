@@ -1,9 +1,8 @@
-import { countSetBits } from '@aztec/foundation/number';
-
 import type { AvmContext } from '../avm_context.js';
 import { GasCost, GasCostConstants, getGasCostMultiplierFromTypeTag, makeGasCost } from '../avm_gas_cost.js';
 import { Field, MemoryValue, TypeTag } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
+import { Addressing, AddressingMode } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
 
@@ -21,9 +20,13 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
   }
 
   protected gasCost(): GasCost {
+    const indirectCount = Addressing.fromWire(this.indirect).modePerOperand.filter(
+      mode => mode === AddressingMode.INDIRECT,
+    ).length;
+
     const l2Gas =
-      countSetBits(this.indirect) * GasCostConstants.ARITHMETIC_COST_PER_INDIRECT_ACCESS +
-      GasCostConstants.ARITHMETIC_COST_PER_BYTE * getGasCostMultiplierFromTypeTag(this.inTag);
+      indirectCount * GasCostConstants.ARITHMETIC_COST_PER_INDIRECT_ACCESS +
+      getGasCostMultiplierFromTypeTag(this.inTag) * GasCostConstants.ARITHMETIC_COST_PER_BYTE;
     return makeGasCost({ l2Gas });
   }
 

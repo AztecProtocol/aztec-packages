@@ -1,7 +1,6 @@
-import { AvmMachineState } from './avm_machine_state.js';
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
-import { initContext, initExecutionEnvironment } from './fixtures/index.js';
+import { initContext } from './fixtures/index.js';
 import { Add, CalldataCopy, Div, Mul, Set as SetInstruction, Sub } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 
@@ -19,13 +18,15 @@ describe('AVM simulator: dynamic gas costs per instruction', () => {
     [new Div(/*indirect=*/ 3, /*inTag=*/ TypeTag.UINT8, /*aOffset=*/ 1, /*bOffset=*/ 2, /*dstOffset=*/ 3), [20, 0, 0]],
   ] as const)('computes gas cost for %s', async (instruction, [l2GasCost, l1GasCost, daGasCost]) => {
     const bytecode = encodeToBytecode([instruction]);
+    const context = initContext();
+    const {
+      l2GasLeft: initialL2GasLeft,
+      daGasLeft: initialDaGasLeft,
+      l1GasLeft: initialL1GasLeft,
+    } = context.machineState;
 
-    const context = initContext({ env: initExecutionEnvironment({ calldata: [] }) });
-    const initialState = AvmMachineState.fromState(context.machineState);
-    const { l2GasLeft: initialL2GasLeft, daGasLeft: initialDaGasLeft, l1GasLeft: initialL1GasLeft } = initialState;
-    const simulator = new AvmSimulator(context);
+    await new AvmSimulator(context).executeBytecode(bytecode);
 
-    await simulator.executeBytecode(bytecode);
     expect(initialL2GasLeft - context.machineState.l2GasLeft).toEqual(l2GasCost);
     expect(initialL1GasLeft - context.machineState.l1GasLeft).toEqual(l1GasCost);
     expect(initialDaGasLeft - context.machineState.daGasLeft).toEqual(daGasCost);
