@@ -10,15 +10,28 @@ use crate::NargoError;
 
 use super::foreign_calls::{ForeignCallExecutor, NargoForeignCallResult};
 
-struct ProgramExecutor<'a> {
+struct ProgramExecutor<'a, B: BlackBoxFunctionSolver, F: ForeignCallExecutor> {
     functions: &'a [Circuit],
     // This gets built as we run through the program looking at each function call
     witness_stack: WitnessStack,
+
+    blackbox_solver: &'a B,
+
+    foreign_call_executor: &'a mut F,
 }
 
-impl<'a> ProgramExecutor<'a> {
-    fn new(functions: &'a [Circuit]) -> Self {
-        ProgramExecutor { functions, witness_stack: WitnessStack::default() }
+impl<'a, B: BlackBoxFunctionSolver, F: ForeignCallExecutor> ProgramExecutor<'a, B, F> {
+    fn new(
+        functions: &'a [Circuit],
+        blackbox_solver: &'a B,
+        foreign_call_executor: &'a mut F,
+    ) -> Self {
+        ProgramExecutor {
+            functions,
+            witness_stack: WitnessStack::default(),
+            blackbox_solver,
+            foreign_call_executor,
+        }
     }
 
     fn finalize(self) -> WitnessStack {
@@ -26,14 +39,12 @@ impl<'a> ProgramExecutor<'a> {
     }
 
     #[tracing::instrument(level = "trace", skip_all)]
-    fn execute_circuit<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
+    fn execute_circuit(
         &mut self,
         circuit: &Circuit,
         initial_witness: WitnessMap,
-        blackbox_solver: &B,
-        foreign_call_executor: &mut F,
     ) -> Result<WitnessMap, NargoError> {
-        let mut acvm = ACVM::new(blackbox_solver, &circuit.opcodes, initial_witness);
+        let mut acvm = ACVM::new(self.blackbox_solver, &circuit.opcodes, initial_witness);
 
         // This message should be resolved by a nargo foreign call only when we have an unsatisfied assertion.
         let mut assert_message: Option<String> = None;
@@ -82,7 +93,7 @@ impl<'a> ProgramExecutor<'a> {
                     }));
                 }
                 ACVMStatus::RequiresForeignCall(foreign_call) => {
-                    let foreign_call_result = foreign_call_executor.execute(&foreign_call)?;
+                    let foreign_call_result = self.foreign_call_executor.execute(&foreign_call)?;
                     match foreign_call_result {
                         NargoForeignCallResult::BrilligOutput(foreign_call_result) => {
                             acvm.resolve_pending_foreign_call(foreign_call_result);
@@ -100,12 +111,8 @@ impl<'a> ProgramExecutor<'a> {
                 ACVMStatus::RequiresAcirCall(call_info) => {
                     let acir_to_call = &self.functions[call_info.id as usize];
                     let initial_witness = call_info.initial_witness;
-                    let call_solved_witness = self.execute_circuit(
-                        acir_to_call,
-                        initial_witness,
-                        blackbox_solver,
-                        foreign_call_executor,
-                    )?;
+                    let call_solved_witness =
+                        self.execute_circuit(acir_to_call, initial_witness)?;
                     let mut call_resolved_outputs = Vec::new();
                     for return_witness_index in acir_to_call.return_values.indices() {
                         if let Some(return_value) =
@@ -138,9 +145,9 @@ pub fn execute_program<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
 ) -> Result<WitnessStack, NargoError> {
     let main = &program.functions[0];
 
-    let mut executor = ProgramExecutor::new(&program.functions);
-    let main_witness =
-        executor.execute_circuit(main, initial_witness, blackbox_solver, foreign_call_executor)?;
+    let mut executor =
+        ProgramExecutor::new(&program.functions, blackbox_solver, foreign_call_executor);
+    let main_witness = executor.execute_circuit(main, initial_witness)?;
     executor.witness_stack.push(0, main_witness);
 
     Ok(executor.finalize())

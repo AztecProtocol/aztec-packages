@@ -264,7 +264,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         self.status(ACVMStatus::InProgress);
     }
 
-    /// Sets the status of the VM to `RequriesAcirCall`
+    /// Sets the status of the VM to `RequiresAcirCall`
     /// Indicating that the VM is now waiting for an ACIR call to be resolved
     fn wait_for_acir_call(&mut self, acir_call: AcirCallWaitInfo) -> ACVMStatus {
         self.status(ACVMStatus::RequiresAcirCall(acir_call))
