@@ -10,6 +10,27 @@ using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
+    struct BusVector {
+        std::vector<uint32_t> data;        // variable indices corresponding to data in this bus vector
+        std::vector<uint32_t> read_counts; // count of reads at each index into data
+
+        std::vector<databus_lookup_gate_<FF>> gate_data; // pairs of {read_idx_witness_idx, value_witness_idx}
+
+        void append(const uint32_t& idx)
+        {
+            data.emplace_back(idx);
+            read_counts.resize(data.size());
+        }
+
+        size_t size() { return data.size(); }
+
+        uint32_t operator[](size_t idx) { return data[idx]; }
+    };
+
+    struct DataBus {
+        BusVector calldata;
+    };
+
     using Arithmetization = UltraHonkArith<FF>;
 
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
@@ -26,10 +47,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     uint32_t mul_accum_op_idx;
     uint32_t equality_op_idx;
 
-    // DataBus call/return data arrays
-    std::vector<uint32_t> public_calldata;
-    std::vector<uint32_t> calldata_read_counts;
-    std::vector<uint32_t> public_return_data;
+    // Container for public calldata/returndata
+    DataBus databus;
 
     // Functions for adding ECC op queue "gates"
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
@@ -128,16 +147,23 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      *
      * @param in Value to be added to calldata.
      * */
-    uint32_t add_public_calldata(const FF& in)
+    uint32_t add_public_calldata(const FF& in) { return add_to_bus_vector(databus.calldata, in); }
+
+    /**
+     * @brief Read from calldata and create a corresponding databus read gate
+     *
+     * @param read_idx Witness index for the calldata read index
+     * @return uint32_t Witness index for the result of the read
+     */
+    uint32_t read_calldata(const uint32_t& read_idx) { return read_bus_vector(databus.calldata, read_idx); };
+
+    uint32_t add_to_bus_vector(BusVector& bus_vector, const FF& in)
     {
         const uint32_t index = this->add_variable(in);
-        public_calldata.emplace_back(index);
-        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
-        calldata_read_counts.resize(public_calldata.size());
+        bus_vector.append(index);
         return index;
     }
-
-    uint32_t read_calldata(const uint32_t& read_idx_witness_idx);
+    uint32_t read_bus_vector(BusVector& bus_vector, const uint32_t& read_idx_witness_idx);
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
