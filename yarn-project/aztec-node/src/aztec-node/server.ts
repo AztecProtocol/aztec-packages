@@ -1,6 +1,7 @@
 import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
   AztecNode,
+  FromLogType,
   GetUnencryptedLogsResponse,
   L1ToL2MessageSource,
   L2Block,
@@ -265,9 +266,13 @@ export class AztecNodeService implements AztecNode {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  public getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: LogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
-    return logSource.getLogs(from, limit, logType);
+    return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
   }
 
   /**
@@ -458,8 +463,15 @@ export class AztecNodeService implements AztecNode {
 
     const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
     // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
-    const tree = new StandardTree(openTmpStore(true), new SHA256Trunc(), 'temp_outhash_sibling_path', treeHeight);
-    await tree.appendLeaves(l2ToL1Messages.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
+    const tree = new StandardTree(
+      openTmpStore(true),
+      new SHA256Trunc(),
+      'temp_outhash_sibling_path',
+      treeHeight,
+      0n,
+      Fr,
+    );
+    await tree.appendLeaves(l2ToL1Messages);
 
     return [indexOfL2ToL1Message, await tree.getSiblingPath(indexOfL2ToL1Message, true)];
   }
@@ -644,7 +656,6 @@ export class AztecNodeService implements AztecNode {
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTrees.asLatest(),
       this.contractDataSource,
-      this.l1ToL2MessageSource,
       new WASMSimulator(),
     );
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);

@@ -47,11 +47,20 @@ build-wasi-sdk:
     SAVE ARTIFACT wasi-sdk
     SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
 
-get-wasi-sdk:
+get-wasi-sdk-threads:
     ARG TARGETARCH
     # If this is failing, we need to run earthly --push +build-wasi-sdk
     FROM aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
     SAVE ARTIFACT wasi-sdk
+
+get-wasi-sdk:
+    # NOTE: currently only works with x86
+    # TODO Align with above
+    FROM +source
+    COPY ./scripts/install-wasi-sdk.sh ./scripts/
+    RUN ./scripts/install-wasi-sdk.sh
+    # TODO better output name to mirror wasi-sdk
+    SAVE ARTIFACT src/wasi-sdk-20.0 wasi-sdk
 
 wasmtime:
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
@@ -81,12 +90,25 @@ preset-debug:
     SAVE ARTIFACT bin
 
 preset-wasm:
-    ARG BB_WASI_SDK=""
+    ARG TARGETARCH
     FROM +source
-    # wasi-sdk
-    COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
+    IF [ $TARGETARCH = arm64 ]
+        # Just use threads for now
+        FROM +preset-wasm-threads
+        SAVE ARTIFACT bin
+    ELSE
+        COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
+        DO +RUN_CMAKE --configure="--preset wasm" --build="--target barretenberg.wasm"
+        RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
+        SAVE ARTIFACT bin
+        SAVE IMAGE --cache-hint
+    END
+
+preset-wasm-threads:
+    FROM +source
+    COPY +get-wasi-sdk-threads/wasi-sdk src/wasi-sdk
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
-    RUN ./src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
+    RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
     SAVE IMAGE --cache-hint
 
@@ -132,30 +154,32 @@ bench-client-ivc:
 
 build: # default target
     BUILD +preset-release
-    BUILD +preset-wasm
+    BUILD +preset-wasm-threads
 
 test:
     BUILD +test-clang-format
     FROM +preset-release-assert-all
-    COPY --dir ./srs_db/+build/. srs_db
-    # Fiddly bit: we need to reconstruct the paths that CMake built with
-    RUN mkdir -p build && mv bin CMakeCache.txt CMakeFiles build && cd build
+    COPY --dir ./srs_db/+build/. ../srs_db
     RUN GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
 
 # Functions
 RUN_CMAKE:
+    FUNCTION
     # Runs cmake build and leaves binary artifacts at 'bin'. Uses a mounted cache
     # for incremental rebuilds.
-    FUNCTION
     ARG configure # cmake configure flags
     ARG build # cmake build flags
-
+    WORKDIR /build
     # Use a mount for incremental builds locally.
     # TODO(AD): To be determined: does this get us in trouble in CI?
     RUN --mount type=cache,id="$configure-build",target=/build/build \
         (cmake $configure -Bbuild || (rm -f build/CMakeCache.txt && cmake $configure -Bbuild)) && \
         cmake --build build $build && \
-        cp -r build/CMakeCache.txt build/CMakeFiles build/bin .
+        cp -r build build-tmp
+    # move the temporary build folder back
+    # this is because the cached build goes away 
+    RUN rm -rf build && mv build-tmp build
+    WORKDIR /build/build
 
 BENCH_RELEASE:
     FUNCTION
@@ -188,7 +212,7 @@ BENCH_WASM:
     FUNCTION
     ARG target
     ARG args
-    FROM +preset-wasm
+    FROM +preset-wasm-threads
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
     COPY --dir ./srs_db/+build/. ../srs_db
     # install
