@@ -182,7 +182,7 @@ e2e-cli:
 
 e2e-persistence:
   ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_persistence --compose_file=./scripts/docker-compose-no-sandbox.yml.test.ts --e2e_build=$e2e_build
+  DO +E2E_TEST --test=e2e_persistence.test.ts --compose_file=./scripts/docker-compose-no-sandbox.yml --e2e_build=$e2e_build
 
 e2e-browser:
   ARG e2e_build=false
@@ -202,7 +202,7 @@ e2e-fees:
 
 e2e-dapp-subscription:
   ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_dapp_subscription --enable_gas=1.test.ts --e2e_build=$e2e_build
+  DO +E2E_TEST --test=e2e_dapp_subscription.test.ts --enable_gas=1 --e2e_build=$e2e_build
 
 pxe:
   ARG e2e_build=false
