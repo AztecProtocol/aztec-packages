@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
@@ -8,6 +9,8 @@ import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
 abstract class BaseStorageInstruction extends Instruction {
+  static readonly log = createDebugLogger('aztec:avm_simulator:storage');
+
   // Informs (de)serialization. See Instruction.deserialize.
   public static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
@@ -47,6 +50,7 @@ export class SStore extends BaseStorageInstruction {
 
     const slot = context.machineState.memory.get(slotOffset).toFr();
     const data = context.machineState.memory.getSlice(srcOffset, this.size).map(field => field.toFr());
+    BaseStorageInstruction.log(`Writing ${data} to slot ${slot}`);
 
     for (const [index, value] of Object.entries(data)) {
       const adjustedSlot = slot.add(new Fr(BigInt(index)));
@@ -82,6 +86,7 @@ export class SLoad extends BaseStorageInstruction {
 
       context.machineState.memory.set(bOffset + i, new Field(data));
     }
+    BaseStorageInstruction.log(`Read ${context.machineState.memory.getSlice(bOffset, size)} from slot ${slot}.`);
 
     context.machineState.incrementPc();
   }

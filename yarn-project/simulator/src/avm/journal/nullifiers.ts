@@ -1,5 +1,6 @@
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import type { CommitmentsDB } from '../../index.js';
 
@@ -9,6 +10,8 @@ import type { CommitmentsDB } from '../../index.js';
  * When a contract call completes, its cached nullifier set can be merged into its parent's.
  */
 export class Nullifiers {
+  private log: DebugLogger = createDebugLogger('aztec:nullifiers');
+
   /** Cached nullifiers. */
   private cache: NullifierCache;
   /** Parent's nullifier cache. Checked on cache-miss. */
@@ -41,16 +44,19 @@ export class Nullifiers {
   ): Promise<[/*exists=*/ boolean, /*isPending=*/ boolean, /*leafIndex=*/ Fr]> {
     // First check this cache
     let existsAsPending = this.cache.exists(storageAddress, nullifier);
+    this.log(`Checking nullifier ${nullifier} at contract ${storageAddress} in cache: ${existsAsPending}`);
     // Then check parent's cache
     if (!existsAsPending && this.parentCache) {
       existsAsPending = this.parentCache?.exists(storageAddress, nullifier);
     }
+    this.log(`Checking nullifier ${nullifier} at contract ${storageAddress} in parent cache: ${existsAsPending}`);
     // Finally try the host's Aztec state (a trip to the database)
     // If the value is found in the database, it will be associated with a leaf index!
     let leafIndex: bigint | undefined = undefined;
     if (!existsAsPending) {
       // silo the nullifier before checking for its existence in the host
       leafIndex = await this.hostNullifiers.getNullifierIndex(siloNullifier(storageAddress, nullifier));
+      this.log(`Checking nullifier index ${siloNullifier(storageAddress, nullifier)} in host: ${leafIndex}`);
     }
     const exists = existsAsPending || leafIndex !== undefined;
     leafIndex = leafIndex === undefined ? BigInt(0) : leafIndex;
@@ -64,6 +70,7 @@ export class Nullifiers {
    * @param nullifier - the nullifier to stage
    */
   public async append(storageAddress: Fr, nullifier: Fr) {
+    this.log(`Staging nullifier ${nullifier} at contract ${storageAddress}`);
     const [exists, ,] = await this.checkExists(storageAddress, nullifier);
     if (exists) {
       throw new NullifierCollisionError(
