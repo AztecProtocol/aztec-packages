@@ -114,8 +114,8 @@ fn sparse_notes_array() {
     opt_notes[3] = Option::some(TestNote::new(2));
     opt_notes[5] = Option::some(TestNote::new(3));
     opt_notes[8] = Option::some(TestNote::new(4));
-    opt_notes[11] = Option::some(TestNote::new(5));
-    opt_notes[19] = Option::some(TestNote::new(6));
+    opt_notes[13] = Option::some(TestNote::new(5));
+    opt_notes[21] = Option::some(TestNote::new(6));
 
     let storage_slot: Field = 0;
 
