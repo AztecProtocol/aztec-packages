@@ -17,6 +17,7 @@ namespace avm_alu(256);
     pol commit op_div;
     pol commit op_not;
     pol commit op_eq;
+    pol commit op_cast;
     pol commit alu_sel; // Predicate to activate the copy of intermediate registers to ALU table.
 
     // Instruction tag (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field) copied from Main table
@@ -51,7 +52,7 @@ namespace avm_alu(256);
     pol commit cf;
 
     // Compute predicate telling whether there is a row entry in the ALU table.
-    alu_sel = op_add + op_sub + op_mul + op_not + op_eq;
+    alu_sel = op_add + op_sub + op_mul + op_not + op_eq + op_cast;
 
     // ========= Type Constraints =============================================
     // TODO: Range constraints
@@ -156,7 +157,6 @@ namespace avm_alu(256);
     #[ALU_MULTIPLICATION_FF]
     ff_tag * op_mul * (ia * ib - ic) = 0;
 
-
     // We need 2k bits to express the product (a*b) over the integer, i.e., for type uk
     // we express the product as sum_k (u8 is an exception as we need 8-bit registers)
 
@@ -257,4 +257,7 @@ namespace avm_alu(256);
     #[ALU_OP_EQ]
     op_eq * (DIFF * (ic * (1 - op_eq_diff_inv) + op_eq_diff_inv) - 1 + ic) = 0;
 
-
+    // ========= CAST Operation Constraints ===============================
+    // We handle the input ia independently of its tag, i.e., we suppose it can take
+    // any value between 0 and p-1.
+    // We decompose ia in 16-bit limbs and prove
