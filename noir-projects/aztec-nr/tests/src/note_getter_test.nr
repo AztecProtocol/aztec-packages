@@ -21,9 +21,6 @@ fn sets_note_manually_and_fetches_it() {
 
     let storage_slot: Field = 42;
 
-    let mut opt_notes: [Option<TestNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
-    opt_notes[0] = Option::some(test_note);
-
     let mut options = NoteGetterOptions::new();
     let returned = _get_notes_constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);
     assert_eq(returned[0].unwrap().value, 1337);

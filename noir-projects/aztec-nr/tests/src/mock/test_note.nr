@@ -1,9 +1,7 @@
 use dep::aztec::context::PrivateContext;
 use dep::aztec::note::{
     note_header::NoteHeader,
-    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus, PropertySelector},
-    note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
-    utils::compute_note_hash_for_consumption, note_getter::_get_notes_constrain_get_notes_internal
+    note_interface::NoteInterface,
 };
 
 global TEST_NOTE_LENGTH = 1;
