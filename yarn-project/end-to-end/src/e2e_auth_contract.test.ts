@@ -70,6 +70,8 @@ describe('e2e_auth_contract', () => {
   });
 
   it('authorized is not yet set, cannot use permission', async () => {
+    await assertAddressInReceipt(await contract.methods.get_authorized().send().wait(), AztecAddress.ZERO);
+
     await expect(
       contract.withWallet(authorized).methods.do_private_authorized_thing(VALUE).send().wait(),
     ).rejects.toThrow('caller is not authorized');
