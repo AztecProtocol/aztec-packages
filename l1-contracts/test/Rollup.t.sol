@@ -16,6 +16,8 @@ import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOr
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 
+import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
+
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
  * Main use of these test is shorter cycles when updating the decoder contract.
@@ -26,6 +28,7 @@ contract RollupTest is DecoderBase {
   Outbox internal outbox;
   Rollup internal rollup;
   MerkleTestUtil internal merkleTestUtil;
+  TxsDecoderHelper internal txsHelper;
 
   AvailabilityOracle internal availabilityOracle;
 
@@ -39,6 +42,7 @@ contract RollupTest is DecoderBase {
     registry.upgrade(address(rollup), address(inbox), address(outbox));
 
     merkleTestUtil = new MerkleTestUtil();
+    txsHelper = new TxsDecoderHelper();
   }
 
   function testMixedBlock() public {
@@ -129,6 +133,7 @@ contract RollupTest is DecoderBase {
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
     bytes memory body = full.block.body;
+    uint32 numTxs = full.block.numTxs;
 
     // We jump to the time of the block.
     vm.warp(full.block.decodedHeader.globalVariables.timestamp);
@@ -146,18 +151,17 @@ contract RollupTest is DecoderBase {
 
     bytes32 l2ToL1MessageTreeRoot;
     {
-      // uint256 numMessagesPerBlock = Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX * Constants.MAX_TXS_PER_BLOCK;
-      uint256 numMessagesPerBlock = Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX * 4; // TODO: replace with constant
-      uint256 numMessagesToPad = numMessagesPerBlock - full.messages.l2ToL1Messages.length;
+      uint256 numTxsWithPadding = txsHelper.computeNumTxEffectsToPad(numTxs) + numTxs;
+      uint256 numMessagesWithPadding = numTxsWithPadding * Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX;
 
-      uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(numMessagesPerBlock);
+      uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(numMessagesWithPadding);
       NaiveMerkle tree = new NaiveMerkle(treeHeight);
-      for (uint256 i = 0; i < full.messages.l2ToL1Messages.length; i++) {
-        tree.insertLeaf(full.messages.l2ToL1Messages[i]);
-      }
-
-      for (uint256 i = 0; i < numMessagesToPad; i++) {
-        tree.insertLeaf(bytes32(0));
+      for (uint256 i = 0; i < numMessagesWithPadding; i++) {
+        if (i < full.messages.l2ToL1Messages.length) {
+          tree.insertLeaf(full.messages.l2ToL1Messages[i]);
+        } else {
+          tree.insertLeaf(bytes32(0));
+        }
       }
 
       l2ToL1MessageTreeRoot = tree.computeRoot();

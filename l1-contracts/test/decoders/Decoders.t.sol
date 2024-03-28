@@ -277,4 +277,31 @@ contract DecodersTest is DecoderBase {
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, referenceLogsHashFromIteration3, "Incorrect logs hash");
   }
+
+  function testTxsDecoderCorrectlyComputesNumTxEffectsToPad() public {
+    // Minimum num txs is 2 so when there are no real txs we need to pad to 2
+    uint32 numTxEffects = 0;
+    uint32 paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 5;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 3 - 5, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 8;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 3 - 8, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 10;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 4 - 10, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 16;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 4 - 16, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 17;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 5 - 17, "Incorrect number of tx effects to pad");
+  }
 }
