@@ -100,9 +100,9 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
             //           historical                         block horizon
             //             block     block of change       if not scheduled
             //        =======N=============|===================H=================>
-            //                ^           ^                    ^
-            //                |     actual horizon             |   
-            //                ----------------------------------
+            //                ^           ^                     ^
+            //                |     actual horizon              |   
+            //                -----------------------------------
             //                             delay
             //      
             // Note that the current implementation does not allow the caller to set the block of change to an arbitrary
