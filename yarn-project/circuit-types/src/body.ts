@@ -1,6 +1,5 @@
 import { EncryptedL2BlockL2Logs, TxEffect, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
 import { sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, truncateAndPad } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -79,7 +78,7 @@ export class Body {
 
   get numberOfTxs() {
     // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
-    return this.txEffects.reduce((acc, txEffect) => (!txEffect.nullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
+    return this.txEffects.reduce((acc, txEffect) => (txEffect.nullifiers.length !== 0 ? acc + 1 : acc), 0);
   }
 
   static random(

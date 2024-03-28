@@ -14,7 +14,7 @@ import {
   BufferReader,
   serializeArrayOfBufferableToVector,
   serializeToBuffer,
-  truncateAndPad
+  truncateAndPad,
 } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -184,15 +184,7 @@ export class TxEffect {
   }
 
   static empty(): TxEffect {
-    return new TxEffect(
-      RevertCode.OK,
-      [],
-      [],
-      [],
-      [],
-      EncryptedTxL2Logs.empty(),
-      UnencryptedTxL2Logs.empty(),
-    );
+    return new TxEffect(RevertCode.OK, [], [], [], [], EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty());
   }
 
   /**

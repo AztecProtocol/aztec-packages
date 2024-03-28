@@ -9,11 +9,8 @@ import {
 } from '@aztec/circuit-types';
 import {
   Fr,
-  type Header,
-  type MAX_NEW_NOTE_HASHES_PER_TX,
-  type MAX_NEW_NULLIFIERS_PER_TX,
-  type MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  type Proof,
+  Header,
+  Proof,
   PublicAccumulatedNonRevertibleData,
   PublicAccumulatedRevertibleData,
   PublicKernelCircuitPublicInputs,
@@ -22,7 +19,6 @@ import {
   ValidationRequests,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { type Tuple } from '@aztec/foundation/serialize';
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,
