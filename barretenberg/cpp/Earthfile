@@ -171,11 +171,12 @@ RUN_CMAKE:
     ARG configure # cmake configure flags
     ARG build # cmake build flags
     WORKDIR /build
+    ENV CCACHE_DIR=/build/.ccache 
     # Use a mount for incremental builds locally.
-    # TODO(AD): To be determined: does this get us in trouble in CI?
     RUN --mount type=cache,id="$configure-build",target=/build/.ccache,sharing=shared \
-        CCACHE_DIR=/build/.ccache cmake $configure -DCMAKE_CXX_COMPILER_LAUNCHER="ccache -M 20G" -Bbuild && \
-        CCACHE_DIR=/build/.ccache cmake --build build $build
+        ccache -M 20G && \
+        cmake $configure -DCMAKE_CXX_COMPILER_LAUNCHER="ccache" -Bbuild && \
+        cmake --build build $build
     WORKDIR /build/build
 
 BENCH_RELEASE:
