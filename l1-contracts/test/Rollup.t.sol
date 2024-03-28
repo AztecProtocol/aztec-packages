@@ -5,6 +5,7 @@ pragma solidity >=0.8.18;
 import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {Constants} from "../src/core/libraries/ConstantsGen.sol";
 
 import {Registry} from "../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../src/core/messagebridge/Inbox.sol";
@@ -145,11 +146,18 @@ contract RollupTest is DecoderBase {
 
     bytes32 l2ToL1MessageTreeRoot;
     {
-      uint256 treeHeight =
-        merkleTestUtil.calculateTreeHeightFromSize(full.messages.l2ToL1Messages.length);
+      // uint256 numMessagesPerBlock = Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX * Constants.MAX_TXS_PER_BLOCK;
+      uint256 numMessagesPerBlock = Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX * 4; // TODO: replace with constant
+      uint256 numMessagesToPad = numMessagesPerBlock - full.messages.l2ToL1Messages.length;
+
+      uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(numMessagesPerBlock);
       NaiveMerkle tree = new NaiveMerkle(treeHeight);
       for (uint256 i = 0; i < full.messages.l2ToL1Messages.length; i++) {
         tree.insertLeaf(full.messages.l2ToL1Messages[i]);
+      }
+
+      for (uint256 i = 0; i < numMessagesToPad; i++) {
+        tree.insertLeaf(bytes32(0));
       }
 
       l2ToL1MessageTreeRoot = tree.computeRoot();
@@ -157,7 +165,7 @@ contract RollupTest is DecoderBase {
 
     (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
 
-    assertEq(l2ToL1MessageTreeRoot, root);
+    assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
 
     assertEq(rollup.archive(), archive, "Invalid archive");
   }
