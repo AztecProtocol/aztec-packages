@@ -1,12 +1,17 @@
 import { EncryptedL2BlockL2Logs, TxEffect, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
 import { sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, truncateAndPad } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 export class Body {
-  constructor(public txEffects: TxEffect[]) {}
+  constructor(public txEffects: TxEffect[]) {
+    txEffects.forEach(txEffect => {
+      if (txEffect.isEmpty()) {
+        throw new Error('Empty tx effect not allowed in Body');
+      }
+    });
+  }
 
   /**
    * Serializes a block body
@@ -60,7 +65,37 @@ export class Body {
       return layers[layers.length - 1][0];
     };
 
+    // Copy of TxsDecoder.computeNumTxEffectsToPad
+    const computeNumTxEffectsToPad = (numTxEffects: number) => {
+      // 2 is the minimum number of tx effects so we have to handle the following 2 cases separately
+      if (numTxEffects == 0) {
+        return 2;
+      } else if (numTxEffects == 1) {
+        return 1;
+      }
+
+      let v: number = numTxEffects;
+
+      // the following rounds numTxEffects up to the next power of 2 (works only for 4 bytes value!)
+      v--;
+      v |= v >> 1;
+      v |= v >> 2;
+      v |= v >> 4;
+      v |= v >> 8;
+      v |= v >> 16;
+      v++;
+
+      return v - numTxEffects;
+    };
+
     const leafs: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
+    const numLeafsToPad = computeNumTxEffectsToPad(this.txEffects.length);
+    if (numLeafsToPad !== 0) {
+      const emptyTxEffectHash = TxEffect.empty().hash();
+      for (let i = 0; i < numLeafsToPad; i++) {
+        leafs.push(emptyTxEffectHash);
+      }
+    }
 
     return computeRoot(leafs);
   }
@@ -78,8 +113,9 @@ export class Body {
   }
 
   get numberOfTxs() {
+    // TODO(benesjan): nuke this
     // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
-    return this.txEffects.reduce((acc, txEffect) => (!txEffect.nullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
+    return this.txEffects.reduce((acc, txEffect) => (txEffect.nullifiers.length !== 0 ? acc + 1 : acc), 0);
   }
 
   static random(
