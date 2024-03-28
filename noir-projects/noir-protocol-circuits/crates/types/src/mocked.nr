@@ -3,13 +3,25 @@
 
 struct AggregationObject{}
 
-struct Proof{}
-
-struct VerificationKey{}
-
 impl Default for AggregationObject {
     fn default() -> Self {
         AggregationObject {}
+    }
+}
+
+struct Proof{}
+
+impl Default for Proof {
+    fn default() -> Self {
+        Proof {}
+    }
+}
+
+struct VerificationKey{}
+
+impl Default for VerificationKey {
+    fn default() -> Self {
+        VerificationKey {}
     }
 }
 

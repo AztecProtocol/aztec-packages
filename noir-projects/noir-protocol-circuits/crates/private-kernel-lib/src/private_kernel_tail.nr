@@ -225,7 +225,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_tail(self) -> PrivateKernelTailCircuitPublicInputs {
-        let mut public_inputs : PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::default();
         public_inputs.is_private = true;
 
         self.validate_inputs();

@@ -41,6 +41,25 @@ struct CombinedAccumulatedData {
     public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
+impl Default for CombinedAccumulatedData {
+    fn default() -> Self {
+        CombinedAccumulatedData {
+            revert_code: 0 as u8,
+            new_note_hashes: [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_TX],
+            new_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_TX],
+            private_call_stack: [CallRequest::default(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+            public_call_stack: [CallRequest::default(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+            new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: [PublicDataUpdateRequest::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        }
+    }
+}
+
+
 impl CombinedAccumulatedData {
     pub fn needs_app_logic(self) -> bool {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
@@ -86,7 +105,7 @@ mod tests {
 
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {
-        let mut builder: CombinedAccumulatedDataBuilder = unsafe::zeroed();
+        let mut builder = CombinedAccumulatedDataBuilder::default();
 
         let non_revertible_commitments = [
             SideEffect { value: 1, counter: 1 },

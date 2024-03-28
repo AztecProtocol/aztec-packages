@@ -18,6 +18,19 @@ struct PrivateKernelCircuitPublicInputsBuilder {
     is_private: bool,
 }
 
+impl Default for PrivateKernelCircuitPublicInputsBuilder {
+    fn default() -> Self {
+        PrivateKernelCircuitPublicInputsBuilder {
+            aggregation_object: AggregationObject::default(),
+            min_revertible_side_effect_counter: 0 as u32,
+            validation_requests: ValidationRequestsBuilder::default(),
+            end: CombinedAccumulatedDataBuilder::default(),
+            constants: CombinedConstantData::default(),
+            is_private: false,
+        }
+    }
+}
+
 impl PrivateKernelCircuitPublicInputsBuilder {
     pub fn to_inner(self) -> PrivateKernelInnerCircuitPublicInputs {
         PrivateKernelInnerCircuitPublicInputs {

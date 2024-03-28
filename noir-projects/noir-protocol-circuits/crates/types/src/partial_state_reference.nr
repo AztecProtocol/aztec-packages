@@ -18,6 +18,16 @@ impl Eq for PartialStateReference {
     }
 }
 
+impl Default for PartialStateReference {
+    fn default() -> Self {
+        Self {
+            note_hash_tree: AppendOnlyTreeSnapshot::default(),
+            nullifier_tree: AppendOnlyTreeSnapshot::default(),
+            public_data_tree: AppendOnlyTreeSnapshot::default(),
+        }
+    }
+}
+
 impl Serialize<PARTIAL_STATE_REFERENCE_LENGTH> for PartialStateReference {
     fn serialize(self) -> [Field; PARTIAL_STATE_REFERENCE_LENGTH] {
         let serialized_note_hash_tree = self.note_hash_tree.serialize();
@@ -51,19 +61,11 @@ impl Deserialize<PARTIAL_STATE_REFERENCE_LENGTH> for PartialStateReference {
     }
 }
 
-impl Default for PartialStateReference {
-    fn default() -> Self {
-        Self {
-            note_hash_tree: AppendOnlyTreeSnapshot::default(),
-            nullifier_tree: AppendOnlyTreeSnapshot::default(),
-            public_data_tree: AppendOnlyTreeSnapshot::default(),
-        }
-    }
-}
+
 
 #[test]
-fn serialization_of_empty() {
-    let partial: PartialStateReference = dep::std::unsafe::zeroed();
+fn serialization_of_default() {
+    let partial = PartialStateReference::default();
     let _serialized = partial.serialize();
     let _deserialized = PartialStateReference::deserialize(_serialized);
 }

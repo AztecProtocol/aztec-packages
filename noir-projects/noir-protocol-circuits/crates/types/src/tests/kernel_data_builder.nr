@@ -43,8 +43,8 @@ struct PreviousKernelDataBuilder {
 
 impl PreviousKernelDataBuilder {
     pub fn new(is_for_public: bool) -> Self {
-        let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
-        let mut end_non_revertible: AccumulatedNonRevertibleDataBuilder = dep::std::unsafe::zeroed();
+        let mut end = CombinedAccumulatedDataBuilder::default();
+        let mut end_non_revertible = AccumulatedNonRevertibleDataBuilder::default();
         // 0th nullifier must be non-zero.
         let tx_nullifier = SideEffectLinkedToNoteHash { value: 321, note_hash: 0, counter: 0 };
         // but the public kernels expect this first nullifier to have been partitioned into

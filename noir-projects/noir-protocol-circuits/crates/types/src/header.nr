@@ -27,6 +27,17 @@ impl Eq for Header {
     }
 }
 
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            last_archive: AppendOnlyTreeSnapshot::default(),
+            content_commitment: ContentCommitment::default(),
+            state: StateReference::default(),
+            global_variables: GlobalVariables::default(),
+        }
+    }
+}
+
 impl Serialize<HEADER_LENGTH> for Header {
     fn serialize(self) -> [Field; HEADER_LENGTH] {
         let mut fields: BoundedVec<Field, HEADER_LENGTH> = BoundedVec::new();
@@ -64,17 +75,6 @@ impl Deserialize<HEADER_LENGTH> for Header {
     }
 }
 
-impl Default for Header {
-    fn default() -> Self {
-        Self {
-            last_archive: AppendOnlyTreeSnapshot::default(),
-            content_commitment: ContentCommitment::default(),
-            state: StateReference::default(),
-            global_variables: GlobalVariables::default(),
-        }
-    }
-}
-
 impl Hash for Header {
     fn hash(self) -> Field {
         pedersen_hash(self.serialize(), GENERATOR_INDEX__BLOCK_HASH)
@@ -83,7 +83,7 @@ impl Hash for Header {
 
 #[test]
 fn serialization_of_empty() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::default();
     let serialized = header.serialize();
     let deserialized = Header::deserialize(serialized);
     assert(header.eq(deserialized));
@@ -91,13 +91,13 @@ fn serialization_of_empty() {
 
 #[test]
 fn hash_smoke() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::default();
     let _hashed = header.hash();
 }
 
 #[test]
 fn empty_hash_is_default() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::default();
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test

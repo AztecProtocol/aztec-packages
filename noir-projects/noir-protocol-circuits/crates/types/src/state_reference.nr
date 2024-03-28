@@ -17,6 +17,15 @@ impl Eq for StateReference {
     }
 }
 
+impl Default for StateReference {
+    fn default() -> Self {
+        Self {
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::default(),
+            partial: PartialStateReference::default(),
+        }
+    }
+}
+
 impl Serialize<STATE_REFERENCE_LENGTH> for StateReference {
     fn serialize(self) -> [Field; STATE_REFERENCE_LENGTH] {
         let mut fields: BoundedVec<Field, STATE_REFERENCE_LENGTH> = BoundedVec::new();
@@ -44,18 +53,9 @@ impl Deserialize<STATE_REFERENCE_LENGTH> for StateReference {
     }
 }
 
-impl Default for StateReference {
-    fn default() -> Self {
-        Self {
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::default(),
-            partial: PartialStateReference::default(),
-        }
-    }
-}
-
 #[test]
 fn serialization_of_empty() {
-    let state: StateReference = dep::std::unsafe::zeroed();
+    let state = StateReference::default();
     let _serialized = state.serialize();
     let _deserialized = StateReference::deserialize(_serialized);
 }

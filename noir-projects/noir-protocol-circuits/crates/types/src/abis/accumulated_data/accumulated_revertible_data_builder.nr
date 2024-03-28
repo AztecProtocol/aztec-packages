@@ -33,6 +33,23 @@ struct AccumulatedRevertibleDataBuilder {
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 }
 
+impl Default for AccumulatedRevertibleDataBuilder {
+    fn default() -> Self {
+        AccumulatedRevertibleDataBuilder {
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: BoundedVec::new(),
+        }
+    }
+}
+
 impl AccumulatedRevertibleDataBuilder {
     pub fn to_private(self) -> PrivateAccumulatedRevertibleData {
         PrivateAccumulatedRevertibleData {

@@ -17,14 +17,41 @@ struct VKMembershipWitness{
     sibling_path: [Field; ROLLUP_VK_TREE_HEIGHT]
 }
 
+impl Default for VKMembershipWitness {
+    fn default() -> Self {
+        VKMembershipWitness {
+            leaf_index: 0,
+            sibling_path: [0; ROLLUP_VK_TREE_HEIGHT]
+        }
+    }
+}
+
 struct NullifierMembershipWitness{
     leaf_index: Field,
     sibling_path: [Field; NULLIFIER_TREE_HEIGHT]
 }
 
+impl Default for NullifierMembershipWitness {
+    fn default() -> Self {
+        NullifierMembershipWitness {
+            leaf_index: 0,
+            sibling_path: [0; NULLIFIER_TREE_HEIGHT]
+        }
+    }
+}
+
 struct PublicDataMembershipWitness{
     leaf_index: Field,
     sibling_path: [Field; PUBLIC_DATA_TREE_HEIGHT]
+}
+
+impl Default for PublicDataMembershipWitness {
+    fn default() -> Self {
+        PublicDataMembershipWitness {
+            leaf_index: 0,
+            sibling_path: [0; PUBLIC_DATA_TREE_HEIGHT]
+        }
+    }
 }
 
 struct ArchiveRootMembershipWitness{
