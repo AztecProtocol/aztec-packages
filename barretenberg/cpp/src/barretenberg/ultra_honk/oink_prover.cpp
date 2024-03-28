@@ -25,8 +25,12 @@ template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::pro
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
+    // Generate relation separators alphas for sumcheck
+    RelationSeparator alphas = generate_alphas();
+
     return OinkProverOutput<Flavor>{
         .relation_parameters = std::move(relation_parameters),
+        .alphas = std::move(alphas),
     };
 }
 
@@ -149,6 +153,14 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     transcript->send_to_verifier(domain_separator + commitment_labels.z_lookup, witness_commitments.z_lookup);
 }
 
+template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas()
+{
+    RelationSeparator alphas;
+    for (size_t idx = 0; idx < alphas.size(); idx++) {
+        alphas[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
+    }
+    return alphas;
+}
 template class OinkProver<UltraFlavor>;
 template class OinkProver<GoblinUltraFlavor>;
 
