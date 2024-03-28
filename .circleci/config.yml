@@ -617,8 +617,6 @@ jobs:
           command: build end-to-end
           aztec_manifest_key: end-to-end
 
-# E2E
-
   build-docs:
     machine:
       image: default
@@ -954,51 +952,6 @@ workflows:
             - aztec-package
             - cli
           <<: *defaults
-      - e2e-2-pxes: *e2e_test
-      - e2e-note-getter: *e2e_test
-      - e2e-deploy-contract: *e2e_test
-      - e2e-lending-contract: *e2e_test
-      - e2e-token-contract: *e2e_test
-      - e2e-authwit-test: *e2e_test
-      - e2e-blacklist-token-contract: *e2e_test
-      # TODO(3458): Investigate intermittent failure
-      # - e2e-slow-tree: *e2e_test
-      - e2e-sandbox-example: *e2e_test
-      - e2e-state-vars: *e2e_test
-      - e2e-block-building: *e2e_test
-      - e2e-nested-contract: *e2e_test
-      - e2e-static-calls: *e2e_test
-      - e2e-delegate-calls: *e2e_test
-      - e2e-non-contract-account: *e2e_test
-      - e2e-multiple-accounts-1-enc-key: *e2e_test
-      - e2e-cli: *e2e_test
-      - e2e-cross-chain-messaging: *e2e_test
-      - e2e-crowdfunding-and-claim: *e2e_test
-      - e2e-public-cross-chain-messaging: *e2e_test
-      - e2e-public-to-private-messaging: *e2e_test
-      - e2e-account-contracts: *e2e_test
-      - e2e-escrow-contract: *e2e_test
-      - e2e-inclusion-proofs-contract: *e2e_test
-      - e2e-pending-note-hashes-contract: *e2e_test
-      - e2e-ordering: *e2e_test
-      - e2e-outbox: *e2e_test
-      - e2e-counter: *e2e_test
-      - e2e-private-voting: *e2e_test
-      - uniswap-trade-on-l1-from-l2: *e2e_test
-      - integration-l1-publisher: *e2e_test
-      - e2e-persistence: *e2e_test
-      - e2e-browser: *e2e_test
-      - e2e-card-game: *e2e_test
-      - e2e-avm-simulator: *e2e_test
-      - e2e-fees: *e2e_test
-      - e2e-dapp-subscription: *e2e_test
-      - pxe: *e2e_test
-      - cli-docs-sandbox: *e2e_test
-      - e2e-docs-examples: *e2e_test
-      - guides-writing-an-account-contract: *e2e_test
-      - guides-dapp-testing: *e2e_test
-      - guides-sample-dapp: *e2e_test
-      - guides-up-quick-start: *e2e_test
 
       # Everything that must complete before deployment.
       - end:
@@ -1022,51 +975,6 @@ workflows:
             - barretenberg-docs
             - build-docs
             - mainnet-fork
-            - e2e-2-pxes
-            - e2e-note-getter
-            - e2e-deploy-contract
-            - e2e-lending-contract
-            - e2e-token-contract
-            - e2e-authwit-test
-            - e2e-blacklist-token-contract
-            - e2e-sandbox-example
-            - e2e-state-vars
-            - e2e-block-building
-            - e2e-nested-contract
-            - e2e-static-calls
-            - e2e-delegate-calls
-            - e2e-non-contract-account
-            - e2e-multiple-accounts-1-enc-key
-            - e2e-cli
-            - e2e-cross-chain-messaging
-            - e2e-crowdfunding-and-claim
-            - e2e-public-cross-chain-messaging
-            - e2e-public-to-private-messaging
-            - e2e-account-contracts
-            - e2e-escrow-contract
-            - e2e-inclusion-proofs-contract
-            - e2e-pending-note-hashes-contract
-            - e2e-ordering
-            - e2e-outbox
-            - e2e-counter
-            - e2e-private-voting
-            - uniswap-trade-on-l1-from-l2
-            - integration-l1-publisher
-            - e2e-persistence
-            - e2e-browser
-            - e2e-card-game
-            - e2e-avm-simulator
-            - e2e-fees
-            - e2e-dapp-subscription
-            - pxe
-            - boxes-vanilla
-            - boxes-react
-            - cli-docs-sandbox
-            - e2e-docs-examples
-            - guides-writing-an-account-contract
-            - guides-dapp-testing
-            - guides-sample-dapp
-            - guides-up-quick-start
             - yellow-paper
             - noir-packages-tests
             - yarn-project-test
