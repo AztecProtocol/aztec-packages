@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.32.0...barretenberg.js-v0.32.1) (2024-03-28)
+
+
+### Bug Fixes
+
+* **ci:** Turn on earthly for everyone ([#5423](https://github.com/AztecProtocol/aztec-packages/issues/5423)) ([bea3fcb](https://github.com/AztecProtocol/aztec-packages/commit/bea3fcbde91d08f13cb7c2ceeff8be33b3edcdfd))
+
 ## [0.32.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.31.0...barretenberg.js-v0.32.0) (2024-03-27)
 
 
