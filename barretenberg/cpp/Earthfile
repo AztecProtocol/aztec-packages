@@ -6,7 +6,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     cmake \
-    ccache \
     lsb-release \
     wget \
     software-properties-common \
@@ -48,20 +47,11 @@ build-wasi-sdk:
     SAVE ARTIFACT wasi-sdk
     SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
 
-get-wasi-sdk-threads:
+get-wasi-sdk:
     ARG TARGETARCH
     # If this is failing, we need to run earthly --push +build-wasi-sdk
     FROM aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
     SAVE ARTIFACT wasi-sdk
-
-get-wasi-sdk:
-    # NOTE: currently only works with x86
-    # TODO Align with above
-    FROM +source
-    COPY ./scripts/install-wasi-sdk.sh ./scripts/
-    RUN ./scripts/install-wasi-sdk.sh
-    # TODO better output name to mirror wasi-sdk
-    SAVE ARTIFACT src/wasi-sdk-20.0 wasi-sdk
 
 wasmtime:
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
@@ -69,9 +59,9 @@ wasmtime:
 
 source:
     # cpp source
-    COPY --dir src/barretenberg src/CMakeLists.txt src
+    COPY --keep-ts --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
-    COPY --dir cmake CMakeLists.txt CMakePresets.json .
+    COPY --keep-ts --dir cmake CMakeLists.txt CMakePresets.json .
     # for debugging rebuilds
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
@@ -107,7 +97,7 @@ preset-wasm:
 
 preset-wasm-threads:
     FROM +source
-    COPY +get-wasi-sdk-threads/wasi-sdk src/wasi-sdk
+    COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
     DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target barretenberg.wasm"
     RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
     SAVE ARTIFACT bin
@@ -171,12 +161,15 @@ RUN_CMAKE:
     ARG configure # cmake configure flags
     ARG build # cmake build flags
     WORKDIR /build
-    ENV CCACHE_DIR=/build/.ccache 
     # Use a mount for incremental builds locally.
-    RUN --mount type=cache,id="$configure-build",target=/build/.ccache,sharing=shared \
-        ccache -M 20G && \
-        cmake $configure -DCMAKE_CXX_COMPILER_LAUNCHER="ccache" -Bbuild && \
-        cmake --build build $build
+    # TODO(AD): To be determined: does this get us in trouble in CI?
+    RUN --mount type=cache,id="$configure-build",target=/build/build \
+        (cmake $configure -Bbuild || (rm -f build/CMakeCache.txt && cmake $configure -Bbuild)) && \
+        cmake --build build $build && \
+        cp -r build build-tmp
+    # move the temporary build folder back
+    # this is because the cached build goes away 
+    RUN rm -rf build && mv build-tmp build
     WORKDIR /build/build
 
 BENCH_RELEASE:
