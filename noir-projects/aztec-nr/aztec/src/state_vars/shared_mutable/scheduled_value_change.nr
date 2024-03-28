@@ -25,23 +25,38 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
         Self { pre, post, block_of_change, _dummy: [0; DELAY] }
     }
 
-    pub fn get_current_at(self, historical_block_number: u32) -> T {
+    /// Returns the value stored in the data structure at a given block. This function can be called both in public 
+    /// (where `block_number` is simply the current block number, i.e. the number of the block in which the current 
+    /// transaction will be included) and in private (where `block_number` is the historical block number that is used 
+    /// to construct the proof).
+    /// Reading in private is only safe if the transaction's `max_block_number` property is set to a value lower or 
+    /// equal to the block horizon (see `get_block_horizon()`).
+    pub fn get_current_at(self, block_number: u32) -> T {
         // The post value becomes the current one at the block of change. This means different things in each realm:
         // - in public, any transaction that is included in the block of change will use the post value
         // - in private, any transaction that includes the block of change as part of the historical state will use the
         //   post value (barring any follow-up changes)
 
-        if historical_block_number < self.block_of_change {
+        if block_number < self.block_of_change {
             self.pre
         } else {
             self.post
         }
     }
 
+    /// Returns the scheduled change, i.e. the post-change value and the block at which it will become the current 
+    /// value. Note that this block may be in the past if the change has already taken place.
+    /// Additionally, further changes might be later scheduled, potentially canceling the one returned by this function.
     pub fn get_scheduled(self) -> (T, u32) {
         (self.post, self.block_of_change)
     }
 
+    /// Returns the largest block number at which the value returned by `get_current_at` is known to remain the current
+    /// value. This value is only meaningful in private when constructing a proof at some `historical_block_number`, 
+    /// since due to its asynchronous nature private execution cannot know about any later scheduled changes.
+    /// The value returned by `get_current_at` in private when called with a historical block number is only safe to use
+    /// if the transaction's `max_block_number` property is set to a value lower or equal to the block horizon computed
+    /// using the same historical block number.
     pub fn get_block_horizon(self, historical_block_number: u32) -> u32 {
         // The block horizon is the very last block in which the current value is known. Any block past the horizon 
         // (i.e. with a block number larger than the block horizon) may have a different current value. Reading the
@@ -100,6 +115,8 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
         }
     }
 
+    /// Mutates a scheduled value change by scheduling a change at the current block number. This function is only
+    /// meaningful when called in public with the current block number.
     pub fn schedule_change(&mut self, new_value: T, current_block_number: u32) {
         self.pre = self.get_current_at(current_block_number);
         self.post = new_value;
