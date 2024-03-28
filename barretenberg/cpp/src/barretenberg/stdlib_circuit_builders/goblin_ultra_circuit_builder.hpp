@@ -14,8 +14,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         std::vector<uint32_t> data;        // variable indices corresponding to data in this bus vector
         std::vector<uint32_t> read_counts; // count of reads at each index into data
 
-        std::vector<databus_lookup_gate_<FF>> gate_data; // pairs of {read_idx_witness_idx, value_witness_idx}
-
         void append(const uint32_t& idx)
         {
             data.emplace_back(idx);
@@ -59,6 +57,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void populate_ecc_op_wires(const ecc_op_tuple& in);
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
     void set_goblin_ecc_op_code_constant_variables();
+    void create_databus_read_gate(const databus_lookup_gate_<FF>& in);
     void create_calldata_read_gate(const databus_lookup_gate_<FF>& in);
 
   public:

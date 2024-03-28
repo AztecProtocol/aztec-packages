@@ -248,8 +248,7 @@ uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, 
  * @tparam FF
  * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
  */
-template <typename FF>
-void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_lookup_gate_<FF>& in)
+template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in)
 {
     auto& block = this->blocks.busread;
     block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
@@ -272,6 +271,20 @@ void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_loo
     this->check_selector_length_consistency();
 
     ++this->num_gates;
+}
+
+/**
+ * @brief Create a calldata lookup/read gate
+ *
+ * @tparam FF
+ * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
+ */
+template <typename FF>
+void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_lookup_gate_<FF>& in)
+{
+    create_databus_read_gate(in);
+    auto& block = this->blocks.busread;
+    block.q_1()[block.size() - 1] = 1;
 }
 
 /**
