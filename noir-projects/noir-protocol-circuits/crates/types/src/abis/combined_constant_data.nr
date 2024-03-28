@@ -9,3 +9,12 @@ struct CombinedConstantData {
     // protocol to execute and prove the transaction.
     tx_context: TxContext,
 }
+
+impl Default for CombinedConstantData {
+    fn default() -> Self {
+        CombinedConstantData {
+            historical_header: Header::default(),
+            tx_context: TxContext::default(),
+        }
+    }
+}

@@ -25,7 +25,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::default();
         // since this phase is non-revertible, we must assert the public call did not revert
         common::validate_public_call_non_revert(self.public_call);
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
@@ -153,7 +153,7 @@ mod tests {
     #[test(should_fail_with="Contract address cannot be zero")]
     fn contract_address_must_be_valid() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-        builder.public_call.contract_address = AztecAddress::zero();
+        builder.public_call.contract_address = AztecAddress::default();
 
         builder.failed();
     }
@@ -161,7 +161,7 @@ mod tests {
     #[test(should_fail_with="Function signature cannot be zero")]
     fn function_selector_must_be_valid() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-        builder.public_call.function_data.selector = FunctionSelector::zero();
+        builder.public_call.function_data.selector = FunctionSelector::default();
 
         builder.failed();
     }

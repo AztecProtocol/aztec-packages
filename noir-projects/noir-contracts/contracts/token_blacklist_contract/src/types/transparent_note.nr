@@ -35,7 +35,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
             amount: serialized_note[0],
             secret_hash: serialized_note[1],
             secret: 0,
-            header: NoteHeader::empty(),
+            header: NoteHeader::default(),
         }
     }
 
@@ -59,13 +59,13 @@ impl TransparentNote {
     // CONSTRUCTORS
 
     pub fn new(amount: Field, secret_hash: Field) -> Self {
-        TransparentNote { amount, secret_hash, secret: 0, header: NoteHeader::empty() }
+        TransparentNote { amount, secret_hash, secret: 0, header: NoteHeader::default() }
     }
 
     // new oracle call primitive
     // get me the secret corresponding to this hash
     pub fn new_from_secret(amount: Field, secret: Field) -> Self {
-        TransparentNote { amount, secret_hash: compute_secret_hash(secret), secret, header: NoteHeader::empty() }
+        TransparentNote { amount, secret_hash: compute_secret_hash(secret), secret, header: NoteHeader::default() }
     }
 
     // CUSTOM FUNCTIONS FOR THIS NOTE TYPE

@@ -182,7 +182,7 @@ pub fn compute_unique_siloed_note_hashes<N>(
     first_nullifier: Field,
     siloed_note_hashes: [SideEffect; N]
 ) -> [SideEffect; N] {
-    let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
+    let mut unique_siloed_note_hashes = [SideEffect::default(); N];
     for i in 0..N {
         let siloed_note_hash = siloed_note_hashes[i];
         if siloed_note_hash.value != 0 {
@@ -237,7 +237,7 @@ fn compute_var_args_hash() {
 #[test]
 fn compute_l2_l1_hash() {
     // All zeroes
-    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());
+    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::default());
     assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
 
     // Non-zero case

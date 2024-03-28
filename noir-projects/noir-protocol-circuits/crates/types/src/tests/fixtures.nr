@@ -16,22 +16,22 @@ global PUBLIC_KEY = GrumpkinPoint { x: 123456789, y: 123456789 };
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
 fn empty_append_only_tree() -> AppendOnlyTreeSnapshot {
-    AppendOnlyTreeSnapshot::zero()
+    AppendOnlyTreeSnapshot::default()
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
 fn empty_eth_address() -> EthAddress {
-    EthAddress::empty()
+    EthAddress::default()
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
 fn empty_aztec_address() -> AztecAddress {
-    AztecAddress::empty()
+    AztecAddress::default()
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
 fn empty_content_commitment() -> ContentCommitment {
-    ContentCommitment::empty()
+    ContentCommitment::default()
 }
 
 global HEADER = Header {

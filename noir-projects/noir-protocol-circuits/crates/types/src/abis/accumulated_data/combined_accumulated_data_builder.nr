@@ -20,7 +20,7 @@ use crate::constants::{
 };
 
 use dep::std::unsafe;
-use crate::traits::is_empty;
+use crate::traits::is_default;
 
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
@@ -43,6 +43,24 @@ struct CombinedAccumulatedDataBuilder {
     unencrypted_log_preimages_length: Field,
 
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
+}
+
+impl Default for CombinedAccumulatedDataBuilder {
+    fn default() -> Self {
+        CombinedAccumulatedDataBuilder {
+            revert_code: 0 as u8,
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: BoundedVec::new(),
+        }
+    }
 }
 
 impl CombinedAccumulatedDataBuilder {
@@ -124,14 +142,14 @@ impl CombinedAccumulatedDataBuilder {
         self,
         min_revertible_side_effect_counter: u32
     ) -> (PrivateAccumulatedNonRevertibleData, PrivateAccumulatedRevertibleData) {
-        let mut non_revertible_builder: AccumulatedNonRevertibleDataBuilder = unsafe::zeroed();
-        let mut revertible_builder: AccumulatedRevertibleDataBuilder = unsafe::zeroed();
+        let mut non_revertible_builder = AccumulatedNonRevertibleDataBuilder::default();
+        let mut revertible_builder = AccumulatedRevertibleDataBuilder::default();
 
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let commitment = self.new_note_hashes.storage[i];
-            // TODO(fees) we shouldn't need to check is_empty here,
+            // TODO(fees) we shouldn't need to check is_default here,
             // but we do because new_note_hashes is bounded to MAX_REVERTIBLE_NOTE_HASHES_PER_TX
-            if !is_empty(commitment) {
+            if !is_default(commitment) {
                 if commitment.counter < min_revertible_side_effect_counter {
                     non_revertible_builder.new_note_hashes.push(commitment);
                 } else {
@@ -141,7 +159,7 @@ impl CombinedAccumulatedDataBuilder {
         }
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.storage[i];
-            if !is_empty(nullifier) {
+            if !is_default(nullifier) {
                 if nullifier.counter < min_revertible_side_effect_counter {
                     non_revertible_builder.new_nullifiers.push(nullifier);
                 } else {
@@ -152,7 +170,7 @@ impl CombinedAccumulatedDataBuilder {
 
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
             let call_stack_item = self.public_call_stack.storage[i];
-            if !is_empty(call_stack_item) {
+            if !is_default(call_stack_item) {
                 if call_stack_item.start_side_effect_counter < min_revertible_side_effect_counter {
                     non_revertible_builder.public_call_stack.push(call_stack_item);
                 } else {

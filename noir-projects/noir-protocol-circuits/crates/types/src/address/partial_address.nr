@@ -54,8 +54,4 @@ impl PartialAddress {
     pub fn to_field(self) -> Field {
         self.inner
     }
-
-    pub fn assert_is_zero(self) {
-        assert(self.to_field() == 0);
-    }
 }

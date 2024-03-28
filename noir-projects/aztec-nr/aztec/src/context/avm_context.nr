@@ -84,12 +84,12 @@ impl PublicContextInterface for AvmContext {
 
     fn coinbase(self) -> EthAddress {
         assert(false, "'coinbase' not implemented!");
-        EthAddress::zero()
+        EthAddress::default()
     }
 
     fn fee_recipient(self) -> AztecAddress {
         assert(false, "'fee_recipient' not implemented!");
-        AztecAddress::zero()
+        AztecAddress::default()
     }
 
     fn push_nullifier_read_request(&mut self, nullifier: Field) {
@@ -196,7 +196,7 @@ impl ContextInterface for AvmContext {
     }
     fn get_header(self) -> Header {
         assert(false, "'get_header' not implemented!");
-        Header::empty()
+        Header::default()
     }
     fn get_args_hash(self) -> Field {
         self.inputs.args_hash

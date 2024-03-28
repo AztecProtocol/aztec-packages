@@ -16,7 +16,7 @@ use crate::constants::{
 };
 
 use dep::std::unsafe;
-use crate::traits::is_empty;
+use crate::traits::is_default;
 
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
@@ -41,10 +41,29 @@ struct CombinedAccumulatedData {
     public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
+impl Default for CombinedAccumulatedData {
+    fn default() -> Self {
+        CombinedAccumulatedData {
+            revert_code: 0 as u8,
+            new_note_hashes: [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_TX],
+            new_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_TX],
+            private_call_stack: [CallRequest::default(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
+            public_call_stack: [CallRequest::default(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+            new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: [PublicDataUpdateRequest::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+        }
+    }
+}
+
+
 impl CombinedAccumulatedData {
     pub fn needs_app_logic(self) -> bool {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
-        !self.public_call_stack[0].is_empty()
+        !is_default(self.public_call_stack[0])
     }
 
     pub fn recombine(
@@ -86,7 +105,7 @@ mod tests {
 
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {
-        let mut builder: CombinedAccumulatedDataBuilder = unsafe::zeroed();
+        let mut builder = CombinedAccumulatedDataBuilder::default();
 
         let non_revertible_commitments = [
             SideEffect { value: 1, counter: 1 },
@@ -102,14 +121,14 @@ mod tests {
             CallRequest {
                 hash: 1,
                 caller_contract_address: AztecAddress::from_field(1),
-                caller_context: CallerContext::empty(),
+                caller_context: CallerContext::default(),
                 start_side_effect_counter: 5,
                 end_side_effect_counter: 0
             },
             CallRequest {
                 hash: 2,
                 caller_contract_address: AztecAddress::from_field(1),
-                caller_context: CallerContext::empty(),
+                caller_context: CallerContext::default(),
                 start_side_effect_counter: 6,
                 end_side_effect_counter: 0
             }
@@ -129,7 +148,7 @@ mod tests {
             CallRequest {
                 hash: 3,
                 caller_contract_address: AztecAddress::from_field(3),
-                caller_context: CallerContext::empty(),
+                caller_context: CallerContext::default(),
                 start_side_effect_counter: 9,
                 end_side_effect_counter: 0
             }

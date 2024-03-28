@@ -19,6 +19,16 @@ impl Eq for FunctionData {
     }
 }
 
+impl Default for FunctionData {
+    fn default() -> Self {
+        FunctionData {
+            selector: FunctionSelector::default(),
+            is_private: false,
+            is_transpiled: false,
+        }
+    }
+}
+
 impl Serialize<FUNCTION_DATA_LENGTH> for FunctionData {
     // A field is ~256 bits
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3057): Since, function data can fit into a Field,
@@ -50,7 +60,7 @@ impl Hash for FunctionData {
 
 #[test]
 fn serialization_of_empty() {
-    let data: FunctionData = dep::std::unsafe::zeroed();
+    let data = FunctionData::default();
     let serialized = data.serialize();
     let deserialized = FunctionData::deserialize(serialized);
     assert(data.eq(deserialized));
@@ -58,7 +68,7 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let data: FunctionData = dep::std::unsafe::zeroed();
+    let data = FunctionData::default();
     let hash = data.hash();
 
     // Value from function_data.test.ts "computes empty item hash" test

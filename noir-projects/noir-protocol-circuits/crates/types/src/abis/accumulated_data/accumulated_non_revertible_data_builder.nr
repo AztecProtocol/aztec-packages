@@ -24,6 +24,18 @@ struct AccumulatedNonRevertibleDataBuilder {
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 }
 
+impl Default for AccumulatedNonRevertibleDataBuilder {
+    fn default() -> Self {
+        AccumulatedNonRevertibleDataBuilder {
+            revert_code: 0 as u8,
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            public_data_update_requests: BoundedVec::new(),
+        }
+    }
+}
+
 impl AccumulatedNonRevertibleDataBuilder {
     pub fn to_private(self) -> PrivateAccumulatedNonRevertibleData {
         PrivateAccumulatedNonRevertibleData {

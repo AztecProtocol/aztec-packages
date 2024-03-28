@@ -11,6 +11,14 @@ impl Eq for ContractClassId {
     }
 }
 
+impl Default for ContractClassId {
+    fn default() -> Self {
+        ContractClassId {
+            inner: 0
+        }
+    }
+}
+
 impl ToField for ContractClassId {
     fn to_field(self) -> Field {
         self.inner
@@ -51,9 +59,5 @@ impl ContractClassId {
         ); // TODO(@spalladino): Update generator index
 
         ContractClassId::from_field(hash)
-    }
-
-    pub fn assert_is_zero(self) {
-        assert(self.to_field() == 0);
     }
 }

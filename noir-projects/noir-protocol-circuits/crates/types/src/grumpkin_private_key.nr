@@ -14,17 +14,15 @@ impl Eq for GrumpkinPrivateKey {
     }
 }
 
+impl Default for GrumpkinPrivateKey {
+    fn default() -> Self {
+        Self { high: 0, low: 0 }
+    }
+}
+
 impl GrumpkinPrivateKey {
     pub fn new(high: Field, low: Field) -> Self {
         GrumpkinPrivateKey { high, low }
-    }
-
-    pub fn zero() -> Self {
-        Self { high: 0, low: 0 }
-    }
-
-    pub fn is_zero(self) -> bool {
-        (self.high == 0) & (self.low == 0)
     }
 
     pub fn serialize(self) -> [Field; GRUMPKIN_PRIVATE_KEY_SERIALIZED_LEN] {

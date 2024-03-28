@@ -10,8 +10,6 @@ contract AppSubscription {
         SharedImmutable
     };
 
-    use dep::aztec::protocol_types::traits::is_empty;
-
     use dep::aztec::{context::Context, oracle::get_public_key::get_public_key};
     use dep::authwit::{account::AccountActions, auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
 

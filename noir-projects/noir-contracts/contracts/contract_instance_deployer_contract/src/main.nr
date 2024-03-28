@@ -23,7 +23,7 @@ contract ContractInstanceDeployer {
         // TODO(@spalladino): assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
 
         let deployer = if universal_deploy {
-            AztecAddress::zero()
+            AztecAddress::default()
         } else {
             context.msg_sender()
         };

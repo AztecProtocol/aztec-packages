@@ -29,23 +29,22 @@ impl Eq for GrumpkinPoint {
     }
 }
 
+impl Default for GrumpkinPoint {
+    fn default() -> Self {
+        Self { x: 0, y: 0 }
+    }
+}
+
 impl GrumpkinPoint {
     pub fn new(x: Field, y: Field) -> Self {
         Self { x, y }
-    }
-
-    pub fn zero() -> Self {
-        Self { x: 0, y: 0 }
-    }
-
-    pub fn is_zero(self) -> bool {
-        (self.x == 0) & (self.y == 0)
     }
 
     // TODO(David): Would be quite careful here as (0,0) is not a point
     // on the curve. A boolean flag may be the better approach here,
     // would also cost less constraints. It seems like we don't need to 
     // group arithmetic either. 
+    // Keeping this function  here as a reminder even though its unused
     fn assert_is_zero(self) {
         assert(self.x == 0);
         assert(self.y == 0);

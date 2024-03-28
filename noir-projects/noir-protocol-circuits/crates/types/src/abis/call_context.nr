@@ -1,8 +1,9 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
     constants::{CALL_CONTEXT_LENGTH, GENERATOR_INDEX__CALL_CONTEXT}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize}, abis::side_effect::Ordered
+    traits::{Deserialize, Hash, Serialize, is_default}, abis::side_effect::Ordered
 };
+use dep::std::default::Default;
 
 // docs:start:call-context
 struct CallContext {
@@ -19,12 +20,16 @@ struct CallContext {
 }
 // docs:end:call-context
 
-impl CallContext {
-    fn assert_is_zero(self) {
-        let serialized: [Field; CALL_CONTEXT_LENGTH] = self.serialize();
-
-        for i in 0..CALL_CONTEXT_LENGTH {
-            assert(serialized[i] == 0);
+impl Default for CallContext {
+    fn default() -> Self {
+        CallContext {
+            msg_sender: AztecAddress::default(),
+            storage_contract_address: AztecAddress::default(),
+            portal_contract_address: EthAddress::default(),
+            function_selector: FunctionSelector::default(),
+            is_delegate_call: false,
+            is_static_call: false,
+            side_effect_counter: 0,
         }
     }
 }
@@ -71,29 +76,29 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
 
 #[test]
 fn serialize_deserialize_of_empty() {
-    let context: CallContext = dep::std::unsafe::zeroed();
+    let context = CallContext::default();
     let serialized = context.serialize();
     let deserialized = CallContext::deserialize(serialized);
     assert(context.eq(deserialized));
 }
 
 #[test]
-fn assert_is_zero() {
-    let context: CallContext = dep::std::unsafe::zeroed();
-    context.assert_is_zero();
+fn test_is_default() {
+    let context = CallContext::default();
+    assert(is_default(context), true);
 }
 
 #[test(should_fail)]
-fn not_zero_assert_is_zero() {
-    let mut context: CallContext = dep::std::unsafe::zeroed();
+fn test_not_default() {
+    let mut context = CallContext::default();
     context.is_delegate_call = true;
-    context.assert_is_zero();
+    assert(is_default(context), true);
 }
 
 #[test]
 fn test_eq() {
-    let mut context1: CallContext = dep::std::unsafe::zeroed();
-    let mut context2: CallContext = dep::std::unsafe::zeroed();
+    let mut context1 = CallContext::default();
+    let mut context2 = CallContext::default();
 
     context1.is_delegate_call = true;
     context2.is_delegate_call = true;
@@ -107,8 +112,8 @@ fn test_eq() {
 
 #[test(should_fail)]
 fn not_eq_test_eq() {
-    let mut context1: CallContext = dep::std::unsafe::zeroed();
-    let mut context2: CallContext = dep::std::unsafe::zeroed();
+    let mut context1 = CallContext::default();
+    let mut context2 = CallContext::default();
 
     context1.is_delegate_call = true;
     context2.is_delegate_call = false;
@@ -124,6 +129,6 @@ fn not_eq_test_eq() {
 
 #[test]
 fn hash_smoke() {
-    let context: CallContext = dep::std::unsafe::zeroed();
+    let context = CallContext::default();
     let _hashed = context.hash();
 }

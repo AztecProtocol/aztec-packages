@@ -5,6 +5,15 @@ struct MembershipWitness<N> {
     sibling_path: [Field; N]
 }
 
+impl<N> Default for MembershipWitness<N> {
+    fn default() -> Self {
+        MembershipWitness {
+            leaf_index: 0,
+            sibling_path: [0; N]
+        }
+    }
+}
+
 pub fn check_membership<N>(leaf: Field, index: Field, sibling_path: [Field; N], root: Field) -> bool {
     let calculated_root = root_from_sibling_path(leaf, index, sibling_path);
     calculated_root == root

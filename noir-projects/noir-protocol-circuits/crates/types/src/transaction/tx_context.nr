@@ -20,6 +20,17 @@ impl Eq for TxContext {
     }
 }
 
+impl Default for TxContext {
+    fn default() -> Self {
+        TxContext {
+            is_fee_payment_tx : false,
+            is_rebate_payment_tx : false,
+            chain_id : 0,
+            version : 0,
+        }
+    }
+}
+
 impl Serialize<TX_CONTEXT_DATA_LENGTH> for TxContext {
     fn serialize(self) -> [Field; TX_CONTEXT_DATA_LENGTH] {
         let mut fields: BoundedVec<Field, TX_CONTEXT_DATA_LENGTH> = BoundedVec::new();
@@ -60,7 +71,7 @@ impl Hash for TxContext {
 
 #[test]
 fn serialization_of_empty() {
-    let context: TxContext = dep::std::unsafe::zeroed();
+    let context = TxContext::default();
     let serialized = context.serialize();
     let deserialized = TxContext::deserialize(serialized);
     assert(context.eq(deserialized));
@@ -68,7 +79,7 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let inputs: TxContext = dep::std::unsafe::zeroed();
+    let inputs = TxContext::default();
     let hash = inputs.hash();
 
     // Value from tx_context.test.ts "computes empty item hash" test

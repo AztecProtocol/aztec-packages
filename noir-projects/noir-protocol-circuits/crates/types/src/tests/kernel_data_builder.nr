@@ -41,10 +41,32 @@ struct PreviousKernelDataBuilder {
     min_revertible_side_effect_counter: u32,
 }
 
+impl Default for PreviousKernelDataBuilder {
+    fn default() -> Self {
+        PreviousKernelDataBuilder {
+            contract_address: AztecAddress::default(),
+            storage_contract_address: AztecAddress::default(),
+            portal_contract_address: EthAddress::default(),
+            validation_requests: ValidationRequestsBuilder::default(),
+            end: CombinedAccumulatedDataBuilder::default(),
+            end_non_revertible: AccumulatedNonRevertibleDataBuilder::default(),
+            historical_header: Header::default(),
+            tx_context: TxContext::default(),
+            is_private: false,
+            proof: Proof::default(),
+            vk: VerificationKey::default(),
+            vk_index: 0 as u32,
+            vk_path: [0; VK_TREE_HEIGHT],
+            sideffect_counter: 0 as u32,
+            min_revertible_side_effect_counter: 0 as u32,
+        }
+    }
+}
+
 impl PreviousKernelDataBuilder {
     pub fn new(is_for_public: bool) -> Self {
-        let mut end: CombinedAccumulatedDataBuilder = dep::std::unsafe::zeroed();
-        let mut end_non_revertible: AccumulatedNonRevertibleDataBuilder = dep::std::unsafe::zeroed();
+        let mut end = CombinedAccumulatedDataBuilder::default();
+        let mut end_non_revertible = AccumulatedNonRevertibleDataBuilder::default();
         // 0th nullifier must be non-zero.
         let tx_nullifier = SideEffectLinkedToNoteHash { value: 321, note_hash: 0, counter: 0 };
         // but the public kernels expect this first nullifier to have been partitioned into
@@ -62,7 +84,7 @@ impl PreviousKernelDataBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             storage_contract_address: fixtures::contracts::parent_contract.address,
             portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
-            validation_requests: unsafe::zeroed(),
+            validation_requests: ValidationRequestsBuilder::default(),
             end,
             end_non_revertible,
             historical_header: fixtures::HEADER,
@@ -260,7 +282,7 @@ impl PreviousKernelDataBuilder {
     }
 
     fn generate_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
-        let mut caller_context = CallerContext::empty();
+        let mut caller_context = CallerContext::default();
         if is_delegate_call {
             caller_context.msg_sender = fixtures::MSG_SENDER;
             caller_context.storage_contract_address = self.contract_address;

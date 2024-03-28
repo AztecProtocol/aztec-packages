@@ -1,7 +1,7 @@
 use crate::{
     abis::append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
     constants::{PARTIAL_STATE_REFERENCE_LENGTH, STATE_REFERENCE_LENGTH},
-    partial_state_reference::PartialStateReference, traits::{Deserialize, Empty, Hash, Serialize},
+    partial_state_reference::PartialStateReference, traits::{Deserialize, Hash, Serialize},
     utils::arr_copy_slice
 };
 
@@ -14,6 +14,15 @@ impl Eq for StateReference {
     fn eq(self, other: StateReference) -> bool {
         self.l1_to_l2_message_tree.eq(other.l1_to_l2_message_tree) &
         self.partial.eq(other.partial)
+    }
+}
+
+impl Default for StateReference {
+    fn default() -> Self {
+        Self {
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::default(),
+            partial: PartialStateReference::default(),
+        }
     }
 }
 
@@ -44,18 +53,9 @@ impl Deserialize<STATE_REFERENCE_LENGTH> for StateReference {
     }
 }
 
-impl Empty for StateReference {
-    fn empty() -> Self {
-        Self {
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(),
-            partial: PartialStateReference::empty(),
-        }
-    }
-}
-
 #[test]
 fn serialization_of_empty() {
-    let state: StateReference = dep::std::unsafe::zeroed();
+    let state = StateReference::default();
     let _serialized = state.serialize();
     let _deserialized = StateReference::deserialize(_serialized);
 }

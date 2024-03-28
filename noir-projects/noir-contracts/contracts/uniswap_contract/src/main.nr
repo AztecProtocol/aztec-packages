@@ -6,8 +6,11 @@ mod util;
 // Has two separate flows for private and public respectively
 // Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1
 contract Uniswap {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable};
-    use dep::aztec::oracle::context::get_portal_address;
+    use dep::aztec::{
+        prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable},
+        oracle::context::get_portal_address,
+        protocol_types::traits::is_default,
+    };
 
     use dep::authwit::auth::{
         IS_VALID_SELECTOR, assert_current_call_valid_authwit_public, compute_call_authwit_hash,
@@ -73,10 +76,10 @@ contract Uniswap {
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge);
         // ensure portal exists - else funds might be lost
         assert(
-            !input_asset_bridge_portal_address.is_zero(), "L1 portal address of input_asset's bridge is 0"
+            !is_default(input_asset_bridge_portal_address), "L1 portal address of input_asset's bridge is 0"
         );
         assert(
-            !output_asset_bridge_portal_address.is_zero(), "L1 portal address of output_asset's bridge is 0"
+            !is_default(output_asset_bridge_portal_address), "L1 portal address of output_asset's bridge is 0"
         );
 
         let content_hash = compute_swap_public_content_hash(
@@ -140,10 +143,10 @@ contract Uniswap {
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge);
         // ensure portal exists - else funds might be lost
         assert(
-            !input_asset_bridge_portal_address.is_zero(), "L1 portal address of input_asset's bridge is 0"
+            !is_default(input_asset_bridge_portal_address), "L1 portal address of input_asset's bridge is 0"
         );
         assert(
-            !output_asset_bridge_portal_address.is_zero(), "L1 portal address of output_asset's bridge is 0"
+            !is_default(output_asset_bridge_portal_address), "L1 portal address of output_asset's bridge is 0"
         );
 
         let content_hash = compute_swap_private_content_hash(

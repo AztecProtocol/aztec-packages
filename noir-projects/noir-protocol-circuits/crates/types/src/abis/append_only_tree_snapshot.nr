@@ -1,4 +1,5 @@
 use dep::std::cmp::Eq;
+use dep::std::default::Default;
 
 struct AppendOnlyTreeSnapshot {
     root : Field,
@@ -16,8 +17,10 @@ impl AppendOnlyTreeSnapshot {
     pub fn deserialize(serialized: [Field; APPEND_ONLY_TREE_SNAPSHOT_LENGTH]) -> AppendOnlyTreeSnapshot {
         AppendOnlyTreeSnapshot { root: serialized[0], next_available_leaf_index: serialized[1] as u32 }
     }
+}
 
-    pub fn zero() -> Self {
+impl Default for AppendOnlyTreeSnapshot {
+    fn default() -> Self {
         Self { root: 0, next_available_leaf_index: 0 }
     }
 }

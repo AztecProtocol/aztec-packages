@@ -4,9 +4,10 @@ use crate::{
     global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
 },
     constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH, CONTENT_COMMITMENT_LENGTH},
-    hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
+    hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Hash, Serialize},
     utils::arr_copy_slice, content_commitment::ContentCommitment
 };
+use dep::std::default::Default;
 
 // docs:start:header
 struct Header {
@@ -23,6 +24,17 @@ impl Eq for Header {
         self.content_commitment.eq(other.content_commitment) &
         self.state.eq(other.state) &
         self.global_variables.eq(other.global_variables)
+    }
+}
+
+impl Default for Header {
+    fn default() -> Self {
+        Self {
+            last_archive: AppendOnlyTreeSnapshot::default(),
+            content_commitment: ContentCommitment::default(),
+            state: StateReference::default(),
+            global_variables: GlobalVariables::default(),
+        }
     }
 }
 
@@ -63,17 +75,6 @@ impl Deserialize<HEADER_LENGTH> for Header {
     }
 }
 
-impl Empty for Header {
-    fn empty() -> Self {
-        Self {
-            last_archive: AppendOnlyTreeSnapshot::zero(),
-            content_commitment: ContentCommitment::empty(),
-            state: StateReference::empty(),
-            global_variables: GlobalVariables::empty(),
-        }
-    }
-}
-
 impl Hash for Header {
     fn hash(self) -> Field {
         pedersen_hash(self.serialize(), GENERATOR_INDEX__BLOCK_HASH)
@@ -82,7 +83,7 @@ impl Hash for Header {
 
 #[test]
 fn serialization_of_empty() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::default();
     let serialized = header.serialize();
     let deserialized = Header::deserialize(serialized);
     assert(header.eq(deserialized));
@@ -90,13 +91,13 @@ fn serialization_of_empty() {
 
 #[test]
 fn hash_smoke() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::default();
     let _hashed = header.hash();
 }
 
 #[test]
-fn empty_hash_is_zero() {
-    let header: Header = dep::std::unsafe::zeroed();
+fn empty_hash_is_default() {
+    let header = Header::default();
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test

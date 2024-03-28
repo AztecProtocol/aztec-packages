@@ -54,6 +54,6 @@ impl NoteInterface<PUBLIC_KEY_NOTE_LEN> for PublicKeyNote {
 
 impl PublicKeyNote {
     pub fn new(x: Field, y: Field, owner: AztecAddress) -> Self {
-        PublicKeyNote { x, y, owner, header: NoteHeader::empty() }
+        PublicKeyNote { x, y, owner, header: NoteHeader::default() }
     }
 }

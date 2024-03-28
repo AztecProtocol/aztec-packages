@@ -48,9 +48,36 @@ struct PrivateCircuitPublicInputsBuilder {
     version: Field,
 }
 
+impl Default for PrivateCircuitPublicInputsBuilder {
+    fn default() -> Self {
+        PrivateCircuitPublicInputsBuilder {
+            call_context: CallContext::default(),
+            args_hash: 0,
+            return_values: BoundedVec::new(),
+            min_revertible_side_effect_counter: 0 as u32,
+            max_block_number: dep::std::unsafe::zeroed(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            private_call_stack_hashes: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            historical_header: Header::default(),
+            chain_id: 0,
+            version: 0,
+        }
+    }
+}
+
 impl PrivateCircuitPublicInputsBuilder {
     pub fn new() -> Self {
-        let mut public_inputs: PrivateCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
+        let mut public_inputs = PrivateCircuitPublicInputsBuilder::default();
 
         let args_hash = hash_args_array([]);
 

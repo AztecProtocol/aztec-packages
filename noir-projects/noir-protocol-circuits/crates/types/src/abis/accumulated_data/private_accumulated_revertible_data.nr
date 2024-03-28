@@ -4,6 +4,7 @@ use crate::constants::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NEW_L2_TO_L1_MSGS_PER_TX
 };
+use crate::traits::is_default;
 
 struct PrivateAccumulatedRevertibleData {
     new_note_hashes: [SideEffect; MAX_REVERTIBLE_NOTE_HASHES_PER_TX],
@@ -25,6 +26,6 @@ struct PrivateAccumulatedRevertibleData {
 impl PrivateAccumulatedRevertibleData {
     pub fn needs_app_logic(self) -> bool {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
-        !self.public_call_stack[0].is_empty()
+        !is_default(self.public_call_stack[0])
     }
 }
