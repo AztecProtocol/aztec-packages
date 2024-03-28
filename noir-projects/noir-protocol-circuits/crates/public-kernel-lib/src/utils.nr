@@ -6,7 +6,8 @@ use dep::types::{
 },
     address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    utils::{arrays::array_eq}
+    utils::{arrays::array_eq},
+    traits::{is_default},
 };
 
 pub fn compute_public_data_reads<N>(
@@ -16,7 +17,7 @@ pub fn compute_public_data_reads<N>(
     let mut public_data_reads = [PublicDataRead::default(); N];
     for i in 0..N {
         let read_request = read_requests[i];
-        if !read_request.is_empty() {
+        if !is_default(read_request) {
             public_data_reads[i] = PublicDataRead {
                 leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
                 value: compute_public_data_tree_value(read_request.current_value),
@@ -37,7 +38,7 @@ pub fn compute_public_data_update_requests<N>(
     let mut public_data_update_requests = [PublicDataUpdateRequest::default(); N];
     for i in 0..N {
         let update_request = update_requests[i];
-        if !update_request.is_empty() {
+        if !is_default(update_request) {
             public_data_update_requests[i] = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value),

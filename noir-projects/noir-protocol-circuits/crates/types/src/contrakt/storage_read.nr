@@ -46,8 +46,3 @@ impl Deserialize<CONTRACT_STORAGE_READ_LENGTH> for StorageRead {
     }
 }
 
-impl StorageRead {
-    pub fn is_empty(self) -> bool {
-        self.storage_slot == 0
-    }
-}

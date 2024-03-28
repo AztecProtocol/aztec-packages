@@ -34,7 +34,8 @@ use dep::types::{
     mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
     public_data_tree_leaf::PublicDataTreeLeaf,
     public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
+    utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256},
+    traits::is_default,
 };
 
 struct BaseRollupInputs {
@@ -152,7 +153,7 @@ impl BaseRollupInputs {
                 let is_less_than_nullifier = full_field_less_than(low_leaf.nullifier, nullifier);
                 let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_nullifier);
 
-                (!low_leaf.is_empty()) & is_less_than_nullifier & (
+                (!is_default(low_leaf)) & is_less_than_nullifier & (
                     is_next_greater_than |
                     ((low_leaf.next_index == 0) & (low_leaf.next_nullifier == 0))
                 )
@@ -275,7 +276,7 @@ fn insert_public_data_update_requests(
         ),
         |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf| { // Is valid low preimage
             let is_update = low_preimage.slot == write.slot;
-            let is_low_empty = low_preimage.is_empty();
+            let is_low_empty = is_default(low_preimage);
 
             let is_less_than_slot = full_field_less_than(low_preimage.slot, write.slot);
             let is_next_greater_than = full_field_less_than(write.slot, low_preimage.next_slot);
@@ -332,7 +333,7 @@ fn validate_public_data_reads(
         let low_preimage = public_data_reads_preimages[i];
         let witness = public_data_reads_witnesses[i];
 
-        let is_low_empty = low_preimage.is_empty();
+        let is_low_empty = is_default(low_preimage);
         let is_exact = low_preimage.slot == read.leaf_slot;
 
         let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
@@ -340,7 +341,7 @@ fn validate_public_data_reads(
         let is_in_range = is_less_than_slot
             & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
-        if (!read.is_empty()) {
+        if (!is_default(read)) {
             assert(!is_low_empty, "public data read is not empty but low preimage is empty");
             if is_in_range {
                 assert_eq(read.value, 0, "low leaf for public data read is in range but value is not zero");
@@ -417,7 +418,8 @@ mod tests {
         kernel_data_builder::PreviousKernelDataBuilder,
         merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}, sort::sort_high_to_low
     },
-        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256}
+        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256},
+        traits::is_default,
     };
 
     struct NullifierInsertion {
@@ -467,7 +469,7 @@ mod tests {
                 sorted_public_data_writes[i] = leaf;
                 sorted_public_data_writes_indexes[i] = sorted_write_tuples[i].original_index;
 
-                if !leaf.is_empty() {
+                if !is_default(leaf) {
                     let low_leaf = pre_existing_public_data[low_leaf_index];
                     if low_leaf.slot == leaf.slot {
                         pre_existing_public_data[low_leaf_index].value = leaf.value;

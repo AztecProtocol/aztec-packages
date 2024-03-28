@@ -1,19 +1,16 @@
 use crate::{
     abis::{
     call_request::CallRequest, public_data_update_request::PublicDataUpdateRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
-}
-};
-use crate::constants::{
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+    },
+    traits::is_default,
+    utils::arrays::{array_cp, array_concat, array_to_bounded_vec},
+    constants::{
     MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
     MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    },
 };
-
-use dep::std::unsafe;
-use crate::traits::is_empty;
-
-use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct PublicAccumulatedNonRevertibleData {
     revert_code: u8,
@@ -28,12 +25,12 @@ impl PublicAccumulatedNonRevertibleData {
         // By definition, the final non-revertible enqueued call is for teardown.
         // since this is a stack, the teardown call would be the 0th element.
         // So if we have more than one element, we need setup.
-        !self.public_call_stack[1].is_empty()
+        !is_default(self.public_call_stack[1])
     }
 
     pub fn needs_teardown(self) -> bool {
         // By definition, the final non-revertible enqueued call is for teardown.
         // since this is a stack, the teardown call would be the 0th element.
-        !self.public_call_stack[0].is_empty()
+        !is_default(self.public_call_stack[0])
     }
 }

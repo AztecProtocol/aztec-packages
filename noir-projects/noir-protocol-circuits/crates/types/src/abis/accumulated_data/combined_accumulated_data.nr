@@ -16,7 +16,7 @@ use crate::constants::{
 };
 
 use dep::std::unsafe;
-use crate::traits::is_empty;
+use crate::traits::is_default;
 
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
@@ -44,7 +44,7 @@ struct CombinedAccumulatedData {
 impl CombinedAccumulatedData {
     pub fn needs_app_logic(self) -> bool {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
-        !self.public_call_stack[0].is_empty()
+        !is_default(self.public_call_stack[0])
     }
 
     pub fn recombine(

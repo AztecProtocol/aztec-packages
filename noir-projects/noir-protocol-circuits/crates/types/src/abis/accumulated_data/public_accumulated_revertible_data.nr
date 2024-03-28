@@ -1,14 +1,15 @@
 use crate::{
     abis::{
     call_request::CallRequest, public_data_update_request::PublicDataUpdateRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
-}
-};
-use crate::constants::{
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+    },
+    constants::{
     MAX_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    },
+    traits::is_default,
 };
 
 struct PublicAccumulatedRevertibleData {
@@ -33,6 +34,6 @@ struct PublicAccumulatedRevertibleData {
 impl PublicAccumulatedRevertibleData {
     pub fn needs_app_logic(self) -> bool {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
-        !self.public_call_stack[0].is_empty()
+        !is_default(self.public_call_stack[0])
     }
 }

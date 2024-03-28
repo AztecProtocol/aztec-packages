@@ -1,6 +1,6 @@
 global NULLIFIER_LEAF_PREIMAGE_LENGTH: u64 = 3;
 
-use crate::{merkle_tree::leaf_preimage::{LeafPreimage, IndexedTreeLeafPreimage}, traits::{Empty, Hash}};
+use crate::{merkle_tree::leaf_preimage::{LeafPreimage, IndexedTreeLeafPreimage}, traits::{is_default, Hash}};
 
 struct NullifierLeafPreimage {
     nullifier : Field,
@@ -28,7 +28,7 @@ impl Default for NullifierLeafPreimage {
 
 impl Hash for NullifierLeafPreimage {
     fn hash(self) -> Field {
-        if self.is_empty() {
+        if is_default(self) {
             0
         } else {
             dep::std::hash::pedersen_hash(self.serialize())

@@ -46,9 +46,3 @@ impl Deserialize<CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH> for StorageUpdateReques
         }
     }
 }
-
-impl StorageUpdateRequest {
-    pub fn is_empty(self) -> bool {
-        self.storage_slot == 0
-    }
-}

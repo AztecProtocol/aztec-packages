@@ -4,7 +4,7 @@ use crate::{
     membership::{assert_check_membership, MembershipWitness},
     root::{calculate_subtree_root, calculate_empty_tree_root, root_from_sibling_path}
 },
-    traits::{Empty, Hash, is_empty}, utils::arrays::check_permutation
+    traits::{Default, Hash, is_default}, utils::arrays::check_permutation
 };
 
 pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight, TreeHeight>(
@@ -20,7 +20,7 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
     build_insertion_leaf: fn(Value, Leaf) -> Leaf,
     _subtree_height: [Field; SubtreeHeight],
     _tree_height: [Field; TreeHeight]
-) -> AppendOnlyTreeSnapshot where Value: Eq + Empty, Leaf: Hash {
+) -> AppendOnlyTreeSnapshot where Value: Eq + Default, Leaf: Hash {
     // A permutation to the values is provided to make the insertion use only one insertion strategy
     check_permutation(values_to_insert, sorted_values, sorted_values_indexes);
 
@@ -31,7 +31,7 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
 
     for i in 0..sorted_values.len() {
         let value = sorted_values[i];
-        if !is_empty(value) {
+        if !is_default(value) {
             let low_leaf_preimage = low_leaf_preimages[i];
             let witness = low_leaf_membership_witnesses[i];
 
