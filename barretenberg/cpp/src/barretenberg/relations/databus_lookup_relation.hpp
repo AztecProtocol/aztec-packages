@@ -39,7 +39,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
      */
     template <typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
-        return (row.q_busread == 1 || row.calldata_read_counts > 0);
+        bool is_read_gate = row.q_busread == 1 && row.q_l == 1;
+        return (is_read_gate || row.calldata_read_counts > 0);
     }
 
     /**
@@ -63,7 +64,9 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using View = typename Accumulator::View;
         // WORKTODO(luke): row_has_read should really be a boolean object thats equal to 1 when counts > 0 and 0
         // otherwise. This current structure will lead to failure if call_data_read_counts > 1.
-        const auto is_read_gate = View(in.q_busread);
+        auto q_busread = View(in.q_busread);
+        auto q_1 = View(in.q_l);
+        const auto is_read_gate = q_busread * q_1;
         const auto is_read_data = View(in.calldata_read_counts);
 
         return is_read_gate + is_read_data - (is_read_gate * is_read_data);
@@ -86,10 +89,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_read_term_predicate([[maybe_unused]] const AllEntities& in)
 
     {
-        using View = typename Accumulator::View;
         ASSERT(read_index == 0);
+        using View = typename Accumulator::View;
+        auto q_busread = View(in.q_busread);
+        auto q_1 = View(in.q_l);
 
-        return Accumulator(View(in.q_busread));
+        auto result = q_busread * q_1;
+
+        return result;
     }
 
     /**
