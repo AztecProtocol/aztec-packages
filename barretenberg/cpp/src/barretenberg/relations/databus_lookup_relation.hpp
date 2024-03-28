@@ -50,6 +50,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @return auto&
      */
     template <typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in) { return in.lookup_inverses; }
+
     /**
      * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
      * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
@@ -60,25 +61,21 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        // TODO(luke): row_has_read should really be a boolean object thats equal to 1 when counts > 0 and 0 otherwise.
-        // This current structure will lead to failure if call_data_read_counts > 1.
-        const auto row_has_write = View(in.q_busread);
-        const auto row_has_read = View(in.calldata_read_counts);
+        // WORKTODO(luke): row_has_read should really be a boolean object thats equal to 1 when counts > 0 and 0
+        // otherwise. This current structure will lead to failure if call_data_read_counts > 1.
+        const auto is_read_gate = View(in.q_busread);
+        const auto is_read_data = View(in.calldata_read_counts);
 
-        return row_has_write + row_has_read - (row_has_write * row_has_read);
-
-        return Accumulator(View(in.q_busread) + View(in.calldata_read_counts));
+        return is_read_gate + is_read_data - (is_read_gate * is_read_data);
     }
 
     template <typename Accumulator, size_t index, typename AllEntities>
     static Accumulator lookup_read_counts(const AllEntities& in)
     {
         using View = typename Accumulator::View;
+        ASSERT(index == 0);
 
-        if constexpr (index == 0) {
-            return Accumulator(View(in.calldata_read_counts));
-        }
-        return Accumulator(1);
+        return Accumulator(View(in.calldata_read_counts));
     }
 
     /**
@@ -90,11 +87,9 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     {
         using View = typename Accumulator::View;
+        ASSERT(read_index == 0);
 
-        if constexpr (read_index == 0) {
-            return Accumulator(View(in.q_busread));
-        }
-        return Accumulator(1);
+        return Accumulator(View(in.q_busread));
     }
 
     /**
@@ -104,6 +99,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename Accumulator, size_t write_index, typename AllEntities>
     static Accumulator compute_write_term_predicate(const AllEntities& /*unused*/)
     {
+        ASSERT(write_index == 0);
         return Accumulator(1);
     }
 
@@ -117,7 +113,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
-        static_assert(write_index < WRITE_TERMS);
+        ASSERT(write_index == 0);
 
         const auto& calldata = View(in.calldata);
         const auto& id = View(in.databus_id);
@@ -126,11 +122,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto& beta = ParameterView(params.beta);
 
         // Construct b_i + idx_i*\beta + \gamma
-        if constexpr (write_index == 0) {
-            return calldata + gamma + id * beta; // degree 1
-        }
-
-        return Accumulator(1);
+        return calldata + gamma + id * beta; // degree 1
     }
 
     /**
@@ -143,7 +135,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
-        static_assert(read_index < READ_TERMS);
+        ASSERT(read_index == 0);
 
         // Bus value stored in w_1, index into bus column stored in w_2
         const auto& w_1 = View(in.w_l);
@@ -153,11 +145,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto& beta = ParameterView(params.beta);
 
         // Construct value + index*\beta + \gamma
-        if constexpr (read_index == 0) {
-            return w_1 + gamma + w_2 * beta;
-        }
-
-        return Accumulator(1);
+        return w_1 + gamma + w_2 * beta;
     }
 
     /**
