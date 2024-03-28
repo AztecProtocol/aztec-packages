@@ -1,5 +1,12 @@
 import { Tx } from '@aztec/circuit-types';
-import { GlobalVariables, Header, Proof, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import {
+  GlobalVariables,
+  Header,
+  KernelCircuitPublicInputs,
+  Proof,
+  PublicKernelCircuitPublicInputs,
+  PublicKernelTailCircuitPrivateInputs,
+} from '@aztec/circuits.js';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -25,7 +32,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
   async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
     this.log(`Processing tx ${tx.getTxHash()}`);
-    const [publicKernelOutput, publicKernelProof] = await this.runKernelCircuit(
+    const [finalKernelOutput, publicKernelProof] = await this.runTailKernelCircuit(
       previousPublicKernelOutput,
       previousPublicKernelProof,
     ).catch(
@@ -39,6 +46,45 @@ export class TailPhaseManager extends AbstractPhaseManager {
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
-    return { publicKernelOutput, publicKernelProof, revertReason: undefined };
+    return {
+      publicKernelOutput: previousPublicKernelOutput,
+      finalKernelOutput,
+      publicKernelProof,
+      revertReason: undefined,
+    };
+  }
+
+  private async runTailKernelCircuit(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousProof: Proof,
+  ): Promise<[KernelCircuitPublicInputs, Proof]> {
+    const output = await this.simulate(previousOutput, previousProof);
+    const proof = await this.publicProver.getPublicTailKernelCircuitProof(output);
+    return [output, proof];
+  }
+
+  private async simulate(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousProof: Proof,
+  ): Promise<KernelCircuitPublicInputs> {
+    const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
+
+    const { validationRequests, endNonRevertibleData, end } = previousOutput;
+    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
+      validationRequests.nullifierReadRequests,
+      endNonRevertibleData.newNullifiers,
+      end.newNullifiers,
+    );
+    const nullifierNonExistentReadRequestHints = await this.hintsBuilder.getNullifierNonExistentReadRequestHints(
+      validationRequests.nullifierNonExistentReadRequests,
+      endNonRevertibleData.newNullifiers,
+      end.newNullifiers,
+    );
+    const inputs = new PublicKernelTailCircuitPrivateInputs(
+      previousKernel,
+      nullifierReadRequestHints,
+      nullifierNonExistentReadRequestHints,
+    );
+    return this.publicKernel.publicKernelCircuitTail(inputs);
   }
 }

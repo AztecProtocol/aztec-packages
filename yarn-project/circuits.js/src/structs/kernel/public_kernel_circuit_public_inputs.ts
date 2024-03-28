@@ -4,7 +4,6 @@ import { inspect } from 'util';
 
 import { AggregationObject } from '../aggregation_object.js';
 import { ValidationRequests } from '../validation_requests.js';
-import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 import { PublicAccumulatedData } from './public_accumulated_data.js';
 
@@ -13,8 +12,6 @@ import { PublicAccumulatedData } from './public_accumulated_data.js';
  * All Public kernels use this shape for outputs.
  */
 export class PublicKernelCircuitPublicInputs {
-  private combined: CombinedAccumulatedData | undefined = undefined;
-
   constructor(
     /**
      * Aggregated proof of all the previous kernel iterations.
@@ -63,17 +60,6 @@ export class PublicKernelCircuitPublicInputs {
 
   get needsTeardown() {
     return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
-  }
-
-  get combinedData() {
-    if (this.needsSetup || this.needsAppLogic || this.needsTeardown) {
-      throw new Error('Cannot combine data when the circuit is not finished');
-    }
-
-    if (!this.combined) {
-      this.combined = CombinedAccumulatedData.recombine(this.endNonRevertibleData, this.end, this.reverted);
-    }
-    return this.combined;
   }
 
   /**

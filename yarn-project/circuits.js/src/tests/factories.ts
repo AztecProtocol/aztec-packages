@@ -72,6 +72,8 @@ import {
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   ParityPublicInputs,
+  PartialPrivateTailPublicInputsForPublic,
+  PartialPrivateTailPublicInputsForRollup,
   PartialStateReference,
   Point,
   PreviousRollupData,
@@ -120,9 +122,9 @@ import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_comm
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
+import { KernelData } from '../structs/kernel/kernel_data.js';
 import { PrivateKernelInitCircuitPrivateInputs } from '../structs/kernel/private_kernel_init_circuit_private_inputs.js';
 import { PrivateKernelInnerCircuitPrivateInputs } from '../structs/kernel/private_kernel_inner_circuit_private_inputs.js';
-import { RollupKernelData } from '../structs/kernel/rollup_kernel_data.js';
 import { ValidationRequests } from '../structs/validation_requests.js';
 
 /**
@@ -207,6 +209,9 @@ function makeNullifierKeyValidationRequestContext(seed: number): NullifierKeyVal
  * @returns A public data update request.
  */
 export function makePublicDataUpdateRequest(seed = 1): PublicDataUpdateRequest {
+  if (!seed) {
+    return PublicDataUpdateRequest.empty();
+  }
   return new PublicDataUpdateRequest(fr(seed), fr(seed + 1));
 }
 
@@ -431,14 +436,26 @@ export function makePrivateKernelCircuitPublicInputs(seed = 1, full = true): Pri
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Private kernel tail circuit public inputs.
  */
-export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
+export function makePrivateKernelTailCircuitPublicInputs(
+  seed = 1,
+  isForPublic = true,
+): PrivateKernelTailCircuitPublicInputs {
+  const forPublic = isForPublic
+    ? new PartialPrivateTailPublicInputsForPublic(
+        ValidationRequests.empty(),
+        makePublicAccumulatedData(seed + 0x100, false),
+        makePublicAccumulatedData(seed + 0x200, false),
+      )
+    : undefined;
+  const forRollup = !isForPublic
+    ? new PartialPrivateTailPublicInputsForRollup(makeCombinedAccumulatedData(seed + 0x100))
+    : undefined;
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
-    ValidationRequests.empty(),
-    makePublicAccumulatedData(seed + 0x100, full),
-    makePublicAccumulatedData(seed + 0x200, full),
     makeConstantData(seed + 0x300),
     false,
+    forPublic,
+    forRollup,
   );
 }
 
@@ -586,8 +603,8 @@ export function makePublicKernelData(seed = 1, kernelPublicInputs?: PublicKernel
  * @param kernelPublicInputs - The public kernel public inputs to use for generating the public kernel data.
  * @returns A previous kernel data.
  */
-export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): RollupKernelData {
-  return new RollupKernelData(
+export function makeRollupKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): KernelData {
+  return new KernelData(
     kernelPublicInputs ?? makeKernelCircuitPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
@@ -657,6 +674,9 @@ export function makeCallerContext(seed = 1): CallerContext {
  * @returns A call stack item.
  */
 export function makeCallRequest(seed = 1): CallRequest {
+  if (!seed) {
+    return CallRequest.empty();
+  }
   return new CallRequest(fr(seed), makeAztecAddress(seed + 0x1), makeCallerContext(seed + 0x2), fr(0), fr(0));
 }
 
@@ -1180,18 +1200,6 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x8400,
   );
 
-  const publicDataReadsPreimages = makeTuple(
-    MAX_PUBLIC_DATA_READS_PER_TX,
-    makePublicDataTreeLeafPreimage,
-    seed + 0x8800,
-  );
-
-  const publicDataReadsMembershipWitnesses = makeTuple(
-    MAX_PUBLIC_DATA_READS_PER_TX,
-    i => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, i),
-    seed + 0x8a00,
-  );
-
   const archiveRootMembershipWitness = makeMembershipWitness(ARCHIVE_HEIGHT, seed + 0x9000);
 
   const constants = makeConstantBaseRollupData(0x100);
@@ -1204,8 +1212,6 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses,
-    publicDataReadsPreimages,
-    publicDataReadsMembershipWitnesses,
     archiveRootMembershipWitness,
     constants,
   });

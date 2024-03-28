@@ -3,7 +3,6 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   PublicCallRequest,
-  countAccumulatedItems,
 } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -53,7 +52,7 @@ export class Tx {
     const kernelPublicCallStackSize = data.numberOfPublicCallRequests();
     if (kernelPublicCallStackSize !== enqueuedPublicFunctionCalls.length) {
       throw new Error(
-        `Mismatch preimages for enqueued public function calls in kernel circuit public inputs (expected
+        `Mismatch number of enqueued public function calls in kernel circuit public inputs (expected
           ${kernelPublicCallStackSize}, got ${enqueuedPublicFunctionCalls.length})`,
       );
     }
@@ -139,7 +138,7 @@ export class Tx {
    */
   getTxHash(): TxHash {
     // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.data.endNonRevertibleData.newNullifiers[0];
+    const firstNullifier = this.data.getNonEmptyNullifiers()[0];
     if (!firstNullifier || firstNullifier.isEmpty()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
@@ -155,13 +154,8 @@ export class Tx {
       encryptedLogSize: this.encryptedLogs.getSerializedLength(),
       unencryptedLogSize: this.unencryptedLogs.getSerializedLength(),
 
-      newCommitmentCount:
-        countAccumulatedItems(this.data.endNonRevertibleData.newNoteHashes) +
-        countAccumulatedItems(this.data.end.newNoteHashes),
-
-      newNullifierCount:
-        countAccumulatedItems(this.data.endNonRevertibleData.newNullifiers) +
-        countAccumulatedItems(this.data.end.newNullifiers),
+      newCommitmentCount: this.data.getNonEmptyNoteHashes().length,
+      newNullifierCount: this.data.getNonEmptyNullifiers().length,
 
       proofSize: this.proof.buffer.length,
       size: this.toBuffer().length,

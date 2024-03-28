@@ -12,8 +12,11 @@ struct PublicKernelTeardownCircuitPrivateInputs {
 
 impl PublicKernelTeardownCircuitPrivateInputs {
     fn validate_inputs(self) {
-        let needs_setup = self.previous_kernel.public_inputs.needs_setup();
-        assert(needs_setup == false, "Cannot run teardown circuit before setup circuit");
+        // Currently the nested calls will be pushed to the public call stack and need_setup will return true.
+        // This should not be the case when nested calls are handled in avm.
+        // But we should also consider merging this and the setup circuit and have one circuit that deals with non-revertibles.
+        // let needs_setup = self.previous_kernel.public_inputs.needs_setup();
+        // assert(needs_setup == false, "Cannot run teardown circuit before setup circuit");
         let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic();
         assert(needs_app_logic == false, "Cannot run teardown circuit before app logic circuit");
         let needs_teardown = self.previous_kernel.public_inputs.needs_teardown();

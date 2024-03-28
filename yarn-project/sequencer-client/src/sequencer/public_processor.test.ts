@@ -19,16 +19,13 @@ import {
   FunctionData,
   GlobalVariables,
   Header,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
-  PublicAccumulatedNonRevertibleData,
-  PublicAccumulatedRevertibleData,
   PublicCallRequest,
-  PublicKernelCircuitPublicInputs,
-  ValidationRequests,
+  PublicDataUpdateRequest,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -78,6 +75,7 @@ describe('public_processor', () => {
     root = Buffer.alloc(32, 5);
 
     publicProver.getPublicCircuitProof.mockResolvedValue(proof);
+    publicProver.getPublicTailKernelCircuitProof.mockResolvedValue(proof);
     publicProver.getPublicKernelCircuitProof.mockResolvedValue(proof);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
   });
@@ -100,15 +98,10 @@ describe('public_processor', () => {
     });
 
     it('skips txs without public execution requests', async function () {
-      const seed = 1;
-      const includeLogs = false;
-      const tx = mockTx(seed, includeLogs);
-      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
-      tx.data.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
-      tx.data.endNonRevertibleData.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
-      tx.data.needsSetup = false;
-      tx.data.needsAppLogic = false;
-      tx.data.needsTeardown = false;
+      const tx = mockTx(1, {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 0,
+      });
 
       const hash = tx.getTxHash();
       const [processed, failed] = await processor.process([tx]);
@@ -118,17 +111,7 @@ describe('public_processor', () => {
       const p = processed[0];
       const e: ProcessedTx = {
         hash,
-        data: new PublicKernelCircuitPublicInputs(
-          tx.data.aggregationObject,
-          ValidationRequests.empty(),
-          PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
-          PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
-          tx.data.constants,
-          tx.data.needsSetup,
-          tx.data.needsAppLogic,
-          tx.data.needsTeardown,
-          false, // reverted
-        ),
+        data: tx.data.toKernelCircuitPublicInputs(),
         proof: tx.proof,
         encryptedLogs: tx.encryptedLogs,
         unencryptedLogs: tx.unencryptedLogs,
@@ -154,8 +137,7 @@ describe('public_processor', () => {
     it('returns failed txs without aborting entire operation', async function () {
       publicExecutor.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
-      const tx = mockTx(1, false);
-      tx.data.needsSetup = false;
+      const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toEqual([]);
@@ -192,30 +174,10 @@ describe('public_processor', () => {
       });
 
     it('runs a tx with enqueued public calls', async function () {
-      const publicCallRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
-      const callRequests = publicCallRequests.map(call => call.toCallRequest());
-
-      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd(
-        callRequests,
-        CallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      );
-      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
-
-      kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        CallRequest.empty,
-      );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
-
-      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), publicCallRequests);
-
-      tx.data.needsSetup = false;
-      tx.data.needsTeardown = false;
+      const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 2 });
 
       publicExecutor.simulate.mockImplementation(execution => {
-        for (const request of publicCallRequests) {
+        for (const request of tx.enqueuedPublicFunctionCalls) {
           if (execution.contractAddress.equals(request.contractAddress)) {
             const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
             // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
@@ -236,26 +198,8 @@ describe('public_processor', () => {
     });
 
     it('runs a tx with an enqueued public call with nested execution', async function () {
-      const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
-      const callStackItem = callRequest.toCallRequest();
-
-      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd(
-        [callStackItem],
-        CallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      );
-      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
-      kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        CallRequest.empty,
-      );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
-
-      kernelOutput.needsSetup = false;
-      kernelOutput.needsTeardown = false;
-
-      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), [callRequest]);
+      const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
+      const callRequest = tx.enqueuedPublicFunctionCalls[0];
 
       const publicExecutionResult = PublicExecutionResultBuilder.fromPublicCallRequest({
         request: callRequest,
@@ -294,7 +238,14 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        PublicDataUpdateRequest.empty,
+      );
+      kernelOutput.forPublic!.end.publicDataUpdateRequests = makeTuple(
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        PublicDataUpdateRequest.empty,
+      );
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -383,8 +334,6 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      expect(arrayNonEmptyLength(processed[0].data.combinedData.publicCallStack, i => i.isEmpty())).toEqual(0);
-
       const txEffect = toTxEffect(processed[0]);
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(2);
       expect(txEffect.publicDataWrites[0]).toEqual(
@@ -410,7 +359,6 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -514,7 +462,6 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -617,8 +564,17 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
+      kernelOutput.forPublic!.end.encryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.forPublic!.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        PublicDataUpdateRequest.empty,
+      );
+      kernelOutput.forPublic!.end.publicDataUpdateRequests = makeTuple(
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        PublicDataUpdateRequest.empty,
+      );
 
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
         appLogicCalls: [callRequests[2]],
@@ -704,13 +660,13 @@ describe('public_processor', () => {
       const txEffect = toTxEffect(processed[0]);
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(3);
       expect(txEffect.publicDataWrites[0]).toEqual(
-        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x102)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotC), fr(0x201)),
       );
       expect(txEffect.publicDataWrites[1]).toEqual(
-        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotB), fr(0x151)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x102)),
       );
       expect(txEffect.publicDataWrites[2]).toEqual(
-        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotC), fr(0x201)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotB), fr(0x151)),
       );
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
@@ -844,7 +800,7 @@ function addKernelPublicCallStack(
 ) {
   // the first two calls are non-revertible
   // the first is for setup, the second is for teardown
-  kernelOutput.endNonRevertibleData.publicCallStack = padArrayEnd(
+  kernelOutput.forPublic!.endNonRevertibleData.publicCallStack = padArrayEnd(
     // this is a stack, so the first item is the last call
     // and callRequests is in the order of the calls
     [calls.teardownCall.toCallRequest(), ...calls.setupCalls.map(c => c.toCallRequest())],
@@ -852,10 +808,9 @@ function addKernelPublicCallStack(
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   );
 
-  kernelOutput.end.publicCallStack = padArrayEnd(
+  kernelOutput.forPublic!.end.publicCallStack = padArrayEnd(
     calls.appLogicCalls.map(c => c.toCallRequest()),
     CallRequest.empty(),
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   );
-  kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 }

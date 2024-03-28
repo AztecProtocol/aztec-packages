@@ -13,13 +13,13 @@ import {
 import {
   EthAddress,
   Header,
+  KernelCircuitPublicInputs,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
-  PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
@@ -165,7 +165,7 @@ describe('L1Publisher integration', () => {
 
   const makeBloatedProcessedTx = (seed = 0x1) => {
     const tx = mockTx(seed);
-    const kernelOutput = PublicKernelCircuitPublicInputs.empty();
+    const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;

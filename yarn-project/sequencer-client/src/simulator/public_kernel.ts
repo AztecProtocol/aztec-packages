@@ -1,5 +1,6 @@
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
+  KernelCircuitPublicInputs,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
@@ -120,7 +121,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    */
   public async publicKernelCircuitTail(
     input: PublicKernelTailCircuitPrivateInputs,
-  ): Promise<PublicKernelCircuitPublicInputs> {
+  ): Promise<KernelCircuitPublicInputs> {
     const inputWitness = convertPublicTailInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
       this.wasmSimulator.simulateCircuit(inputWitness, PublicKernelTailArtifact),

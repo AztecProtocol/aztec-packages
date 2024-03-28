@@ -2,6 +2,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
+  KernelCircuitPublicInputs,
   MergeRollupInputs,
   ParityPublicInputs,
   Proof,
@@ -67,4 +68,10 @@ export interface PublicProver {
    * @param publicInputs - Public inputs obtained via simulation.
    */
   getPublicKernelCircuitProof(publicInputs: PublicKernelCircuitPublicInputs): Promise<Proof>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param publicInputs - Public inputs obtained via simulation.
+   */
+  getPublicTailKernelCircuitProof(publicInputs: KernelCircuitPublicInputs): Promise<Proof>;
 }

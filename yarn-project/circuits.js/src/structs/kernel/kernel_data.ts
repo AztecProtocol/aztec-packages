@@ -8,10 +8,7 @@ import { UInt32 } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
 import { KernelCircuitPublicInputs } from './kernel_circuit_public_inputs.js';
 
-/**
- * Data of the previous public kernel iteration in the chain of kernels.
- */
-export class RollupKernelData {
+export class KernelData {
   constructor(
     /**
      * Public inputs of the previous kernel.
@@ -35,7 +32,17 @@ export class RollupKernelData {
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
   ) {}
 
-  static fromBuffer(buffer: Buffer | BufferReader): RollupKernelData {
+  static empty(): KernelData {
+    return new this(
+      KernelCircuitPublicInputs.empty(),
+      makeEmptyProof(),
+      VerificationKey.makeFake(),
+      0,
+      makeTuple(VK_TREE_HEIGHT, Fr.zero),
+    );
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader): KernelData {
     const reader = BufferReader.asReader(buffer);
     return new this(
       reader.readObject(KernelCircuitPublicInputs),
@@ -46,20 +53,6 @@ export class RollupKernelData {
     );
   }
 
-  static empty(): RollupKernelData {
-    return new this(
-      KernelCircuitPublicInputs.empty(),
-      makeEmptyProof(),
-      VerificationKey.makeFake(),
-      0,
-      makeTuple(VK_TREE_HEIGHT, Fr.zero),
-    );
-  }
-
-  /**
-   * Serialize this as a buffer.
-   * @returns The buffer.
-   */
   toBuffer() {
     return serializeToBuffer(this.publicInputs, this.proof, this.vk, this.vkIndex, this.vkPath);
   }

@@ -25,7 +25,7 @@ import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
-import { KernelProver, OutputNoteData } from './kernel_prover.js';
+import { KernelProver } from './kernel_prover.js';
 import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -101,7 +101,8 @@ describe('Kernel Prover', () => {
       commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
     }
 
-    publicInputs.end.newNoteHashes = commitments;
+    publicInputs.forRollup!.end.newNoteHashes = commitments;
+
     return {
       publicInputs,
       proof: makeEmptyProof(),
@@ -121,13 +122,6 @@ describe('Kernel Prover', () => {
     expect(callStackItemsInit.concat(callStackItemsInner)).toEqual(fns);
     proofCreator.createProofInner.mockClear();
     proofCreator.createProofInit.mockClear();
-  };
-
-  const expectOutputNotes = (outputNotes: OutputNoteData[], expectedNoteIndices: number[]) => {
-    expect(outputNotes.length).toBe(expectedNoteIndices.length);
-    outputNotes.forEach((n, i) => {
-      expect(n.data).toEqual(notesAndSlots[expectedNoteIndices[i]]);
-    });
   };
 
   const prove = (executionResult: ExecutionResult) => prover.prove(txRequest, executionResult);
@@ -189,23 +183,5 @@ describe('Kernel Prover', () => {
       await prove(executionResult);
       expectExecution(['k', 'o', 'r', 'p', 'n', 'm', 'q']);
     }
-  });
-
-  it('should only return notes that are outputted from the final proof', async () => {
-    const resultA = createExecutionResult('a', [1, 2, 3]);
-    const resultB = createExecutionResult('b', [4]);
-    const resultC = createExecutionResult('c', [5, 6]);
-    proofCreator.createProofInit.mockResolvedValueOnce(createProofOutput([1, 2, 3]));
-    proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 4]));
-    proofCreator.createProofInner.mockResolvedValueOnce(createProofOutput([1, 3, 5, 6]));
-    proofCreator.createProofTail.mockResolvedValueOnce(createProofOutputFinal([1, 3, 5, 6]));
-
-    const executionResult = {
-      ...resultA,
-      nestedExecutions: [resultB, resultC],
-    };
-    const { outputNotes } = await prove(executionResult);
-    expectExecution(['a', 'c', 'b']);
-    expectOutputNotes(outputNotes, [1, 3, 5, 6]);
   });
 });

@@ -36,7 +36,8 @@ export class PhaseManagerFactory {
     publicContractsDB: ContractsDataSourcePublicDB,
     publicStateDB: PublicStateDB,
   ): AbstractPhaseManager | undefined {
-    if (tx.data.needsSetup) {
+    const publicInputs = tx.data.toPublicKernelCircuitPublicInputs();
+    if (publicInputs.needsSetup) {
       return new SetupPhaseManager(
         db,
         publicExecutor,
@@ -47,7 +48,7 @@ export class PhaseManagerFactory {
         publicContractsDB,
         publicStateDB,
       );
-    } else if (tx.data.needsAppLogic) {
+    } else if (publicInputs.needsAppLogic) {
       return new AppLogicPhaseManager(
         db,
         publicExecutor,
@@ -58,7 +59,7 @@ export class PhaseManagerFactory {
         publicContractsDB,
         publicStateDB,
       );
-    } else if (tx.data.needsTeardown) {
+    } else if (publicInputs.needsTeardown) {
       return new TeardownPhaseManager(
         db,
         publicExecutor,

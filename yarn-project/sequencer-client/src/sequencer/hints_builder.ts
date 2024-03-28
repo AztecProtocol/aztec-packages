@@ -4,14 +4,19 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_READS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  PublicDataRead,
+  PublicDataTreeLeafPreimage,
   ReadRequestContext,
   SideEffectLinkedToNoteHash,
   buildNullifierNonExistentReadRequestHints,
   buildNullifierReadRequestHints,
-  concatAccumulatedData,
+  mergeAccumulatedData,
 } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { Tuple } from '@aztec/foundation/serialize';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -26,7 +31,7 @@ export class HintsBuilder {
     return buildNullifierReadRequestHints(
       this,
       nullifierReadRequests,
-      concatAccumulatedData(MAX_NEW_NULLIFIERS_PER_TX, nullifiersNonRevertible, nullifiersRevertible),
+      mergeAccumulatedData(MAX_NEW_NULLIFIERS_PER_TX, nullifiersNonRevertible, nullifiersRevertible),
     );
   }
 
@@ -35,7 +40,7 @@ export class HintsBuilder {
     nullifiersNonRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     nullifiersRevertible: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
-    const pendingNullifiers = concatAccumulatedData(
+    const pendingNullifiers = mergeAccumulatedData(
       MAX_NEW_NULLIFIERS_PER_TX,
       nullifiersNonRevertible,
       nullifiersRevertible,
@@ -82,7 +87,7 @@ export class HintsBuilder {
     return { membershipWitness, leafPreimage };
   }
 
-  async getPublicDataReadsInfo(tx: ProcessedTx) {
+  async getPublicDataReadsInfo(publicDataReads: PublicDataRead[]) {
     const newPublicDataReadsWitnesses: Tuple<
       MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
       typeof MAX_PUBLIC_DATA_READS_PER_TX
@@ -91,8 +96,8 @@ export class HintsBuilder {
     const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> =
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.empty());
 
-    for (const i in tx.data.validationRequests.publicDataReads) {
-      const leafSlot = tx.data.validationRequests.publicDataReads[i].leafSlot.value;
+    for (const i in publicDataReads) {
+      const leafSlot = publicDataReads[i].leafSlot.value;
       const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
       if (!lowLeafResult) {
         throw new Error(`Public data tree should have one initial leaf`);

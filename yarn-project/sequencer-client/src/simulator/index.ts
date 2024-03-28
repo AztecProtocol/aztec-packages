@@ -2,6 +2,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
+  KernelCircuitPublicInputs,
   MergeRollupInputs,
   ParityPublicInputs,
   PublicKernelCircuitPrivateInputs,
@@ -75,6 +76,6 @@ export interface PublicKernelCircuitSimulator {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  publicKernelCircuitTail(inputs: PublicKernelTailCircuitPrivateInputs): Promise<PublicKernelCircuitPublicInputs>;
+  publicKernelCircuitTail(inputs: PublicKernelTailCircuitPrivateInputs): Promise<KernelCircuitPublicInputs>;
 }
 export * from './acvm_wasm.js';

@@ -8,7 +8,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
-import { RollupKernelData } from '../kernel/rollup_kernel_data.js';
+import { KernelData } from '../kernel/kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { UInt32 } from '../shared.js';
@@ -87,7 +87,7 @@ export class ConstantRollupData {
 export class BaseRollupInputs {
   constructor(
     /** Data of the 2 kernels that preceded this base rollup circuit. */
-    public kernelData: RollupKernelData,
+    public kernelData: KernelData,
     /** Partial state reference at the start of the rollup. */
     public start: PartialStateReference,
     /** Hints used while proving state diff validity. */

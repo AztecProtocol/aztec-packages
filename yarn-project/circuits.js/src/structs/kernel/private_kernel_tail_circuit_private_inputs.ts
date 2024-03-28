@@ -8,6 +8,7 @@ import {
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
 import { GrumpkinPrivateKey } from '../../types/grumpkin_private_key.js';
+import { countAccumulatedItems } from '../../utils/index.js';
 import { NullifierReadRequestHints, nullifierReadRequestHintsFromBuffer } from '../read_request_hints.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 import { PrivateKernelData } from './private_kernel_data.js';
@@ -54,6 +55,10 @@ export class PrivateKernelTailCircuitPrivateInputs {
      */
     public masterNullifierSecretKeys: Tuple<GrumpkinPrivateKey, typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
   ) {}
+
+  isForPublic() {
+    return countAccumulatedItems(this.previousKernel.publicInputs.end.publicCallStack) > 0;
+  }
 
   /**
    * Serialize this as a buffer.

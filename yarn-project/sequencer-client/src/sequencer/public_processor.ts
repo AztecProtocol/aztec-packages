@@ -1,6 +1,6 @@
 import { ContractDataSource, L1ToL2MessageSource, SimulationError, Tx } from '@aztec/circuit-types';
 import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import { GlobalVariables, Header } from '@aztec/circuits.js';
+import { GlobalVariables, Header, KernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
@@ -14,14 +14,7 @@ import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js'
 import { SimulationProvider } from '../simulator/simulation_provider.js';
 import { AbstractPhaseManager } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import {
-  FailedTx,
-  ProcessedTx,
-  getPreviousOutputAndProof,
-  makeEmptyProcessedTx,
-  makeProcessedTx,
-  validateProcessedTx,
-} from './processed_tx.js';
+import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx, validateProcessedTx } from './processed_tx.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -94,22 +87,20 @@ export class PublicProcessor {
     const failed: FailedTx[] = [];
 
     for (const tx of txs) {
-      if (!tx.hasPublicCalls()) {
-        const processedTx = makeProcessedTx(tx, publicKernelPublicInput, tx.proof);
+      try {
+        const processedTx = !tx.hasPublicCalls()
+          ? makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof)
+          : await this.processTxWithPublicCalls(tx);
+        validateProcessedTx(processedTx);
         result.push(processedTx);
-      } else {
-        try {
-          const processedTx = await this.processTxWithPublicCalls(tx);
-          result.push(processedTx);
-        } catch (err: any) {
-          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
+      } catch (err: any) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
 
-          failed.push({
-            tx,
-            error: err instanceof Error ? err : new Error(errorMessage),
-          });
-        }
+        failed.push({
+          tx,
+          error: err instanceof Error ? err : new Error(errorMessage),
+        });
       }
     }
 
@@ -138,12 +129,15 @@ export class PublicProcessor {
       this.publicStateDB,
     );
     this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-    let { publicKernelPublicInput, previousProof: proof } = getPreviousOutputAndProof(tx, undefined, undefined);
+    let proof = tx.proof;
+    let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
+    let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const timer = new Timer();
     while (phase) {
       const output = await phase.handle(tx, publicKernelPublicInput, proof);
       publicKernelPublicInput = output.publicKernelOutput;
+      finalKernelOutput = output.finalKernelOutput;
       proof = output.publicKernelProof;
       revertReason ??= output.revertReason;
       phase = PhaseManagerFactory.phaseFromOutput(
@@ -160,10 +154,13 @@ export class PublicProcessor {
       );
     }
 
-    const processedTx = makeProcessedTx(tx, publicKernelPublicInput, proof, revertReason);
-    validateProcessedTx(processedTx);
+    if (!finalKernelOutput) {
+      throw new Error('Final public kernel was not executed.');
+    }
 
-    this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, revertReason);
+
+    this.log(`Processed public part of ${tx.getTxHash()}`, {
       eventName: 'tx-sequencer-processing',
       duration: timer.ms(),
       publicDataUpdateRequests:

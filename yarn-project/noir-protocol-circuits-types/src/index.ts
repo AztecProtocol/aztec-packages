@@ -2,6 +2,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
+  KernelCircuitPublicInputs,
   MergeRollupInputs,
   ParityPublicInputs,
   PrivateKernelCircuitPublicInputs,
@@ -41,13 +42,16 @@ import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
   mapBaseParityInputsToNoir,
   mapBaseRollupInputsToNoir,
+  mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
+  mapPrivateKernelCircuitPublicInputsFromNoir,
   mapPrivateKernelInitCircuitPrivateInputsToNoir,
   mapPrivateKernelInnerCircuitPrivateInputsToNoir,
-  mapPrivateKernelInnerCircuitPublicInputsFromNoir,
   mapPrivateKernelTailCircuitPrivateInputsToNoir,
-  mapPrivateKernelTailCircuitPublicInputsFromNoir,
+  mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir,
+  mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
+  mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
   mapPublicKernelTailCircuitPrivateInputsToNoir,
@@ -59,6 +63,7 @@ import { ReturnType as BaseParityReturnType } from './types/parity_base_types.js
 import { ReturnType as RootParityReturnType } from './types/parity_root_types.js';
 import { InputType as InitInputType, ReturnType as InitReturnType } from './types/private_kernel_init_types.js';
 import { InputType as InnerInputType, ReturnType as InnerReturnType } from './types/private_kernel_inner_types.js';
+import { InputType as TailToPublicInputType } from './types/private_kernel_tail_to_public_types.js';
 import { InputType as TailInputType, ReturnType as TailReturnType } from './types/private_kernel_tail_types.js';
 import { ReturnType as PublicPublicPreviousReturnType } from './types/public_kernel_app_logic_types.js';
 import { ReturnType as PublicSetupReturnType } from './types/public_kernel_setup_types.js';
@@ -128,7 +133,7 @@ export async function executeInit(
 
   const returnType = await executePrivateKernelInitWithACVM(params);
 
-  return mapPrivateKernelInnerCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -144,7 +149,24 @@ export async function executeInner(
   };
   const returnType = await executePrivateKernelInnerWithACVM(params);
 
-  return mapPrivateKernelInnerCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Executes the tail private kernel.
+ * @param privateKernelCircuitPrivateInputs - The private inputs to the tail private kernel.
+ * @returns The public inputs.
+ */
+export async function executeTail(
+  privateInputs: PrivateKernelTailCircuitPrivateInputs,
+): Promise<PrivateKernelTailCircuitPublicInputs> {
+  const params: TailInputType = {
+    input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateInputs),
+  };
+
+  const returnType = await executePrivateKernelTailWithACVM(params);
+
+  return mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(returnType);
 }
 
 /**
@@ -152,16 +174,16 @@ export async function executeInner(
  * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the tail private kernel.
  * @returns The public inputs.
  */
-export async function executeTail(
-  privateKernelInnerCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
+export async function executeTailForPublic(
+  privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const params: TailInputType = {
-    input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
+  const params: TailToPublicInputType = {
+    input: mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(privateInputs),
   };
 
-  const returnType = await executePrivateKernelTailWithACVM(params);
+  const returnType = await executePrivateKernelTailToPublicWithACVM(params);
 
-  return mapPrivateKernelTailCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(returnType);
 }
 
 /**
@@ -387,14 +409,14 @@ export function convertPublicTeardownRollupOutputFromWitnessMap(outputs: Witness
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertPublicTailOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertPublicTailOutputFromWitnessMap(outputs: WitnessMap): KernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelTailSimulatedJson.abi as Abi, outputs);
 
   // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
+  const returnType = decodedInputs.return_value as TailReturnType;
 
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
+  return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -480,4 +502,31 @@ async function executePrivateKernelTailWithACVM(input: TailInputType): Promise<T
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as TailReturnType;
+}
+
+async function executePrivateKernelTailToPublicWithACVM(
+  input: TailToPublicInputType,
+): Promise<PublicPublicPreviousReturnType> {
+  const initialWitnessMap = abiEncode(PrivateKernelTailSimulatedJson.abi as Abi, input as any);
+
+  // Execute the circuit on those initial witness values
+  //
+  // Decode the bytecode from base64 since the acvm does not know about base64 encoding
+  const decodedBytecode = Buffer.from(PrivateKernelTailSimulatedJson.bytecode, 'base64');
+  //
+  // Execute the circuit
+  const _witnessMap = await executeCircuitWithBlackBoxSolver(
+    await getSolver(),
+    decodedBytecode,
+    initialWitnessMap,
+    () => {
+      throw Error('unexpected oracle during execution');
+    },
+  );
+
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelTailSimulatedJson.abi as Abi, _witnessMap);
+
+  // Cast the inputs as the return type
+  return decodedInputs.return_value as PublicPublicPreviousReturnType;
 }

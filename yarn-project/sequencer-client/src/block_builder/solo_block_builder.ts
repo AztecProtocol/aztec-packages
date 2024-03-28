@@ -8,6 +8,7 @@ import {
   BaseRollupInputs,
   ConstantRollupData,
   GlobalVariables,
+  KernelData,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -31,7 +32,6 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   ROLLUP_VK_TREE_HEIGHT,
-  RollupKernelData,
   RollupTypes,
   RootParityInput,
   RootParityInputs,
@@ -530,8 +530,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     );
   }
 
-  protected getKernelDataFor(tx: ProcessedTx): RollupKernelData {
-    return new RollupKernelData(
+  protected getKernelDataFor(tx: ProcessedTx): KernelData {
+    return new KernelData(
       tx.data,
       tx.proof,
 

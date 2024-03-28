@@ -7,12 +7,9 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   Proof,
-  PublicAccumulatedNonRevertibleData,
-  PublicAccumulatedRevertibleData,
   PublicKernelCircuitPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
-  ValidationRequests,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { Tuple, fromFieldsTuple } from '@aztec/foundation/serialize';
@@ -80,52 +77,6 @@ export type FailedTx = {
    */
   error: Error;
 };
-
-/**
- *
- * @param tx - the TX being procesed
- * @param publicKernelPublicInput - the output of the public kernel circuit, unless we just came from private
- * @param publicKernelProof - the proof of the public kernel circuit, unless we just came from private
- * @returns PublicKernelCircuitPublicInputs, either passed through from the input or converted from the output of the TX,
- * and Proof, either passed through from the input or the proof of the TX
- */
-export function getPreviousOutputAndProof(
-  tx: Tx,
-  publicKernelPublicInput?: PublicKernelCircuitPublicInputs,
-  publicKernelProof?: Proof,
-): {
-  /**
-   * the output of the public kernel circuit for this phase
-   */
-  publicKernelPublicInput: PublicKernelCircuitPublicInputs;
-  /**
-   * the proof of the public kernel circuit for this phase
-   */
-  previousProof: Proof;
-} {
-  if (publicKernelPublicInput && publicKernelProof) {
-    return {
-      publicKernelPublicInput,
-      previousProof: publicKernelProof,
-    };
-  } else {
-    const publicKernelPublicInput = new PublicKernelCircuitPublicInputs(
-      tx.data.aggregationObject,
-      ValidationRequests.empty(),
-      PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
-      PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
-      tx.data.constants,
-      tx.data.needsSetup,
-      tx.data.needsAppLogic,
-      tx.data.needsTeardown,
-      false, // reverted
-    );
-    return {
-      publicKernelPublicInput,
-      previousProof: publicKernelProof || tx.proof,
-    };
-  }
-}
 
 /**
  * Makes a processed tx out of source tx.

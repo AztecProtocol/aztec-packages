@@ -44,7 +44,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 
         let requests = self.previous_kernel.public_inputs.validation_requests.nullifier_read_requests;
 
-        let pending_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX] = array_merge(end_non_revertible.new_nullifiers, end.new_nullifiers);
+        let pending_nullifiers = array_merge(end_non_revertible.new_nullifiers, end.new_nullifiers);
 
         let hints = self.nullifier_read_request_hints;
 
@@ -82,7 +82,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 
         let hints = self.nullifier_non_existent_read_request_hints;
 
-        let pending_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX] = array_merge(end_non_revertible.new_nullifiers, end.new_nullifiers);
+        let pending_nullifiers = array_merge(end_non_revertible.new_nullifiers, end.new_nullifiers);
         assert_sorted_array(
             pending_nullifiers,
             hints.sorted_pending_values,
