@@ -8,7 +8,6 @@ import {
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import {
   BufferReader,
@@ -47,8 +46,8 @@ export class TxEffect {
     public encryptedLogs: EncryptedTxL2Logs,
     public unencryptedLogs: UnencryptedTxL2Logs,
   ) {
-    // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with isZero and
-    // isEmpty
+    // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with 2 different
+    // functions (isZero and isEmpty)
     if (noteHashes.length > MAX_NEW_NOTE_HASHES_PER_TX) {
       throw new Error(`Too many note hashes: ${noteHashes.length}, max: ${MAX_NEW_NOTE_HASHES_PER_TX}`);
     }
@@ -108,20 +107,14 @@ export class TxEffect {
   static fromBuffer(buffer: Buffer | BufferReader): TxEffect {
     const reader = BufferReader.asReader(buffer);
 
-    const revertCode = RevertCode.fromBuffer(reader);
-    const nonZeroNoteHashes = reader.readVectorUint8Prefix(Fr);
-    const nonZeroNullifiers = reader.readVectorUint8Prefix(Fr);
-    const nonZeroL2ToL1Msgs = reader.readVectorUint8Prefix(Fr);
-    const nonZeroPublicDataWrites = reader.readVectorUint8Prefix(PublicDataWrite);
-
     return new TxEffect(
-      revertCode,
-      padArrayEnd(nonZeroNoteHashes, Fr.ZERO, MAX_NEW_NOTE_HASHES_PER_TX),
-      padArrayEnd(nonZeroNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_TX),
-      padArrayEnd(nonZeroL2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX),
-      padArrayEnd(nonZeroPublicDataWrites, PublicDataWrite.empty(), MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
-      EncryptedTxL2Logs.fromBuffer(reader),
-      UnencryptedTxL2Logs.fromBuffer(reader),
+      RevertCode.fromBuffer(reader),
+      reader.readVectorUint8Prefix(Fr),
+      reader.readVectorUint8Prefix(Fr),
+      reader.readVectorUint8Prefix(Fr),
+      reader.readVectorUint8Prefix(PublicDataWrite),
+      reader.readObject(EncryptedTxL2Logs),
+      reader.readObject(UnencryptedTxL2Logs),
     );
   }
 
