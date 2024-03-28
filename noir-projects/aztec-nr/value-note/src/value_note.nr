@@ -60,7 +60,7 @@ impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
 impl ValueNote {
     pub fn new(value: Field, owner: AztecAddress) -> Self {
         let randomness = unsafe_rand();
-        let header = Noteheader::default();
+        let header = NoteHeader::default();
         ValueNote { value, owner, randomness, header }
     }
 }

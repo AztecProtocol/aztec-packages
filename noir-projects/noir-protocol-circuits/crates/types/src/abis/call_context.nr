@@ -83,16 +83,16 @@ fn serialize_deserialize_of_empty() {
 }
 
 #[test]
-fn assert_is_default() {
+fn test_is_default() {
     let context: CallContext = dep::std::unsafe::zeroed();
-    is_default(context);
+    assert(is_default(context), true);
 }
 
 #[test(should_fail)]
-fn not_default_assert_is_default() {
+fn test_not_default() {
     let mut context: CallContext = dep::std::unsafe::zeroed();
     context.is_delegate_call = true;
-    is_default(context);
+    assert(is_default(context), true);
 }
 
 #[test]

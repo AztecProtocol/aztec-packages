@@ -2,7 +2,7 @@ use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContex
 use dep::aztec::{
     note::{utils::compute_note_hash_for_consumption},
     oracle::{nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    hash::pedersen_hash, protocol_types::traits::Empty
+    hash::pedersen_hash
 };
 
 // Shows how to create a custom note
@@ -20,7 +20,7 @@ struct CardNote {
 
 impl CardNote {
     pub fn new(points: u8, randomness: Field, owner: AztecAddress) -> Self {
-        CardNote { points, randomness, owner, header: Noteheader::default() }
+        CardNote { points, randomness, owner, header: NoteHeader::default() }
     }
 }
 

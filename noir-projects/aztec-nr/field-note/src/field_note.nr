@@ -34,7 +34,7 @@ impl NoteInterface<FIELD_NOTE_LEN> for FieldNote {
 
 impl FieldNote {
     pub fn new(value: Field) -> Self {
-        FieldNote { value, header: Noteheader::default() }
+        FieldNote { value, header: NoteHeader::default() }
     }
 }
 

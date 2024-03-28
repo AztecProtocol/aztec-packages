@@ -1,6 +1,6 @@
 use crate::address::AztecAddress;
 use dep::std::cmp::Eq;
-use dep::std::cmp::Default;
+use dep::std::default::Default;
 
 struct CallerContext {
     msg_sender: AztecAddress,

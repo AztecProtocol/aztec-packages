@@ -253,7 +253,7 @@ fn propagate_valid_public_data_update_requests(
 
     for i in 0..MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
         let update_request = update_requests[i];
-        if (!is_default(update_request) {
+        if (!is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)

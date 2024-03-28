@@ -1,6 +1,7 @@
 use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST;
 use dep::std::cmp::Eq;
-use crate::traits::{Empty, Hash};
+use dep::std::default::Default;
+use crate::traits::Hash;
 
 struct PublicDataUpdateRequest {
     leaf_slot : Field,
