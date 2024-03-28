@@ -658,6 +658,7 @@ void AvmTraceBuilder::op_lt(
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
+        .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ib = b,
         .avm_main_ic = c,
@@ -708,6 +709,7 @@ void AvmTraceBuilder::op_lte(
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
+        .avm_main_alu_in_tag = FF(static_cast<uint32_t>(in_tag)),
         .avm_main_ia = a,
         .avm_main_ib = b,
         .avm_main_ic = c,

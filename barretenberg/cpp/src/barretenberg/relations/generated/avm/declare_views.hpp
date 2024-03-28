@@ -20,6 +20,7 @@
     [[maybe_unused]] auto avm_alu_ic = View(new_term.avm_alu_ic);                                                      \
     [[maybe_unused]] auto avm_alu_in_tag = View(new_term.avm_alu_in_tag);                                              \
     [[maybe_unused]] auto avm_alu_op_add = View(new_term.avm_alu_op_add);                                              \
+    [[maybe_unused]] auto avm_alu_op_cast = View(new_term.avm_alu_op_cast);                                            \
     [[maybe_unused]] auto avm_alu_op_div = View(new_term.avm_alu_op_div);                                              \
     [[maybe_unused]] auto avm_alu_op_eq = View(new_term.avm_alu_op_eq);                                                \
     [[maybe_unused]] auto avm_alu_op_eq_diff_inv = View(new_term.avm_alu_op_eq_diff_inv);                              \
@@ -222,6 +223,7 @@
     [[maybe_unused]] auto avm_alu_cmp_rng_ctr_shift = View(new_term.avm_alu_cmp_rng_ctr_shift);                        \
     [[maybe_unused]] auto avm_alu_cmp_sel_shift = View(new_term.avm_alu_cmp_sel_shift);                                \
     [[maybe_unused]] auto avm_alu_op_add_shift = View(new_term.avm_alu_op_add_shift);                                  \
+    [[maybe_unused]] auto avm_alu_op_cast_shift = View(new_term.avm_alu_op_cast_shift);                                \
     [[maybe_unused]] auto avm_alu_op_mul_shift = View(new_term.avm_alu_op_mul_shift);                                  \
     [[maybe_unused]] auto avm_alu_op_sub_shift = View(new_term.avm_alu_op_sub_shift);                                  \
     [[maybe_unused]] auto avm_alu_p_sub_a_hi_shift = View(new_term.avm_alu_p_sub_a_hi_shift);                          \
