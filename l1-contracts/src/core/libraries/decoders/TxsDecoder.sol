@@ -80,14 +80,14 @@ library TxsDecoder {
 
     uint256 numTxEffects = read4(_body, offset); // number of tx effects
     // TODO(benesjan): is this correct? Does it need to be a multiples of 4 instead?
-    uint256 numExEffectsToPad = 4 - (numTxEffects % 4);
+    uint256 numTxEffectsToPad = 4 - (numTxEffects % 4);
 
     offset += 0x4;
-    vars.baseLeaves = new bytes32[](numTxEffects + numExEffectsToPad);
+    vars.baseLeaves = new bytes32[](numTxEffects + numTxEffectsToPad);
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
     {
-      for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
+      for (uint256 i = 0; i < numTxEffects; i++) {
         /*
          * Compute the leaf to insert.
          * Leaf_i = (
