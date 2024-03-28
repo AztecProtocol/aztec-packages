@@ -5,7 +5,13 @@ import { BufferReader, serializeToBuffer, truncateAndPad } from '@aztec/foundati
 import { inspect } from 'util';
 
 export class Body {
-  constructor(public txEffects: TxEffect[]) {}
+  constructor(public txEffects: TxEffect[]) {
+    txEffects.forEach(txEffect => {
+      if (txEffect.isEmpty()) {
+        throw new Error('Empty tx effect not allowed in Body');
+      }
+    });
+  }
 
   /**
    * Serializes a block body
@@ -60,6 +66,14 @@ export class Body {
     };
 
     const leafs: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
+    // TODO(benesjan): is this correct? Does it need to be a multiples of 4 instead?
+    const numLeafsToPad = 4 - (leafs.length % 4);
+    if (numLeafsToPad !== 0) {
+      const emptyTxEffectHash = TxEffect.empty().hash();
+      for (let i = 0; i < numLeafsToPad; i++) {
+        leafs.push(emptyTxEffectHash);
+      }
+    }
 
     return computeRoot(leafs);
   }
@@ -77,6 +91,7 @@ export class Body {
   }
 
   get numberOfTxs() {
+    // TODO(benesjan): nuke this
     // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
     return this.txEffects.reduce((acc, txEffect) => (txEffect.nullifiers.length !== 0 ? acc + 1 : acc), 0);
   }
