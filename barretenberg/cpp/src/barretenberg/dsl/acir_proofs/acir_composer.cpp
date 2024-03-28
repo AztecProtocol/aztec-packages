@@ -41,6 +41,13 @@ std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key()
     return proving_key_;
 }
 
+std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key(
+    bb::plonk::proving_key_data&& data, std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> const& crs)
+{
+    proving_key_ = std::make_shared<bb::plonk::proving_key>(std::move(data), crs);
+    return proving_key_;
+}
+
 std::vector<uint8_t> AcirComposer::create_proof()
 {
     if (!proving_key_) {
@@ -56,6 +63,7 @@ std::vector<uint8_t> AcirComposer::create_proof()
         proof = prover.construct_proof().proof_data;
     } else {
         auto prover = composer.create_ultra_with_keccak_prover(builder_);
+        std::cout << "Proving..." << std::endl;
         proof = prover.construct_proof().proof_data;
     }
     vinfo("done.");

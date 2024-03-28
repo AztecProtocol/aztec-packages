@@ -146,7 +146,7 @@ export async function generateVerificationKeyForNoirCircuit(
   }
   if (result.status === BB_RESULT.ALREADY_PRESENT) {
     log(`Verification key for circuit ${circuitName} was already present`);
-    return;
+    return outputPath;
   }
   const stats = await fs.stat(outputPath);
   log(
@@ -154,7 +154,7 @@ export async function generateVerificationKeyForNoirCircuit(
       stats.size / (1024 * 1024)
     } MB`,
   );
-  return result;
+  return outputPath;
 }
 
 export async function generateProvingKeyForNoirCircuit(
@@ -178,7 +178,7 @@ export async function generateProvingKeyForNoirCircuit(
   }
   if (result.status === BB_RESULT.ALREADY_PRESENT) {
     log(`Proving key for circuit ${circuitName} was already present`);
-    return;
+    return outputPath;
   }
   const size = await directorySize(outputPath, [bytecodeHashFilename]);
   log(
@@ -186,7 +186,7 @@ export async function generateProvingKeyForNoirCircuit(
       size / (1024 * 1024)
     } MB`,
   );
-  return result;
+  return outputPath;
 }
 
 export async function generateProof(
@@ -196,6 +196,7 @@ export async function generateProof(
   compiledCircuit: NoirCompiledCircuit,
   inputWitnessFile: string,
   log: LogFn,
+  provingKeyDirectory?: string,
 ) {
   // The bytecode is written to e.g. /workingDirectory/pk/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/proof/${circuitName}-bytecode`;
@@ -222,9 +223,13 @@ export async function generateProof(
 
   // For verification keys, the argument is the full file path
   const outputPath = `${circuitOutputDirectory}/proof`;
-  const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile];
+  let args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile];
+  if (provingKeyDirectory) {
+    args = args.concat(...['-r', provingKeyDirectory!]);
+  }
+  const command = provingKeyDirectory ? 'prove_with_key' : 'prove';
   const timer = new Timer();
-  const result = await executeBB(pathToBB, `prove`, args, log);
+  const result = await executeBB(pathToBB, command, args, log);
   const duration = timer.ms();
   await fs.rm(bytecodePath, { force: true });
   return { result, duration, outputPath };

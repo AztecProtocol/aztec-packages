@@ -215,18 +215,43 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
  * @param witnessPath Path to the file containing the serialized witness
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
+ * @param pkPath Optional path containing the proving key data
  */
-void prove(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
+void prove(const std::string& bytecodePath,
+           const std::string& witnessPath,
+           const std::string& outputPath,
+           const std::string& pkPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
-    std::cout << "Read bytecode" << std::endl;
     auto witness = get_witness(witnessPath);
-    std::cout << "Read witness" << std::endl;
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system, witness);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
-    acir_composer.init_proving_key();
+    size_t circuit_size = acir_composer.get_dyadic_circuit_size();
+    init_bn254_crs(circuit_size);
+    if (pkPath == "") {
+        Timer pk_timer;
+        acir_composer.init_proving_key();
+        std::cout << "Generated proving key in " << pk_timer.milliseconds() << "ms" << std::endl;
+    } else {
+        std::cout << "Loading CRS for circuit size " << circuit_size + 1 << " from " << CRS_PATH << std::endl;
+        Timer crs_timer;
+        auto crs_factory =
+            std::make_shared<bb::srs::factories::FileCrsFactory<curve::BN254>>(CRS_PATH, circuit_size + 1);
+        auto prover_crs = crs_factory->get_prover_crs(circuit_size + 1);
+        std::cout << "CRS loaded in " << crs_timer.milliseconds() << "ms" << std::endl;
+
+        std::cout << "Loading proving key data from: " << pkPath << std::endl;
+        bb::plonk::proving_key_data key_data;
+        Timer pk_timer;
+        read_from_file(pkPath, key_data);
+        acir_composer.init_proving_key(std::move(key_data), prover_crs);
+        std::cout << "Proving key loaded in " << pk_timer.milliseconds() << "ms" << std::endl;
+    }
+
+    std::cout << "Generating proof..." << std::endl;
+    Timer proof_timer;
     auto proof = acir_composer.create_proof();
+    std::cout << "Generated proof in " << proof_timer.milliseconds() << "ms" << std::endl;
 
     if (outputPath == "-") {
         writeRawBytesToStdout(proof);
@@ -583,7 +608,10 @@ int main(int argc, char* argv[])
 
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, output_path);
+            prove(bytecode_path, witness_path, output_path, "");
+        } else if (command == "prove_with_key") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            prove(bytecode_path, witness_path, output_path, pk_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {

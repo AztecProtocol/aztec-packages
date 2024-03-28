@@ -111,5 +111,5 @@ describe('prover/bb_prover', () => {
 
     const inputs = await buildBaseRollupInput(tx, globalVariables, builderDb);
     await prover.getBaseRollupProof(inputs);
-  }, 30_000);
+  }, 300_000);
 });

@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use acvm::acir::native_types::WitnessMap;
+use acvm::acir::native_types::{WitnessMap, WitnessStack};
 
 use crate::errors::{CliError, FilesystemError};
 
@@ -61,7 +61,9 @@ pub(crate) fn save_witness_to_dir<P: AsRef<Path>>(
     create_named_dir(witness_dir.as_ref(), "witness");
     let witness_path = witness_dir.as_ref().join(witness_name).with_extension("gz");
 
-    let buf: Vec<u8> = witnesses.try_into().map_err(|_op| FilesystemError::OutputWitnessCreationFailed(witness_name.to_string()))?;
+    let witness_stack: WitnessStack = witnesses.into();
+
+    let buf: Vec<u8> = witness_stack.try_into().map_err(|_op| FilesystemError::OutputWitnessCreationFailed(witness_name.to_string()))?;
     write_to_file(buf.as_slice(), &witness_path);
 
     Ok(witness_path)

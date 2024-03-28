@@ -33,7 +33,6 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
-  serialiseInputWitness,
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 
@@ -49,31 +48,6 @@ import { CircuitProver } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
-async function ensureAllKeys(bbBinaryPath: string, bbWorkingDirectory: string) {
-  const realCircuits = Object.keys(ProtocolCircuitArtifacts).filter(
-    (n: string) => !n.includes('Simulated') && !n.includes('PrivateKernel'),
-  );
-  const promises = [];
-  for (const circuitName of realCircuits) {
-    const provingKeyPromise = generateProvingKeyForNoirCircuit(
-      bbBinaryPath,
-      bbWorkingDirectory,
-      circuitName,
-      ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
-      logger,
-    );
-    const verificationKeyPromise = generateVerificationKeyForNoirCircuit(
-      bbBinaryPath,
-      bbWorkingDirectory,
-      circuitName,
-      ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
-      logger,
-    );
-    promises.push(...[provingKeyPromise, verificationKeyPromise]);
-  }
-  await Promise.all(promises);
-}
-
 export type BBProverConfig = {
   bbBinaryPath: string;
   bbWorkingDirectory: string;
@@ -85,6 +59,7 @@ export type BBProverConfig = {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements CircuitProver {
+  private provingKeyDirectories: Map<string, string> = new Map<string, string>();
   constructor(private config: BBProverConfig) {}
 
   static async new(config: BBProverConfig) {
@@ -95,9 +70,9 @@ export class BBNativeRollupProver implements CircuitProver {
     logger.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
     logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
 
-    await ensureAllKeys(config.bbBinaryPath, config.bbWorkingDirectory);
-
-    return new BBNativeRollupProver(config);
+    const prover = new BBNativeRollupProver(config);
+    await prover.init();
+    return prover;
   }
 
   /**
@@ -160,7 +135,6 @@ export class BBNativeRollupProver implements CircuitProver {
     logger(`Using bb working directory ${bbWorkingDirectory}`);
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
     const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
-    const outputWitnessFile2 = `${bbWorkingDirectory}/partial-witness2.gz`;
 
     const simulator = new NativeACVMSimulator(
       this.config.acvmWorkingDirectory,
@@ -170,16 +144,12 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const witness = await simulator.simulateCircuit(witnessMap, BaseRollupArtifact);
 
-    const binaryWitness = await serialiseInputWitness(witness);
-
-    await fs.writeFile(outputWitnessFile2, binaryWitness);
-
     const provingResult = await generateProof(
       this.config.bbBinaryPath,
       bbWorkingDirectory,
       'Base Rollup',
       BaseRollupArtifact,
-      outputWitnessFile2,
+      outputWitnessFile,
       logger,
     );
 
@@ -247,5 +217,34 @@ export class BBNativeRollupProver implements CircuitProver {
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
     return Promise.resolve([result, makeEmptyProof()]);
+  }
+
+  private async init() {
+    const realCircuits = Object.keys(ProtocolCircuitArtifacts).filter(
+      (n: string) => !n.includes('Simulated') && !n.includes('PrivateKernel'),
+    );
+    const promises = [];
+    for (const circuitName of realCircuits) {
+      const provingKeyPromise = generateProvingKeyForNoirCircuit(
+        this.config.bbBinaryPath,
+        this.config.bbWorkingDirectory,
+        circuitName,
+        ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
+        logger,
+      ).then(result => {
+        if (result) {
+          this.provingKeyDirectories.set(circuitName, result);
+        }
+      });
+      const verificationKeyPromise = generateVerificationKeyForNoirCircuit(
+        this.config.bbBinaryPath,
+        this.config.bbWorkingDirectory,
+        circuitName,
+        ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
+        logger,
+      );
+      promises.push(...[provingKeyPromise, verificationKeyPromise]);
+    }
+    await Promise.all(promises);
   }
 }
