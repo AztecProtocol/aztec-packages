@@ -76,7 +76,7 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
 
 #[test]
 fn serialize_deserialize_of_empty() {
-    let context: CallContext = dep::std::unsafe::zeroed();
+    let context = CallContext::default();
     let serialized = context.serialize();
     let deserialized = CallContext::deserialize(serialized);
     assert(context.eq(deserialized));
@@ -84,21 +84,21 @@ fn serialize_deserialize_of_empty() {
 
 #[test]
 fn test_is_default() {
-    let context: CallContext = dep::std::unsafe::zeroed();
+    let context = CallContext::default();
     assert(is_default(context), true);
 }
 
 #[test(should_fail)]
 fn test_not_default() {
-    let mut context: CallContext = dep::std::unsafe::zeroed();
+    let mut context = CallContext::default();
     context.is_delegate_call = true;
     assert(is_default(context), true);
 }
 
 #[test]
 fn test_eq() {
-    let mut context1: CallContext = dep::std::unsafe::zeroed();
-    let mut context2: CallContext = dep::std::unsafe::zeroed();
+    let mut context1 = CallContext::default();
+    let mut context2 = CallContext::default();
 
     context1.is_delegate_call = true;
     context2.is_delegate_call = true;
@@ -112,8 +112,8 @@ fn test_eq() {
 
 #[test(should_fail)]
 fn not_eq_test_eq() {
-    let mut context1: CallContext = dep::std::unsafe::zeroed();
-    let mut context2: CallContext = dep::std::unsafe::zeroed();
+    let mut context1 = CallContext::default();
+    let mut context2 = CallContext::default();
 
     context1.is_delegate_call = true;
     context2.is_delegate_call = false;
@@ -129,6 +129,6 @@ fn not_eq_test_eq() {
 
 #[test]
 fn hash_smoke() {
-    let context: CallContext = dep::std::unsafe::zeroed();
+    let context = CallContext::default();
     let _hashed = context.hash();
 }

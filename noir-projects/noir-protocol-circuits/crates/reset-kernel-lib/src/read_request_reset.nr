@@ -180,6 +180,14 @@ mod tests {
         }
     }
 
+    impl Default for TestLeafPreimage {
+        fn default() -> Self {
+            TestLeafPreimage {
+                value: 0
+            }
+        }
+    }
+
     struct TestSettledReadHint {
         read_request_index: u64,
         membership_witness: MembershipWitness<3>,
@@ -204,8 +212,8 @@ mod tests {
         fn nada(read_request_len: u64) -> Self {
             TestSettledReadHint {
                 read_request_index: read_request_len,
-                membership_witness: unsafe::zeroed(),
-                leaf_preimage: unsafe::zeroed()
+                membership_witness: MembershipWitness::default(),
+                leaf_preimage: TestLeafPreimage::default()
             }
         }
     }

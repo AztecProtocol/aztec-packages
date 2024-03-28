@@ -7,6 +7,12 @@ struct Proof{}
 
 struct VerificationKey{}
 
+impl Default for AggregationObject {
+    fn default() -> Self {
+        AggregationObject {}
+    }
+}
+
 // Perform recursive verification of the previous kernel proof and private call
 // proof.
 pub fn verify_previous_kernel_state(
