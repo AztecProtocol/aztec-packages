@@ -218,11 +218,11 @@ e2e-docs-examples:
 
 guides-writing-an-account-contract:
   ARG e2e_build=false
-  DO +E2E_TEST --test=guides/writing_an_account_contract --e2e_build=$e2e_build
+  DO +E2E_TEST --test=guides/writing_an_account_contract.test.ts --e2e_build=$e2e_build
 
 guides-dapp-testing:
   ARG e2e_build=false
-  DO +E2E_TEST --test=guides/dapp_testing--e2e_build=$e2e_build
+  DO +E2E_TEST --test=guides/dapp_testing.test.ts --e2e_build=$e2e_build
 
 guides-sample-dapp:
   ARG e2e_build=false
@@ -230,16 +230,16 @@ guides-sample-dapp:
 
 guides-up-quick-start:
   ARG e2e_build=false
-  DO +E2E_TEST --test=guides/up_quick_start --e2e_build=$e2e_build
+  DO +E2E_TEST --test=guides/up_quick_start.test.ts --e2e_build=$e2e_build
 
 bench-publish-rollup:
   ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_publish_rollup --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
+  DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
 
 bench-process-history:
   ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_process_history --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
+  DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
 
 bench-tx-size:
   ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
+  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build

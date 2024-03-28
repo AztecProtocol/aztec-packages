@@ -51,6 +51,7 @@ jobs:
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
+      fail-fast: false
       matrix:
         test:
           - e2e-card-game
@@ -89,6 +90,7 @@ jobs:
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
+      fail-fast: false
       matrix:
         test: ${{ fromJson( needs.build-x86.outputs.e2e_list )}}
     # cancel if reran on same PR if exists, otherwise if on same commit
