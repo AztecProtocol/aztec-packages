@@ -25,7 +25,12 @@ E2E_TEST_FROM_BUILD:
   ARG debug="aztec:*"
   FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
   ENV ENABLE_GAS=$enable_gas
-  ENV TEST=$test.test.ts
+  IF [ -d $test ]
+    # Handle folder tests properly
+    ENV TEST=$test
+  ELSE
+    ENV TEST=$test.test.ts
+  END
   ENV DEBUG=$debug
   COPY $compose_file $compose_file
   # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_DOCKERHUB
