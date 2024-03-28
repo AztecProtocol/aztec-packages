@@ -16,6 +16,7 @@ use crate::traits::is_empty;
 use crate::utils::arrays::{array_cp, array_concat, array_to_bounded_vec};
 
 struct PublicAccumulatedNonRevertibleData {
+    da_gas_used: u64,
     revert_code: u8,
     new_note_hashes: [SideEffect; MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX],
     new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX],

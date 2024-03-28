@@ -13,6 +13,7 @@ import {
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MIN_DA_GAS_USED,
   Proof,
   PublicAccumulatedNonRevertibleData,
   PublicAccumulatedRevertibleData,
@@ -167,6 +168,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
+  emptyKernelOutput.endNonRevertibleData.daGasUsed = MIN_DA_GAS_USED;
   const emptyProof = makeEmptyProof();
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
@@ -183,6 +185,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
 
 export function toTxEffect(tx: ProcessedTx): TxEffect {
   return new TxEffect(
+    tx.data.combinedData.daGasUsed,
     tx.data.combinedData.revertCode,
     tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value) as Tuple<

@@ -48,6 +48,9 @@ library Constants {
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX = 4;
   uint256 internal constant NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
   uint256 internal constant NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
+  uint256 internal constant DA_GAS_PER_BYTE = 16;
+  uint256 internal constant FIXED_DA_GAS = 272;
+  uint256 internal constant DA_BYTES_PER_FIELD = 32;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
   uint256 internal constant VK_TREE_HEIGHT = 3;
   uint256 internal constant FUNCTION_TREE_HEIGHT = 5;
