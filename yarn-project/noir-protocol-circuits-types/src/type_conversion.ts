@@ -20,6 +20,7 @@ import {
   Fr,
   FunctionData,
   FunctionSelector,
+  GasUsed,
   GlobalVariables,
   type GrumpkinPrivateKey,
   GrumpkinScalar,
@@ -795,6 +796,14 @@ export function mapRevertCodeToNoir(revertCode: RevertCode): NoirField {
   return mapFieldToNoir(revertCode.toField());
 }
 
+export function mapGasUsedFromNoir(gasUsed: NoirField): GasUsed {
+  return new GasUsed(BigInt(mapNumberFromNoir(gasUsed)));
+}
+
+export function mapGasUsedToNoir(gasUsed: GasUsed): NoirField {
+  return mapFieldToNoir(new Fr(gasUsed.value));
+}
+
 /**
  * Maps an array from noir types to a tuple of parsed types.
  * @param noirArray - The noir array.
@@ -1008,6 +1017,7 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
+    mapGasUsedFromNoir(combinedAccumulatedData.da_gas_used),
     mapRevertCodeFromNoir(combinedAccumulatedData.revert_code),
     mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
@@ -1076,6 +1086,7 @@ export function mapAccumulatedNonRevertibleDataFromNoir(
   accumulatedMetaData: PrivateAccumulatedNonRevertibleDataNoir,
 ): PrivateAccumulatedNonRevertibleData {
   return new PrivateAccumulatedNonRevertibleData(
+    mapGasUsedFromNoir(accumulatedMetaData.da_gas_used),
     mapRevertCodeFromNoir(accumulatedMetaData.revert_code),
     mapTupleFromNoir(accumulatedMetaData.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(
@@ -1089,22 +1100,6 @@ export function mapAccumulatedNonRevertibleDataFromNoir(
       mapCallRequestFromNoir,
     ),
   );
-}
-
-/**
- * Maps accumulated data in the Tx's meta phase to the parsed type.
- * @param accumulatedMetaData - The noir accumulated meta data.
- * @returns The parsed accumulated meta data.
- */
-export function mapAccumulatedNonRevertibleDataToNoir(
-  accumulatedMetaData: PrivateAccumulatedNonRevertibleData,
-): PrivateAccumulatedNonRevertibleDataNoir {
-  return {
-    revert_code: mapRevertCodeToNoir(accumulatedMetaData.revertCode),
-    new_note_hashes: mapTuple(accumulatedMetaData.newNoteHashes, mapSideEffectToNoir),
-    new_nullifiers: mapTuple(accumulatedMetaData.newNullifiers, mapSideEffectLinkedToNoir),
-    public_call_stack: mapTuple(accumulatedMetaData.publicCallStack, mapCallRequestToNoir),
-  };
 }
 
 export function mapPrivateAccumulatedRevertibleDataToNoir(
@@ -1132,6 +1127,7 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
+    da_gas_used: mapGasUsedToNoir(combinedAccumulatedData.daGasUsed),
     revert_code: mapRevertCodeToNoir(combinedAccumulatedData.revertCode),
     new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
@@ -1235,6 +1231,7 @@ export function mapPublicAccumulatedNonRevertibleDataToNoir(
   data: PublicAccumulatedNonRevertibleData,
 ): PublicAccumulatedNonRevertibleDataNoir {
   return {
+    da_gas_used: mapGasUsedToNoir(data.daGasUsed),
     revert_code: mapRevertCodeToNoir(data.revertCode),
     new_note_hashes: mapTuple(data.newNoteHashes, mapSideEffectToNoir),
     new_nullifiers: mapTuple(data.newNullifiers, mapSideEffectLinkedToNoir),
@@ -1347,21 +1344,6 @@ export function mapPrivateKernelTailCircuitPublicInputsFromNoir(
   );
 }
 
-export function mapPrivateKernelTailCircuitPublicInputsToNoir(
-  inputs: PrivateKernelTailCircuitPublicInputs,
-): PrivateKernelTailCircuitPublicInputsNoir {
-  return {
-    aggregation_object: {},
-    rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
-    constants: mapCombinedConstantDataToNoir(inputs.constants),
-    end: mapFinalAccumulatedDataToNoir(inputs.end),
-    end_non_revertible: mapAccumulatedNonRevertibleDataToNoir(inputs.endNonRevertibleData),
-    needs_setup: inputs.needsSetup,
-    needs_app_logic: inputs.needsAppLogic,
-    needs_teardown: inputs.needsTeardown,
-  };
-}
-
 /**
  * Maps the private inputs to the private kernel inner to the noir representation.
  * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the private kernel inner.
@@ -1438,6 +1420,7 @@ export function mapPublicAccumulatedNonRevertibleDataFromNoir(
   data: PublicAccumulatedNonRevertibleDataNoir,
 ): PublicAccumulatedNonRevertibleData {
   return new PublicAccumulatedNonRevertibleData(
+    mapGasUsedFromNoir(data.da_gas_used),
     mapRevertCodeFromNoir(data.revert_code),
     mapTupleFromNoir(data.new_note_hashes, MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
     mapTupleFromNoir(data.new_nullifiers, MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),

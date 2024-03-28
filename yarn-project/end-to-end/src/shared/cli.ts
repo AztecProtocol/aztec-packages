@@ -226,6 +226,7 @@ export const cliTestSuite = (
         debug('Check the transfer receipt');
         await run(`get-tx-receipt ${txHash}`);
         const txResult = findInLogs(/Transaction receipt:\s*(?<txHash>[\s\S]*?\})/)?.groups?.txHash;
+        debug(`Tx result: [${txResult}]`);
         const parsedResult = JSON.parse(txResult!);
         expect(parsedResult.txHash).toEqual(txHash);
         expect(parsedResult.status).toEqual('mined');

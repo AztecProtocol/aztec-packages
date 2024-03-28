@@ -10,11 +10,13 @@ import {
   L2Block,
   L2BlockContext,
   TaggedNote,
+  TxEffect,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
+import { type Tuple } from '@aztec/foundation/serialize';
 import { ConstantKeyPair } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AcirSimulator } from '@aztec/simulator';
@@ -104,12 +106,35 @@ describe('Note Processor', () => {
       } = createEncryptedLogsAndOwnedL1NotePayloads(isTargetBlock ? ownedData : [], isTargetBlock ? ownedNotes : []);
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
+      const noteHashesList: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>[] = [];
       for (let i = 0; i < TXS_PER_BLOCK; i++) {
-        const txEffectNotes = newNotes.slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX);
-        block.body.txEffects[i].noteHashes = txEffectNotes.map(n => pedersenHash(n.notePayload.note.items));
+        const noteHashes = newNotes
+          .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX)
+          .map(n => pedersenHash(n.notePayload.note.items)) as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
+        noteHashesList.push(noteHashes);
       }
 
+      // Reconstruct TxEffects because their fields are readonly
+      const txEffects: TxEffect[] = noteHashesList.map((noteHashes, index) => {
+        // Create a new TxEffect instance with the correct noteHashes
+        const existingTxEffect = block.body.txEffects[index];
+        return new TxEffect(
+          existingTxEffect.daGasUsed,
+          // existingTxEffect.computeGasUsed,
+          existingTxEffect.revertCode,
+          noteHashes,
+          existingTxEffect.nullifiers,
+          existingTxEffect.l2ToL1Msgs,
+          existingTxEffect.publicDataWrites,
+          existingTxEffect.encryptedLogs,
+          existingTxEffect.unencryptedLogs,
+        );
+      });
+
+      block.body.txEffects = txEffects;
+
       const randomBlockContext = new L2BlockContext(block);
+
       blockContexts.push(randomBlockContext);
     }
     return { blockContexts, encryptedLogsArr, ownedL1NotePayloads };

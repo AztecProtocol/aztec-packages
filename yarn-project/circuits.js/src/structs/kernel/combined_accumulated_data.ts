@@ -23,7 +23,9 @@ import {
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '../../constants.gen.js';
+import { getDAGasUsed } from '../../gas/get_da_gas_used.js';
 import { CallRequest } from '../call_request.js';
+import { GasUsed } from '../gas_used.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
 import { RevertCode } from '../revert_code.js';
 import { SideEffect, SideEffectLinkedToNoteHash, sideEffectCmp } from '../side_effects.js';
@@ -35,6 +37,11 @@ const log = createDebugOnlyLogger('aztec:combined_accumulated_data');
  */
 export class CombinedAccumulatedData {
   constructor(
+    /**
+     * The amount of da gas used at the end of private execution.
+     * Includes FIXED_DA_GAS.
+     */
+    public daGasUsed: GasUsed,
     /**
      * Flag indicating whether the transaction reverted.
      */
@@ -85,6 +92,7 @@ export class CombinedAccumulatedData {
 
   toBuffer() {
     return serializeToBuffer(
+      this.daGasUsed,
       this.revertCode,
       this.newNoteHashes,
       this.newNullifiers,
@@ -111,6 +119,7 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
+      GasUsed.fromBuffer(reader),
       RevertCode.fromBuffer(reader),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
@@ -136,6 +145,7 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
+      GasUsed.empty(),
       RevertCode.OK,
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
@@ -203,7 +213,17 @@ export class CombinedAccumulatedData {
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
+    const gasUsed = getDAGasUsed({
+      noteHashes: newNoteHashes,
+      nullifiers: newNullifiers,
+      l2ToL1Msgs: revertible.newL2ToL1Msgs,
+      publicDataUpdateRequests,
+      encryptedLogPreimagesLength: revertible.encryptedLogPreimagesLength.toNumber(),
+      unencryptedLogPreimagesLength: revertible.unencryptedLogPreimagesLength.toNumber(),
+    });
+
     return new CombinedAccumulatedData(
+      gasUsed,
       nonRevertible.revertCode,
       newNoteHashes,
       newNullifiers,
@@ -491,6 +511,11 @@ export class PrivateAccumulatedRevertibleData {
 export class PrivateAccumulatedNonRevertibleData {
   constructor(
     /**
+     * The amount of non-revertible da gas used at the end of private execution.
+     * Includes FIXED_DA_GAS.
+     */
+    public daGasUsed: GasUsed,
+    /**
      * Flag indicating whether the transaction reverted.
      */
     public revertCode: RevertCode,
@@ -509,12 +534,19 @@ export class PrivateAccumulatedNonRevertibleData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.revertCode.toBuffer(), this.newNoteHashes, this.newNullifiers, this.publicCallStack);
+    return serializeToBuffer(
+      this.daGasUsed.toBuffer(),
+      this.revertCode.toBuffer(),
+      this.newNoteHashes,
+      this.newNullifiers,
+      this.publicCallStack,
+    );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateAccumulatedNonRevertibleData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateAccumulatedNonRevertibleData(
+      GasUsed.fromBuffer(reader),
       RevertCode.fromBuffer(reader),
       reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
@@ -532,6 +564,7 @@ export class PrivateAccumulatedNonRevertibleData {
 
   static empty() {
     return new PrivateAccumulatedNonRevertibleData(
+      GasUsed.empty(),
       RevertCode.OK,
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
@@ -542,6 +575,11 @@ export class PrivateAccumulatedNonRevertibleData {
 
 export class PublicAccumulatedNonRevertibleData {
   constructor(
+    /**
+     * The amount of non-revertible da gas used at the end of private execution.
+     * Includes FIXED_DA_GAS.
+     */
+    public daGasUsed: GasUsed,
     /**
      * Flag indicating whether the transaction reverted.
      */
@@ -569,6 +607,7 @@ export class PublicAccumulatedNonRevertibleData {
 
   toBuffer() {
     return serializeToBuffer(
+      this.daGasUsed,
       this.revertCode,
       this.newNoteHashes,
       this.newNullifiers,
@@ -580,6 +619,7 @@ export class PublicAccumulatedNonRevertibleData {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
+      GasUsed.fromBuffer(reader),
       RevertCode.fromBuffer(reader),
       reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
@@ -598,6 +638,7 @@ export class PublicAccumulatedNonRevertibleData {
 
   static empty() {
     return new this(
+      GasUsed.empty(),
       RevertCode.OK,
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
@@ -608,6 +649,7 @@ export class PublicAccumulatedNonRevertibleData {
 
   static fromPrivateAccumulatedNonRevertibleData(data: PrivateAccumulatedNonRevertibleData) {
     return new this(
+      data.daGasUsed,
       data.revertCode,
       data.newNoteHashes,
       data.newNullifiers,
@@ -618,6 +660,7 @@ export class PublicAccumulatedNonRevertibleData {
 
   [inspect.custom]() {
     return `PublicAccumulatedNonRevertibleData {
+  gasUsed: ${this.daGasUsed},
   revertCode: ${this.revertCode},
   newNoteHashes: [${this.newNoteHashes.map(h => h.toString()).join(', ')}],
   newNullifiers: [${this.newNullifiers.map(h => h.toString()).join(', ')}],

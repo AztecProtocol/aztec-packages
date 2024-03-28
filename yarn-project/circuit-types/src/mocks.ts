@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   CallRequest,
+  CombinedAccumulatedData,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   Proof,
@@ -19,7 +20,10 @@ import { EncryptedL2Log } from './logs/encrypted_l2_log.js';
 import { EncryptedFunctionL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { makePrivateKernelTailCircuitPublicInputs, makePublicCallRequest } from './mocks_to_purge.js';
 import { ExtendedNote } from './notes/index.js';
-import { SimulatedTx, Tx, TxHash } from './tx/index.js';
+import { ProcessedTx } from './tx/processed_tx.js';
+import { SimulatedTx } from './tx/simulated_tx.js';
+import { Tx } from './tx/tx.js';
+import { TxHash } from './tx/tx_hash.js';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
@@ -58,6 +62,11 @@ export const mockSimulatedTx = (seed = 1, logs = true) => {
   const tx = mockTx(seed, logs);
   const dec: DecodedReturn = [1n, 2n, 3n, 4n];
   return new SimulatedTx(tx, dec, dec);
+};
+
+export const getMockTxGasUsed = (tx: ProcessedTx) => {
+  const combined = CombinedAccumulatedData.recombine(tx.data.endNonRevertibleData, tx.data.end);
+  return combined.daGasUsed;
 };
 
 export const randomContractArtifact = (): ContractArtifact => ({

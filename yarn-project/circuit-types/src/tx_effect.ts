@@ -1,6 +1,8 @@
 import { EncryptedTxL2Logs, PublicDataWrite, TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import {
+  FixedDAGasUsed,
   Fr,
+  GasUsed,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -21,30 +23,34 @@ import { inspect } from 'util';
 export class TxEffect {
   constructor(
     /**
+     * The amount of da gas used during the transaction.
+     */
+    public readonly daGasUsed: GasUsed,
+    /**
      * Whether the transaction reverted during public app logic.
      */
-    public revertCode: RevertCode,
+    public readonly revertCode: RevertCode,
     /**
      * The note hashes to be inserted into the note hash tree.
      */
-    public noteHashes: Fr[],
+    public readonly noteHashes: Fr[],
     /**
      * The nullifiers to be inserted into the nullifier tree.
      */
-    public nullifiers: Fr[],
+    public readonly nullifiers: Fr[],
     /**
      * The L2 to L1 messages to be inserted into the messagebox on L1.
      */
-    public l2ToL1Msgs: Fr[],
+    public readonly l2ToL1Msgs: Fr[],
     /**
      * The public data writes to be inserted into the public data tree.
      */
-    public publicDataWrites: PublicDataWrite[],
+    public readonly publicDataWrites: PublicDataWrite[],
     /**
      * The logs of the txEffect
      */
-    public encryptedLogs: EncryptedTxL2Logs,
-    public unencryptedLogs: UnencryptedTxL2Logs,
+    public readonly encryptedLogs: EncryptedTxL2Logs,
+    public readonly unencryptedLogs: UnencryptedTxL2Logs,
   ) {
     // TODO(#4638): Clean this up once we have isDefault() everywhere --> then we don't have to deal with 2 different
     // functions (isZero and isEmpty)
@@ -89,6 +95,7 @@ export class TxEffect {
 
   toBuffer(): Buffer {
     return serializeToBuffer([
+      this.daGasUsed,
       this.revertCode,
       serializeArrayOfBufferableToVector(this.noteHashes, 1),
       serializeArrayOfBufferableToVector(this.nullifiers, 1),
@@ -108,6 +115,7 @@ export class TxEffect {
     const reader = BufferReader.asReader(buffer);
 
     return new TxEffect(
+      GasUsed.fromBuffer(reader),
       RevertCode.fromBuffer(reader),
       reader.readVectorUint8Prefix(Fr),
       reader.readVectorUint8Prefix(Fr),
@@ -147,6 +155,7 @@ export class TxEffect {
     const unencryptedLogsHashKernel0 = this.unencryptedLogs.hash();
 
     const inputValue = Buffer.concat([
+      this.daGasUsed.toHashPreimage(),
       this.revertCode.toHashPreimage(),
       noteHashesBuffer,
       nullifiersBuffer,
@@ -166,6 +175,7 @@ export class TxEffect {
     numUnencryptedLogsPerCall = 1,
   ): TxEffect {
     return new TxEffect(
+      GasUsed.random(),
       RevertCode.random(),
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
@@ -177,7 +187,16 @@ export class TxEffect {
   }
 
   static empty(): TxEffect {
-    return new TxEffect(RevertCode.OK, [], [], [], [], EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty());
+    return new TxEffect(
+      FixedDAGasUsed,
+      RevertCode.OK,
+      [],
+      [],
+      [],
+      [],
+      EncryptedTxL2Logs.empty(),
+      UnencryptedTxL2Logs.empty(),
+    );
   }
 
   isEmpty(): boolean {
@@ -195,7 +214,8 @@ export class TxEffect {
     // print out the non-empty fields
 
     return `TxEffect { 
-      revertCode: ${this.revertCode},
+      daGasUsed: ${inspect(this.daGasUsed)},
+      revertCode: ${inspect(this.revertCode)},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],
       nullifiers: [${this.nullifiers.map(h => h.toString()).join(', ')}],
       l2ToL1Msgs: [${this.l2ToL1Msgs.map(h => h.toString()).join(', ')}],

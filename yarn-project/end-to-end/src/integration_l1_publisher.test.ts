@@ -14,6 +14,7 @@ import {
 import {
   type ProcessedTx,
   type ProvingSuccess,
+  getMockTxGasUsed,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/circuit-types';
@@ -163,6 +164,7 @@ describe('L1Publisher integration', () => {
 
   const makeEmptyProcessedTx = () => {
     const tx = makeEmptyProcessedTxFromHistoricalTreeRoots(prevHeader, new Fr(chainId), new Fr(config.version));
+    // tx.data.endNonRevertibleData.daGasUsed = getMockTxGasUsed(tx);
     return tx;
   };
 
@@ -191,6 +193,8 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
     processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
+
+    processedTx.data.endNonRevertibleData.daGasUsed = getMockTxGasUsed(processedTx);
 
     return processedTx;
   };

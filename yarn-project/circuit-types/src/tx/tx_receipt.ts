@@ -1,3 +1,4 @@
+import { RevertCode } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ExtendedNote } from '../notes/extended_note.js';
@@ -12,6 +13,13 @@ export enum TxStatus {
   MINED = 'mined',
   PENDING = 'pending',
   REVERTED = 'reverted',
+}
+
+export function revertCodeToStatus(revertCode: RevertCode): TxStatus {
+  if (revertCode.isOK()) {
+    return TxStatus.MINED;
+  }
+  return TxStatus.REVERTED;
 }
 
 /**
@@ -32,6 +40,10 @@ export class TxReceipt {
      * Description of transaction error, if any.
      */
     public error: string,
+    /**
+     * The DA gas used by the transaction, encoded as a hex string.
+     */
+    public daGasUsed?: string,
     /**
      * The hash of the block containing the transaction.
      */
@@ -55,6 +67,7 @@ export class TxReceipt {
       txHash: this.txHash.toString(),
       status: this.status.toString(),
       error: this.error,
+      daGasUsed: this.daGasUsed,
       blockHash: this.blockHash?.toString('hex'),
       blockNumber: this.blockNumber,
     };
@@ -69,9 +82,10 @@ export class TxReceipt {
     const txHash = TxHash.fromString(obj.txHash);
     const status = obj.status as TxStatus;
     const error = obj.error;
+    const daGasUsed = obj.daGasUsed;
     const blockHash = obj.blockHash ? Buffer.from(obj.blockHash, 'hex') : undefined;
     const blockNumber = obj.blockNumber ? Number(obj.blockNumber) : undefined;
-    return new TxReceipt(txHash, status, error, blockHash, blockNumber);
+    return new TxReceipt(txHash, status, error, daGasUsed, blockHash, blockNumber);
   }
 }
 

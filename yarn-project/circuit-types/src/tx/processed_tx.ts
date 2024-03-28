@@ -8,6 +8,7 @@ import {
   UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
+  FixedDAGasUsed,
   Fr,
   type Header,
   type Proof,
@@ -163,6 +164,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
+  emptyKernelOutput.endNonRevertibleData.daGasUsed = FixedDAGasUsed;
   const emptyProof = makeEmptyProof();
 
   const hash = new TxHash(Fr.ZERO.toBuffer());
@@ -179,6 +181,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
 
 export function toTxEffect(tx: ProcessedTx): TxEffect {
   return new TxEffect(
+    tx.data.combinedData.daGasUsed,
     tx.data.combinedData.revertCode,
     tx.data.combinedData.newNoteHashes.map((c: SideEffect) => c.value).filter(h => !h.isZero()),
     tx.data.combinedData.newNullifiers.map((n: SideEffectLinkedToNoteHash) => n.value).filter(h => !h.isZero()),

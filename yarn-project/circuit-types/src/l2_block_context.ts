@@ -1,5 +1,6 @@
 import { type L2Block } from './l2_block.js';
 import { type TxHash } from './tx/tx_hash.js';
+import { TxEffect } from './tx_effect.js';
 
 /**
  * A wrapper around L2 block used to cache results of expensive operations.
@@ -33,5 +34,9 @@ export class L2BlockContext {
       this.txHashes = this.block.body.txEffects.map(tx => tx.txHash);
     }
     return this.txHashes;
+  }
+
+  public getTxEffects(): TxEffect[] {
+    return this.block.body.txEffects;
   }
 }

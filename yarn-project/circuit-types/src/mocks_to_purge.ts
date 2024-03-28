@@ -12,6 +12,7 @@ import {
   FunctionData,
   FunctionSelector,
   G1AffineElement,
+  GasUsed,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
@@ -85,6 +86,7 @@ export function makeAccumulatedNonRevertibleData(seed = 1, full = false): Privat
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PrivateAccumulatedNonRevertibleData(
+    new GasUsed(BigInt(seed + 0x100)),
     RevertCode.OK,
     tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),

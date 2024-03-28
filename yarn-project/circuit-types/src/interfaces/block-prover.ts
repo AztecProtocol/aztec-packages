@@ -25,6 +25,10 @@ export type ProvingTicket = {
   provingPromise: Promise<ProvingResult>;
 };
 
+export const isProvingSuccess = (result: ProvingResult): result is ProvingSuccess => {
+  return result.status === PROVING_STATUS.SUCCESS;
+};
+
 /**
  * The interface to the block prover.
  * Provides the ability to generate proofs and build rollups.

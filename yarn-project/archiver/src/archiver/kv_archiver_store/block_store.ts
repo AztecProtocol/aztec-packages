@@ -1,4 +1,4 @@
-import { L2Block, type TxEffect, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { L2Block, type TxEffect, type TxHash, TxReceipt, revertCodeToStatus } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
@@ -138,8 +138,9 @@ export class BlockStore {
 
     return new TxReceipt(
       txHash,
-      tx.revertCode.isOK() ? TxStatus.MINED : TxStatus.REVERTED,
+      revertCodeToStatus(tx.revertCode),
       '',
+      tx.daGasUsed.toString(),
       block.hash().toBuffer(),
       block.number,
     );
