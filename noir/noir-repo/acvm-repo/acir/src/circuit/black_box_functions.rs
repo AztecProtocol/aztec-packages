@@ -15,8 +15,6 @@ pub enum BlackBoxFunc {
     XOR,
     /// Range constraint to ensure that a [`FieldElement`][acir_field::FieldElement] can be represented in a specified number of bits.
     RANGE,
-    /// Calculates the SHA256 hash of the inputs.
-    SHA256,
     /// Calculates the Blake2s hash of the inputs.
     Blake2s,
     /// Calculates the Blake3 hash of the inputs.
@@ -74,7 +72,6 @@ impl std::fmt::Display for BlackBoxFunc {
 impl BlackBoxFunc {
     pub fn name(&self) -> &'static str {
         match self {
-            BlackBoxFunc::SHA256 => "sha256",
             BlackBoxFunc::SchnorrVerify => "schnorr_verify",
             BlackBoxFunc::Blake2s => "blake2s",
             BlackBoxFunc::Blake3 => "blake3",
@@ -103,7 +100,6 @@ impl BlackBoxFunc {
 
     pub fn lookup(op_name: &str) -> Option<BlackBoxFunc> {
         match op_name {
-            "sha256" => Some(BlackBoxFunc::SHA256),
             "schnorr_verify" => Some(BlackBoxFunc::SchnorrVerify),
             "blake2s" => Some(BlackBoxFunc::Blake2s),
             "blake3" => Some(BlackBoxFunc::Blake3),

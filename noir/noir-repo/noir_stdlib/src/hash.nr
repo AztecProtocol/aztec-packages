@@ -6,11 +6,12 @@ mod pedersen;
 use crate::default::Default;
 use crate::uint128::U128;
 
-#[foreign(sha256)]
 // docs:start:sha256
 pub fn sha256<N>(input: [u8; N]) -> [u8; 32]
 // docs:end:sha256
-{}
+{
+    crate::sha256::digest(input)
+}
 
 #[foreign(sha256)]
 // docs:start:sha256_slice

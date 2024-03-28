@@ -163,7 +163,6 @@ impl GeneratedAcir {
                 BlackBoxFuncCall::XOR { lhs: inputs[0][0], rhs: inputs[1][0], output: outputs[0] }
             }
             BlackBoxFunc::RANGE => BlackBoxFuncCall::RANGE { input: inputs[0][0] },
-            BlackBoxFunc::SHA256 => BlackBoxFuncCall::SHA256 { inputs: inputs[0].clone(), outputs },
             BlackBoxFunc::Blake2s => {
                 BlackBoxFuncCall::Blake2s { inputs: inputs[0].clone(), outputs }
             }
@@ -582,7 +581,6 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
         // All of the hash/cipher methods will take in a
         // variable number of inputs.
         BlackBoxFunc::Keccak256
-        | BlackBoxFunc::SHA256
         | BlackBoxFunc::Blake2s
         | BlackBoxFunc::Blake3
         | BlackBoxFunc::PedersenCommitment
@@ -635,10 +633,7 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::AND | BlackBoxFunc::XOR => Some(1),
 
         // 32 byte hash algorithms
-        BlackBoxFunc::Keccak256
-        | BlackBoxFunc::SHA256
-        | BlackBoxFunc::Blake2s
-        | BlackBoxFunc::Blake3 => Some(32),
+        BlackBoxFunc::Keccak256 | BlackBoxFunc::Blake2s | BlackBoxFunc::Blake3 => Some(32),
 
         BlackBoxFunc::Keccakf1600 => Some(25),
         // The permutation returns a fixed number of outputs, equals to the inputs length which depends on the proving system implementation.
