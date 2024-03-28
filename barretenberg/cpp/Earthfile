@@ -46,7 +46,7 @@ build-wasi-sdk:
     WORKDIR /build
     COPY +get-wasi-sdk-image/wasi-sdk wasi-sdk
     SAVE ARTIFACT wasi-sdk
-    SAVE IMAGE --push aztecprotocol/wasi-sdk-v21.0-$TARGETARCH
+    SAVE IMAGE --push aztecprotocol/cache:wasi-sdk-threads-v21.0-$TARGETARCH
 
 get-wasi-sdk-threads:
     ARG TARGETARCH
