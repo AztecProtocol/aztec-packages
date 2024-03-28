@@ -17,7 +17,7 @@ use super::{
     ir::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
-        function::RuntimeType,
+        function::{InlineType, RuntimeType},
         instruction::{ConstrainError, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
@@ -78,8 +78,13 @@ impl FunctionBuilder {
     }
 
     /// Finish the current function and create a new ACIR function.
-    pub(crate) fn new_function(&mut self, name: String, function_id: FunctionId) {
-        self.new_function_with_type(name, function_id, RuntimeType::Acir);
+    pub(crate) fn new_function(
+        &mut self,
+        name: String,
+        function_id: FunctionId,
+        inline_type: InlineType,
+    ) {
+        self.new_function_with_type(name, function_id, RuntimeType::Acir(inline_type));
     }
 
     /// Finish the current function and create a new unconstrained function.
@@ -491,7 +496,7 @@ mod tests {
     use acvm::FieldElement;
 
     use crate::ssa::ir::{
-        function::RuntimeType,
+        function::{InlineType, RuntimeType},
         instruction::{Endian, Intrinsic},
         map::Id,
         types::Type,
@@ -506,7 +511,8 @@ mod tests {
         // let x = 7;
         // let bits = x.to_le_bits(8);
         let func_id = Id::test_new(0);
-        let mut builder = FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir);
+        let mut builder =
+            FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir(InlineType::default()));
         let one = builder.numeric_constant(FieldElement::one(), Type::bool());
         let zero = builder.numeric_constant(FieldElement::zero(), Type::bool());
 
