@@ -95,7 +95,7 @@ struct PerFunctionContext<'function> {
 
 /// The entry point functions are each function we should inline into - and each function that
 /// should be left in the final program.
-/// This is usually the `main` function, any Acir functions with a [fold inline type][InlineType::Fold],
+/// This is the `main` function, any Acir functions with a [fold inline type][InlineType::Fold],
 /// and any brillig functions used.
 fn get_entry_point_functions(ssa: &Ssa) -> BTreeSet<FunctionId> {
     let functions = ssa.functions.iter();
