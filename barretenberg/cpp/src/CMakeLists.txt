@@ -193,12 +193,6 @@ if(WASM)
     )
 
     target_link_options(
-        barretenberg-threads.wasm
-        PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
-    )
-
-    target_link_options(
         acvm_backend.wasm
         PRIVATE
         -nostartfiles -Wl,--no-entry,--export-dynamic
