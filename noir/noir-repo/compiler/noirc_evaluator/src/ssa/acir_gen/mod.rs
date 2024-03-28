@@ -2443,8 +2443,7 @@ mod test {
         //       return v0
         //     }
         let foo_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), foo_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), foo_id);
         let main_v0 = builder.add_parameter(Type::field());
         let main_v1 = builder.add_parameter(Type::field());
 
@@ -2546,8 +2545,7 @@ mod test {
         //       return v0
         //     }
         let foo_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), foo_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), foo_id);
         let main_v0 = builder.add_parameter(Type::field());
         let main_v1 = builder.add_parameter(Type::field());
 
@@ -2623,8 +2621,7 @@ mod test {
         //       return v0
         //   }
         let foo_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), foo_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), foo_id);
         let main_v0 = builder.add_parameter(Type::field());
         let main_v1 = builder.add_parameter(Type::field());
 

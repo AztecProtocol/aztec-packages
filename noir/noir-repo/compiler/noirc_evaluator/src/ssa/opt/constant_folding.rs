@@ -305,8 +305,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::field());
 
         let one = builder.field_constant(1u128);
@@ -362,8 +361,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::unsigned(16));
         let v1 = builder.add_parameter(Type::unsigned(16));
 
@@ -417,8 +415,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::unsigned(16));
         let v1 = builder.add_parameter(Type::unsigned(16));
 
@@ -474,8 +471,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::field());
         let one = builder.field_constant(1u128);
         let v1 = builder.insert_binary(v0, BinaryOp::Add, one);
@@ -522,8 +518,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::unsigned(16));
 
         let v1 = builder.insert_cast(v0, Type::unsigned(32));
@@ -567,8 +562,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::bool());
         let v1 = builder.add_parameter(Type::bool());
         let v2 = builder.add_parameter(Type::bool());

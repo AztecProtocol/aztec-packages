@@ -122,7 +122,8 @@ impl InlineContext {
     /// that could not be inlined calling it.
     fn new(ssa: &Ssa, entry_point: FunctionId) -> InlineContext {
         let source = &ssa.functions[&entry_point];
-        let builder = FunctionBuilder::new(source.name().to_owned(), entry_point, source.runtime());
+        let mut builder = FunctionBuilder::new(source.name().to_owned(), entry_point);
+        builder.set_runtime(source.runtime());
         Self { builder, recursion_level: 0, entry_point, call_stack: CallStack::new() }
     }
 
@@ -547,8 +548,7 @@ mod test {
         //     return 72
         // }
         let foo_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("foo".into(), foo_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("foo".into(), foo_id);
 
         let bar_id = Id::test_new(1);
         let bar = builder.import_function(bar_id);
@@ -597,8 +597,7 @@ mod test {
         let id2_id = Id::test_new(3);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let main_v0 = builder.add_parameter(Type::field());
 
         let main_f1 = builder.import_function(square_id);
@@ -654,8 +653,7 @@ mod test {
         //     return v4
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let factorial_id = Id::test_new(1);
         let factorial = builder.import_function(factorial_id);
@@ -755,8 +753,7 @@ mod test {
         //     jmp b3(Field 2)
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let main_cond = builder.add_parameter(Type::bool());
         let inner1_id = Id::test_new(1);
