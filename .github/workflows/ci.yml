@@ -43,7 +43,7 @@ jobs:
       - id: e2e_list
         working-directory: ./yarn-project/end-to-end
         run: |
-          echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -s .)" >> $GITHUB_OUTPUT
+          echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
