@@ -90,7 +90,7 @@ jobs:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
       matrix:
-        test: ${{ fromJson( needs.setup.outputs.e2e_list )}}
+        test: ${{ fromJson( needs.build-x86.outputs.e2e_list )}}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: ${{ matrix.test }}-${{ github.event.pull_request.number || github.ref_name }}-x86
