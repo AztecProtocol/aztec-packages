@@ -503,7 +503,7 @@ mod test {
             trait_constraints: Vec::new(),
             direct_generics: Vec::new(),
             is_entry_point: true,
-            should_fold: true,
+            should_fold: false,
         };
         interner.push_fn_meta(func_meta, func_id);
 
