@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.32.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.32.0...aztec-packages-v0.32.1) (2024-03-28)
+
+
+### Features
+
+* Dont double check num bits in brillig vm ([#5489](https://github.com/AztecProtocol/aztec-packages/issues/5489)) ([a18288d](https://github.com/AztecProtocol/aztec-packages/commit/a18288d9b8f3057b9e79362d922da656dacf22a9))
+
+
+### Bug Fixes
+
+* **ci:** Turn on earthly for everyone ([#5423](https://github.com/AztecProtocol/aztec-packages/issues/5423)) ([bea3fcb](https://github.com/AztecProtocol/aztec-packages/commit/bea3fcbde91d08f13cb7c2ceeff8be33b3edcdfd))
+
+
+### Miscellaneous
+
+* Add goblin ops in add_gates_to_ensure_all_polys_are_non_zero  ([#5468](https://github.com/AztecProtocol/aztec-packages/issues/5468)) ([b9041e4](https://github.com/AztecProtocol/aztec-packages/commit/b9041e4dea9dba035481d8656886f1c70c671fac))
+* **avm:** Add 15 additional 16-bit registers in ALU trace of AVM circuit ([#5503](https://github.com/AztecProtocol/aztec-packages/issues/5503)) ([8725c39](https://github.com/AztecProtocol/aztec-packages/commit/8725c393ef7efead6e6e19c341decaef56f6d035))
+* **avm:** Migrate memory data structure in AVM circuit to unordered map ([#5506](https://github.com/AztecProtocol/aztec-packages/issues/5506)) ([ccd09aa](https://github.com/AztecProtocol/aztec-packages/commit/ccd09aae6b80f263b5d40c76adf98c29b3b50093))
+* Inject fetcher instead of using global ([#5502](https://github.com/AztecProtocol/aztec-packages/issues/5502)) ([a066544](https://github.com/AztecProtocol/aztec-packages/commit/a066544cda095adda0c1dc7918c64ecad8656b91))
+* Replace relative paths to noir-protocol-circuits ([1f468db](https://github.com/AztecProtocol/aztec-packages/commit/1f468db910906f25f54eaa8a208b8dfd97de7d98))
+* Run nargo format for noir-projects ([#5483](https://github.com/AztecProtocol/aztec-packages/issues/5483)) ([277168f](https://github.com/AztecProtocol/aztec-packages/commit/277168f030c544074e8658850151d4d97d2e0ce1))
+
 ## [0.32.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.31.0...aztec-packages-v0.32.0) (2024-03-27)
 
 
