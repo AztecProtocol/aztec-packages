@@ -130,8 +130,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-    strategy: { matrix: { environment: [x86] } }
-    # strategy: { matrix: { environment: [x86, arm] } }
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [x86]
+        # pending fix fot intermittent test
+        # environment: [x86, arm]
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: bb-native-tests-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
