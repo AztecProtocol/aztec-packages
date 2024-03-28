@@ -100,13 +100,7 @@ struct PerFunctionContext<'function> {
 fn get_entry_point_functions(ssa: &Ssa) -> BTreeSet<FunctionId> {
     let functions = ssa.functions.iter();
     let mut entry_points = functions
-        .filter(|(_, function)| match function.runtime() {
-            RuntimeType::Acir(inline_type) => match inline_type {
-                InlineType::Inline => false,
-                InlineType::Fold => true,
-            },
-            RuntimeType::Brillig => true,
-        })
+        .filter(|(_, function)| function.runtime().is_entry_point())
         .map(|(id, _)| *id)
         .collect::<BTreeSet<_>>();
 

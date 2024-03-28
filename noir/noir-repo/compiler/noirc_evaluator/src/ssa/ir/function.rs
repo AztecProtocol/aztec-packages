@@ -29,6 +29,22 @@ pub(crate) enum InlineType {
     Fold,
 }
 
+impl RuntimeType {
+    /// Returns whether the runtime type represents an entry point.
+    /// We return `false` for InlineType::Inline on default, which is true
+    /// in all cases except for main. `main` should be supported with special
+    /// handling in any places where this function determines logic.
+    pub(crate) fn is_entry_point(&self) -> bool {
+        match self {
+            RuntimeType::Acir(inline_type) => match inline_type {
+                InlineType::Inline => false,
+                InlineType::Fold => true,
+            },
+            RuntimeType::Brillig => true,
+        }
+    }
+}
+
 /// A function holds a list of instructions.
 /// These instructions are further grouped into Basic blocks
 ///
