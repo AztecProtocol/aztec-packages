@@ -392,6 +392,136 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
 
+TEST_F(BigIntTests, TestBigInt256)
+{
+    // 3 + 3 = 6
+    // 3 = bigint(1) = from_bytes(w(1))
+    // 6 = bigint(2) = to_bytes(w(2))
+    BigIntOperation add_constraint{
+        .lhs = 1,
+        .rhs = 4, // 1
+        .result = 2,
+        .opcode = BigIntOperationType::Add,
+    };
+
+    BigIntFromLeBytes from_le_bytes_constraint_bigint1{
+        .inputs = { 1 },
+        .modulus = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+        .result = 1,
+    };
+    BigIntFromLeBytes from_le_bytes_constraint_bigint2{
+        .inputs = { 4 },
+        .modulus = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+        .result = 4,
+    };
+
+    BigIntToLeBytes result2_to_le_bytes{
+        .input = 2, .result = { 2 }, // 3+3=6
+    };
+
+    AcirFormat constraint_system{
+        .varnum = 5,
+        .recursive = false,
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_var_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = { from_le_bytes_constraint_bigint1, from_le_bytes_constraint_bigint2 },
+        .bigint_to_le_bytes_constraints = { result2_to_le_bytes },
+        .bigint_operations = { add_constraint },
+        .constraints = {},
+        .block_constraints = {},
+
+    };
+
+    WitnessVector witness{
+        0, 3, 6, 3, 3,
+    };
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto composer = Composer();
+    auto prover = composer.create_ultra_with_keccak_prover(builder);
+    auto proof = prover.construct_proof();
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
+    EXPECT_EQ(verifier.verify_proof(proof), true);
+}
+
+TEST_F(BigIntTests, TestU256ConstraintReuse)
+{
+    WitnessVector witness;
+    auto contraints = generate_big_int_op_constraint_with_modulus(
+        BigIntOperationType::Add, fr(3), fr(1), witness, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    auto contraints2 = generate_big_int_op_constraint_with_modulus(
+        BigIntOperationType::Sub, fr(5), fr(2), witness, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                                           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 });
+    auto contraints3 = generate_big_int_op_constraint_with_id(BigIntOperationType::Mul, 0, 5, witness);
+    auto contraints4 = generate_big_int_op_constraint_with_id(BigIntOperationType::Div, 0, 1, witness);
+    auto contraints5 = generate_big_int_op_constraint_with_id(BigIntOperationType::Sub, 7, 1, witness);
+
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(witness.size() + 1),
+        .recursive = false,
+        .public_inputs = {},
+        .logic_constraints = {},
+        .range_constraints = {},
+        .sha256_constraints = {},
+        .sha256_compression = {},
+        .schnorr_constraints = {},
+        .ecdsa_k1_constraints = {},
+        .ecdsa_r1_constraints = {},
+        .blake2s_constraints = {},
+        .blake3_constraints = {},
+        .keccak_constraints = {},
+        .keccak_var_constraints = {},
+        .keccak_permutations = {},
+        .pedersen_constraints = {},
+        .pedersen_hash_constraints = {},
+        .poseidon2_constraints = {},
+        .fixed_base_scalar_mul_constraints = {},
+        .ec_add_constraints = {},
+        .recursion_constraints = {},
+        .bigint_from_le_bytes_constraints = {},
+        .bigint_to_le_bytes_constraints = {},
+        .bigint_operations = {},
+        .constraints = {},
+        .block_constraints = {},
+    };
+    apply_constraints(constraint_system, contraints);
+    apply_constraints(constraint_system, contraints2);
+    constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints3));
+    constraint_system.bigint_operations.push_back(get<0>(contraints3));
+    constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints4));
+    constraint_system.bigint_operations.push_back(get<0>(contraints4));
+    constraint_system.bigint_to_le_bytes_constraints.push_back(get<1>(contraints5));
+    constraint_system.bigint_operations.push_back(get<0>(contraints5));
+    constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
+
+    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+
+    auto composer = Composer();
+    auto prover = composer.create_ultra_with_keccak_prover(builder);
+    auto proof = prover.construct_proof();
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    auto verifier = composer.create_ultra_with_keccak_verifier(builder);
+    EXPECT_EQ(verifier.verify_proof(proof), true);
+}
+
 TEST_F(BigIntTests, TestBigIntDIV)
 {
     // 6 / 3 = 2

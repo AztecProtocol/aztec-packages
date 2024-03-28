@@ -1258,8 +1258,7 @@ impl AcirContext {
                     field_inputs.push(i?);
                 }
                 let bigint = self.big_int_ctx.get(field_inputs[0]);
-                let modulus = self.big_int_ctx.modulus(bigint.modulus_id());
-                let bytes_len = ((modulus - BigUint::from(1_u32)).bits() - 1) / 8 + 1;
+                let bytes_len = self.big_int_ctx.modulus_bytes_len(bigint.modulus_id());
                 output_count = bytes_len as usize;
                 (field_inputs, vec![FieldElement::from(bytes_len as u128)])
             }

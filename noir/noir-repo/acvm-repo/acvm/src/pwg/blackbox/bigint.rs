@@ -61,7 +61,11 @@ impl BigIntSolver {
             .collect::<Vec<u8>>();
         let bigint = BigUint::from_bytes_le(&bytes);
         self.bigint_id_to_value.insert(output, bigint);
-        let modulus = BigUint::from_bytes_le(modulus);
+        let mut modulus = BigUint::from_bytes_le(modulus);
+        if modulus == BigUint::from(0_u32) {
+            // Modulus are truncated to 32 bytes so 0 is 2^{256}
+            modulus = BigUint::from(2_u32).pow(256);
+        }
         self.bigint_id_to_modulus.insert(output, modulus);
         Ok(())
     }

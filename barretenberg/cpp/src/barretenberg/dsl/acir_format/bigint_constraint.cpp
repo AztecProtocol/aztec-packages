@@ -35,6 +35,9 @@ ModulusId modulus_param_to_id(ModulusParam param)
         secp256r1::FrParams::modulus_2 == param.modulus_2 && secp256r1::FrParams::modulus_3 == param.modulus_3) {
         return ModulusId::SECP256R1_FR;
     }
+    if (0 == param.modulus_0 && 0 == param.modulus_1 && 0 == param.modulus_2 && 0 == param.modulus_3) {
+        return ModulusId::U256;
+    }
     return ModulusId::UNKNOWN;
 }
 
@@ -104,6 +107,13 @@ void create_bigint_addition_constraint(const BigIntOperation& input, DSLBigInts<
         dsl_bigint.set_secp256r1_fr(lhs + rhs, input.result);
         break;
     }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        dsl_bigint.set_big_uint256(lhs + rhs, input.result);
+        break;
+    }
+
     default: {
         ASSERT(false);
     }
@@ -150,6 +160,12 @@ void create_bigint_sub_constraint(const BigIntOperation& input, DSLBigInts<Build
         dsl_bigint.set_secp256r1_fr(lhs - rhs, input.result);
         break;
     }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        dsl_bigint.set_big_uint256(lhs - rhs, input.result);
+        break;
+    }
     default: {
         ASSERT(false);
     }
@@ -194,6 +210,12 @@ void create_bigint_mul_constraint(const BigIntOperation& input, DSLBigInts<Build
         auto lhs = dsl_bigint.secp256r1_fr(input.lhs);
         auto rhs = dsl_bigint.secp256r1_fr(input.rhs);
         dsl_bigint.set_secp256r1_fr(lhs * rhs, input.result);
+        break;
+    }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        dsl_bigint.set_big_uint256(lhs * rhs, input.result);
         break;
     }
     default: {
@@ -252,6 +274,13 @@ void create_bigint_div_constraint(const BigIntOperation& input,
         dsl_bigint.set_secp256r1_fr(lhs / rhs, input.result);
         break;
     }
+    case ModulusId::U256: {
+        auto lhs = dsl_bigint.uint256(input.lhs);
+        auto rhs = dsl_bigint.uint256(input.rhs);
+        auto result = lhs / rhs;
+        dsl_bigint.set_big_uint256(result, input.result);
+        break;
+    }
     default: {
         ASSERT(false);
     }
@@ -297,8 +326,8 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
     using big_secp256k1_fr = bb::stdlib::bigfield<Builder, secp256k1::FrParams>;
     using big_secp256r1_fq = bb::stdlib::bigfield<Builder, secp256r1::FqParams>;
     using big_secp256r1_fr = bb::stdlib::bigfield<Builder, secp256r1::FrParams>;
+    using big_uint256 = bb::stdlib::bigfielddyn<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
-    using byte_array_ct = bb::stdlib::byte_array<Builder>;
 
     // Construct the modulus from its bytes
     uint64_t modulus_64 = 0;
@@ -321,18 +350,15 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
                                  .modulus_3 = modulus_limbs[3] };
     bb::stdlib::byte_array<Builder> rev_bytes = bb::stdlib::byte_array<Builder>(&builder, 32);
     for (size_t i = 0; i < 32; ++i) {
+        rev_bytes[i] = 0;
         if (i < input.inputs.size()) {
             field_ct element = field_ct::from_witness_index(&builder, input.inputs[i]);
-            byte_array_ct element_bytes(element, 1);
-            rev_bytes.write_at(element_bytes, i);
-        } else {
-            rev_bytes[i] = 0;
+            rev_bytes.set_byte(i, element);
         }
     }
     bb::stdlib::byte_array<Builder> bytes = rev_bytes.reverse();
 
     auto modulus_id = modulus_param_to_id(modulus);
-
     switch (modulus_id) {
     case BN254_FQ: {
         auto big = big_bn254_fq(bytes);
@@ -364,6 +390,12 @@ void create_bigint_from_le_bytes_constraint(Builder& builder,
         dsl_bigints.set_secp256r1_fr(big, input.result);
         break;
     }
+    case U256: {
+        uint512_t modulus = uint512_t(1) << 256;
+        auto big = big_uint256(bytes, modulus);
+        dsl_bigints.set_big_uint256(big, input.result);
+        break;
+    }
     case UNKNOWN:
     default:
         ASSERT(false);
@@ -382,6 +414,7 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
     using big_secp256k1_fr = bb::stdlib::bigfield<Builder, secp256k1::FrParams>;
     using big_secp256r1_fq = bb::stdlib::bigfield<Builder, secp256r1::FqParams>;
     using big_secp256r1_fr = bb::stdlib::bigfield<Builder, secp256r1::FrParams>;
+    using big_uint256 = bb::stdlib::bigfielddyn<Builder>;
 
     auto modulus_id = dsl_bigints.get_modulus_id(input.input);
     bb::stdlib::byte_array<Builder> byte_array;
@@ -419,6 +452,12 @@ void create_bigint_to_le_bytes_constraint(Builder& builder,
     }
     case SECP256R1_FR: {
         big_secp256r1_fr big = dsl_bigints.secp256r1_fr(input.input);
+        big.self_reduce();
+        byte_array = big.to_byte_array();
+        break;
+    }
+    case U256: {
+        big_uint256 big = dsl_bigints.uint256(input.input);
         big.self_reduce();
         byte_array = big.to_byte_array();
         break;
