@@ -10,8 +10,7 @@ import {
   L2Actor,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
-import { sha256 } from '@aztec/foundation/crypto';
-import { serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
+import { sha256ToField } from '@aztec/foundation/crypto';
 import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { toFunctionSelector } from 'viem/utils';
@@ -157,14 +156,11 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
-    const content = toTruncField(
-      sha256(
-        Buffer.concat([
-          Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount)]),
-        ]),
-      ),
-    )[0];
+    const content = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
+      secretHashForL2MessageConsumption,
+      new Fr(bridgeAmount),
+    ]);
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -178,7 +174,7 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
+    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
 
     // send the right one -
     const consumptionReceipt = await l2Bridge
@@ -237,14 +233,11 @@ describe('e2e_cross_chain_messaging', () => {
     // Wait for the message to be available for consumption
     await crossChainTestHarness.makeMessageConsumable(msgHash);
 
-    const content = toTruncField(
-      sha256(
-        Buffer.concat([
-          Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount)]),
-        ]),
-      ),
-    )[0];
+    const content = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
+      ownerAddress,
+      new Fr(bridgeAmount),
+    ]);
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -258,6 +251,6 @@ describe('e2e_cross_chain_messaging', () => {
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
         .simulate(),
-    ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
+    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 120_000);
 });

@@ -1,4 +1,4 @@
-import { FunctionL2Logs, MerkleTreeId, SimulationError, Tx } from '@aztec/circuit-types';
+import { MerkleTreeId, SimulationError, Tx, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CallRequest,
@@ -44,7 +44,7 @@ import {
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { Tuple, toTruncField } from '@aztec/foundation/serialize';
+import { Tuple } from '@aztec/foundation/serialize';
 import {
   PublicExecution,
   PublicExecutionResult,
@@ -54,8 +54,6 @@ import {
   isPublicExecutionResult,
 } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
-
-import { env } from 'process';
 
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
@@ -182,7 +180,7 @@ export abstract class AbstractPhaseManager {
     tx: Tx,
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof: Proof,
-  ): Promise<[PublicKernelCircuitPublicInputs, Proof, FunctionL2Logs[], SimulationError | undefined]> {
+  ): Promise<[PublicKernelCircuitPublicInputs, Proof, UnencryptedFunctionL2Logs[], SimulationError | undefined]> {
     let kernelOutput = previousPublicKernelOutput;
     let kernelProof = previousPublicKernelProof;
 
@@ -192,7 +190,7 @@ export abstract class AbstractPhaseManager {
       return [kernelOutput, kernelProof, [], undefined];
     }
 
-    const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
+    const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
 
     // TODO(#1684): Should multiple separately enqueued public calls be treated as
     // separate public callstacks to be proven by separate public kernel sequences
@@ -209,9 +207,9 @@ export abstract class AbstractPhaseManager {
         const isExecutionRequest = !isPublicExecutionResult(current);
 
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
-        // NOTE: temporary glue to incorporate avm execution calls
+        // NOTE: temporary glue to incorporate avm execution calls.
         const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
-          env.AVM_ENABLED
+          execution.functionData.isTranspiled
             ? this.publicExecutor.simulateAvm(execution, globalVariables, sideEffectCounter)
             : this.publicExecutor.simulate(execution, globalVariables, sideEffectCounter);
 
@@ -348,7 +346,7 @@ export abstract class AbstractPhaseManager {
     );
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-    const unencryptedLogsHash = toTruncField(result.unencryptedLogs.hash());
+    const unencryptedLogsHash = Fr.fromBuffer(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
     return PublicCircuitPublicInputs.from({

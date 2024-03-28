@@ -25,7 +25,7 @@ contract AvmTest {
 
     // Libs
     use dep::aztec::prelude::Map;
-    use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::state_vars::{PublicImmutable, PublicMutable};
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::traits::ToField;
@@ -39,11 +39,23 @@ contract AvmTest {
         single: PublicMutable<Field>,
         list: PublicMutable<Note>,
         map: Map<AztecAddress, PublicMutable<u32>>,
+        immutable: PublicImmutable<Field>,
     }
 
     /************************************************************************
      * Storage
      ************************************************************************/
+    // FIX: calls unsupported getNullifierMembershipWitness.
+    // #[aztec(public-vm)]
+    // #[aztec(initializer)]
+    // fn constructor() {
+    //     storage.immutable.initialize(42);
+    // }
+
+    unconstrained fn view_storage_immutable() -> pub Field {
+        storage.immutable.read()
+    }
+
     unconstrained fn view_storage_single() -> pub Field {
         storage.single.read()
     }
@@ -223,7 +235,7 @@ contract AvmTest {
     }
 
     #[aztec(public-vm)]
-    fn get_timestamp() -> pub Field {
+    fn get_timestamp() -> pub u64 {
         context.timestamp()
     }
 
@@ -231,6 +243,16 @@ contract AvmTest {
     // fn get_contract_call_depth() -> pub Field {
     //     context.contract_call_depth()
     // }
+
+    #[aztec(public-vm)]
+    fn check_selector() {
+        assert(context.selector() == FunctionSelector::from_signature("check_selector()"));
+    }
+
+    #[aztec(public-vm)]
+    fn get_args_hash(_a: u8, _fields: [Field; 3]) -> pub Field {
+        context.get_args_hash()
+    }
 
     #[aztec(public-vm)]
     fn emit_unencrypted_log() {

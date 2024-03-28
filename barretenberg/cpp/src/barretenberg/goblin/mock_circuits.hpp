@@ -6,8 +6,6 @@
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/proof_system/circuit_builder/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
@@ -15,6 +13,8 @@
 #include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
 class GoblinMockCircuits {
@@ -70,9 +70,11 @@ class GoblinMockCircuits {
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS); // min gates: ~41k
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS);  // min gates: ~29k
 
-        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently
-        // UGH can only be used if some op gates are included so for now we'll assume each function circuit has
-        // some.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
+        // function circuit because we cannot support zero commtiments. While the builder handles this at
+        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other UGH
+        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
+        // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 

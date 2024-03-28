@@ -1,7 +1,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <cstddef>
 
 namespace acir_format {
@@ -246,10 +246,6 @@ GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
     acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): Add some arbitrary op gates to ensure the
-    // associated polynomials are non-zero and to give ECCVM and Translator some ECC ops to process.
-    MockCircuits::construct_goblin_ecc_op_circuit(builder);
 
     return builder;
 };

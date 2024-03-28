@@ -1,12 +1,13 @@
 import {
+  EncryptedTxL2Logs,
   FunctionCall,
-  FunctionL2Logs,
   ProcessedTx,
   PublicDataWrite,
   SiblingPath,
   SimulationError,
   Tx,
-  TxL2Logs,
+  UnencryptedFunctionL2Logs,
+  UnencryptedTxL2Logs,
   mockTx,
   toTxEffect,
 } from '@aztec/circuit-types';
@@ -99,7 +100,7 @@ describe('public_processor', () => {
       const includeLogs = false;
       const tx = mockTx(seed, includeLogs);
       tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
-      tx.data.end.unencryptedLogsHash = [Fr.ZERO];
+      tx.data.end.unencryptedLogsHash = Fr.ZERO;
       tx.data.endNonRevertibleData.publicCallStack = makeTuple(
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
@@ -204,9 +205,15 @@ describe('public_processor', () => {
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
-      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), publicCallRequests);
+      const tx = new Tx(
+        kernelOutput,
+        proof,
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
+        publicCallRequests,
+      );
 
       tx.data.needsSetup = false;
       tx.data.needsTeardown = false;
@@ -247,12 +254,12 @@ describe('public_processor', () => {
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       kernelOutput.needsSetup = false;
       kernelOutput.needsTeardown = false;
 
-      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), [callRequest]);
+      const tx = new Tx(kernelOutput, proof, EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty(), [callRequest]);
 
       const publicExecutionResult = PublicExecutionResultBuilder.fromPublicCallRequest({
         request: callRequest,
@@ -291,7 +298,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -302,8 +309,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -407,7 +414,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -418,8 +425,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -511,7 +518,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -522,8 +529,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -615,7 +622,7 @@ describe('public_processor', () => {
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
 
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
         appLogicCalls: [callRequests[2]],
@@ -625,8 +632,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -812,7 +819,7 @@ class PublicExecutionResultBuilder {
       newNullifiers: [],
       newL2ToL1Messages: [],
       contractStorageReads: [],
-      unencryptedLogs: new FunctionL2Logs([]),
+      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,

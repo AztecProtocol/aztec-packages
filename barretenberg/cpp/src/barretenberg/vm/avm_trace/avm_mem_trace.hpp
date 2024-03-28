@@ -29,7 +29,8 @@ class AvmMemTraceBuilder {
         uint32_t m_addr{};
         FF m_val{};
         AvmMemoryTag m_tag{};
-        AvmMemoryTag m_in_tag{};
+        AvmMemoryTag r_in_tag{};
+        AvmMemoryTag w_in_tag{};
         bool m_rw = false;
         bool m_tag_err = false;
         FF m_one_min_inv{};
@@ -64,6 +65,12 @@ class AvmMemTraceBuilder {
         }
     };
 
+    // Structure representing an entry for the memory used in the simulation (not the trace).
+    struct MemEntry {
+        FF val{};
+        AvmMemoryTag tag = AvmMemoryTag::U0;
+    };
+
     // Structure to return value and tag matching boolean after a memory read.
     struct MemRead {
         bool tag_match = false;
@@ -76,29 +83,45 @@ class AvmMemTraceBuilder {
 
     std::vector<MemoryTraceEntry> finalize();
 
-    std::pair<FF, AvmMemoryTag> read_and_load_mov_opcode(uint32_t clk, uint32_t addr);
-    MemRead read_and_load_from_memory(uint32_t clk, IntermRegister interm_reg, uint32_t addr, AvmMemoryTag m_in_tag);
+    MemEntry read_and_load_mov_opcode(uint32_t clk, uint32_t addr);
+    MemRead read_and_load_from_memory(
+        uint32_t clk, IntermRegister interm_reg, uint32_t addr, AvmMemoryTag r_in_tag, AvmMemoryTag w_in_tag);
     MemRead indirect_read_and_load_from_memory(uint32_t clk, IndirectRegister ind_reg, uint32_t addr);
-    void write_into_memory(
-        uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
+    void write_into_memory(uint32_t clk,
+                           IntermRegister interm_reg,
+                           uint32_t addr,
+                           FF const& val,
+                           AvmMemoryTag r_in_tag,
+                           AvmMemoryTag w_in_tag);
 
   private:
-    std::vector<MemoryTraceEntry> mem_trace;         // Entries will be sorted by m_clk, m_sub_clk after finalize().
-    std::array<FF, MEM_SIZE> memory{};               // Memory table (used for simulation)
-    std::array<AvmMemoryTag, MEM_SIZE> memory_tag{}; // The tag of the corresponding memory
-                                                     // entry (aligned with the memory array).
+    std::vector<MemoryTraceEntry> mem_trace;       // Entries will be sorted by m_clk, m_sub_clk after finalize().
+    std::unordered_map<uint32_t, MemEntry> memory; // Memory table (used for simulation)
 
-    void insert_in_mem_trace(
-        uint32_t m_clk, uint32_t m_sub_clk, uint32_t m_addr, FF const& m_val, AvmMemoryTag m_in_tag, bool m_rw);
+    void insert_in_mem_trace(uint32_t m_clk,
+                             uint32_t m_sub_clk,
+                             uint32_t m_addr,
+                             FF const& m_val,
+                             AvmMemoryTag m_tag,
+                             AvmMemoryTag r_in_tag,
+                             AvmMemoryTag w_in_tag,
+                             bool m_rw);
+
     void load_mismatch_tag_in_mem_trace(uint32_t m_clk,
                                         uint32_t m_sub_clk,
                                         uint32_t m_addr,
                                         FF const& m_val,
-                                        AvmMemoryTag m_in_tag,
+                                        AvmMemoryTag r_in_tag,
+                                        AvmMemoryTag w_in_tag,
                                         AvmMemoryTag m_tag);
 
-    bool load_from_mem_trace(uint32_t clk, uint32_t sub_clk, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
-    void store_in_mem_trace(
-        uint32_t clk, IntermRegister interm_reg, uint32_t addr, FF const& val, AvmMemoryTag m_in_tag);
+    bool load_from_mem_trace(
+        uint32_t clk, uint32_t sub_clk, uint32_t addr, FF const& val, AvmMemoryTag r_in_tag, AvmMemoryTag w_in_tag);
+    void store_in_mem_trace(uint32_t clk,
+                            IntermRegister interm_reg,
+                            uint32_t addr,
+                            FF const& val,
+                            AvmMemoryTag r_in_tag,
+                            AvmMemoryTag w_in_tag);
 };
 } // namespace bb::avm_trace

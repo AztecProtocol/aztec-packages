@@ -1,10 +1,4 @@
-import {
-  L1ToL2MessageSource,
-  MerkleTreeId,
-  NullifierMembershipWitness,
-  Tx,
-  UnencryptedL2Log,
-} from '@aztec/circuit-types';
+import { MerkleTreeId, NullifierMembershipWitness, Tx } from '@aztec/circuit-types';
 import {
   AztecAddress,
   ContractClassRegisteredEvent,
@@ -17,7 +11,7 @@ import {
   NullifierLeafPreimage,
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
-import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
+import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
@@ -42,7 +36,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
    */
   public addNewContracts(tx: Tx): Promise<void> {
     // Extract contract class and instance data from logs and add to cache for this block
-    const logs = tx.unencryptedLogs.unrollLogs().map(UnencryptedL2Log.fromBuffer);
+    const logs = tx.unencryptedLogs.unrollLogs();
     ContractClassRegisteredEvent.fromLogs(logs, getCanonicalClassRegistererAddress()).forEach(e => {
       this.log(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
       this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
@@ -65,7 +59,7 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     // TODO(@spalladino): Can this inadvertently delete a valid contract added by another tx?
     // Let's say we have two txs adding the same contract on the same block. If the 2nd one reverts,
     // wouldn't that accidentally remove the contract added on the first one?
-    const logs = tx.unencryptedLogs.unrollLogs().map(UnencryptedL2Log.fromBuffer);
+    const logs = tx.unencryptedLogs.unrollLogs();
     ContractClassRegisteredEvent.fromLogs(logs, getCanonicalClassRegistererAddress()).forEach(e =>
       this.classCache.delete(e.contractClassId.toString()),
     );
@@ -198,7 +192,7 @@ export class WorldStatePublicDB implements PublicStateDB {
  * Implements WorldState db using a world state database.
  */
 export class WorldStateDB implements CommitmentsDB {
-  constructor(private db: MerkleTreeOperations, private l1ToL2MessageSource: L1ToL2MessageSource) {}
+  constructor(private db: MerkleTreeOperations) {}
 
   public async getNullifierMembershipWitnessAtLatestBlock(
     nullifier: Fr,
@@ -224,21 +218,38 @@ export class WorldStateDB implements CommitmentsDB {
   }
 
   public async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
     messageHash: Fr,
+    secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const index = (await this.db.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash.toBuffer()))!;
-    if (index === undefined) {
-      throw new Error(`Message ${messageHash.toString()} not found`);
-    }
+    let nullifierIndex: bigint | undefined;
+    let messageIndex: bigint | undefined;
+    let startIndex = 0n;
+
+    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
+    // for nullifiers because messages can have duplicates.
+    do {
+      messageIndex = (await this.db.findLeafIndexAfter(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messageHash, startIndex))!;
+      if (messageIndex === undefined) {
+        throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
+      }
+
+      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
+      nullifierIndex = await this.getNullifierIndex(messageNullifier);
+
+      startIndex = messageIndex + 1n;
+    } while (nullifierIndex !== undefined);
+
     const siblingPath = await this.db.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      index,
+      messageIndex,
     );
-    return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(index, siblingPath);
+
+    return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(messageIndex, siblingPath);
   }
 
   public async getCommitmentIndex(commitment: Fr): Promise<bigint | undefined> {
-    return await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment.toBuffer());
+    return await this.db.findLeafIndex(MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {

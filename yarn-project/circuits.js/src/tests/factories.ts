@@ -3,7 +3,13 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-import { ContractClassPublic, PrivateFunction, PublicFunction } from '@aztec/types/contracts';
+import {
+  ContractClassPublic,
+  ExecutablePrivateFunctionWithMembershipProof,
+  PrivateFunction,
+  PublicFunction,
+  UnconstrainedFunctionWithMembershipProof,
+} from '@aztec/types/contracts';
 
 import { SchnorrSignature } from '../barretenberg/index.js';
 import {
@@ -72,7 +78,6 @@ import {
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  NUM_FIELDS_PER_SHA256,
   NUM_MSGS_PER_BASE_PARITY,
   NoteHashReadRequestMembershipWitness,
   NullifierKeyValidationRequest,
@@ -296,8 +301,8 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
-    tupleGenerator(NUM_FIELDS_PER_SHA256, fr, seed + 0x700), // encrypted logs hash
-    tupleGenerator(NUM_FIELDS_PER_SHA256, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x700), // encrypted logs hash
+    fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
@@ -318,8 +323,8 @@ export function makeCombinedAccumulatedRevertibleData(seed = 1, full = false): P
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
-    tupleGenerator(NUM_FIELDS_PER_SHA256, fr, seed + 0x700), // encrypted logs hash
-    tupleGenerator(NUM_FIELDS_PER_SHA256, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x700), // encrypted logs hash
+    fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
@@ -340,8 +345,8 @@ export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumul
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
-    tupleGenerator(NUM_FIELDS_PER_SHA256, fr, seed + 0x700), // encrypted logs hash
-    tupleGenerator(NUM_FIELDS_PER_SHA256, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x700), // encrypted logs hash
+    fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
   );
@@ -434,7 +439,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900),
     fr(seed + 0xa00),
     fr(seed + 0xa01),
-    tupleGenerator(NUM_FIELDS_PER_SHA256, fr, seed + 0x901),
+    fr(seed + 0x901),
     fr(seed + 0x902),
     makeHeader(seed + 0xa00, undefined),
     makeAztecAddress(seed + 0xb01),
@@ -884,8 +889,8 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x800),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
-    encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),
-    unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
+    encryptedLogsHash: fr(seed + 0x900),
+    unencryptedLogsHash: fr(seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
@@ -1005,8 +1010,8 @@ export function makeBaseOrMergeRollupPublicInputs(
     makeConstantBaseRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
-    [fr(seed + 0x901)],
-    [fr(seed + 0x902)],
+    fr(seed + 0x901),
+    fr(seed + 0x902),
   );
 }
 
@@ -1275,6 +1280,35 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   });
 }
 
+export function makeExecutablePrivateFunctionWithMembershipProof(
+  seed = 0,
+): ExecutablePrivateFunctionWithMembershipProof {
+  return {
+    selector: makeSelector(seed),
+    bytecode: makeBytes(100, seed + 1),
+    artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
+    artifactTreeLeafIndex: seed + 2,
+    privateFunctionTreeSiblingPath: makeTuple(3, fr, seed + 3),
+    privateFunctionTreeLeafIndex: seed + 3,
+    artifactMetadataHash: fr(seed + 4),
+    functionMetadataHash: fr(seed + 5),
+    unconstrainedFunctionsArtifactTreeRoot: fr(seed + 6),
+    vkHash: fr(seed + 7),
+  };
+}
+
+export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): UnconstrainedFunctionWithMembershipProof {
+  return {
+    selector: makeSelector(seed),
+    bytecode: makeBytes(100, seed + 1),
+    artifactTreeSiblingPath: makeTuple(3, fr, seed + 2),
+    artifactTreeLeafIndex: seed + 2,
+    artifactMetadataHash: fr(seed + 4),
+    functionMetadataHash: fr(seed + 5),
+    privateFunctionsArtifactTreeRoot: fr(seed + 6),
+  };
+}
+
 export function makeContractClassPublic(seed = 0): ContractClassPublic {
   const artifactHash = fr(seed + 1);
   const publicFunctions = makeTuple(3, makeContractClassPublicFunction, seed + 2);
@@ -1288,6 +1322,8 @@ export function makeContractClassPublic(seed = 0): ContractClassPublic {
     packedBytecode,
     privateFunctionsRoot,
     publicFunctions,
+    privateFunctions: [],
+    unconstrainedFunctions: [],
     version: 1,
   };
 }
@@ -1296,7 +1332,6 @@ function makeContractClassPublicFunction(seed = 0): PublicFunction {
   return {
     selector: FunctionSelector.fromField(fr(seed + 1)),
     bytecode: makeBytes(100, seed + 2),
-    isInternal: false,
   };
 }
 
@@ -1305,7 +1340,6 @@ function makeContractClassPrivateFunction(seed = 0): PrivateFunction {
   return {
     selector: FunctionSelector.fromField(fr(seed + 1)),
     vkHash: fr(seed + 2),
-    isInternal: false,
   };
 }
 

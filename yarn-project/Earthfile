@@ -24,22 +24,19 @@ RUN ln -s /build/yarn-project/node_modules /build/node_modules
 
 # Target for main build process
 build:
+    FROM +source
     ARG EARTHLY_CI
     # TODO: Replace puppeteer with puppeteer-core to avoid this.
     # TODO encapsulate in bash script for cleanliness
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-    IF $EARTHLY_CI # Don't cache CI builds.
-        RUN ./bootstrap.sh && yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
-    ELSE
-        ENV YARN_CACHE_FOLDER /build/yarn-cache
-        # Use a mount for incremental builds locally.
-        RUN --mount type=cache,target=/build/node_modules_cache --mount type=cache,target=/build/yarn-cache \
-            mkdir -p node_modules_cache && \
-            mv node_modules_cache node_modules && \
-            ./bootstrap.sh && \
-            yarn workspaces focus @aztec/cli @aztec/aztec --production && \
-            cp -r node_modules node_modules_cache
-    END
+    ENV YARN_CACHE_FOLDER /build/yarn-cache
+    # Use a mount for incremental builds locally.
+    RUN --mount type=cache,target=/build/node_modules_cache --mount type=cache,target=/build/yarn-cache \
+        mkdir -p node_modules_cache && \
+        mv node_modules_cache node_modules && \
+        ./bootstrap.sh && \
+        yarn workspaces focus @aztec/cli @aztec/aztec --production && \
+        cp -r node_modules node_modules_cache
     SAVE ARTIFACT /build
 
 # TODO versioning flow at end before publish?
@@ -65,38 +62,18 @@ aztec:
     # 31544   typescript
     # 62368   @types
 
-    # The version has been updated in yarn-project.
-    # Adding COMMIT_TAG here to rebuild versioned image.
-    ARG COMMIT_TAG=""
+source:
+    # for debugging rebuilds
+    RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 end-to-end:
+    FROM +source
     # compilation artifacts for end-to-end
     # TODO encapsulate in bash script for cleanliness
-    ARG EARTHLY_CI
-    IF $EARTHLY_CI # Don't cache CI builds.
-        RUN ./bootstrap.sh && \
-            yarn workspace @aztec/end-to-end run build:web && \
-            yarn workspaces focus @aztec/end-to-end --production \
-            && yarn cache clean
-    ELSE
-        ENV YARN_CACHE_FOLDER /yarn_cache
-        # TODO copy to other targets
-        # Use a mount for incremental builds locally.
-        # We cache NPM installs, typescript metadata and dest folders.
-        # TODO(AD): find safe way to cache noir contracts
-        RUN   --mount type=cache,target=/node_cache \
-              --mount type=cache,target=/yarn_cache \
-            mkdir -p /node_cache/node_modules && mv /node_cache/node_modules . && \
-            cp -r /node_cache/* . >/dev/null || echo "fresh build" && \
-            ./bootstrap.sh && \
-            yarn workspace @aztec/end-to-end run build:web && \
-            yarn workspaces focus @aztec/end-to-end --production && \
-            cp -r node_modules /node_cache/node_modules && \
-            cp -r --parents */dest /node_cache && \
-            find . -name '*.tsbuildinfo' -exec cp --parents {} /node_cache \;
-    END
-    SAVE ARTIFACT /build
-
+    RUN ./bootstrap.sh && \
+        yarn workspace @aztec/end-to-end run build:web && \
+        yarn workspaces focus @aztec/end-to-end --production \
+        && yarn cache clean
     # Build web bundle for browser tests
     RUN yarn workspace @aztec/end-to-end run build:web
     RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
@@ -111,4 +88,10 @@ end-to-end-minimal:
     COPY +end-to-end/build /build
     WORKDIR /build/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
-    SAVE IMAGE aztecprotocol/cache:end-to-end
+
+build-end-to-end:
+    ARG EARTHLY_GIT_HASH
+    FROM +end-to-end-minimal
+    SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_GIT_HASH
+    FROM +aztec
+    SAVE IMAGE --push aztecprotocol/aztec-cache:$EARTHLY_GIT_HASH
