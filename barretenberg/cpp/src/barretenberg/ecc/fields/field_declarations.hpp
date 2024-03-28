@@ -578,7 +578,7 @@ template <class Params_> struct alignas(32) field {
 
 #if defined(__wasm__) || !defined(__SIZEOF_INT128__)
     BB_INLINE static constexpr void wasm_madd(uint64_t& left_limb,
-                                              const uint64_t* right_limbs,
+                                              const std::array<uint64_t, WASM_NUM_LIMBS>& right_limbs,
                                               uint64_t& result_0,
                                               uint64_t& result_1,
                                               uint64_t& result_2,
