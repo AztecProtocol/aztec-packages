@@ -53,6 +53,12 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // and the computation of Lagrange basis for k instances
     auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
+    if (ProverInstances::NUM == 3) {
+        vanishing_polynomial_at_challenge *= (challenge - FF(2));
+        lagranges = { (FF(1) - challenge) * (FF(2) - challenge) / (FF(2)),
+                      challenge * (FF(2) - challenge),
+                      challenge * (FF(1) - challenge) / FF(2) };
+    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>();

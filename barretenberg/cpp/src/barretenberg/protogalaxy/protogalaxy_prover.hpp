@@ -77,8 +77,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     /**
      * @brief Prior to folding, we need to finalize the given instances and add all their public data ϕ to the
      * transcript, labelled by their corresponding instance index for domain separation.
-     * TODO(https://github.com/AztecProtocol/barretenberg/issues/795):The rounds prior to actual proving/folding are
-     * common between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
      */
     void prepare_for_folding();
 
@@ -399,7 +397,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             auto idx = point - ProverInstances::NUM;
             auto lagrange_0 = FF(1) - FF(point);
             auto vanishing_polynomial = FF(point) * (FF(point) - 1);
-
+            if (ProverInstances::NUM == 3) {
+                lagrange_0 = (FF(1) - FF(point)) * (FF(2) - FF(point)) / (FF(2));
+                vanishing_polynomial *= (FF(point) - 2);
+            }
             combiner_quotient_evals[idx] =
                 (combiner.value_at(point) - compressed_perturbator * lagrange_0) * vanishing_polynomial.invert();
         }
