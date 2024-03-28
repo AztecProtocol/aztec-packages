@@ -358,8 +358,8 @@ class GoblinUltraFlavor {
         void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
         {
             auto prover_polynomials = ProverPolynomials(*this);
-            // Compute permutation and lookup grand product polynomials
-            bb::compute_logderivative_inverse<GoblinUltraFlavor, typename GoblinUltraFlavor::LogDerivLookupRelation>(
+            // Compute inverses polynomial used in log derivative relations
+            DatabusLookupRelation<FF>::compute_logderivative_inverse(
                 prover_polynomials, relation_parameters, this->circuit_size);
             this->lookup_inverses = prover_polynomials.lookup_inverses;
         }

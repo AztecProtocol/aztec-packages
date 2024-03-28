@@ -72,12 +72,9 @@ template <typename FF_> class DatabusLookupRelationImpl {
         return is_read_gate + is_read_data - (is_read_gate * is_read_data);
     }
 
-    template <typename Accumulator, size_t index, typename AllEntities>
-    static Accumulator lookup_read_counts(const AllEntities& in)
+    template <typename Accumulator, typename AllEntities> static Accumulator get_read_counts(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        ASSERT(index == 0);
-
         return Accumulator(View(in.calldata_read_counts));
     }
 
@@ -85,11 +82,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @brief Compute scalar for read term in log derivative lookup argument
      *
      */
-    template <typename Accumulator, size_t read_index, typename AllEntities>
-    static Accumulator compute_read_term_predicate([[maybe_unused]] const AllEntities& in)
+    template <typename Accumulator, typename AllEntities>
+    static Accumulator get_read_selector([[maybe_unused]] const AllEntities& in)
 
     {
-        ASSERT(read_index == 0);
         using View = typename Accumulator::View;
         auto q_busread = View(in.q_busread);
         auto q_1 = View(in.q_l);
@@ -100,27 +96,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
     }
 
     /**
-     * @brief Compute scalar for write term in log derivative lookup argument
-     *
-     */
-    template <typename Accumulator, size_t write_index, typename AllEntities>
-    static Accumulator compute_write_term_predicate(const AllEntities& /*unused*/)
-    {
-        ASSERT(write_index == 0);
-        return Accumulator(1);
-    }
-
-    /**
      * @brief Compute write term denominator in log derivative lookup argument
      *
      */
-    template <typename Accumulator, size_t write_index, typename AllEntities, typename Parameters>
+    template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_write_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
-
-        ASSERT(write_index == 0);
 
         const auto& calldata = View(in.calldata);
         const auto& id = View(in.databus_id);
@@ -136,13 +119,11 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @brief Compute read term denominator in log derivative lookup argument
      *
      */
-    template <typename Accumulator, size_t read_index, typename AllEntities, typename Parameters>
+    template <typename Accumulator, typename AllEntities, typename Parameters>
     static Accumulator compute_read_term(const AllEntities& in, const Parameters& params)
     {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
-
-        ASSERT(read_index == 0);
 
         // Bus value stored in w_1, index into bus column stored in w_2
         const auto& w_1 = View(in.w_l);
@@ -153,6 +134,50 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
         // Construct value + index*\beta + \gamma
         return w_1 + gamma + w_2 * beta;
+    }
+
+    template <typename Polynomials>
+    static void compute_logderivative_inverse(Polynomials& polynomials,
+                                              auto& relation_parameters,
+                                              const size_t circuit_size)
+    {
+        auto& inverse_polynomial = get_inverse_polynomial(polynomials);
+        for (size_t i = 0; i < circuit_size; ++i) {
+            auto row = polynomials.get_row(i);
+            // We only compute the inverse if this row contains a read gate or data that has been read
+            if (operation_exists_at_row(row)) {
+                inverse_polynomial[i] =
+                    compute_read_term<FF>(row, relation_parameters) * compute_write_term<FF>(row, relation_parameters);
+            }
+        }
+        // WORKTODO: turn this note from Zac into a genuine TODO
+        // todo might be inverting zero in field bleh bleh
+        FF::batch_invert(inverse_polynomial);
+    };
+
+    template <typename FF, typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
+    static void accumulate_subrelation_contributions(ContainerOverSubrelations& accumulator,
+                                                     const AllEntities& in,
+                                                     const Parameters& params,
+                                                     const FF& scaling_factor)
+    {
+        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using View = typename Accumulator::View;
+
+        const auto lookup_inverses = View(get_inverse_polynomial(in));
+        const auto read_term = compute_read_term<Accumulator>(in, params);
+        const auto write_term = compute_write_term<Accumulator>(in, params);
+        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);
+        const auto write_inverse = lookup_inverses * read_term;
+        const auto read_inverse = lookup_inverses * write_term;
+
+        // Establish the correctness of the polynomial of inverses I. Note: lookup_inverses is computed so that the
+        // value is 0 if !inverse_exists
+        std::get<0>(accumulator) += (read_term * write_term * lookup_inverses - inverse_exists) * scaling_factor;
+
+        // Establish the validity of the read.
+        std::get<1>(accumulator) +=
+            get_read_selector<Accumulator>(in) * read_inverse - (get_read_counts<Accumulator>(in) * write_inverse);
     }
 
     /**
@@ -170,9 +195,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-
-        accumulate_logderivative_lookup_subrelation_contributions<FF, DatabusLookupRelationImpl<FF>>(
-            accumulator, in, params, scaling_factor);
+        accumulate_subrelation_contributions<FF>(accumulator, in, params, scaling_factor);
     }
 };
 
