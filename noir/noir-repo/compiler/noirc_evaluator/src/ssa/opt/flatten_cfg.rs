@@ -167,7 +167,9 @@ impl Ssa {
     /// For more information, see the module-level comment at the top of this file.
     #[tracing::instrument(level = "trace", skip(self))]
     pub(crate) fn flatten_cfg(mut self) -> Ssa {
-        flatten_function_cfg(self.main_mut());
+        for function in self.functions.values_mut() {
+            flatten_function_cfg(function);
+        }
         self
     }
 }
