@@ -62,6 +62,7 @@ pub enum AvmOpcode {
     GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
+    GETCONTRACTINSTANCE,
     // External calls
     CALL,
     STATICCALL,
