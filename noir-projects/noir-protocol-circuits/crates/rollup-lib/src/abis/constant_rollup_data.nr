@@ -25,3 +25,16 @@ impl Eq for ConstantRollupData {
         (self.merge_rollup_vk_hash == other.merge_rollup_vk_hash)
     }
 }
+
+impl Default for ConstantRollupData {
+    fn default() -> Self {
+        ConstantRollupData {
+            last_archive: AppendOnlyTreeSnapshot::default(),
+            private_kernel_vk_tree_root: 0,
+            public_kernel_vk_tree_root: 0,
+            base_rollup_vk_hash: 0,
+            merge_rollup_vk_hash: 0,
+            global_variables: GlobalVariables::default(),
+        }
+    }
+}

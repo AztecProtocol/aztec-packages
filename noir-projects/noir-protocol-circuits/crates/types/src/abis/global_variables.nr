@@ -68,7 +68,7 @@ impl Default for GlobalVariables {
 
 #[test]
 fn serialization_of_default() {
-    let vars: GlobalVariables = dep::std::unsafe::zeroed();
+    let vars = GlobalVariables::default();
     let _serialized = vars.serialize();
     let _deserialized = GlobalVariables::deserialize(_serialized);
 }

@@ -15,6 +15,18 @@ struct PublicKernelCircuitPublicInputsBuilder {
     constants: CombinedConstantData,
 }
 
+impl Default for PublicKernelCircuitPublicInputsBuilder {
+    fn default() -> Self {
+        PublicKernelCircuitPublicInputsBuilder {
+            aggregation_object: AggregationObject::default(),
+            validation_requests: ValidationRequestsBuilder::default(),
+            end_non_revertible: AccumulatedNonRevertibleDataBuilder::default(),
+            end: AccumulatedRevertibleDataBuilder::default(),
+            constants: CombinedConstantData::default(),
+        }
+    }
+}
+
 impl PublicKernelCircuitPublicInputsBuilder {
     pub fn to_inner(self) -> PublicKernelCircuitPublicInputs {
         let end_non_revertible = self.end_non_revertible.to_public();

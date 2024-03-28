@@ -523,13 +523,30 @@ mod tests {
         constants: ConstantRollupData,
     }
 
+    impl Default for BaseRollupInputsBuilder {
+        fn default() -> Self {
+            BaseRollupInputsBuilder {
+                kernel_data: PreviousKernelDataBuilder::default(),
+                pre_existing_notes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
+                pre_existing_nullifiers: [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_TX],
+                pre_existing_contracts: [0; 2],
+                pre_existing_public_data: [PublicDataTreeLeafPreimage::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+                pre_existing_blocks: [0; 2],
+                public_data_reads: BoundedVec::new(),
+                public_data_writes:BoundedVec::new(),
+                new_nullifiers: BoundedVec::new(),
+                constants: ConstantRollupData::default(),
+            }
+        }
+    }
+
     fn test_compute_empty_root<N>(size: [Field; N]) -> Field {
         compute_zero_hashes(size)[N - 1]
     }
 
     impl BaseRollupInputsBuilder {
         fn new() -> Self {
-            let mut inputs: BaseRollupInputsBuilder = dep::std::unsafe::zeroed();
+            let mut inputs = BaseRollupInputsBuilder::default();
             inputs.constants.global_variables.chain_id = 1;
             inputs.constants.global_variables.version = 0;
 

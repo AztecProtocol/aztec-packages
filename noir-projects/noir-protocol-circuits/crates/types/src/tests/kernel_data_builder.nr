@@ -41,6 +41,28 @@ struct PreviousKernelDataBuilder {
     min_revertible_side_effect_counter: u32,
 }
 
+impl Default for PreviousKernelDataBuilder {
+    fn default() -> Self {
+        PreviousKernelDataBuilder {
+            contract_address: AztecAddress::default(),
+            storage_contract_address: AztecAddress::default(),
+            portal_contract_address: EthAddress::default(),
+            validation_requests: ValidationRequestsBuilder::default(),
+            end: CombinedAccumulatedDataBuilder::default(),
+            end_non_revertible: AccumulatedNonRevertibleDataBuilder::default(),
+            historical_header: Header::default(),
+            tx_context: TxContext::default(),
+            is_private: false,
+            proof: Proof::default(),
+            vk: VerificationKey::default(),
+            vk_index: 0 as u32,
+            vk_path: [0; VK_TREE_HEIGHT],
+            sideffect_counter: 0 as u32,
+            min_revertible_side_effect_counter: 0 as u32,
+        }
+    }
+}
+
 impl PreviousKernelDataBuilder {
     pub fn new(is_for_public: bool) -> Self {
         let mut end = CombinedAccumulatedDataBuilder::default();
@@ -62,7 +84,7 @@ impl PreviousKernelDataBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
             storage_contract_address: fixtures::contracts::parent_contract.address,
             portal_contract_address: fixtures::contracts::parent_contract.portal_contract_address,
-            validation_requests: unsafe::zeroed(),
+            validation_requests: ValidationRequestsBuilder::default(),
             end,
             end_non_revertible,
             historical_header: fixtures::HEADER,
