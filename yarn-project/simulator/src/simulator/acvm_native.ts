@@ -101,7 +101,6 @@ export async function executeNativeCircuit(
   try {
     const output = await processPromise;
     if (outputFilename) {
-      logger(`Copying file ${workingDirectory}/output-witness to ${outputFilename}`);
       await fs.copyFile(`${workingDirectory}/output-witness.gz`, outputFilename);
     }
     return parseIntoWitnessMap(output);
@@ -121,8 +120,6 @@ export class NativeACVMSimulator implements SimulationProvider {
 
     // Provide a unique working directory so we don't get clashes with parallel executions
     const directory = `${this.workingDirectory}/${randomBytes(8).toString('hex')}`;
-
-    logger(`Using working directory ${directory}`);
 
     // Execute the circuit
     const _witnessMap = await executeNativeCircuit(

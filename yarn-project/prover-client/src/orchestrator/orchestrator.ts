@@ -20,14 +20,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { elapsed } from '@aztec/foundation/timer';
-import { SimulationProvider } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { CircuitProver } from '../prover/index.js';
-import { RealRollupCircuitSimulator, RollupSimulator } from '../simulator/rollup.js';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,
@@ -68,21 +65,16 @@ enum PROMISE_RESULT {
 export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
   private jobQueue: MemoryFifo<ProvingJob> = new MemoryFifo<ProvingJob>();
-  private simulator: RollupSimulator;
   private jobProcessPromise?: Promise<void>;
   private stopped = false;
   constructor(
     private db: MerkleTreeOperations,
-    simulationProvider: SimulationProvider,
-    protected vks: VerificationKeys,
     private prover: CircuitProver,
     private maxConcurrentJobs = MAX_CONCURRENT_JOBS,
-  ) {
-    this.simulator = new RealRollupCircuitSimulator(simulationProvider);
-  }
+  ) {}
 
-  public static new(db: MerkleTreeOperations, simulationProvider: SimulationProvider, prover: CircuitProver) {
-    const orchestrator = new ProvingOrchestrator(db, simulationProvider, getVerificationKeys(), prover);
+  public static new(db: MerkleTreeOperations, prover: CircuitProver) {
+    const orchestrator = new ProvingOrchestrator(db, prover);
     orchestrator.start();
     return Promise.resolve(orchestrator);
   }
@@ -169,7 +161,7 @@ export class ProvingOrchestrator {
 
     validateTx(tx);
 
-    logger.info(`Received transaction :${tx.hash}`);
+    logger.info(`Received transaction: ${tx.hash}`);
 
     // We start the transaction by enqueueing the state updates
 
@@ -272,7 +264,7 @@ export class ProvingOrchestrator {
     stateIdentifier: string,
   ) {
     const [duration, baseRollupOutputs] = await elapsed(() =>
-      executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.simulator, this.prover, logger),
+      executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.prover, logger),
     );
     logger.debug(`Simulated base rollup circuit`, {
       eventName: 'circuit-simulation',
@@ -303,7 +295,7 @@ export class ProvingOrchestrator {
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
     );
     const [duration, circuitOutputs] = await elapsed(() =>
-      executeMergeRollupCircuit(circuitInputs, this.simulator, this.prover, logger),
+      executeMergeRollupCircuit(circuitInputs, this.prover, logger),
     );
     logger.debug(`Simulated merge rollup circuit`, {
       eventName: 'circuit-simulation',
@@ -331,7 +323,6 @@ export class ProvingOrchestrator {
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
       rootParityInput,
       this.provingState!.newL1ToL2Messages,
-      this.simulator,
       this.prover,
       this.db,
       logger,
@@ -369,9 +360,7 @@ export class ProvingOrchestrator {
   // Executes the base parity circuit and stores the intermediate state for the root parity circuit
   // Enqueues the root parity circuit if all inputs are available
   private async runBaseParityCircuit(inputs: BaseParityInputs, index: number, stateIdentifier: string) {
-    const [duration, circuitOutputs] = await elapsed(() =>
-      executeBaseParityCircuit(inputs, this.simulator, this.prover, logger),
-    );
+    const [duration, circuitOutputs] = await elapsed(() => executeBaseParityCircuit(inputs, this.prover, logger));
     logger.debug(`Simulated base parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'base-parity',
@@ -400,9 +389,7 @@ export class ProvingOrchestrator {
   // Runs the root parity circuit ans stored the outputs
   // Enqueues the root rollup proof if all inputs are available
   private async runRootParityCircuit(inputs: RootParityInputs, stateIdentifier: string) {
-    const [duration, circuitOutputs] = await elapsed(() =>
-      executeRootParityCircuit(inputs, this.simulator, this.prover, logger),
-    );
+    const [duration, circuitOutputs] = await elapsed(() => executeRootParityCircuit(inputs, this.prover, logger));
     logger.debug(`Simulated root parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'root-parity',

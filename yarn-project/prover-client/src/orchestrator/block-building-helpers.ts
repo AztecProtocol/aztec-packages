@@ -50,7 +50,6 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { CircuitProver } from '../prover/index.js';
-import { RollupSimulator } from '../simulator/rollup.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);
@@ -190,7 +189,6 @@ export function createMergeRollupInputs(
 
 export async function executeMergeRollupCircuit(
   mergeInputs: MergeRollupInputs,
-  simulator: RollupSimulator,
   prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
@@ -203,7 +201,6 @@ export async function executeRootRollupCircuit(
   right: [BaseOrMergeRollupPublicInputs, Proof],
   l1ToL2Roots: RootParityInput,
   newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-  simulator: RollupSimulator,
   prover: CircuitProver,
   db: MerkleTreeOperations,
   logger?: DebugLogger,
@@ -505,7 +502,6 @@ export async function executeBaseRollupCircuit(
   tx: ProcessedTx,
   inputs: BaseRollupInputs,
   treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
-  simulator: RollupSimulator,
   prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
@@ -549,7 +545,6 @@ export function validateSimulatedTree(
 
 export async function executeBaseParityCircuit(
   inputs: BaseParityInputs,
-  simulator: RollupSimulator,
   prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<RootParityInput> {
@@ -560,7 +555,6 @@ export async function executeBaseParityCircuit(
 
 export async function executeRootParityCircuit(
   inputs: RootParityInputs,
-  simulator: RollupSimulator,
   prover: CircuitProver,
   logger?: DebugLogger,
 ): Promise<RootParityInput> {

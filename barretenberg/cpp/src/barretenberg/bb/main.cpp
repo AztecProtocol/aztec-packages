@@ -231,7 +231,8 @@ void prove(const std::string& bytecodePath,
     if (pkPath == "") {
         Timer pk_timer;
         acir_composer.init_proving_key();
-        std::cout << "Generated proving key in " << pk_timer.milliseconds() << "ms" << std::endl;
+        std::cout << "Generated proving key for circuit size " << circuit_size << " in " << pk_timer.milliseconds()
+                  << "ms" << std::endl;
     } else {
         std::cout << "Loading CRS for circuit size " << circuit_size + 1 << " from " << CRS_PATH << std::endl;
         Timer crs_timer;
@@ -248,7 +249,6 @@ void prove(const std::string& bytecodePath,
         std::cout << "Proving key loaded in " << pk_timer.milliseconds() << "ms" << std::endl;
     }
 
-    std::cout << "Generating proof..." << std::endl;
     Timer proof_timer;
     auto proof = acir_composer.create_proof();
     std::cout << "Generated proof in " << proof_timer.milliseconds() << "ms" << std::endl;
@@ -303,7 +303,6 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
     auto verified = acir_composer.verify_proof(read_file(proof_path));
-
     vinfo("verified: ", verified);
     return verified;
 }

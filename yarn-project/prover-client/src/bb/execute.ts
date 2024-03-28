@@ -30,20 +30,27 @@ export type BBResult = BBSuccess | BBFailure;
  * @param command - The command to execute
  * @param args - The arguments to pass
  * @param logger - A log function
+ * @param resultParser - An optional handler for detecting success or failure
  * @returns The completed partial witness outputted from the circuit
  */
-export function executeBB(pathToBB: string, command: string, args: string[], logger: LogFn) {
+export function executeBB(
+  pathToBB: string,
+  command: string,
+  args: string[],
+  logger: LogFn,
+  resultParser = (code: number) => code === 0,
+) {
   return new Promise<BBResult>((resolve, reject) => {
     let errorBuffer = Buffer.alloc(0);
     const acvm = proc.spawn(pathToBB, [command, ...args]);
     acvm.stdout.on('data', data => {
-      logger(data.toString('utf-8'));
+      logger(data.toString('utf-8').replace(/\n$/, ''));
     });
     acvm.stderr.on('data', data => {
       errorBuffer = Buffer.concat([errorBuffer, data]);
     });
-    acvm.on('close', code => {
-      if (code === 0) {
+    acvm.on('close', (code: number) => {
+      if (resultParser(code)) {
         resolve({ status: BB_RESULT.SUCCESS });
       } else {
         reject(errorBuffer.toString('utf-8'));
@@ -233,4 +240,21 @@ export async function generateProof(
   const duration = timer.ms();
   await fs.rm(bytecodePath, { force: true });
   return { result, duration, outputPath };
+}
+
+export async function verifyProof(pathToBB: string, proofFullPath: string, verificationKeyPath: string, log: LogFn) {
+  const binaryPresent = await fs
+    .access(pathToBB, fs.constants.R_OK)
+    .then(_ => true)
+    .catch(_ => false);
+  if (!binaryPresent) {
+    const failed: BBFailure = { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
+    return { result: failed };
+  }
+
+  const args = ['-p', proofFullPath, '-k', verificationKeyPath];
+  const timer = new Timer();
+  const result = await executeBB(pathToBB, 'verify', args, log, (code: number) => code === 1);
+  const duration = timer.ms();
+  return { result, duration };
 }

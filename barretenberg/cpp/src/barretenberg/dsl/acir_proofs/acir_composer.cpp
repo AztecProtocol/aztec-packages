@@ -63,7 +63,6 @@ std::vector<uint8_t> AcirComposer::create_proof()
         proof = prover.construct_proof().proof_data;
     } else {
         auto prover = composer.create_ultra_with_keccak_prover(builder_);
-        std::cout << "Proving..." << std::endl;
         proof = prover.construct_proof().proof_data;
     }
     vinfo("done.");

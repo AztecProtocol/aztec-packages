@@ -1,28 +1,23 @@
 /* eslint-disable require-await */
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
   MergeRollupInputs,
   ParityPublicInputs,
+  PreviousRollupData,
   Proof,
+  RollupTypes,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
-  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { elapsed } from '@aztec/foundation/timer';
 import {
-  BaseParityArtifact,
   BaseRollupArtifact,
-  MergeRollupArtifact,
   ProtocolArtifacts,
   ProtocolCircuitArtifacts,
-  RootParityArtifact,
-  RootRollupArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
   convertBaseRollupInputsToWitnessMap,
@@ -36,14 +31,10 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 
+import { WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
-import {
-  BB_RESULT,
-  generateProof,
-  generateProvingKeyForNoirCircuit,
-  generateVerificationKeyForNoirCircuit,
-} from '../bb/execute.js';
+import { BB_RESULT, generateProof, generateVerificationKeyForNoirCircuit, verifyProof } from '../bb/execute.js';
 import { CircuitProver } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
@@ -60,6 +51,7 @@ export type BBProverConfig = {
  */
 export class BBNativeRollupProver implements CircuitProver {
   private provingKeyDirectories: Map<string, string> = new Map<string, string>();
+  private verificationKeyDirectories: Map<string, string> = new Map<string, string>();
   constructor(private config: BBProverConfig) {}
 
   static async new(config: BBProverConfig) {
@@ -83,20 +75,11 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getBaseParityProof(inputs: BaseParityInputs): Promise<[ParityPublicInputs, Proof]> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
-    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
+    const [outputWitness, proof] = await this.createProof(witnessMap, 'BaseParityArtifact');
 
-    const simulator = new NativeACVMSimulator(
-      this.config.acvmWorkingDirectory,
-      this.config.acvmBinaryPath,
-      outputWitnessFile,
-    );
+    const result = convertBaseParityOutputsFromWitnessMap(outputWitness);
 
-    const witness = await simulator.simulateCircuit(witnessMap, BaseParityArtifact);
-
-    const result = convertBaseParityOutputsFromWitnessMap(witness);
-
-    return Promise.resolve([result, makeEmptyProof()]);
+    return Promise.resolve([result, proof]);
   }
 
   /**
@@ -105,22 +88,16 @@ export class BBNativeRollupProver implements CircuitProver {
    * @returns The public inputs of the parity circuit.
    */
   public async getRootParityProof(inputs: RootParityInputs): Promise<[ParityPublicInputs, Proof]> {
+    // verify all base parity inputs
+    await Promise.all(inputs.children.map(child => this.verifyProof('BaseParityInput', child.proof)));
+
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
-    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
+    const [outputWitness, proof] = await this.createProof(witnessMap, 'RootParityArtifact');
 
-    const simulator = new NativeACVMSimulator(
-      this.config.acvmWorkingDirectory,
-      this.config.acvmBinaryPath,
-      outputWitnessFile,
-    );
+    const result = convertRootParityOutputsFromWitnessMap(outputWitness);
 
-    const witness = await simulator.simulateCircuit(witnessMap, RootParityArtifact);
-
-    const result = convertRootParityOutputsFromWitnessMap(witness);
-
-    return Promise.resolve([result, makeEmptyProof()]);
+    return Promise.resolve([result, proof]);
   }
 
   /**
@@ -131,8 +108,74 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
+    const [outputWitness, proof] = await this.createProof(witnessMap, 'BaseRollupArtifact');
+
+    const result = convertBaseRollupOutputsFromWitnessMap(outputWitness);
+
+    return Promise.resolve([result, proof]);
+  }
+  /**
+   * Simulates the merge rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  public async getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+    // verify both inputs
+    await Promise.all(input.previousRollupData.map(prev => this.verifyPreviousRollupProof(prev)));
+
+    const witnessMap = convertMergeRollupInputsToWitnessMap(input);
+
+    const [outputWitness, proof] = await this.createProof(witnessMap, 'MergeRollupArtifact');
+
+    const result = convertMergeRollupOutputsFromWitnessMap(outputWitness);
+
+    return Promise.resolve([result, proof]);
+  }
+
+  /**
+   * Simulates the root rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  public async getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]> {
+    // verify the inputs
+    await Promise.all(input.previousRollupData.map(prev => this.verifyPreviousRollupProof(prev)));
+
+    const witnessMap = convertRootRollupInputsToWitnessMap(input);
+
+    const [outputWitness, proof] = await this.createProof(witnessMap, 'BaseRollupArtifact');
+
+    await this.verifyProof('RootRollupArtifact', proof);
+
+    const result = convertRootRollupOutputsFromWitnessMap(outputWitness);
+    return Promise.resolve([result, proof]);
+  }
+
+  private async init() {
+    const realCircuits = Object.keys(ProtocolCircuitArtifacts).filter(
+      (n: string) => !n.includes('Simulated') && !n.includes('PrivateKernel'),
+    );
+    const promises = [];
+    for (const circuitName of realCircuits) {
+      const verificationKeyPromise = generateVerificationKeyForNoirCircuit(
+        this.config.bbBinaryPath,
+        this.config.bbWorkingDirectory,
+        circuitName,
+        ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
+        logger,
+      ).then(result => {
+        if (result) {
+          this.verificationKeyDirectories.set(circuitName, result);
+        }
+      });
+      promises.push(verificationKeyPromise);
+    }
+    await Promise.all(promises);
+  }
+
+  private async createProof(witnessMap: WitnessMap, circuitType: string): Promise<[WitnessMap, Proof]> {
+    // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    logger(`Using bb working directory ${bbWorkingDirectory}`);
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
     const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
 
@@ -142,109 +185,64 @@ export class BBNativeRollupProver implements CircuitProver {
       outputWitnessFile,
     );
 
-    const witness = await simulator.simulateCircuit(witnessMap, BaseRollupArtifact);
+    const artifact = ProtocolCircuitArtifacts[circuitType as ProtocolArtifacts];
+
+    logger(`Generating witness data for ${circuitType}`);
+
+    const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
+
+    logger(`Proving ${circuitType}...`);
 
     const provingResult = await generateProof(
       this.config.bbBinaryPath,
       bbWorkingDirectory,
-      'Base Rollup',
+      circuitType,
       BaseRollupArtifact,
       outputWitnessFile,
       logger,
     );
 
     if (provingResult.result.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate base rollup proof: ${provingResult.result.reason}`);
+      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.result.reason}`);
       throw new Error(provingResult.result.reason);
     }
 
-    const result = convertBaseRollupOutputsFromWitnessMap(witness);
+    const proofBuffer = await fs.readFile(provingResult.outputPath);
 
-    return Promise.resolve([result, makeEmptyProof()]);
+    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
+
+    logger(`Generated proof for ${circuitType}, size: ${proofBuffer.length} bytes`);
+
+    return [outputWitness, Proof.fromBuffer(proofBuffer)];
   }
-  /**
-   * Simulates the merge rollup circuit from its inputs.
-   * @param input - Inputs to the circuit.
-   * @returns The public inputs as outputs of the simulation.
-   */
-  public async getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
-    const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
+  private async verifyProof(circuitType: string, proof: Proof) {
+    // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
+    await fs.mkdir(bbWorkingDirectory, { recursive: true });
 
-    const simulator = new NativeACVMSimulator(
-      this.config.acvmWorkingDirectory,
-      this.config.acvmBinaryPath,
-      outputWitnessFile,
-    );
+    const proofFileName = `${bbWorkingDirectory}/proof`;
+    const verificationKeyPath = this.verificationKeyDirectories.get(circuitType);
 
-    // use WASM here as it is faster for small circuits
-    const witness = await simulator.simulateCircuit(witnessMap, MergeRollupArtifact);
+    await fs.writeFile(proofFileName, proof.toBuffer());
 
-    const result = convertMergeRollupOutputsFromWitnessMap(witness);
+    const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logger);
 
-    return Promise.resolve([result, makeEmptyProof()]);
-  }
+    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 
-  /**
-   * Simulates the root rollup circuit from its inputs.
-   * @param input - Inputs to the circuit.
-   * @returns The public inputs as outputs of the simulation.
-   */
-  public async getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]> {
-    const witnessMap = convertRootRollupInputsToWitnessMap(input);
-
-    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
-
-    const simulator = new NativeACVMSimulator(
-      this.config.acvmWorkingDirectory,
-      this.config.acvmBinaryPath,
-      outputWitnessFile,
-    );
-
-    // use WASM here as it is faster for small circuits
-    const [duration, witness] = await elapsed(() => simulator.simulateCircuit(witnessMap, RootRollupArtifact));
-
-    const result = convertRootRollupOutputsFromWitnessMap(witness);
-
-    logger(`Simulated root rollup circuit`, {
-      eventName: 'circuit-simulation',
-      circuitName: 'root-rollup',
-      duration,
-      inputSize: input.toBuffer().length,
-      outputSize: result.toBuffer().length,
-    } satisfies CircuitSimulationStats);
-    return Promise.resolve([result, makeEmptyProof()]);
-  }
-
-  private async init() {
-    const realCircuits = Object.keys(ProtocolCircuitArtifacts).filter(
-      (n: string) => !n.includes('Simulated') && !n.includes('PrivateKernel'),
-    );
-    const promises = [];
-    for (const circuitName of realCircuits) {
-      const provingKeyPromise = generateProvingKeyForNoirCircuit(
-        this.config.bbBinaryPath,
-        this.config.bbWorkingDirectory,
-        circuitName,
-        ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
-        logger,
-      ).then(result => {
-        if (result) {
-          this.provingKeyDirectories.set(circuitName, result);
-        }
-      });
-      const verificationKeyPromise = generateVerificationKeyForNoirCircuit(
-        this.config.bbBinaryPath,
-        this.config.bbWorkingDirectory,
-        circuitName,
-        ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
-        logger,
-      );
-      promises.push(...[provingKeyPromise, verificationKeyPromise]);
+    if (result.result.status === BB_RESULT.FAILURE) {
+      throw new Error(`Failed to verify ${circuitType} proof!`);
     }
-    await Promise.all(promises);
+
+    logger(`Successfully verified ${circuitType} proof!`);
+  }
+
+  private async verifyPreviousRollupProof(previousRollupData: PreviousRollupData) {
+    const proof = previousRollupData.proof;
+    const circuitType =
+      previousRollupData.baseOrMergeRollupPublicInputs.rollupType === RollupTypes.Base
+        ? 'BaseRollupArtifact'
+        : 'MergeRollupArtifact';
+    await this.verifyProof(circuitType, proof);
   }
 }
