@@ -47,7 +47,6 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         static const FF one = FF::one();
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);
-        static const FF minus_three = FF(-3);
 
         // Compute wire differences
         auto delta_1 = w_2 - w_1;
