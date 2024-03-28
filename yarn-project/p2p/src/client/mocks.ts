@@ -1,4 +1,4 @@
-import { L2Block, L2BlockSource, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { L2Block, L2BlockSource, TxEffect, TxHash, TxReceipt, revertCodeToStatus } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 
 /**
@@ -78,7 +78,16 @@ export class MockBlockSource implements L2BlockSource {
     for (const block of this.l2Blocks) {
       for (const txEffect of block.body.txEffects) {
         if (txEffect.txHash.equals(txHash)) {
-          return Promise.resolve(new TxReceipt(txHash, TxStatus.MINED, '', block.hash().toBuffer(), block.number));
+          return Promise.resolve(
+            new TxReceipt(
+              txHash,
+              revertCodeToStatus(txEffect.revertCode),
+              '',
+              txEffect.daGasUsed,
+              block.hash().toBuffer(),
+              block.number,
+            ),
+          );
         }
       }
     }

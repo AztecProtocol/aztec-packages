@@ -14,8 +14,8 @@ import {
   TxEffect,
   TxHash,
   TxReceipt,
-  TxStatus,
   UnencryptedL2BlockL2Logs,
+  revertCodeToStatus,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -267,10 +267,17 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    */
   public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     for (const blockContext of this.l2BlockContexts) {
-      for (const currentTxHash of blockContext.getTxHashes()) {
-        if (currentTxHash.equals(txHash)) {
+      for (const currentTx of blockContext.block.getTxs()) {
+        if (currentTx.txHash.equals(txHash)) {
           return Promise.resolve(
-            new TxReceipt(txHash, TxStatus.MINED, '', blockContext.block.hash().toBuffer(), blockContext.block.number),
+            new TxReceipt(
+              txHash,
+              revertCodeToStatus(currentTx.revertCode),
+              '',
+              currentTx.daGasUsed,
+              blockContext.block.hash().toBuffer(),
+              blockContext.block.number,
+            ),
           );
         }
       }

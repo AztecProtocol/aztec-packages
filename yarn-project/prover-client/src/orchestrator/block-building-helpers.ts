@@ -1,4 +1,4 @@
-import { MerkleTreeId, ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, ProcessedTx, toTxEffect } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -47,6 +47,8 @@ import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MerkleTreeOperations } from '@aztec/world-state';
+
+import { inspect } from 'util';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
@@ -515,6 +517,15 @@ export async function executeBaseRollupCircuit(
 ): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
   logger?.(`Running base rollup for ${tx.hash}`);
   const rollupOutput = await simulator.baseRollupCircuit(inputs);
+  const txEffect = toTxEffect(tx);
+  const txEffectHash = txEffect.hash();
+  if (!rollupOutput.txsEffectsHash.toBuffer().equals(txEffectHash)) {
+    throw new Error(
+      `Tx with hash ${tx.hash} had effects mismatch (tx ${new Fr(txEffectHash)}, rollup ${
+        rollupOutput.txsEffectsHash
+      }). (tx ${inspect(txEffect.daGasUsed)}, rollup ${inspect(inputs.kernelData.publicInputs.end.daGasUsed)})`,
+    );
+  }
   validatePartialState(rollupOutput.end, treeSnapshots);
   const proof = await prover.getBaseRollupProof(inputs, rollupOutput);
   return [rollupOutput, proof];

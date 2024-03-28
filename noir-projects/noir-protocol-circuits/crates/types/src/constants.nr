@@ -65,6 +65,13 @@ global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
 // docs:end:constants
 
+// Gas and metering
+global DA_GAS_PER_BYTE: u64 = 16;
+// TODO(@just-mitch) need to update constants.in.ts to do math
+// 17 * 16; 8 for da_gas_used, 8 for compute_gas_used, 1 for revert_code, times DA_GAS_PER_BYTE
+global FIXED_DA_GAS: u64 = 272;
+global DA_BYTES_PER_FIELD: u64 = 32;
+
 // ROLLUP CONTRACT CONSTANTS - constants used only in l1-contracts
 global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP: u64 = 16;
 

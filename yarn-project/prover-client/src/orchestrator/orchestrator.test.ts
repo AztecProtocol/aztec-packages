@@ -3,6 +3,8 @@ import {
   PROVING_STATUS,
   ProcessedTx,
   ProvingSuccess,
+  getMockTxGasUsed,
+  isProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
   mockTx,
@@ -367,6 +369,8 @@ describe('prover/tx-prover', () => {
       processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
       processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
 
+      processedTx.data.endNonRevertibleData.daGasUsed = getMockTxGasUsed(processedTx);
+
       return processedTx;
     };
 
@@ -429,6 +433,9 @@ describe('prover/tx-prover', () => {
       }
 
       const result = await blockTicket.provingPromise;
+      if (!isProvingSuccess(result)) {
+        throw `Failed to prove due to ${result.reason}`;
+      }
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 30_000);

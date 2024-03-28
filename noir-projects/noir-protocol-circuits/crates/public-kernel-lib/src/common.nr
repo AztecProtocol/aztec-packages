@@ -72,6 +72,7 @@ pub fn initialize_emitted_end_values(
     }
 
     let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
+    circuit_outputs.end_non_revertible.da_gas_used = start_non_revertible.da_gas_used;
     circuit_outputs.end_non_revertible.new_note_hashes = array_to_bounded_vec(start_non_revertible.new_note_hashes);
     circuit_outputs.end_non_revertible.new_nullifiers = array_to_bounded_vec(start_non_revertible.new_nullifiers);
     circuit_outputs.end_non_revertible.public_data_update_requests = array_to_bounded_vec(start_non_revertible.public_data_update_requests);
@@ -92,18 +93,19 @@ pub fn initialize_end_values(
     initialize_emitted_end_values(previous_kernel, circuit_outputs);
 
     if circuit_outputs.end_non_revertible.revert_code == 0 {
-        let start = previous_kernel.public_inputs.end;
+        let prev_end = previous_kernel.public_inputs.end;
         // circuit_outputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack); // This is enforced in the private tail to always be empty.
-        circuit_outputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
+        circuit_outputs.end.public_call_stack = array_to_bounded_vec(prev_end.public_call_stack);
     }
 
-    let start_non_revertible = previous_kernel.public_inputs.end_non_revertible;
-    circuit_outputs.end_non_revertible.public_call_stack = array_to_bounded_vec(start_non_revertible.public_call_stack);
+    let prev_non_revertible = previous_kernel.public_inputs.end_non_revertible;
+    circuit_outputs.end_non_revertible.public_call_stack = array_to_bounded_vec(prev_non_revertible.public_call_stack);
+    circuit_outputs.end_non_revertible.da_gas_used = prev_non_revertible.da_gas_used;
 
-    let start = previous_kernel.public_inputs.validation_requests;
-    circuit_outputs.validation_requests.max_block_number = previous_kernel.public_inputs.validation_requests.for_rollup.max_block_number;
-    circuit_outputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
-    circuit_outputs.validation_requests.nullifier_non_existent_read_requests = array_to_bounded_vec(start.nullifier_non_existent_read_requests);
+    let prev_validation_requests = previous_kernel.public_inputs.validation_requests;
+    circuit_outputs.validation_requests.max_block_number = prev_validation_requests.for_rollup.max_block_number;
+    circuit_outputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(prev_validation_requests.nullifier_read_requests);
+    circuit_outputs.validation_requests.nullifier_non_existent_read_requests = array_to_bounded_vec(prev_validation_requests.nullifier_non_existent_read_requests);
 }
 
 fn perform_static_call_checks(public_call: PublicCallData) {

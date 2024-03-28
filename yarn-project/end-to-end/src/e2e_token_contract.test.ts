@@ -10,6 +10,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
+import { GasUsed } from '@aztec/circuits.js';
 import { decodeFunctionSignature } from '@aztec/foundation/abi';
 import { DocsExampleContract, ReaderContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -312,7 +313,11 @@ describe('e2e_token_contract', () => {
         const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
-        await asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0).send().wait();
+        const receipt = await asset.methods
+          .transfer_public(accounts[0].address, accounts[1].address, amount, 0)
+          .send()
+          .wait();
+        expect(receipt.daGasUsed?.equals(new GasUsed(3024n))).toBeTruthy();
 
         tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
       });

@@ -16,6 +16,9 @@ function isRevertCodeEnum(value: number): value is RevertCodeEnum {
  * Wrapper class over a field to safely represent a revert code.
  */
 export class RevertCode {
+  public static readonly PACKED_SIZE_IN_BYTES = 1n;
+  private static readonly PREIMAGE_SIZE_IN_BYTES = 32n;
+
   private code: number;
   private constructor(e: RevertCodeEnum) {
     this.code = e.valueOf();
@@ -38,15 +41,13 @@ export class RevertCode {
    * from serialization for transmitting the data.
    */
 
-  private static readonly PREIMAGE_SIZE_IN_BYTES = 32;
   public toHashPreimage(): Buffer {
-    const padding = Buffer.alloc(RevertCode.PREIMAGE_SIZE_IN_BYTES - RevertCode.PACKED_SIZE_IN_BYTES);
+    const padding = Buffer.alloc(Number(RevertCode.PREIMAGE_SIZE_IN_BYTES - RevertCode.PACKED_SIZE_IN_BYTES));
     return Buffer.concat([padding, this.toBuffer()]);
   }
 
-  private static readonly PACKED_SIZE_IN_BYTES = 1;
   public toBuffer(): Buffer {
-    const b = Buffer.alloc(RevertCode.PACKED_SIZE_IN_BYTES);
+    const b = Buffer.alloc(Number(RevertCode.PACKED_SIZE_IN_BYTES));
     b.writeUInt8(this.code, 0);
     return b;
   }
@@ -73,7 +74,7 @@ export class RevertCode {
 
   public static fromBuffer(buffer: Buffer | BufferReader): RevertCode {
     const reader = BufferReader.asReader(buffer);
-    const code = reader.readBytes(RevertCode.PACKED_SIZE_IN_BYTES).readUInt8(0);
+    const code = reader.readBytes(Number(RevertCode.PACKED_SIZE_IN_BYTES)).readUInt8(0);
     if (!isRevertCodeEnum(code)) {
       throw new Error(`Invalid RevertCode: ${code}`);
     }
