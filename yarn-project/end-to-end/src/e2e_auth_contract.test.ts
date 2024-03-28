@@ -19,7 +19,8 @@ describe('e2e_auth_contract', () => {
 
   let contract: AuthContract;
 
-  const VALUE = 5;
+  const VALUE = 3;
+  const DELAY = 5;
 
   beforeAll(async () => {
     ({
@@ -76,19 +77,24 @@ describe('e2e_auth_contract', () => {
   });
 
   it('after a while the scheduled change is effective and can be used with max block restriction', async () => {
-    await mineBlocks(5); // This gets us past the block of change, since the delay is 5 blocks
+    await mineBlocks(DELAY); // This gets us past the block of change
 
-    const interaction = contract.methods.get_authorized();
+    await assertLoggedAddress(contract.methods.get_authorized(), authorized.getAddress());
 
-    // These assertions are currently failing, need to investigate why.
-    //const tx = await interaction.simulate();
-    //const lastBlockNumber = await pxe.getBlockNumber();
-    //expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-    //expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(lastBlockNumber + 5);
+    const interaction = contract.withWallet(authorized).methods.do_private_authorized_thing(VALUE);
 
-    await assertLoggedAddress(interaction, authorized.getAddress());
+    const tx = await interaction.simulate();
 
-    await assertLoggedNumber(contract.withWallet(authorized).methods.do_private_authorized_thing(VALUE), VALUE);
+    const lastBlockNumber = await pxe.getBlockNumber();
+    // In the last block there was no scheduled value change, so the earliest one could be scheduled is in the next
+    // block. Because of the delay, the block of change would be lastBlockNumber + 1 + DELAY. Therefore the block
+    // horizon should be the block preceding that one.
+    const expectedMaxBlockNumber = lastBlockNumber + DELAY;
+
+    expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+    expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedMaxBlockNumber));
+
+    await assertLoggedNumber(interaction, VALUE);
   });
 
   it('a new authorized address is set but not immediately effective, the previous one retains permissions', async () => {
@@ -106,7 +112,7 @@ describe('e2e_auth_contract', () => {
   });
 
   it('after some time the scheduled change is made effective', async () => {
-    await mineBlocks(5); // This gets us past the block of change, since the delay is 5 blocks
+    await mineBlocks(DELAY); // This gets us past the block of change
 
     await assertLoggedAddress(contract.methods.get_authorized(), other.getAddress());
 

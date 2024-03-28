@@ -45,7 +45,7 @@ contract Auth {
         // We emit logs because we cannot otherwise return these values
         emit_unencrypted_log(
             &mut context,
-            storage.authorized.get_scheduled_value_in_public()
+            storage.authorized.get_scheduled_value_in_public().0
         );
     }
 
