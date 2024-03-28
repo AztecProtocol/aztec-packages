@@ -24,7 +24,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension -pthread)
-        add_link_options(-Wl,--shared-memory)
     endif()
 endif()
 
@@ -189,6 +188,12 @@ if(WASM)
 
     target_link_options(
         barretenberg.wasm
+        PRIVATE
+        -nostartfiles -Wl,--no-entry,--export-dynamic
+    )
+
+    target_link_options(
+        barretenberg-threads.wasm
         PRIVATE
         -nostartfiles -Wl,--no-entry,--export-dynamic
     )
