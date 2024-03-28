@@ -67,8 +67,11 @@ export class Body {
 
     // Copy of TxsDecoder.computeNumTxEffectsToPad
     const computeNumTxEffectsToPad = (numTxEffects: number) => {
-      if (numTxEffects === 0) {
-        return 2; // TODO(benesjan): replace with constant
+      // 2 is the minimum number of tx effects so we have to handle the following 2 cases separately
+      if (numTxEffects == 0) {
+        return 2;
+      } else if (numTxEffects == 1) {
+        return 1;
       }
 
       let v: number = numTxEffects;
