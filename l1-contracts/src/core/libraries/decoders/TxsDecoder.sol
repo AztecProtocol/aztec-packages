@@ -78,11 +78,12 @@ library TxsDecoder {
     ConsumablesVars memory vars;
     uint256 offset = 0;
 
-    {
-      uint256 count = read4(_body, offset); // number of tx effects
-      offset += 0x4;
-      vars.baseLeaves = new bytes32[](count);
-    }
+    uint256 numTxEffects = read4(_body, offset); // number of tx effects
+    // TODO(benesjan): is this correct? Does it need to be a multiples of 4 instead?
+    uint256 numExEffectsToPad = 4 - (numTxEffects % 4);
+
+    offset += 0x4;
+    vars.baseLeaves = new bytes32[](numTxEffects + numExEffectsToPad);
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
     {
@@ -178,6 +179,12 @@ library TxsDecoder {
         );
 
         vars.baseLeaves[i] = Hash.sha256ToField(vars.baseLeaf);
+      }
+
+      // We pad base leaves with hashes of empty tx effect.
+      for (uint256 i = numTxEffects; i < vars.baseLeaves.length; i++) {
+        // Value taken from tx_effect.test.ts "hash of empty tx effect matches snapshot" test case
+        vars.baseLeaves[i] = hex"0071f7630d28ce02cc1ca8b15c44953f84a39e1478445395247ae04dfa213c0e";
       }
     }
 

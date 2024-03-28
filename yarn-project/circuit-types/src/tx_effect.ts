@@ -180,6 +180,10 @@ export class TxEffect {
     return new TxEffect(RevertCode.OK, [], [], [], [], EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty());
   }
 
+  isEmpty(): boolean {
+    return this.nullifiers.length === 0;
+  }
+
   /**
    * Returns a string representation of the TxEffect object.
    */
