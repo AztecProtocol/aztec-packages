@@ -1,7 +1,5 @@
 #pragma once
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
-#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -16,26 +14,17 @@
 #include "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/relations/relation_types.hpp"
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 namespace bb {
 
-template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBase {
+class ECCVMFlavor {
   public:
-    // forward template params into the ECCVMBase namespace
-    using CycleGroup = CycleGroup_T;
-    using Curve = Curve_T;
+    using CycleGroup = bb::g1;
+    using Curve = curve::Grumpkin;
     using G1 = typename Curve::Group;
-    using PCS = PCS_T;
-
+    using PCS = IPA<Curve>;
     using FF = typename G1::subgroup_field;
     using Polynomial = bb::Polynomial<FF>;
     using GroupElement = typename G1::element;
@@ -300,7 +289,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
 
-        auto get_to_be_shifted() { return ECCVMBase::get_to_be_shifted<DataType>(*this); }
+        auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
@@ -316,7 +305,7 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
-        auto get_to_be_shifted() { return ECCVMBase::get_to_be_shifted<Polynomial>(*this); }
+        auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<Polynomial>(*this); }
         // The plookup wires that store plookup read data.
         RefArray<Polynomial, 0> get_table_column_wires() { return {}; };
     };
@@ -345,7 +334,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
       public:
         using Base = AllEntities<FF>;
         using Base::Base;
-        AllValues(std::array<FF, NUM_ALL_ENTITIES> _data_in) { this->_data = _data_in; }
     };
 
     /**
@@ -965,8 +953,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
         }
     };
 };
-
-class ECCVMFlavor : public ECCVMBase<bb::g1, curve::Grumpkin, IPA<curve::Grumpkin>> {};
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
