@@ -14,7 +14,7 @@ struct PreviousRollupData{
 impl Default for PreviousRollupData {
     fn default() -> Self {
         PreviousRollupData {
-            base_or_merge_rollup_public_inputs: dep::std::unsafe::zeroed(),
+            base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs::default(),
             proof : Proof::default(),
             vk : VerificationKey::default(),
             vk_index : 0 as u32,

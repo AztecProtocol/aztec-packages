@@ -24,6 +24,16 @@ impl Eq for PrivateCallStackItem {
     }
 }
 
+impl Default for PrivateCallStackItem {
+    fn default() -> Self {
+        PrivateCallStackItem {
+            contract_address: AztecAddress::default(),
+            function_data: FunctionData::default(),
+            public_inputs: PrivateCircuitPublicInputs::default(),
+        }
+    }
+}
+
 impl Serialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
     fn serialize(self) -> [Field; PRIVATE_CALL_STACK_ITEM_LENGTH] {
         let mut fields: BoundedVec<Field, PRIVATE_CALL_STACK_ITEM_LENGTH> = BoundedVec::new();
@@ -62,7 +72,7 @@ impl Hash for PrivateCallStackItem {
 
 #[test]
 fn serialization_of_empty() {
-    let item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let item = PrivateCallStackItem::default();
     let serialized = item.serialize();
     let deserialized = PrivateCallStackItem::deserialize(serialized);
     assert(item.eq(deserialized));
@@ -70,7 +80,7 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let mut item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let mut item = PrivateCallStackItem::default();
     item.function_data.is_private = true;
     let hash = item.hash();
 

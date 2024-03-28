@@ -35,9 +35,34 @@ struct PublicCircuitPublicInputsBuilder {
     revert_code: u8,
 }
 
+impl Default for PublicCircuitPublicInputsBuilder {
+    fn default() -> Self {
+        PublicCircuitPublicInputsBuilder {
+            call_context: CallContext::default(),
+            args_hash: 0,
+            return_values: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
+            contract_storage_update_requests: BoundedVec::new(),
+            contract_storage_reads: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            start_side_effect_counter: 0 as u32,
+            end_side_effect_counter: 0 as u32,
+            unencrypted_logs_hash: 0,
+            unencrypted_log_preimages_length: 0,
+            historical_header: Header::default(),
+            prover_address: AztecAddress::default(),
+            revert_code: 0 as u8,
+        }
+    }
+}
+
 impl PublicCircuitPublicInputsBuilder {
     pub fn new() -> Self {
-        let mut public_inputs: PublicCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
+        let mut public_inputs = PublicCircuitPublicInputsBuilder::default();
         public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
         public_inputs.historical_header = fixtures::HEADER;
         public_inputs

@@ -57,27 +57,36 @@ struct PrivateCircuitPublicInputs {
 
 impl Eq for PrivateCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
-        self.call_context.eq(other.call_context) &
-        self.args_hash.eq(other.args_hash) &
-        (self.return_values == other.return_values) &
-        (self.max_block_number == other.max_block_number) &
-        (self.note_hash_read_requests == other.note_hash_read_requests) &
-        (self.nullifier_read_requests == other.nullifier_read_requests) &
-        (self.nullifier_key_validation_requests == other.nullifier_key_validation_requests) &
-        (self.new_note_hashes == other.new_note_hashes) &
-        (self.new_nullifiers == other.new_nullifiers) &
-        (self.private_call_stack_hashes == other.private_call_stack_hashes) &
-        (self.public_call_stack_hashes == other.public_call_stack_hashes) &
-        (self.new_l2_to_l1_msgs == other.new_l2_to_l1_msgs) &
-        (self.start_side_effect_counter == other.start_side_effect_counter) &
-        (self.end_side_effect_counter == other.end_side_effect_counter) &
-        (self.encrypted_logs_hash == other.encrypted_logs_hash) &
-        (self.unencrypted_logs_hash == other.unencrypted_logs_hash) &
-        (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
-        (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
-        self.historical_header.eq(other.historical_header) &
-        self.chain_id.eq(other.chain_id) &
-        self.version.eq(other.version)
+        self.serialize() == other.serialize()
+    }
+}
+
+impl Default for PrivateCircuitPublicInputs {
+    fn default() -> Self {
+        PrivateCircuitPublicInputs {
+            call_context: CallContext::default(),
+            args_hash: 0,
+            return_values: [0; RETURN_VALUES_LENGTH],
+            min_revertible_side_effect_counter: 0 as u32,
+            max_block_number: MaxBlockNumber::default(),
+            note_hash_read_requests: [SideEffect::default(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+            nullifier_read_requests: [ReadRequest::default(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+            nullifier_key_validation_requests: [NullifierKeyValidationRequest::default(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
+            new_note_hashes: [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_CALL],
+            new_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_CALL],
+            private_call_stack_hashes: [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+            public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+            new_l2_to_l1_msgs: [L2ToL1Message::default(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+            start_side_effect_counter : 0 as u32,
+            end_side_effect_counter : 0 as u32,
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            historical_header: Header::default(),
+            chain_id: 0,
+            version: 0,
+        }
     }
 }
 
@@ -170,7 +179,7 @@ impl Hash for PrivateCircuitPublicInputs {
 
 #[test]
 fn serialization_of_empty() {
-    let pcpi: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let pcpi = PrivateCircuitPublicInputs::default();
     let serialized = pcpi.serialize();
     let deserialized = PrivateCircuitPublicInputs::deserialize(serialized);
     assert(pcpi.eq(deserialized));
@@ -178,7 +187,7 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let inputs: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let inputs = PrivateCircuitPublicInputs::default();
     let hash = inputs.hash();
 
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test

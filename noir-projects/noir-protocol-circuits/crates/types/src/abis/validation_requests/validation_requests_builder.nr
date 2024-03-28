@@ -25,7 +25,7 @@ struct ValidationRequestsBuilder {
 impl Default for ValidationRequestsBuilder {
     fn default() -> Self {
         ValidationRequestsBuilder {
-            max_block_number: dep::std::unsafe::zeroed(),
+            max_block_number: MaxBlockNumber::default(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
