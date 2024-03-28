@@ -133,10 +133,8 @@ void AvmMemTraceBuilder::load_mismatch_tag_in_mem_trace(uint32_t const m_clk,
 bool AvmMemTraceBuilder::load_from_mem_trace(
     uint32_t clk, uint32_t sub_clk, uint32_t addr, FF const& val, AvmMemoryTag r_in_tag, AvmMemoryTag w_in_tag)
 {
-    AvmMemoryTag m_tag = AvmMemoryTag::U0;
-    if (memory.contains(addr)) {
-        m_tag = memory.at(addr).tag;
-    }
+    AvmMemoryTag m_tag = memory.contains(addr) ? memory.at(addr).tag : AvmMemoryTag::U0;
+
     if (m_tag == AvmMemoryTag::U0 || m_tag == r_in_tag) {
         insert_in_mem_trace(clk, sub_clk, addr, val, r_in_tag, r_in_tag, w_in_tag, false);
         return true;
@@ -192,11 +190,7 @@ void AvmMemTraceBuilder::store_in_mem_trace(
  */
 AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint32_t const clk, uint32_t const addr)
 {
-    MemEntry memEntry;
-
-    if (memory.contains(addr)) {
-        memEntry = memory.at(addr);
-    }
+    MemEntry memEntry = memory.contains(addr) ? memory.at(addr) : MemEntry{};
 
     mem_trace.emplace_back(MemoryTraceEntry{
         .m_clk = clk,
@@ -245,12 +239,7 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::read_and_load_from_memory(uint32
         break;
     }
 
-    FF val = 0;
-
-    if (memory.contains(addr)) {
-        val = memory.at(addr).val;
-    }
-
+    FF val = memory.contains(addr) ? memory.at(addr).val : 0;
     bool tagMatch = load_from_mem_trace(clk, sub_clk, addr, val, r_in_tag, w_in_tag);
 
     return MemRead{
@@ -276,10 +265,7 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::indirect_read_and_load_from_memo
         break;
     }
 
-    FF val = 0;
-    if (memory.contains(addr)) {
-        val = memory.at(addr).val;
-    }
+    FF val = memory.contains(addr) ? memory.at(addr).val : 0;
     bool tagMatch = load_from_mem_trace(clk, sub_clk, addr, val, AvmMemoryTag::U32, AvmMemoryTag::U0);
 
     return MemRead{
