@@ -261,6 +261,7 @@ export class PublicExecutor {
 
     // Create the directory if it does not exist
     await fs.mkdir(artifactsPath, { recursive: true });
+    await fs.rm(artifactsPath, { recursive: true, force: true });
 
     const calldataPath = path.join(artifactsPath, 'calldata.bin');
     const bytecodePath = path.join(artifactsPath, 'avm_bytecode.bin');
