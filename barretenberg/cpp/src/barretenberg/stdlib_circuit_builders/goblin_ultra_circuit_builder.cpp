@@ -226,21 +226,22 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
  * @param read_idx_witness_idx Variable index of the read index
  * @return uint32_t Variable index of the result of the read
  */
-template <typename FF> uint32_t GoblinUltraCircuitBuilder_<FF>::read_calldata(const uint32_t& read_idx_witness_idx)
+template <typename FF>
+uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, const uint32_t& read_idx_witness_idx)
 {
     // Get the raw index into the calldata
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 
     // Ensure that the read index is valid
-    ASSERT(read_idx < public_calldata.size());
+    ASSERT(read_idx < bus_vector.size());
 
     // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
     // calldata via copy constraints (i.e. we create a unique variable for the result of each read)
-    FF calldata_value = this->get_variable(public_calldata[read_idx]);
-    uint32_t value_witness_idx = this->add_variable(calldata_value);
+    FF value = this->get_variable(bus_vector[read_idx]);
+    uint32_t value_witness_idx = this->add_variable(value);
 
     create_calldata_read_gate({ read_idx_witness_idx, value_witness_idx });
-    calldata_read_counts[read_idx]++;
+    bus_vector.read_counts[read_idx]++;
 
     return value_witness_idx;
 }
@@ -251,8 +252,7 @@ template <typename FF> uint32_t GoblinUltraCircuitBuilder_<FF>::read_calldata(co
  * @tparam FF
  * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
  */
-template <typename FF>
-void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_lookup_gate_<FF>& in)
+template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in)
 {
     auto& block = this->blocks.busread;
     block.populate_wires(in.value, in.index, this->zero_idx, this->zero_idx);
@@ -275,6 +275,20 @@ void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_loo
     this->check_selector_length_consistency();
 
     ++this->num_gates;
+}
+
+/**
+ * @brief Create a calldata lookup/read gate
+ *
+ * @tparam FF
+ * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
+ */
+template <typename FF>
+void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_lookup_gate_<FF>& in)
+{
+    create_databus_read_gate(in);
+    auto& block = this->blocks.busread;
+    block.q_1()[block.size() - 1] = 1;
 }
 
 /**
