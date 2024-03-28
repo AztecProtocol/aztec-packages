@@ -66,8 +66,8 @@ export class Body {
     };
 
     const leafs: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
-    // TODO(benesjan): is this correct? Does it need to be a multiples of 4 instead?
-    const numLeafsToPad = 4 - (leafs.length % 4);
+    // TODO(benesjan): is this correct?
+    const numLeafsToPad = leafs.length === 0 ? 4 : (4 - (leafs.length % 4)) % 4;
     if (numLeafsToPad !== 0) {
       const emptyTxEffectHash = TxEffect.empty().hash();
       for (let i = 0; i < numLeafsToPad; i++) {

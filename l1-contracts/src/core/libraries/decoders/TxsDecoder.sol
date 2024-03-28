@@ -14,7 +14,7 @@ import {Hash} from "../Hash.sol";
  * @dev Assumes the input trees to be padded.
  *
  * -------------------
- * You can use scripts/l2_block_data_specification_comment.py to generate the below outline.
+ * You can use scripts/l2_block_data_specification_comment.py to generate the below outline. --> SCRIPT STALE NOW!
  * -------------------
  * L2 Body Data Specification
  * -------------------
@@ -68,9 +68,9 @@ library TxsDecoder {
   }
 
   /**
-   * @notice Computes consumables for the block
-   * @param _body - The L2 block calldata.
-   * @return diffRoot - The root of the diff tree (new note hashes, nullifiers etc)
+   * @notice Computes txs effects hash
+   * @param _body - The L2 block body calldata.
+   * @return The txs effects hash.
    */
   function decode(bytes calldata _body) internal pure returns (bytes32) {
     ArrayOffsets memory offsets;
@@ -79,8 +79,9 @@ library TxsDecoder {
     uint256 offset = 0;
 
     uint256 numTxEffects = read4(_body, offset); // number of tx effects
-    // TODO(benesjan): is this correct? Does it need to be a multiples of 4 instead?
-    uint256 numTxEffectsToPad = 4 - (numTxEffects % 4);
+    // TODO(benesjan): is this correct?
+    // TODO(benesjan): replace 4 with constant
+    uint256 numTxEffectsToPad = numTxEffects == 0 ? 4 : (4 - (numTxEffects % 4)) % 4;
 
     offset += 0x4;
     vars.baseLeaves = new bytes32[](numTxEffects + numTxEffectsToPad);
