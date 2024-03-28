@@ -25,10 +25,11 @@ if [ -f "$TESTS" ]; then
   TESTS=$(cat $TESTS | tr '\n' ' ')
 fi
 
+# Convert the string it an array so we can process as args to gtest-parallel
+IFS=' ' read -r -a TEST_ARRAY <<< $TESTS
 # Prepend ./bin/ and append any args (e.g. gTest Filters)
-TESTS_STR="${TESTS[@]/#/./bin/}"
+TESTS_STR="${TEST_ARRAY[@]/#/./bin/}"
 TESTS_STR="${TESTS_STR[@]/%/ ${@}}"
-
 docker run --rm -t $IMAGE_URI /bin/sh -c "\
   set -xe; \
   /usr/src/barretenberg/cpp/srs_db/download_ignition.sh $NUM_TRANSCRIPTS; \
