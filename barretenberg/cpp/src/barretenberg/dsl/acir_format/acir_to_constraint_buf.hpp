@@ -405,8 +405,9 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit)
 
 AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
 {
-    // TODO(maxim): Handle the new `Program` structure once ACVM supports a function call stack.
-    // For now we expect a single ACIR function
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just `program_buf_to_acir_format`
+    // once Honk fully supports all ACIR test flows
+    // For now the backend still expects to work with a single ACIR function
     auto circuit = Program::Program::bincodeDeserialize(buf).functions[0];
 
     return circuit_serde_to_acir_format(circuit);
@@ -448,9 +449,9 @@ WitnessVector witness_map_to_witness_vector(WitnessStack::WitnessMap const& witn
  */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
 {
-    // TODO(maxim): Handle the new `WitnessStack` structure once ACVM supports a function call stack
-    // A `StackItem` contains an index to an ACIR circuit and its respective ACIR-native `WitnessMap`.
-    // For now we expect the `WitnessStack` to contain a single witness.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just `witness_buf_to_witness_stack`
+    // once Honk fully supports all ACIR test flows.
+    // For now the backend still expects to work with the stop of the `WitnessStack`.
     auto witness_stack = WitnessStack::WitnessStack::bincodeDeserialize(buf);
     auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
 
