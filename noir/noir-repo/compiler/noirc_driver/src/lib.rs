@@ -491,7 +491,7 @@ pub fn compile_no_check(
         // TODO(https://github.com/noir-lang/noir/issues/4428)
         program,
         // TODO(https://github.com/noir-lang/noir/issues/4428)
-        // Debug info is only relevant for errors at execution time which this PR does not yet support
+        // Debug info is only relevant for errors at execution time which is not yet supported
         // The CompileProgram `debug` field is used in multiple places and is better
         // left to be updated once execution of multiple ACIR functions is enabled
         debug: debug[0].clone(),
