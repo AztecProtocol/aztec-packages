@@ -3,6 +3,41 @@ import { inflate } from 'pako';
 import { type FunctionSelector } from './function_selector.js';
 
 /**
+ * A basic value.
+ */
+export interface BasicValue<T extends string, V> {
+  /**
+   * The kind of the value.
+   */
+  kind: T;
+  value: V;
+}
+
+/**
+ * An exported value.
+ */
+export type ABIValue =
+  | BasicValue<'boolean', boolean>
+  | BasicValue<'string', string>
+  | BasicValue<'array', ABIValue[]>
+  | IntegerValue
+  | FieldValue
+  | StructValue;
+
+export interface StructValue {
+  kind: 'struct';
+  fields: (ABIValue & { name: string })[];
+}
+
+export interface FieldValue extends BasicValue<'field', string> {
+  sign: boolean;
+}
+
+export interface IntegerValue extends BasicValue<'integer', string> {
+  sign: boolean;
+}
+
+/**
  * A named type.
  */
 export interface ABIVariable {
@@ -99,24 +134,6 @@ export interface StructType extends BasicType<'struct'> {
    * Fully qualified name of the struct.
    */
   path: string;
-}
-
-/**
- * A contract event.
- */
-export interface EventAbi {
-  /**
-   * The event name.
-   */
-  name: string;
-  /**
-   * Fully qualified name of the event.
-   */
-  path: string;
-  /**
-   * The fields of the event.
-   */
-  fields: ABIVariable[];
 }
 
 /**
@@ -260,9 +277,12 @@ export interface ContractArtifact {
    */
   functions: FunctionArtifact[];
   /**
-   * The events of the contract.
+   * The outputs of the contract.
    */
-  events: EventAbi[];
+  outputs: {
+    structs: Record<string, ABIType[]>;
+    globals: Record<string, ABIValue[]>;
+  };
 
   /**
    * The map of file ID to the source code and path of the file.

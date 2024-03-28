@@ -1,6 +1,33 @@
 import { Abi, AbiType } from '@noir-lang/types';
 
 /**
+ * A basic value.
+ */
+export interface BasicValue<T extends string, V> {
+  /**
+   * The kind of the value.
+   */
+  kind: T;
+  value: V;
+}
+
+/**
+ * An exported value.
+ */
+export type ABIValue =
+  | BasicValue<'field', bigint>
+  | BasicValue<'boolean', boolean>
+  | BasicValue<'integer', number>
+  | BasicValue<'string', string>
+  | BasicValue<'array', ABIValue[]>
+  | StructValue;
+
+export interface StructValue {
+  kind: 'struct';
+  fields: (ABIValue & { name: string })[];
+}
+
+/**
  * A named type.
  */
 export interface ABIVariable {
@@ -12,24 +39,6 @@ export interface ABIVariable {
    * The type of the variable.
    */
   type: AbiType;
-}
-
-/**
- * A contract event.
- */
-export interface EventAbi {
-  /**
-   * The event name.
-   */
-  name: string;
-  /**
-   * Fully qualified name of the event.
-   */
-  path: string;
-  /**
-   * The fields of the event.
-   */
-  fields: ABIVariable[];
 }
 
 /**
@@ -60,8 +69,11 @@ export interface ContractArtifact {
   noir_version: string;
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
-  /** The events of the contract */
-  events: EventAbi[];
+
+  outputs: {
+    structs: Record<string, AbiType[]>;
+    globals: Record<string, ABIValue[]>;
+  };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
 }

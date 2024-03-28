@@ -2,9 +2,9 @@ import {
   ABIParameter,
   ABIParameterVisibility,
   ABIType,
+  ABIValue,
   DebugFileMap,
   DebugInfo,
-  EventAbi,
 } from '@aztec/foundation/abi';
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'aztec(private)';
@@ -68,7 +68,10 @@ export interface NoirCompiledContract {
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
   /** The events of the contract */
-  events: EventAbi[];
+  outputs: {
+    structs: Record<string, ABIType[]>;
+    globals: Record<string, ABIValue[]>;
+  };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
 }
