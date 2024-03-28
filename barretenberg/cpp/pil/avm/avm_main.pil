@@ -316,10 +316,13 @@ namespace avm_main(256);
 
     #[PERM_MAIN_ALU]
     alu_sel {clk, ia, ib, ic, sel_op_add, sel_op_sub,
-             sel_op_mul, sel_op_eq, sel_op_not, sel_op_lt, sel_op_lte, alu_in_tag}
+             sel_op_mul, sel_op_eq, sel_op_not, sel_op_cast,
+             sel_op_lt, sel_op_lte, alu_in_tag}
     is
     avm_alu.alu_sel {avm_alu.clk, avm_alu.ia, avm_alu.ib, avm_alu.ic, avm_alu.op_add, avm_alu.op_sub,
-                     avm_alu.op_mul, avm_alu.op_eq, avm_alu.op_not, avm_alu.op_lt, avm_alu.op_lte, avm_alu.in_tag};
+                     avm_alu.op_mul, avm_alu.op_eq, avm_alu.op_not, avm_alu.op_cast,
+                     avm_alu.op_lt, avm_alu.op_lte, avm_alu.in_tag};
+
     // Based on the boolean selectors, we derive the binary op id to lookup in the table;
     // TODO: Check if having 4 columns (op_id + 3 boolean selectors) is more optimal that just using the op_id
     // but with a higher degree constraint: op_id * (op_id - 1) * (op_id - 2)

@@ -12,7 +12,7 @@ namespace bb {
 class perm_main_alu_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 12;
+    constexpr static size_t COLUMNS_PER_SET = 13;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -59,13 +59,10 @@ class perm_main_alu_permutation_settings {
                                      in.avm_main_sel_op_mul,
                                      in.avm_main_sel_op_eq,
                                      in.avm_main_sel_op_not,
-<<<<<<< HEAD
+                                     in.avm_main_sel_op_cast,
                                      in.avm_main_sel_op_lt,
                                      in.avm_main_sel_op_lte,
-                                     in.avm_main_r_in_tag,
-=======
                                      in.avm_main_alu_in_tag,
->>>>>>> a83ef175e (5466 - introduce in_tag dispatching to the ALU)
                                      in.avm_alu_clk,
                                      in.avm_alu_ia,
                                      in.avm_alu_ib,
@@ -75,6 +72,7 @@ class perm_main_alu_permutation_settings {
                                      in.avm_alu_op_mul,
                                      in.avm_alu_op_eq,
                                      in.avm_alu_op_not,
+                                     in.avm_alu_op_cast,
                                      in.avm_alu_op_lt,
                                      in.avm_alu_op_lte,
                                      in.avm_alu_in_tag);
@@ -113,13 +111,10 @@ class perm_main_alu_permutation_settings {
                                      in.avm_main_sel_op_mul,
                                      in.avm_main_sel_op_eq,
                                      in.avm_main_sel_op_not,
-<<<<<<< HEAD
+                                     in.avm_main_sel_op_cast,
                                      in.avm_main_sel_op_lt,
                                      in.avm_main_sel_op_lte,
-                                     in.avm_main_r_in_tag,
-=======
                                      in.avm_main_alu_in_tag,
->>>>>>> a83ef175e (5466 - introduce in_tag dispatching to the ALU)
                                      in.avm_alu_clk,
                                      in.avm_alu_ia,
                                      in.avm_alu_ib,
@@ -129,6 +124,7 @@ class perm_main_alu_permutation_settings {
                                      in.avm_alu_op_mul,
                                      in.avm_alu_op_eq,
                                      in.avm_alu_op_not,
+                                     in.avm_alu_op_cast,
                                      in.avm_alu_op_lt,
                                      in.avm_alu_op_lte,
                                      in.avm_alu_in_tag);

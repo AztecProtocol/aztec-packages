@@ -17,6 +17,7 @@ namespace avm_alu(256);
     pol commit op_div;
     pol commit op_not;
     pol commit op_eq;
+    pol commit op_cast;
     pol commit alu_sel; // Predicate to activate the copy of intermediate registers to ALU table.
     pol commit op_lt;
     pol commit op_lte;
@@ -59,7 +60,7 @@ namespace avm_alu(256);
     pol commit cf;
 
     // Compute predicate telling whether there is a row entry in the ALU table.
-    alu_sel = op_add + op_sub + op_mul + op_not + op_eq + op_lt + op_lte;
+    alu_sel = op_add + op_sub + op_mul + op_not + op_eq + op_cast + op_lt + op_lte;
     cmp_sel = op_lt + op_lte;
 
     // ========= Type Constraints =============================================
@@ -265,6 +266,20 @@ namespace avm_alu(256);
     #[ALU_OP_EQ]
     op_eq * (DIFF * (ic * (1 - op_eq_diff_inv) + op_eq_diff_inv) - 1 + ic) = 0;
 
+    // ========= CAST Operation Constraints ===============================
+    // We handle the input ia independently of its tag, i.e., we suppose it can take
+    // any value between 0 and p-1.
+    // We decompose the input ia in 8-bit/16-bit limbs and prove that the decomposition
+    // sums up to ia over the integers (i.e., no modulo p wrapping). To prove this,
+    // we perform a "school subtraction" (borrowing) over 128-bit limbs.
+    // The input I is written I = I_l + I_h * 2^128 and the field order P = P_l + P_h * 2^128.
+    // The school subtraction result is D = D_l + D_h * 2^128 and we prove the correctness
+    // through: P_l - I_l - CF * 2^128 == D_l AND P_h - I_h + CF == D_h
+    // where CF is a carry/borrowing bit. CF == 1 <==> P_l < I_l.
+
+    #[ALU_OP_CAST]
+    op_cast * (SUM_TAG + ff_tag * ia - ic) = 0;
+
     // ========= LT/LTE Operation Constraints ===============================
     // There are two routines that we utilise as part of this LT/LTE check
     // (1) Decomposition into two 128-bit limbs, lo and hi respectively and a borrow (1 or 0);
@@ -282,7 +297,7 @@ namespace avm_alu(256);
     // (x - y - 1) * q + (y - x) (1 - q) = result
 
     // If LT, then swap ia and ib else keep the same
-    pol INPUT_IA  = op_lt * ib + op_lte * ia;
+    pol INPUT_IA  = op_lt * ib + (op_lte + op_cast) * ia;
     pol INPUT_IB  = op_lt * ia + op_lte * ib;
 
     pol commit borrow;
@@ -290,7 +305,7 @@ namespace avm_alu(256);
     pol commit a_hi;
     // Check INPUT_IA is well formed from its lo and hi limbs
     #[INPUT_DECOMP_1]
-    INPUT_IA = (a_lo + 2 ** 128 * a_hi) * cmp_sel;
+    INPUT_IA = (a_lo + 2 ** 128 * a_hi) * (cmp_sel + op_cast);
 
     pol commit b_lo;
     pol commit b_hi;
@@ -311,9 +326,9 @@ namespace avm_alu(256);
     // First condition is if borrow = 0, second condition is if borrow = 1
     // This underflow check is done by the 128-bit check that is performed on each of these lo and hi limbs.
     #[SUB_LO_1]
-    (p_sub_a_lo  - (53438638232309528389504892708671455232 - a_lo + p_a_borrow * 2 ** 128)) * cmp_sel = 0;
+    (p_sub_a_lo  - (53438638232309528389504892708671455232 - a_lo + p_a_borrow * 2 ** 128)) * (cmp_sel + op_cast) = 0;
     #[SUB_HI_1]
-    (p_sub_a_hi - (64323764613183177041862057485226039389 - a_hi - p_a_borrow)) * cmp_sel = 0;
+    (p_sub_a_hi - (64323764613183177041862057485226039389 - a_hi - p_a_borrow)) * (cmp_sel + op_cast) = 0;
 
     pol commit p_sub_b_lo;
     pol commit p_sub_b_hi;
@@ -436,11 +451,11 @@ namespace avm_alu(256);
 
     pol commit rng_chk_lookup_selector;
     #[RNG_CHK_LOOKUP_SELECTOR]
-    rng_chk_lookup_selector' = cmp_sel' + rng_chk_sel' + op_add' + op_sub' + op_mul' + op_mul * u128_tag;
+    rng_chk_lookup_selector' = cmp_sel' + rng_chk_sel' + op_add' + op_sub' + op_mul' + op_mul * u128_tag + op_cast';
 
     // Perform 128-bit range check on lo part
     #[LOWER_CMP_RNG_CHK]
-    a_lo = SUM_128 * RNG_CHK_OP;
+    a_lo = SUM_128 * (RNG_CHK_OP + op_cast);
 
     // Perform 128-bit range check on hi part
     #[UPPER_CMP_RNG_CHK]
