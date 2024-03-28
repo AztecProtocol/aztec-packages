@@ -1,12 +1,4 @@
-import {
-  AccountWallet,
-  AztecAddress,
-  ContractFunctionInteraction,
-  FieldsOf,
-  Fr,
-  PXE,
-  TxReceipt,
-} from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, ContractFunctionInteraction, Fr, PXE } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
