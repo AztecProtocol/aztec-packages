@@ -65,9 +65,28 @@ export class Body {
       return layers[layers.length - 1][0];
     };
 
+    // Copy of TxsDecoder.computeNumTxEffectsToPad
+    const computeNumTxEffectsToPad = (numTxEffects: number) => {
+      if (numTxEffects === 0) {
+        return 2; // TODO(benesjan): replace with constant
+      }
+
+      let v: number = numTxEffects;
+
+      // the following rounds numTxEffects up to the next power of 2 (works only for 4 bytes value!)
+      v--;
+      v |= v >> 1;
+      v |= v >> 2;
+      v |= v >> 4;
+      v |= v >> 8;
+      v |= v >> 16;
+      v++;
+
+      return v - numTxEffects;
+    };
+
     const leafs: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
-    // TODO(benesjan): is this correct?
-    const numLeafsToPad = leafs.length === 0 ? 4 : (4 - (leafs.length % 4)) % 4;
+    const numLeafsToPad = computeNumTxEffectsToPad(this.txEffects.length);
     if (numLeafsToPad !== 0) {
       const emptyTxEffectHash = TxEffect.empty().hash();
       for (let i = 0; i < numLeafsToPad; i++) {

@@ -78,10 +78,8 @@ library TxsDecoder {
     ConsumablesVars memory vars;
     uint256 offset = 0;
 
-    uint256 numTxEffects = read4(_body, offset); // number of tx effects
-    // TODO(benesjan): is this correct?
-    // TODO(benesjan): replace 4 with constant
-    uint256 numTxEffectsToPad = numTxEffects == 0 ? 4 : (4 - (numTxEffects % 4)) % 4;
+    uint32 numTxEffects = uint32(read4(_body, offset));
+    uint256 numTxEffectsToPad = computeNumTxEffectsToPad(numTxEffects);
 
     offset += 0x4;
     vars.baseLeaves = new bytes32[](numTxEffects + numTxEffectsToPad);
@@ -351,5 +349,24 @@ library TxsDecoder {
    */
   function read4(bytes calldata _data, uint256 _offset) internal pure returns (uint256) {
     return uint256(uint32(bytes4(slice(_data, _offset, 4))));
+  }
+
+  function computeNumTxEffectsToPad(uint32 _numTxEffects) internal pure returns (uint32) {
+    if (_numTxEffects == 0) {
+      return 2; // TODO(benesjan): replace with constant
+    }
+
+    uint32 v = _numTxEffects;
+
+    // the following rounds _numTxEffects up to the next power of 2 (works only for 4 bytes value!)
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+
+    return v - _numTxEffects;
   }
 }
