@@ -19,7 +19,7 @@ import {
 import { NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
-import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+import { Abi, abiDecode, abiEncode, serializeWitness } from '@noir-lang/noirc_abi';
 import { WitnessMap } from '@noir-lang/types';
 
 import BaseParityJson from './target/parity_base.json' assert { type: 'json' };
@@ -145,6 +145,10 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
   }
   return solver;
 };
+
+export async function serialiseInputWitness(witness: WitnessMap) {
+  return await serializeWitness(witness);
+}
 
 /**
  * Executes the init private kernel.

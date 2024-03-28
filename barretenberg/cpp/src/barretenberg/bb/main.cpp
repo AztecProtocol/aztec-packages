@@ -219,8 +219,9 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
 void prove(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
+    std::cout << "Read bytecode" << std::endl;
     auto witness = get_witness(witnessPath);
-
+    std::cout << "Read witness" << std::endl;
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system, witness);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());

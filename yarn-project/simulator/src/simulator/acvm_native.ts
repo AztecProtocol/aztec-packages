@@ -1,4 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { WitnessMap } from '@noir-lang/types';
@@ -6,6 +7,8 @@ import * as proc from 'child_process';
 import fs from 'fs/promises';
 
 import { SimulationProvider } from './simulation_provider.js';
+
+const logger = createDebugLogger('aztec:acvm_native');
 
 /**
  * Parses a TOML format witness map string into a Map structure
@@ -19,7 +22,12 @@ function parseIntoWitnessMap(outputString: string) {
       .filter((line: string) => line.length)
       .map((line: string) => {
         const pair = line.replaceAll(' ', '').split('=');
-        return [Number(pair[0]), pair[1].replaceAll('"', '')];
+        try {
+          return [Number(pair[0]), pair[1].replaceAll('"', '')];
+        } catch (err) {
+          logger(`Error: ${pair[1]}, line: ${line}`);
+          return [0, ''];
+        }
       }),
   );
 }
@@ -30,7 +38,7 @@ function parseIntoWitnessMap(outputString: string) {
  * @param bytecode - The circuit bytecode
  * @param workingDirectory - A directory to use for temporary files by the ACVM
  * @param pathToAcvm - The path to the ACVM binary
- * @param outputDirectory - If specified, the output will be stored as a file, encoded using Bincode, instead of being streamed back over stdout
+ * @param outputFilename - If specified, the output will be stored as a file, encoded using Bincode, instead of being streamed back over stdout
  * @returns The completed partial witness outputted from the circuit
  */
 export async function executeNativeCircuit(
@@ -38,7 +46,7 @@ export async function executeNativeCircuit(
   bytecode: Buffer,
   workingDirectory: string,
   pathToAcvm: string,
-  outputDirectory?: string,
+  outputFilename?: string,
 ) {
   const bytecodeFilename = 'bytecode';
   const witnessFilename = 'input_witness.toml';
@@ -58,7 +66,7 @@ export async function executeNativeCircuit(
   await fs.writeFile(`${workingDirectory}/${witnessFilename}`, witnessMap);
 
   // Execute the ACVM using the given args
-  let args = [
+  const args = [
     `execute`,
     `--working-directory`,
     `${workingDirectory}`,
@@ -66,12 +74,11 @@ export async function executeNativeCircuit(
     `${bytecodeFilename}`,
     `--input-witness`,
     `${witnessFilename}`,
+    '--print',
+    '--output-witness',
+    'output-witness',
   ];
-  if (!outputDirectory) {
-    args = args.concat(['--print']);
-  } else {
-    args = args.concat([`--output-witness`, `${outputDirectory}/output-witness`]);
-  }
+
   const processPromise = new Promise<string>((resolve, reject) => {
     let outputWitness = Buffer.alloc(0);
     let errorBuffer = Buffer.alloc(0);
@@ -93,8 +100,9 @@ export async function executeNativeCircuit(
 
   try {
     const output = await processPromise;
-    if (outputDirectory) {
-      return new Map<number, string>();
+    if (outputFilename) {
+      logger(`Copying file ${workingDirectory}/output-witness to ${outputFilename}`);
+      await fs.copyFile(`${workingDirectory}/output-witness.gz`, outputFilename);
     }
     return parseIntoWitnessMap(output);
   } finally {
@@ -104,7 +112,7 @@ export async function executeNativeCircuit(
 }
 
 export class NativeACVMSimulator implements SimulationProvider {
-  constructor(private workingDirectory: string, private pathToAcvm: string, private bincodeDirectory?: string) {}
+  constructor(private workingDirectory: string, private pathToAcvm: string, private witnessFilename?: string) {}
   async simulateCircuit(input: WitnessMap, compiledCircuit: NoirCompiledCircuit): Promise<WitnessMap> {
     // Execute the circuit on those initial witness values
 
@@ -114,13 +122,15 @@ export class NativeACVMSimulator implements SimulationProvider {
     // Provide a unique working directory so we don't get clashes with parallel executions
     const directory = `${this.workingDirectory}/${randomBytes(8).toString('hex')}`;
 
+    logger(`Using working directory ${directory}`);
+
     // Execute the circuit
     const _witnessMap = await executeNativeCircuit(
       input,
       decodedBytecode,
       directory,
       this.pathToAcvm,
-      this.bincodeDirectory,
+      this.witnessFilename,
     );
 
     return _witnessMap;

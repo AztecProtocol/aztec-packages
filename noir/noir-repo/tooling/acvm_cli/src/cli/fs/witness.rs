@@ -62,7 +62,6 @@ pub(crate) fn save_witness_to_dir<P: AsRef<Path>>(
     let witness_path = witness_dir.as_ref().join(witness_name).with_extension("gz");
 
     let buf: Vec<u8> = witnesses.try_into().map_err(|_op| FilesystemError::OutputWitnessCreationFailed(witness_name.to_string()))?;
-    println!("Writing out to {}", witness_path.display());
     write_to_file(buf.as_slice(), &witness_path);
 
     Ok(witness_path)

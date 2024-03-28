@@ -12,6 +12,7 @@ import {
   RootRollupPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
@@ -32,6 +33,7 @@ import {
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
+  serialiseInputWitness,
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 
@@ -106,7 +108,16 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getBaseParityProof(inputs: BaseParityInputs): Promise<[ParityPublicInputs, Proof]> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
-    const witness = await this.simulator.simulateCircuit(witnessMap, BaseParityArtifact);
+    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
+
+    const simulator = new NativeACVMSimulator(
+      this.config.acvmWorkingDirectory,
+      this.config.acvmBinaryPath,
+      outputWitnessFile,
+    );
+
+    const witness = await simulator.simulateCircuit(witnessMap, BaseParityArtifact);
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
@@ -121,7 +132,16 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getRootParityProof(inputs: RootParityInputs): Promise<[ParityPublicInputs, Proof]> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
-    const witness = await this.simulator.simulateCircuit(witnessMap, RootParityArtifact);
+    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
+
+    const simulator = new NativeACVMSimulator(
+      this.config.acvmWorkingDirectory,
+      this.config.acvmBinaryPath,
+      outputWitnessFile,
+    );
+
+    const witness = await simulator.simulateCircuit(witnessMap, RootParityArtifact);
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
@@ -136,18 +156,30 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
-    const simulator = new NativeACVMSimulator(this.config.acvmWorkingDirectory, this.config.acvmBinaryPath, true);
+    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    logger(`Using bb working directory ${bbWorkingDirectory}`);
+    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
+    const outputWitnessFile2 = `${bbWorkingDirectory}/partial-witness2.gz`;
 
-    const witness = await this.simulator.simulateCircuit(witnessMap, BaseRollupArtifact);
+    const simulator = new NativeACVMSimulator(
+      this.config.acvmWorkingDirectory,
+      this.config.acvmBinaryPath,
+      outputWitnessFile,
+    );
 
-    const inputWitness = '';
+    const witness = await simulator.simulateCircuit(witnessMap, BaseRollupArtifact);
+
+    const binaryWitness = await serialiseInputWitness(witness);
+
+    await fs.writeFile(outputWitnessFile2, binaryWitness);
 
     const provingResult = await generateProof(
-      this.bbBinaryPath,
-      this.bbWorkingDirectory,
+      this.config.bbBinaryPath,
+      bbWorkingDirectory,
       'Base Rollup',
       BaseRollupArtifact,
-      inputWitness,
+      outputWitnessFile2,
       logger,
     );
 
@@ -168,8 +200,17 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
+    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
+
+    const simulator = new NativeACVMSimulator(
+      this.config.acvmWorkingDirectory,
+      this.config.acvmBinaryPath,
+      outputWitnessFile,
+    );
+
     // use WASM here as it is faster for small circuits
-    const witness = await this.simulator.simulateCircuit(witnessMap, MergeRollupArtifact);
+    const witness = await simulator.simulateCircuit(witnessMap, MergeRollupArtifact);
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
 
@@ -184,8 +225,17 @@ export class BBNativeRollupProver implements CircuitProver {
   public async getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]> {
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
+    const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
+    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness`;
+
+    const simulator = new NativeACVMSimulator(
+      this.config.acvmWorkingDirectory,
+      this.config.acvmBinaryPath,
+      outputWitnessFile,
+    );
+
     // use WASM here as it is faster for small circuits
-    const [duration, witness] = await elapsed(() => this.simulator.simulateCircuit(witnessMap, RootRollupArtifact));
+    const [duration, witness] = await elapsed(() => simulator.simulateCircuit(witnessMap, RootRollupArtifact));
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);
 
