@@ -26,6 +26,11 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
     }
 
     pub fn get_current_at(self, historical_block_number: u32) -> T {
+        // The post value becomes the current one at the block of change. This means different things in each realm:
+        // - in public, any transaction that is included in the block of change will use the post value
+        // - in private, any transaction that includes the block of change as part of the historical state will use the
+        //   post value (barring any follow-up changes)
+
         if historical_block_number < self.block_of_change {
             self.pre
         } else {
@@ -38,16 +43,68 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
     }
 
     pub fn get_block_horizon(self, historical_block_number: u32) -> u32 {
-        if historical_block_number < self.block_of_change {
-            min(self.block_of_change, historical_block_number + DELAY)
-        } else {
+        // The block horizon is the very last block in which the current value is known. Any block past the horizon 
+        // (i.e. with a block number larger than the block horizon) may have a different current value. Reading the
+        // current value in private typically requires constraining the maximum valid block number to be equal to the
+        // block horizon.
+
+        if historical_block_number >= self.block_of_change {
+            // Once the block of change has been mined, the current vaue (post) will not change unless a new value
+            // change is scheduled. This did not happen at the historical block number (or else it would not be
+            // greater or equal to the block of change), and therefore could only happen after the historical block
+            // number. The earliest would be the immediate next block, and so the smallest possible next block of change
+            // equals `historical_block_number + 1 + DELAY`. Our block horizon is simple the previous block to that one.
+            //
+            //      block of      historical        
+            //       change         block            block horizon
+            //   =======|=============N===================H===========>
+            //                         ^                   ^
+            //                         ---------------------
+            //                                delay
+
             historical_block_number + DELAY
+        } else {
+            // If the block of change has not yet been mined however, then there's two possible scenarios.
+            //   a) It could be so far into the future that the block horizon is actually determined by the delay,
+            //      because a new change could be scheduled and take place _before_ the currently scheduled one. This is
+            //      similar to the scenario where the block of change is in the past: the time horizon is the block
+            //      prior to the earliest one in which a new block of change might land.
+            // 
+            //         historical                         
+            //           block                        block horizon      block of change
+            //        =====N=================================H=================|=========>
+            //              ^                                 ^
+            //              |                                 |   
+            //              -----------------------------------
+            //                           delay
+            //
+            //   b) It could be fewer than `delay` blocks away from the historical block number, in which case it would
+            //      become the limiting factor for the time horizon, which would be the block right before the block of
+            //      change (since by definition the value changes at the block of change).
+            //
+            //           historical                         block horizon
+            //             block     block of change       if not scheduled
+            //        =======N=============|===================H=================>
+            //                ^           ^                    ^
+            //                |     actual horizon             |   
+            //                ----------------------------------
+            //                             delay
+            //      
+            // Note that the current implementation does not allow the caller to set the block of change to an arbitrary
+            // value, and therefore scenario a) is not currently possible. However implementing #5501 would allow for 
+            // this to happen.
+
+            // Because historical_block_number < self.block_of_change, then block_of_change > 0 and we can safely
+            // subtract 1.
+            min(self.block_of_change - 1, historical_block_number + DELAY)
         }
     }
 
     pub fn schedule_change(&mut self, new_value: T, current_block_number: u32) {
         self.pre = self.get_current_at(current_block_number);
         self.post = new_value;
+        // TODO: make this configurable 
+        // https://github.com/AztecProtocol/aztec-packages/issues/5501
         self.block_of_change = current_block_number + DELAY;
     }
 }
@@ -110,47 +167,79 @@ mod test {
         assert_eq(value.get_scheduled(), (post, block_of_change));
     }
 
+    fn assert_block_horizon_invariants(
+        value: &mut ScheduledValueChange<Field, TEST_DELAY>,
+        historical_block_number: u32,
+        block_horizon: u32
+    ) {
+        // The current value should not change at the block horizon (but it might later).
+        let current_at_historical = value.get_current_at(historical_block_number);
+        assert_eq(current_at_historical, value.get_current_at(block_horizon));
+
+        // The earliest a new change could be scheduled in would be the immediate next block to the historical one. This
+        // should result in the new block of change landing *after* the block horizon, and the current value still not
+        // changing at the previously determined block_horizon.
+
+        let new = value.pre + value.post; // Make sure it's different to both pre and post
+        value.schedule_change(new, historical_block_number + 1);
+
+        assert(value.block_of_change > block_horizon);
+        assert_eq(current_at_historical, value.get_current_at(block_horizon));
+    }
+
     #[test]
     fn test_get_block_horizon_change_in_past() {
-        let block_number = 100;
+        let historical_block_number = 100;
         let block_of_change = 50;
 
-        let value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
+        let mut value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
 
-        assert_eq(value.get_block_horizon(block_number), block_number + TEST_DELAY);
+        let block_horizon = value.get_block_horizon(historical_block_number);
+        assert_eq(block_horizon, historical_block_number + TEST_DELAY);
+
+        assert_block_horizon_invariants(&mut value, historical_block_number, block_horizon);
     }
 
     #[test]
     fn test_get_block_horizon_change_in_immediate_past() {
-        let block_number = 100;
+        let historical_block_number = 100;
         let block_of_change = 100;
 
-        let value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
+        let mut value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
 
-        assert_eq(value.get_block_horizon(block_number), block_number + TEST_DELAY);
+        let block_horizon = value.get_block_horizon(historical_block_number);
+        assert_eq(block_horizon, historical_block_number + TEST_DELAY);
+
+        assert_block_horizon_invariants(&mut value, historical_block_number, block_horizon);
     }
 
     #[test]
     fn test_get_block_horizon_change_in_near_future() {
-        let block_number = 100;
+        let historical_block_number = 100;
         let block_of_change = 120;
 
-        let value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
+        let mut value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
 
         // Note that this is the only scenario in which the block of change informs the block horizon.
         // This may result in privacy leaks when interacting with applications that have a scheduled change
         // in the near future.
-        assert_eq(value.get_block_horizon(block_number), block_of_change);
+        let block_horizon = value.get_block_horizon(historical_block_number);
+        assert_eq(block_horizon, block_of_change - 1);
+
+        assert_block_horizon_invariants(&mut value, historical_block_number, block_horizon);
     }
 
     #[test]
     fn test_get_block_horizon_change_in_far_future() {
-        let block_number = 100;
+        let historical_block_number = 100;
         let block_of_change = 500;
 
-        let value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
+        let mut value: ScheduledValueChange<Field, TEST_DELAY> = ScheduledValueChange::new(1, 2, block_of_change);
 
-        assert_eq(value.get_block_horizon(block_number), block_number + TEST_DELAY);
+        let block_horizon = value.get_block_horizon(historical_block_number);
+        assert_eq(block_horizon, historical_block_number + TEST_DELAY);
+
+        assert_block_horizon_invariants(&mut value, historical_block_number, block_horizon);
     }
 
     #[test]
