@@ -352,8 +352,11 @@ library TxsDecoder {
   }
 
   function computeNumTxEffectsToPad(uint32 _numTxEffects) internal pure returns (uint32) {
+    // 2 is the minimum number of tx effects so we have to handle the following 2 cases separately
     if (_numTxEffects == 0) {
-      return 2; // TODO(benesjan): replace with constant
+      return 2;
+    } else if (_numTxEffects == 1) {
+      return 1;
     }
 
     uint32 v = _numTxEffects;

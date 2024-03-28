@@ -284,24 +284,32 @@ contract DecodersTest is DecoderBase {
     uint32 paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
     assertEq(paddedNumTxEffects, 2, "Incorrect number of tx effects to pad");
 
+    numTxEffects = 1;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 1 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 3;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 2 - numTxEffects, "Incorrect number of tx effects to pad");
+
     numTxEffects = 5;
     paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 3 - 5, "Incorrect number of tx effects to pad");
+    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
 
     numTxEffects = 8;
     paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 3 - 8, "Incorrect number of tx effects to pad");
+    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
 
     numTxEffects = 10;
     paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 4 - 10, "Incorrect number of tx effects to pad");
+    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
 
     numTxEffects = 16;
     paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 4 - 16, "Incorrect number of tx effects to pad");
+    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
 
     numTxEffects = 17;
     paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
-    assertEq(paddedNumTxEffects, 2 ** 5 - 17, "Incorrect number of tx effects to pad");
+    assertEq(paddedNumTxEffects, 2 ** 5 - numTxEffects, "Incorrect number of tx effects to pad");
   }
 }
