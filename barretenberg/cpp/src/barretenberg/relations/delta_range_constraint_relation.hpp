@@ -44,7 +44,7 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         auto w_1_shift = View(in.w_l_shift);
         auto q_delta_range = View(in.q_delta_range);
 
-        static const FF one = FF::one();
+        static const FF one = FF(1);
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);
 
