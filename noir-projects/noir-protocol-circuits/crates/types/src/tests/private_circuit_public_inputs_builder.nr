@@ -55,7 +55,7 @@ impl Default for PrivateCircuitPublicInputsBuilder {
             args_hash: 0,
             return_values: BoundedVec::new(),
             min_revertible_side_effect_counter: 0 as u32,
-            max_block_number: MaxBlockNumber::is_default(),
+            max_block_number: MaxBlockNumber::default(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
