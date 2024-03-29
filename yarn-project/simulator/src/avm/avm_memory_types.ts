@@ -4,7 +4,8 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { strict as assert } from 'assert';
 
-import { TagCheckError } from './errors.js';
+import { InstructionExecutionError, TagCheckError } from './errors.js';
+import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
 
 /** MemoryValue gathers the common operations for all memory types. */
 export abstract class MemoryValue {
@@ -373,3 +374,65 @@ export class TaggedMemory {
     }
   }
 }
+
+/** Tagged memory with metering for each memory read and write. */
+export class MeteredTaggedMemory extends TaggedMemory {
+  private reads: number = 0;
+  private writes: number = 0;
+
+  public getStats(): MemoryOperations {
+    return { reads: this.reads, writes: this.writes };
+  }
+
+  public clearStats(): MemoryOperations {
+    const stats = this.getStats();
+    this.reads = 0;
+    this.writes = 0;
+    return stats;
+  }
+
+  public assertStats(operations: MemoryOperations & { indirectFlags: number }, type = 'instruction') {
+    const { reads: expectedReads, writes: expectedWrites, indirectFlags } = operations;
+
+    const totalExpectedReads = expectedReads + Addressing.fromWire(indirectFlags).count(AddressingMode.INDIRECT);
+    const { reads: actualReads, writes: actualWrites } = this.clearStats();
+    if (actualReads !== totalExpectedReads) {
+      throw new InstructionExecutionError(
+        `Incorrect number of memory reads for ${type}: expected ${totalExpectedReads} but executed ${actualReads}`,
+      );
+    }
+    if (actualWrites !== expectedWrites) {
+      throw new InstructionExecutionError(
+        `Incorrect number of memory writes for ${type}: expected ${expectedWrites} but executed ${actualWrites}`,
+      );
+    }
+  }
+
+  public getAs<T>(offset: number): T {
+    this.reads++;
+    return super.getAs(offset);
+  }
+
+  public getSlice(offset: number, size: number): MemoryValue[] {
+    this.reads += size;
+    return super.getSlice(offset, size);
+  }
+
+  public set(offset: number, v: MemoryValue): void {
+    this.writes++;
+    super.set(offset, v);
+  }
+
+  public setSlice(offset: number, vs: MemoryValue[]): void {
+    this.writes += vs.length;
+    super.setSlice(offset, vs);
+  }
+}
+
+/** Tracks number of memory reads and writes. */
+export type MemoryOperations = {
+  /** How many total reads are performed. Slice reads are count as one per element. */
+  reads: number;
+  /** How many total writes are performed. Slice writes are count as one per element. */
+  writes: number;
+};

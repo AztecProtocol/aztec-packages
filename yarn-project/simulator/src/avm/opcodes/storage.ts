@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AvmContext } from '../avm_context.js';
+import { Gas, getBaseGasCost, makeGas } from '../avm_gas.js';
 import { Field } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -55,6 +56,15 @@ export class SStore extends BaseStorageInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected baseGasCost(): Gas {
+    const base = getBaseGasCost(this.opcode);
+    return makeGas({ ...base, l2Gas: base.l2Gas * this.size });
+  }
+
+  protected memoryOperations() {
+    return { reads: this.size + 1 };
+  }
 }
 
 export class SLoad extends BaseStorageInstruction {
@@ -84,6 +94,15 @@ export class SLoad extends BaseStorageInstruction {
     }
 
     context.machineState.incrementPc();
+  }
+
+  protected baseGasCost(): Gas {
+    const base = getBaseGasCost(this.opcode);
+    return makeGas({ ...base, l2Gas: base.l2Gas * this.size });
+  }
+
+  protected memoryOperations() {
+    return { reads: 1, writes: this.size };
   }
 }
 

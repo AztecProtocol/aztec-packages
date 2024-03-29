@@ -20,6 +20,10 @@ abstract class GetterInstruction extends FixedGasInstruction {
     context.machineState.incrementPc();
   }
 
+  protected memoryOperations() {
+    return { writes: 1 };
+  }
+
   protected abstract getIt(env: AvmExecutionEnvironment): Fr | number | bigint;
 }
 

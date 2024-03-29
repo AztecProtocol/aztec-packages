@@ -2,9 +2,10 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 
 import { AvmContext } from '../avm_context.js';
-import { Field } from '../avm_memory_types.js';
+import { Field, MemoryValue } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
+import { DynamicGasInstruction } from './dynamic_gas_instruction.js';
 import { FixedGasInstruction } from './fixed_gas_instruction.js';
 
 export class Poseidon2 extends FixedGasInstruction {
@@ -43,6 +44,10 @@ export class Poseidon2 extends FixedGasInstruction {
     context.machineState.memory.set(dstOffset, new Field(hash));
 
     context.machineState.incrementPc();
+  }
+
+  protected memoryOperations() {
+    return { reads: this.messageSize, writes: 1 };
   }
 }
 
@@ -89,6 +94,10 @@ export class Keccak extends FixedGasInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected memoryOperations() {
+    return { reads: this.messageSize, writes: 2 };
+  }
 }
 
 export class Sha256 extends FixedGasInstruction {
@@ -134,9 +143,14 @@ export class Sha256 extends FixedGasInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected memoryOperations() {
+    return { reads: this.messageSize, writes: 2 };
+  }
 }
 
-export class Pedersen extends FixedGasInstruction {
+type PedersenInputs = { messageSize: number; hashData: MemoryValue[]; dstOffset: number };
+export class Pedersen extends DynamicGasInstruction<PedersenInputs> {
   static type: string = 'PEDERSEN';
   static readonly opcode: Opcode = Opcode.PEDERSEN;
 
@@ -158,7 +172,7 @@ export class Pedersen extends FixedGasInstruction {
     super();
   }
 
-  protected async internalExecute(context: AvmContext): Promise<void> {
+  protected loadInputs(context: AvmContext): PedersenInputs {
     const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.dstOffset, this.messageOffset, this.messageSizeOffset],
       context.machineState.memory,
@@ -168,10 +182,21 @@ export class Pedersen extends FixedGasInstruction {
     const messageSize = Number(context.machineState.memory.get(messageSizeOffset).toBigInt());
     const hashData = context.machineState.memory.getSlice(messageOffset, messageSize);
 
+    return { messageSize, hashData, dstOffset };
+  }
+
+  protected async internalExecute(context: AvmContext, inputs: PedersenInputs): Promise<void> {
+    const { hashData, dstOffset } = inputs;
+
     // No domain sep for now
     const hash = pedersenHash(hashData);
     context.machineState.memory.set(dstOffset, new Field(hash));
 
     context.machineState.incrementPc();
+  }
+
+  protected memoryOperations(inputs: PedersenInputs) {
+    const { messageSize } = inputs;
+    return { reads: messageSize + 1, writes: 1 };
   }
 }

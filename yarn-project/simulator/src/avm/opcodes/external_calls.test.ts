@@ -71,7 +71,7 @@ describe('External Calls', () => {
       const retSize = 2;
       const successOffset = 7;
 
-      const otherContextInstructionsL2GasCost = 60; // Includes the cost of the call itself
+      const otherContextInstructionsL2GasCost = 780; // Includes the cost of the call itself
       const otherContextInstructionsBytecode = encodeToBytecode([
         new CalldataCopy(
           /*indirect=*/ 0,

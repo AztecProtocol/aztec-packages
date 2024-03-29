@@ -12,7 +12,7 @@ export enum AddressingMode {
 export class Addressing {
   public constructor(
     /** The addressing mode for each operand. The length of this array is the number of operands of the instruction. */
-    public readonly modePerOperand: AddressingMode[],
+    private readonly modePerOperand: AddressingMode[],
   ) {
     assert(modePerOperand.length <= 8, 'At most 8 operands are supported');
   }
@@ -37,6 +37,11 @@ export class Addressing {
       }
     }
     return wire;
+  }
+
+  /** Returns how many operands use the given addressing mode. */
+  public count(mode: AddressingMode): number {
+    return this.modePerOperand.filter(m => m === mode).length;
   }
 
   /**

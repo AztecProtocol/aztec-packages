@@ -42,6 +42,10 @@ export class NoteHashExists extends FixedGasInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected memoryOperations() {
+    return { reads: 2, writes: 1 };
+  }
 }
 
 export class EmitNoteHash extends FixedGasInstruction {
@@ -64,6 +68,10 @@ export class EmitNoteHash extends FixedGasInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected memoryOperations() {
+    return { reads: 1 };
+  }
 }
 
 export class NullifierExists extends FixedGasInstruction {
@@ -83,6 +91,10 @@ export class NullifierExists extends FixedGasInstruction {
     context.machineState.memory.set(this.existsOffset, exists ? new Uint8(1) : new Uint8(0));
 
     context.machineState.incrementPc();
+  }
+
+  protected memoryOperations() {
+    return { reads: 1, writes: 1 };
   }
 }
 
@@ -117,6 +129,10 @@ export class EmitNullifier extends FixedGasInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected memoryOperations() {
+    return { reads: 1 };
+  }
 }
 
 export class L1ToL2MessageExists extends FixedGasInstruction {
@@ -147,6 +163,10 @@ export class L1ToL2MessageExists extends FixedGasInstruction {
     context.machineState.memory.set(this.existsOffset, exists ? new Uint8(1) : new Uint8(0));
 
     context.machineState.incrementPc();
+  }
+
+  protected memoryOperations() {
+    return { reads: 2, writes: 1 };
   }
 }
 
@@ -188,6 +208,10 @@ export class EmitUnencryptedLog extends FixedGasInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected memoryOperations() {
+    return { reads: 1 + this.logSize };
+  }
 }
 
 export class SendL2ToL1Message extends FixedGasInstruction {
@@ -210,5 +234,9 @@ export class SendL2ToL1Message extends FixedGasInstruction {
     context.persistableState.writeL1Message(recipient, content);
 
     context.machineState.incrementPc();
+  }
+
+  protected memoryOperations() {
+    return { reads: 2 };
   }
 }

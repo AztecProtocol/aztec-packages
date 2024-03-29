@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { Gas, GasCostConstants, getGasCostMultiplierFromTypeTag, makeGasCost } from '../avm_gas.js';
+import { Gas, getBaseGasCost, makeGas } from '../avm_gas.js';
 import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
@@ -81,8 +81,8 @@ export class Set extends FixedGasInstruction {
     context.machineState.incrementPc();
   }
 
-  protected gasCost(): Gas {
-    return makeGasCost({ l2Gas: GasCostConstants.SET_COST_PER_BYTE * getGasCostMultiplierFromTypeTag(this.inTag) });
+  protected memoryOperations() {
+    return { writes: 1 };
   }
 }
 
@@ -119,6 +119,10 @@ export class CMov extends FixedGasInstruction {
 
     context.machineState.incrementPc();
   }
+
+  protected memoryOperations() {
+    return { reads: 3, writes: 1 };
+  }
 }
 
 export class Cast extends TwoOperandFixedGasInstruction {
@@ -139,6 +143,14 @@ export class Cast extends TwoOperandFixedGasInstruction {
     context.machineState.memory.set(this.dstOffset, casted);
 
     context.machineState.incrementPc();
+  }
+
+  protected memoryOperations() {
+    return { reads: 1, writes: 1 };
+  }
+
+  protected assertMemoryOperations() {
+    // TODO(@spalladino) Fix CAST memory operation check.
   }
 }
 
@@ -168,6 +180,10 @@ export class Mov extends FixedGasInstruction {
     context.machineState.memory.set(dstOffset, a);
 
     context.machineState.incrementPc();
+  }
+
+  protected memoryOperations() {
+    return { reads: 1, writes: 1 };
   }
 }
 
@@ -199,7 +215,12 @@ export class CalldataCopy extends FixedGasInstruction {
     context.machineState.incrementPc();
   }
 
-  protected gasCost(): Gas {
-    return makeGasCost({ l2Gas: GasCostConstants.CALLDATACOPY_COST_PER_BYTE * this.copySize });
+  protected memoryOperations() {
+    return { writes: this.copySize };
+  }
+
+  protected baseGasCost(): Gas {
+    const base = getBaseGasCost(this.opcode);
+    return makeGas({ ...base, l2Gas: base.l2Gas * this.copySize });
   }
 }

@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/circuits.js';
 
 import { Gas, GasDimensions } from './avm_gas.js';
-import { TaggedMemory } from './avm_memory_types.js';
+import { MeteredTaggedMemory } from './avm_memory_types.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
 import { OutOfGasError } from './errors.js';
 
@@ -32,7 +32,7 @@ export class AvmMachineState {
   public internalCallStack: number[] = [];
 
   /** Memory accessible to user code */
-  public readonly memory: TaggedMemory = new TaggedMemory();
+  public readonly memory: MeteredTaggedMemory = new MeteredTaggedMemory();
 
   /**
    * Signals that execution should end.

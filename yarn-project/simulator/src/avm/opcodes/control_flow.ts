@@ -45,6 +45,10 @@ export class JumpI extends FixedGasInstruction {
       context.machineState.pc = this.loc;
     }
   }
+
+  protected memoryOperations() {
+    return { reads: 1 };
+  }
 }
 
 export class InternalCall extends FixedGasInstruction {

@@ -1,15 +1,26 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { Fr, FunctionSelector } from '@aztec/circuits.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 import type { AvmContext } from '../avm_context.js';
-import { gasLeftToGas, getCostFromIndirectAccess, getFixedGasCost, sumGas } from '../avm_gas.js';
+import { Gas, gasLeftToGas, sumGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
+import { DynamicGasInstruction } from './dynamic_gas_instruction.js';
 import { FixedGasInstruction } from './fixed_gas_instruction.js';
-import { Instruction } from './instruction.js';
 
-abstract class ExternalCall extends Instruction {
+type ExternalCallInputs = {
+  callAddress: Field;
+  calldata: Fr[];
+  l1Gas: number;
+  l2Gas: number;
+  daGas: number;
+  functionSelector: Fr;
+  retOffset: number;
+  successOffset: number;
+};
+abstract class ExternalCall extends DynamicGasInstruction<ExternalCallInputs> {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
@@ -42,7 +53,7 @@ abstract class ExternalCall extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected loadInputs(context: AvmContext): ExternalCallInputs {
     const [gasOffset, addrOffset, argsOffset, retOffset, successOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.gasOffset, this.addrOffset, this.argsOffset, this.retOffset, this.successOffset],
       context.machineState.memory,
@@ -55,12 +66,12 @@ abstract class ExternalCall extends Instruction {
     const daGas = context.machineState.memory.getAs<Field>(gasOffset + 2).toNumber();
     const functionSelector = context.machineState.memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
 
-    // Consume a base fixed gas cost for the call opcode, plus whatever is allocated for the nested call
-    const baseGas = getFixedGasCost(this.opcode);
-    const addressingGasCost = getCostFromIndirectAccess(this.indirect);
-    const allocatedGas = { l1Gas, l2Gas, daGas };
-    context.machineState.consumeGas(sumGas(baseGas, addressingGasCost, allocatedGas));
+    return { callAddress, calldata, l1Gas, l2Gas, daGas, functionSelector, retOffset, successOffset };
+  }
 
+  protected async internalExecute(context: AvmContext, inputs: ExternalCallInputs): Promise<void> {
+    const { callAddress, calldata, l1Gas, l2Gas, daGas, functionSelector, retOffset, successOffset } = inputs;
+    const allocatedGas = { l1Gas, l2Gas, daGas };
     const nestedContext = context.createNestedContractCallContext(
       callAddress.toFr(),
       calldata,
@@ -72,9 +83,14 @@ abstract class ExternalCall extends Instruction {
     const nestedCallResults = await new AvmSimulator(nestedContext).execute();
     const success = !nestedCallResults.reverted;
 
-    // We only take as much data as was specified in the return size -> TODO: should we be reverting here
+    // We only take as much data as was specified in the return size and pad with zeroes if the return data is smaller
+    // than the specified size in order to prevent that memory to be left with garbage
     const returnData = nestedCallResults.output.slice(0, this.retSize);
-    const convertedReturnData = returnData.map(f => new Field(f));
+    const convertedReturnData = padArrayEnd(
+      returnData.map(f => new Field(f)),
+      new Field(0),
+      this.retSize,
+    );
 
     // Write our return data into memory
     context.machineState.memory.set(successOffset, new Uint8(success ? 1 : 0));
@@ -91,6 +107,16 @@ abstract class ExternalCall extends Instruction {
     }
 
     context.machineState.incrementPc();
+  }
+
+  protected gasCost(inputs: ExternalCallInputs): Gas {
+    // Add allocated gas to the base gas cost
+    const { l1Gas, l2Gas, daGas } = inputs;
+    return sumGas(super.gasCost(inputs), { l1Gas, l2Gas, daGas });
+  }
+
+  protected memoryOperations(_inputs: ExternalCallInputs) {
+    return { reads: this.argsSize + 5, writes: 1 + this.retSize };
   }
 
   public abstract get type(): 'CALL' | 'STATICCALL';
@@ -136,6 +162,10 @@ export class Return extends FixedGasInstruction {
 
     context.machineState.return(output);
   }
+
+  protected memoryOperations() {
+    return { reads: this.copySize };
+  }
 }
 
 export class Revert extends FixedGasInstruction {
@@ -159,5 +189,9 @@ export class Revert extends FixedGasInstruction {
     const output = context.machineState.memory.getSlice(returnOffset, this.retSize).map(word => word.toFr());
 
     context.machineState.revert(output);
+  }
+
+  protected memoryOperations(_inputs: void) {
+    return { reads: this.retSize };
   }
 }

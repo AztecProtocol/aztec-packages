@@ -1,11 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import {
-  Gas,
-  GasCostConstants,
-  getCostFromIndirectAccess,
-  getGasCostMultiplierFromTypeTag,
-  sumGas,
-} from '../avm_gas.js';
+import { Gas, GasCostConstants, getGasCostForTypeTag, makeGas } from '../avm_gas.js';
 import { Field, MemoryValue, TypeTag } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { FixedGasInstruction } from './fixed_gas_instruction.js';
@@ -24,12 +18,12 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandFixe
     context.machineState.incrementPc();
   }
 
-  protected gasCost(): Gas {
-    const arithmeticCost = {
-      l2Gas: getGasCostMultiplierFromTypeTag(this.inTag) * GasCostConstants.ARITHMETIC_COST_PER_BYTE,
-    };
-    const indirectCost = getCostFromIndirectAccess(this.indirect);
-    return sumGas(arithmeticCost, indirectCost);
+  protected baseGasCost(): Gas {
+    return makeGas({ l2Gas: getGasCostForTypeTag(this.inTag, GasCostConstants.ARITHMETIC_COST_PER_BYTE) });
+  }
+
+  protected memoryOperations() {
+    return { reads: 2, writes: 1 };
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;
@@ -98,5 +92,13 @@ export class FieldDiv extends FixedGasInstruction {
     context.machineState.memory.set(this.dstOffset, dest);
 
     context.machineState.incrementPc();
+  }
+
+  protected baseGasCost(): Gas {
+    return makeGas({ l2Gas: getGasCostForTypeTag(TypeTag.FIELD, GasCostConstants.ARITHMETIC_COST_PER_BYTE) });
+  }
+
+  protected memoryOperations() {
+    return { reads: 2, writes: 1 };
   }
 }
