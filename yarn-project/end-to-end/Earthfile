@@ -198,7 +198,7 @@ e2e-avm-simulator:
 
 e2e-fees:
   ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_fees --enable_gas=1.test.ts --e2e_build=$e2e_build
+  DO +E2E_TEST --test=e2e_fees.test.ts --enable_gas=1 --e2e_build=$e2e_build
 
 e2e-dapp-subscription:
   ARG e2e_build=false
@@ -234,12 +234,12 @@ guides-up-quick-start:
 
 bench-publish-rollup:
   ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
+  DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
 
 bench-process-history:
   ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
+  DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
 
 bench-tx-size:
   ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build
+  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --enable_gas=1 --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
