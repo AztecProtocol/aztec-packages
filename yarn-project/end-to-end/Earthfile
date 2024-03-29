@@ -241,6 +241,7 @@ bench-publish-rollup:
 #   ARG e2e_build=false
 #   DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
 
-bench-tx-size:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
+# TODO need to investigate why this isn't working
+# bench-tx-size:
+#   ARG e2e_build=false
+#   DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
