@@ -1,7 +1,7 @@
 import { FunctionSelector } from '@aztec/circuits.js';
 
 import type { AvmContext } from '../avm_context.js';
-import { type Gas, addGas, gasLeftToGas, getCostFromIndirectAccess, getFixedGasCost } from '../avm_gas.js';
+import { type Gas, gasLeftToGas, getCostFromIndirectAccess, getFixedGasCost, sumGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -49,7 +49,7 @@ abstract class ExternalCall extends Instruction {
 
     const callAddress = context.machineState.memory.getAs<Field>(addrOffset);
     const calldata = context.machineState.memory.getSlice(argsOffset, this.argsSize).map(f => f.toFr());
-    const l1Gas = context.machineState.memory.getAs<Field>(gasOffset).toNumber();
+    const l1Gas = context.machineState.memory.get(gasOffset).toNumber();
     const l2Gas = context.machineState.memory.getAs<Field>(gasOffset + 1).toNumber();
     const daGas = context.machineState.memory.getAs<Field>(gasOffset + 2).toNumber();
     const functionSelector = context.machineState.memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
@@ -58,7 +58,7 @@ abstract class ExternalCall extends Instruction {
     const baseGas = getFixedGasCost(this.opcode);
     const addressingGasCost = getCostFromIndirectAccess(this.indirect);
     const allocatedGas = { l1Gas, l2Gas, daGas };
-    context.machineState.consumeGas(addGas(baseGas, addressingGasCost, allocatedGas));
+    context.machineState.consumeGas(sumGas(baseGas, addressingGasCost, allocatedGas));
 
     const nestedContext = context.createNestedContractCallContext(
       callAddress.toFr(),
@@ -92,31 +92,35 @@ abstract class ExternalCall extends Instruction {
     context.machineState.incrementPc();
   }
 
-  public get type(): 'CALL' | 'STATICCALL' {
-    const type = super.type;
-    if (type !== 'CALL' && type !== 'STATICCALL') {
-      throw new Error(`Invalid type for ExternalCall instruction: ${type}`);
-    }
-    return type;
-  }
+  public abstract get type(): 'CALL' | 'STATICCALL';
 
   protected execute(_context: AvmContext): Promise<void> {
-    throw new Error(`Unimplemented`);
+    throw new Error(
+      `Instructions with dynamic gas calculation run all logic on the main execute function and do not override the internal execute.`,
+    );
   }
 
   protected gasCost(): Gas {
-    throw new Error(`Unimplemented`);
+    throw new Error(`Instructions with dynamic gas calculation compute gas as part of the main execute function.`);
   }
 }
 
 export class Call extends ExternalCall {
-  static type: string = 'CALL';
+  static type = 'CALL' as const;
   static readonly opcode: Opcode = Opcode.CALL;
+
+  public get type() {
+    return Call.type;
+  }
 }
 
 export class StaticCall extends ExternalCall {
-  static type: string = 'STATICCALL';
+  static type = 'STATICCALL' as const;
   static readonly opcode: Opcode = Opcode.STATICCALL;
+
+  public get type() {
+    return StaticCall.type;
+  }
 }
 
 export class Return extends Instruction {

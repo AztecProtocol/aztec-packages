@@ -24,17 +24,20 @@ export function makeGasCost(gasCost: Partial<Gas>) {
   return { ...EmptyGas, ...gasCost };
 }
 
-/** Adds multiple instances of Gas. */
-export function addGas(...gases: Partial<Gas>[]) {
-  return {
-    l1Gas: gases.reduce((acc, gas) => acc + (gas.l1Gas ?? 0), 0),
-    l2Gas: gases.reduce((acc, gas) => acc + (gas.l2Gas ?? 0), 0),
-    daGas: gases.reduce((acc, gas) => acc + (gas.daGas ?? 0), 0),
-  };
+/** Sums together multiple instances of Gas. */
+export function sumGas(...gases: Partial<Gas>[]) {
+  return gases.reduce(
+    (acc: Gas, gas) => ({
+      l1Gas: acc.l1Gas + (gas.l1Gas ?? 0),
+      l2Gas: acc.l2Gas + (gas.l2Gas ?? 0),
+      daGas: acc.daGas + (gas.daGas ?? 0),
+    }),
+    EmptyGas,
+  );
 }
 
 /** Zero gas across all gas dimensions. */
-export const EmptyGas = {
+export const EmptyGas: Gas = {
   l1Gas: 0,
   l2Gas: 0,
   daGas: 0,

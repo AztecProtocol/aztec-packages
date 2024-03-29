@@ -2,9 +2,9 @@ import type { AvmContext } from '../avm_context.js';
 import {
   type Gas,
   GasCostConstants,
-  addGas,
   getCostFromIndirectAccess,
   getGasCostMultiplierFromTypeTag,
+  sumGas,
 } from '../avm_gas.js';
 import { type Field, type MemoryValue, TypeTag } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
@@ -29,7 +29,7 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
       l2Gas: getGasCostMultiplierFromTypeTag(this.inTag) * GasCostConstants.ARITHMETIC_COST_PER_BYTE,
     };
     const indirectCost = getCostFromIndirectAccess(this.indirect);
-    return addGas(arithmeticCost, indirectCost);
+    return sumGas(arithmeticCost, indirectCost);
   }
 
   protected abstract compute(a: MemoryValue, b: MemoryValue): MemoryValue;
