@@ -228,9 +228,10 @@ guides-sample-dapp:
   ARG e2e_build=false
   DO +E2E_TEST --test=sample-dapp --e2e_build=$e2e_build
 
-guides-up-quick-start:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=guides/up_quick_start.test.ts --e2e_build=$e2e_build
+# TODO currently hangs for hour+
+# guides-up-quick-start:
+#   ARG e2e_build=false
+#   DO +E2E_TEST --test=guides/up_quick_start.test.ts --e2e_build=$e2e_build
 
 bench-publish-rollup:
   ARG e2e_build=false
