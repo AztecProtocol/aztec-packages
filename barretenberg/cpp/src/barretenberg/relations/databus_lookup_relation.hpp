@@ -206,7 +206,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using View = typename Accumulator::View;
 
         const auto lookup_inverses = View(get_inverse_polynomial<bus_idx>(in));       // Degree 1
-        const auto read_term = View(compute_read_term<Accumulator>(in, params));      // Degree 1
+        const auto read_term = compute_read_term<Accumulator>(in, params);            // Degree 1
         const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params); // Degree 1
         const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 1
         const auto read_counts = get_read_counts<Accumulator, bus_idx>(in);           // Degree 1
