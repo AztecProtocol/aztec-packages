@@ -15,6 +15,7 @@ enum {
     SORTED_LIST_ACCUMULATOR,
     LOG_DERIVATIVE_INVERSE,
     GRAND_PRODUCT_COMPUTATION,
+    GENERATE_ALPHAS,
     RELATION_CHECK,
     ZEROMORPH
 };
@@ -49,6 +50,7 @@ BB_PROFILE static void test_round_inner(State& state, GoblinUltraProver& prover,
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { prover.oink_prover.execute_sorted_list_accumulator_round(); });
     time_if_index(LOG_DERIVATIVE_INVERSE, [&] { prover.oink_prover.execute_log_derivative_inverse_round(); });
     time_if_index(GRAND_PRODUCT_COMPUTATION, [&] { prover.oink_prover.execute_grand_product_computation_round(); });
+    time_if_index(GENERATE_ALPHAS, [&] { prover.instance->alphas = prover.oink_prover.generate_alphas_round(); });
     // we need to get the relation_parameters and prover_polynomials from the oink_prover
     prover.instance->relation_parameters = prover.oink_prover.relation_parameters;
     prover.instance->prover_polynomials = GoblinUltraFlavor::ProverPolynomials(prover.instance->proving_key);
@@ -84,6 +86,7 @@ ROUND_BENCHMARK(WIRE_COMMITMENTS)->Iterations(1);
 ROUND_BENCHMARK(SORTED_LIST_ACCUMULATOR)->Iterations(1);
 ROUND_BENCHMARK(LOG_DERIVATIVE_INVERSE)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
+ROUND_BENCHMARK(GENERATE_ALPHAS);
 ROUND_BENCHMARK(RELATION_CHECK);
 ROUND_BENCHMARK(ZEROMORPH);
 
