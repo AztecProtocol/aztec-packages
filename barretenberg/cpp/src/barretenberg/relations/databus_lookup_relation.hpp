@@ -75,13 +75,12 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        // WORKTODO(luke): row_has_read should really be a boolean object thats equal to 1 when counts > 0 and 0
-        // otherwise. This current structure will lead to failure if call_data_read_counts > 1.
         ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
             auto q_busread = View(in.q_busread);
             auto q_1 = View(in.q_l);
             const auto is_read_gate = q_busread * q_1;
+            // Note: read_counts is constructed such that read_count_i <= 1.
             const auto is_read_data = View(in.calldata_read_counts);
 
             return is_read_gate + is_read_data - (is_read_gate * is_read_data);
@@ -89,17 +88,18 @@ template <typename FF_> class DatabusLookupRelationImpl {
     }
 
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
-    static Accumulator get_read_counts(const AllEntities& in)
+    static Accumulator::View get_read_counts(const AllEntities& in)
     {
         using View = typename Accumulator::View;
         ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
-            return Accumulator(View(in.calldata_read_counts));
+            return View(in.calldata_read_counts);
         }
     }
 
     /**
      * @brief Compute scalar for read term in log derivative lookup argument
+     * @details The selector indicating read from bus column j is given by q_busread * q_j, j = 1,2,3
      *
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
@@ -163,12 +163,20 @@ template <typename FF_> class DatabusLookupRelationImpl {
         return w_1 + gamma + w_2 * beta;
     }
 
+    /**
+     * @brief Construct the polynomial I whose components are the inverse of the product of the read and write terms
+     * @details If the denominators of log derivative lookup relation are read_term and write_term, then I_i =
+     * (read_term_i*write_term_i)^{-1}.
+     * @note Importantly, I_i = 0 for rows i at which there is no read or write.
+     *
+     */
     template <size_t bus_idx, typename Polynomials>
     static void compute_logderivative_inverse(Polynomials& polynomials,
                                               auto& relation_parameters,
                                               const size_t circuit_size)
     {
         auto& inverse_polynomial = get_inverse_polynomial<bus_idx>(polynomials);
+        // Compute the product of the read and write terms for each row
         for (size_t i = 0; i < circuit_size; ++i) {
             auto row = polynomials.get_row(i);
             // We only compute the inverse if this row contains a read gate or data that has been read
@@ -177,8 +185,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                         compute_write_term<FF, bus_idx>(row, relation_parameters);
             }
         }
-        // WORKTODO: turn this note from Zac into a genuine TODO
-        // todo might be inverting zero in field bleh bleh
+        // Compute inverse polynomial I by inverting the product at each row
         FF::batch_invert(inverse_polynomial);
     };
 
