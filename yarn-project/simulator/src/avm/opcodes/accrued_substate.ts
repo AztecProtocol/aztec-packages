@@ -4,10 +4,10 @@ import { InstructionExecutionError } from '../errors.js';
 import { NullifierCollisionError } from '../journal/nullifiers.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
-import { Instruction } from './instruction.js';
+import { FixedGasInstruction } from './fixed_gas_instruction.js';
 import { StaticCallStorageAlterError } from './storage.js';
 
-export class NoteHashExists extends Instruction {
+export class NoteHashExists extends FixedGasInstruction {
   static type: string = 'NOTEHASHEXISTS';
   static readonly opcode: Opcode = Opcode.NOTEHASHEXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -28,7 +28,7 @@ export class NoteHashExists extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     // Note that this instruction accepts any type in memory, and converts to Field.
     const noteHash = context.machineState.memory.get(this.noteHashOffset).toFr();
     const leafIndex = context.machineState.memory.get(this.leafIndexOffset).toFr();
@@ -44,7 +44,7 @@ export class NoteHashExists extends Instruction {
   }
 }
 
-export class EmitNoteHash extends Instruction {
+export class EmitNoteHash extends FixedGasInstruction {
   static type: string = 'EMITNOTEHASH';
   static readonly opcode: Opcode = Opcode.EMITNOTEHASH;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -54,7 +54,7 @@ export class EmitNoteHash extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
@@ -66,7 +66,7 @@ export class EmitNoteHash extends Instruction {
   }
 }
 
-export class NullifierExists extends Instruction {
+export class NullifierExists extends FixedGasInstruction {
   static type: string = 'NULLIFIEREXISTS';
   static readonly opcode: Opcode = Opcode.NULLIFIEREXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -76,7 +76,7 @@ export class NullifierExists extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const nullifier = context.machineState.memory.get(this.nullifierOffset).toFr();
     const exists = await context.persistableState.checkNullifierExists(context.environment.storageAddress, nullifier);
 
@@ -86,7 +86,7 @@ export class NullifierExists extends Instruction {
   }
 }
 
-export class EmitNullifier extends Instruction {
+export class EmitNullifier extends FixedGasInstruction {
   static type: string = 'EMITNULLIFIER';
   static readonly opcode: Opcode = Opcode.EMITNULLIFIER;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -96,7 +96,7 @@ export class EmitNullifier extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
@@ -119,7 +119,7 @@ export class EmitNullifier extends Instruction {
   }
 }
 
-export class L1ToL2MessageExists extends Instruction {
+export class L1ToL2MessageExists extends FixedGasInstruction {
   static type: string = 'L1TOL2MSGEXISTS';
   static readonly opcode: Opcode = Opcode.L1TOL2MSGEXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -140,7 +140,7 @@ export class L1ToL2MessageExists extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const msgHash = context.machineState.memory.get(this.msgHashOffset).toFr();
     const msgLeafIndex = context.machineState.memory.get(this.msgLeafIndexOffset).toFr();
     const exists = await context.persistableState.checkL1ToL2MessageExists(msgHash, msgLeafIndex);
@@ -150,7 +150,7 @@ export class L1ToL2MessageExists extends Instruction {
   }
 }
 
-export class EmitUnencryptedLog extends Instruction {
+export class EmitUnencryptedLog extends FixedGasInstruction {
   static type: string = 'EMITUNENCRYPTEDLOG';
   static readonly opcode: Opcode = Opcode.EMITUNENCRYPTEDLOG;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -171,7 +171,7 @@ export class EmitUnencryptedLog extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
@@ -190,7 +190,7 @@ export class EmitUnencryptedLog extends Instruction {
   }
 }
 
-export class SendL2ToL1Message extends Instruction {
+export class SendL2ToL1Message extends FixedGasInstruction {
   static type: string = 'SENDL2TOL1MSG';
   static readonly opcode: Opcode = Opcode.SENDL2TOL1MSG;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -200,7 +200,7 @@ export class SendL2ToL1Message extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }

@@ -1,11 +1,12 @@
 import { FunctionSelector } from '@aztec/circuits.js';
 
 import type { AvmContext } from '../avm_context.js';
-import { Gas, gasLeftToGas, getCostFromIndirectAccess, getFixedGasCost, sumGas } from '../avm_gas.js';
+import { gasLeftToGas, getCostFromIndirectAccess, getFixedGasCost, sumGas } from '../avm_gas.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
+import { FixedGasInstruction } from './fixed_gas_instruction.js';
 import { Instruction } from './instruction.js';
 
 abstract class ExternalCall extends Instruction {
@@ -41,7 +42,7 @@ abstract class ExternalCall extends Instruction {
     super();
   }
 
-  async run(context: AvmContext): Promise<void> {
+  async execute(context: AvmContext): Promise<void> {
     const [gasOffset, addrOffset, argsOffset, retOffset, successOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.gasOffset, this.addrOffset, this.argsOffset, this.retOffset, this.successOffset],
       context.machineState.memory,
@@ -93,16 +94,6 @@ abstract class ExternalCall extends Instruction {
   }
 
   public abstract get type(): 'CALL' | 'STATICCALL';
-
-  protected execute(_context: AvmContext): Promise<void> {
-    throw new Error(
-      `Instructions with dynamic gas calculation run all logic on the main execute function and do not override the internal execute.`,
-    );
-  }
-
-  protected gasCost(): Gas {
-    throw new Error(`Instructions with dynamic gas calculation compute gas as part of the main execute function.`);
-  }
 }
 
 export class Call extends ExternalCall {
@@ -123,7 +114,7 @@ export class StaticCall extends ExternalCall {
   }
 }
 
-export class Return extends Instruction {
+export class Return extends FixedGasInstruction {
   static type: string = 'RETURN';
   static readonly opcode: Opcode = Opcode.RETURN;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -138,7 +129,7 @@ export class Return extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const [returnOffset] = Addressing.fromWire(this.indirect).resolve([this.returnOffset], context.machineState.memory);
 
     const output = context.machineState.memory.getSlice(returnOffset, this.copySize).map(word => word.toFr());
@@ -147,7 +138,7 @@ export class Return extends Instruction {
   }
 }
 
-export class Revert extends Instruction {
+export class Revert extends FixedGasInstruction {
   static type: string = 'REVERT';
   static readonly opcode: Opcode = Opcode.REVERT;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -162,7 +153,7 @@ export class Revert extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const [returnOffset] = Addressing.fromWire(this.indirect).resolve([this.returnOffset], context.machineState.memory);
 
     const output = context.machineState.memory.getSlice(returnOffset, this.retSize).map(word => word.toFr());

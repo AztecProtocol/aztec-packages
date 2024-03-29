@@ -5,8 +5,8 @@ import { InstructionExecutionError } from '../errors.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode, OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
-import { Instruction } from './instruction.js';
-import { TwoOperandInstruction } from './instruction_impl.js';
+import { FixedGasInstruction } from './fixed_gas_instruction.js';
+import { TwoOperandFixedGasInstruction } from './instruction_impl.js';
 
 const TAG_TO_OPERAND_TYPE = new Map<TypeTag, OperandType>([
   [TypeTag.UINT8, OperandType.UINT8],
@@ -25,7 +25,7 @@ function getOperandTypeFromInTag(inTag: number | bigint): OperandType {
   return tagOperandType;
 }
 
-export class Set extends Instruction {
+export class Set extends FixedGasInstruction {
   static readonly type: string = 'SET';
   static readonly opcode: Opcode = Opcode.SET;
 
@@ -69,7 +69,7 @@ export class Set extends Instruction {
     return new this(...args);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     // Per the YP, the tag cannot be a field.
     if ([TypeTag.FIELD, TypeTag.UNINITIALIZED, TypeTag.INVALID].includes(this.inTag)) {
       throw new InstructionExecutionError(`Invalid tag ${TypeTag[this.inTag]} for SET.`);
@@ -86,7 +86,7 @@ export class Set extends Instruction {
   }
 }
 
-export class CMov extends Instruction {
+export class CMov extends FixedGasInstruction {
   static readonly type: string = 'CMOV';
   static readonly opcode: Opcode = Opcode.CMOV;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -109,7 +109,7 @@ export class CMov extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const a = context.machineState.memory.get(this.aOffset);
     const b = context.machineState.memory.get(this.bOffset);
     const cond = context.machineState.memory.get(this.condOffset);
@@ -121,7 +121,7 @@ export class CMov extends Instruction {
   }
 }
 
-export class Cast extends TwoOperandInstruction {
+export class Cast extends TwoOperandFixedGasInstruction {
   static readonly type: string = 'CAST';
   static readonly opcode = Opcode.CAST;
 
@@ -129,7 +129,7 @@ export class Cast extends TwoOperandInstruction {
     super(indirect, dstTag, aOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const a = context.machineState.memory.get(this.aOffset);
 
     // TODO: consider not using toBigInt()
@@ -142,7 +142,7 @@ export class Cast extends TwoOperandInstruction {
   }
 }
 
-export class Mov extends Instruction {
+export class Mov extends FixedGasInstruction {
   static readonly type: string = 'MOV';
   static readonly opcode: Opcode = Opcode.MOV;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -157,7 +157,7 @@ export class Mov extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.srcOffset, this.dstOffset],
       context.machineState.memory,
@@ -171,7 +171,7 @@ export class Mov extends Instruction {
   }
 }
 
-export class CalldataCopy extends Instruction {
+export class CalldataCopy extends FixedGasInstruction {
   static readonly type: string = 'CALLDATACOPY';
   static readonly opcode: Opcode = Opcode.CALLDATACOPY;
   // Informs (de)serialization. See Instruction.deserialize.
@@ -187,7 +187,7 @@ export class CalldataCopy extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], context.machineState.memory);
 
     const transformedData = context.environment.calldata

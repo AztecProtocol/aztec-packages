@@ -5,9 +5,9 @@ import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
-import { Instruction } from './instruction.js';
+import { FixedGasInstruction } from './fixed_gas_instruction.js';
 
-export class Poseidon2 extends Instruction {
+export class Poseidon2 extends FixedGasInstruction {
   static type: string = 'POSEIDON2';
   static readonly opcode: Opcode = Opcode.POSEIDON;
 
@@ -29,7 +29,7 @@ export class Poseidon2 extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
     const [dstOffset, messageOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.dstOffset, this.messageOffset],
@@ -46,7 +46,7 @@ export class Poseidon2 extends Instruction {
   }
 }
 
-export class Keccak extends Instruction {
+export class Keccak extends FixedGasInstruction {
   static type: string = 'KECCAK';
   static readonly opcode: Opcode = Opcode.KECCAK;
 
@@ -69,7 +69,7 @@ export class Keccak extends Instruction {
   }
 
   // Note hash output is 32 bytes, so takes up two fields
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     // We hash a set of field elements
     const [dstOffset, messageOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.dstOffset, this.messageOffset],
@@ -91,7 +91,7 @@ export class Keccak extends Instruction {
   }
 }
 
-export class Sha256 extends Instruction {
+export class Sha256 extends FixedGasInstruction {
   static type: string = 'SHA256';
   static readonly opcode: Opcode = Opcode.SHA256;
 
@@ -114,7 +114,7 @@ export class Sha256 extends Instruction {
   }
 
   // Note hash output is 32 bytes, so takes up two fields
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const [dstOffset, messageOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.dstOffset, this.messageOffset],
       context.machineState.memory,
@@ -136,7 +136,7 @@ export class Sha256 extends Instruction {
   }
 }
 
-export class Pedersen extends Instruction {
+export class Pedersen extends FixedGasInstruction {
   static type: string = 'PEDERSEN';
   static readonly opcode: Opcode = Opcode.PEDERSEN;
 
@@ -158,7 +158,7 @@ export class Pedersen extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.dstOffset, this.messageOffset, this.messageSizeOffset],
       context.machineState.memory,

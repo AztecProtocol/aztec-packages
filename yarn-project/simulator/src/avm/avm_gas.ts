@@ -1,4 +1,5 @@
 import { TypeTag } from './avm_memory_types.js';
+import { InstructionExecutionError } from './errors.js';
 import { Addressing, AddressingMode } from './opcodes/addressing_mode.js';
 import { Opcode } from './serialization/instruction_serialization.js';
 
@@ -167,6 +168,6 @@ export function getGasCostMultiplierFromTypeTag(tag: TypeTag) {
       return 32;
     case TypeTag.INVALID:
     case TypeTag.UNINITIALIZED:
-      throw new Error(`Invalid tag type for gas cost multiplier: ${TypeTag[tag]}`);
+      throw new InstructionExecutionError(`Invalid tag type for gas cost multiplier: ${TypeTag[tag]}`);
   }
 }

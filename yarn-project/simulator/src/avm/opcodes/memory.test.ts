@@ -135,7 +135,7 @@ describe('Memory instructions', () => {
     it('should throw if tag is FIELD, UNINITIALIZED, INVALID', async () => {
       for (const tag of [TypeTag.FIELD, TypeTag.UNINITIALIZED, TypeTag.INVALID]) {
         await expect(
-          new Set(/*indirect=*/ 0, /*inTag=*/ tag, /*value=*/ 1234n, /*offset=*/ 1).execute(context),
+          async () => await new Set(/*indirect=*/ 0, /*inTag=*/ tag, /*value=*/ 1234n, /*offset=*/ 1).execute(context),
         ).rejects.toThrow(InstructionExecutionError);
       }
     });

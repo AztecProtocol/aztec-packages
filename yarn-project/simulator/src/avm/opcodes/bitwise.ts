@@ -1,9 +1,9 @@
 import type { AvmContext } from '../avm_context.js';
 import { IntegralValue } from '../avm_memory_types.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
-import { ThreeOperandInstruction, TwoOperandInstruction } from './instruction_impl.js';
+import { ThreeOperandFixedGasInstruction, TwoOperandFixedGasInstruction } from './instruction_impl.js';
 
-export class And extends ThreeOperandInstruction {
+export class And extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'AND';
   static readonly opcode = Opcode.AND;
 
@@ -11,7 +11,7 @@ export class And extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
@@ -24,7 +24,7 @@ export class And extends ThreeOperandInstruction {
   }
 }
 
-export class Or extends ThreeOperandInstruction {
+export class Or extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'OR';
   static readonly opcode = Opcode.OR;
 
@@ -32,7 +32,7 @@ export class Or extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
@@ -45,7 +45,7 @@ export class Or extends ThreeOperandInstruction {
   }
 }
 
-export class Xor extends ThreeOperandInstruction {
+export class Xor extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'XOR';
   static readonly opcode = Opcode.XOR;
 
@@ -53,7 +53,7 @@ export class Xor extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
@@ -66,7 +66,7 @@ export class Xor extends ThreeOperandInstruction {
   }
 }
 
-export class Not extends TwoOperandInstruction {
+export class Not extends TwoOperandFixedGasInstruction {
   static readonly type: string = 'NOT';
   static readonly opcode = Opcode.NOT;
 
@@ -74,7 +74,7 @@ export class Not extends TwoOperandInstruction {
     super(indirect, inTag, aOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
@@ -86,7 +86,7 @@ export class Not extends TwoOperandInstruction {
   }
 }
 
-export class Shl extends ThreeOperandInstruction {
+export class Shl extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'SHL';
   static readonly opcode = Opcode.SHL;
 
@@ -94,7 +94,7 @@ export class Shl extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);
@@ -107,7 +107,7 @@ export class Shl extends ThreeOperandInstruction {
   }
 }
 
-export class Shr extends ThreeOperandInstruction {
+export class Shr extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'SHR';
   static readonly opcode = Opcode.SHR;
 
@@ -115,7 +115,7 @@ export class Shr extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<IntegralValue>(this.aOffset);

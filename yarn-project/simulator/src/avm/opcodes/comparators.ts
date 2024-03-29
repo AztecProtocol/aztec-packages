@@ -1,9 +1,9 @@
 import type { AvmContext } from '../avm_context.js';
 import { Uint8 } from '../avm_memory_types.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
-import { ThreeOperandInstruction } from './instruction_impl.js';
+import { ThreeOperandFixedGasInstruction } from './instruction_impl.js';
 
-export class Eq extends ThreeOperandInstruction {
+export class Eq extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'EQ';
   static readonly opcode = Opcode.EQ;
 
@@ -11,7 +11,7 @@ export class Eq extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.get(this.aOffset);
@@ -24,7 +24,7 @@ export class Eq extends ThreeOperandInstruction {
   }
 }
 
-export class Lt extends ThreeOperandInstruction {
+export class Lt extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'LT';
   static readonly opcode = Opcode.LT;
 
@@ -32,7 +32,7 @@ export class Lt extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.get(this.aOffset);
@@ -45,7 +45,7 @@ export class Lt extends ThreeOperandInstruction {
   }
 }
 
-export class Lte extends ThreeOperandInstruction {
+export class Lte extends ThreeOperandFixedGasInstruction {
   static readonly type: string = 'LTE';
   static readonly opcode = Opcode.LTE;
 
@@ -53,7 +53,7 @@ export class Lte extends ThreeOperandInstruction {
     super(indirect, inTag, aOffset, bOffset, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.get(this.aOffset);

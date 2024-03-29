@@ -1,7 +1,6 @@
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
-import { DynamicGasCost, Gas, GasCosts } from '../avm_gas.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
 import { Opcode, OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
 
@@ -20,31 +19,7 @@ export abstract class Instruction {
    * This is the main entry point for the instruction.
    * @param context - The AvmContext in which the instruction executes.
    */
-  public run(context: AvmContext): Promise<void> {
-    context.machineState.consumeGas(this.gasCost());
-    return this.execute(context);
-  }
-
-  /**
-   * Loads default gas cost for the instruction from the GasCosts table.
-   * Instruction sub-classes can override this if their gas cost is not fixed.
-   */
-  protected gasCost(): Gas {
-    const gasCost = GasCosts[this.opcode];
-    if (gasCost === DynamicGasCost) {
-      throw new Error(`Instruction ${this.type} must define its own gas cost`);
-    }
-    return gasCost;
-  }
-
-  /**
-   * Execute the instruction.
-   * Instruction sub-classes must implement this.
-   * As an AvmContext executes its contract code, it calls this function for
-   * each instruction until the machine state signals "halted".
-   * @param context - The AvmContext in which the instruction executes.
-   */
-  protected abstract execute(context: AvmContext): Promise<void>;
+  public abstract execute(context: AvmContext): Promise<void>;
 
   /**
    * Generate a string representation of the instruction including

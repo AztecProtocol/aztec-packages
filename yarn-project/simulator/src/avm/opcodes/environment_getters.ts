@@ -4,9 +4,9 @@ import type { AvmContext } from '../avm_context.js';
 import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
-import { Instruction } from './instruction.js';
+import { FixedGasInstruction } from './fixed_gas_instruction.js';
 
-abstract class GetterInstruction extends Instruction {
+abstract class GetterInstruction extends FixedGasInstruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32];
 
@@ -14,7 +14,7 @@ abstract class GetterInstruction extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const res = new Field(this.getIt(context.environment));
     context.machineState.memory.set(this.dstOffset, res);
     context.machineState.incrementPc();

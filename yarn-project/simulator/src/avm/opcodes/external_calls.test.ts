@@ -105,7 +105,7 @@ describe('External Calls', () => {
         successOffset,
         /*temporaryFunctionSelectorOffset=*/ 0,
       );
-      await instruction.run(context);
+      await instruction.execute(context);
 
       const successValue = context.machineState.memory.get(successOffset);
       expect(successValue).toEqual(new Uint8(1n));
@@ -166,7 +166,7 @@ describe('External Calls', () => {
         /*temporaryFunctionSelectorOffset=*/ 0,
       );
 
-      await expect(() => instruction.run(context)).rejects.toThrow(/Not enough.*gas left/i);
+      await expect(() => instruction.execute(context)).rejects.toThrow(/Not enough.*gas left/i);
     });
   });
 
@@ -244,7 +244,7 @@ describe('External Calls', () => {
         successOffset,
         /*temporaryFunctionSelectorOffset=*/ 0,
       );
-      await instruction.run(context);
+      await instruction.execute(context);
 
       // No revert has occurred, but the nested execution has failed
       const successValue = context.machineState.memory.get(successOffset);

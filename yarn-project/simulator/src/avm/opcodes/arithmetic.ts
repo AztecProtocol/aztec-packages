@@ -8,11 +8,11 @@ import {
 } from '../avm_gas.js';
 import { Field, MemoryValue, TypeTag } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
-import { Instruction } from './instruction.js';
-import { ThreeOperandInstruction } from './instruction_impl.js';
+import { FixedGasInstruction } from './fixed_gas_instruction.js';
+import { ThreeOperandFixedGasInstruction } from './instruction_impl.js';
 
-export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInstruction {
-  async execute(context: AvmContext): Promise<void> {
+export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandFixedGasInstruction {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(this.inTag, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.get(this.aOffset);
@@ -71,7 +71,7 @@ export class Div extends ThreeOperandArithmeticInstruction {
   }
 }
 
-export class FieldDiv extends Instruction {
+export class FieldDiv extends FixedGasInstruction {
   static type: string = 'FDIV';
   static readonly opcode = Opcode.FDIV;
 
@@ -88,7 +88,7 @@ export class FieldDiv extends Instruction {
     super();
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     context.machineState.memory.checkTags(TypeTag.FIELD, this.aOffset, this.bOffset);
 
     const a = context.machineState.memory.getAs<Field>(this.aOffset);

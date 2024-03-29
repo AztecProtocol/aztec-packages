@@ -5,9 +5,9 @@ import { Field } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
-import { Instruction } from './instruction.js';
+import { FixedGasInstruction } from './fixed_gas_instruction.js';
 
-abstract class BaseStorageInstruction extends Instruction {
+abstract class BaseStorageInstruction extends FixedGasInstruction {
   // Informs (de)serialization. See Instruction.deserialize.
   public static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
@@ -35,7 +35,7 @@ export class SStore extends BaseStorageInstruction {
     super(indirect, srcOffset, srcSize, slotOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     if (context.environment.isStaticCall) {
       throw new StaticCallStorageAlterError();
     }
@@ -65,7 +65,7 @@ export class SLoad extends BaseStorageInstruction {
     super(indirect, slotOffset, size, dstOffset);
   }
 
-  async execute(context: AvmContext): Promise<void> {
+  protected async internalExecute(context: AvmContext): Promise<void> {
     const [aOffset, size, bOffset] = Addressing.fromWire(this.indirect).resolve(
       [this.aOffset, this.size, this.bOffset],
       context.machineState.memory,
