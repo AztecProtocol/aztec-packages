@@ -18,6 +18,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3;
 
+    // Note: The first subrelation actually has length = LENGTH-1 but taking advantage of this would require additional
+    // computation that would nullify the benefits.
     static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness subrelation
         LENGTH  // log-derivative lookup argument subrelation
@@ -161,28 +163,29 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const Parameters& params,
                                                      const FF& scaling_factor)
     {
-        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
-        const auto lookup_inverses = View(get_inverse_polynomial(in));
-        const auto read_term = compute_read_term<Accumulator>(in, params);
-        const auto write_term = compute_write_term<Accumulator>(in, params);
-        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);
-        const auto write_inverse = lookup_inverses * read_term;
-        const auto read_inverse = lookup_inverses * write_term;
+        const auto lookup_inverses = View(get_inverse_polynomial(in));           // Degree 1
+        const auto read_term = View(compute_read_term<Accumulator>(in, params)); // Degree 1
+        const auto write_term = compute_write_term<Accumulator>(in, params);     // Degree 1
+        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);     // Degree 1
+        const auto read_counts = get_read_counts<Accumulator>(in);               // Degree 1
+        const auto read_selector = get_read_selector<Accumulator>(in);           // Degree 2
+        const auto write_inverse = lookup_inverses * read_term;                  // Degree 2
+        const auto read_inverse = lookup_inverses * write_term;                  // Degree 2
 
         // Establish the correctness of the polynomial of inverses I. Note: lookup_inverses is computed so that the
-        // value is 0 if !inverse_exists
+        // value is 0 if !inverse_exists. Degree 3
         std::get<0>(accumulator) += (read_term * write_term * lookup_inverses - inverse_exists) * scaling_factor;
 
-        // Establish the validity of the read.
-        std::get<1>(accumulator) +=
-            get_read_selector<Accumulator>(in) * read_inverse - (get_read_counts<Accumulator>(in) * write_inverse);
+        // Establish validity of the read. Note: no scaling factor here since this subrelation is linearly dependent
+        std::get<1>(accumulator) += read_selector * read_inverse - read_counts * write_inverse; // Degree 4
     }
 
     /**
      * @brief Accumulate the contribution from two surelations for the log derivative databus lookup argument
-     * @details See logderivative_library.hpp for details of the generic log-derivative lookup argument
+     * @details Each databus column requires two two subrelations
      *
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
