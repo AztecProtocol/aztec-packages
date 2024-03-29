@@ -108,7 +108,8 @@ impl<'a> FunctionContext<'a> {
             .expect("No function in queue for the FunctionContext to compile")
             .1;
 
-        let builder = FunctionBuilder::new(function_name, function_id, runtime);
+        let mut builder = FunctionBuilder::new(function_name, function_id);
+        builder.set_runtime(runtime);
         let definitions = HashMap::default();
         let mut this = Self { definitions, builder, shared_context, loops: Vec::new() };
         this.add_parameters_to_scope(parameters);

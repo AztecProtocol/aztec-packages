@@ -503,7 +503,7 @@ mod test {
             trait_constraints: Vec::new(),
             direct_generics: Vec::new(),
             is_entry_point: true,
-            should_fold: true,
+            should_fold: false,
         };
         interner.push_fn_meta(func_meta, func_id);
 
@@ -562,13 +562,7 @@ mod test {
 
         "#;
 
-        let expected_num_errors = 0;
-        type_check_src_code_errors_expected(
-            src,
-            expected_num_errors,
-            vec![String::from("main"), String::from("foo")],
-            0,
-        );
+        type_check_src_code(src, vec![String::from("main"), String::from("foo")]);
     }
     #[test]
     fn basic_closure() {
@@ -603,7 +597,7 @@ mod test {
             }
         "#;
 
-        type_check_src_code_errors_expected(src, 0, vec![String::from("fold")], 1);
+        type_check_src_code_errors_expected(src, vec![String::from("fold")], 1);
     }
 
     // This is the same Stub that is in the resolver, maybe we can pull this out into a test module and re-use?
@@ -639,14 +633,13 @@ mod test {
     }
 
     fn type_check_src_code(src: &str, func_namespace: Vec<String>) {
-        type_check_src_code_errors_expected(src, 0, func_namespace, 0);
+        type_check_src_code_errors_expected(src, func_namespace, 0);
     }
 
     // This function assumes that there is only one function and this is the
     // func id that is returned
     fn type_check_src_code_errors_expected(
         src: &str,
-        expected_num_parser_errs: usize,
         func_namespace: Vec<String>,
         expected_num_type_check_errs: usize,
     ) {
@@ -656,9 +649,8 @@ mod test {
 
         assert_eq!(
             errors.len(),
-            expected_num_parser_errs,
-            "expected {} parser errors, but got {}, errors: {:?}",
-            expected_num_parser_errs,
+            0,
+            "expected 0 parser errors, but got {}, errors: {:?}",
             errors.len(),
             errors
         );

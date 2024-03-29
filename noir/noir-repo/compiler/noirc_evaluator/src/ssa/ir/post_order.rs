@@ -112,8 +112,7 @@ mod tests {
         // D, F, E, B, A, (C dropped as unreachable)
 
         let func_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("func".into(), func_id);
         let block_b_id = builder.insert_block();
         let block_c_id = builder.insert_block();
         let block_d_id = builder.insert_block();

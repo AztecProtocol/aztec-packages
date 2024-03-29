@@ -433,8 +433,7 @@ mod tests {
         // }
 
         let func_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("func".into(), func_id);
         let v0 = builder.insert_allocate(Type::Array(Rc::new(vec![Type::field()]), 2));
         let one = builder.field_constant(FieldElement::one());
         let two = builder.field_constant(FieldElement::one());
@@ -475,8 +474,7 @@ mod tests {
         // }
 
         let func_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("func".into(), func_id);
         let v0 = builder.insert_allocate(Type::field());
         let one = builder.field_constant(FieldElement::one());
         builder.insert_store(v0, one);
@@ -510,8 +508,7 @@ mod tests {
         // }
 
         let func_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("func".into(), func_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("func".into(), func_id);
         let v0 = builder.insert_allocate(Type::field());
         let const_one = builder.field_constant(FieldElement::one());
         builder.insert_store(v0, const_one);
@@ -570,8 +567,7 @@ mod tests {
         //     return v2, v3, v4
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let v0 = builder.insert_allocate(Type::field());
 
@@ -651,8 +647,7 @@ mod tests {
         //       return
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let v0 = builder.insert_allocate(Type::field());
 

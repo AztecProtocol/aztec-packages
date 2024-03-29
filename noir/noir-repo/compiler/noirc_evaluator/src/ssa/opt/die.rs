@@ -199,8 +199,7 @@ mod test {
         let main_id = Id::test_new(0);
 
         // Compiling main
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
         let v0 = builder.add_parameter(Type::field());
         let b1 = builder.insert_block();
 

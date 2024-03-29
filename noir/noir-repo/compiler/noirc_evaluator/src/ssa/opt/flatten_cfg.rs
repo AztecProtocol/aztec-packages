@@ -862,8 +862,7 @@ mod test {
         //     return v1
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -917,8 +916,7 @@ mod test {
         //     return
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -967,8 +965,7 @@ mod test {
         //     return
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -1029,8 +1026,7 @@ mod test {
         //     return
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -1120,8 +1116,7 @@ mod test {
         //      ↘   ↙
         //       b9
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -1278,8 +1273,7 @@ mod test {
         // before the first store to allocate, which loaded an uninitialized value.
         // In this test we assert the ordering is strictly Allocate then Store then Load.
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
@@ -1378,8 +1372,7 @@ mod test {
         //     return
         // }
         let main_id = Id::test_new(1);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         builder.insert_block(); // entry
 
@@ -1432,8 +1425,7 @@ mod test {
         //     jmp b3()
         // }
         let main_id = Id::test_new(1);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         builder.insert_block(); // b0
         let b1 = builder.insert_block();
@@ -1543,8 +1535,7 @@ mod test {
         //     jmp b5()
         // }
         let main_id = Id::test_new(0);
-        let mut builder =
-            FunctionBuilder::new("main".into(), main_id, RuntimeType::Acir(InlineType::default()));
+        let mut builder = FunctionBuilder::new("main".into(), main_id);
 
         let b1 = builder.insert_block();
         let b2 = builder.insert_block();
