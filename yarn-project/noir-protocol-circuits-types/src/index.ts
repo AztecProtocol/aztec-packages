@@ -31,6 +31,8 @@ import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert {
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
 import PrivateKernelTailJson from './target/private_kernel_tail.json' assert { type: 'json' };
 import PrivateKernelTailSimulatedJson from './target/private_kernel_tail_simulated.json' assert { type: 'json' };
+import PrivateKernelTailToPublicJson from './target/private_kernel_tail_to_public.json' assert { type: 'json' };
+import PrivateKernelTailToPublicSimulatedJson from './target/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
 import PublicKernelAppLogicSimulatedJson from './target/public_kernel_app_logic_simulated.json' assert { type: 'json' };
 import PublicKernelSetupSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
 import PublicKernelTailSimulatedJson from './target/public_kernel_tail_simulated.json' assert { type: 'json' };
@@ -91,6 +93,8 @@ export const PrivateKernelInitArtifact = PrivateKernelInitJson as NoirCompiledCi
 export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as NoirCompiledCircuit;
 
 export const PrivateKernelTailArtifact = PrivateKernelTailJson as NoirCompiledCircuit;
+
+export const PrivateKernelTailToPublicArtifact = PrivateKernelTailToPublicJson as NoirCompiledCircuit;
 
 export const PublicKernelSetupArtifact = PublicKernelSetupSimulatedJson as NoirCompiledCircuit;
 
@@ -507,12 +511,12 @@ async function executePrivateKernelTailWithACVM(input: TailInputType): Promise<T
 async function executePrivateKernelTailToPublicWithACVM(
   input: TailToPublicInputType,
 ): Promise<PublicPublicPreviousReturnType> {
-  const initialWitnessMap = abiEncode(PrivateKernelTailSimulatedJson.abi as Abi, input as any);
+  const initialWitnessMap = abiEncode(PrivateKernelTailToPublicSimulatedJson.abi as Abi, input as any);
 
   // Execute the circuit on those initial witness values
   //
   // Decode the bytecode from base64 since the acvm does not know about base64 encoding
-  const decodedBytecode = Buffer.from(PrivateKernelTailSimulatedJson.bytecode, 'base64');
+  const decodedBytecode = Buffer.from(PrivateKernelTailToPublicSimulatedJson.bytecode, 'base64');
   //
   // Execute the circuit
   const _witnessMap = await executeCircuitWithBlackBoxSolver(
@@ -525,7 +529,7 @@ async function executePrivateKernelTailToPublicWithACVM(
   );
 
   // Decode the witness map into two fields, the return values and the inputs
-  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelTailSimulatedJson.abi as Abi, _witnessMap);
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelTailToPublicSimulatedJson.abi as Abi, _witnessMap);
 
   // Cast the inputs as the return type
   return decodedInputs.return_value as PublicPublicPreviousReturnType;
