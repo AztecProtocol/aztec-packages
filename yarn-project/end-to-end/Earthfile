@@ -31,7 +31,7 @@ E2E_TEST_FROM_BUILD:
   # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_DOCKERHUB
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
-    --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
+    --load aztecprotocol/end-to-end:latest=../+end-to-end \
     --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
     # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
     RUN docker compose -f $compose_file up --exit-code-from=sandbox --force-recreate
@@ -235,14 +235,14 @@ guides-sample-dapp:
 
 bench-publish-rollup:
   ARG e2e_build=false
-  DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
+  DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml
 
 # TODO need to investigate why this isn't working
 # bench-process-history:
 #   ARG e2e_build=false
-#   DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
+#   DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml
 
 # TODO need to investigate why this isn't working
 # bench-tx-size:
 #   ARG e2e_build=false
-#   DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml 
+#   DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_build=$e2e_build  --compose_file=./scripts/docker-compose-no-sandbox.yml
