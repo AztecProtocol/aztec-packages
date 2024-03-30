@@ -65,7 +65,7 @@ contract TestBase is Test {
 
         proof = new bytes(_proofData.length - (_numberOfPublicInputs * 0x20));
         uint256 len = proof.length;
-        
+
         // Copy first 3 words from proofData to proof
         assembly {
             mstore(add(proof, 0x20), mload(add(_proofData, 0x20)))
@@ -77,12 +77,24 @@ contract TestBase is Test {
         assembly {
             pop(
                 staticcall(
-                    gas(), 0x4, add(_proofData, add(0x20, mul(0x20, add(_numberOfPublicInputs, 3) // Then skip public inputs & 3 words already added
-                    ))), 
-                    len, 
-                    add(proof, 
+                    gas(),
+                    0x4,
+                    add(
+                        _proofData,
+                        add(
+                            0x20,
+                            mul(
+                                0x20,
+                                add(_numberOfPublicInputs, 3) // Then skip public inputs & 3 words already added
+                            )
+                        )
+                    ),
+                    len,
+                    add(
+                        proof,
                         add(0x20, 0x60) // skip the first 3 words we added above
-                    ), len
+                    ),
+                    len
                 )
             )
         }

@@ -3,13 +3,65 @@ pragma solidity >=0.8.21;
 
 import {Fr} from "./Fr.sol";
 
-uint256 internal constant NUMBER_OF_SUBRELATIONS = 18;
+uint256 constant NUMBER_OF_SUBRELATIONS = 18;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
 uint256 constant NUMBER_OF_ENTITIES = 43;
+
+// Prime field order
+uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
+uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
 
 /// Log of the circuit size - precomputed
 uint256 constant N = 32;
 uint256 constant LOG_N = 5;
+
+// ENUM FOR WIRES
+enum WIRE {
+    Q_C,
+    Q_L,
+    Q_R,
+    Q_O,
+    Q_4,
+    Q_M,
+    Q_ARITH,
+    Q_SORT,
+    Q_ELLIPTIC,
+    Q_AUX,
+    Q_LOOKUP,
+    SIGMA_1,
+    SIGMA_2,
+    SIGMA_3,
+    SIGMA_4,
+    ID_1,
+    ID_2,
+    ID_3,
+    ID_4,
+    TABLE_1,
+    TABLE_2,
+    TABLE_3,
+    TABLE_4,
+    LAGRANGE_FIRST,
+    LAGRANGE_LAST,
+    W_L,
+    W_R,
+    W_O,
+    W_4,
+    SORTED_ACCUM,
+    Z_PERM,
+    Z_LOOKUP,
+    TABLE_1_SHIFT,
+    TABLE_2_SHIFT,
+    TABLE_3_SHIFT,
+    TABLE_4_SHIFT,
+    W_L_SHIFT,
+    W_R_SHIFT,
+    W_O_SHIFT,
+    W_4_SHIFT,
+    SORTED_ACCUM_SHIFT,
+    Z_PERM_SHIFT,
+    Z_LOOKUP_SHIFT
+}
+
 
 library Honk {
     struct G1Point {
@@ -62,22 +114,20 @@ library Honk {
         G1Point lagrangeLast;
     }
 
-
     struct Proof {
         uint256 circuitSize;
         uint256 publicInputsSize;
         uint256 publicInputsOffset;
         // Free wires
-        G1ProofPoint  w1;
-        G1ProofPoint  w2;
-        G1ProofPoint  w3;
+        G1ProofPoint w1;
+        G1ProofPoint w2;
+        G1ProofPoint w3;
         G1ProofPoint w4;
         // Lookup helpers - classic plookup
         G1ProofPoint sortedAccum;
         G1ProofPoint zPerm;
         G1ProofPoint zLookup;
         // Sumcheck
-        // TODO: [uinvariate[batched_relation_partial_length]] - not sure how to represent a univariate
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Zero morph

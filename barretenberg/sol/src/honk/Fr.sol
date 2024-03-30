@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 type Fr is uint256;
+
 using {add as +} for Fr global;
 using {sub as -} for Fr global;
 using {mul as *} for Fr global;
@@ -9,6 +10,7 @@ using {mul as *} for Fr global;
 // Yuck using ^ for exp  - todo maybe make it manual
 using {exp as ^} for Fr global;
 using {notEqual as !=} for Fr global;
+using {equal as ==} for Fr global;
 
 import {console2 as console} from "forge-std/console2.sol";
 
@@ -29,10 +31,9 @@ library FrLib {
     }
 
     function invert(Fr value) internal view returns (Fr) {
-
         uint256 v = Fr.unwrap(value);
         uint256 result;
-        
+
         // Call the modexp precompile to invert in the field
         assembly {
             let free := mload(0x40)
@@ -48,7 +49,7 @@ library FrLib {
                 revert(0, 0)
             }
             result := mload(0x00)
-        }        
+        }
 
         return Fr.wrap(result);
     }
@@ -57,7 +58,7 @@ library FrLib {
     function pow(Fr base, uint256 v) internal view returns (Fr) {
         uint256 b = Fr.unwrap(base);
         uint256 result;
-        
+
         // Call the modexp precompile to invert in the field
         assembly {
             let free := mload(0x40)
@@ -73,10 +74,9 @@ library FrLib {
                 revert(0, 0)
             }
             result := mload(0x00)
-        }        
+        }
 
         return Fr.wrap(result);
-
     }
 
     // TODO: Montgomery's batch inversion trick
@@ -88,31 +88,33 @@ library FrLib {
     }
 }
 
-    // Free functions
-    function add(Fr a, Fr b) pure returns (Fr) {
-        return Fr.wrap(addmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+// Free functions
+function add(Fr a, Fr b) pure returns (Fr) {
+    return Fr.wrap(addmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+}
+
+function mul(Fr a, Fr b) pure returns (Fr) {
+    return Fr.wrap(mulmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+}
+
+function sub(Fr a, Fr b) pure returns (Fr) {
+    return Fr.wrap(addmod(Fr.unwrap(a), MODULUS - Fr.unwrap(b), MODULUS));
+}
+
+// TODO: double check this !
+function exp(Fr base, Fr exponent) pure returns (Fr) {
+    if (Fr.unwrap(exponent) == 0) return Fr.wrap(1);
+    // Implement exponent with a loop as we will overflow otherwise
+    for (uint256 i = 1; i < Fr.unwrap(exponent); i += i) {
+        base = base * base;
     }
+    return base;
+}
 
-    function mul(Fr a, Fr b) pure returns (Fr) {
-        return Fr.wrap(mulmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
-    }
+function notEqual(Fr a, Fr b) pure returns (bool) {
+    return Fr.unwrap(a) != Fr.unwrap(b);
+}
 
-    function sub(Fr a, Fr b) pure returns (Fr) {
-        return Fr.wrap(addmod(Fr.unwrap(a), MODULUS - Fr.unwrap(b), MODULUS));
-    }
-
-    // TODO: double check this !
-    function exp(Fr base, Fr exponent) pure returns (Fr) {
-        if (Fr.unwrap(exponent) == 0) {return Fr.wrap(1); }
-        // Implement exponent with a loop as we will overflow otherwise
-        for (uint256 i = 1; i < Fr.unwrap(exponent); i += i) {
-            base = base * base;
-        }
-        return base;
-    }
-
-
-
-    function notEqual(Fr a, Fr b) pure returns (bool) {
-        return Fr.unwrap(a) != Fr.unwrap(b);
-    }
+function notEqual(Fr a, Fr b) pure returns (bool) {
+    return Fr.unwrap(a) == Fr.unwrap(b);
+}
