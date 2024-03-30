@@ -4,21 +4,66 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
-    "./abi": "./dest/api/abi.js",
-    "./account": "./dest/api/account.js",
-    "./aztec_address": "./dest/api/aztec_address.js",
-    "./deployment": "./dest/api/deployment.js",
-    "./entrypoint": "./dest/api/entrypoint.js",
-    "./eth_address": "./dest/api/eth_address.js",
-    "./ethereum": "./dest/api/ethereum.js",
-    "./fee": "./dest/api/fee.js",
-    "./fields": "./dest/api/fields.js",
-    "./init": "./dest/api/init.js",
-    "./log_id": "./dest/api/log_id.js",
-    "./tx_hash": "./dest/api/tx_hash.js",
-    "./wallet": "./dest/api/wallet.js"
+    ".": {
+      "bun": "./src/index.ts",
+      "default": "./dest/index.js"
+    },
+    "./interfaces/pxe": {
+      "bun": "./src/api/interfaces/pxe.ts",
+      "default": "./dest/api/interfaces/pxe.js"
+    },
+    "./abi": {
+      "bun": "./src/api/abi.ts",
+      "default": "./dest/api/abi.js"
+    },
+    "./account": {
+      "bun": "./src/api/account.ts",
+      "default": "./dest/api/account.js"
+    },
+    "./aztec_address": {
+      "bun": "./src/api/aztec_address.ts",
+      "default": "./dest/api/aztec_address.js"
+    },
+    "./deployment": {
+      "bun": "./src/api/deployment.ts",
+      "default": "./dest/api/deployment.js"
+    },
+    "./entrypoint": {
+      "bun": "./src/api/entrypoint.ts",
+      "default": "./dest/api/entrypoint.js"
+    },
+    "./eth_address": {
+      "bun": "./src/api/eth_address.ts",
+      "default": "./dest/api/eth_address.js"
+    },
+    "./ethereum": {
+      "bun": "./src/api/ethereum.ts",
+      "default": "./dest/api/ethereum.js"
+    },
+    "./fee": {
+      "bun": "./src/api/fee.ts",
+      "default": "./dest/api/fee.js"
+    },
+    "./fields": {
+      "bun": "./src/api/fields.ts",
+      "default": "./dest/api/fields.js"
+    },
+    "./init": {
+      "bun": "./src/api/init.ts",
+      "default": "./dest/api/init.js"
+    },
+    "./log_id": {
+      "bun": "./src/api/log_id.ts",
+      "default": "./dest/api/log_id.js"
+    },
+    "./tx_hash": {
+      "bun": "./src/api/tx_hash.ts",
+      "default": "./dest/api/tx_hash.js"
+    },
+    "./wallet": {
+      "bun": "./src/api/wallet.ts",
+      "default": "./dest/api/wallet.js"
+    }
   },
   "typedocOptions": {
     "entryPoints": [

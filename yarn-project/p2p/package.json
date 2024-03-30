@@ -2,7 +2,10 @@
   "name": "@aztec/p2p",
   "version": "0.0.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    "bun": "./src/index.ts",
+    "default": "./dest/index.js"
+  },
   "typedocOptions": {
     "entryPoints": [
       "./src/index.ts"

@@ -3,12 +3,30 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./stats": "./dest/stats/index.js",
-    "./jest": "./dest/jest/index.js",
-    "./interfaces": "./dest/interfaces/index.js",
-    "./log_id": "./dest/logs/log_id.js",
-    "./tx_hash": "./dest/tx/tx_hash.js"
+    ".": {
+      "bun": "./src/index.ts",
+      "default": "./dest/index.js"
+    },
+    "./stats": {
+      "bun": "./src/stats/index.ts",
+      "default": "./dest/stats/index.js"
+    },
+    "./jest": {
+      "bun": "./src/jest/index.ts",
+      "default": "./dest/jest/index.js"
+    },
+    "./interfaces": {
+      "bun": "./src/interfaces/index.ts",
+      "default": "./dest/interfaces/index.js"
+    },
+    "./log_id": {
+      "bun": "./src/logs/log_id.ts",
+      "default": "./dest/logs/log_id.js"
+    },
+    "./tx_hash": {
+      "bun": "./src/tx/tx_hash.ts",
+      "default": "./dest/tx/tx_hash.js"
+    }
   },
   "typedocOptions": {
     "entryPoints": [

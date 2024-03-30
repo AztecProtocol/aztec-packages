@@ -5,11 +5,26 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./defaults": "./dest/defaults/index.js",
-    "./ecdsa": "./dest/ecdsa/index.js",
-    "./schnorr": "./dest/schnorr/index.js",
-    "./single_key": "./dest/single_key/index.js",
-    "./testing": "./dest/testing/index.js"
+    "./defaults": {
+      "bun": "./src/defaults/index.ts",
+      "default": "./dest/defaults/index.js"
+    },
+    "./ecdsa": {
+      "bun": "./src/ecdsa/index.ts",
+      "default": "./dest/ecdsa/index.js"
+    },
+    "./schnorr": {
+      "bun": "./src/schnorr/index.ts",
+      "default": "./dest/schnorr/index.js"
+    },
+    "./single_key": {
+      "bun": "./src/single_key/index.ts",
+      "default": "./dest/single_key/index.js"
+    },
+    "./testing": {
+      "bun": "./src/testing/index.ts",
+      "default": "./dest/testing/index.js"
+    }
   },
   "typedocOptions": {
     "entryPoints": [

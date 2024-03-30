@@ -6,11 +6,26 @@
   "main": "./dest/index.js",
   "types": "./dest/index.d.ts",
   "exports": {
-    "./abi": "./dest/abi/index.js",
-    "./contracts": "./dest/contracts/index.js",
-    "./interfaces": "./dest/interfaces/index.js",
-    "./membership": "./dest/sibling-path/index.js",
-    "./noir": "./dest/noir/index.js"
+    "./abi": {
+      "bun": "./src/abi/index.ts",
+      "default": "./dest/abi/index.js"
+    },
+    "./contracts": {
+      "bun": "./src/contracts/index.ts",
+      "default": "./dest/contracts/index.js"
+    },
+    "./interfaces": {
+      "bun": "./src/interfaces/index.ts",
+      "default": "./dest/interfaces/index.js"
+    },
+    "./membership": {
+      "bun": "./src/sibling-path/index.ts",
+      "default": "./dest/sibling-path/index.js"
+    },
+    "./noir": {
+      "bun": "./src/noir/index.ts",
+      "default": "./dest/noir/index.js"
+    }
   },
   "scripts": {
     "build": "yarn clean && yarn generate && tsc -b",

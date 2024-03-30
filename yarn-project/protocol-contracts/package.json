@@ -5,8 +5,14 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./*": "./dest/*/index.js"
+    ".": {
+      "bun": "./src/index.ts",
+      "default": "./dest/index.js"
+    },
+    "./*": {
+      "bun": "./src/*/index.ts",
+      "default": "./dest/*/index.js"
+    }
   },
   "typedocOptions": {
     "entryPoints": [

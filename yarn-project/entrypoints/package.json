@@ -5,9 +5,18 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./dapp": "./dest/dapp_entrypoint.js",
-    "./account": "./dest/account_entrypoint.js",
-    "./multi-call": "./dest/multi_call_entrypoint.js"
+    "./dapp": {
+      "bun": "./src/dapp_entrypoint.ts",
+      "default": "./dest/dapp_entrypoint.js"
+    },
+    "./account": {
+      "bun": "./src/account_entrypoint.ts",
+      "default": "./dest/account_entrypoint.js"
+    },
+    "./multi-call": {
+      "bun": "./src/multi_call_entrypoint.ts",
+      "default": "./dest/multi_call_entrypoint.js"
+    }
   },
   "typedocOptions": {
     "entryPoints": [

@@ -3,9 +3,18 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/src/index.js",
-    "./artifacts/*": "./dest/artifacts/*.json",
-    "./*": "./dest/src/*.js"
+    ".": {
+      "bun": "./src/src/index.ts",
+      "default": "./dest/src/index.js"
+    },
+    "./artifacts/*": {
+      "bun": "./src/artifacts/*.json",
+      "default": "./dest/artifacts/*.json"
+    },
+    "./*": {
+      "bun": "./src/src/*.ts",
+      "default": "./dest/src/*.js"
+    }
   },
   "scripts": {
     "build": "yarn clean && yarn generate",

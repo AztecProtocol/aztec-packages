@@ -3,10 +3,22 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/interfaces/index.js",
-    "./lmdb": "./dest/lmdb/index.js",
-    "./mem": "./dest/mem/index.js",
-    "./utils": "./dest/utils.js"
+    ".": {
+      "bun": "./src/interfaces/index.ts",
+      "default": "./dest/interfaces/index.js"
+    },
+    "./lmdb": {
+      "bun": "./src/lmdb/index.ts",
+      "default": "./dest/lmdb/index.js"
+    },
+    "./mem": {
+      "bun": "./src/mem/index.ts",
+      "default": "./dest/mem/index.js"
+    },
+    "./utils": {
+      "bun": "./src/utils.ts",
+      "default": "./dest/utils.js"
+    }
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
