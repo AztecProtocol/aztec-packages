@@ -9,37 +9,130 @@
     "./eslint": "./.eslintrc.cjs",
     "./eslint.docs": "./.eslintrc.docs.cjs",
     "./prettier": "./.prettierrc.json",
-    "./abi": "./dest/abi/index.js",
-    "./async-map": "./dest/async-map/index.js",
-    "./aztec-address": "./dest/aztec-address/index.js",
-    "./collection": "./dest/collection/index.js",
-    "./crypto": "./dest/crypto/index.js",
-    "./error": "./dest/error/index.js",
-    "./eth-address": "./dest/eth-address/index.js",
-    "./fifo": "./dest/fifo/index.js",
-    "./json-rpc": "./dest/json-rpc/index.js",
-    "./json-rpc/server": "./dest/json-rpc/server/index.js",
-    "./json-rpc/client": "./dest/json-rpc/client/index.js",
-    "./log": "./dest/log/index.js",
-    "./mutex": "./dest/mutex/index.js",
-    "./fields": "./dest/fields/index.js",
-    "./retry": "./dest/retry/index.js",
-    "./running-promise": "./dest/running-promise/index.js",
-    "./serialize": "./dest/serialize/index.js",
-    "./sleep": "./dest/sleep/index.js",
-    "./timer": "./dest/timer/index.js",
-    "./transport": "./dest/transport/index.js",
-    "./trees": "./dest/trees/index.js",
-    "./wasm": "./dest/wasm/index.js",
-    "./worker": "./dest/worker/index.js",
-    "./bigint-buffer": "./dest/bigint-buffer/index.js",
-    "./types": "./dest/types/index.js",
-    "./url": "./dest/url/index.js",
-    "./committable": "./dest/committable/index.js",
-    "./noir": "./dest/noir/index.js",
-    "./testing": "./dest/testing/index.js",
-    "./array": "./dest/array/index.js",
-    "./validation": "./dest/validation/index.js"
+    "./abi": {
+      "bun": "./src/abi/index.ts",
+      "default": "./dest/abi/index.js"
+    },
+    "./async-map": {
+      "bun": "./src/async-map/index.ts",
+      "default": "./dest/async-map/index.js"
+    },
+    "./aztec-address": {
+      "bun": "./src/aztec-address/index.ts",
+      "default": "./dest/aztec-address/index.js"
+    },
+    "./collection": {
+      "bun": "./src/collection/index.ts",
+      "default": "./dest/collection/index.js"
+    },
+    "./crypto": {
+      "bun": "./src/crypto/index.ts",
+      "default": "./dest/crypto/index.js"
+    },
+    "./error": {
+      "bun": "./src/error/index.ts",
+      "default": "./dest/error/index.js"
+    },
+    "./eth-address": {
+      "bun": "./src/eth-address/index.ts",
+      "default": "./dest/eth-address/index.js"
+    },
+    "./fifo": {
+      "bun": "./src/fifo/index.ts",
+      "default": "./dest/fifo/index.js"
+    },
+    "./json-rpc": {
+      "bun": "./src/json-rpc/index.ts",
+      "default": "./dest/json-rpc/index.js"
+    },
+    "./json-rpc/server": {
+      "bun": "./src/json-rpc/server/index.ts",
+      "default": "./dest/json-rpc/server/index.js"
+    },
+    "./json-rpc/client": {
+      "bun": "./src/json-rpc/client/index.ts",
+      "default": "./dest/json-rpc/client/index.js"
+    },
+    "./log": {
+      "bun": "./src/log/index.ts",
+      "default": "./dest/log/index.js"
+    },
+    "./mutex": {
+      "bun": "./src/mutex/index.ts",
+      "default": "./dest/mutex/index.js"
+    },
+    "./fields": {
+      "bun": "./src/fields/index.ts",
+      "default": "./dest/fields/index.js"
+    },
+    "./retry": {
+      "bun": "./src/retry/index.ts",
+      "default": "./dest/retry/index.js"
+    },
+    "./running-promise": {
+      "bun": "./src/running-promise/index.ts",
+      "default": "./dest/running-promise/index.js"
+    },
+    "./serialize": {
+      "bun": "./src/serialize/index.ts",
+      "default": "./dest/serialize/index.js"
+    },
+    "./sleep": {
+      "bun": "./src/sleep/index.ts",
+      "default": "./dest/sleep/index.js"
+    },
+    "./timer": {
+      "bun": "./src/timer/index.ts",
+      "default": "./dest/timer/index.js"
+    },
+    "./transport": {
+      "bun": "./src/transport/index.ts",
+      "default": "./dest/transport/index.js"
+    },
+    "./trees": {
+      "bun": "./src/trees/index.ts",
+      "default": "./dest/trees/index.js"
+    },
+    "./wasm": {
+      "bun": "./src/wasm/index.ts",
+      "default": "./dest/wasm/index.js"
+    },
+    "./worker": {
+      "bun": "./src/worker/index.ts",
+      "default": "./dest/worker/index.js"
+    },
+    "./bigint-buffer": {
+      "bun": "./src/bigint-buffer/index.ts",
+      "default": "./dest/bigint-buffer/index.js"
+    },
+    "./types": {
+      "bun": "./src/types/index.ts",
+      "default": "./dest/types/index.js"
+    },
+    "./url": {
+      "bun": "./src/url/index.ts",
+      "default": "./dest/url/index.js"
+    },
+    "./committable": {
+      "bun": "./src/committable/index.ts",
+      "default": "./dest/committable/index.js"
+    },
+    "./noir": {
+      "bun": "./src/noir/index.ts",
+      "default": "./dest/noir/index.js"
+    },
+    "./testing": {
+      "bun": "./src/testing/index.ts",
+      "default": "./dest/testing/index.js"
+    },
+    "./array": {
+      "bun": "./src/array/index.ts",
+      "default": "./dest/array/index.js"
+    },
+    "./validation": {
+      "bun": "./src/validation/index.ts",
+      "default": "./dest/validation/index.js"
+    }
   },
   "scripts": {
     "build": "yarn clean && tsc -b",
