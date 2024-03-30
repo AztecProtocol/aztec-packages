@@ -50,7 +50,9 @@ import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protoc
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 
+import { createAnvil } from '@viem/anvil';
 import * as fs from 'fs/promises';
+import getPort from 'get-port';
 import * as path from 'path';
 import {
   type Account,
@@ -331,6 +333,13 @@ export async function setup(
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
 
+  // Start anvil.
+  // We go via a wrapper script to ensure if the parent dies, anvil dies.
+  const ethereumHostPort = await getPort();
+  config.rpcUrl = `http://localhost:${ethereumHostPort}`;
+  const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+  await anvil.start();
+
   // Enable logging metrics to a local file named after the test suite
   if (isMetricsLoggingRequested()) {
     const filename = path.join('log', getJobName() + '.jsonl');
@@ -390,6 +399,8 @@ export async function setup(
       logger(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
       await fs.rm(acvmConfig.directoryToCleanup, { recursive: true, force: true });
     }
+
+    await anvil.stop();
   };
 
   return {
