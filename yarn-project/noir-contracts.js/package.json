@@ -4,15 +4,15 @@
   "type": "module",
   "exports": {
     ".": {
-      "bun": "./src/src/index.ts",
+      "bun": "./src/index.ts",
       "default": "./dest/src/index.js"
     },
     "./artifacts/*": {
-      "bun": "./src/artifacts/*.json",
+      "bun": "./artifacts/*.json",
       "default": "./dest/artifacts/*.json"
     },
     "./*": {
-      "bun": "./src/src/*.ts",
+      "bun": "./src/*.ts",
       "default": "./dest/src/*.js"
     }
   },

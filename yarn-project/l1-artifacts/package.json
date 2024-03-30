@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "bun": "./src/index.ts",
+      "bun": "./generated/index.ts",
       "default": "./dest/index.js"
     }
   },
