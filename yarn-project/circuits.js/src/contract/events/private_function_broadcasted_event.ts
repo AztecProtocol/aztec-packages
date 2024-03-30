@@ -91,6 +91,19 @@ export class PrivateFunctionBroadcastedEvent {
     );
   }
 
+  toBuffer() {
+    return Buffer.concat([
+      this.contractClassId.toBuffer(),
+      this.artifactMetadataHash.toBuffer(),
+      this.unconstrainedFunctionsArtifactTreeRoot.toBuffer(),
+      ...this.privateFunctionTreeSiblingPath.map(e => e.toBuffer()),
+      new Fr(this.privateFunctionTreeLeafIndex).toBuffer(),
+      ...this.artifactFunctionTreeSiblingPath.map(e => e.toBuffer()),
+      new Fr(this.artifactFunctionTreeLeafIndex).toBuffer(),
+      this.privateFunction.toBuffer(),
+    ]);
+  }
+
   toFunctionWithMembershipProof(): ExecutablePrivateFunctionWithMembershipProof {
     return {
       ...this.privateFunction,
@@ -126,5 +139,14 @@ export class BroadcastedPrivateFunction implements PrivateFunction {
     const encodedBytecode = reader.readBytes(MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS * 32);
     const bytecode = bufferFromFields(chunk(encodedBytecode, Fr.SIZE_IN_BYTES).map(Buffer.from).map(Fr.fromBuffer));
     return new BroadcastedPrivateFunction(selector, metadataHash, vkHash, bytecode);
+  }
+
+  toBuffer() {
+    return Buffer.concat([
+      this.selector.toBuffer(),
+      this.metadataHash.toBuffer(),
+      this.vkHash.toBuffer(),
+      this.bytecode,
+    ]);
   }
 }

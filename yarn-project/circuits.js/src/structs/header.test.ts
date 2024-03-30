@@ -1,5 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { HEADER_LENGTH } from '../constants.gen.js';
 import { makeHeader } from '../tests/factories.js';
@@ -9,7 +9,6 @@ describe('Header', () => {
   let header: Header;
 
   beforeAll(() => {
-    setupCustomSnapshotSerializers(expect);
     header = makeHeader(randomInt(1000), undefined);
   });
 
@@ -29,7 +28,7 @@ describe('Header', () => {
     const seed = 9870243;
     const header = makeHeader(seed, undefined);
     const hash = header.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
   });
 
   it('number of fields matches constant', () => {
@@ -40,7 +39,7 @@ describe('Header', () => {
   it('computes empty hash', () => {
     const header = Header.empty();
     const hash = header.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

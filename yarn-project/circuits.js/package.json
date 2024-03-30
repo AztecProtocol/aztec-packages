@@ -3,16 +3,46 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./dest/index.js",
-    "./hash": "./dest/hash/index.js",
-    "./barretenberg": "./dest/barretenberg/index.js",
-    "./testing": "./dest/tests/index.js",
-    "./utils": "./dest/utils/index.js",
-    "./types": "./dest/types/index.js",
-    "./constants": "./dest/constants.gen.js",
-    "./contract": "./dest/contract/index.js",
-    "./merkle": "./dest/merkle/index.js",
-    "./simulation": "./dest/simulator/index.js"
+    ".": {
+      "bun": "./src/index.ts",
+      "default": "./dest/index.js"
+    },
+    "./hash": {
+      "bun": "./src/hash/index.ts",
+      "default": "./dest/hash/index.js"
+    },
+    "./barretenberg": {
+      "bun": "./src/barretenberg/index.ts",
+      "default": "./dest/barretenberg/index.js"
+    },
+    "./testing": {
+      "bun": "./src/tests/index.ts",
+      "default": "./dest/tests/index.js"
+    },
+    "./utils": {
+      "bun": "./src/utils/index.ts",
+      "default": "./dest/utils/index.js"
+    },
+    "./types": {
+      "bun": "./src/types/index.ts",
+      "default": "./dest/types/index.js"
+    },
+    "./constants": {
+      "bun": "./src/constants.gen.ts",
+      "default": "./dest/constants.gen.js"
+    },
+    "./contract": {
+      "bun": "./src/contract/index.ts",
+      "default": "./dest/contract/index.js"
+    },
+    "./merkle": {
+      "bun": "./src/merkle/index.ts",
+      "default": "./dest/merkle/index.js"
+    },
+    "./simulation": {
+      "bun": "./src/simulator/index.ts",
+      "default": "./dest/simulator/index.js"
+    }
   },
   "typedocOptions": {
     "entryPoints": [

@@ -1,5 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '../constants.gen.js';
 import { makePrivateCircuitPublicInputs } from '../tests/factories.js';
@@ -9,7 +9,6 @@ describe('PrivateCircuitPublicInputs', () => {
   let inputs: PrivateCircuitPublicInputs;
 
   beforeAll(() => {
-    setupCustomSnapshotSerializers(expect);
     inputs = makePrivateCircuitPublicInputs(randomInt(1000));
   });
 
@@ -38,13 +37,13 @@ describe('PrivateCircuitPublicInputs', () => {
   it('hash matches snapshot', () => {
     const target = makePrivateCircuitPublicInputs(327);
     const hash = target.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
   });
 
   it('computes empty inputs hash', () => {
     const inputs = PrivateCircuitPublicInputs.empty();
     const hash = inputs.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

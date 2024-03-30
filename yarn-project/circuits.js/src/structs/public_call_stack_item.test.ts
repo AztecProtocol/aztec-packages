@@ -1,12 +1,11 @@
 import { randomInt } from '@aztec/foundation/crypto';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { makePublicCallStackItem } from '../tests/factories.js';
 import { AztecAddress, Fr, FunctionData, FunctionSelector, SideEffect } from './index.js';
 import { PublicCallStackItem } from './public_call_stack_item.js';
 
 describe('PublicCallStackItem', () => {
-  setupCustomSnapshotSerializers(expect);
   it('serializes to buffer and deserializes it back', () => {
     const expected = makePublicCallStackItem(randomInt(1000));
     const buffer = expected.toBuffer();
@@ -18,7 +17,7 @@ describe('PublicCallStackItem', () => {
     const seed = 9870243;
     const item = makePublicCallStackItem(seed);
     const hash = item.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
   });
 
   it('Computes a callstack item request hash', () => {

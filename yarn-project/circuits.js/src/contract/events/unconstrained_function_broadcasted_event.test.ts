@@ -2,7 +2,6 @@ import { FunctionSelector } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Tuple } from '@aztec/foundation/serialize';
-import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { getSampleUnconstrainedFunctionBroadcastedEventPayload } from '../../tests/fixtures.js';
 import {
@@ -11,11 +10,10 @@ import {
 } from './unconstrained_function_broadcasted_event.js';
 
 describe('UnconstrainedFunctionBroadcastedEvent', () => {
-  beforeAll(() => setupCustomSnapshotSerializers(expect));
   it('parses an event as emitted by the ContractClassRegisterer', () => {
     const data = getSampleUnconstrainedFunctionBroadcastedEventPayload();
     const event = UnconstrainedFunctionBroadcastedEvent.fromLogData(data);
-    expect(event).toMatchSnapshot();
+    expect(event.toBuffer().toString('hex')).toMatchSnapshot();
   });
 
   it('filters out zero-elements at the end of the artifcat tree sibling path', () => {

@@ -1,5 +1,5 @@
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { FUNCTION_DATA_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
@@ -8,7 +8,6 @@ describe('FunctionData', () => {
   let functionData: FunctionData;
 
   beforeAll(() => {
-    setupCustomSnapshotSerializers(expect);
     functionData = new FunctionData(new FunctionSelector(123), true);
   });
 
@@ -27,7 +26,7 @@ describe('FunctionData', () => {
   it('computes empty inputs hash', () => {
     const data = FunctionData.empty();
     const hash = data.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

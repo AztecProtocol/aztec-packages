@@ -85,6 +85,17 @@ export class UnconstrainedFunctionBroadcastedEvent {
     );
   }
 
+  toBuffer() {
+    return Buffer.concat([
+      this.contractClassId.toBuffer(),
+      this.artifactMetadataHash.toBuffer(),
+      this.privateFunctionsArtifactTreeRoot.toBuffer(),
+      ...this.artifactFunctionTreeSiblingPath.map(e => e.toBuffer()),
+      new Fr(this.artifactFunctionTreeLeafIndex).toBuffer(),
+      this.unconstrainedFunction.toBuffer(),
+    ]);
+  }
+
   toFunctionWithMembershipProof(): UnconstrainedFunctionWithMembershipProof {
     // We should be able to safely remove the zero elements that pad the variable-length sibling path,
     // since a sibling with value zero can only occur on the tree leaves, so the sibling path will never end
@@ -120,5 +131,9 @@ export class BroadcastedUnconstrainedFunction implements UnconstrainedFunction {
     const encodedBytecode = reader.readBytes(MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS * 32);
     const bytecode = bufferFromFields(chunk(encodedBytecode, Fr.SIZE_IN_BYTES).map(Buffer.from).map(Fr.fromBuffer));
     return new BroadcastedUnconstrainedFunction(selector, metadataHash, bytecode);
+  }
+
+  toBuffer() {
+    return Buffer.concat([this.selector.toBuffer(), this.metadataHash.toBuffer(), this.bytecode]);
   }
 }

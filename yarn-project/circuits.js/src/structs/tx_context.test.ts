@@ -1,5 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { TX_CONTEXT_DATA_LENGTH } from '../constants.gen.js';
 import { makeTxContext } from '../tests/factories.js';
@@ -9,7 +9,6 @@ describe('TxContext', () => {
   let context: TxContext;
 
   beforeAll(() => {
-    setupCustomSnapshotSerializers(expect);
     context = makeTxContext(randomInt(1000));
   });
 
@@ -30,7 +29,7 @@ describe('TxContext', () => {
     expect(tc.isEmpty()).toBe(true);
 
     const hash = tc.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

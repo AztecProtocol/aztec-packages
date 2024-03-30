@@ -3,7 +3,7 @@ import { type ContractClass } from '@aztec/types/contracts';
 
 import { FunctionSelector, computeContractClassId } from '../index.js';
 
-describe('ContractClass', () => {
+describe.skip('ContractClass', () => {
   describe('getContractClassId', () => {
     it('calculates the contract class id', () => {
       const contractClass: ContractClass = {

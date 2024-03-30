@@ -1,5 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { PRIVATE_CALL_STACK_ITEM_LENGTH } from '../constants.gen.js';
 import { makePrivateCallStackItem } from '../tests/factories.js';
@@ -9,7 +9,6 @@ describe('PrivateCallStackItem', () => {
   let item: PrivateCallStackItem;
 
   beforeAll(() => {
-    setupCustomSnapshotSerializers(expect);
     item = makePrivateCallStackItem(randomInt(1000));
   });
 
@@ -34,13 +33,13 @@ describe('PrivateCallStackItem', () => {
     const seed = 9870243;
     const item = makePrivateCallStackItem(seed);
     const hash = item.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
   });
 
   it('computes empty item hash', () => {
     const item = PrivateCallStackItem.empty();
     const hash = item.hash();
-    expect(hash).toMatchSnapshot();
+    expect(hash.toString()).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(

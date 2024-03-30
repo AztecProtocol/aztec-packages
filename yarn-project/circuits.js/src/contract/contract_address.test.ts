@@ -1,6 +1,6 @@
 import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing';
 
 import { AztecAddress, EthAddress } from '../index.js';
 import {
@@ -13,14 +13,13 @@ import {
 } from './contract_address.js';
 
 describe('ContractAddress', () => {
-  setupCustomSnapshotSerializers(expect);
   it('computePartialAddress', () => {
     const mockInstance = {
       contractClassId: new Fr(1),
       saltedInitializationHash: new Fr(2),
     };
     const result = computePartialAddress(mockInstance);
-    expect(result).toMatchSnapshot();
+    expect(result.toString()).toMatchSnapshot();
   });
 
   it('computeSaltedInitializationHash', () => {
@@ -31,7 +30,7 @@ describe('ContractAddress', () => {
       deployer: AztecAddress.fromField(new Fr(4)),
     };
     const result = computeSaltedInitializationHash(mockInstance);
-    expect(result).toMatchSnapshot();
+    expect(result.toString()).toMatchSnapshot();
   });
 
   it('computeInitializationHash', () => {
@@ -45,12 +44,12 @@ describe('ContractAddress', () => {
     };
     const mockArgs: any[] = [true];
     const result = computeInitializationHash(mockInitFn, mockArgs);
-    expect(result).toMatchSnapshot();
+    expect(result.toString()).toMatchSnapshot();
   });
 
   it('computeInitializationHash empty', () => {
     const result = computeInitializationHash(undefined, []);
-    expect(result).toEqual(Fr.ZERO);
+    expect(result.toString()).toEqual(Fr.ZERO.toString());
   });
 
   it('computeContractAddressFromInstance', () => {
