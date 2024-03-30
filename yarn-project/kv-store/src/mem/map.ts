@@ -31,7 +31,7 @@ function compareKeys(a: Key, b: Key) {
  * A map backed by mem.
  */
 export class MemAztecMap<V> implements AztecMultiMap<Key, V> {
-  constructor(private name: string, private db: MemDb) {}
+  constructor(private name: string, private db: MemDb, private allowDups = true) {}
 
   close(): Promise<void> {
     return Promise.resolve();
@@ -39,7 +39,7 @@ export class MemAztecMap<V> implements AztecMultiMap<Key, V> {
 
   get(key: Key): V | undefined {
     const r = this.db.get(this.slot(key));
-    return r ? r[r.length - 1] : undefined;
+    return r ? r[0] : undefined;
   }
 
   getValues(key: Key): IterableIterator<V> {
@@ -54,7 +54,7 @@ export class MemAztecMap<V> implements AztecMultiMap<Key, V> {
 
   set(key: Key, val: V): Promise<boolean> {
     const r = this.db.get(this.slot(key));
-    if (r) {
+    if (r && this.allowDups) {
       this.db.set(this.slot(key), [...r, val]);
     } else {
       this.db.set(this.slot(key), [val]);

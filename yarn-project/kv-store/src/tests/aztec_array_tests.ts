@@ -20,6 +20,7 @@ export function addArrayTests(getArray: () => AztecArray<number>) {
       expect(await arr.pop()).toEqual(2);
       expect(await arr.pop()).toEqual(1);
       expect(await arr.pop()).toEqual(undefined);
+      expect(Array.from(arr)).toEqual([1, 2, 3]);
     });
 
     it('should be able to get values by index', async () => {

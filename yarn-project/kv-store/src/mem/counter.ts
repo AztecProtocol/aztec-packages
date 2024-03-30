@@ -7,7 +7,7 @@ export class MemAztecCounter implements AztecCounter<Key> {
   private map: MemAztecMap<number>;
 
   constructor(name: string, db: MemDb) {
-    this.map = new MemAztecMap(name, db);
+    this.map = new MemAztecMap(name, db, false);
   }
 
   async set(key: Key, value: number): Promise<boolean> {

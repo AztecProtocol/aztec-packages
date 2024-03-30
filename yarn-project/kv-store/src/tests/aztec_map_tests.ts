@@ -20,14 +20,6 @@ export function addMapTests(get: () => AztecMultiMap<Key, string>) {
       expect(map.get('quux')).toEqual(undefined);
     });
 
-    it('should be able to update values', async () => {
-      await map.set('foo', 'bar');
-      expect(map.get('foo')).toEqual('bar');
-
-      await map.set('foo', 'qux');
-      expect(map.get('foo')).toEqual('qux');
-    });
-
     it('should be able to set values if they do not exist', async () => {
       expect(await map.setIfNotExists('foo', 'bar')).toEqual(true);
       expect(await map.setIfNotExists('foo', 'baz')).toEqual(false);
@@ -72,6 +64,8 @@ export function addMapTests(get: () => AztecMultiMap<Key, string>) {
     it('should be able to get multiple values for a single key', async () => {
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');
+
+      expect(map.get('foo')).toEqual('bar');
 
       expect([...map.getValues('foo')]).toEqual(['bar', 'baz']);
     });

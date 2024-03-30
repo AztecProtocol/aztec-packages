@@ -45,6 +45,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { AztecMemStore } from '@aztec/kv-store/mem';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
@@ -119,11 +120,11 @@ export class AztecNodeService implements AztecNode {
 
     const log = createDebugLogger('aztec:node');
     const storeLog = createDebugLogger('aztec:node:lmdb');
-    const store = await initStoreForRollup(
-      AztecLmdbStore.open(config.dataDirectory, false, storeLog),
-      config.l1Contracts.rollupAddress,
-      storeLog,
-    );
+    const storeDb = config.dataDirectory
+      ? AztecLmdbStore.open(config.dataDirectory, false, storeLog)
+      : new AztecMemStore();
+
+    const store = await initStoreForRollup(storeDb, config.l1Contracts.rollupAddress, storeLog);
 
     let archiver: ArchiveSource;
     if (!config.archiverUrl) {

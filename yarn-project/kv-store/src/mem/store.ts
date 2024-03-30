@@ -16,11 +16,11 @@ export class AztecMemStore implements AztecKVStore {
   private data = new MemDb();
 
   openMap<K extends string | number, V>(name: string): AztecMap<K, V> {
-    return new MemAztecMap(name, this.data) as any;
+    return new MemAztecMap(name, this.data, false) as any;
   }
 
   openMultiMap<K extends string | number, V>(name: string): AztecMultiMap<K, V> {
-    return new MemAztecMap(name, this.data) as any;
+    return new MemAztecMap(name, this.data, true) as any;
   }
 
   openCounter<K extends string | number | Array<string | number>>(name: string): AztecCounter<K> {
