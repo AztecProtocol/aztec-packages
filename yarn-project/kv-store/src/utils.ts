@@ -2,7 +2,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger } from '@aztec/foundation/log';
 
 import { type AztecKVStore } from './interfaces/store.js';
-import { AztecLmdbStore } from './lmdb/store.js';
+import { AztecMemStore } from './mem/store.js';
 
 /**
  * Clears the store if the rollup address does not match the one stored in the database.
@@ -38,5 +38,6 @@ export async function initStoreForRollup<T extends AztecKVStore>(
  * @returns A new store
  */
 export function openTmpStore(ephemeral: boolean = false): AztecKVStore {
-  return AztecLmdbStore.open(undefined, ephemeral);
+  return new AztecMemStore();
+  // return AztecLmdbStore.open(undefined, ephemeral);
 }

@@ -5,6 +5,7 @@
   "exports": {
     ".": "./dest/interfaces/index.js",
     "./lmdb": "./dest/lmdb/index.js",
+    "./mem": "./dest/mem/index.js",
     "./utils": "./dest/utils.js"
   },
   "scripts": {
