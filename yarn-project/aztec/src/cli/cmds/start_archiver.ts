@@ -5,9 +5,10 @@ import {
   createArchiverRpcServer,
   getConfigEnvVars as getArchiverConfigEnvVars,
 } from '@aztec/archiver';
-import { createDebugLogger } from '@aztec/aztec.js';
 import { type ServerList } from '@aztec/foundation/json-rpc/server';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { AztecMemStore } from '@aztec/kv-store/mem';
 import { initStoreForRollup } from '@aztec/kv-store/utils';
 
 import { mergeEnvVarsAndCliOptions, parseModuleOptions } from '../util.js';
@@ -23,11 +24,10 @@ export const startArchiver = async (options: any, signalHandlers: (() => Promise
   const archiverConfig = mergeEnvVarsAndCliOptions<ArchiverConfig>(archiverConfigEnvVars, archiverCliOptions, true);
 
   const storeLog = createDebugLogger('aztec:archiver:lmdb');
-  const store = await initStoreForRollup(
-    AztecLmdbStore.open(archiverConfig.dataDirectory, false, storeLog),
-    archiverConfig.l1Contracts.rollupAddress,
-    storeLog,
-  );
+  const storeDb = archiverConfig.dataDirectory
+    ? AztecLmdbStore.open(archiverConfig.dataDirectory, false, storeLog)
+    : new AztecMemStore();
+  const store = await initStoreForRollup(storeDb, archiverConfig.l1Contracts.rollupAddress, storeLog);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const archiver = await Archiver.createAndSync(archiverConfig, archiverStore, true);

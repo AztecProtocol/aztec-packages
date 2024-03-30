@@ -1,66 +1,6 @@
-import type { AztecArray, AztecCounter, AztecMap, AztecSingleton } from '../interfaces/index.js';
+import { addStoreTests } from '../tests/aztec_store_tests.js';
 import { AztecMemStore } from './store.js';
 
 describe('AztecMemStore', () => {
-  let store: AztecMemStore;
-  let array: AztecArray<number>;
-  let multimap: AztecMap<string, number>;
-  let counter: AztecCounter;
-  let singleton: AztecSingleton<number>;
-
-  beforeEach(async () => {
-    store = new AztecMemStore();
-
-    array = store.openArray('test-array');
-    multimap = store.openMultiMap('test-multimap');
-    counter = store.openCounter('test-counter');
-    singleton = store.openSingleton('test-singleton');
-
-    await array.push(1, 2, 3);
-    await multimap.set('key-1', 1);
-    await multimap.set('key-2', 2);
-    await counter.set('counter-1', 3);
-    await singleton.set(4);
-  });
-
-  it('check initial state', () => {
-    expect(array.at(2)).toBe(3);
-    expect(multimap.get('key-2')).toBe(2);
-    expect(counter.get('counter-1')).toBe(3);
-    expect(singleton.get()).toBe(4);
-  });
-
-  it('state should update with successful tx', async () => {
-    await store.transaction(() => {
-      void array.setAt(2, 10);
-      void multimap.set('key-2', 20);
-      void counter.set('counter-1', 30);
-      void singleton.set(40);
-    });
-    void multimap.set('key-2', 20);
-
-    expect(array.at(2)).toBe(10);
-    expect(multimap.get('key-2')).toBe(20);
-    expect(counter.get('counter-1')).toBe(30);
-    expect(singleton.get()).toBe(40);
-  });
-
-  it('state should rollback with unsuccessful tx', async () => {
-    try {
-      await store.transaction(() => {
-        void array.setAt(2, 10);
-        void multimap.set('key-2', 20);
-        void counter.set('counter-1', 30);
-        void singleton.set(40);
-        throw new Error();
-      });
-    } catch (err) {
-      // swallow
-    }
-
-    expect(array.at(2)).toBe(3);
-    expect(multimap.get('key-2')).toBe(2);
-    expect(counter.get('counter-1')).toBe(3);
-    expect(singleton.get()).toBe(4);
-  });
+  addStoreTests(() => new AztecMemStore());
 });

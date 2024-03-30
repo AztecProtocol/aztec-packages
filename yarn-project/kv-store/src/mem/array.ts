@@ -57,11 +57,13 @@ export class MemAztecArray<T> implements AztecArray<T> {
   }
 
   entries(): IterableIterator<[number, T]> {
-    return this.db.get(this.slot)?.entries() || [];
+    const arr = this.db.get(this.slot) || [];
+    return arr.entries();
   }
 
   values(): IterableIterator<T> {
-    return this.db.get(this.slot)?.values() || [];
+    const arr = this.db.get(this.slot) || [];
+    return arr.values();
   }
 
   [Symbol.iterator](): IterableIterator<T> {

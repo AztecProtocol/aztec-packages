@@ -39,5 +39,4 @@ export async function initStoreForRollup<T extends AztecKVStore>(
  */
 export function openTmpStore(ephemeral: boolean = false): AztecKVStore {
   return new AztecMemStore();
-  // return AztecLmdbStore.open(undefined, ephemeral);
 }
