@@ -3,7 +3,15 @@ pragma solidity >=0.8.21;
 
 import {Fr} from "./Fr.sol";
 
-library HonkTypes {
+uint256 internal constant NUMBER_OF_SUBRELATIONS = 18;
+uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
+uint256 constant NUMBER_OF_ENTITIES = 43;
+
+/// Log of the circuit size - precomputed
+uint256 constant N = 32;
+uint256 constant LOG_N = 5;
+
+library Honk {
     struct G1Point {
         uint256 x;
         uint256 y;
@@ -54,12 +62,6 @@ library HonkTypes {
         G1Point lagrangeLast;
     }
 
-    uint256 constant NUMBER_OF_SUBRELATIONS = 4;
-    uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
-    uint256 constant NUMBER_OF_ENTITIES = 43;
-
-    /// Log of the circuit size - precomputed
-    uint256 constant LOG_N = 5;
 
     struct Proof {
         uint256 circuitSize;

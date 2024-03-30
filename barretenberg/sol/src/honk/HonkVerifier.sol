@@ -1,4 +1,4 @@
-import {HonkTypes} from "./HonkVerifierTypes.sol";
+import {Honk, NUMBER_OF_ENTITIES, NUMBER_OF_SUBRELATIONS, BATCHED_RELATION_PARTIAL_LENGTH, N, LOG_N} from "./HonkTypes.sol";
 import {IVerifier} from "../interfaces/IVerifier.sol";
 
 // TODO: this should be somewhat dynamic across the board
@@ -71,10 +71,7 @@ contract HonkVerifier is IVerifier {
     /// 4. Implement the zero morph verifier
 
     // TODO: increase this number accordingly
-    uint256 internal constant NUMBER_OF_SUBRELATIONS = 18;
     uint256 internal constant NUMBER_OF_ALPHAS = 17;
-    uint256 internal constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
-    uint256 internal constant NUMBER_OF_ENTITIES = 43;
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17) 
 
     uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
@@ -115,7 +112,7 @@ contract HonkVerifier is IVerifier {
     }
 
     /// Check how the challenges are calculated on the otherside
-    function loadVerificationKey() internal view returns (HonkTypes.VerificationKey memory) {
+    function loadVerificationKey() internal view returns (Honk.VerificationKey memory) {
         // Load the verification key -> this can be hardcoded
         return Add2HonkVerificationKey.loadVerificationKey();
     }
@@ -133,7 +130,7 @@ contract HonkVerifier is IVerifier {
     return string(str);
 }
 
-    function logG1(string memory name, HonkTypes.G1ProofPoint memory point) internal pure {
+    function logG1(string memory name, Honk.G1ProofPoint memory point) internal pure {
         // TODO: convert both to hex before printing to line up with cpp
         string memory x_0 = bytes32ToString(bytes32(point.x_0));
         string memory x_1 = bytes32ToString(bytes32(point.x_1));
@@ -144,7 +141,7 @@ contract HonkVerifier is IVerifier {
         console2.log(message);
     }
 
-    function logG(string memory name, HonkTypes.G1Point memory point) internal pure {
+    function logG(string memory name, Honk.G1Point memory point) internal pure {
         // TODO: convert both to hex before printing to line up with cpp
         string memory x = bytes32ToString(bytes32(point.x));
         string memory y = bytes32ToString(bytes32(point.y));
@@ -168,9 +165,9 @@ contract HonkVerifier is IVerifier {
         console2.log(name, i, as_hex);
     }
 
-    function loadProof(bytes calldata proof) internal view returns (HonkTypes.Proof memory) {
+    function loadProof(bytes calldata proof) internal view returns (Honk.Proof memory) {
         // TODO: mod all of the points by q!!
-        HonkTypes.Proof memory p;
+        Honk.Proof memory p;
 
         // NOTE: Start of eta challenege
 
@@ -182,35 +179,35 @@ contract HonkVerifier is IVerifier {
         // TODO: Assset sizes are the same as vk - maybe not required actually
 
         // Commitments
-        p.w1 = HonkTypes.G1ProofPoint({
+        p.w1 = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x60:0x80])), x_1: uint256(bytes32(proof[0x80:0xa0])),
             y_0: uint256(bytes32(proof[0xa0:0xc0])), y_1: uint256(bytes32(proof[0xc0:0xe0]))});
 
-        p.w2 = HonkTypes.G1ProofPoint({
+        p.w2 = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0xe0:0x100])), x_1: uint256(bytes32(proof[0x100:0x120])), 
             y_0: uint256(bytes32(proof[0x120:0x140])), y_1: uint256(bytes32(proof[0x140:0x160]))});
-        p.w3 = HonkTypes.G1ProofPoint({
+        p.w3 = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x160:0x180])), x_1: uint256(bytes32(proof[0x180:0x1a0])),
             y_0: uint256(bytes32(proof[0x1a0:0x1c0])), y_1: uint256(bytes32(proof[0x1c0:0x1e0]))});
 
         // Lookup / Permutation Helper Commitments
         p.sortedAccum =
-            HonkTypes.G1ProofPoint({
+            Honk.G1ProofPoint({
                 x_0: uint256(bytes32(proof[0x1e0:0x200])), x_1: uint256(bytes32(proof[0x200:0x220])),
                 y_0: uint256(bytes32(proof[0x220:0x240])), y_1: uint256(bytes32(proof[0x240:0x260]))
             });
-        p.w4 = HonkTypes.G1ProofPoint({
+        p.w4 = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x260:0x280])), x_1: uint256(bytes32(proof[0x280:0x2a0])),
             y_0: uint256(bytes32(proof[0x2a0:0x2c0])), y_1: uint256(bytes32(proof[0x2c0:0x2e0]))
         });
 
-        p.zPerm = HonkTypes.G1ProofPoint({
+        p.zPerm = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[0x2e0:0x300])), x_1: uint256(bytes32(proof[0x300:0x320])),
             y_0: uint256(bytes32(proof[0x320:0x340])), y_1: uint256(bytes32(proof[0x340:0x360]))
         });
 
         p.zLookup =
-            HonkTypes.G1ProofPoint({
+            Honk.G1ProofPoint({
                 x_0: uint256(bytes32(proof[0x360:0x380])), x_1: uint256(bytes32(proof[0x380:0x3a0])),
                 y_0: uint256(bytes32(proof[0x3a0:0x3c0])), y_1: uint256(bytes32(proof[0x3c0:0x3e0]))
             });
@@ -259,7 +256,7 @@ contract HonkVerifier is IVerifier {
             uint256 y1End = y1Start + 0x20;
 
             p.zmCqs[i] =
-                HonkTypes.G1ProofPoint({
+                Honk.G1ProofPoint({
                     x_0: uint256(bytes32(proof[xStart:xEnd])), x_1: uint256(bytes32(proof[x1Start:x1End])), 
                     y_0: uint256(bytes32(proof[yStart:yEnd])), y_1: uint256(bytes32(proof[y1Start:y1End]))
                 });
@@ -269,12 +266,12 @@ contract HonkVerifier is IVerifier {
 
         // TODO: the hardcoded figures here will be wrong
         // Probably worth just preprocessing these
-        p.zmCq = HonkTypes.G1ProofPoint({
+        p.zmCq = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[boundary:boundary + 0x20])), x_1: uint256(bytes32(proof[boundary + 0x20:boundary + 0x40])),
             y_0: uint256(bytes32(proof[boundary + 0x40:boundary + 0x60])), y_1: uint256(bytes32(proof[boundary + 0x60:boundary + 0x80]))
         });
 
-        p.zmPi = HonkTypes.G1ProofPoint({
+        p.zmPi = Honk.G1ProofPoint({
             x_0: uint256(bytes32(proof[boundary + 0x80:boundary + 0xa0])), x_1: uint256(bytes32(proof[boundary + 0xa0:boundary + 0xc0])),
             y_0: uint256(bytes32(proof[boundary + 0xc0:boundary + 0xe0])), y_1: uint256(bytes32(proof[boundary + 0xe0:boundary + 0x100]))
         });
@@ -288,8 +285,8 @@ contract HonkVerifier is IVerifier {
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) override view public returns (bool) {
         uint256 gasStart = gasleft();
 
-        HonkTypes.VerificationKey memory vk = loadVerificationKey();
-        HonkTypes.Proof memory p = loadProof(proof);
+        Honk.VerificationKey memory vk = loadVerificationKey();
+        Honk.Proof memory p = loadProof(proof);
 
 
         if (vk.publicInputsSize != publicInputs.length) {
@@ -319,8 +316,8 @@ contract HonkVerifier is IVerifier {
     }
 
     function computeChallenges(
-        HonkTypes.Proof memory proof,
-        HonkTypes.VerificationKey memory vk,
+        Honk.Proof memory proof,
+        Honk.VerificationKey memory vk,
         bytes32[] calldata publicInputs
     ) internal view returns (TranscriptParameters memory) {
         TranscriptParameters memory tp;
@@ -348,7 +345,7 @@ contract HonkVerifier is IVerifier {
         return tp;
     }
 
-    function generateEtaChallenge(HonkTypes.Proof memory proof, bytes32[] calldata publicInputs) internal view returns (Fr) {
+    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs) internal view returns (Fr) {
         // publicInputs.length = 3 - this will be templated in the end!!!
         // TODO(md): the 12 here will need to be halved when we fix the transcript to not be over field elements
         // TODO(md): the 3 here is hardcoded for the number of public inputs - this will need to be generated / use asm
@@ -381,7 +378,7 @@ contract HonkVerifier is IVerifier {
         return eta;
     }
 
-    function generateBetaAndGammaChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) internal view returns (Fr, Fr) {
+    function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr, Fr) {
         // TODO(md): adjust round size when the proof points are generated correctly - 5
         bytes32[9] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
@@ -401,7 +398,7 @@ contract HonkVerifier is IVerifier {
 
 
     // Alpha challenges non-linearise the gate contributions
-    function generateAlphaChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) 
+    function generateAlphaChallenges(Fr previousChallenge, Honk.Proof memory proof) 
         internal view
         returns (Fr[NUMBER_OF_ALPHAS] memory)
     {
@@ -440,7 +437,7 @@ contract HonkVerifier is IVerifier {
         return gateChallanges;
     }
 
-    function generateSumcheckChallenges(HonkTypes.Proof memory proof, Fr prevChallenge)
+    function generateSumcheckChallenges(Honk.Proof memory proof, Fr prevChallenge)
         internal view
         returns (Fr[LOG_N] memory)
     {
@@ -462,7 +459,7 @@ contract HonkVerifier is IVerifier {
         return sumcheckChallenges;
     }
 
-    function generateRhoChallenge(HonkTypes.Proof memory proof, Fr prevChallenge) internal view returns (Fr) {
+    function generateRhoChallenge(Honk.Proof memory proof, Fr prevChallenge) internal view returns (Fr) {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
@@ -476,7 +473,7 @@ contract HonkVerifier is IVerifier {
         return rho;
     }
 
-    function generateZMYChallenge(Fr previousChallenge, HonkTypes.Proof memory proof) internal view returns (Fr) {
+    function generateZMYChallenge(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr) {
         uint256[LOG_N * 4 + 1] memory zmY;
         zmY[0] = Fr.unwrap(previousChallenge);
 
@@ -491,7 +488,7 @@ contract HonkVerifier is IVerifier {
         return zmy;
     }
 
-    function generateZMXZChallenges(Fr previousChallenge, HonkTypes.Proof memory proof) internal view returns (Fr, Fr) {
+    function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr, Fr) {
         uint256[4 + 1] memory buf;
         buf[0] = Fr.unwrap(previousChallenge);
 
@@ -557,7 +554,7 @@ contract HonkVerifier is IVerifier {
     // TODO: check this is 0
     uint256 constant ROUND_TARGET = 0;
 
-    function verifySumcheck(HonkTypes.Proof memory proof, TranscriptParameters memory tp) internal view returns (bool verified){
+    function verifySumcheck(Honk.Proof memory proof, TranscriptParameters memory tp) internal view returns (bool verified){
         Fr roundTarget;
         Fr powPartialEvaluation = Fr.wrap(1);
 
@@ -660,7 +657,7 @@ contract HonkVerifier is IVerifier {
     // These are stored in the evaluations part of the proof object.
     // We add these together, with the appropiate scaling factor ( the alphas calculated in challenges )
     // This value is checked against the final value of the target total sum - et voila!
-    function accumulateRelationEvaluations(HonkTypes.Proof memory proof, TranscriptParameters memory tp, Fr powPartialEval) internal view returns (Fr) {
+    function accumulateRelationEvaluations(Honk.Proof memory proof, TranscriptParameters memory tp, Fr powPartialEval) internal view returns (Fr) {
         // Fr[LOG_N] memory powUnivariate = tp.gateChallenges;
         Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations = proof.sumcheckEvaluations;
 
@@ -1266,7 +1263,7 @@ contract HonkVerifier is IVerifier {
     }
 
 
-    function verifyZeroMorph(HonkTypes.Proof memory proof, HonkTypes.VerificationKey memory vk, TranscriptParameters memory tp) internal view returns (bool) {
+    function verifyZeroMorph(Honk.Proof memory proof, Honk.VerificationKey memory vk, TranscriptParameters memory tp) internal view returns (bool) {
 
         // Need:
         // - commitments - unshifted -> in proof
@@ -1299,9 +1296,9 @@ contract HonkVerifier is IVerifier {
         
         // Get k commitments
         // TODO: adjust naming
-        HonkTypes.G1Point memory c_zeta = computeCZeta(proof, tp);
-        HonkTypes.G1Point memory c_zeta_x = computeCZetaX(proof, vk, tp, batchedEval);
-        HonkTypes.G1Point memory c_zeta_Z = ecAdd(c_zeta, ecMul(c_zeta_x, tp.zmZ));
+        Honk.G1Point memory c_zeta = computeCZeta(proof, tp);
+        Honk.G1Point memory c_zeta_x = computeCZetaX(proof, vk, tp, batchedEval);
+        Honk.G1Point memory c_zeta_Z = ecAdd(c_zeta, ecMul(c_zeta_x, tp.zmZ));
 
         // KZG pairing accumulator
         Fr evaluation = Fr.wrap(0);
@@ -1309,11 +1306,11 @@ contract HonkVerifier is IVerifier {
     }
 
     // Compute commitment to lifted degree quotient identity
-    function computeCZeta(HonkTypes.Proof memory proof, TranscriptParameters memory tp) internal view returns (HonkTypes.G1Point memory) {
+    function computeCZeta(Honk.Proof memory proof, TranscriptParameters memory tp) internal view returns (Honk.G1Point memory) {
         // 
         Fr[LOG_N + 1] memory scalars;
         // TODO: first commitment must have zm C_q pushed to the front
-        HonkTypes.G1ProofPoint[LOG_N + 1] memory commitments;
+        Honk.G1ProofPoint[LOG_N + 1] memory commitments;
 
         // Initial contribution
         commitments[0] = proof.zmCq;
@@ -1333,7 +1330,7 @@ contract HonkVerifier is IVerifier {
         }
 
         // Convert all commitments for batch mul
-        HonkTypes.G1Point[LOG_N + 1] memory comms = convertPoints(commitments);
+        Honk.G1Point[LOG_N + 1] memory comms = convertPoints(commitments);
 
         return batchMul(comms, scalars);
     }
@@ -1351,9 +1348,9 @@ contract HonkVerifier is IVerifier {
         Fr x_pow_2k;
         Fr x_pow_2kp1;
     }
-    function computeCZetaX(HonkTypes.Proof memory proof, HonkTypes.VerificationKey memory vk, TranscriptParameters memory tp, Fr batchedEval) internal view returns (HonkTypes.G1Point memory) {
+    function computeCZetaX(Honk.Proof memory proof, Honk.VerificationKey memory vk, TranscriptParameters memory tp, Fr batchedEval) internal view returns (Honk.G1Point memory) {
         Fr[NUMBER_OF_ENTITIES + LOG_N + 1] memory scalars;        
-        HonkTypes.G1Point[NUMBER_OF_ENTITIES + LOG_N + 1] memory commitments;
+        Honk.G1Point[NUMBER_OF_ENTITIES + LOG_N + 1] memory commitments;
         CZetaXParams memory cp;
 
         // Phi_n(x) = (x^N - 1) / (x - 1)
@@ -1363,7 +1360,7 @@ contract HonkVerifier is IVerifier {
         // Add contribution: -v * x * \Phi_n(x) * [1]_1
         // Add base 
         scalars[0] = MINUS_ONE * batchedEval * tp.zmX * cp.phi_n_x;
-        commitments[0] = HonkTypes.G1Point({x: 1, y: 2}); // One
+        commitments[0] = Honk.G1Point({x: 1, y: 2}); // One
 
         // f - Add all unshifted commitments
         // g - Add add to be shifted commitments
@@ -1456,7 +1453,7 @@ contract HonkVerifier is IVerifier {
 
     // TODO: TODO: TODO: optimize 
     // Scalar Mul and acumulate into total
-    function batchMul(HonkTypes.G1Point[LOG_N + 1] memory base, Fr[LOG_N + 1] memory scalars) internal view returns (HonkTypes.G1Point memory result) {
+    function batchMul(Honk.G1Point[LOG_N + 1] memory base, Fr[LOG_N + 1] memory scalars) internal view returns (Honk.G1Point memory result) {
         // TODO: check if i actually need to do the memory copies here
         uint256 limit = LOG_N + 1;
         assembly {
@@ -1497,7 +1494,7 @@ contract HonkVerifier is IVerifier {
         }
     }
 
-    function batchMul2(HonkTypes.G1Point[NUMBER_OF_ENTITIES + LOG_N + 1] memory base, Fr[NUMBER_OF_ENTITIES + LOG_N + 1] memory scalars) internal view returns (HonkTypes.G1Point memory result) {
+    function batchMul2(Honk.G1Point[NUMBER_OF_ENTITIES + LOG_N + 1] memory base, Fr[NUMBER_OF_ENTITIES + LOG_N + 1] memory scalars) internal view returns (Honk.G1Point memory result) {
         // TODO: check if i actually need to do the memory copies here
         uint256 limit = NUMBER_OF_ENTITIES + LOG_N + 1;
         assembly {
@@ -1538,39 +1535,39 @@ contract HonkVerifier is IVerifier {
         }
     }
 
-    function convertPoints(HonkTypes.G1ProofPoint[LOG_N + 1] memory commitments) internal pure returns (HonkTypes.G1Point[LOG_N + 1] memory converted) {
+    function convertPoints(Honk.G1ProofPoint[LOG_N + 1] memory commitments) internal pure returns (Honk.G1Point[LOG_N + 1] memory converted) {
         for (uint256 i; i < LOG_N + 1; ++i) {
             converted[i] = convertProofPoint(commitments[i]);
         }
     }
 
-    function convertProofPoint(HonkTypes.G1ProofPoint memory input) internal pure returns (HonkTypes.G1Point memory) {
-        return HonkTypes.G1Point({
+    function convertProofPoint(Honk.G1ProofPoint memory input) internal pure returns (Honk.G1Point memory) {
+        return Honk.G1Point({
                 x: input.x_0 | (input.x_1 << 136),
                 y: input.y_0 | (input.y_1 << 136)
             });
     }
 
 
-    function ecMul(HonkTypes.G1Point memory point, Fr scalar) internal view returns (HonkTypes.G1Point memory) {
+    function ecMul(Honk.G1Point memory point, Fr scalar) internal view returns (Honk.G1Point memory) {
         bytes memory input = abi.encodePacked(point.x, point.y, Fr.unwrap(scalar));
         (bool success, bytes memory result) = address(0x07).staticcall(input);
         require(success, "ecMul failed");
 
         (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-        return HonkTypes.G1Point({x:x,y:y});
+        return Honk.G1Point({x:x,y:y});
     }
 
-    function ecAdd(HonkTypes.G1Point memory point0, HonkTypes.G1Point memory point1) internal view returns (HonkTypes.G1Point memory) {
+    function ecAdd(Honk.G1Point memory point0, Honk.G1Point memory point1) internal view returns (Honk.G1Point memory) {
         bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, point1.y);
         (bool success, bytes memory result) = address(0x06).staticcall(input);
         require(success, "ecAdd failed");
 
         (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-        return HonkTypes.G1Point({x:x,y:y});
+        return Honk.G1Point({x:x,y:y});
     }
 
-    function ecSub(HonkTypes.G1Point memory point0, HonkTypes.G1Point memory point1) internal view returns (HonkTypes.G1Point memory) {
+    function ecSub(Honk.G1Point memory point0, Honk.G1Point memory point1) internal view returns (Honk.G1Point memory) {
         // We negate the second point
         uint256 negativePoint1Y = (Q - point1.y) % Q;
         bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, negativePoint1Y);
@@ -1578,37 +1575,37 @@ contract HonkVerifier is IVerifier {
         require(success, "ecAdd failed");
 
         (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-        return HonkTypes.G1Point({x:x,y:y});
+        return Honk.G1Point({x:x,y:y});
     }
 
-    function negateInplace(HonkTypes.G1Point memory point) internal pure returns (HonkTypes.G1Point memory) {
+    function negateInplace(Honk.G1Point memory point) internal pure returns (Honk.G1Point memory) {
         point.y = (Q - point.y) % Q;
         return point;
     }
 
 
-    function zkgReduceVerify(HonkTypes.Proof memory proof, TranscriptParameters memory tp, Fr evaluation, HonkTypes.G1Point memory commitment) internal view returns (bool) {
+    function zkgReduceVerify(Honk.Proof memory proof, TranscriptParameters memory tp, Fr evaluation, Honk.G1Point memory commitment) internal view returns (bool) {
         // Get KZG_W from the prover??? what is that zmPi?
-        HonkTypes.G1Point memory quotient_commitment = convertProofPoint(proof.zmPi);
+        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.zmPi);
 
         // ec add
-        HonkTypes.G1Point memory ONE = HonkTypes.G1Point({x:1, y:2});
+        Honk.G1Point memory ONE = Honk.G1Point({x:1, y:2});
 
-        HonkTypes.G1Point memory P0 = commitment;
+        Honk.G1Point memory P0 = commitment;
         P0 = ecAdd(P0, ecMul(quotient_commitment, tp.zmX));
 
-        HonkTypes.G1Point memory evalAsPoint = ecMul(ONE, evaluation);
+        Honk.G1Point memory evalAsPoint = ecMul(ONE, evaluation);
         P0 = ecSub(P0, evalAsPoint);
 
         // ec mul
-        HonkTypes.G1Point memory P1 = negateInplace(quotient_commitment);
+        Honk.G1Point memory P1 = negateInplace(quotient_commitment);
 
         // Perform pairing check
         return pairing(P0, P1);
         
     }
 
-    function pairing(HonkTypes.G1Point memory rhs, HonkTypes.G1Point memory lhs) internal view returns (bool) {
+    function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) internal view returns (bool) {
         
         bytes memory input = abi.encodePacked(
             rhs.x, rhs.y, 
