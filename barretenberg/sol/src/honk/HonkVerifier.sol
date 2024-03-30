@@ -6,7 +6,8 @@ import {
     BATCHED_RELATION_PARTIAL_LENGTH,
     N,
     LOG_N,
-    P, Q
+    P,
+    Q
 } from "./HonkTypes.sol";
 import {IVerifier} from "../interfaces/IVerifier.sol";
 
@@ -21,7 +22,6 @@ error ZeromorphFailed();
 
 /// Smart contract verifier of honk proofs
 contract HonkVerifier is IVerifier {
-
     uint256 internal constant NUMBER_OF_ALPHAS = 17;
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
 
@@ -159,7 +159,6 @@ contract HonkVerifier is IVerifier {
         return p;
     }
 
-
     // TODO(md): I would perfer the publicInputs to be uint256
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
@@ -219,17 +218,18 @@ contract HonkVerifier is IVerifier {
     }
 
     // Incorportate the original plookup construction into honk
-    function computeLookupGrandProductDelta(
-        Fr beta,
-        Fr gamma,
-        uint256 domainSize
-    ) internal view returns (Fr lookupGrandProductDelta) {
+    function computeLookupGrandProductDelta(Fr beta, Fr gamma, uint256 domainSize)
+        internal
+        view
+        returns (Fr lookupGrandProductDelta)
+    {
         Fr gammaByOnePlusBeta = gamma * (beta + Fr.wrap(1));
         // TODO: dont like using ^ for exponent - might just make a function
         lookupGrandProductDelta = gammaByOnePlusBeta ^ Fr.wrap(domainSize);
     }
 
     uint256 constant ROUND_TARGET = 0;
+
     function verifySumcheck(Honk.Proof memory proof, TranscriptParameters memory tp)
         internal
         view

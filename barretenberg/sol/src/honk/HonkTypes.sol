@@ -62,7 +62,6 @@ enum WIRE {
     Z_LOOKUP_SHIFT
 }
 
-
 library Honk {
     struct G1Point {
         uint256 x;
