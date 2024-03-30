@@ -1,3 +1,5 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
 import { createDebugOnlyLogger, enableLogs } from './debug.js';
 import { LogHistory } from './log_history.js';
 
