@@ -5,7 +5,7 @@ import {
   ExtendedNote,
   Fr,
   Note,
-  PXE,
+  type PXE,
   TxStatus,
   computeMessageSecretHash,
   createPXEClient,

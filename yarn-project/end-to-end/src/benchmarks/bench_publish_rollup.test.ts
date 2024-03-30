@@ -4,7 +4,7 @@ import { BENCHMARK_BLOCK_SIZES } from '@aztec/circuit-types/stats';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { SequencerClient } from '@aztec/sequencer-client';
 
-import { EndToEndContext } from '../fixtures/utils.js';
+import { type EndToEndContext } from '../fixtures/utils.js';
 import { benchmarkSetup, sendTxs, waitNewPXESynced, waitRegisteredAccountSynced } from './utils.js';
 
 describe('benchmarks/publish_rollup', () => {

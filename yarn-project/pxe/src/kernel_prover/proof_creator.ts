@@ -1,4 +1,4 @@
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   PrivateCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,

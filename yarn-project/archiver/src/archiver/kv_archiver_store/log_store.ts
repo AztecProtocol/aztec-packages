@@ -1,10 +1,10 @@
 import {
   EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
-  FromLogType,
-  GetUnencryptedLogsResponse,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
   L2BlockL2Logs,
-  LogFilter,
+  type LogFilter,
   LogId,
   LogType,
   UnencryptedL2BlockL2Logs,
@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { BlockStore } from './block_store.js';
 

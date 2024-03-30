@@ -1,12 +1,12 @@
 import {
   Body,
   EncryptedL2BlockL2Logs,
-  FromLogType,
-  GetUnencryptedLogsResponse,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
   InboxLeaf,
   L2Block,
   L2BlockL2Logs,
-  LogFilter,
+  type LogFilter,
   LogType,
   TxEffect,
   TxHash,
@@ -16,16 +16,16 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import {
-  ContractClassPublic,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
-import { DataRetrieval } from '../data_retrieval.js';
+import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
 import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';

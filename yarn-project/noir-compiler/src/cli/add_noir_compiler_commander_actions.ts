@@ -1,4 +1,4 @@
-import { LogFn } from '@aztec/foundation/log';
+import { type LogFn } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 import { dirname } from 'path';

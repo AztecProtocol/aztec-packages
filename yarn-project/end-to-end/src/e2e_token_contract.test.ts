@@ -1,7 +1,7 @@
 import {
   AccountWallet,
   CompleteAddress,
-  DebugLogger,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   FunctionSelector,

@@ -12,13 +12,13 @@ import {
   ReadRequestContext,
   SideEffect,
   SideEffectLinkedToNoteHash,
-  SideEffectType,
+  type SideEffectType,
   buildNullifierReadRequestHints,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
-import { ProvingDataOracle } from './proving_data_oracle.js';
+import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 export class HintsBuilder {
   constructor(private oracle: ProvingDataOracle) {}

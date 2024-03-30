@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { ContractClassPublic } from '@aztec/types/contracts';
+import { type ContractClassPublic } from '@aztec/types/contracts';
 
 import chunk from 'lodash.chunk';
 

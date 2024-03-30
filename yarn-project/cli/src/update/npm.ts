@@ -1,4 +1,4 @@
-import { LogFn } from '@aztec/foundation/log';
+import { type LogFn } from '@aztec/foundation/log';
 
 import { spawnSync } from 'child_process';
 import { existsSync } from 'fs';
@@ -7,7 +7,7 @@ import { join, relative, resolve } from 'path';
 import { SemVer, parse } from 'semver';
 
 import { atomicUpdateFile } from '../utils.js';
-import { DependencyChanges } from './common.js';
+import { type DependencyChanges } from './common.js';
 
 const deprecatedNpmPackages = new Set<string>(['@aztec/cli', '@aztec/aztec-sandbox']);
 const npmDeprecationMessage = `

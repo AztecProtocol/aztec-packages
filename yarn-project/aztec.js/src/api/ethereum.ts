@@ -1,6 +1,6 @@
 export {
   deployL1Contract,
   deployL1Contracts,
-  DeployL1Contracts,
-  L1ContractArtifactsForDeployment,
+  type DeployL1Contracts,
+  type L1ContractArtifactsForDeployment,
 } from '@aztec/ethereum';

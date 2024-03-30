@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { ACVMField } from './acvm_types.js';
+import { type ACVMField } from './acvm_types.js';
 
 /**
  * Adapts the buffer to the field size.

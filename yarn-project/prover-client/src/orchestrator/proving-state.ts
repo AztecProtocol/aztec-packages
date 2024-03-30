@@ -1,4 +1,4 @@
-import { ProcessedTx, ProvingResult } from '@aztec/circuit-types';
+import { type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
 import {
   BaseOrMergeRollupPublicInputs,
   Fr,
@@ -8,7 +8,7 @@ import {
   RootParityInput,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
 /**
  * Enums and structs to communicate the type of work required in each request.

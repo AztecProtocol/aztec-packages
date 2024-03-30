@@ -1,4 +1,4 @@
-import { AztecNode, KeyStore } from '@aztec/circuit-types';
+import { type AztecNode, type KeyStore } from '@aztec/circuit-types';
 import {
   AztecAddress,
   Fr,
@@ -9,10 +9,10 @@ import {
   computeContractClassIdPreimage,
   computeSaltedInitializationHash,
 } from '@aztec/circuits.js';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
+import { type ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
 
 // TODO: Block number should not be "latest".
 // It should be fixed at the time the proof is being simulated. I.e., it should be the same as the value defined in the constant data.

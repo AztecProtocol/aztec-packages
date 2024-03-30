@@ -2,7 +2,7 @@ import { Body, InboxLeaf } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import { PublicClient } from 'viem';
+import { type PublicClient } from 'viem';
 
 import {
   getL2BlockProcessedLogs,

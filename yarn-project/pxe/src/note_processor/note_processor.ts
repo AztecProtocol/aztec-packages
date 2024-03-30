@@ -1,13 +1,13 @@
 import {
-  AztecNode,
+  type AztecNode,
   EncryptedL2BlockL2Logs,
-  KeyStore,
+  type KeyStore,
   L1NotePayload,
   L2BlockContext,
   TaggedNote,
 } from '@aztec/circuit-types';
-import { NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
+import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
+import { INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -15,7 +15,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { ContractNotFoundError } from '@aztec/simulator';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
-import { PxeDatabase } from '../database/index.js';
+import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { produceNoteDao } from './produce_note_dao.js';

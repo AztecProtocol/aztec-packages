@@ -2,13 +2,13 @@ import {
   Body,
   EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
-  FromLogType,
-  GetUnencryptedLogsResponse,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
   InboxLeaf,
   L2Block,
   L2BlockContext,
   L2BlockL2Logs,
-  LogFilter,
+  type LogFilter,
   LogId,
   LogType,
   TxEffect,
@@ -20,14 +20,14 @@ import {
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
-  ContractClassPublic,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
-import { DataRetrieval } from '../data_retrieval.js';
+import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**

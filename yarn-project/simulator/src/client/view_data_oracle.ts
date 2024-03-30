@@ -1,6 +1,6 @@
 import {
   AuthWitness,
-  AztecNode,
+  type AztecNode,
   CompleteAddress,
   MerkleTreeId,
   NoteStatus,
@@ -12,10 +12,10 @@ import { siloNullifier } from '@aztec/circuits.js/hash';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractInstance } from '@aztec/types/contracts';
+import { type ContractInstance } from '@aztec/types/contracts';
 
-import { NoteData, TypedOracle } from '../acvm/index.js';
-import { DBOracle } from './db_oracle.js';
+import { type NoteData, TypedOracle } from '../acvm/index.js';
+import { type DBOracle } from './db_oracle.js';
 import { pickNotes } from './pick_notes.js';
 
 /**

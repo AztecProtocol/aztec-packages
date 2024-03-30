@@ -8,12 +8,12 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { PublicExecutor } from '@aztec/simulator';
-import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
+import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
 
 import { it } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { SetupPhaseManager } from './setup_phase_manager.js';
 

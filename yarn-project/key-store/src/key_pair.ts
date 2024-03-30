@@ -1,5 +1,5 @@
-import { KeyPair, PublicKey } from '@aztec/circuit-types';
-import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
+import { type KeyPair, type PublicKey } from '@aztec/circuit-types';
+import { type GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 /**

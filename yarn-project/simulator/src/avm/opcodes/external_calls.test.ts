@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../index.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '../../index.js';
 import { AvmContext } from '../avm_context.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { adjustCalldataIndex, initContext } from '../fixtures/index.js';

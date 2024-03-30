@@ -1,6 +1,6 @@
-import { AztecAddress, LogFilter, LogId, TxHash } from '@aztec/aztec.js';
+import { AztecAddress, type LogFilter, LogId, TxHash } from '@aztec/aztec.js';
 import { EventSelector } from '@aztec/foundation/abi';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { createCompatibleClient } from '../client.js';

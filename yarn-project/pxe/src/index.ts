@@ -4,7 +4,7 @@ export * from './config/index.js';
 
 export { Tx, TxHash } from '@aztec/circuit-types';
 
-export { TxRequest, PartialAddress } from '@aztec/circuits.js';
+export { TxRequest, type PartialAddress } from '@aztec/circuits.js';
 export * from '@aztec/foundation/fields';
 export * from '@aztec/foundation/eth-address';
 export * from '@aztec/foundation/aztec-address';

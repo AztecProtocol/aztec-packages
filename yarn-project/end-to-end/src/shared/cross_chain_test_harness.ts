@@ -1,18 +1,18 @@
 // docs:start:cross_chain_test_harness
 import {
   AztecAddress,
-  AztecNode,
-  DebugLogger,
+  type AztecNode,
+  type DebugLogger,
   EthAddress,
   ExtendedNote,
-  FieldsOf,
+  type FieldsOf,
   Fr,
   Note,
-  PXE,
+  type PXE,
   SiblingPath,
   TxHash,
   TxReceipt,
-  Wallet,
+  type Wallet,
   computeMessageSecretHash,
   deployL1Contract,
   retryUntil,
@@ -30,12 +30,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import {
-  Account,
-  Chain,
-  GetContractReturnType,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type Account,
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   getContract,
   toFunctionSelector,
 } from 'viem';

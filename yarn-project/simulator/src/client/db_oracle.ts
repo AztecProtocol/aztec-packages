@@ -1,13 +1,13 @@
 import { L2Block, MerkleTreeId, NoteStatus, NullifierMembershipWitness, PublicDataWitness } from '@aztec/circuit-types';
 import { CompleteAddress, Header } from '@aztec/circuits.js';
-import { FunctionArtifactWithDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
+import { type FunctionArtifactWithDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractInstance } from '@aztec/types/contracts';
+import { type ContractInstance } from '@aztec/types/contracts';
 
-import { KeyPair, NoteData } from '../acvm/index.js';
-import { CommitmentsDB } from '../public/db.js';
+import { type KeyPair, type NoteData } from '../acvm/index.js';
+import { type CommitmentsDB } from '../public/db.js';
 
 /**
  * Error thrown when a contract is not found in the database.

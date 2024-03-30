@@ -2,7 +2,7 @@ import { ContractStorageRead, ContractStorageUpdateRequest } from '@aztec/circui
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { PublicStateDB } from './db.js';
+import { type PublicStateDB } from './db.js';
 
 /**
  * Implements read/write operations on a contract public storage, collecting

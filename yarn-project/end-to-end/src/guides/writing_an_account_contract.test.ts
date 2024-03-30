@@ -2,11 +2,11 @@ import { DefaultAccountContract } from '@aztec/accounts/defaults';
 import {
   AccountManager,
   AuthWitness,
-  AuthWitnessProvider,
+  type AuthWitnessProvider,
   CompleteAddress,
   ExtendedNote,
   Fr,
-  GrumpkinPrivateKey,
+  type GrumpkinPrivateKey,
   GrumpkinScalar,
   Note,
   Schnorr,

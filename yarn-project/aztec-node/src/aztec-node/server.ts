@@ -1,21 +1,21 @@
-import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
+import { type ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
-  AztecNode,
-  FromLogType,
-  GetUnencryptedLogsResponse,
-  L1ToL2MessageSource,
+  type AztecNode,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type L1ToL2MessageSource,
   L2Block,
   L2BlockL2Logs,
-  L2BlockNumber,
-  L2BlockSource,
-  L2LogsSource,
-  LogFilter,
+  type L2BlockNumber,
+  type L2BlockSource,
+  type L2LogsSource,
+  type LogFilter,
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
-  ProverClient,
+  type ProverClient,
   PublicDataWitness,
-  SequencerConfig,
+  type SequencerConfig,
   SiblingPath,
   Tx,
   TxEffect,
@@ -40,32 +40,36 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
+import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { DummyProver, TxProver } from '@aztec/prover-client';
 import {
-  GlobalVariableBuilder,
+  type GlobalVariableBuilder,
   PublicProcessorFactory,
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
 import { WASMSimulator } from '@aztec/simulator';
-import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+} from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
-  WorldStateConfig,
-  WorldStateSynchronizer,
+  type WorldStateConfig,
+  type WorldStateSynchronizer,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
-import { AztecNodeConfig } from './config.js';
+import { type AztecNodeConfig } from './config.js';
 import { getSimulationProvider } from './simulator-factory.js';
 
 /**

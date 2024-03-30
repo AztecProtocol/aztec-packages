@@ -1,10 +1,10 @@
 import {
   L2Block,
   PROVING_STATUS,
-  ProcessedTx,
-  ProverClient,
-  ProvingSuccess,
-  ProvingTicket,
+  type ProcessedTx,
+  type ProverClient,
+  type ProvingSuccess,
+  type ProvingTicket,
 } from '@aztec/circuit-types';
 import { GlobalVariables, makeEmptyProof } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';

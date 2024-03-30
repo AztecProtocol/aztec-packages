@@ -1,5 +1,5 @@
 import { L1NotePayload, TxHash } from '@aztec/circuit-types';
-import { Fr, PublicKey } from '@aztec/circuits.js';
+import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { AcirSimulator } from '@aztec/simulator';
 

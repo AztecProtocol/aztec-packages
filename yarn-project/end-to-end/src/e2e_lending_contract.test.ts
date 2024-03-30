@@ -2,7 +2,7 @@ import {
   AccountWallet,
   CheatCodes,
   CompleteAddress,
-  DebugLogger,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   Note,

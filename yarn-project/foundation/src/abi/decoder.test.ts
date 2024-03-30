@@ -1,4 +1,4 @@
-import { ABIParameterVisibility, FunctionArtifact } from './abi.js';
+import { ABIParameterVisibility, type FunctionArtifact } from './abi.js';
 import { decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './decoder.js';
 
 describe('abi/decoder', () => {

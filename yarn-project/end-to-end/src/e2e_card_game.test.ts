@@ -3,10 +3,10 @@ import { INITIAL_TEST_ENCRYPTION_KEYS } from '@aztec/accounts/testing';
 import {
   AccountWallet,
   AztecAddress,
-  DebugLogger,
+  type DebugLogger,
   GrumpkinScalar,
-  PXE,
-  Wallet,
+  type PXE,
+  type Wallet,
   generatePublicKey,
 } from '@aztec/aztec.js';
 import { computeNullifierSecretKey, computeSiloedNullifierSecretKey } from '@aztec/circuits.js';

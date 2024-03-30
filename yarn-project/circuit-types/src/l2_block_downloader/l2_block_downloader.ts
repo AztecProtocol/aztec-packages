@@ -4,7 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
 import { L2Block } from '../l2_block.js';
-import { L2BlockSource } from '../l2_block_source.js';
+import { type L2BlockSource } from '../l2_block_source.js';
 
 const log = createDebugLogger('aztec:l2_block_downloader');
 

@@ -3,4 +3,4 @@ export * from './map.js';
 export * from './counter.js';
 export * from './singleton.js';
 export * from './store.js';
-export { Range } from './common.js';
+export { type Range } from './common.js';

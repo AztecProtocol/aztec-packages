@@ -1,16 +1,16 @@
 import {
   AztecAddress,
-  AztecNode,
+  type AztecNode,
   BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
-  DebugLogger,
+  type DebugLogger,
   Fr,
-  PXE,
+  type PXE,
   SentTx,
   TxReceipt,
   TxStatus,
-  Wallet,
+  type Wallet,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';

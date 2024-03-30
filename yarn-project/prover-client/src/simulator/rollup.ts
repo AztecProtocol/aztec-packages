@@ -1,4 +1,4 @@
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -28,7 +28,7 @@ import {
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 /**
  * Circuit simulator for the rollup circuits.

@@ -3,7 +3,7 @@ import {
   FUNCTION_TREE_HEIGHT,
   Fr,
   FunctionSelector,
-  GrumpkinPrivateKey,
+  type GrumpkinPrivateKey,
   MembershipWitness,
   NOTE_HASH_TREE_HEIGHT,
   Point,

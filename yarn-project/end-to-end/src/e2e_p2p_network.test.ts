@@ -1,16 +1,16 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   CompleteAddress,
-  DebugLogger,
+  type DebugLogger,
   Fr,
   Grumpkin,
   GrumpkinScalar,
   SentTx,
   TxStatus,
 } from '@aztec/aztec.js';
-import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
+import { BootstrapNode, type P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
 import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount } from 'viem/accounts';
