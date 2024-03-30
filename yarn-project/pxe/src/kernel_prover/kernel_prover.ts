@@ -138,6 +138,25 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
+    const readNoteHashHints = this.hintsBuilder.getNoteHashReadRequestHints(
+      output.publicInputs.validationRequests.noteHashReadRequests,
+      output.publicInputs.end.newNoteHashes,
+    );
+
+    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
+      output.publicInputs.validationRequests.nullifierReadRequests,
+      output.publicInputs.end.newNullifiers,
+    );
+
+    const nullifierNoteHashHints = this.hintsBuilder.getNullifierHints(
+      mapTuple(output.publicInputs.end.newNullifiers, n => n.noteHash),
+      output.publicInputs.end.newNoteHashes,
+    );
+
+    const masterNullifierSecretKeys = await this.hintsBuilder.getMasterNullifierSecretKeys(
+      output.publicInputs.validationRequests.nullifierKeyValidationRequests,
+    );
+
     const [sortedNoteHashes, sortedNoteHashesIndexes] = this.hintsBuilder.sortSideEffects<
       SideEffect,
       typeof MAX_NEW_NOTE_HASHES_PER_TX
@@ -147,25 +166,6 @@ export class KernelProver {
       SideEffectLinkedToNoteHash,
       typeof MAX_NEW_NULLIFIERS_PER_TX
     >(output.publicInputs.end.newNullifiers);
-
-    const readNoteHashHints = this.hintsBuilder.getNoteHashReadRequestHints(
-      output.publicInputs.validationRequests.noteHashReadRequests,
-      sortedNoteHashes,
-    );
-
-    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
-      output.publicInputs.validationRequests.nullifierReadRequests,
-      output.publicInputs.end.newNullifiers,
-    );
-
-    const nullifierNoteHashHints = this.hintsBuilder.getNullifierHints(
-      mapTuple(sortedNullifiers, n => n.noteHash),
-      sortedNoteHashes,
-    );
-
-    const masterNullifierSecretKeys = await this.hintsBuilder.getMasterNullifierSecretKeys(
-      output.publicInputs.validationRequests.nullifierKeyValidationRequests,
-    );
 
     this.log.debug(
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
