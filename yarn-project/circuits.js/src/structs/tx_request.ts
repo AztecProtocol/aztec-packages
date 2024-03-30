@@ -74,11 +74,11 @@ export class TxRequest {
     return pedersenHash(this.toFields(), GeneratorIndex.TX_REQUEST);
   }
 
-  static empty() {
-    return new TxRequest(AztecAddress.ZERO, FunctionData.empty(), Fr.zero(), TxContext.empty());
+  static default() {
+    return new TxRequest(AztecAddress.ZERO, FunctionData.default(), Fr.zero(), TxContext.default());
   }
 
-  isEmpty() {
-    return this.origin.isZero() && this.functionData.isEmpty() && this.argsHash.isZero() && this.txContext.isEmpty();
+  isDefault() {
+    return this.origin.isZero() && this.functionData.isDefault() && this.argsHash.isZero() && this.txContext.isDefault();
   }
 }

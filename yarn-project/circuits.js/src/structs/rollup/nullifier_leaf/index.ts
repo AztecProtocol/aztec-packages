@@ -67,7 +67,7 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
     };
   }
 
-  static empty(): NullifierLeafPreimage {
+  static default(): NullifierLeafPreimage {
     return new NullifierLeafPreimage(Fr.ZERO, Fr.ZERO, 0n);
   }
 
@@ -112,7 +112,7 @@ export class NullifierLeaf implements IndexedTreeLeaf {
     return this.nullifier.toBuffer();
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return this.nullifier.isZero();
   }
 

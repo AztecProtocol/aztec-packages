@@ -117,8 +117,8 @@ export abstract class AbstractPhaseManager {
     enqueuedPublicFunctionCalls: PublicCallRequest[],
   ): Record<PublicKernelPhase, PublicCallRequest[]> {
     const publicCallsStack = enqueuedPublicFunctionCalls.slice().reverse();
-    const nonRevertibleCallStack = publicInputs.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
-    const revertibleCallStack = publicInputs.end.publicCallStack.filter(i => !i.isEmpty());
+    const nonRevertibleCallStack = publicInputs.endNonRevertibleData.publicCallStack.filter(i => !i.isDefault());
+    const revertibleCallStack = publicInputs.end.publicCallStack.filter(i => !i.isDefault());
 
     const callRequestsStack = publicCallsStack
       .map(call => call.toCallRequest())
@@ -511,7 +511,7 @@ function patchPublicStorageActionOrdering(
 
   const effectSet = PhaseIsRevertible[phase] ? 'end' : 'endNonRevertibleData';
 
-  const numReadsInKernel = arrayNonEmptyLength(publicDataReads, f => f.isEmpty());
+  const numReadsInKernel = arrayNonEmptyLength(publicDataReads, f => f.isDefault());
   const numReadsBeforeThisEnqueuedCall = numReadsInKernel - simPublicDataReads.length;
   publicInputs.validationRequests.publicDataReads = padArrayEnd(
     [
@@ -519,18 +519,18 @@ function patchPublicStorageActionOrdering(
       ...publicInputs.validationRequests.publicDataReads.slice(0, numReadsBeforeThisEnqueuedCall),
       ...simPublicDataReads,
     ],
-    PublicDataRead.empty(),
+    PublicDataRead.default(),
     MAX_PUBLIC_DATA_READS_PER_TX,
   );
 
-  const numUpdatesInKernel = arrayNonEmptyLength(publicDataUpdateRequests, f => f.isEmpty());
+  const numUpdatesInKernel = arrayNonEmptyLength(publicDataUpdateRequests, f => f.isDefault());
   const numUpdatesBeforeThisEnqueuedCall = numUpdatesInKernel - simPublicDataUpdateRequests.length;
   publicInputs[effectSet].publicDataUpdateRequests = padArrayEnd(
     [
       ...publicInputs[effectSet].publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
       ...simPublicDataUpdateRequests,
     ],
-    PublicDataUpdateRequest.empty(),
+    PublicDataUpdateRequest.default(),
     PhaseIsRevertible[phase]
       ? MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
       : MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

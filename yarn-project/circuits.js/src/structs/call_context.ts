@@ -48,7 +48,7 @@ export class CallContext {
    * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    * @returns A new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    */
-  public static empty(): CallContext {
+  public static default(): CallContext {
     return new CallContext(
       AztecAddress.ZERO,
       AztecAddress.ZERO,
@@ -60,12 +60,12 @@ export class CallContext {
     );
   }
 
-  isEmpty() {
+  isDefault() {
     return (
       this.msgSender.isZero() &&
       this.storageContractAddress.isZero() &&
       this.portalContractAddress.isZero() &&
-      this.functionSelector.isEmpty() &&
+      this.functionSelector.isDefault() &&
       Fr.ZERO
     );
   }

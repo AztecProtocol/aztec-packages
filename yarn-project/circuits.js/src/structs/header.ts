@@ -62,21 +62,21 @@ export class Header {
     return new Header(lastArchive, contentCommitment, state, globalVariables);
   }
 
-  static empty(): Header {
+  static default(): Header {
     return new Header(
-      AppendOnlyTreeSnapshot.zero(),
-      ContentCommitment.empty(),
-      StateReference.empty(),
-      GlobalVariables.empty(),
+      AppendOnlyTreeSnapshot.default(),
+      ContentCommitment.default(),
+      StateReference.default(),
+      GlobalVariables.default(),
     );
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return (
-      this.lastArchive.isZero() &&
-      this.contentCommitment.isEmpty() &&
-      this.state.isEmpty() &&
-      this.globalVariables.isEmpty()
+      this.lastArchive.isDefault() &&
+      this.contentCommitment.isDefault() &&
+      this.state.isDefault() &&
+      this.globalVariables.isDefault()
     );
   }
 

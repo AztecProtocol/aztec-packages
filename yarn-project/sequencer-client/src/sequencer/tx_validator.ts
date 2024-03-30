@@ -133,7 +133,7 @@ export class TxValidator {
    */
   async #validateNullifiers(tx: Tx | ProcessedTx, thisBlockNullifiers: Set<bigint>): Promise<TxValidationStatus> {
     const newNullifiers = [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers]
-      .filter(x => !x.isEmpty())
+      .filter(x => !x.isDefault())
       .map(x => x.value.toBigInt());
 
     // Ditch this tx if it has repeated nullifiers

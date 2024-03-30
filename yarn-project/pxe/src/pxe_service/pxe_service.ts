@@ -688,7 +688,7 @@ export class PXEService implements PXE {
       publicInputs.end.publicCallStack.find(item => item.equals(enqueued)),
     );
 
-    const revertibleStackSize = arrayNonEmptyLength(publicInputs.end.publicCallStack, item => item.isEmpty());
+    const revertibleStackSize = arrayNonEmptyLength(publicInputs.end.publicCallStack, item => item.isDefault());
 
     if (enqueuedRevertiblePublicCallStackItems.length !== revertibleStackSize) {
       throw new Error(
@@ -701,7 +701,7 @@ export class PXEService implements PXE {
     // Override kernel output
     publicInputs.end.publicCallStack = padArrayEnd(
       enqueuedRevertiblePublicCallStackItems,
-      CallRequest.empty(),
+      CallRequest.default(),
       MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
 
@@ -712,7 +712,7 @@ export class PXEService implements PXE {
     );
 
     const nonRevertibleStackSize = arrayNonEmptyLength(publicInputs.endNonRevertibleData.publicCallStack, item =>
-      item.isEmpty(),
+      item.isDefault(),
     );
 
     if (enqueuedNonRevertiblePublicCallStackItems.length !== nonRevertibleStackSize) {
@@ -728,7 +728,7 @@ export class PXEService implements PXE {
     // Override kernel output
     publicInputs.endNonRevertibleData.publicCallStack = padArrayEnd(
       enqueuedNonRevertiblePublicCallStackItems,
-      CallRequest.empty(),
+      CallRequest.default(),
       MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }

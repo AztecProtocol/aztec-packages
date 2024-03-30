@@ -134,19 +134,19 @@ export class CombinedAccumulatedData {
     return CombinedAccumulatedData.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new CombinedAccumulatedData(
       RevertCode.OK,
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.default),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.default),
     );
   }
 
@@ -160,33 +160,33 @@ export class CombinedAccumulatedData {
     nonRevertible: PublicAccumulatedNonRevertibleData,
     revertible: PublicAccumulatedRevertibleData,
   ): CombinedAccumulatedData {
-    if (!nonRevertible.revertCode.isOK() && !revertible.isEmpty()) {
+    if (!nonRevertible.revertCode.isOK() && !revertible.isDefault()) {
       log(inspect(revertible));
       throw new Error('Revertible data should be empty if the transaction is revertCode');
     }
 
     const newNoteHashes = padArrayEnd(
-      [...nonRevertible.newNoteHashes, ...revertible.newNoteHashes].filter(x => !x.isEmpty()).sort(sideEffectCmp),
-      SideEffect.empty(),
+      [...nonRevertible.newNoteHashes, ...revertible.newNoteHashes].filter(x => !x.isDefault()).sort(sideEffectCmp),
+      SideEffect.default(),
       MAX_NEW_NOTE_HASHES_PER_TX,
     );
 
     const newNullifiers = padArrayEnd(
-      [...nonRevertible.newNullifiers, ...revertible.newNullifiers].filter(x => !x.isEmpty()).sort(sideEffectCmp),
-      SideEffectLinkedToNoteHash.empty(),
+      [...nonRevertible.newNullifiers, ...revertible.newNullifiers].filter(x => !x.isDefault()).sort(sideEffectCmp),
+      SideEffectLinkedToNoteHash.default(),
       MAX_NEW_NULLIFIERS_PER_TX,
     );
 
     const publicCallStack = padArrayEnd(
-      [...nonRevertible.publicCallStack, ...revertible.publicCallStack].filter(x => !x.isEmpty()),
-      CallRequest.empty(),
+      [...nonRevertible.publicCallStack, ...revertible.publicCallStack].filter(x => !x.isDefault()),
+      CallRequest.default(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
 
     const nonSquashedWrites = [
       ...revertible.publicDataUpdateRequests,
       ...nonRevertible.publicDataUpdateRequests,
-    ].filter(x => !x.isEmpty());
+    ].filter(x => !x.isDefault());
 
     const squashedWrites = Array.from(
       nonSquashedWrites
@@ -199,7 +199,7 @@ export class CombinedAccumulatedData {
 
     const publicDataUpdateRequests = padArrayEnd(
       squashedWrites,
-      PublicDataUpdateRequest.empty(),
+      PublicDataUpdateRequest.default(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
@@ -287,18 +287,18 @@ export class PublicAccumulatedRevertibleData {
     return this.toBuffer().toString('hex');
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return (
-      this.newNoteHashes.every(x => x.isEmpty()) &&
-      this.newNullifiers.every(x => x.isEmpty()) &&
-      this.privateCallStack.every(x => x.isEmpty()) &&
-      this.publicCallStack.every(x => x.isEmpty()) &&
+      this.newNoteHashes.every(x => x.isDefault()) &&
+      this.newNullifiers.every(x => x.isDefault()) &&
+      this.privateCallStack.every(x => x.isDefault()) &&
+      this.publicCallStack.every(x => x.isDefault()) &&
       this.newL2ToL1Msgs.every(x => x.isZero()) &&
       this.encryptedLogsHash.isZero() &&
       this.unencryptedLogsHash.isZero() &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.publicDataUpdateRequests.every(x => x.isEmpty())
+      this.publicDataUpdateRequests.every(x => x.isDefault())
     );
   }
 
@@ -341,16 +341,16 @@ export class PublicAccumulatedRevertibleData {
 
   static fromPrivateAccumulatedRevertibleData(finalData: PrivateAccumulatedRevertibleData) {
     return new this(
-      padArrayEnd(finalData.newNoteHashes, SideEffect.empty(), MAX_REVERTIBLE_NOTE_HASHES_PER_TX),
-      padArrayEnd(finalData.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_REVERTIBLE_NULLIFIERS_PER_TX),
+      padArrayEnd(finalData.newNoteHashes, SideEffect.default(), MAX_REVERTIBLE_NOTE_HASHES_PER_TX),
+      padArrayEnd(finalData.newNullifiers, SideEffectLinkedToNoteHash.default(), MAX_REVERTIBLE_NULLIFIERS_PER_TX),
       finalData.privateCallStack,
-      padArrayEnd(finalData.publicCallStack, CallRequest.empty(), MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX),
+      padArrayEnd(finalData.publicCallStack, CallRequest.default(), MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX),
       finalData.newL2ToL1Msgs,
       finalData.encryptedLogsHash,
       finalData.unencryptedLogsHash,
       finalData.encryptedLogPreimagesLength,
       finalData.unencryptedLogPreimagesLength,
-      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.default),
     );
   }
 
@@ -363,18 +363,18 @@ export class PublicAccumulatedRevertibleData {
     return this.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new this(
-      makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.default),
+      makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
+      makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       Fr.zero(),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.default),
     );
   }
 }
@@ -473,12 +473,12 @@ export class PrivateAccumulatedRevertibleData {
     return PrivateAccumulatedRevertibleData.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new PrivateAccumulatedRevertibleData(
-      makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.default),
+      makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
+      makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       Fr.zero(),
       Fr.zero(),
@@ -530,12 +530,12 @@ export class PrivateAccumulatedNonRevertibleData {
     return PrivateAccumulatedNonRevertibleData.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new PrivateAccumulatedNonRevertibleData(
       RevertCode.OK,
-      makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.default),
+      makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
+      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
     );
   }
 }
@@ -596,13 +596,13 @@ export class PublicAccumulatedNonRevertibleData {
     return this.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new this(
       RevertCode.OK,
-      makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.default),
+      makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
+      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
+      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.default),
     );
   }
 
@@ -612,7 +612,7 @@ export class PublicAccumulatedNonRevertibleData {
       data.newNoteHashes,
       data.newNullifiers,
       data.publicCallStack,
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.default),
     );
   }
 

@@ -45,11 +45,11 @@ export class StateReference {
     return new StateReference(l1ToL2MessageTree, partial);
   }
 
-  static empty(): StateReference {
-    return new StateReference(AppendOnlyTreeSnapshot.zero(), PartialStateReference.empty());
+  static default(): StateReference {
+    return new StateReference(AppendOnlyTreeSnapshot.default(), PartialStateReference.default());
   }
 
-  isEmpty(): boolean {
-    return this.l1ToL2MessageTree.isZero() && this.partial.isEmpty();
+  isDefault(): boolean {
+    return this.l1ToL2MessageTree.isDefault() && this.partial.isDefault();
   }
 }

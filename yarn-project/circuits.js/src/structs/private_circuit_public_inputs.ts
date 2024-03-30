@@ -209,55 +209,55 @@ export class PrivateCircuitPublicInputs {
    */
   public static empty(): PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
-      CallContext.empty(),
+      CallContext.default(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       Fr.ZERO,
-      MaxBlockNumber.empty(),
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.empty),
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
+      MaxBlockNumber.default(),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect.default),
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.default),
+      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.default),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.default),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.default),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.default),
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
-      Header.empty(),
+      Header.default(),
       Fr.ZERO,
       Fr.ZERO,
     );
   }
 
-  isEmpty() {
+  isDefault() {
     // eslint-disable-next-line jsdoc/require-jsdoc
-    const isEmptyArray = (arr: { isEmpty: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isEmpty());
+    const isDefaultArray = (arr: { isDefault: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isDefault());
     // eslint-disable-next-line jsdoc/require-jsdoc
     const isZeroArray = (arr: { isZero: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isZero());
     return (
-      this.callContext.isEmpty() &&
+      this.callContext.isDefault() &&
       this.argsHash.isZero() &&
       isZeroArray(this.returnValues) &&
       this.minRevertibleSideEffectCounter.isZero() &&
-      this.maxBlockNumber.isEmpty() &&
-      isEmptyArray(this.noteHashReadRequests) &&
-      isEmptyArray(this.nullifierReadRequests) &&
-      isEmptyArray(this.nullifierKeyValidationRequests) &&
-      isEmptyArray(this.newNoteHashes) &&
-      isEmptyArray(this.newNullifiers) &&
+      this.maxBlockNumber.isDefault() &&
+      isDefaultArray(this.noteHashReadRequests) &&
+      isDefaultArray(this.nullifierReadRequests) &&
+      isDefaultArray(this.nullifierKeyValidationRequests) &&
+      isDefaultArray(this.newNoteHashes) &&
+      isDefaultArray(this.newNullifiers) &&
       isZeroArray(this.privateCallStackHashes) &&
       isZeroArray(this.publicCallStackHashes) &&
-      isEmptyArray(this.newL2ToL1Msgs) &&
+      isDefaultArray(this.newL2ToL1Msgs) &&
       this.encryptedLogsHash.isZero() &&
       this.unencryptedLogsHash.isZero() &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicalHeader.isEmpty() &&
+      this.historicalHeader.isDefault() &&
       this.chainId.isZero() &&
       this.version.isZero()
     );

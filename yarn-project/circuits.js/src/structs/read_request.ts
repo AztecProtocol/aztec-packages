@@ -46,18 +46,18 @@ export class ReadRequest {
   }
 
   /**
-   * Returns whether this instance of side-effect is empty.
+   * Returns whether this instance of side-effect is default.
    * @returns True if the value and counter both are zero.
    */
-  isEmpty() {
+  isDefault() {
     return this.value.isZero() && !this.counter;
   }
 
   /**
-   * Returns an empty instance of side-effect.
+   * Returns a default instance of side-effect.
    * @returns Side-effect with both value and counter being zero.
    */
-  static empty(): ReadRequest {
+  static default(): ReadRequest {
     return new ReadRequest(Fr.zero(), 0);
   }
 }
@@ -113,18 +113,18 @@ export class ReadRequestContext {
   }
 
   /**
-   * Returns whether this instance of side-effect is empty.
+   * Returns whether this instance of side-effect is default.
    * @returns True if the value, note hash and counter are all zero.
    */
-  isEmpty() {
+  isDefault() {
     return this.value.isZero() && !this.counter && this.contractAddress.isZero();
   }
 
   /**
-   * Returns an empty instance of side-effect.
+   * Returns a default instance of side-effect.
    * @returns Side-effect with value, note hash and counter being zero.
    */
-  static empty(): ReadRequestContext {
+  static default(): ReadRequestContext {
     return new ReadRequestContext(Fr.zero(), 0, AztecAddress.ZERO);
   }
 }

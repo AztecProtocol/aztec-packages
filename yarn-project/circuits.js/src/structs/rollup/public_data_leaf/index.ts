@@ -60,7 +60,7 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
     return new PublicDataTreeLeafPreimage(this.slot, this.value, this.nextSlot, this.nextIndex);
   }
 
-  static empty(): PublicDataTreeLeafPreimage {
+  static default(): PublicDataTreeLeafPreimage {
     return new PublicDataTreeLeafPreimage(Fr.ZERO, Fr.ZERO, Fr.ZERO, 0n);
   }
 
@@ -118,7 +118,7 @@ export class PublicDataTreeLeaf implements IndexedTreeLeaf {
     return `PublicDataTreeLeaf(${this.slot.toString()}, ${this.value.toString()})`;
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return this.slot.isZero() && this.value.isZero();
   }
 
@@ -133,7 +133,7 @@ export class PublicDataTreeLeaf implements IndexedTreeLeaf {
     return new PublicDataTreeLeaf(new Fr(key), new Fr(0));
   }
 
-  static empty(): PublicDataTreeLeaf {
+  static default(): PublicDataTreeLeaf {
     return new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO);
   }
 }

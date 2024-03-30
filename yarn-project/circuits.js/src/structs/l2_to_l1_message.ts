@@ -11,7 +11,7 @@ export class L2ToL1Message {
    * Creates an empty L2ToL1Message with default values.
    * @returns An instance of L2ToL1Message with empty fields.
    */
-  static empty(): L2ToL1Message {
+  static default(): L2ToL1Message {
     return new L2ToL1Message(EthAddress.ZERO, Fr.zero());
   }
 
@@ -70,7 +70,7 @@ export class L2ToL1Message {
    * Convenience method to check if the message is empty.
    * @returns True if both recipient and content are zero.
    */
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return this.recipient.isZero() && this.content.isZero();
   }
 }

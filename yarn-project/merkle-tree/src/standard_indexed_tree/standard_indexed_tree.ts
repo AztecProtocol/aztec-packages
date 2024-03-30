@@ -490,7 +490,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
       const newLeaf = sortedDescendingLeaves[i];
       const originalIndex = leavesToInsert.indexOf(newLeaf);
 
-      if (newLeaf.isEmpty()) {
+      if (newLeaf.isDefault()) {
         continue;
       }
 

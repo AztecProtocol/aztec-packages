@@ -63,11 +63,11 @@ export class TxContext {
     return new TxContext(reader.readBoolean(), reader.readBoolean(), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
-  static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
+  static default(chainId: Fr | number = 0, version: Fr | number = 0) {
     return new TxContext(false, false, new Fr(chainId), new Fr(version));
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return !this.isFeePaymentTx && !this.isRebatePaymentTx && this.chainId.isZero() && this.version.isZero();
   }
 

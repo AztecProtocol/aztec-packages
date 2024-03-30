@@ -15,7 +15,7 @@ describe('CallContext', () => {
     const buffer = callContext.toBuffer();
     const res = CallContext.fromBuffer(buffer);
     expect(res).toEqual(callContext);
-    expect(res.isEmpty()).toBe(false);
+    expect(res.isDefault()).toBe(false);
   });
 
   it('number of fields matches constant', () => {

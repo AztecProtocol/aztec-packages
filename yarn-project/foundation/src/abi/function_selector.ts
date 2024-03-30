@@ -95,7 +95,7 @@ export class FunctionSelector extends Selector {
    * Creates an empty selector.
    * @returns An empty selector.
    */
-  static empty() {
+  static default() {
     return new FunctionSelector(0);
   }
 

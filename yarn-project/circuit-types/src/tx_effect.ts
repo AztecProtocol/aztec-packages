@@ -53,7 +53,7 @@ export class TxEffect {
     const nonZeroNoteHashes = this.noteHashes.filter(h => !h.isZero());
     const nonZeroNullifiers = this.nullifiers.filter(h => !h.isZero());
     const nonZeroL2ToL1Msgs = this.l2ToL1Msgs.filter(h => !h.isZero());
-    const nonZeroPublicDataWrites = this.publicDataWrites.filter(h => !h.isEmpty());
+    const nonZeroPublicDataWrites = this.publicDataWrites.filter(h => !h.isDefault());
 
     return Buffer.concat([
       this.revertCode.toBuffer(),

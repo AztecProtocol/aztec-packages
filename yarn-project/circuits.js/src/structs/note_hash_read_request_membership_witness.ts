@@ -75,7 +75,7 @@ export class NoteHashReadRequestMembershipWitness {
    * @param leafIndex - Index of the leaf in the Merkle tree.
    * @returns Membership witness with zero sibling path.
    */
-  public static empty(leafIndex: bigint): NoteHashReadRequestMembershipWitness {
+  public static default(leafIndex: bigint): NoteHashReadRequestMembershipWitness {
     const arr = makeTuple(NOTE_HASH_TREE_HEIGHT, () => Fr.ZERO);
     return new NoteHashReadRequestMembershipWitness(new Fr(leafIndex), arr, false, new Fr(0));
   }

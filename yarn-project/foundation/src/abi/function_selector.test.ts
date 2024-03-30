@@ -13,7 +13,7 @@ describe('FunctionSelector', () => {
     const buffer = selector.toBuffer();
     const res = FunctionSelector.fromBuffer(buffer);
     expect(res).toEqual(selector);
-    expect(res.isEmpty()).toBe(false);
+    expect(res.isDefault()).toBe(false);
   });
 
   it('serializes to field and deserializes it back', () => {
