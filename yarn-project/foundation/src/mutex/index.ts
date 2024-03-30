@@ -18,7 +18,7 @@ export * from './mutex_database.js';
  */
 export class Mutex {
   private id = 0;
-  private pingTimeout!: NodeJS.Timeout;
+  private pingTimeout!: ReturnType<typeof setTimeout>;
 
   constructor(
     private readonly db: MutexDatabase,

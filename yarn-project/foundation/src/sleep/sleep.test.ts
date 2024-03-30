@@ -1,5 +1,3 @@
-import { jest } from '@jest/globals';
-
 import { InterruptError } from '../errors/index.js';
 import { InterruptibleSleep } from './index.js';
 

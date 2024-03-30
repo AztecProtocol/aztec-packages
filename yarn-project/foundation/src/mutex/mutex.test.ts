@@ -1,5 +1,3 @@
-import { jest } from '@jest/globals';
-
 import { Mutex } from './index.js';
 import { type MutexDatabase } from './mutex_database.js';
 

@@ -1,15 +1,20 @@
-import { jest } from '@jest/globals';
-
 import { createDebugOnlyLogger, enableLogs } from './debug.js';
 import { LogHistory } from './log_history.js';
-
-jest.useFakeTimers({ doNotFake: ['performance'] });
 
 describe('log history', () => {
   let debug: (msg: string) => void;
   let logHistory: LogHistory;
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date('2020-01-01T00:00:00.000Z').toISOString();
   const name = 'test:a';
+
+  beforeAll(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2020-01-01T00:00:00.000Z'));
+  });
+
+  afterAll(() => {
+    jest.setSystemTime();
+  });
 
   beforeEach(() => {
     debug = createDebugOnlyLogger(name);

@@ -59,7 +59,10 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "setupFilesAfterEnv": [
+      "./jest.setup.js"
+    ]
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
@@ -81,6 +84,7 @@
     "memdown": "^6.1.1",
     "pako": "^2.1.0",
     "sha3": "^2.1.4",
+    "ts-essentials": "^9.4.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
