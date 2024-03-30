@@ -148,11 +148,6 @@ export class KernelProver {
       output.publicInputs.end.newNullifiers,
     );
 
-    const nullifierNoteHashHints = this.hintsBuilder.getNullifierHints(
-      mapTuple(output.publicInputs.end.newNullifiers, n => n.noteHash),
-      output.publicInputs.end.newNoteHashes,
-    );
-
     const masterNullifierSecretKeys = await this.hintsBuilder.getMasterNullifierSecretKeys(
       output.publicInputs.validationRequests.nullifierKeyValidationRequests,
     );
@@ -166,6 +161,11 @@ export class KernelProver {
       SideEffectLinkedToNoteHash,
       typeof MAX_NEW_NULLIFIERS_PER_TX
     >(output.publicInputs.end.newNullifiers);
+
+    const nullifierNoteHashHints = this.hintsBuilder.getNullifierHints(
+      mapTuple(sortedNullifiers, n => n.noteHash),
+      sortedNoteHashes,
+    );
 
     this.log.debug(
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
