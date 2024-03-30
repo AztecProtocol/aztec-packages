@@ -2,4 +2,4 @@
 
 exports[`PublicCircuitPublicInputs computes empty item hash 1`] = `Fr<0x083ac560a513d670a7f50f0a3052d42cb9816b7b643e62025b8278652ad637ab>`;
 
-exports[`PublicCircuitPublicInputs hash matches snapshot 1`] = `Fr<0x26612d7a1afd04b2023d9a766f7c44042ebdfbd606e4b347fd4c201040c53658>`;
+exports[`PublicCircuitPublicInputs hash matches snapshot 1`] = `Fr<0x220ac94dbd1c0238a095b0b352b8650e3dc7c8bbe67eff009e07efee7979d685>`;
