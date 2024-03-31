@@ -241,7 +241,7 @@ uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, 
     uint32_t value_witness_idx = this->add_variable(value);
 
     create_calldata_read_gate({ read_idx_witness_idx, value_witness_idx });
-    bus_vector.read_counts[read_idx]++;
+    bus_vector.increment_count(read_idx);
 
     return value_witness_idx;
 }

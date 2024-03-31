@@ -11,8 +11,6 @@ using namespace bb;
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
     struct BusVector {
-        std::vector<uint32_t> data;        // variable indices corresponding to data in this bus vector
-        std::vector<uint32_t> read_counts; // count of reads at each index into data
 
         void append(const uint32_t& idx)
         {
@@ -20,9 +18,29 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
             read_counts.resize(data.size());
         }
 
-        size_t size() { return data.size(); }
+        size_t size() const { return data.size(); }
 
-        uint32_t operator[](size_t idx) { return data[idx]; }
+        const uint32_t& operator[](size_t idx) const
+        {
+            ASSERT(idx < size());
+            return data[idx];
+        }
+
+        const uint32_t& get_read_count(size_t idx) const
+        {
+            ASSERT(idx < read_counts.size());
+            return read_counts[idx];
+        }
+
+        void increment_count(size_t idx)
+        {
+            ASSERT(idx < read_counts.size());
+            read_counts[idx]++;
+        }
+
+      private:
+        std::vector<uint32_t> read_counts; // count of reads at each index into data
+        std::vector<uint32_t> data;        // variable indices corresponding to data in this bus vector
     };
 
     struct DataBus {

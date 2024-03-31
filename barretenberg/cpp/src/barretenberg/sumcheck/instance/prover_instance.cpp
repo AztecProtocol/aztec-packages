@@ -48,7 +48,7 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < circuit.databus.calldata.size(); ++idx) {
         public_calldata[idx] = circuit.get_variable(circuit.databus.calldata[idx]);
-        calldata_read_counts[idx] = circuit.databus.calldata.read_counts[idx];
+        calldata_read_counts[idx] = circuit.databus.calldata.get_read_count(idx);
     }
 
     // Compute a simple identity polynomial for use in the databus lookup argument
