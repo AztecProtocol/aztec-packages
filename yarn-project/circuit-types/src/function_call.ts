@@ -16,7 +16,7 @@ export type FunctionCall = {
  */
 export function emptyFunctionCall() {
   return {
-    to: AztecAddress.ZERO,
+    to: AztecAddress.default(),
     functionData: FunctionData.empty(),
     args: [],
   };

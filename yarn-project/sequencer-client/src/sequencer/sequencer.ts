@@ -31,8 +31,8 @@ export class Sequencer {
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
   // TODO: zero values should not be allowed for the following 2 values in PROD
-  private _coinbase = EthAddress.ZERO;
-  private _feeRecipient = AztecAddress.ZERO;
+  private _coinbase = EthAddress.default();
+  private _feeRecipient = AztecAddress.default();
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
   private allowedFeePaymentContractClasses: Fr[] = [];

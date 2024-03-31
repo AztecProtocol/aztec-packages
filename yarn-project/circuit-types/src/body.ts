@@ -96,7 +96,7 @@ export class Body {
     return new Body(txEffects);
   }
 
-  static empty() {
+  static default() {
     return new Body([]);
   }
 }

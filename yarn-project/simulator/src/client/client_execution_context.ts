@@ -129,8 +129,8 @@ export class ClientExecutionContext extends ViewDataOracle {
       .map(r => {
         const index = this.gotNotes.get(r.value.toBigInt());
         return index !== undefined
-          ? NoteHashReadRequestMembershipWitness.empty(index)
-          : NoteHashReadRequestMembershipWitness.emptyTransient();
+          ? NoteHashReadRequestMembershipWitness.default(index)
+          : NoteHashReadRequestMembershipWitness.defaultTransient();
       });
   }
 

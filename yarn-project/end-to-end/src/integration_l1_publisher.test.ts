@@ -474,7 +474,7 @@ describe('L1Publisher integration', () => {
       const block = (result as ProvingSuccess).block;
       prevHeader = block.header;
 
-      writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
+      writeJson(`empty_block_${i}`, block, [], AztecAddress.default(), deployerAccount.address);
 
       await publisher.processL2Block(block);
 

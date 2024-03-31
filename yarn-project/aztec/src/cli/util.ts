@@ -27,7 +27,7 @@ function hasL1Contracts(obj: any): obj is {
 const checkContractAddresses = (contracts: L1ContractAddresses) => {
   return l1ContractsNames.every(cn => {
     const key = cn as keyof L1ContractAddresses;
-    return contracts[key] && contracts[key] !== EthAddress.ZERO;
+    return contracts[key] && contracts[key] !== EthAddress.default();
   });
 };
 

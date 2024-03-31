@@ -19,7 +19,7 @@ export class L1Actor {
   ) {}
 
   static empty() {
-    return new L1Actor(EthAddress.ZERO, 0);
+    return new L1Actor(EthAddress.default(), 0);
   }
 
   toFields(): Fr[] {

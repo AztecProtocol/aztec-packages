@@ -26,7 +26,7 @@ export class GasPortalTestingHarnessFactory {
 
     const gasL2 = await GasTokenContract.deploy(wallet)
       .send({
-        contractAddressSalt: getCanonicalGasToken(EthAddress.ZERO).instance.salt,
+        contractAddressSalt: getCanonicalGasToken(EthAddress.default()).instance.salt,
       })
       .deployed();
     return Promise.resolve(new MockGasBridgingTestHarness(gasL2));
@@ -41,7 +41,7 @@ export class GasPortalTestingHarnessFactory {
     const gasTokenAddress = l1ContractAddresses.gasTokenAddress;
     const gasPortalAddress = l1ContractAddresses.gasPortalAddress;
 
-    if (gasTokenAddress.isZero() || gasPortalAddress.isZero()) {
+    if (gasTokenAddress.isDefault() || gasPortalAddress.isDefault()) {
       throw new Error('Gas portal not deployed on L1');
     }
 

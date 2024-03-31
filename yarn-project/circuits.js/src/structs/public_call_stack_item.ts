@@ -73,7 +73,7 @@ export class PublicCallStackItem {
    */
   public static default(): PublicCallStackItem {
     return new PublicCallStackItem(
-      AztecAddress.ZERO,
+      AztecAddress.default(),
       FunctionData.default({ isPrivate: false }),
       PublicCircuitPublicInputs.default(),
       false,
@@ -81,7 +81,7 @@ export class PublicCallStackItem {
   }
 
   isDefault() {
-    return this.contractAddress.isZero() && this.functionData.isDefault() && this.publicInputs.isDefault();
+    return this.contractAddress.isDefault() && this.functionData.isDefault() && this.publicInputs.isDefault();
   }
 
   /**

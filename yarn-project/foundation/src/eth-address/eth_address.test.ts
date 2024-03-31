@@ -24,7 +24,7 @@ describe('address', () => {
 
   it('should check if is zero', () => {
     const zero = EthAddress.fromString('0x0000000000000000000000000000000000000000');
-    expect(zero.isZero()).toBeTruthy();
+    expect(zero.isDefault()).toBeTruthy();
   });
 
   it('should encode and decode as field', () => {

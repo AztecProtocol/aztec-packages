@@ -70,15 +70,15 @@ export function getConfigEnvVars(): ArchiverConfig {
   const addresses: L1ContractAddresses = {
     availabilityOracleAddress: AVAILABILITY_ORACLE_CONTRACT_ADDRESS
       ? EthAddress.fromString(AVAILABILITY_ORACLE_CONTRACT_ADDRESS)
-      : EthAddress.ZERO,
-    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.ZERO,
+      : EthAddress.default(),
+    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.default(),
+    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.default(),
+    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.default(),
+    outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.default(),
+    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.default(),
     gasPortalAddress: GAS_PORTAL_CONTRACT_ADDRESS
       ? EthAddress.fromString(GAS_PORTAL_CONTRACT_ADDRESS)
-      : EthAddress.ZERO,
+      : EthAddress.default(),
   };
   return {
     rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',

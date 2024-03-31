@@ -19,7 +19,7 @@ export class L2Actor {
   ) {}
 
   static empty() {
-    return new L2Actor(AztecAddress.ZERO, 0);
+    return new L2Actor(AztecAddress.default(), 0);
   }
 
   toFields(): Fr[] {

@@ -464,8 +464,8 @@ describe('ACIR public execution simulator', () => {
           new Fr(preimage.recipient.version),
           Fr.ZERO,
           Fr.ZERO,
-          EthAddress.ZERO,
-          AztecAddress.ZERO,
+          EthAddress.default(),
+          AztecAddress.default(),
         );
 
       const mockOracles = (updateState = true) => {
@@ -650,7 +650,7 @@ describe('ACIR public execution simulator', () => {
       callContext = CallContext.from({
         msgSender: AztecAddress.random(),
         storageContractAddress: AztecAddress.random(),
-        portalContractAddress: EthAddress.ZERO,
+        portalContractAddress: EthAddress.default(),
         functionSelector: FunctionSelector.empty(),
         isDelegateCall: false,
         isStaticCall: false,
@@ -733,7 +733,7 @@ describe('ACIR public execution simulator', () => {
       callContext = CallContext.from({
         msgSender: AztecAddress.random(),
         storageContractAddress: AztecAddress.random(),
-        portalContractAddress: EthAddress.ZERO,
+        portalContractAddress: EthAddress.default(),
         functionSelector: FunctionSelector.empty(),
         isDelegateCall: false,
         isStaticCall: false,

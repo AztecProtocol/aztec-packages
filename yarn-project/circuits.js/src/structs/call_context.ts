@@ -50,10 +50,10 @@ export class CallContext {
    */
   public static default(): CallContext {
     return new CallContext(
-      AztecAddress.ZERO,
-      AztecAddress.ZERO,
-      EthAddress.ZERO,
-      FunctionSelector.empty(),
+      AztecAddress.default(),
+      AztecAddress.default(),
+      EthAddress.default(),
+      FunctionSelector.default(),
       false,
       false,
       0,
@@ -62,9 +62,9 @@ export class CallContext {
 
   isDefault() {
     return (
-      this.msgSender.isZero() &&
-      this.storageContractAddress.isZero() &&
-      this.portalContractAddress.isZero() &&
+      this.msgSender.isDefault() &&
+      this.storageContractAddress.isDefault() &&
+      this.portalContractAddress.isDefault() &&
       this.functionSelector.isDefault() &&
       Fr.ZERO
     );

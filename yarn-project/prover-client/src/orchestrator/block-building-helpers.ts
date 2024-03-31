@@ -135,7 +135,7 @@ export async function buildBaseRollupInput(
     nullifierPredecessorPreimages: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
       i < nullifierWitnessLeaves.length
         ? (nullifierWitnessLeaves[i].leafPreimage as NullifierLeafPreimage)
-        : NullifierLeafPreimage.empty(),
+        : NullifierLeafPreimage.default(),
     ),
     nullifierPredecessorMembershipWitnesses: makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
       i < nullifierPredecessorMembershipWitnessesWithoutPadding.length
@@ -386,11 +386,11 @@ export async function getPublicDataReadsInfo(tx: ProcessedTx, db: MerkleTreeOper
   const newPublicDataReadsWitnesses: Tuple<
     MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
     typeof MAX_PUBLIC_DATA_READS_PER_TX
-  > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0n));
+  > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => MembershipWitness.default(PUBLIC_DATA_TREE_HEIGHT, 0n));
 
   const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> = makeTuple(
     MAX_PUBLIC_DATA_READS_PER_TX,
-    () => PublicDataTreeLeafPreimage.empty(),
+    () => PublicDataTreeLeafPreimage.default(),
   );
 
   for (const i in tx.data.validationRequests.publicDataReads) {
@@ -578,16 +578,16 @@ export async function executeRootParityCircuit(
 
 export function validateTx(tx: ProcessedTx) {
   const txHeader = tx.data.constants.historicalHeader;
-  if (txHeader.state.l1ToL2MessageTree.isZero()) {
+  if (txHeader.state.l1ToL2MessageTree.isDefault()) {
     throw new Error(`Empty L1 to L2 messages tree in tx: ${toFriendlyJSON(tx)}`);
   }
-  if (txHeader.state.partial.noteHashTree.isZero()) {
+  if (txHeader.state.partial.noteHashTree.isDefault()) {
     throw new Error(`Empty note hash tree in tx: ${toFriendlyJSON(tx)}`);
   }
-  if (txHeader.state.partial.nullifierTree.isZero()) {
+  if (txHeader.state.partial.nullifierTree.isDefault()) {
     throw new Error(`Empty nullifier tree in tx: ${toFriendlyJSON(tx)}`);
   }
-  if (txHeader.state.partial.publicDataTree.isZero()) {
+  if (txHeader.state.partial.publicDataTree.isDefault()) {
     throw new Error(`Empty public data tree in tx: ${toFriendlyJSON(tx)}`);
   }
 }

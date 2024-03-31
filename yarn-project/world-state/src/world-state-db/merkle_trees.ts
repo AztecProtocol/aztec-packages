@@ -178,7 +178,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
   public async buildInitialHeader(includeUncommitted: boolean): Promise<Header> {
     const state = await this.getStateReference(includeUncommitted);
-    return new Header(AppendOnlyTreeSnapshot.zero(), ContentCommitment.empty(), state, GlobalVariables.empty());
+    return new Header(AppendOnlyTreeSnapshot.default(), ContentCommitment.default(), state, GlobalVariables.default());
   }
 
   /**

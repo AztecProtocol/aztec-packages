@@ -74,14 +74,18 @@ export class EthAddress {
     }
   }
 
+  public static default() {
+    return EthAddress.default();
+  }
+
   /**
-   * Checks if the EthAddress instance represents a zero address.
+   * Checks if the EthAddress instance represents a default address (zero address).
    * A zero address consists of 20 bytes filled with zeros and is considered an invalid address.
    *
    * @returns A boolean indicating whether the EthAddress instance is a zero address or not.
    */
-  public isZero() {
-    return this.equals(EthAddress.ZERO);
+  public isDefault() {
+    return this.equals(EthAddress.default());
   }
 
   /**

@@ -33,9 +33,9 @@ export function getContractInstanceFromDeployParams(
   const args = opts.constructorArgs ?? [];
   const salt = opts.salt ?? Fr.random();
   const publicKey = opts.publicKey ?? Point.ZERO;
-  const portalContractAddress = opts.portalAddress ?? EthAddress.ZERO;
+  const portalContractAddress = opts.portalAddress ?? EthAddress.default();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
-  const deployer = opts.deployer ?? AztecAddress.ZERO;
+  const deployer = opts.deployer ?? AztecAddress.default();
 
   const contractClass = getContractClassFromArtifact(artifact);
   const contractClassId = computeContractClassId(contractClass);

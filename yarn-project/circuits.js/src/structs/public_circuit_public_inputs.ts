@@ -147,7 +147,7 @@ export class PublicCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       Header.default(),
-      AztecAddress.ZERO,
+      AztecAddress.default(),
       RevertCode.OK,
     );
   }
@@ -174,7 +174,7 @@ export class PublicCircuitPublicInputs {
       this.unencryptedLogsHash.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isDefault() &&
-      this.proverAddress.isZero() &&
+      this.proverAddress.isDefault() &&
       this.revertCode.isOK()
     );
   }

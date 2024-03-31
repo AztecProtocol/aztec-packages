@@ -75,12 +75,7 @@ export class ContentCommitment {
   }
 
   isDefault(): boolean {
-    return (
-      this.txTreeHeight.isZero() &&
-      this.txsEffectsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
-      this.inHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
-      this.outHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256))
-    );
+    return this.toBuffer().equals(ContentCommitment.default().toBuffer());
   }
 
   public toString(): string {

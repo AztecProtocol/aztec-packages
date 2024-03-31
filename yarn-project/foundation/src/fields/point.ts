@@ -126,7 +126,7 @@ export class Point {
     return this.x.equals(rhs.x) && this.y.equals(rhs.y);
   }
 
-  isZero() {
+  isDefault() {
     return this.x.isZero() && this.y.isZero();
   }
 }

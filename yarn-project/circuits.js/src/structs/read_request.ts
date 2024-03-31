@@ -125,6 +125,6 @@ export class ReadRequestContext {
    * @returns Side-effect with value, note hash and counter being zero.
    */
   static default(): ReadRequestContext {
-    return new ReadRequestContext(Fr.zero(), 0, AztecAddress.ZERO);
+    return new ReadRequestContext(Fr.zero(), 0, AztecAddress.default());
   }
 }

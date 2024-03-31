@@ -53,20 +53,20 @@ export function initMockPersistableStateManager(): AvmPersistableStateManager {
  */
 export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
-    overrides?.address ?? AztecAddress.zero(),
-    overrides?.storageAddress ?? AztecAddress.zero(),
-    overrides?.origin ?? AztecAddress.zero(),
-    overrides?.sender ?? AztecAddress.zero(),
-    overrides?.portal ?? EthAddress.ZERO,
+    overrides?.address ?? AztecAddress.default(),
+    overrides?.storageAddress ?? AztecAddress.default(),
+    overrides?.origin ?? AztecAddress.default(),
+    overrides?.sender ?? AztecAddress.default(),
+    overrides?.portal ?? EthAddress.default(),
     overrides?.feePerL1Gas ?? Fr.zero(),
     overrides?.feePerL2Gas ?? Fr.zero(),
     overrides?.feePerDaGas ?? Fr.zero(),
     overrides?.contractCallDepth ?? Fr.zero(),
-    overrides?.globals ?? GlobalVariables.empty(),
+    overrides?.globals ?? GlobalVariables.default(),
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
-    overrides?.temporaryFunctionSelector ?? FunctionSelector.empty(),
+    overrides?.temporaryFunctionSelector ?? FunctionSelector.default(),
   );
 }
 
@@ -79,8 +79,8 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.version ?? Fr.zero(),
     overrides?.blockNumber ?? Fr.zero(),
     overrides?.timestamp ?? Fr.zero(),
-    overrides?.coinbase ?? EthAddress.ZERO,
-    overrides?.feeRecipient ?? AztecAddress.zero(),
+    overrides?.coinbase ?? EthAddress.default(),
+    overrides?.feeRecipient ?? AztecAddress.default(),
   );
 }
 

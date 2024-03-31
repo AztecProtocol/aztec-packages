@@ -186,7 +186,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         portalAddress: options.portalContract,
         publicKey: this.publicKey,
         constructorArtifact: this.constructorArtifact,
-        deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
+        deployer: options.universalDeploy ? AztecAddress.default() : this.wallet.getAddress(),
       });
     }
     return this.instance;

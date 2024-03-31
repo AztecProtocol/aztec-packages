@@ -163,7 +163,7 @@ describe('collect unencrypted logs', () => {
 
   function makeUnencryptedFunctionLogs(contents: string[]) {
     return new UnencryptedFunctionL2Logs(
-      contents.map(s => new UnencryptedL2Log(AztecAddress.ZERO, EventSelector.empty(), Buffer.from(s))),
+      contents.map(s => new UnencryptedL2Log(AztecAddress.default(), EventSelector.empty(), Buffer.from(s))),
     );
   }
 

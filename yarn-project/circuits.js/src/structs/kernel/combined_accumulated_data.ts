@@ -288,18 +288,7 @@ export class PublicAccumulatedRevertibleData {
   }
 
   isDefault(): boolean {
-    return (
-      this.newNoteHashes.every(x => x.isDefault()) &&
-      this.newNullifiers.every(x => x.isDefault()) &&
-      this.privateCallStack.every(x => x.isDefault()) &&
-      this.publicCallStack.every(x => x.isDefault()) &&
-      this.newL2ToL1Msgs.every(x => x.isZero()) &&
-      this.encryptedLogsHash.isZero() &&
-      this.unencryptedLogsHash.isZero() &&
-      this.encryptedLogPreimagesLength.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
-      this.publicDataUpdateRequests.every(x => x.isDefault())
-    );
+    return this.toBuffer().equals(PublicAccumulatedRevertibleData.default().toBuffer());
   }
 
   [inspect.custom]() {

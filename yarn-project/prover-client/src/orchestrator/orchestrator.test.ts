@@ -80,8 +80,8 @@ describe('prover/tx-prover', () => {
 
   const chainId = Fr.ZERO;
   const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
+  const coinbase = EthAddress.default();
+  const feeRecipient = AztecAddress.default();
 
   beforeEach(async () => {
     blockNumber = 3;

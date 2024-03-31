@@ -12,7 +12,7 @@ export class L2ToL1Message {
    * @returns An instance of L2ToL1Message with empty fields.
    */
   static default(): L2ToL1Message {
-    return new L2ToL1Message(EthAddress.ZERO, Fr.zero());
+    return new L2ToL1Message(EthAddress.default(), Fr.zero());
   }
 
   /**
@@ -71,6 +71,6 @@ export class L2ToL1Message {
    * @returns True if both recipient and content are zero.
    */
   isDefault(): boolean {
-    return this.recipient.isZero() && this.content.isZero();
+    return this.recipient.isDefault() && this.content.isZero();
   }
 }

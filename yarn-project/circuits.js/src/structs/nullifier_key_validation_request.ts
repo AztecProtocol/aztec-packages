@@ -48,7 +48,7 @@ export class NullifierKeyValidationRequest {
   }
 
   isDefault() {
-    return this.publicKey.isZero() && this.secretKey.isZero();
+    return this.publicKey.isDefault() && this.secretKey.isZero();
   }
 
   static default() {
@@ -108,10 +108,10 @@ export class NullifierKeyValidationRequestContext {
   }
 
   isDefault() {
-    return this.publicKey.isZero() && this.secretKey.isZero() && this.contractAddress.isZero();
+    return this.publicKey.isDefault() && this.secretKey.isZero() && this.contractAddress.isDefault();
   }
 
   static default() {
-    return new NullifierKeyValidationRequestContext(Point.ZERO, GrumpkinScalar.ZERO, AztecAddress.ZERO);
+    return new NullifierKeyValidationRequestContext(Point.ZERO, GrumpkinScalar.ZERO, AztecAddress.default());
   }
 }

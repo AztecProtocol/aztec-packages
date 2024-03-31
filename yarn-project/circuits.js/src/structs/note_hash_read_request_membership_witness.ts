@@ -82,9 +82,9 @@ export class NoteHashReadRequestMembershipWitness {
 
   /**
    * Creates a transient read request membership witness.
-   * @returns an empty transient read request membership witness.
+   * @returns a default transient read request membership witness.
    */
-  public static emptyTransient(): NoteHashReadRequestMembershipWitness {
+  public static defaultTransient(): NoteHashReadRequestMembershipWitness {
     const arr = makeTuple(NOTE_HASH_TREE_HEIGHT, () => Fr.ZERO);
     return new NoteHashReadRequestMembershipWitness(new Fr(0), arr, true, new Fr(0));
   }
