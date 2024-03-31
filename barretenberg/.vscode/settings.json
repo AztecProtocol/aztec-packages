@@ -127,5 +127,6 @@
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "cmake.sourceDirectory": "${workspaceFolder}/cpp"
+  "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+  "clangd.path": "/usr/bin/clangd"
 }
