@@ -31,7 +31,7 @@ export class DummyProver implements ProverClient {
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
       proof: makeEmptyProof(),
-      block: L2Block.empty(),
+      block: L2Block.default(),
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),

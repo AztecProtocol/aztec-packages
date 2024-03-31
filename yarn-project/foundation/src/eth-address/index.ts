@@ -75,7 +75,7 @@ export class EthAddress {
   }
 
   public static default() {
-    return EthAddress.default();
+    return EthAddress.ZERO;
   }
 
   /**

@@ -76,13 +76,13 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  static empty() {
+  static default() {
     return new PrivateKernelTailCircuitPublicInputs(
       AggregationObject.makeFake(),
-      RollupValidationRequests.empty(),
-      PrivateAccumulatedNonRevertibleData.empty(),
-      PrivateAccumulatedRevertibleData.empty(),
-      CombinedConstantData.empty(),
+      RollupValidationRequests.default(),
+      PrivateAccumulatedNonRevertibleData.default(),
+      PrivateAccumulatedRevertibleData.default(),
+      CombinedConstantData.default(),
       true,
       true,
       true,

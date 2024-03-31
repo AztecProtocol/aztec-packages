@@ -40,7 +40,7 @@ export class RollupValidationRequests {
     return RollupValidationRequests.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
-    return new RollupValidationRequests(MaxBlockNumber.empty());
+  static default() {
+    return new RollupValidationRequests(MaxBlockNumber.default());
   }
 }

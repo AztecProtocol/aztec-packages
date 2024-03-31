@@ -22,7 +22,7 @@ describe('PublicCallStackItem', () => {
   });
 
   it('Computes a callstack item request hash', () => {
-    const callStack = PublicCallStackItem.empty();
+    const callStack = PublicCallStackItem.default();
 
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
     callStack.functionData = new FunctionData(new FunctionSelector(2), false);
@@ -41,7 +41,7 @@ describe('PublicCallStackItem', () => {
   });
 
   it('Computes a callstack item hash', () => {
-    const callStack = PublicCallStackItem.empty();
+    const callStack = PublicCallStackItem.default();
 
     callStack.contractAddress = AztecAddress.fromField(new Fr(1));
     callStack.functionData = new FunctionData(new FunctionSelector(2), false);

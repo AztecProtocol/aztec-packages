@@ -67,7 +67,7 @@ export class EventSelector extends Selector {
    * Creates an empty selector.
    * @returns An empty selector.
    */
-  static empty() {
+  static default() {
     return new EventSelector(0);
   }
 

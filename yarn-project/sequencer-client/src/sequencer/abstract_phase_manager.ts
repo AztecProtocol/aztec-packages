@@ -353,30 +353,30 @@ export abstract class AbstractPhaseManager {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.default(),
       argsHash: computeVarArgsHash(result.execution.args),
-      newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
-      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.default(), MAX_NEW_NOTE_HASHES_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.default(), MAX_NEW_NULLIFIERS_PER_CALL),
+      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.default(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
-        ReadRequest.empty(),
+        ReadRequest.default(),
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
       ),
       nullifierNonExistentReadRequests: padArrayEnd(
         result.nullifierNonExistentReadRequests,
-        ReadRequest.empty(),
+        ReadRequest.default(),
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
       ),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
-        ContractStorageRead.empty(),
+        ContractStorageRead.default(),
         MAX_PUBLIC_DATA_READS_PER_CALL,
       ),
       contractStorageUpdateRequests: padArrayEnd(
         result.contractStorageUpdateRequests,
-        ContractStorageUpdateRequest.empty(),
+        ContractStorageUpdateRequest.default(),
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStackHashes,
@@ -429,7 +429,7 @@ export abstract class AbstractPhaseManager {
     const publicCallRequests = (await this.getPublicCallStackPreimages(result)).map(c =>
       c.toCallRequest(callStackItem.publicInputs.callContext),
     );
-    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.default(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), portalContractAddress, bytecodeHash);
   }
@@ -447,13 +447,13 @@ function removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublic
 
   publicInputs.end.publicDataUpdateRequests = padArrayEnd(
     patch(publicInputs.end.publicDataUpdateRequests),
-    PublicDataUpdateRequest.empty(),
+    PublicDataUpdateRequest.default(),
     MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 
   publicInputs.endNonRevertibleData.publicDataUpdateRequests = padArrayEnd(
     patch(publicInputs.endNonRevertibleData.publicDataUpdateRequests),
-    PublicDataUpdateRequest.empty(),
+    PublicDataUpdateRequest.default(),
     MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 }

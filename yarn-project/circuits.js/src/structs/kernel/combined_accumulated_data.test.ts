@@ -15,12 +15,12 @@ describe('CombinedAccumulatedData', () => {
   });
 
   it('recombines notes correctly', () => {
-    const nonRevertible = PublicAccumulatedNonRevertibleData.empty();
+    const nonRevertible = PublicAccumulatedNonRevertibleData.default();
     nonRevertible.newNoteHashes[0].counter = new Fr(1); // a note created in private fee setup
     nonRevertible.newNoteHashes[1].counter = new Fr(5); // a note created in public setup
     nonRevertible.newNoteHashes[2].counter = new Fr(10); // a note created in public teardown
 
-    const end = PublicAccumulatedRevertibleData.empty();
+    const end = PublicAccumulatedRevertibleData.default();
     end.newNoteHashes[0].counter = new Fr(2); // a note created in private app logic
     end.newNoteHashes[1].counter = new Fr(8); // a note created in public app logic
 
@@ -30,12 +30,12 @@ describe('CombinedAccumulatedData', () => {
   });
 
   it('recombines nullifiers correctly', () => {
-    const nonRevertible = PublicAccumulatedNonRevertibleData.empty();
+    const nonRevertible = PublicAccumulatedNonRevertibleData.default();
     nonRevertible.newNullifiers[0].counter = new Fr(1); // a nullifier created in private fee setup
     nonRevertible.newNullifiers[1].counter = new Fr(5); // a nullifier created in public setup
     nonRevertible.newNullifiers[2].counter = new Fr(10); // a nullifier created in public teardown
 
-    const end = PublicAccumulatedRevertibleData.empty();
+    const end = PublicAccumulatedRevertibleData.default();
     end.newNullifiers[0].counter = new Fr(2); // a nullifier created in private app logic
     end.newNullifiers[1].counter = new Fr(8); // a nullifier created in public app logic
 

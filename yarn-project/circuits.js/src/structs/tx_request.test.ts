@@ -22,7 +22,7 @@ describe('TxRequest', () => {
     const buffer = request.toBuffer();
     const res = TxRequest.fromBuffer(buffer);
     expect(res).toEqual(request);
-    expect(res.isEmpty()).toBe(false);
+    expect(res.isDefault()).toBe(false);
   });
 
   it('number of fields matches constant', () => {

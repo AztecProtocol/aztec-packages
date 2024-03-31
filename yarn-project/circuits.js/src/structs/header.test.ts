@@ -38,7 +38,7 @@ describe('Header', () => {
   });
 
   it('computes empty hash', () => {
-    const header = Header.empty();
+    const header = Header.default();
     const hash = header.hash();
     expect(hash).toMatchSnapshot();
 

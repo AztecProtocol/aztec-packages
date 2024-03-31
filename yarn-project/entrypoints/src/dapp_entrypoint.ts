@@ -46,7 +46,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       argsHash: entrypointPackedArgs.hash,
       origin: this.dappEntrypointAddress,
       functionData,
-      txContext: TxContext.empty(this.chainId, this.version),
+      txContext: TxContext.default(this.chainId, this.version),
       packedArguments: [...packedArguments, entrypointPackedArgs],
       authWitnesses: [authWitness],
     });

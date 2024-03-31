@@ -155,12 +155,12 @@ export class Tx {
       unencryptedLogSize: this.unencryptedLogs.getSerializedLength(),
 
       newCommitmentCount:
-        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNoteHashes, SideEffect.isEmpty) +
-        arrayNonEmptyLength(this.data!.end.newNoteHashes, SideEffect.isEmpty),
+        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNoteHashes, SideEffect.isDefault) +
+        arrayNonEmptyLength(this.data!.end.newNoteHashes, SideEffect.isDefault),
 
       newNullifierCount:
-        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNullifiers, SideEffectLinkedToNoteHash.isEmpty) +
-        arrayNonEmptyLength(this.data!.end.newNullifiers, SideEffectLinkedToNoteHash.isEmpty),
+        arrayNonEmptyLength(this.data!.endNonRevertibleData.newNullifiers, SideEffectLinkedToNoteHash.isDefault) +
+        arrayNonEmptyLength(this.data!.end.newNullifiers, SideEffectLinkedToNoteHash.isDefault),
 
       proofSize: this.proof.buffer.length,
       size: this.toBuffer().length,

@@ -51,16 +51,16 @@ describe('Kernel Prover', () => {
   const generateFakeSiloedCommitment = (note: NoteAndSlot) => createFakeSiloedCommitment(generateFakeCommitment(note));
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
-    const publicInputs = PrivateCircuitPublicInputs.empty();
+    const publicInputs = PrivateCircuitPublicInputs.default();
     publicInputs.newNoteHashes = makeTuple(
       MAX_NEW_NOTE_HASHES_PER_CALL,
       i =>
         i < newNoteIndices.length
           ? new SideEffect(generateFakeCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO)
-          : SideEffect.empty(),
+          : SideEffect.default(),
       0,
     );
-    const functionData = FunctionData.empty();
+    const functionData = FunctionData.default();
     functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
     return {
       callStackItem: new PrivateCallStackItem(AztecAddress.default(), functionData, publicInputs),
@@ -70,20 +70,20 @@ describe('Kernel Prover', () => {
       // TODO(dbanks12): should test kernel prover with non-transient reads.
       // This will be necessary once kernel actually checks (attempts to match) transient reads.
       noteHashReadRequestPartialWitnesses: Array.from({ length: MAX_NOTE_HASH_READ_REQUESTS_PER_CALL }, () =>
-        NoteHashReadRequestMembershipWitness.emptyTransient(),
+        NoteHashReadRequestMembershipWitness.defaultTransient(),
       ),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
       enqueuedPublicFunctionCalls: [],
-      encryptedLogs: EncryptedFunctionL2Logs.empty(),
-      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      encryptedLogs: EncryptedFunctionL2Logs.default(),
+      unencryptedLogs: UnencryptedFunctionL2Logs.default(),
     };
   };
 
   const createProofOutput = (newNoteIndices: number[]) => {
-    const publicInputs = PrivateKernelInnerCircuitPublicInputs.empty();
-    const commitments = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => SideEffect.empty());
+    const publicInputs = PrivateKernelInnerCircuitPublicInputs.default();
+    const commitments = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => SideEffect.default());
     for (let i = 0; i < newNoteIndices.length; i++) {
       commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
     }
@@ -96,8 +96,8 @@ describe('Kernel Prover', () => {
   };
 
   const createProofOutputFinal = (newNoteIndices: number[]) => {
-    const publicInputs = PrivateKernelTailCircuitPublicInputs.empty();
-    const commitments = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, () => SideEffect.empty());
+    const publicInputs = PrivateKernelTailCircuitPublicInputs.default();
+    const commitments = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, () => SideEffect.default());
     for (let i = 0; i < newNoteIndices.length; i++) {
       commitments[i] = new SideEffect(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), Fr.ZERO);
     }

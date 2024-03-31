@@ -204,10 +204,10 @@ export class PrivateCircuitPublicInputs {
   }
 
   /**
-   * Create an empty PrivateCircuitPublicInputs.
-   * @returns An empty PrivateCircuitPublicInputs object.
+   * Create a default PrivateCircuitPublicInputs.
+   * @returns A default PrivateCircuitPublicInputs object.
    */
-  public static empty(): PrivateCircuitPublicInputs {
+  public static default(): PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
       CallContext.default(),
       Fr.ZERO,
@@ -235,32 +235,7 @@ export class PrivateCircuitPublicInputs {
   }
 
   isDefault() {
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    const isDefaultArray = (arr: { isDefault: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isDefault());
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    const isZeroArray = (arr: { isZero: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isZero());
-    return (
-      this.callContext.isDefault() &&
-      this.argsHash.isZero() &&
-      isZeroArray(this.returnValues) &&
-      this.minRevertibleSideEffectCounter.isZero() &&
-      this.maxBlockNumber.isDefault() &&
-      isDefaultArray(this.noteHashReadRequests) &&
-      isDefaultArray(this.nullifierReadRequests) &&
-      isDefaultArray(this.nullifierKeyValidationRequests) &&
-      isDefaultArray(this.newNoteHashes) &&
-      isDefaultArray(this.newNullifiers) &&
-      isZeroArray(this.privateCallStackHashes) &&
-      isZeroArray(this.publicCallStackHashes) &&
-      isDefaultArray(this.newL2ToL1Msgs) &&
-      this.encryptedLogsHash.isZero() &&
-      this.unencryptedLogsHash.isZero() &&
-      this.encryptedLogPreimagesLength.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicalHeader.isDefault() &&
-      this.chainId.isZero() &&
-      this.version.isZero()
-    );
+    return this.toBuffer().equals(PrivateCircuitPublicInputs.default().toBuffer());
   }
 
   /**

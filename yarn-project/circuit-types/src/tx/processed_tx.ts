@@ -119,7 +119,7 @@ export function getPreviousOutputAndProof(
     const publicKernelPublicInput = new PublicKernelCircuitPublicInputs(
       tx.data.aggregationObject,
       tx.data.rollupValidationRequests,
-      ValidationRequests.empty(),
+      ValidationRequests.default(),
       PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
       PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
       tx.data.constants,
@@ -151,8 +151,8 @@ export function makeProcessedTx(
     hash: tx.getTxHash(),
     data: publicKernelPublicInput,
     proof: previousProof,
-    encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
-    unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
+    encryptedLogs: revertReason ? EncryptedTxL2Logs.default() : tx.encryptedLogs,
+    unencryptedLogs: revertReason ? UnencryptedTxL2Logs.default() : tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
   };
@@ -163,7 +163,7 @@ export function makeProcessedTx(
  * @returns A processed empty tx.
  */
 export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): ProcessedTx {
-  const emptyKernelOutput = PublicKernelCircuitPublicInputs.empty();
+  const emptyKernelOutput = PublicKernelCircuitPublicInputs.default();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
@@ -172,8 +172,8 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
-    encryptedLogs: EncryptedTxL2Logs.empty(),
-    unencryptedLogs: UnencryptedTxL2Logs.empty(),
+    encryptedLogs: EncryptedTxL2Logs.default(),
+    unencryptedLogs: UnencryptedTxL2Logs.default(),
     data: emptyKernelOutput,
     proof: emptyProof,
     isEmpty: true,
@@ -194,13 +194,13 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
       PublicDataWrite,
       typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     >,
-    tx.encryptedLogs || EncryptedTxL2Logs.empty(),
-    tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
+    tx.encryptedLogs || EncryptedTxL2Logs.default(),
+    tx.unencryptedLogs || UnencryptedTxL2Logs.default(),
   );
 }
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
-  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
+  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.default();
   const kernelUnencryptedLogsHash = tx.data.combinedData.unencryptedLogsHash;
   const referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
   if (!referenceHash.equals(kernelUnencryptedLogsHash)) {

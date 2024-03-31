@@ -262,9 +262,9 @@ describe('TxValidator', () => {
     // clear public call stacks as it's mocked data but the arrays are not correlated
     tx.data.endNonRevertibleData.publicCallStack = makeTuple(
       MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      CallRequest.empty,
+      CallRequest.default,
     );
-    tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
+    tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default);
     // use splice because it's a readonly property
     tx.enqueuedPublicFunctionCalls.splice(0, tx.enqueuedPublicFunctionCalls.length);
 
@@ -286,7 +286,7 @@ describe('TxValidator', () => {
       gasTokenAddress,
       new FunctionData(signature, false),
       new CallContext(feePayer, gasTokenAddress, gasPortalAddress, signature, false, false, 1),
-      CallContext.empty(),
+      CallContext.default(),
       [],
     );
 
@@ -307,7 +307,7 @@ describe('TxValidator', () => {
       feePaymentContract,
       new FunctionData(feeSetupSelector, true),
       new CallContext(feePaymentContract, feePaymentContract, EthAddress.default(), feeSetupSelector, false, false, 1),
-      CallContext.empty(),
+      CallContext.default(),
       [],
     );
     tx.data.endNonRevertibleData.publicCallStack[0] = feeSetupFn.toCallRequest();
@@ -319,7 +319,7 @@ describe('TxValidator', () => {
       feePaymentContract,
       new FunctionData(feeExecutionSelector, true),
       new CallContext(feePaymentContract, feePaymentContract, EthAddress.default(), feeExecutionSelector, false, false, 2),
-      CallContext.empty(),
+      CallContext.default(),
       [],
     );
     tx.data.endNonRevertibleData.publicCallStack[1] = feeExecutionFn.toCallRequest();

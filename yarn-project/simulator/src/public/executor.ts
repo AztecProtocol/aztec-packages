@@ -92,7 +92,7 @@ export async function executePublicFunction(
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
-      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogs: UnencryptedFunctionL2Logs.default(),
       reverted,
       revertReason,
     };

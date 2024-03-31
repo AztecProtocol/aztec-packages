@@ -46,9 +46,9 @@ export class PublicKernelData {
     );
   }
 
-  static empty(): PublicKernelData {
+  static default(): PublicKernelData {
     return new this(
-      PublicKernelCircuitPublicInputs.empty(),
+      PublicKernelCircuitPublicInputs.default(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,

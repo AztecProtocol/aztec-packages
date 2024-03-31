@@ -115,14 +115,14 @@ export class L2Block {
   }
 
   /**
-   * Creates an L2 block containing empty data.
+   * Creates an L2 block containing default (empty) data.
    * @returns The L2 block.
    */
-  static empty(): L2Block {
+  static default(): L2Block {
     return L2Block.fromFields({
       archive: AppendOnlyTreeSnapshot.default(),
       header: Header.default(),
-      body: Body.empty(),
+      body: Body.default(),
     });
   }
 

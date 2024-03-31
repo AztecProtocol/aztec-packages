@@ -33,7 +33,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       argsHash: entrypointPackedArgs.hash,
       origin: this.address,
       functionData: FunctionData.fromAbi(abi),
-      txContext: TxContext.empty(this.chainId, this.version),
+      txContext: TxContext.default(this.chainId, this.version),
       packedArguments: [...appPackedArguments, ...feePackedArguments, entrypointPackedArgs],
       authWitnesses: [appAuthWitness, feeAuthWitness],
     });

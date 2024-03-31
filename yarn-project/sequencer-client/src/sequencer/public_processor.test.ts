@@ -88,8 +88,8 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        GlobalVariables.empty(),
-        Header.empty(),
+        GlobalVariables.default(),
+        Header.default(),
         publicContractsDB,
         publicWorldStateDB,
       );
@@ -99,11 +99,11 @@ describe('public_processor', () => {
       const seed = 1;
       const includeLogs = false;
       const tx = mockTx(seed, includeLogs);
-      tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
+      tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default);
       tx.data.end.unencryptedLogsHash = Fr.ZERO;
       tx.data.endNonRevertibleData.publicCallStack = makeTuple(
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        CallRequest.empty,
+        CallRequest.default,
       );
       tx.data.needsSetup = false;
       tx.data.needsAppLogic = false;
@@ -120,7 +120,7 @@ describe('public_processor', () => {
         data: new PublicKernelCircuitPublicInputs(
           tx.data.aggregationObject,
           tx.data.rollupValidationRequests,
-          ValidationRequests.empty(),
+          ValidationRequests.default(),
           PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
           PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
           tx.data.constants,
@@ -176,8 +176,8 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        GlobalVariables.empty(),
-        Header.empty(),
+        GlobalVariables.default(),
+        Header.default(),
         publicContractsDB,
         publicWorldStateDB,
       );
@@ -196,22 +196,22 @@ describe('public_processor', () => {
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         callRequests,
-        CallRequest.empty(),
+        CallRequest.default(),
         MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
-      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.default(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        CallRequest.empty,
+        CallRequest.default,
       );
       kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       const tx = new Tx(
         kernelOutput,
         proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
+        EncryptedTxL2Logs.default(),
+        UnencryptedTxL2Logs.default(),
         publicCallRequests,
       );
 
@@ -246,20 +246,20 @@ describe('public_processor', () => {
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(
         [callStackItem],
-        CallRequest.empty(),
+        CallRequest.default(),
         MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       );
-      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.default(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
       kernelOutput.endNonRevertibleData.publicCallStack = makeTuple(
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-        CallRequest.empty,
+        CallRequest.default,
       );
       kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       kernelOutput.needsSetup = false;
       kernelOutput.needsTeardown = false;
 
-      const tx = new Tx(kernelOutput, proof, EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty(), [callRequest]);
+      const tx = new Tx(kernelOutput, proof, EncryptedTxL2Logs.default(), UnencryptedTxL2Logs.default(), [callRequest]);
 
       const publicExecutionResult = PublicExecutionResultBuilder.fromPublicCallRequest({
         request: callRequest,
@@ -309,8 +309,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
+        EncryptedTxL2Logs.default(),
+        UnencryptedTxL2Logs.default(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -387,10 +387,10 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
-      expect(arrayNonEmptyLength(processed[0].data.combinedData.publicCallStack, i => i.isEmpty())).toEqual(0);
+      expect(arrayNonEmptyLength(processed[0].data.combinedData.publicCallStack, i => i.isDefault())).toEqual(0);
 
       const txEffect = toTxEffect(processed[0]);
-      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(2);
+      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isDefault)).toEqual(2);
       expect(txEffect.publicDataWrites[0]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x101)),
       );
@@ -425,8 +425,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
+        EncryptedTxL2Logs.default(),
+        UnencryptedTxL2Logs.default(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -529,8 +529,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
+        EncryptedTxL2Logs.default(),
+        UnencryptedTxL2Logs.default(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -632,8 +632,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
+        EncryptedTxL2Logs.default(),
+        UnencryptedTxL2Logs.default(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -706,7 +706,7 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0]);
-      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(3);
+      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isDefault)).toEqual(3);
       expect(txEffect.publicDataWrites[0]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x102)),
       );
@@ -819,7 +819,7 @@ class PublicExecutionResultBuilder {
       newNullifiers: [],
       newL2ToL1Messages: [],
       contractStorageReads: [],
-      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogs: UnencryptedFunctionL2Logs.default(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
@@ -848,14 +848,14 @@ function addKernelPublicCallStack(
     // this is a stack, so the first item is the last call
     // and callRequests is in the order of the calls
     [calls.teardownCall.toCallRequest(), ...calls.setupCalls.map(c => c.toCallRequest())],
-    CallRequest.empty(),
+    CallRequest.default(),
     MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   );
 
   kernelOutput.end.publicCallStack = padArrayEnd(
     calls.appLogicCalls.map(c => c.toCallRequest()),
-    CallRequest.empty(),
+    CallRequest.default(),
     MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   );
-  kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.empty(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
+  kernelOutput.end.privateCallStack = padArrayEnd([], CallRequest.default(), MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 }

@@ -101,7 +101,7 @@ export class PublicCallRequest {
    * @returns A PublicCallStackItem instance with the same contract address, function data, call context, and args.
    */
   toPublicCallStackItem() {
-    const publicInputs = PublicCircuitPublicInputs.empty();
+    const publicInputs = PublicCircuitPublicInputs.default();
     publicInputs.callContext = this.callContext;
     publicInputs.argsHash = this.getArgsHash();
     return new PublicCallStackItem(this.contractAddress, this.functionData, publicInputs, true);
@@ -115,7 +115,7 @@ export class PublicCallRequest {
     const item = this.toPublicCallStackItem();
     const callerContext = this.callContext.isDelegateCall
       ? new CallerContext(this.parentCallContext.msgSender, this.parentCallContext.storageContractAddress)
-      : CallerContext.empty();
+      : CallerContext.default();
     return new CallRequest(
       item.hash(),
       this.parentCallContext.storageContractAddress,

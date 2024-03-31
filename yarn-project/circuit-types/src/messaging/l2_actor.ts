@@ -18,7 +18,7 @@ export class L2Actor {
     public readonly version: number,
   ) {}
 
-  static empty() {
+  static default() {
     return new L2Actor(AztecAddress.default(), 0);
   }
 

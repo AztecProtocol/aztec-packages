@@ -74,11 +74,11 @@ export class PrivateCallStackItem {
    * Returns a new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
    * @returns A new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
    */
-  public static empty(): PrivateCallStackItem {
+  public static default(): PrivateCallStackItem {
     return new PrivateCallStackItem(
       AztecAddress.default(),
       FunctionData.default({ isPrivate: true }),
-      PrivateCircuitPublicInputs.empty(),
+      PrivateCircuitPublicInputs.default(),
     );
   }
 

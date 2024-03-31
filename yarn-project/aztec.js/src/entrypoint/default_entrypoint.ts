@@ -12,7 +12,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
   createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
     const [execution] = executions;
     const packedArguments = PackedArguments.fromArgs(execution.args);
-    const txContext = TxContext.empty(this.chainId, this.protocolVersion);
+    const txContext = TxContext.default(this.chainId, this.protocolVersion);
     return Promise.resolve(
       new TxExecutionRequest(
         execution.to,

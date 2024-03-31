@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
@@ -54,7 +54,7 @@ export class Call extends Instruction {
     const functionSelector = context.machineState.memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
 
     const nestedContext = context.createNestedContractCallContext(
-      callAddress.toFr(),
+      AztecAddress.fromField(callAddress.toFr()),
       calldata,
       FunctionSelector.fromField(functionSelector),
     );
@@ -123,7 +123,7 @@ export class StaticCall extends Instruction {
     const functionSelector = context.machineState.memory.getAs<Field>(this.temporaryFunctionSelectorOffset).toFr();
 
     const nestedContext = context.createNestedContractStaticCallContext(
-      callAddress.toFr(),
+      AztecAddress.fromField(callAddress.toFr()),
       calldata,
       FunctionSelector.fromField(functionSelector),
     );

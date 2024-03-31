@@ -37,7 +37,7 @@ export class CombinedConstantData {
     return new CombinedConstantData(reader.readObject(Header), reader.readObject(TxContext));
   }
 
-  static empty() {
-    return new CombinedConstantData(Header.empty(), TxContext.empty());
+  static default() {
+    return new CombinedConstantData(Header.default(), TxContext.default());
   }
 }

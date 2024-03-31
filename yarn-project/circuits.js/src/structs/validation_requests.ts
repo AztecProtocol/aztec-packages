@@ -93,14 +93,14 @@ export class ValidationRequests {
     return ValidationRequests.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new ValidationRequests(
-      RollupValidationRequests.empty(),
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
+      RollupValidationRequests.default(),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.default),
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.default),
+      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ReadRequestContext.default),
+      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.default),
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.default),
     );
   }
 }

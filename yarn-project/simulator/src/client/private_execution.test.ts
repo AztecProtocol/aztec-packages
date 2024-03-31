@@ -65,7 +65,7 @@ describe('Private Execution test suite', () => {
 
   let acirSimulator: AcirSimulator;
 
-  let header = Header.empty();
+  let header = Header.default();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();

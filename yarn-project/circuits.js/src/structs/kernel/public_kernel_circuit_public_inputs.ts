@@ -103,14 +103,14 @@ export class PublicKernelCircuitPublicInputs {
     );
   }
 
-  static empty() {
+  static default() {
     return new PublicKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      RollupValidationRequests.empty(),
-      ValidationRequests.empty(),
-      PublicAccumulatedNonRevertibleData.empty(),
-      PublicAccumulatedRevertibleData.empty(),
-      CombinedConstantData.empty(),
+      RollupValidationRequests.default(),
+      ValidationRequests.default(),
+      PublicAccumulatedNonRevertibleData.default(),
+      PublicAccumulatedRevertibleData.default(),
+      CombinedConstantData.default(),
       false,
       false,
       false,

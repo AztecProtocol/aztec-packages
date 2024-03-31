@@ -48,12 +48,12 @@ export class RollupKernelCircuitPublicInputs {
     );
   }
 
-  static empty() {
+  static default() {
     return new RollupKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      CombinedAccumulatedData.empty(),
-      CombinedConstantData.empty(),
-      RollupValidationRequests.empty(),
+      CombinedAccumulatedData.default(),
+      CombinedConstantData.default(),
+      RollupValidationRequests.default(),
     );
   }
 }

@@ -59,10 +59,10 @@ export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2
 
 export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
   /**
-   * Creates an empty L2Logs object with no logs.
+   * Creates a default L2Logs object with no logs.
    * @returns A new FunctionL2Logs object with no logs.
    */
-  public static empty(): EncryptedFunctionL2Logs {
+  public static default(): EncryptedFunctionL2Logs {
     return new EncryptedFunctionL2Logs([]);
   }
 
@@ -109,10 +109,10 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
 
 export class UnencryptedFunctionL2Logs extends FunctionL2Logs<UnencryptedL2Log> {
   /**
-   * Creates an empty L2Logs object with no logs.
+   * Creates a default L2Logs object with no logs.
    * @returns A new FunctionL2Logs object with no logs.
    */
-  public static empty(): UnencryptedFunctionL2Logs {
+  public static default(): UnencryptedFunctionL2Logs {
     return new UnencryptedFunctionL2Logs([]);
   }
 

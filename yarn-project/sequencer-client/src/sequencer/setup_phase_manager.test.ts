@@ -47,8 +47,8 @@ describe('setup_phase_manager', () => {
       db,
       publicExecutor,
       publicKernel,
-      GlobalVariables.empty(),
-      Header.empty(),
+      GlobalVariables.default(),
+      Header.default(),
       publicContractsDB,
       publicWorldStateDB,
     );
@@ -56,10 +56,10 @@ describe('setup_phase_manager', () => {
 
   it('does not extract non-revertible calls when none exist', function () {
     const tx = mockTx();
-    tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
+    tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default);
     tx.data.endNonRevertibleData.publicCallStack = makeTuple(
       MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      CallRequest.empty,
+      CallRequest.default,
     );
     const enqueuedNonRevertibleCalls = phaseManager.extractEnqueuedPublicCalls(tx);
 

@@ -14,11 +14,11 @@ import { SideEffectLinkedToNoteHash, SideEffectType } from './side_effects.js';
 export class NonMembershipHint<TREE_HEIGHT extends number, LEAF_PREIMAGE extends IndexedTreeLeafPreimage> {
   constructor(public membershipWitness: MembershipWitness<TREE_HEIGHT>, public leafPreimage: LEAF_PREIMAGE) {}
 
-  static empty<TREE_HEIGHT extends number, LEAF_PREIMAGE extends IndexedTreeLeafPreimage>(
+  static default<TREE_HEIGHT extends number, LEAF_PREIMAGE extends IndexedTreeLeafPreimage>(
     treeHeight: TREE_HEIGHT,
     makeEmptyLeafPreimage: () => LEAF_PREIMAGE,
   ) {
-    return new NonMembershipHint(MembershipWitness.empty(treeHeight, 0n), makeEmptyLeafPreimage());
+    return new NonMembershipHint(MembershipWitness.default(treeHeight, 0n), makeEmptyLeafPreimage());
   }
 
   static fromBuffer<TREE_HEIGHT extends number, LEAF_PREIMAGE extends IndexedTreeLeafPreimage>(
@@ -119,7 +119,7 @@ export class NullifierNonExistentReadRequestHintsBuilder {
   ) {
     this.hints = new NonExistentReadRequestHints(
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, () =>
-        NonMembershipHint.empty(NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage.empty),
+        NonMembershipHint.default(NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage.default),
       ),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, () => 0),
       sortedPendingNullifiers,
@@ -127,12 +127,12 @@ export class NullifierNonExistentReadRequestHintsBuilder {
     );
   }
 
-  static empty() {
-    const emptySortedPendingNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty);
-    const emptySortedPendingNullifierIndexHints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => 0);
+  static default() {
+    const defaultSortedPendingNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default);
+    const defaultSortedPendingNullifierIndexHints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => 0);
     return new NullifierNonExistentReadRequestHintsBuilder(
-      emptySortedPendingNullifiers,
-      emptySortedPendingNullifierIndexHints,
+      defaultSortedPendingNullifiers,
+      defaultSortedPendingNullifierIndexHints,
     ).toHints();
   }
 

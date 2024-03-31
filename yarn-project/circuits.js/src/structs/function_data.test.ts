@@ -16,7 +16,7 @@ describe('FunctionData', () => {
     const buffer = functionData.toBuffer();
     const res = FunctionData.fromBuffer(buffer);
     expect(res).toEqual(functionData);
-    expect(res.isEmpty()).toBe(false);
+    expect(res.isDefault()).toBe(false);
   });
 
   it('number of fields matches constant', () => {
@@ -24,8 +24,8 @@ describe('FunctionData', () => {
     expect(fields.length).toBe(FUNCTION_DATA_LENGTH);
   });
 
-  it('computes empty inputs hash', () => {
-    const data = FunctionData.empty();
+  it('computes default inputs hash', () => {
+    const data = FunctionData.default();
     const hash = data.hash();
     expect(hash).toMatchSnapshot();
 

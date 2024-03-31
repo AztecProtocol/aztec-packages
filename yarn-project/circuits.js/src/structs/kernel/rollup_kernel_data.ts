@@ -46,9 +46,9 @@ export class RollupKernelData {
     );
   }
 
-  static empty(): RollupKernelData {
+  static default(): RollupKernelData {
     return new this(
-      RollupKernelCircuitPublicInputs.empty(),
+      RollupKernelCircuitPublicInputs.default(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,

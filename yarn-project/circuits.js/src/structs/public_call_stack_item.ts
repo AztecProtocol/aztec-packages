@@ -91,7 +91,7 @@ export class PublicCallStackItem {
   public hash() {
     if (this.isExecutionRequest) {
       const { callContext, argsHash } = this.publicInputs;
-      this.publicInputs = PublicCircuitPublicInputs.empty();
+      this.publicInputs = PublicCircuitPublicInputs.default();
       this.publicInputs.callContext = callContext;
       this.publicInputs.argsHash = argsHash;
     }

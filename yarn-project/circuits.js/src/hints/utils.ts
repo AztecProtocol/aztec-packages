@@ -1,15 +1,15 @@
 import { Tuple } from '@aztec/foundation/serialize';
 
-export interface IsEmpty {
-  isEmpty: () => boolean;
+export interface IsDefault {
+  isDefault: () => boolean;
 }
 
 // Define these utils here as their design is very specific to kernel's accumulated data and not general enough to be put in foundation.
 
 // Returns number of non-empty items in an array.
-export function countAccumulatedItems<T extends IsEmpty>(arr: T[]) {
+export function countAccumulatedItems<T extends IsDefault>(arr: T[]) {
   return arr.reduce((num, item, i) => {
-    if (!item.isEmpty()) {
+    if (!item.isDefault()) {
       if (num !== i) {
         throw new Error('Non-empty items must be placed continuously from index 0.');
       }
@@ -20,7 +20,7 @@ export function countAccumulatedItems<T extends IsEmpty>(arr: T[]) {
 }
 
 // Merges two arrays of length N into an array of length N.
-export function mergeAccumulatedData<T extends IsEmpty, N extends number>(
+export function mergeAccumulatedData<T extends IsDefault, N extends number>(
   _length: N,
   arr0: Tuple<T, N>,
   arr1: Tuple<T, N>,
@@ -38,7 +38,7 @@ export function mergeAccumulatedData<T extends IsEmpty, N extends number>(
 
 // Combines an array of length N and an array of length M into an array of length N + M.
 // All non-empty items are aggregated continuously from index 0.
-export function concatAccumulatedData<T extends IsEmpty, NM extends number, N extends number, M extends number>(
+export function concatAccumulatedData<T extends IsDefault, NM extends number, N extends number, M extends number>(
   length: NM,
   arr0: Tuple<T, N>,
   arr1: Tuple<T, M>,

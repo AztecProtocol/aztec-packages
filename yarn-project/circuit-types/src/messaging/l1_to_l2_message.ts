@@ -62,8 +62,8 @@ export class L1ToL2Message {
     return L1ToL2Message.fromBuffer(buffer);
   }
 
-  static empty(): L1ToL2Message {
-    return new L1ToL2Message(L1Actor.empty(), L2Actor.empty(), Fr.ZERO, Fr.ZERO);
+  static default(): L1ToL2Message {
+    return new L1ToL2Message(L1Actor.default(), L2Actor.default(), Fr.ZERO, Fr.ZERO);
   }
 
   static random(): L1ToL2Message {

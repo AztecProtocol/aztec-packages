@@ -58,7 +58,7 @@ export class SettledReadHint<TREE_HEIGHT extends number, LEAF_PREIMAGE extends T
     treeHeight: TREE_HEIGHT,
     emptyLeafPreimage: () => LEAF_PREIMAGE,
   ) {
-    return new SettledReadHint(readRequestLen, MembershipWitness.empty(treeHeight, 0n), emptyLeafPreimage());
+    return new SettledReadHint(readRequestLen, MembershipWitness.default(treeHeight, 0n), emptyLeafPreimage());
   }
 
   static fromBuffer<TREE_HEIGHT extends number, LEAF_PREIMAGE extends TreeLeafPreimage>(
@@ -164,12 +164,12 @@ export class NullifierReadRequestHintsBuilder {
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestStatus.nada),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, () => PendingReadHint.nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX)),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, () =>
-        SettledReadHint.nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage.empty),
+        SettledReadHint.nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage.default),
       ),
     );
   }
 
-  static empty() {
+  static default() {
     return new NullifierReadRequestHintsBuilder().toHints();
   }
 

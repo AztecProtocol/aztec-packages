@@ -17,7 +17,7 @@ describe('TxContext', () => {
     const buffer = context.toBuffer();
     const res = TxContext.fromBuffer(buffer);
     expect(res).toEqual(context);
-    expect(res.isEmpty()).toBe(false);
+    expect(res.isDefault()).toBe(false);
   });
 
   it('number of fields matches constant', () => {
@@ -25,9 +25,9 @@ describe('TxContext', () => {
     expect(fields.length).toBe(TX_CONTEXT_DATA_LENGTH);
   });
 
-  it('computes empty hash', () => {
-    const tc = TxContext.empty();
-    expect(tc.isEmpty()).toBe(true);
+  it('computes default hash', () => {
+    const tc = TxContext.default();
+    expect(tc.isDefault()).toBe(true);
 
     const hash = tc.hash();
     expect(hash).toMatchSnapshot();

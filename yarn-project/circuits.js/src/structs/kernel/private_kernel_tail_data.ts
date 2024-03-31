@@ -46,9 +46,9 @@ export class PrivateKernelTailData {
     );
   }
 
-  static empty(): PrivateKernelTailData {
+  static default(): PrivateKernelTailData {
     return new this(
-      PrivateKernelTailCircuitPublicInputs.empty(),
+      PrivateKernelTailCircuitPublicInputs.default(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,

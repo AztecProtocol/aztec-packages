@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import type { PublicStateDB } from '../../index.js';
+import { AztecAddress } from '@aztec/circuits.js';
 
 /**
  * A class to manage public storage reads and writes during a contract call's AVM simulation.
@@ -48,7 +49,7 @@ export class PublicStorage {
     }
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
-      value = await this.hostPublicStorage.storageRead(storageAddress, slot);
+      value = await this.hostPublicStorage.storageRead(AztecAddress.fromField(storageAddress), slot);
     }
     // if value is undefined, that means this slot has never been written to!
     const exists = value !== undefined;

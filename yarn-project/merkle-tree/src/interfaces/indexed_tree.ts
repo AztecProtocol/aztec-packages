@@ -24,7 +24,7 @@ export interface PreimageFactory {
   /**
    * Creates an empty preimage.
    */
-  empty(): IndexedTreeLeafPreimage;
+  default(): IndexedTreeLeafPreimage;
   /**
    * Creates a copy of a preimage.
    * @param preimage - Preimage to be cloned.

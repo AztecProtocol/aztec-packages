@@ -159,7 +159,7 @@ describe('L1Publisher integration', () => {
 
   const makeBloatedProcessedTx = (seed = 0x1) => {
     const tx = mockTx(seed);
-    const kernelOutput = PublicKernelCircuitPublicInputs.empty();
+    const kernelOutput = PublicKernelCircuitPublicInputs.default();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;
@@ -178,7 +178,7 @@ describe('L1Publisher integration', () => {
       seed + 0x200,
     );
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
-      SideEffectLinkedToNoteHash.empty();
+      SideEffectLinkedToNoteHash.default();
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
     processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());

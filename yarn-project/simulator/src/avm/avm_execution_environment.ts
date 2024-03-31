@@ -61,7 +61,7 @@ export class AvmExecutionEnvironment {
   public deriveEnvironmentForNestedCall(
     address: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.default(),
   ): AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
       address,
@@ -84,7 +84,7 @@ export class AvmExecutionEnvironment {
   public deriveEnvironmentForNestedStaticCall(
     address: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.default(),
   ): AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
       address,
@@ -107,7 +107,7 @@ export class AvmExecutionEnvironment {
   public newDelegateCall(
     address: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.default(),
   ): AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
       address,

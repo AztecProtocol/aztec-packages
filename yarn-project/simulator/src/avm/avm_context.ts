@@ -38,7 +38,7 @@ export class AvmContext {
   public createNestedContractCallContext(
     address: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.default(),
   ): AvmContext {
     const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedCall(
       address,
@@ -65,7 +65,7 @@ export class AvmContext {
   public createNestedContractStaticCallContext(
     address: AztecAddress,
     calldata: Fr[],
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.default(),
   ): AvmContext {
     const newExecutionEnvironment = this.environment.deriveEnvironmentForNestedStaticCall(
       address,

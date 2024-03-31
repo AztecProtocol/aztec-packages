@@ -25,7 +25,7 @@ import { Tx, TxHash } from './tx/index.js';
  * Testing utility to create empty logs composed from a single empty log.
  */
 export function makeEmptyLogs(): EncryptedTxL2Logs {
-  const functionLogs = [new EncryptedFunctionL2Logs([EncryptedL2Log.empty()])];
+  const functionLogs = [new EncryptedFunctionL2Logs([EncryptedL2Log.default()])];
   return new EncryptedTxL2Logs(functionLogs);
 }
 
@@ -35,20 +35,20 @@ export const mockTx = (seed = 1, logs = true) => {
   const tx = new Tx(
     makePrivateKernelTailCircuitPublicInputs(seed),
     new Proof(Buffer.alloc(0)),
-    logs ? EncryptedTxL2Logs.random(8, 3) : EncryptedTxL2Logs.empty(), // 8 priv function invocations creating 3 encrypted logs each
-    logs ? UnencryptedTxL2Logs.random(11, 2) : UnencryptedTxL2Logs.empty(), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
+    logs ? EncryptedTxL2Logs.random(8, 3) : EncryptedTxL2Logs.default(), // 8 priv function invocations creating 3 encrypted logs each
+    logs ? UnencryptedTxL2Logs.random(11, 2) : UnencryptedTxL2Logs.default(), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
     times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
   );
 
   tx.data.endNonRevertibleData.publicCallStack = [
     tx.enqueuedPublicFunctionCalls[1].toCallRequest(),
     tx.enqueuedPublicFunctionCalls[0].toCallRequest(),
-    CallRequest.empty(),
+    CallRequest.default(),
   ];
 
   tx.data.end.publicCallStack = makeTuple(
     MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    i => tx.enqueuedPublicFunctionCalls[i + 2]?.toCallRequest() ?? CallRequest.empty(),
+    i => tx.enqueuedPublicFunctionCalls[i + 2]?.toCallRequest() ?? CallRequest.default(),
   ).reverse() as Tuple<CallRequest, typeof MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX>;
 
   return tx;

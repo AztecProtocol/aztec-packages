@@ -132,9 +132,9 @@ describe('prover/tx-prover', () => {
       txs.flatMap(tx =>
         padArrayEnd(
           [...tx.data.endNonRevertibleData.newNoteHashes, ...tx.data.end.newNoteHashes]
-            .filter(x => !x.isEmpty())
+            .filter(x => !x.isDefault())
             .sort(sideEffectCmp),
-          SideEffect.empty(),
+          SideEffect.default(),
           MAX_NEW_NOTE_HASHES_PER_TX,
         ).map(l => l.value),
       ),
@@ -144,9 +144,9 @@ describe('prover/tx-prover', () => {
       txs.flatMap(tx =>
         padArrayEnd(
           [...tx.data.endNonRevertibleData.newNullifiers, ...tx.data.end.newNullifiers]
-            .filter(x => !x.isEmpty())
+            .filter(x => !x.isDefault())
             .sort(sideEffectCmp),
-          SideEffectLinkedToNoteHash.empty(),
+          SideEffectLinkedToNoteHash.default(),
           MAX_NEW_NULLIFIERS_PER_TX,
         ).map(x => x.value.toBuffer()),
       ),
@@ -234,7 +234,7 @@ describe('prover/tx-prover', () => {
   //   // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
   //   const l2Block = L2Block.fromFields({
   //     archive: AppendOnlyTreeSnapshot.zero(),
-  //     header: Header.empty(),
+  //     header: Header.default(),
   //     // Only the values below go to body hash/calldata hash
   //     body,
   //   });
@@ -324,7 +324,7 @@ describe('prover/tx-prover', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       seed *= MAX_NEW_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
       const tx = mockTx(seed);
-      const kernelOutput = PublicKernelCircuitPublicInputs.empty();
+      const kernelOutput = PublicKernelCircuitPublicInputs.default();
       kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -361,7 +361,7 @@ describe('prover/tx-prover', () => {
         seed + 0x100000 + MAX_REVERTIBLE_NULLIFIERS_PER_TX,
       );
 
-      processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.empty();
+      processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = SideEffectLinkedToNoteHash.default();
 
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
       processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());

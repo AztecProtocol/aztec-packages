@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import { allSameExcept, anyAvmContextInputs, initExecutionEnvironment } from './fixtures/index.js';
+import { AztecAddress } from '@aztec/circuits.js';
 
 describe('Execution Environment', () => {
   const newAddress = new Fr(123456n);
@@ -8,7 +9,7 @@ describe('Execution Environment', () => {
 
   it('New call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedCall(newAddress, calldata);
+    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedCall(AztecAddress.fromField(newAddress), calldata);
 
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
@@ -22,7 +23,7 @@ describe('Execution Environment', () => {
 
   it('New delegate call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.newDelegateCall(newAddress, calldata);
+    const newExecutionEnvironment = executionEnvironment.newDelegateCall(AztecAddress.fromField(newAddress), calldata);
 
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
@@ -36,7 +37,7 @@ describe('Execution Environment', () => {
 
   it('New static call call should fork execution environment correctly', () => {
     const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedStaticCall(newAddress, calldata);
+    const newExecutionEnvironment = executionEnvironment.deriveEnvironmentForNestedStaticCall(AztecAddress.fromField(newAddress), calldata);
 
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {

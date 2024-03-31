@@ -82,7 +82,7 @@ function sortNullifiersByValues(
   return {
     sortedValues: padArrayEnd(
       sorted.map(s => s.nullifier),
-      SideEffectLinkedToNoteHash.empty(),
+      SideEffectLinkedToNoteHash.default(),
       MAX_NEW_NULLIFIERS_PER_TX,
     ),
     sortedIndexHints: padArrayEnd(sortedIndexHints, 0, MAX_NEW_NULLIFIERS_PER_TX),
