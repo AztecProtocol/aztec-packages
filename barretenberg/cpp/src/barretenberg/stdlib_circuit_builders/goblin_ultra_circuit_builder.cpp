@@ -219,8 +219,8 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
 }
 
 /**
- * @brief Read from calldata
- * @details Creates a calldata lookup gate based on the read data
+ * @brief Read from a databus column
+ * @details Creates a databus lookup gate based on the input index and read result
  *
  * @tparam FF
  * @param read_idx_witness_idx Variable index of the read index
@@ -247,10 +247,10 @@ uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, 
 }
 
 /**
- * @brief Create a calldata lookup/read gate
+ * @brief Create a databus lookup/read gate
  *
  * @tparam FF
- * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
+ * @param databus_lookup_gate_ witness indices corresponding to: read index, result value
  */
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate_<FF>& in)
 {
@@ -278,7 +278,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::create_databus_read_
 }
 
 /**
- * @brief Create a calldata lookup/read gate
+ * @brief Create a databus calldata lookup/read gate
  *
  * @tparam FF
  * @param databus_lookup_gate_ witness indices corresponding to: calldata index, calldata value
@@ -290,6 +290,21 @@ void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_loo
     create_databus_read_gate(in);
     auto& block = this->blocks.busread;
     block.q_1()[block.size() - 1] = 1;
+}
+
+/**
+ * @brief Create a databus return data lookup/read gate
+ *
+ * @tparam FF
+ * @param databus_lookup_gate_ witness indices corresponding to: read index, result value
+ */
+template <typename FF>
+void GoblinUltraCircuitBuilder_<FF>::create_return_data_read_gate(const databus_lookup_gate_<FF>& in)
+{
+    // Create generic read gate then set q_1 = 1 to specify a calldata read
+    create_databus_read_gate(in);
+    auto& block = this->blocks.busread;
+    block.q_2()[block.size() - 1] = 1;
 }
 
 /**

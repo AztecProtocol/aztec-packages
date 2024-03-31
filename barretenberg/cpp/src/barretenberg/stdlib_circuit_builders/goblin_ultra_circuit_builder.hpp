@@ -2,6 +2,7 @@
 #include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -10,43 +11,6 @@ using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
   public:
-    struct BusVector {
-
-        void append(const uint32_t& idx)
-        {
-            data.emplace_back(idx);
-            read_counts.resize(data.size());
-        }
-
-        size_t size() const { return data.size(); }
-
-        const uint32_t& operator[](size_t idx) const
-        {
-            ASSERT(idx < size());
-            return data[idx];
-        }
-
-        const uint32_t& get_read_count(size_t idx) const
-        {
-            ASSERT(idx < read_counts.size());
-            return read_counts[idx];
-        }
-
-        void increment_count(size_t idx)
-        {
-            ASSERT(idx < read_counts.size());
-            read_counts[idx]++;
-        }
-
-      private:
-        std::vector<uint32_t> read_counts; // count of reads at each index into data
-        std::vector<uint32_t> data;        // variable indices corresponding to data in this bus vector
-    };
-
-    struct DataBus {
-        BusVector calldata;
-    };
-
     using Arithmetization = UltraHonkArith<FF>;
 
     static constexpr std::string_view NAME_STRING = "GoblinUltraArithmetization";
@@ -75,8 +39,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void populate_ecc_op_wires(const ecc_op_tuple& in);
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
     void set_goblin_ecc_op_code_constant_variables();
+    uint32_t read_bus_vector(BusVector& bus_vector, const uint32_t& read_idx_witness_idx);
     void create_databus_read_gate(const databus_lookup_gate_<FF>& in);
     void create_calldata_read_gate(const databus_lookup_gate_<FF>& in);
+    void create_return_data_read_gate(const databus_lookup_gate_<FF>& in);
 
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
@@ -162,9 +128,14 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     /**
      * @brief Add a witness variable to the public calldata.
      *
-     * @param in Value to be added to calldata.
      * */
     uint32_t add_public_calldata(const FF& in) { return add_to_bus_vector(databus.calldata, in); }
+
+    /**
+     * @brief Add a witness variable to the public return_data.
+     *
+     * */
+    uint32_t add_public_return_data(const FF& in) { return add_to_bus_vector(databus.return_data, in); }
 
     /**
      * @brief Read from calldata and create a corresponding databus read gate
@@ -174,13 +145,20 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     uint32_t read_calldata(const uint32_t& read_idx) { return read_bus_vector(databus.calldata, read_idx); };
 
+    /**
+     * @brief Read from return_data and create a corresponding databus read gate
+     *
+     * @param read_idx Witness index for the return_data read index
+     * @return uint32_t Witness index for the result of the read
+     */
+    uint32_t read_return_data(const uint32_t& read_idx) { return read_bus_vector(databus.return_data, read_idx); };
+
     uint32_t add_to_bus_vector(BusVector& bus_vector, const FF& in)
     {
         const uint32_t index = this->add_variable(in);
         bus_vector.append(index);
         return index;
     }
-    uint32_t read_bus_vector(BusVector& bus_vector, const uint32_t& read_idx_witness_idx);
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
