@@ -9,24 +9,11 @@ inputs:
   github_actor:
     required: true
     description: 'GitHub Actor'
-  git_ref:
-    required: true
-    description: 'Pull Request SHA'
 
 runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
-    - uses: earthly/actions-setup@v1
-      with:
-        version: 'v0.8.5'
-
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.git_ref }}
-        submodules: false # we cache submodules
-
     - name: Cache Submodules
       uses: actions/cache@v2
       with:
@@ -42,6 +29,11 @@ runs:
       if: steps.cache-submodules.outputs.cache-hit != 'true'
       run: git submodule sync --recursive && git submodule update --init --recursive
 
-    - name: Setup
+    - name: Setup Earthly
+      uses: earthly/actions-setup@v1
+      with:
+        version: 'v0.8.5'
+
+    - name: Setup Env
       working-directory: ./scripts
       run: ./scripts/setup_env.sh ${{ inputs.dockerhub_password }} ${{ inputs.github_actor }}
