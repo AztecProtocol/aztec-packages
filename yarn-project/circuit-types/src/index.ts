@@ -20,4 +20,4 @@ export * from './packed_arguments.js';
 export * from './interfaces/index.js';
 export * from './auth_witness.js';
 export * from './aztec_node/rpc/index.js';
-export { CompleteAddress, PublicKey, PartialAddress, GrumpkinPrivateKey } from '@aztec/circuits.js';
+export { CompleteAddress, type PublicKey, type PartialAddress, GrumpkinPrivateKey } from '@aztec/circuits.js';

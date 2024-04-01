@@ -382,10 +382,13 @@ export async function setup(
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
+  logger('Creating a pxe...');
   const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
   if (['1', 'true'].includes(ENABLE_GAS)) {
+    logger(`Deploying canonical gas token...`);
     await deployCanonicalGasToken(new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()));
+    logger(`Done.`);
   }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
