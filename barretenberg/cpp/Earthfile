@@ -165,18 +165,6 @@ preset-release-assert-test:
     RUN cmake --build build 
     SAVE ARTIFACT build/bin
 
-test-base:
-    ARG EARTHLY_GIT_HASH
-    ARG TARGETARCH
-    ARG test_mode=build
-    LOCALLY
-    IF [ $test_mode = cache ]
-        FROM aztecprotocol/bb-test-base:$TARGETARCH-$EARTHLY_GIT_HASH
-    ELSE
-        FROM +preset-release-assert-test
-        SAVE IMAGE --push aztecprotocol/bb-test-base:$TARGETARCH-$EARTHLY_GIT_HASH
-    END
-
 # Sent to the bench runner using a earthly-cloud build x86 --push +bench-base --bench_mode=true
 # then we can run earthly-cloud bench x86 +bench-ultra-honk etc
 bench-base:
@@ -223,7 +211,7 @@ test-clang-format:
     RUN ./format.sh check
 
 test:
-    BUILD +test-base
+    BUILD +test-clang-format
     FROM +preset-release-assert-test
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
