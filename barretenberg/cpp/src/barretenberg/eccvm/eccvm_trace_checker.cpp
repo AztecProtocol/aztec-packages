@@ -8,7 +8,7 @@ using Builder = typename ECCVMFlavor::CircuitBuilder;
 using FF = typename ECCVMFlavor::FF;
 using ProverPolynomials = typename ECCVMFlavor::ProverPolynomials;
 
-bool ECCVMTraceChecker::check_circuit(Builder& builder)
+bool ECCVMTraceChecker::check(Builder& builder)
 {
     const FF gamma = FF::random_element();
     const FF beta = FF::random_element();
