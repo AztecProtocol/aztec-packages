@@ -41,7 +41,7 @@ build:
     COPY +browser/build /usr/src/barretenberg/ts-build
     # We want to create a pure package, as would be published to npm, for consuming projects.
     RUN yarn pack && tar zxf package.tgz && rm package.tgz && mv package ../ts
-    SAVE ARTIFACT /usr/src/barretenberg/ts-build build
+    SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 test:
     BUILD +test-prettier-format

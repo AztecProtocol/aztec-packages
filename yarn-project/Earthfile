@@ -3,7 +3,7 @@ FROM node:18.19.0
 RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
 
 # copy bb-js and noir-packages
-COPY ../barretenberg/ts/+build/usr/src /usr/src/barretenberg/ts
+COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
 COPY ../noir/+packages/packages /usr/src/noir/packages
 # install acvm binary
 COPY ../noir/+nargo/acvm /usr/bin/acvm
