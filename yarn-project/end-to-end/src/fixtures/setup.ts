@@ -81,7 +81,7 @@ export async function setup(numberOfAccounts = 1, statePath: string, testName: s
 
   logger('Simulating account deployment...');
   const accounts = await asyncMap(accountKeys, async ([encPk, signPk]) => {
-    const account = getSchnorrAccount(pxe, encPk, signPk);
+    const account = getSchnorrAccount(pxe, encPk, signPk, 1);
     // Unfortunately the function below is not stateless and we call it here because it takes a long time to run and
     // the results get stored within the account object. By calling it here we increase the probability of all the
     // accounts being deployed in the same block because it makes the deploy() method basically instant.
