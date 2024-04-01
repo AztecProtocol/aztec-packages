@@ -40,6 +40,30 @@ ECCVMProver_<Flavor>::ECCVMProver_(const std::shared_ptr<typename Flavor::Provin
     }
 }
 
+template <IsECCVMFlavor Flavor>
+ECCVMProver_<Flavor>::ECCVMProver_(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
+{
+    BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_prover");
+    *this = ECCVMProver_(std::make_shared<ProvingKey>(builder), key->commitment_key, transcript);
+}
+
+/**
+ * @brief Compute witness polynomials
+ */
+template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::compute_witness(CircuitBuilder& circuit)
+{
+    BB_OP_COUNT_TIME_NAME("ECCVMComposer::compute_witness");
+
+    ProverPolynomials polynomials(circuit); // WORKTODO: inefficient?
+
+    auto key_wires = key->get_wires();
+    auto poly_wires = polynomials.get_wires();
+
+    for (size_t i = 0; i < key_wires.size(); ++i) {
+        std::copy(poly_wires[i].begin(), poly_wires[i].end(), key_wires[i].begin());
+    }
+}
+
 /**
  * @brief Add circuit size, public input size, and public inputs to transcript
  *

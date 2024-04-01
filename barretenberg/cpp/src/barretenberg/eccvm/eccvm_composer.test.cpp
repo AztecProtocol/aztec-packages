@@ -72,7 +72,7 @@ TYPED_TEST(ECCVMComposerTests, BaseCase)
     auto builder = generate_circuit<Flavor>(&engine);
 
     auto composer = ECCVMComposer_<Flavor>();
-    auto prover = composer.create_prover(builder);
+    ECCVMProver_<ECCVMFlavor> prover(builder);
 
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(builder);
@@ -98,7 +98,7 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
                                                            .mul_scalar_full = 0 });
     builder.op_queue->num_transcript_rows++;
     auto composer = ECCVMComposer_<Flavor>();
-    auto prover = composer.create_prover(builder);
+    ECCVMProver_<ECCVMFlavor> prover(builder);
 
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(builder);

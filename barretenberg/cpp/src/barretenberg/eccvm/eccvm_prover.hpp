@@ -24,11 +24,16 @@ template <IsECCVMFlavor Flavor> class ECCVMProver_ {
     using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations;
     using ZeroMorph = ZeroMorphProver_<PCS>;
+    using CircuitBuilder = typename Flavor::CircuitBuilder;
 
   public:
     explicit ECCVMProver_(const std::shared_ptr<ProvingKey>& input_key,
                           const std::shared_ptr<PCSCommitmentKey>& commitment_key,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+
+    explicit ECCVMProver_(CircuitBuilder& builder,
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    void compute_witness(CircuitBuilder& circuit_constructor); // WORKTODO: not in use?
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();

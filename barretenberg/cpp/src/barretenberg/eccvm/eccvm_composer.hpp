@@ -59,21 +59,11 @@ template <IsECCVMFlavor Flavor> class ECCVMComposer_ {
     std::shared_ptr<ProvingKey> compute_proving_key(CircuitConstructor& circuit_constructor);
     std::shared_ptr<VerificationKey> compute_verification_key(CircuitConstructor& circuit_constructor);
 
-    void compute_witness(CircuitConstructor& circuit_constructor);
-
-    ECCVMProver_<Flavor> create_prover(CircuitConstructor& circuit_constructor,
-                                       const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     ECCVMVerifier_<Flavor> create_verifier(
         CircuitConstructor& circuit_constructor,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
-
-    void compute_commitment_key(size_t circuit_size)
-    {
-        BB_OP_COUNT_TIME_NAME("ECCVMComposer::compute_commitment_key");
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size);
-    };
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

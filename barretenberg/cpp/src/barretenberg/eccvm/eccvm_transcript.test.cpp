@@ -254,7 +254,7 @@ TYPED_TEST(ECCVMTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = ECCVMComposer_<Flavor>();
-    auto prover = composer.create_prover(builder);
+    ECCVMProver_<ECCVMFlavor> prover(builder);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -281,7 +281,7 @@ TYPED_TEST(ECCVMTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = ECCVMComposer_<Flavor>();
-    auto prover = composer.create_prover(builder);
+    ECCVMProver_<ECCVMFlavor> prover(builder);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
@@ -337,7 +337,7 @@ TYPED_TEST(ECCVMTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = ECCVMComposer_<Flavor>();
-    auto prover = composer.create_prover(builder);
+    ECCVMProver_<ECCVMFlavor> prover(builder);
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(builder);
     EXPECT_TRUE(verifier.verify_proof(proof));
