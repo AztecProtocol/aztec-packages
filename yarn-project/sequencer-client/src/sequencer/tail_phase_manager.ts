@@ -3,10 +3,13 @@ import {
   GlobalVariables,
   Header,
   KernelCircuitPublicInputs,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   Proof,
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
+  SideEffect,
 } from '@aztec/circuits.js';
+import { Tuple } from '@aztec/foundation/serialize';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -60,6 +63,9 @@ export class TailPhaseManager extends AbstractPhaseManager {
   ): Promise<[KernelCircuitPublicInputs, Proof]> {
     const output = await this.simulate(previousOutput, previousProof);
     const proof = await this.publicProver.getPublicTailKernelCircuitProof(output);
+    // Temporary hack. Should sort them in the tail circuit.
+    // TODO(#757): Enforce proper ordering of public state actions
+    output.end.newNoteHashes = this.sortNoteHashes<typeof MAX_NEW_NOTE_HASHES_PER_TX>(output.end.newNoteHashes);
     return [output, proof];
   }
 
@@ -86,5 +92,14 @@ export class TailPhaseManager extends AbstractPhaseManager {
       nullifierNonExistentReadRequestHints,
     );
     return this.publicKernel.publicKernelCircuitTail(inputs);
+  }
+
+  private sortNoteHashes<N extends number>(noteHashes: Tuple<SideEffect, N>): Tuple<SideEffect, N> {
+    return noteHashes.sort((n0, n1) => {
+      if (n0.isEmpty()) {
+        return 1;
+      }
+      return Number(n0.counter.toBigInt() - n1.counter.toBigInt());
+    });
   }
 }
