@@ -1,7 +1,7 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
-    abis::{read_request::ReadRequestContext, side_effect::OrderedValue}, hash::{silo_nullifier},
-    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::{is_default}
+    abis::{read_request::ReadRequestContext, side_effect::OrderedValue}, hash::silo_nullifier,
+    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::is_default
 };
 
 struct ReadRequestStateEnum {
