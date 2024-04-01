@@ -8,8 +8,8 @@ export class L2ToL1Message {
   constructor(public recipient: EthAddress, public content: Fr) {}
 
   /**
-   * Creates an empty L2ToL1Message with default values.
-   * @returns An instance of L2ToL1Message with empty fields.
+   * Creates an default L2ToL1Message with default values.
+   * @returns An instance of L2ToL1Message with default fields.
    */
   static default(): L2ToL1Message {
     return new L2ToL1Message(EthAddress.default(), Fr.zero());
@@ -67,8 +67,8 @@ export class L2ToL1Message {
   }
 
   /**
-   * Convenience method to check if the message is empty.
-   * @returns True if both recipient and content are zero.
+   * Convenience method to check if the message is default.
+   * @returns True if recipient is default and content is zero.
    */
   isDefault(): boolean {
     return this.recipient.isDefault() && this.content.isZero();

@@ -37,7 +37,7 @@ describe('Header', () => {
     expect(fields.length).toBe(HEADER_LENGTH);
   });
 
-  it('computes empty hash', () => {
+  it('computes default hash', () => {
     const header = Header.default();
     const hash = header.hash();
     expect(hash).toMatchSnapshot();
