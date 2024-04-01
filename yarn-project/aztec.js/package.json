@@ -67,6 +67,8 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
+    "@swc/core": "^1.4.11",
+    "@swc/jest": "^0.2.36",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",
     "buffer": "^6.0.3",
