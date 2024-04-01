@@ -26,6 +26,7 @@ runs:
         key: submodules-${{ hashFiles('.gitmodules') }}
 
     - name: Checkout Submodules
+      shell: bash
       if: steps.cache-submodules.outputs.cache-hit != 'true'
       run: git submodule sync --recursive && git submodule update --init --recursive
 
@@ -35,5 +36,6 @@ runs:
         version: 'v0.8.5'
 
     - name: Setup Env
+      shell: bash
       working-directory: ./scripts
       run: ./scripts/setup_env.sh ${{ inputs.dockerhub_password }} ${{ inputs.github_actor }}
