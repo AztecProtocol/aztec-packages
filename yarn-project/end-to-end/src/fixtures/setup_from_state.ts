@@ -52,7 +52,7 @@ export async function setupFromState(statePath: string, testName: string) {
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
   const accountManagers = accountKeys.map(a =>
-    getSchnorrAccount(pxe, GrumpkinPrivateKey.fromString(a[0]), GrumpkinPrivateKey.fromString(a[1])),
+    getSchnorrAccount(pxe, GrumpkinPrivateKey.fromString(a[0]), GrumpkinPrivateKey.fromString(a[1]), 1),
   );
   const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
 

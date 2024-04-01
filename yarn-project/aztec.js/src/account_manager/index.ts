@@ -34,7 +34,7 @@ export class AccountManager {
     private accountContract: AccountContract,
     salt?: Salt,
   ) {
-    this.salt = salt ? new Fr(salt) : Fr.random();
+    this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
   }
 
   protected getEncryptionPublicKey() {
