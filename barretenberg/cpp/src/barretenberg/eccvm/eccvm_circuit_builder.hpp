@@ -214,8 +214,6 @@ class ECCVMCircuitBuilder {
         return result;
     }
 
-    bool check_circuit() { return true; }
-
     [[nodiscard]] size_t get_num_gates() const
     {
         // (issue #2218)

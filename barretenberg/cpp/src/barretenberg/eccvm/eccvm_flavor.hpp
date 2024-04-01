@@ -496,7 +496,9 @@ class ECCVMFlavor {
 
             const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
             size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
-
+            for (auto& poly : get_all()) {
+                poly = Polynomial(num_rows_pow2);
+            }
             lagrange_first[0] = 1;
             lagrange_second[1] = 1;
             lagrange_last[lagrange_last.size() - 1] = 1;
