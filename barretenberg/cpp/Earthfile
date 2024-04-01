@@ -21,7 +21,6 @@ build-base:
         clang-format \
         clang-16
 
-    WORKDIR /usr/src
     IF [ $TARGETARCH = arm64 ]
         # publish arm after, assumes x86 already exists, becomes multiplatform image
         SAVE IMAGE --push aztecprotocol/bb-ubuntu-lunar
@@ -75,11 +74,11 @@ wasmtime:
 
 source:
     FROM aztecprotocol/bb-ubuntu-lunar
+    WORKDIR /usr/src/barretenberg
     # cpp source
     COPY --dir src/barretenberg src/CMakeLists.txt src
     # cmake source
     COPY --dir cmake CMakeLists.txt CMakePresets.json .
-    RUN touch asdas
     # for debugging rebuilds
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
@@ -103,8 +102,8 @@ preset-wasm:
     ELSE
         COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
         RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm
-        RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
-        SAVE ARTIFACT bin
+        RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
+        SAVE ARTIFACT build/bin
         SAVE IMAGE --cache-hint
     END
 
@@ -112,7 +111,7 @@ preset-wasm-threads:
     FROM +source
     COPY +get-wasi-sdk-threads/wasi-sdk src/wasi-sdk
     RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm
-    RUN ../src/wasi-sdk/bin/llvm-strip ./bin/barretenberg.wasm
+    RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
 
 preset-gcc:
