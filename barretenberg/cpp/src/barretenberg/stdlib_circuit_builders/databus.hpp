@@ -36,7 +36,7 @@ struct BusVector {
         return read_counts[idx];
     }
 
-    void increment_count(size_t idx)
+    void increment_read_count(size_t idx)
     {
         ASSERT(idx < read_counts.size());
         read_counts[idx]++;

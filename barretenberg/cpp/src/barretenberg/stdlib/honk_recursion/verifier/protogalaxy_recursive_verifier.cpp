@@ -62,8 +62,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
-        witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + commitment_labels.lookup_inverses);
+        witness_commitments.calldata_inverses = transcript->template receive_from_prover<Commitment>(
+            domain_separator + "_" + commitment_labels.calldata_inverses);
+        witness_commitments.return_data_inverses = transcript->template receive_from_prover<Commitment>(
+            domain_separator + "_" + commitment_labels.return_data_inverses);
     }
 
     witness_commitments.z_perm =

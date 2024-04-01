@@ -13,22 +13,26 @@ namespace bb {
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t NUM_BUS_COLUMNS = 2;
+    static constexpr size_t READ_TERMS = 1;  // per bus column
+    static constexpr size_t WRITE_TERMS = 1; // per bus column
     // 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3;
-    static constexpr size_t NUM_BUS_COLUMNS = 1;
 
     // Note: The first subrelation actually has length = LENGTH-1 but taking advantage of this would require additional
     // computation that would nullify the benefits.
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_PARTIAL_LENGTHS{
+        LENGTH, // inverse polynomial correctness subrelation
+        LENGTH, // log-derivative lookup argument subrelation
         LENGTH, // inverse polynomial correctness subrelation
         LENGTH  // log-derivative lookup argument subrelation
     };
 
-    // The second subrelation is "linearly dependant" in the sense that it establishes the value of a sum across the
+    // The second subrelation is "linearly dependent" in the sense that it establishes the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
+    static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
+        true, false, true, false
+    };
 
     /**
      * @brief Determine whether the inverse I needs to be computed at a given row
@@ -42,10 +46,13 @@ template <typename FF_> class DatabusLookupRelationImpl {
      */
     template <size_t bus_idx, typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
-        ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
             bool is_read_gate = row.q_busread == 1 && row.q_l == 1;
             return (is_read_gate || row.calldata_read_counts > 0);
+        }
+        if constexpr (bus_idx == 1) {
+            bool is_read_gate = row.q_busread == 1 && row.q_r == 1;
+            return (is_read_gate || row.return_data_read_counts > 0);
         }
         return false;
     }
@@ -59,9 +66,11 @@ template <typename FF_> class DatabusLookupRelationImpl {
      */
     template <size_t bus_idx, typename AllEntities> static auto& get_inverse_polynomial(AllEntities& in)
     {
-        ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
-            return in.lookup_inverses;
+            return in.calldata_inverses;
+        }
+        if constexpr (bus_idx == 1) {
+            return in.return_data_inverses;
         }
     }
 
@@ -75,7 +84,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
             auto q_busread = View(in.q_busread);
             auto q_1 = View(in.q_l);
@@ -85,15 +93,26 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
             return is_read_gate + is_read_data - (is_read_gate * is_read_data);
         }
+        if constexpr (bus_idx == 1) {
+            auto q_busread = View(in.q_busread);
+            auto q_2 = View(in.q_r);
+            const auto is_read_gate = q_busread * q_2;
+            // Note: read_counts is constructed such that read_count_i <= 1.
+            const auto is_read_data = View(in.return_data_read_counts);
+
+            return is_read_gate + is_read_data - (is_read_gate * is_read_data);
+        }
     }
 
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
     static Accumulator::View get_read_counts(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
             return View(in.calldata_read_counts);
+        }
+        if constexpr (bus_idx == 1) {
+            return View(in.return_data_read_counts);
         }
     }
 
@@ -103,16 +122,23 @@ template <typename FF_> class DatabusLookupRelationImpl {
      *
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
-    static Accumulator get_read_selector([[maybe_unused]] const AllEntities& in)
+    static Accumulator get_read_selector(const AllEntities& in)
 
     {
         using View = typename Accumulator::View;
-        ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
             auto q_busread = View(in.q_busread);
             auto q_1 = View(in.q_l);
 
             auto result = q_busread * q_1;
+
+            return result;
+        }
+        if constexpr (bus_idx == 1) {
+            auto q_busread = View(in.q_busread);
+            auto q_2 = View(in.q_r);
+
+            auto result = q_busread * q_2;
 
             return result;
         }
@@ -128,7 +154,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
-        ASSERT(bus_idx == 0);
         if constexpr (bus_idx == 0) {
             const auto& calldata = View(in.calldata);
             const auto& id = View(in.databus_id);
@@ -138,6 +163,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
             // Construct b_i + idx_i*\beta + \gamma
             return calldata + gamma + id * beta; // degree 1
+        }
+        if constexpr (bus_idx == 1) {
+            const auto& return_data = View(in.return_data);
+            const auto& id = View(in.databus_id);
+
+            const auto& gamma = ParameterView(params.gamma);
+            const auto& beta = ParameterView(params.beta);
+
+            // Construct b_i + idx_i*\beta + \gamma
+            return return_data + gamma + id * beta; // degree 1
         }
     }
 
@@ -212,23 +247,22 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
 
-        const auto lookup_inverses = View(get_inverse_polynomial<bus_idx>(in));       // Degree 1
+        const auto inverses = View(get_inverse_polynomial<bus_idx>(in));              // Degree 1
         const auto read_term = compute_read_term<Accumulator>(in, params);            // Degree 1
         const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params); // Degree 1
         const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 1
         const auto read_counts = get_read_counts<Accumulator, bus_idx>(in);           // Degree 1
         const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2
-        const auto write_inverse = lookup_inverses * read_term;                       // Degree 2
-        const auto read_inverse = lookup_inverses * write_term;                       // Degree 2
+        const auto write_inverse = inverses * read_term;                              // Degree 2
+        const auto read_inverse = inverses * write_term;                              // Degree 2
 
-        // Determine which subrelations to update based on which bus column is being read
+        // Determine which pair of subrelations to update based on which bus column is being read
         constexpr size_t subrel_idx_1 = 2 * bus_idx;
         constexpr size_t subrel_idx_2 = 2 * bus_idx + 1;
 
-        // Establish the correctness of the polynomial of inverses I. Note: lookup_inverses is computed so that the
-        // value is 0 if !inverse_exists. Degree 3
-        std::get<subrel_idx_1>(accumulator) +=
-            (read_term * write_term * lookup_inverses - inverse_exists) * scaling_factor;
+        // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
+        // if !inverse_exists. Degree 3
+        std::get<subrel_idx_1>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor;
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
         // entire trace, not on a per-row basis
@@ -250,7 +284,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                            const Parameters& params,
                            const FF& scaling_factor)
     {
-        // Accumulate the subrelations for column of the databus
+        // Accumulate the subrelation contributions for each column of the databus
         bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
             accumulate_subrelation_contributions<FF, bus_idx>(accumulator, in, params, scaling_factor);
         });

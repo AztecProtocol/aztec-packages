@@ -140,18 +140,28 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     /**
      * @brief Read from calldata and create a corresponding databus read gate
      *
-     * @param read_idx Witness index for the calldata read index
+     * @param read_idx_witness_idx Witness index for the calldata read index
      * @return uint32_t Witness index for the result of the read
      */
-    uint32_t read_calldata(const uint32_t& read_idx) { return read_bus_vector(databus.calldata, read_idx); };
+    uint32_t read_calldata(const uint32_t& read_idx_witness_idx)
+    {
+        uint32_t value_witness_idx = read_bus_vector(databus.calldata, read_idx_witness_idx);
+        create_calldata_read_gate({ read_idx_witness_idx, value_witness_idx });
+        return value_witness_idx;
+    };
 
     /**
      * @brief Read from return_data and create a corresponding databus read gate
      *
-     * @param read_idx Witness index for the return_data read index
+     * @param read_idx_witness_idx Witness index for the return_data read index
      * @return uint32_t Witness index for the result of the read
      */
-    uint32_t read_return_data(const uint32_t& read_idx) { return read_bus_vector(databus.return_data, read_idx); };
+    uint32_t read_return_data(const uint32_t& read_idx_witness_idx)
+    {
+        uint32_t value_witness_idx = read_bus_vector(databus.return_data, read_idx_witness_idx);
+        create_return_data_read_gate({ read_idx_witness_idx, value_witness_idx });
+        return value_witness_idx;
+    };
 
     uint32_t add_to_bus_vector(BusVector& bus_vector, const FF& in)
     {

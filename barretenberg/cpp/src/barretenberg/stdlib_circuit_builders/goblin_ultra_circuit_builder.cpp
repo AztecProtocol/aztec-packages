@@ -37,6 +37,13 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     auto read_idx = this->add_variable(raw_read_idx);
     read_calldata(read_idx);
 
+    // Create an arbitrary return data read gate
+    add_public_return_data(FF(19)); // ensure there is at least one entry in return data
+    add_public_return_data(FF(17)); // ensure there is at least one entry in return data
+    raw_read_idx = 1;               // read first entry in return data
+    read_idx = this->add_variable(raw_read_idx);
+    read_return_data(read_idx);
+
     // mock a poseidon external gate, with all zeros as input
     this->blocks.poseidon_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
     this->blocks.poseidon_external.q_m().emplace_back(0);
@@ -229,19 +236,18 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
 template <typename FF>
 uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, const uint32_t& read_idx_witness_idx)
 {
-    // Get the raw index into the calldata
+    // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 
     // Ensure that the read index is valid
     ASSERT(read_idx < bus_vector.size());
 
     // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
-    // calldata via copy constraints (i.e. we create a unique variable for the result of each read)
+    // databus via copy constraints (i.e. we create a unique variable for the result of each read)
     FF value = this->get_variable(bus_vector[read_idx]);
     uint32_t value_witness_idx = this->add_variable(value);
 
-    create_calldata_read_gate({ read_idx_witness_idx, value_witness_idx });
-    bus_vector.increment_count(read_idx);
+    bus_vector.increment_read_count(read_idx);
 
     return value_witness_idx;
 }

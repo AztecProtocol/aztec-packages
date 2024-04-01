@@ -40,12 +40,12 @@ class GoblinUltraFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 55;
+    static constexpr size_t NUM_ALL_ENTITIES = 58;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 14;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 17;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -173,16 +173,19 @@ class GoblinUltraFlavor {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              sorted_accum,         // column 4
-                              z_perm,               // column 5
-                              z_lookup,             // column 6
-                              ecc_op_wire_1,        // column 7
-                              ecc_op_wire_2,        // column 8
-                              ecc_op_wire_3,        // column 9
-                              ecc_op_wire_4,        // column 10
-                              calldata,             // column 11
-                              calldata_read_counts, // column 12
-                              lookup_inverses);     // column 13
+                              sorted_accum,            // column 4
+                              z_perm,                  // column 5
+                              z_lookup,                // column 6
+                              ecc_op_wire_1,           // column 7
+                              ecc_op_wire_2,           // column 8
+                              ecc_op_wire_3,           // column 9
+                              ecc_op_wire_4,           // column 10
+                              calldata,                // column 11
+                              calldata_read_counts,    // column 12
+                              calldata_inverses,       // column 13
+                              return_data,             // column 14
+                              return_data_read_counts, // column 15
+                              return_data_inverses);   // column 16
     };
 
     /**
@@ -359,9 +362,14 @@ class GoblinUltraFlavor {
         {
             auto prover_polynomials = ProverPolynomials(*this);
             // Compute inverses polynomial used in log derivative relations
+            // WORKTODO: make this a loop?
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-            this->lookup_inverses = prover_polynomials.lookup_inverses;
+            this->calldata_inverses = prover_polynomials.calldata_inverses;
+
+            DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            this->return_data_inverses = prover_polynomials.return_data_inverses;
         }
 
         /**
@@ -510,7 +518,10 @@ class GoblinUltraFlavor {
             ecc_op_wire_4 = "ECC_OP_WIRE_4";
             calldata = "CALLDATA";
             calldata_read_counts = "CALLDATA_READ_COUNTS";
-            lookup_inverses = "LOOKUP_INVERSES";
+            calldata_inverses = "CALLDATA_INVERSES";
+            return_data = "RETURN_DATA";
+            return_data_read_counts = "RETURN_DATA_READ_COUNTS";
+            return_data_inverses = "RETURN_DATA_INVERSES";
 
             q_c = "Q_C";
             q_l = "Q_L";
@@ -599,7 +610,10 @@ class GoblinUltraFlavor {
                 this->ecc_op_wire_4 = commitments.ecc_op_wire_4;
                 this->calldata = commitments.calldata;
                 this->calldata_read_counts = commitments.calldata_read_counts;
-                this->lookup_inverses = commitments.lookup_inverses;
+                this->calldata_inverses = commitments.calldata_inverses;
+                this->return_data = commitments.return_data;
+                this->return_data_read_counts = commitments.return_data_read_counts;
+                this->return_data_inverses = commitments.return_data_inverses;
             }
         }
     };
@@ -626,7 +640,10 @@ class GoblinUltraFlavor {
         Commitment ecc_op_wire_4_comm;
         Commitment calldata_comm;
         Commitment calldata_read_counts_comm;
-        Commitment lookup_inverses_comm;
+        Commitment calldata_inverses_comm;
+        Commitment return_data_comm;
+        Commitment return_data_read_counts_comm;
+        Commitment return_data_inverses_comm;
         Commitment sorted_accum_comm;
         Commitment w_4_comm;
         Commitment z_perm_comm;
@@ -679,7 +696,10 @@ class GoblinUltraFlavor {
             ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            return_data_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            return_data_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
+            return_data_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             sorted_accum_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -717,7 +737,10 @@ class GoblinUltraFlavor {
             serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
             serialize_to_buffer(calldata_comm, proof_data);
             serialize_to_buffer(calldata_read_counts_comm, proof_data);
-            serialize_to_buffer(lookup_inverses_comm, proof_data);
+            serialize_to_buffer(calldata_inverses_comm, proof_data);
+            serialize_to_buffer(return_data_comm, proof_data);
+            serialize_to_buffer(return_data_read_counts_comm, proof_data);
+            serialize_to_buffer(return_data_inverses_comm, proof_data);
             serialize_to_buffer(sorted_accum_comm, proof_data);
             serialize_to_buffer(w_4_comm, proof_data);
             serialize_to_buffer(z_perm_comm, proof_data);
