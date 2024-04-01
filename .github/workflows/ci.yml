@@ -81,7 +81,7 @@ jobs:
         run:
           # Flags:
           # - e2e_build=true to get images from a local build, not a dockerhub registry strategy
-          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_build=true
+          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_mode=build
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
@@ -123,7 +123,7 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: |
-          earthly-cloud build x86 --no-output +${{ matrix.test }}
+          earthly-cloud build x86 --no-output +${{ matrix.test }} --e2e_mode=cache
 
   # barretenberg (prover) native tests
   bb-native-tests:
@@ -190,12 +190,13 @@ jobs:
 
       - name: Build and Push Binaries
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud build x86 --push +bench-binaries --bench_build=true
+        run: earthly-cloud build x86 --push +bench-binaries
 
+      # Use bench_mode=cache to read the pushed build above
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud bench x86 --no-output +bench-client-ivc
+        run: earthly-cloud bench x86 --no-output +bench-client-ivc --bench_mode=cache
 
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud bench x86 --no-output +bench-ultra-honk
+        run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache

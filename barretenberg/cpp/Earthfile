@@ -164,13 +164,13 @@ preset-release-assert-test:
     RUN cmake --build build 
     SAVE ARTIFACT build/bin
 
-# Sent to the bench runner using a earthly-cloud build x86 --push +bench-binaries --bench_build=true
+# Sent to the bench runner using a earthly-cloud build x86 --push +bench-binaries --bench_mode=true
 # then we can run earthly-cloud bench x86 +bench-ultra-honk etc
 bench-binaries:
     ARG EARTHLY_GIT_HASH
-    ARG bench_build=false
+    ARG bench_mode=cache
     LOCALLY
-    IF [ $bench_build = false ]
+    IF [ $bench_mode = cache ]
         FROM aztecprotocol/bb-bench-binaries:$EARTHLY_GIT_HASH
     ELSE
         FROM +source
