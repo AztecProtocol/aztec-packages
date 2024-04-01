@@ -257,6 +257,13 @@ export class Fr extends BaseField {
 
     return new Fr(this.toBigInt() / rhs.toBigInt());
   }
+
+  toJSON() {
+    return {
+      type: 'Fr',
+      value: this.toString(),
+    };
+  }
 }
 
 /**
@@ -318,6 +325,13 @@ export class Fq extends BaseField {
 
   static fromHighLow(high: Fr, low: Fr): Fq {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
+  }
+
+  toJSON() {
+    return {
+      type: 'Fq',
+      value: this.toString(),
+    };
   }
 }
 
