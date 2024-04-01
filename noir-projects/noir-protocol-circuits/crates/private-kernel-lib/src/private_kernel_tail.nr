@@ -119,7 +119,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
             let is_default = is_default(item);
 
             if prev_was_empty {
-                assert(is_default, "Empty items must be at the end");
+                assert(is_default, "Default items must be at the end");
             } else if (i != 0) & !is_default {
                 assert(sorted[i].counter() > sorted[i - 1].counter(), "Not sorted");
             }
