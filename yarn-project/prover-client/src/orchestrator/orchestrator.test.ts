@@ -407,7 +407,9 @@ describe('prover/tx-prover', () => {
         const result = await blockTicket.provingPromise;
         expect(result.status).toBe(PROVING_STATUS.SUCCESS);
 
-        expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
+        const finalisedBlock = await builder.finaliseBlock();
+
+        expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
 
         await updateExpectedTreesFromTxs(txs);
         const noteHashTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
@@ -438,7 +440,9 @@ describe('prover/tx-prover', () => {
 
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds a block with 1 transaction', async () => {
@@ -456,7 +460,9 @@ describe('prover/tx-prover', () => {
 
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds multiple blocks in sequence', async () => {
@@ -483,9 +489,10 @@ describe('prover/tx-prover', () => {
   
         const result = await blockTicket.provingPromise;
         expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-        const block = (result as ProvingSuccess).block;
-        expect(block.number).toEqual(blockNum);
-        header = block.header;
+        const finalisedBlock = await builder.finaliseBlock();
+
+        expect(finalisedBlock.l2Block.number).toEqual(blockNum);
+        header = finalisedBlock.l2Block.header;
 
         await builderDb.commit();
       }
@@ -514,7 +521,9 @@ describe('prover/tx-prover', () => {
 
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('builds a block concurrently with transactions', async () => {
@@ -541,7 +550,9 @@ describe('prover/tx-prover', () => {
 
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('cancels current block and switches to new ones', async () => {
@@ -595,8 +606,9 @@ describe('prover/tx-prover', () => {
 
       const result2 = await blockTicket2.provingPromise;
       expect(result2.status).toBe(PROVING_STATUS.SUCCESS);
-      const block = (result2 as ProvingSuccess).block;
-      expect(block.number).toBe(101);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(101);
     }, 10000);
 
     it('automatically cancels an incomplete block when starting a new one', async () => {
@@ -642,8 +654,9 @@ describe('prover/tx-prover', () => {
 
       const result2 = await blockTicket2.provingPromise;
       expect(result2.status).toBe(PROVING_STATUS.SUCCESS);
-      const block = (result2 as ProvingSuccess).block;
-      expect(block.number).toBe(101);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(101);
     }, 10000);
 
     it('builds an unbalanced L2 block', async () => {
@@ -667,7 +680,9 @@ describe('prover/tx-prover', () => {
 
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('throws if adding too many transactions', async () => {
@@ -690,7 +705,9 @@ describe('prover/tx-prover', () => {
 
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('throws if adding a transaction before start', async () => {
@@ -704,6 +721,34 @@ describe('prover/tx-prover', () => {
         'Invalid proving state, call startNewBlock before adding transactions or completing the block',
       );
     }, 1000);
+
+    it('throws if finalising an incompletre block', async () => {
+      await expect(async () => await builder.finaliseBlock()).rejects.toThrow(
+        'Invalid proving state, a block must be proven before it can be finalised',
+      );
+    }, 1000);
+
+    it('throws if finalising an already finalised block', async () => {
+
+      const txs = await Promise.all([
+        makeEmptyProcessedTx(),
+        makeEmptyProcessedTx(),
+      ]);
+
+      const blockTicket = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+
+      for (const tx of txs) {
+        await builder.addNewTx(tx);
+      }
+
+      const result = await blockTicket.provingPromise;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      const finalisedBlock = await builder.finaliseBlock();
+      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      await expect(async () => await builder.finaliseBlock()).rejects.toThrow(
+        'Block already finalised',
+      );
+    }, 20000);
 
     it('throws if adding to a cancelled block', async () => {
       await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTx());

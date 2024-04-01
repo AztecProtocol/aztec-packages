@@ -381,7 +381,8 @@ describe('L1Publisher integration', () => {
       );
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
       const result = await ticket.provingPromise;
-      const block = (result as ProvingSuccess).block;
+      const blockResult = await builder.finaliseBlock();
+      const block = blockResult.block;
       prevHeader = block.header;
 
       const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
@@ -471,7 +472,8 @@ describe('L1Publisher integration', () => {
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
       const result = await blockTicket.provingPromise;
-      const block = (result as ProvingSuccess).block;
+      const blockResult = await builder.finaliseBlock();
+      const block = blockResult.block;
       prevHeader = block.header;
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);

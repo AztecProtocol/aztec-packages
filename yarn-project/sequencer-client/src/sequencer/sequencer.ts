@@ -303,7 +303,10 @@ export class Sequencer {
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
-    const blockTicket = await this.prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
+    const numRealTxs = txs.length;
+    const pow2 = Math.log2(numRealTxs);
+    const totalTxs = 2 ** Math.ceil(pow2);
+    const blockTicket = await this.prover.startNewBlock(Math.max(totalTxs, 2), globalVariables, l1ToL2Messages, emptyTx);
 
     for (const tx of txs) {
       await this.prover.addNewTx(tx);
@@ -313,7 +316,8 @@ export class Sequencer {
     if (result.status === PROVING_STATUS.FAILURE) {
       throw new Error(`Block proving failed, reason: ${result.reason}`);
     }
-    return result.block;
+    const blockResult = await this.prover.finaliseBlock();
+    return blockResult.block;
   }
 
   get coinbase(): EthAddress {

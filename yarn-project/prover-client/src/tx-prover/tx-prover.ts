@@ -1,5 +1,5 @@
 import { ProcessedTx } from '@aztec/circuit-types';
-import { ProverClient, ProvingTicket } from '@aztec/circuit-types/interfaces';
+import { BlockResult, ProverClient, ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { Fr, GlobalVariables } from '@aztec/circuits.js';
 import { SimulationProvider } from '@aztec/simulator';
 import { WorldStateSynchronizer } from '@aztec/world-state';
@@ -15,7 +15,7 @@ import { EmptyRollupProver } from '../prover/empty.js';
 export class TxProver implements ProverClient {
   private orchestrator: ProvingOrchestrator;
   constructor(
-    worldStateSynchronizer: WorldStateSynchronizer,
+    private worldStateSynchronizer: WorldStateSynchronizer,
     simulationProvider: SimulationProvider,
     protected vks: VerificationKeys,
   ) {
@@ -26,6 +26,7 @@ export class TxProver implements ProverClient {
       new EmptyRollupProver(),
     );
   }
+
 
   /**
    * Starts the prover instance
@@ -58,16 +59,25 @@ export class TxProver implements ProverClient {
     return prover;
   }
 
-  public startNewBlock(
+  public async startNewBlock(
     numTxs: number,
     globalVariables: GlobalVariables,
     newL1ToL2Messages: Fr[],
     emptyTx: ProcessedTx,
   ): Promise<ProvingTicket> {
+    const previousBlockNumber = globalVariables.blockNumber.toNumber() - 1;
+    await this.worldStateSynchronizer.syncImmediate(previousBlockNumber);
     return this.orchestrator.startNewBlock(numTxs, globalVariables, newL1ToL2Messages, emptyTx);
   }
 
   public addNewTx(tx: ProcessedTx): Promise<void> {
     return this.orchestrator.addNewTx(tx);
+  }
+
+  public cancelBlock(): void {
+    this.orchestrator.cancelBlock();
+  }
+  public finaliseBlock(): Promise<BlockResult> {
+    return this.finaliseBlock();
   }
 }

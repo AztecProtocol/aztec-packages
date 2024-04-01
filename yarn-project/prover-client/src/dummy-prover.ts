@@ -1,4 +1,5 @@
 import {
+  BlockResult,
   L2Block,
   PROVING_STATUS,
   ProcessedTx,
@@ -10,6 +11,8 @@ import { GlobalVariables, makeEmptyProof } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 export class DummyProver implements ProverClient {
+
+ 
   public start(): Promise<void> {
     return Promise.resolve();
   }
@@ -30,8 +33,6 @@ export class DummyProver implements ProverClient {
   ): Promise<ProvingTicket> {
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
-      proof: makeEmptyProof(),
-      block: L2Block.empty(),
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),
@@ -41,5 +42,15 @@ export class DummyProver implements ProverClient {
 
   addNewTx(_tx: ProcessedTx): Promise<void> {
     return Promise.resolve();
+  }
+
+  cancelBlock(): void {
+  }
+
+  finaliseBlock(): Promise<BlockResult> {
+    return Promise.resolve({
+      block: L2Block.empty(),
+      proof: makeEmptyProof(),
+    });
   }
 }

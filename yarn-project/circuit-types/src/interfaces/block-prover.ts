@@ -10,8 +10,6 @@ export enum PROVING_STATUS {
 
 export type ProvingSuccess = {
   status: PROVING_STATUS.SUCCESS;
-  block: L2Block;
-  proof: Proof;
 };
 
 export type ProvingFailure = {
@@ -24,6 +22,11 @@ export type ProvingResult = ProvingSuccess | ProvingFailure;
 export type ProvingTicket = {
   provingPromise: Promise<ProvingResult>;
 };
+
+export type BlockResult = {
+  block: L2Block,
+  proof: Proof;
+}
 
 /**
  * The interface to the block prover.
@@ -38,4 +41,8 @@ export interface BlockProver {
   ): Promise<ProvingTicket>;
 
   addNewTx(tx: ProcessedTx): Promise<void>;
+
+  cancelBlock(): void;
+
+  finaliseBlock(): Promise<BlockResult>;
 }

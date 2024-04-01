@@ -119,8 +119,6 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
-      proof,
-      block,
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),
@@ -128,6 +126,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
+    proverClient.finaliseBlock.mockResolvedValue({block, proof});
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -137,7 +136,7 @@ describe('sequencer', () => {
     await sequencer.work();
 
     expect(proverClient.startNewBlock).toHaveBeenCalledWith(
-      1,
+      2,
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
       publicProcessor.makeEmptyProcessedTx(),
@@ -158,8 +157,6 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
-      proof,
-      block,
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),
@@ -167,6 +164,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
+    proverClient.finaliseBlock.mockResolvedValue({block, proof});
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -207,8 +205,6 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
-      proof,
-      block,
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),
@@ -216,6 +212,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce(txs);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
+    proverClient.finaliseBlock.mockResolvedValue({block, proof});
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),
@@ -246,8 +243,6 @@ describe('sequencer', () => {
     const proof = makeEmptyProof();
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
-      proof,
-      block,
     };
     const ticket: ProvingTicket = {
       provingPromise: Promise.resolve(result),
@@ -255,6 +250,7 @@ describe('sequencer', () => {
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
     proverClient.startNewBlock.mockResolvedValueOnce(ticket);
+    proverClient.finaliseBlock.mockResolvedValue({block, proof});
     publisher.processL2Block.mockResolvedValueOnce(true);
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
       new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO, coinbase, feeRecipient),

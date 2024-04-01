@@ -1,11 +1,14 @@
-import { ProcessedTx, ProvingResult } from '@aztec/circuit-types';
+import { L2Block, ProcessedTx, ProvingResult } from '@aztec/circuit-types';
 import {
+  AppendOnlyTreeSnapshot,
   BaseOrMergeRollupPublicInputs,
   Fr,
   GlobalVariables,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   Proof,
   RootParityInput,
+  RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { Tuple } from '@aztec/foundation/serialize';
 
@@ -32,6 +35,9 @@ export class ProvingState {
   private mergeRollupInputs: MergeRollupInputData[] = [];
   private rootParityInputs: Array<RootParityInput | undefined> = [];
   private finalRootParityInputs: RootParityInput | undefined;
+  public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
+  public finalProof: Proof | undefined;
+  public block: L2Block | undefined;
   private txs: ProcessedTx[] = [];
   constructor(
     public readonly totalNumTxs: number,
@@ -41,6 +47,8 @@ export class ProvingState {
     public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
     numRootParityInputs: number,
     public readonly emptyTx: ProcessedTx,
+    public readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
+    public readonly messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   ) {
     this.rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
   }

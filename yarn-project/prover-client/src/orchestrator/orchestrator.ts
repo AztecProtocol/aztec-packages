@@ -1,5 +1,5 @@
 import { Body, L2Block, MerkleTreeId, ProcessedTx, TxEffect, toTxEffect } from '@aztec/circuit-types';
-import { PROVING_STATUS, ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
+import { PROVING_STATUS, ProverClient, ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -8,6 +8,8 @@ import {
   BaseRollupInputs,
   Fr,
   GlobalVariables,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   Proof,
@@ -36,10 +38,13 @@ import {
   executeMergeRollupCircuit,
   executeRootParityCircuit,
   executeRootRollupCircuit,
+  getSubtreeSiblingPath,
   getTreeSnapshot,
+  validateRootOutput,
   validateTx,
 } from './block-building-helpers.js';
 import { MergeRollupInputData, ProvingState } from './proving-state.js';
+import { makeTuple } from '@aztec/foundation/array';
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 
@@ -51,7 +56,7 @@ const logger = createDebugLogger('aztec:prover:proving-orchestrator');
  * 4. Once a transaction is proven, it will be incorporated into a merge proof
  * 5. Merge proofs are produced at each level of the tree until the root proof is produced
  *
- * The proving implementation is determined by the provided prover implementation. This could be for example a local prover or a remote prover pool.
+ * The proving implementation is determined by the provided prover. This could be for example a local prover or a remote prover pool.
  */
 
 const SLEEP_TIME = 50;
@@ -106,6 +111,7 @@ export class ProvingOrchestrator {
 
   public start() {
     this.jobProcessPromise = this.processJobQueue();
+    return Promise.resolve();
   }
 
   public async stop() {
@@ -147,8 +153,22 @@ export class ProvingOrchestrator {
       BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i),
     );
 
-    //TODO:(@PhilWindle) Temporary until we figure out when to perform L1 to L2 insertions to make state consistency easier.
-    await Promise.resolve();
+    const messageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db);
+
+    const newL1ToL2MessageTreeRootSiblingPathArray = await getSubtreeSiblingPath(
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+      L1_TO_L2_MSG_SUBTREE_HEIGHT,
+      this.db,
+    );
+  
+    const newL1ToL2MessageTreeRootSiblingPath = makeTuple(
+      L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+      i => (i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO),
+      0,
+    );
+
+    // Update the local trees to include the new l1 to l2 messages
+    await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
 
     let provingState: ProvingState | undefined = undefined;
 
@@ -161,6 +181,8 @@ export class ProvingOrchestrator {
         l1ToL2MessagesPadded,
         baseParityInputs.length,
         emptyTx,
+        messageTreeSnapshot,
+        newL1ToL2MessageTreeRootSiblingPath,
       );
     }).catch((reason: string) => ({ status: PROVING_STATUS.FAILURE, reason } as const));
 
@@ -220,6 +242,51 @@ export class ProvingOrchestrator {
 
   public cancelBlock() {
     this.provingState?.cancel();
+  }
+
+  public async finaliseBlock() {
+    if (!this.provingState || !this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
+      throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
+    }
+    if (this.provingState.block) {
+      throw new Error('Block already finalised');
+    }
+
+    const rootRollupOutputs = this.provingState.rootRollupPublicInputs;
+
+    logger?.debug(`Updating and validating root trees`);
+    await this.db.updateArchive(rootRollupOutputs.header);
+
+    await validateRootOutput(rootRollupOutputs, this.db);
+
+    // Collect all new nullifiers, commitments, and contracts from all txs in this block
+    const txEffects: TxEffect[] = this.provingState.allTxs.map(tx => toTxEffect(tx));
+
+    const blockBody = new Body(txEffects);
+
+    const l2Block = L2Block.fromFields({
+      archive: rootRollupOutputs.archive,
+      header: rootRollupOutputs.header,
+      body: blockBody,
+    });
+
+    if (!l2Block.body.getTxsEffectsHash().equals(rootRollupOutputs.header.contentCommitment.txsEffectsHash)) {
+      logger(inspect(blockBody));
+      throw new Error(
+        `Txs effects hash mismatch, ${l2Block.body
+          .getTxsEffectsHash()
+          .toString('hex')} == ${rootRollupOutputs.header.contentCommitment.txsEffectsHash.toString('hex')} `,
+      );
+    }
+
+    logger.info(`Successfully proven block ${l2Block.number}!`);
+
+    this.provingState.block = l2Block;
+
+    return {
+      l2Block,
+      proof: this.provingState.finalProof,
+    }
   }
 
   /**
@@ -375,39 +442,22 @@ export class ProvingOrchestrator {
       [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
       rootParityInput,
-      provingState!.newL1ToL2Messages,
+      provingState.newL1ToL2Messages,
+      provingState.messageTreeSnapshot,
+      provingState.messageTreeRootSiblingPath,
       this.simulator,
       this.prover,
       this.db,
       logger,
     );
     logger.info(`Completed root rollup`);
-    // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const txEffects: TxEffect[] = provingState.allTxs.map(tx => toTxEffect(tx));
 
-    const blockBody = new Body(txEffects);
-
-    const l2Block = L2Block.fromFields({
-      archive: circuitsOutput.archive,
-      header: circuitsOutput.header,
-      body: blockBody,
-    });
-
-    if (!l2Block.body.getTxsEffectsHash().equals(circuitsOutput.header.contentCommitment.txsEffectsHash)) {
-      logger(inspect(blockBody));
-      throw new Error(
-        `Txs effects hash mismatch, ${l2Block.body
-          .getTxsEffectsHash()
-          .toString('hex')} == ${circuitsOutput.header.contentCommitment.txsEffectsHash.toString('hex')} `,
-      );
-    }
+    provingState.rootRollupPublicInputs = circuitsOutput;
+    provingState.finalProof = proof;
 
     const provingResult: ProvingResult = {
       status: PROVING_STATUS.SUCCESS,
-      block: l2Block,
-      proof,
     };
-    logger.info(`Successfully proven block ${l2Block.number}!`);
     provingState.resolve(provingResult);
   }
 
