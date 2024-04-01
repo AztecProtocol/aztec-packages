@@ -25,7 +25,7 @@ export class AztecAddress extends Fr {
   static ZERO = new AztecAddress(Buffer.alloc(32));
 
   static default(): AztecAddress {
-    return AztecAddress.default();
+    return AztecAddress.ZERO;
   }
 
   isDefault(): boolean {
