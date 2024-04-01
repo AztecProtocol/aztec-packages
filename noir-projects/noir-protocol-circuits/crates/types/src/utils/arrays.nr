@@ -1,6 +1,6 @@
 use dep::std::array;
 use dep::std::cmp::Eq;
-use crate::traits::{is_default};
+use crate::traits::is_default;
 
 pub fn array_to_bounded_vec<T, N>(array: [T; N]) -> BoundedVec<T, N> where T: Default + Eq {
     let mut len = 0;

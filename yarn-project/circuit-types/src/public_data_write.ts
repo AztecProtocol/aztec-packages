@@ -79,7 +79,7 @@ export class PublicDataWrite {
   }
 
   /**
-   * Creates an empty public data write operation.
+   * Creates a default public data write operation.
    * @returns A new public data write operation instance.
    */
   static default(): PublicDataWrite {
