@@ -34,7 +34,7 @@ packages:
 
     # `noir-repo` is nested inside of `noir` so we copy `bb.js` as such to account 
     # for the extra nested folder specified in portalled package paths
-    COPY ../barretenberg/ts/+build/usr/src /usr/src/../barretenberg/ts
+    COPY ../barretenberg/ts/+build/build /usr/src/../barretenberg/ts
 
     WORKDIR /usr/src
 

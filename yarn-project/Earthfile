@@ -77,7 +77,7 @@ end-to-end-minimal:
     FROM node:18.19.1-slim
     RUN apt-get update && apt-get install jq chromium -y
     ENV CHROME_BIN="/usr/bin/chromium"
-    COPY +end-to-end/usr/src /usr/src
+    COPY +end-to-end/build /usr/src
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
