@@ -1,7 +1,6 @@
 use dep::protocol_types::{
-    address::{AztecAddress, EthAddress},
-    constants::{GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET, GENERATOR_INDEX__NULLIFIER},
-    hash::{pedersen_hash, silo_nullifier}
+    address::{AztecAddress, EthAddress}, constants::GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET,
+    hash::{pedersen_hash, poseidon_hash, silo_nullifier}
 };
 
 use dep::protocol_types::hash::{hash_args, hash_args_array, sha256_to_field};
@@ -42,10 +41,7 @@ pub fn compute_message_hash(
 // The nullifier of a l1 to l2 message is the hash of the message salted with the secret and index of the message hash
 // in the L1 to L2 message tree
 pub fn compute_message_nullifier(message_hash: Field, secret: Field, leaf_index: Field) -> Field {
-    pedersen_hash(
-        [message_hash, secret, leaf_index],
-        GENERATOR_INDEX__NULLIFIER
-    )
+    poseidon_hash([message_hash, secret, leaf_index])
 }
 
 pub fn compute_siloed_nullifier(address: AztecAddress, nullifier: Field) -> Field {

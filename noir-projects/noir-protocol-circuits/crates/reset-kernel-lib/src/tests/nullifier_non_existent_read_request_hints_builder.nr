@@ -7,7 +7,7 @@ use dep::types::{
 },
     merkle_tree::MembershipWitness,
     tests::{merkle_tree_utils::NonEmptyMerkleTree, sort::sort_get_sorted_hints},
-    utils::{arrays::find_index, field::full_field_greater_than}
+    utils::{arrays::{find_index, array_to_bounded_vec}, field::full_field_greater_than}
 };
 use dep::std::unsafe;
 
@@ -62,11 +62,13 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         let sorted_pending_values = sorted_result.sorted_array;
         let sorted_pending_value_index_hints = sorted_result.sorted_index_hints;
 
+        let nullifiers_bounded_vec = array_to_bounded_vec(self.pending_nullifiers);
+
         let mut next_pending_value_indices = [0; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX];
         for i in 0..MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX {
             if i < self.read_values.len() {
                 let value = self.read_values.get_unchecked(i);
-                next_pending_value_indices[i] = find_index(sorted_pending_values, |v: SideEffectLinkedToNoteHash| !v.value.lt(value));
+                next_pending_value_indices[i] = find_index(sorted_pending_values, |v: SideEffectLinkedToNoteHash| !v.value.lt(value)).unwrap_or(nullifiers_bounded_vec.len());
             }
         }
 

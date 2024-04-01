@@ -1,5 +1,5 @@
 use crate::{
-    constants::{CONTRACT_STORAGE_READ_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_READ}, hash::pedersen_hash,
+    constants::CONTRACT_STORAGE_READ_LENGTH, hash::poseidon_hash,
     traits::{Deserialize, Hash, Empty, Serialize}
 };
 
@@ -25,7 +25,7 @@ impl Empty for StorageRead {
 
 impl Hash for StorageRead {
     fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)
+        poseidon_hash(self.serialize())
     }
 }
 

@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::pedersen_hash};
+use dep::protocol_types::{address::AztecAddress, hash::poseidon_hash};
 
 use crate::context::{PrivateContext, Context};
 use crate::note::{
@@ -32,10 +32,7 @@ impl<Note> PrivateImmutable<Note> {
     // This is especially dangerous for initial assignment to elements of a `Map<AztecAddress, PrivateImmutable>` type (for example), because the storage slot often also identifies an actor. 
     // e.g. the initial assignment to `my_map.at(msg.sender)` will leak: `msg.sender`, the fact that an element of `my_map` was assigned-to for the first time, and the contract_address.
     pub fn compute_initialization_nullifier(self) -> Field {
-        pedersen_hash(
-            [self.storage_slot],
-            GENERATOR_INDEX__INITIALIZATION_NULLIFIER
-        )
+        poseidon_hash([self.storage_slot])
     }
 
     // docs:start:is_initialized

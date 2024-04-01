@@ -57,11 +57,11 @@ pub fn array_eq<T, N, S>(array: [T; N], expected: [T; S]) -> bool where T: Empty
     eq
 }
 
-pub fn find_index<T, N, Env>(array: [T; N], find: fn[Env](T) -> bool) -> u64 {
-    let mut index = N;
+pub fn find_index<T, N, Env>(array: [T; N], find: fn[Env](T) -> bool) -> Option<u64> {
+    let mut index = Option::none();
     for i in 0..N {
-        if (index == N) & find(array[i]) {
-            index = i;
+        if index.is_none() & find(array[i]) {
+            index = Option::some(i);
         }
     }
     index
@@ -201,7 +201,7 @@ fn test_array_length() {
 fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
-    let index = find_index(values, |v: Field| min.lt(v));
+    let index = find_index(values, |v: Field| min.lt(v)).unwrap();
     assert_eq(index, 2);
 }
 
@@ -210,7 +210,7 @@ fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
     let index = find_index(values, |v: Field| min.lt(v));
-    assert_eq(index, 4);
+    assert(index.is_none());
 }
 
 #[test]

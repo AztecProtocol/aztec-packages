@@ -206,9 +206,6 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
  * Note: When modifying, modify `GeneratorIndexPacker` in packer.hpp accordingly.
  */
 // Indices with size ≤ 8
-global GENERATOR_INDEX__NULLIFIER = 5;
-global GENERATOR_INDEX__INITIALIZATION_NULLIFIER = 6;
-global GENERATOR_INDEX__PUBLIC_DATA_READ = 8;
 global GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST = 9;
 global GENERATOR_INDEX__FUNCTION_DATA = 10;
 global GENERATOR_INDEX__FUNCTION_LEAF = 11;
