@@ -2,6 +2,7 @@ import {
   MerkleTreeId,
   PROVING_STATUS,
   ProcessedTx,
+  ProvingFailure,
   ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
@@ -57,6 +58,9 @@ import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
 import { RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
+import { createDebugLogger } from '@aztec/foundation/log';
+
+const logger = createDebugLogger('aztec:orchestrator-test');
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -83,9 +87,13 @@ describe('prover/tx-prover', () => {
   const coinbase = EthAddress.ZERO;
   const feeRecipient = AztecAddress.ZERO;
 
+  const makeGlobals = (blockNumber: number) => {
+    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
+  }
+
   beforeEach(async () => {
     blockNumber = 3;
-    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
+    globalVariables = makeGlobals(blockNumber);
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
@@ -436,16 +444,52 @@ describe('prover/tx-prover', () => {
     it('builds a block with 1 transaction', async () => {
       const txs = await Promise.all([makeEmptyProcessedTx()]);
 
-      const blockTicket = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
+      // This will need to be a 2 tx block
+      const blockTicket = await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTx());
 
       for (const tx of txs) {
         await builder.addNewTx(tx);
       }
 
+      //  we need to complete the block as we have not added a full set of txs
+      await builder.setBlockCompleted();
+
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 30_000);
+
+    it('builds multiple blocks in sequence', async () => {
+      const numBlocks = 5;
+      let header = await builderDb.buildInitialHeader();
+
+      for (let i = 0; i < numBlocks; i++) {
+        const tx = await makeBloatedProcessedTx(i + 1);
+        const emptyTx = await makeEmptyProcessedTx();
+        tx.data.constants.historicalHeader = header;
+        emptyTx.data.constants.historicalHeader = header;
+
+        const blockNum = i + 1000;
+
+        const globals = makeGlobals(blockNum);
+
+        // This will need to be a 2 tx block
+        const blockTicket = await builder.startNewBlock(2, globals, [], emptyTx);
+  
+        await builder.addNewTx(tx);
+  
+        //  we need to complete the block as we have not added a full set of txs
+        await builder.setBlockCompleted();
+  
+        const result = await blockTicket.provingPromise;
+        expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+        const block = (result as ProvingSuccess).block;
+        expect(block.number).toEqual(blockNum);
+        header = block.header;
+
+        await builderDb.commit();
+      }
+    }, 60_000);
 
     it('builds a mixed L2 block', async () => {
       const txs = await Promise.all([
@@ -500,47 +544,116 @@ describe('prover/tx-prover', () => {
       expect((result as ProvingSuccess).block.number).toEqual(blockNumber);
     }, 200_000);
 
-    // it('cancels current blocks and switches to new ones', async () => {
-    //   const txs = await Promise.all([
-    //     makeBloatedProcessedTx(1),
-    //     makeBloatedProcessedTx(2),
-    //     makeBloatedProcessedTx(3),
-    //     makeBloatedProcessedTx(4),
-    //   ]);
+    it('cancels current block and switches to new ones', async () => {
+      const txs1 = await Promise.all([
+        makeBloatedProcessedTx(1),
+        makeBloatedProcessedTx(2),
+      ]);
 
-    //   const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+      const txs2 = await Promise.all([
+        makeBloatedProcessedTx(3),
+        makeBloatedProcessedTx(4),
+      ]);
 
-    //   const blockPromise1 = await builder.startNewBlock(
-    //     txs.length,
-    //     globalVariables,
-    //     l1ToL2Messages,
-    //     await makeEmptyProcessedTx(),
-    //   );
+      const globals1: GlobalVariables = makeGlobals(100);
+      const globals2: GlobalVariables = makeGlobals(101);
 
-    //   builder.addNewTx(txs[0]);
+      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-    //   const blockPromise2 = await builder.startNewBlock(
-    //     txs.length,
-    //     globalVariables,
-    //     l1ToL2Messages,
-    //     await makeEmptyProcessedTx(),
-    //   );
+      const blockTicket1 = await builder.startNewBlock(
+        2,
+        globals1,
+        l1ToL2Messages,
+        await makeEmptyProcessedTx(),
+      );
 
-    //   builder.addNewTx(txs[0]);
+      await builder.addNewTx(txs1[0]);
+      await builder.addNewTx(txs1[1]);
 
-    //   await expect(blockPromise1).rejects.toEqual('Block cancelled');
+      // Now we cancel the block. The first block will come to a stop as and when current proofs complete
+      builder.cancelBlock();
 
-    //   const result = await blockPromise2;
-    //   expect(result.block.number).toEqual(blockNumber);
-    // }, 200_000);
+      const result1 = await blockTicket1.provingPromise;
+
+      // in all likelihood, the block will have a failure code as we cancelled it
+      // however it may have actually completed proving before we cancelled in which case it could be a succes code
+      if (result1.status === PROVING_STATUS.FAILURE) {
+        expect((result1 as ProvingFailure).reason).toBe('Proving cancelled');
+      }      
+
+      builderDb.rollback();
+
+      const blockTicket2 = await builder.startNewBlock(
+        2,
+        globals2,
+        l1ToL2Messages,
+        await makeEmptyProcessedTx(),
+      );
+
+      await builder.addNewTx(txs2[0]);
+      await builder.addNewTx(txs2[1]);
+
+      const result2 = await blockTicket2.provingPromise;
+      expect(result2.status).toBe(PROVING_STATUS.SUCCESS);
+      const block = (result2 as ProvingSuccess).block;
+      expect(block.number).toBe(101);
+    }, 10000);
+
+    it('automatically cancels an incomplete block when starting a new one', async () => {
+      const txs1 = await Promise.all([
+        makeBloatedProcessedTx(1),
+        makeBloatedProcessedTx(2),
+      ]);
+
+      const txs2 = await Promise.all([
+        makeBloatedProcessedTx(3),
+        makeBloatedProcessedTx(4),
+      ]);
+
+      const globals1: GlobalVariables = makeGlobals(100);
+      const globals2: GlobalVariables = makeGlobals(101);
+
+      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+      const blockTicket1 = await builder.startNewBlock(
+        2,
+        globals1,
+        l1ToL2Messages,
+        await makeEmptyProcessedTx(),
+      );
+
+      await builder.addNewTx(txs1[0]);
+
+      builderDb.rollback();
+
+      const blockTicket2 = await builder.startNewBlock(
+        2,
+        globals2,
+        l1ToL2Messages,
+        await makeEmptyProcessedTx(),
+      );
+
+      await builder.addNewTx(txs2[0]);
+      await builder.addNewTx(txs2[1]);
+
+      const result1 = await blockTicket1.provingPromise;
+      expect(result1.status).toBe(PROVING_STATUS.FAILURE);
+      expect((result1 as ProvingFailure).reason).toBe('Proving cancelled');
+
+      const result2 = await blockTicket2.provingPromise;
+      expect(result2.status).toBe(PROVING_STATUS.SUCCESS);
+      const block = (result2 as ProvingSuccess).block;
+      expect(block.number).toBe(101);
+    }, 10000);
 
     it('builds an unbalanced L2 block', async () => {
       const txs = await Promise.all([makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx()]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
+      // this needs to be a 4 tx block that will need to be completed
       const blockTicket = await builder.startNewBlock(
-        txs.length,
+        4,
         globalVariables,
         l1ToL2Messages,
         await makeEmptyProcessedTx(),
@@ -549,6 +662,8 @@ describe('prover/tx-prover', () => {
       for (const tx of txs) {
         await builder.addNewTx(tx);
       }
+
+      await builder.setBlockCompleted();
 
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
@@ -570,7 +685,7 @@ describe('prover/tx-prover', () => {
       }
 
       await expect(async () => await builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
-        `Rollup already contains 4 transactions`,
+        'Rollup not accepting further transactions',
       );
 
       const result = await blockTicket.provingPromise;
@@ -582,13 +697,47 @@ describe('prover/tx-prover', () => {
       await expect(async () => await builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
-    }, 30_000);
+    }, 1000);
+
+    it('throws if completing a block before start', async () => {
+      await expect(async () => await builder.setBlockCompleted()).rejects.toThrow(
+        'Invalid proving state, call startNewBlock before adding transactions or completing the block',
+      );
+    }, 1000);
+
+    it('throws if adding to a cancelled block', async () => {
+      await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTx());
+
+      builder.cancelBlock();
+
+      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
+        'Rollup not accepting further transactions',
+      );
+
+    }, 10000);
+
+    it.each([
+      [-4],
+      [0],
+      [1],
+      [3],
+      [8.1],
+      [7]
+    ] as const)(
+      'fails to start a block with %i transaxctions',
+      async (blockSize: number) => {
+        await expect(
+          async () => await builder.startNewBlock(blockSize, globalVariables, [], await makeEmptyProcessedTx()),
+        ).rejects.toThrow(`Length of txs for the block should be a power of two and at least two (got ${blockSize})`);
+      },
+      10000,
+    );
 
     it('rejects if too many l1 to l2 messages are provided', async () => {
       // Assemble a fake transaction
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
       await expect(
-        async () => await builder.startNewBlock(1, globalVariables, l1ToL2Messages, await makeEmptyProcessedTx()),
+        async () => await builder.startNewBlock(2, globalVariables, l1ToL2Messages, await makeEmptyProcessedTx()),
       ).rejects.toThrow('Too many L1 to L2 messages');
     });
   });
