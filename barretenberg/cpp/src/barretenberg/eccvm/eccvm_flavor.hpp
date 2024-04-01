@@ -307,6 +307,22 @@ class ECCVMFlavor {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
+        ProvingKey(const CircuitBuilder& builder)
+            : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>(
+                  builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
+        {
+            BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_proving_key");
+            const auto [_lagrange_first, _lagrange_last] =
+                compute_first_and_last_lagrange_polynomials<FF>(circuit_size);
+            lagrange_first = _lagrange_first;
+            lagrange_last = _lagrange_last;
+            {
+                Polynomial _lagrange_second(circuit_size);
+                _lagrange_second[1] = 1;
+                lagrange_second = _lagrange_second.share();
+            }
+        }
+
         auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<Polynomial>(*this); }
         // The plookup wires that store plookup read data.
         RefArray<Polynomial, 0> get_table_column_wires() { return {}; };

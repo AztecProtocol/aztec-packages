@@ -35,7 +35,7 @@ ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& c
 {
     BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_prover");
 
-    compute_proving_key(circuit_constructor);
+    proving_key = std::make_shared<typename Flavor::ProvingKey>(circuit_constructor);
     compute_witness(circuit_constructor);
     compute_commitment_key(proving_key->circuit_size);
 
@@ -66,43 +66,6 @@ ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructo
     return output_state;
 }
 
-template <IsECCVMFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposer_<Flavor>::compute_proving_key(
-    CircuitConstructor& circuit_constructor)
-{
-    BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_proving_key");
-
-    if (proving_key) {
-        return proving_key;
-    }
-
-    // Initialize proving_key
-    {
-        const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(circuit_constructor.get_num_gates());
-        proving_key = std::make_shared<typename Flavor::ProvingKey>(subgroup_size, 0);
-    }
-
-    // TODO(@zac-williamson): We don't enforce nonzero selectors atm. Will create problems in recursive setting.
-    // Fix once we have a stable base to work off of
-    // enforce_nonzero_polynomial_selectors(circuit_constructor, proving_key.get());
-
-    // First and last lagrange polynomials (in the full circuit size)
-    const auto [lagrange_first, lagrange_last] =
-        compute_first_and_last_lagrange_polynomials<FF>(proving_key->circuit_size);
-    proving_key->lagrange_first = lagrange_first;
-    proving_key->lagrange_last = lagrange_last;
-    {
-        const size_t n = proving_key->circuit_size;
-        typename Flavor::Polynomial lagrange_polynomial_second(n);
-        lagrange_polynomial_second[1] = 1;
-        proving_key->lagrange_second = lagrange_polynomial_second.share();
-    }
-
-    proving_key->contains_recursive_proof = false;
-
-    return proving_key;
-}
-
 /**
  * Compute verification key consisting of selector precommitments.
  *
@@ -110,14 +73,10 @@ std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposer_<Flavor>::compute_pro
  * */
 template <IsECCVMFlavor Flavor>
 std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposer_<Flavor>::compute_verification_key(
-    CircuitConstructor& circuit_constructor)
+    [[maybe_unused]] CircuitConstructor& circuit_constructor)
 {
     if (verification_key) {
         return verification_key;
-    }
-
-    if (!proving_key) {
-        compute_proving_key(circuit_constructor);
     }
 
     verification_key =
