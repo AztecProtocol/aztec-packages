@@ -24,7 +24,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup
 
-      - uses: .github/actions/ci-setup
+      - uses: ./.github/actions/ci-setup
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
@@ -64,7 +64,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup
 
-      - uses: .github/actions/ci-setup
+      - uses: ./.github/actions/ci-setup
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
@@ -98,7 +98,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup
 
-      - uses: .github/actions/ci-setup
+      - uses: ./.github/actions/ci-setup
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
@@ -138,7 +138,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup
 
-      - uses: .github/actions/ci-setup
+      - uses: ./.github/actions/ci-setup
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
@@ -168,7 +168,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup
 
-      - uses: .github/actions/ci-setup
+      - uses: ./.github/actions/ci-setup
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
