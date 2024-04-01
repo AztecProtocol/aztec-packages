@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.21;
 
-import {Fr} from "./Fr.sol";
+// Temp only set here for testing, logn will be templated
 import {LOG_N} from "./keys/Add2HonkVerificationKey.sol";
+
+import {Fr} from "./Fr.sol";
 
 uint256 constant NUMBER_OF_SUBRELATIONS = 18;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
@@ -116,21 +118,20 @@ library Honk {
         uint256 publicInputsSize;
         uint256 publicInputsOffset;
         // Free wires
-        G1ProofPoint w1;
-        G1ProofPoint w2;
-        G1ProofPoint w3;
-        G1ProofPoint w4;
+        Honk.G1ProofPoint w1;
+        Honk.G1ProofPoint w2;
+        Honk.G1ProofPoint w3;
+        Honk.G1ProofPoint w4;
         // Lookup helpers - classic plookup
-        G1ProofPoint sortedAccum;
-        G1ProofPoint zPerm;
-        G1ProofPoint zLookup;
+        Honk.G1ProofPoint sortedAccum;
+        Honk.G1ProofPoint zPerm;
+        Honk.G1ProofPoint zLookup;
         // Sumcheck
         Fr[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
         Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
         // Zero morph
-        G1ProofPoint[LOG_N] zmCqs;
-        G1ProofPoint zmCq;
-        G1ProofPoint zmPi;
+        Honk.G1ProofPoint[LOG_N] zmCqs;
+        Honk.G1ProofPoint zmCq;
+        Honk.G1ProofPoint zmPi;
     }
-
 }

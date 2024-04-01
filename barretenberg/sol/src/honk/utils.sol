@@ -1,4 +1,4 @@
-import {Honk, P, Q, LOG_N} from "./HonkTypes.sol";
+import {Honk, P, Q} from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 
 import "forge-std/console.sol";
@@ -53,15 +53,6 @@ function logFr(string memory name, uint256 i, Fr value) pure {
 }
 
 // EC Point utilities
-
-function convertPoints(Honk.G1ProofPoint[LOG_N + 1] memory commitments)
-    pure
-    returns (Honk.G1Point[LOG_N + 1] memory converted)
-{
-    for (uint256 i; i < LOG_N + 1; ++i) {
-        converted[i] = convertProofPoint(commitments[i]);
-    }
-}
 
 function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
     return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});

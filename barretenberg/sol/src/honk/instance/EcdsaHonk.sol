@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs
 pragma solidity >=0.8.21;
 
-import {IVerifier} from "../interfaces/IVerifier.sol";
-import {Add2HonkVerificationKey as VK, N, LOG_N} from "./keys/Add2HonkVerificationKey.sol";
+import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {EcdsaHonkVerificationKey as VK, N, LOG_N, NUMBER_OF_PUBLIC_INPUTS} from "../keys/EcdsaHonkVerificationKey.sol";
 
 import {
     Honk,
@@ -14,29 +14,241 @@ import {
     BATCHED_RELATION_PARTIAL_LENGTH,
     P,
     Q
-} from "./HonkTypes.sol";
+} from "../HonkTypes.sol";
 
-import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "./utils.sol";
+import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {Fr, FrLib} from "./Fr.sol";
+import {Fr, FrLib} from "../Fr.sol";
+
+struct Proof {
+    uint256 circuitSize;
+    uint256 publicInputsSize;
+    uint256 publicInputsOffset;
+    // Free wires
+    Honk.G1ProofPoint w1;
+    Honk.G1ProofPoint w2;
+    Honk.G1ProofPoint w3;
+    Honk.G1ProofPoint w4;
+    // Lookup helpers - classic plookup
+    Honk.G1ProofPoint sortedAccum;
+    Honk.G1ProofPoint zPerm;
+    Honk.G1ProofPoint zLookup;
+    // Sumcheck
+    Fr[BATCHED_RELATION_PARTIAL_LENGTH][LOG_N] sumcheckUnivariates;
+    Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
+    // Zero morph
+    Honk.G1ProofPoint[LOG_N] zmCqs;
+    Honk.G1ProofPoint zmCq;
+    Honk.G1ProofPoint zmPi;
+}
+
 // Transcript library to generate fiat shamir challenges
-import {Transcript, TranscriptLib} from "./Transcript.sol";
+struct Transcript {
+    Fr eta;
+    Fr beta;
+    Fr gamma;
+    Fr[NUMBER_OF_ALPHAS] alphas;
+    Fr[LOG_N] gateChallenges;
+    Fr[LOG_N] sumCheckUChallenges;
+    Fr rho;
+    // Zero morph
+    Fr zmX;
+    Fr zmY;
+    Fr zmZ;
+    Fr zmQuotient;
+    // Derived
+    Fr publicInputsDelta;
+    Fr lookupGrandProductDelta;
+}
+
+library TranscriptLib {
+    function generateTranscript(Proof memory proof, Honk.VerificationKey memory vk, bytes32[] calldata publicInputs)
+        internal
+        view
+        returns (Transcript memory t)
+    {
+        t.eta = generateEtaChallenge(proof, publicInputs);
+
+        (t.beta, t.gamma) = generateBetaAndGammaChallenges(t.eta, proof);
+
+        t.alphas = generateAlphaChallenges(t.gamma, proof);
+
+        t.gateChallenges = generateGateChallenges(t.alphas[NUMBER_OF_ALPHAS - 1]);
+
+        t.sumCheckUChallenges = generateSumcheckChallenges(proof, t.gateChallenges[LOG_N - 1]);
+        t.rho = generateRhoChallenge(proof, t.sumCheckUChallenges[LOG_N - 1]);
+
+        t.zmY = generateZMYChallenge(t.rho, proof);
+
+        (t.zmX, t.zmZ) = generateZMXZChallenges(t.zmY, proof);
+
+        return t;
+    }
+
+    function generateEtaChallenge(Proof memory proof, bytes32[] calldata publicInputs) internal view returns (Fr eta) {
+        // TODO(md): the 12 here will need to be halved when we fix the transcript to not be over field elements
+        // TODO: use assembly
+        bytes32[3 + NUMBER_OF_PUBLIC_INPUTS + 12] memory round0;
+        round0[0] = bytes32(proof.circuitSize);
+        round0[1] = bytes32(proof.publicInputsSize);
+        round0[2] = bytes32(proof.publicInputsOffset);
+        for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS; i++) {
+            round0[3 + i] = bytes32(publicInputs[i]);
+        }
+
+        // Create the first challenge
+        // Note: w4 is added to the challenge later on
+        // TODO: UPDATE ALL VALUES IN HERE
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS] = bytes32(proof.w1.x_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 1] = bytes32(proof.w1.x_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 2] = bytes32(proof.w1.y_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 3] = bytes32(proof.w1.y_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 4] = bytes32(proof.w2.x_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 5] = bytes32(proof.w2.x_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 6] = bytes32(proof.w2.y_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 7] = bytes32(proof.w2.y_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 8] = bytes32(proof.w3.x_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 9] = bytes32(proof.w3.x_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 10] = bytes32(proof.w3.y_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 11] = bytes32(proof.w3.y_1);
+
+        eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
+    }
+
+    function generateBetaAndGammaChallenges(Fr previousChallenge, Proof memory proof)
+        internal
+        view
+        returns (Fr beta, Fr gamma)
+    {
+        // TODO(md): adjust round size when the proof points are generated correctly - 5
+        bytes32[9] memory round1;
+        round1[0] = FrLib.toBytes32(previousChallenge);
+        round1[1] = bytes32(proof.sortedAccum.x_0);
+        round1[2] = bytes32(proof.sortedAccum.x_1);
+        round1[3] = bytes32(proof.sortedAccum.y_0);
+        round1[4] = bytes32(proof.sortedAccum.y_1);
+        round1[5] = bytes32(proof.w4.x_0);
+        round1[6] = bytes32(proof.w4.x_1);
+        round1[7] = bytes32(proof.w4.y_0);
+        round1[8] = bytes32(proof.w4.y_1);
+
+        beta = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
+        gamma = FrLib.fromBytes32(keccak256(abi.encodePacked(beta)));
+    }
+
+    // Alpha challenges non-linearise the gate contributions
+    function generateAlphaChallenges(Fr previousChallenge, Proof memory proof)
+        internal
+        view
+        returns (Fr[NUMBER_OF_ALPHAS] memory alphas)
+    {
+        // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
+        // TODO(md): 5 post correct proof size fix
+        uint256[9] memory alpha0;
+        alpha0[0] = Fr.unwrap(previousChallenge);
+        alpha0[1] = proof.zPerm.x_0;
+        alpha0[2] = proof.zPerm.x_1;
+        alpha0[3] = proof.zPerm.y_0;
+        alpha0[4] = proof.zPerm.y_1;
+        alpha0[5] = proof.zLookup.x_0;
+        alpha0[6] = proof.zLookup.x_1;
+        alpha0[7] = proof.zLookup.y_0;
+        alpha0[8] = proof.zLookup.y_1;
+
+        alphas[0] = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
+
+        Fr prevChallenge = alphas[0];
+        for (uint256 i = 1; i < NUMBER_OF_ALPHAS; i++) {
+            prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(prevChallenge))));
+            alphas[i] = prevChallenge;
+        }
+    }
+
+    function generateGateChallenges(Fr previousChallenge) internal view returns (Fr[LOG_N] memory gateChallenges) {
+        for (uint256 i = 0; i < LOG_N; i++) {
+            previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
+            gateChallenges[i] = previousChallenge;
+        }
+    }
+
+    function generateSumcheckChallenges(Proof memory proof, Fr prevChallenge)
+        internal
+        view
+        returns (Fr[LOG_N] memory sumcheckChallenges)
+    {
+        for (uint256 i = 0; i < LOG_N; i++) {
+            Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
+            univariateChal[0] = prevChallenge;
+
+            // TODO(opt): memcpy
+            for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
+                univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
+            }
+
+            sumcheckChallenges[i] = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
+            prevChallenge = sumcheckChallenges[i];
+        }
+    }
+
+    function generateRhoChallenge(Proof memory proof, Fr prevChallenge) internal view returns (Fr rho) {
+        Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
+        rhoChallengeElements[0] = prevChallenge;
+
+        // TODO: memcpy
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
+            rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];
+        }
+
+        rho = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
+    }
+
+    function generateZMYChallenge(Fr previousChallenge, Proof memory proof) internal view returns (Fr zeromorphY) {
+        uint256[LOG_N * 4 + 1] memory zmY;
+        zmY[0] = Fr.unwrap(previousChallenge);
+
+        for (uint256 i; i < LOG_N; ++i) {
+            zmY[1 + i * 4] = proof.zmCqs[i].x_0;
+            zmY[2 + i * 4] = proof.zmCqs[i].x_1;
+            zmY[3 + i * 4] = proof.zmCqs[i].y_0;
+            zmY[4 + i * 4] = proof.zmCqs[i].y_1;
+        }
+
+        zeromorphY = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
+    }
+
+    function generateZMXZChallenges(Fr previousChallenge, Proof memory proof)
+        internal
+        view
+        returns (Fr zeromorphX, Fr zeromorphZ)
+    {
+        uint256[4 + 1] memory buf;
+        buf[0] = Fr.unwrap(previousChallenge);
+
+        buf[1] = proof.zmCq.x_0;
+        buf[2] = proof.zmCq.x_1;
+        buf[3] = proof.zmCq.y_0;
+        buf[4] = proof.zmCq.y_1;
+
+        zeromorphX = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
+        zeromorphZ = FrLib.fromBytes32(keccak256(abi.encodePacked(zeromorphX)));
+    }
+}
 
 error PublicInputsLengthWrong();
 error SumcheckFailed();
 error ZeromorphFailed();
 
 /// Smart contract verifier of honk proofs
-abstract contract BaseHonkVerifier is IVerifier {
+contract EcdsaHonkVerifier is IVerifier {
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
 
     // TODO(md): I would perfer the publicInputs to be uint256
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
-        Honk.Proof memory p = loadProof(proof);
+        Proof memory p = loadProof(proof);
 
-        if (vk.publicInputsSize != publicInputs.length) {
+        if (vk.publicInputsSize != NUMBER_OF_PUBLIC_INPUTS) {
             revert PublicInputsLengthWrong();
         }
 
@@ -67,8 +279,8 @@ abstract contract BaseHonkVerifier is IVerifier {
     // TODO: mod q proof points
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
-    function loadProof(bytes calldata proof) internal view returns (Honk.Proof memory) {
-        Honk.Proof memory p;
+    function loadProof(bytes calldata proof) internal view returns (Proof memory) {
+        Proof memory p;
 
         // Metadata
         p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
@@ -206,7 +418,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < publicInputs.length; i++) {
+            for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -234,7 +446,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     uint256 constant ROUND_TARGET = 0;
 
-    function verifySumcheck(Honk.Proof memory proof, Transcript memory tp) internal view returns (bool verified) {
+    function verifySumcheck(Proof memory proof, Transcript memory tp) internal view returns (bool verified) {
         Fr roundTarget;
         Fr powPartialEvaluation = Fr.wrap(1);
 
@@ -329,7 +541,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     // These are stored in the evaluations part of the proof object.
     // We add these together, with the appropiate scaling factor ( the alphas calculated in challenges )
     // This value is checked against the final value of the target total sum - et voila!
-    function accumulateRelationEvaluations(Honk.Proof memory proof, Transcript memory tp, Fr powPartialEval)
+    function accumulateRelationEvaluations(Proof memory proof, Transcript memory tp, Fr powPartialEval)
         internal
         view
         returns (Fr accumulator)
@@ -949,7 +1161,7 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
     }
 
-    function verifyZeroMorph(Honk.Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
+    function verifyZeroMorph(Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp)
         internal
         view
         returns (bool verified)
@@ -986,7 +1198,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     }
 
     // Compute commitment to lifted degree quotient identity
-    function computeCZeta(Honk.Proof memory proof, Transcript memory tp) internal view returns (Honk.G1Point memory) {
+    function computeCZeta(Proof memory proof, Transcript memory tp) internal view returns (Honk.G1Point memory) {
         Fr[LOG_N + 1] memory scalars;
         Honk.G1ProofPoint[LOG_N + 1] memory commitments;
 
@@ -1021,12 +1233,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         Fr x_pow_2kp1;
     }
 
-    function computeCZetaX(
-        Honk.Proof memory proof,
-        Honk.VerificationKey memory vk,
-        Transcript memory tp,
-        Fr batchedEval
-    ) internal view returns (Honk.G1Point memory) {
+    function computeCZetaX(Proof memory proof, Honk.VerificationKey memory vk, Transcript memory tp, Fr batchedEval)
+        internal
+        view
+        returns (Honk.G1Point memory)
+    {
         Fr[NUMBER_OF_ENTITIES + LOG_N + 1] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + LOG_N + 1] memory commitments;
         CZetaXParams memory cp;
@@ -1211,12 +1422,11 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
     }
 
-    function zkgReduceVerify(
-        Honk.Proof memory proof,
-        Transcript memory tp,
-        Fr evaluation,
-        Honk.G1Point memory commitment
-    ) internal view returns (bool) {
+    function zkgReduceVerify(Proof memory proof, Transcript memory tp, Fr evaluation, Honk.G1Point memory commitment)
+        internal
+        view
+        returns (bool)
+    {
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.zmPi);
         Honk.G1Point memory ONE = Honk.G1Point({x: 1, y: 2});
 

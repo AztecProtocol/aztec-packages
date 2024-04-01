@@ -1,5 +1,6 @@
-import {Honk, LOG_N, NUMBER_OF_ALPHAS, NUMBER_OF_ENTITIES, BATCHED_RELATION_PARTIAL_LENGTH} from "./HonkTypes.sol";
+import {Honk, NUMBER_OF_ALPHAS, NUMBER_OF_ENTITIES, BATCHED_RELATION_PARTIAL_LENGTH} from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
+import {LOG_N, NUMBER_OF_PUBLIC_INPUTS} from "./keys/Add2HonkVerificationKey.sol";
 
 struct Transcript {
     Fr eta;
@@ -48,33 +49,31 @@ library TranscriptLib {
         view
         returns (Fr eta)
     {
-        // publicInputs.length = 3 - this will be templated in the end!!!
         // TODO(md): the 12 here will need to be halved when we fix the transcript to not be over field elements
-        // TODO(md): the 3 here is hardcoded for the number of public inputs - this will need to be generated / use asm
         // TODO: use assembly
         bytes32[3 + 3 + 12] memory round0;
         round0[0] = bytes32(proof.circuitSize);
         round0[1] = bytes32(proof.publicInputsSize);
         round0[2] = bytes32(proof.publicInputsOffset);
-        for (uint256 i = 0; i < publicInputs.length; i++) {
+        for (uint256 i = 0; i < NUMBER_OF_PUBLIC_INPUTS; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
 
         // Create the first challenge
         // Note: w4 is added to the challenge later on
         // TODO: UPDATE ALL VALUES IN HERE
-        round0[3 + publicInputs.length] = bytes32(proof.w1.x_0);
-        round0[3 + publicInputs.length + 1] = bytes32(proof.w1.x_1);
-        round0[3 + publicInputs.length + 2] = bytes32(proof.w1.y_0);
-        round0[3 + publicInputs.length + 3] = bytes32(proof.w1.y_1);
-        round0[3 + publicInputs.length + 4] = bytes32(proof.w2.x_0);
-        round0[3 + publicInputs.length + 5] = bytes32(proof.w2.x_1);
-        round0[3 + publicInputs.length + 6] = bytes32(proof.w2.y_0);
-        round0[3 + publicInputs.length + 7] = bytes32(proof.w2.y_1);
-        round0[3 + publicInputs.length + 8] = bytes32(proof.w3.x_0);
-        round0[3 + publicInputs.length + 9] = bytes32(proof.w3.x_1);
-        round0[3 + publicInputs.length + 10] = bytes32(proof.w3.y_0);
-        round0[3 + publicInputs.length + 11] = bytes32(proof.w3.y_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS] = bytes32(proof.w1.x_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 1] = bytes32(proof.w1.x_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 2] = bytes32(proof.w1.y_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 3] = bytes32(proof.w1.y_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 4] = bytes32(proof.w2.x_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 5] = bytes32(proof.w2.x_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 6] = bytes32(proof.w2.y_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 7] = bytes32(proof.w2.y_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 8] = bytes32(proof.w3.x_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 9] = bytes32(proof.w3.x_1);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 10] = bytes32(proof.w3.y_0);
+        round0[3 + NUMBER_OF_PUBLIC_INPUTS + 11] = bytes32(proof.w3.y_1);
 
         eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
     }

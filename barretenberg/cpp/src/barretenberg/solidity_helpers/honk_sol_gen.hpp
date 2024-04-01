@@ -54,6 +54,7 @@ inline void output_vk_sol_ultra_honk(
     "";
     print_u256_const(key->circuit_size, "N");
     print_u256_const(key->log_circuit_size, "LOG_N");
+    print_u256_const(key->num_public_inputs, "NUMBER_OF_PUBLIC_INPUTS");
     os << ""
     "library " << class_name << " {\n"
     //   "    function verificationKeyHash() internal pure returns(bytes32) {\n"
