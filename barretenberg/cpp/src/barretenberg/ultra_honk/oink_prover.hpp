@@ -27,6 +27,7 @@ namespace bb {
 template <IsUltraFlavor Flavor> struct OinkProverOutput {
     typename Flavor::ProvingKey proving_key;
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
+    typename Flavor::RelationSeparator alphas;
 };
 
 /**
@@ -50,6 +51,7 @@ template <IsUltraFlavor Flavor> class OinkProver {
     std::string domain_separator;
     typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
 
@@ -68,5 +70,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
+    RelationSeparator generate_alphas_round();
 };
 } // namespace bb

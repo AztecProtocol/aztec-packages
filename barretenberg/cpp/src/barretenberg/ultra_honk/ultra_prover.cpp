@@ -41,11 +41,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_chec
     using Sumcheck = SumcheckProver<Flavor>;
     auto circuit_size = instance->proving_key.circuit_size;
     auto sumcheck = Sumcheck(circuit_size, transcript);
-    RelationSeparator alphas;
-    for (size_t idx = 0; idx < alphas.size(); idx++) {
-        alphas[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-    }
-    instance->alphas = alphas;
+
     std::vector<FF> gate_challenges(numeric::get_msb(circuit_size));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -79,9 +75,10 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(instance->proving_key, transcript);
-    auto [proving_key, relation_params] = oink_prover.prove();
+    auto [proving_key, relation_params, alphas] = oink_prover.prove();
     instance->proving_key = std::move(proving_key);
     instance->relation_parameters = std::move(relation_params);
+    instance->alphas = alphas;
     instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
     // Fiat-Shamir: alpha
