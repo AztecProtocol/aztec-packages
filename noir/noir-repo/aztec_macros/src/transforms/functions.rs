@@ -131,7 +131,12 @@ pub fn export_fn_abi(
             .map(|param| {
                 let param_name = match param.pattern.clone() {
                     Pattern::Identifier(ident) => Ok(ident.0.contents),
-                    _ => Err(AztecMacroError::AztecDepNotFound),
+                    _ => Err(AztecMacroError::CouldNotExportFunctionAbi {
+                        span: Some(param.span),
+                        secondary_message: Some(
+                            "Only identifier patterns are supported".to_owned(),
+                        ),
+                    }),
                 };
 
                 format!(
@@ -144,14 +149,14 @@ pub fn export_fn_abi(
             .join(",\n"),
     );
 
-    if func.parameters().len() > 0 {
+    if !func.parameters().is_empty() {
         parameters_struct_source = Some(&struct_source);
     }
 
     let mut program = String::new();
 
     let parameters = if let Some(parameters_struct_source) = parameters_struct_source {
-        program.push_str(&parameters_struct_source);
+        program.push_str(parameters_struct_source);
         format!("parameters: {}_parameters,\n", func.name())
     } else {
         "".to_string()
@@ -179,7 +184,12 @@ pub fn export_fn_abi(
 
     let (ast, errors) = parse_program(&program);
     if !errors.is_empty() {
-        return Err(AztecMacroError::AztecDepNotFound);
+        return Err(AztecMacroError::CouldNotExportFunctionAbi { 
+            span: None, 
+            secondary_message: Some(
+                format!("Failed to parse Noir macro code (struct {}_abi). This is either a bug in the compiler or the Noir macro code", func.name())
+            ) 
+        });
     }
 
     let sorted_ast = ast.into_sorted();
