@@ -1,4 +1,3 @@
-use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST;
 use dep::std::cmp::Eq;
 use crate::traits::{Empty, Hash};
 
@@ -25,10 +24,10 @@ impl Empty for PublicDataUpdateRequest {
 
 impl Hash for PublicDataUpdateRequest {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator([
+        crate::hash::poseidon_hash([
             self.leaf_slot,
             self.new_value
-        ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
+        ])
     }
 }
 

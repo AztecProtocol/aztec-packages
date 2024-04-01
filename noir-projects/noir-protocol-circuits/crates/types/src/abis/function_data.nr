@@ -1,6 +1,6 @@
 use crate::{
     abis::function_selector::FunctionSelector,
-    constants::{GENERATOR_INDEX__FUNCTION_DATA, FUNCTION_DATA_LENGTH}, hash::pedersen_hash,
+    constants::{FUNCTION_DATA_LENGTH}, hash::poseidon_hash,
     traits::{Serialize, Hash, Deserialize}
 };
 
@@ -44,7 +44,7 @@ impl Deserialize<FUNCTION_DATA_LENGTH> for FunctionData {
 
 impl Hash for FunctionData {
     fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__FUNCTION_DATA)
+        poseidon_hash(self.serialize())
     }
 }
 
