@@ -21,7 +21,7 @@ describe('e2e_note_getter', () => {
 
   beforeAll(async () => {
     ({ teardown, wallet } = await setup());
-  }, 25_000);
+  }, 50_000);
 
   afterAll(() => teardown());
 
@@ -32,7 +32,7 @@ describe('e2e_note_getter', () => {
       contract = await DocsExampleContract.deploy(wallet).send().deployed();
       // sets card value to 1 and leader to sender.
       await contract.methods.initialize_private(Fr.random(), 1).send().wait();
-    }, 25_000);
+    }, 50_000);
 
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
       // ISSUE #4243

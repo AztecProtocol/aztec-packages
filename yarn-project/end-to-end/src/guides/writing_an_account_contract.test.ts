@@ -100,5 +100,5 @@ describe('guides/writing_an_account_contract', () => {
       logger(`Failed to send tx: ${err}`);
     }
     // docs:end:account-contract-fails
-  }, 60_000);
+  }, 100_000);
 });

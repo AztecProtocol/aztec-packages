@@ -1,8 +1,7 @@
-import { pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
+import { poseidonHash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractClass } from '@aztec/types/contracts';
 
-import { GeneratorIndex } from '../constants.gen.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
 
 /**

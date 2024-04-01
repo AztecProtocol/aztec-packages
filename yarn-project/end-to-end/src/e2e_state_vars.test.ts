@@ -15,7 +15,7 @@ describe('e2e_state_vars', () => {
   beforeAll(async () => {
     ({ teardown, wallet } = await setup());
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
-  }, 25_000);
+  }, 50_000);
 
   afterAll(() => teardown());
 

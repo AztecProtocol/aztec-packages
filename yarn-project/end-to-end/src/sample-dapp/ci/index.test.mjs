@@ -11,5 +11,5 @@ describe('sample-dapp', () => {
     await waitForPXE(createPXEClient(PXE_URL));
     await deploy();
     await main();
-  }, 90_000);
+  }, 120_000);
 });

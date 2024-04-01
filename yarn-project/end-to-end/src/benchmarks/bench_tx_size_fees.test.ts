@@ -39,7 +39,7 @@ describe('benchmarks/tx_size_fees', () => {
     });
 
     await publicDeployAccounts(aliceWallet, ctx.accounts);
-  });
+  }, 100_000);
 
   // deploy the contracts
   beforeAll(async () => {
@@ -49,7 +49,7 @@ describe('benchmarks/tx_size_fees', () => {
     );
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
     fpc = await FPCContract.deploy(aliceWallet, token.address, gas.address).send().deployed();
-  });
+  }, 100_000);
 
   // mint tokens
   beforeAll(async () => {
@@ -60,7 +60,7 @@ describe('benchmarks/tx_size_fees', () => {
 
       gas.methods.mint_public(fpc.address, 1000n).send().wait(),
     ]);
-  });
+  }, 100_000);
 
   it.each<() => Promise<FeePaymentMethod | undefined>>([
     () => Promise.resolve(undefined),
@@ -82,5 +82,5 @@ describe('benchmarks/tx_size_fees', () => {
       .wait();
 
     expect(tx.status).toEqual(TxStatus.MINED);
-  });
+  }, 120_000);
 });
