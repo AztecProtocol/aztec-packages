@@ -39,7 +39,7 @@ contract BlakeHonkTest is TestBaseHonk {
 
         bytes memory proofData = fuzzer.with_inputs(inputs).generate_proof();
 
-        (bytes32[] memory publicInputs, bytes memory proof) = splitProof(proofData, PUBLIC_INPUT_COUNT);
+        (bytes32[] memory publicInputs, bytes memory proof) =  splitProofHonk(proofData, PUBLIC_INPUT_COUNT);
 
         assertTrue(verifier.verify(proof, publicInputs), "The proof is not valid");
 
