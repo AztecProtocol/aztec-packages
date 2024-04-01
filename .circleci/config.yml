@@ -1334,6 +1334,7 @@ workflows:
           <<: *defaults
       - noir-packages-tests:
           requires:
+            - bb-js
             - noir-ecr-manifest
             - noir-packages
           <<: *defaults
@@ -1556,6 +1557,7 @@ workflows:
             - guides-sample-dapp
             - guides-up-quick-start
             - yellow-paper
+            - noir-packages-tests
             - yarn-project-test
           <<: *defaults
 
