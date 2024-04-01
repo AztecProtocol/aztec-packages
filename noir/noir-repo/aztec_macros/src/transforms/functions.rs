@@ -35,66 +35,78 @@ pub fn transform_function(
     let context_name = format!("{}Context", ty);
     let inputs_name = format!("{}ContextInputs", ty);
     let return_type_name = format!("{}CircuitPublicInputs", ty);
+    let is_avm = ty == "Avm";
 
     // Add check that msg sender equals this address and flag function as internal
     if is_internal {
         let is_internal_check = create_internal_check(func.name());
-        func.def.body.0.insert(0, is_internal_check);
+        func.def.body.statements.insert(0, is_internal_check);
     }
 
     // Add initialization check
     if insert_init_check {
         let init_check = create_init_check();
-        func.def.body.0.insert(0, init_check);
+        func.def.body.statements.insert(0, init_check);
     }
 
     // Add assertion for initialization arguments and sender
     if is_initializer {
-        func.def.body.0.insert(0, create_assert_initializer());
+        func.def.body.statements.insert(0, create_assert_initializer());
     }
 
     // Add access to the storage struct
     if storage_defined {
         let storage_def = abstract_storage(&ty.to_lowercase(), false);
-        func.def.body.0.insert(0, storage_def);
+        func.def.body.statements.insert(0, storage_def);
     }
 
     // Insert the context creation as the first action
-    let create_context = create_context(&context_name, &func.def.parameters)?;
-    func.def.body.0.splice(0..0, (create_context).iter().cloned());
+    let create_context = if !is_avm {
+        create_context(&context_name, &func.def.parameters)?
+    } else {
+        create_context_avm()?
+    };
+    func.def.body.statements.splice(0..0, (create_context).iter().cloned());
 
     // Add the inputs to the params
     let input = create_inputs(&inputs_name);
     func.def.parameters.insert(0, input);
 
     // Abstract return types such that they get added to the kernel's return_values
-    if let Some(return_values) = abstract_return_values(func) {
-        // In case we are pushing return values to the context, we remove the statement that originated it
-        // This avoids running duplicate code, since blocks like if/else can be value returning statements
-        func.def.body.0.pop();
-        // Add the new return statement
-        func.def.body.0.push(return_values);
+    if !is_avm {
+        if let Some(return_values) = abstract_return_values(func) {
+            // In case we are pushing return values to the context, we remove the statement that originated it
+            // This avoids running duplicate code, since blocks like if/else can be value returning statements
+            func.def.body.statements.pop();
+            // Add the new return statement
+            func.def.body.statements.push(return_values);
+        }
     }
 
     // Before returning mark the contract as initialized
     if is_initializer {
         let mark_initialized = create_mark_as_initialized();
-        func.def.body.0.push(mark_initialized);
+        func.def.body.statements.push(mark_initialized);
     }
 
     // Push the finish method call to the end of the function
-    let finish_def = create_context_finish();
-    func.def.body.0.push(finish_def);
+    if !is_avm {
+        let finish_def = create_context_finish();
+        func.def.body.statements.push(finish_def);
+    }
 
-    let return_type = create_return_type(&return_type_name);
-    func.def.return_type = return_type;
-    func.def.return_visibility = Visibility::Public;
+    // The AVM doesn't need a return type yet.
+    if !is_avm {
+        let return_type = create_return_type(&return_type_name);
+        func.def.return_type = return_type;
+        func.def.return_visibility = Visibility::Public;
+    }
 
     // Distinct return types are only required for private functions
     // Public functions should have unconstrained auto-inferred
     match ty {
         "Private" => func.def.return_distinctness = Distinctness::Distinct,
-        "Public" => func.def.is_unconstrained = true,
+        "Public" | "Avm" => func.def.is_unconstrained = true,
         _ => (),
     }
 
@@ -175,31 +187,6 @@ pub fn export_fn_abi(
     Ok(())
 }
 
-/// Transform a function to work with AVM bytecode
-pub fn transform_vm_function(
-    func: &mut NoirFunction,
-    storage_defined: bool,
-) -> Result<(), AztecMacroError> {
-    // Create access to storage
-    if storage_defined {
-        let storage = abstract_storage("public_vm", true);
-        func.def.body.0.insert(0, storage);
-    }
-
-    // Push Avm context creation to the beginning of the function
-    let create_context = create_avm_context()?;
-    func.def.body.0.insert(0, create_context);
-
-    // Add the inputs to the params (first!)
-    let input = create_inputs("AvmContextInputs");
-    func.def.parameters.insert(0, input);
-
-    // We want the function to be seen as a public function
-    func.def.is_unconstrained = true;
-
-    Ok(())
-}
-
 /// Transform Unconstrained
 ///
 /// Inserts the following code at the beginning of an unconstrained function
@@ -209,7 +196,7 @@ pub fn transform_vm_function(
 ///
 /// This will allow developers to access their contract' storage struct in unconstrained functions
 pub fn transform_unconstrained(func: &mut NoirFunction) {
-    func.def.body.0.insert(0, abstract_storage("Unconstrained", true));
+    func.def.body.statements.insert(0, abstract_storage("Unconstrained", true));
 }
 
 /// Helper function that returns what the private context would look like in the ast
@@ -413,36 +400,36 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
     Ok(injected_expressions)
 }
 
-/// Creates an mutable avm context
+/// Creates the private context object to be accessed within the function, the parameters need to be extracted to be
+/// appended into the args hash object.
 ///
+/// The replaced code:
 /// ```noir
-/// /// Before
 /// #[aztec(public-vm)]
-/// fn foo() -> Field {
-///   let mut context = aztec::context::AVMContext::new();
-///   let timestamp = context.timestamp();
-///   // ...
+/// fn foo(inputs: AvmContextInputs, ...) -> Field {
+///     let mut context = AvmContext::new(inputs);
 /// }
-///
-/// /// After
-/// #[aztec(private)]
-/// fn foo() -> Field {
-///     let mut timestamp = context.timestamp();
-///     // ...
-/// }
-fn create_avm_context() -> Result<Statement, AztecMacroError> {
-    // Create the inputs to the context
-    let inputs_expression = variable("inputs");
+/// ```
+fn create_context_avm() -> Result<Vec<Statement>, AztecMacroError> {
+    let mut injected_expressions: Vec<Statement> = vec![];
 
+    // Create the inputs to the context
+    let ty = "AvmContext";
+    let inputs_expression = variable("inputs");
+    let path_snippet = ty.to_case(Case::Snake); // e.g. private_context
+
+    // let mut context = {ty}::new(inputs, hash);
     let let_context = mutable_assignment(
         "context", // Assigned to
         call(
-            variable_path(chained_dep!("aztec", "context", "AVMContext", "new")), // Path
-            vec![inputs_expression],                                              // args
+            variable_path(chained_dep!("aztec", "context", &path_snippet, ty, "new")), // Path
+            vec![inputs_expression],                                                   // args
         ),
     );
+    injected_expressions.push(let_context);
 
-    Ok(let_context)
+    // Return all expressions that will be injected by the hasher
+    Ok(injected_expressions)
 }
 
 /// Abstract Return Type
@@ -473,7 +460,7 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// Any primitive type that can be cast will be casted to a field and pushed to the context.
 fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
     let current_return_type = func.return_type().typ;
-    let last_statement = func.def.body.0.last()?;
+    let last_statement = func.def.body.statements.last()?;
 
     // TODO: (length, type) => We can limit the size of the array returned to be limited by kernel size
     // Doesn't need done until we have settled on a kernel size
@@ -724,8 +711,10 @@ fn create_loop_over(var: Expression, loop_body: Vec<Statement>) -> Statement {
     );
 
     // What will be looped over
+
     // - `serialized_args.push({ident}[i] as Field)`
-    let for_loop_block = expression(ExpressionKind::Block(BlockExpression(loop_body)));
+    let for_loop_block =
+        expression(ExpressionKind::Block(BlockExpression { statements: loop_body }));
 
     // `for i in 0..{ident}.len()`
     make_statement(StatementKind::For(ForLoopStatement {
