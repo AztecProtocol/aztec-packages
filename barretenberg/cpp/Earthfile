@@ -168,7 +168,7 @@ preset-release-assert-test:
 # then we can run earthly-cloud bench x86 +bench-ultra-honk etc
 bench-binaries:
     ARG EARTHLY_GIT_HASH
-    ARG bench_mode=cache
+    ARG bench_mode=build
     LOCALLY
     IF [ $bench_mode = cache ]
         FROM aztecprotocol/bb-bench-binaries:$EARTHLY_GIT_HASH
