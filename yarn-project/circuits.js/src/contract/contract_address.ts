@@ -1,10 +1,9 @@
 import { FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidonHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractInstance } from '@aztec/types/contracts';
 
-import { GeneratorIndex } from '../constants.gen.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { PublicKey } from '../types/public_key.js';
 
@@ -43,7 +42,7 @@ export function computePartialAddress(
       ? instance.saltedInitializationHash
       : computeSaltedInitializationHash(instance);
 
-  return pedersenHash([instance.contractClassId, saltedInitializationHash], GeneratorIndex.PARTIAL_ADDRESS);
+  return poseidonHash([instance.contractClassId, saltedInitializationHash]);
 }
 
 /**
@@ -53,10 +52,7 @@ export function computePartialAddress(
 export function computeSaltedInitializationHash(
   instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'portalContractAddress' | 'deployer'>,
 ): Fr {
-  return pedersenHash(
-    [instance.salt, instance.initializationHash, instance.deployer, instance.portalContractAddress],
-    GeneratorIndex.PARTIAL_ADDRESS,
-  );
+  return poseidonHash([instance.salt, instance.initializationHash, instance.deployer, instance.portalContractAddress]);
 }
 
 /**
@@ -68,7 +64,7 @@ export function computeContractAddressFromPartial(
   args: ({ publicKeyHash: Fr } | { publicKey: PublicKey }) & { partialAddress: Fr },
 ): AztecAddress {
   const publicKeyHash = 'publicKey' in args ? computePublicKeysHash(args.publicKey) : args.publicKeyHash;
-  const result = pedersenHash([publicKeyHash, args.partialAddress], GeneratorIndex.CONTRACT_ADDRESS);
+  const result = poseidonHash([publicKeyHash, args.partialAddress]);
   return AztecAddress.fromField(result);
 }
 
@@ -81,7 +77,7 @@ export function computePublicKeysHash(publicKey: PublicKey | undefined): Fr {
   if (!publicKey) {
     return Fr.ZERO;
   }
-  return pedersenHash([publicKey.x, publicKey.y], GeneratorIndex.PARTIAL_ADDRESS);
+  return poseidonHash([publicKey.x, publicKey.y]);
 }
 
 /**
@@ -107,5 +103,5 @@ export function computeInitializationHash(initFn: FunctionAbi | undefined, args:
  */
 export function computeInitializationHashFromEncodedArgs(initFn: FunctionSelector, encodedArgs: Fr[]): Fr {
   const argsHash = computeVarArgsHash(encodedArgs);
-  return pedersenHash([initFn, argsHash], GeneratorIndex.CONSTRUCTOR);
+  return poseidonHash([initFn, argsHash]);
 }

@@ -10,14 +10,8 @@ use crate::address::partial_address::PartialAddress;
 use crate::address::public_keys_hash::PublicKeysHash;
 use crate::address::salted_initialization_hash::SaltedInitializationHash;
 
-use crate::{constants::GENERATOR_INDEX__CONSTRUCTOR, hash::pedersen_hash};
+use crate::{hash::poseidon_hash};
 
 pub fn compute_initialization_hash(selector: Field, args_hash: Field) -> Field {
-    pedersen_hash(
-        [
-        selector,
-        args_hash
-    ],
-        GENERATOR_INDEX__CONSTRUCTOR
-    )
+    poseidon_hash([selector, args_hash])
 }

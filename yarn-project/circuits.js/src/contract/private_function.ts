@@ -1,8 +1,8 @@
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidonHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { PrivateFunction } from '@aztec/types/contracts';
 
-import { FUNCTION_TREE_HEIGHT, GeneratorIndex } from '../constants.gen.js';
+import { FUNCTION_TREE_HEIGHT } from '../constants.gen.js';
 import { MerkleTree, MerkleTreeCalculator } from '../merkle/index.js';
 
 // Memoize the merkle tree calculators to avoid re-computing the zero-hash for each level in each call
@@ -27,12 +27,12 @@ function computePrivateFunctionLeaves(fns: PrivateFunction[]): Buffer[] {
 
 /** Returns the leaf for a given private function. */
 export function computePrivateFunctionLeaf(fn: PrivateFunction): Buffer {
-  return pedersenHash([fn.selector, fn.vkHash], GeneratorIndex.FUNCTION_LEAF).toBuffer();
+  return poseidonHash([fn.selector, fn.vkHash]).toBuffer();
 }
 
 function getPrivateFunctionTreeCalculator(): MerkleTreeCalculator {
   if (!privateFunctionTreeCalculator) {
-    const functionTreeZeroLeaf = pedersenHash(new Array(PRIVATE_FUNCTION_SIZE).fill(Buffer.alloc(32))).toBuffer();
+    const functionTreeZeroLeaf = poseidonHash(new Array(PRIVATE_FUNCTION_SIZE).fill(Buffer.alloc(32))).toBuffer();
     privateFunctionTreeCalculator = new MerkleTreeCalculator(FUNCTION_TREE_HEIGHT, functionTreeZeroLeaf);
   }
   return privateFunctionTreeCalculator;

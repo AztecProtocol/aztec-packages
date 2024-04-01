@@ -1,8 +1,7 @@
 use crate::{
     crate::address::{eth_address::EthAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
-    constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS},
-    contract_class_id::ContractClassId, hash::pedersen_hash, grumpkin_point::GrumpkinPoint,
-    traits::{Empty, ToField, Serialize, Deserialize}, utils
+    constants::AZTEC_ADDRESS_LENGTH, contract_class_id::ContractClassId, hash::poseidon_hash,
+    grumpkin_point::GrumpkinPoint, traits::{Empty, ToField, Serialize, Deserialize}, utils
 };
 
 // Aztec address
@@ -72,12 +71,7 @@ impl AztecAddress {
     }
 
     pub fn compute(pub_keys_hash: PublicKeysHash, partial_address: PartialAddress) -> AztecAddress {
-        AztecAddress::from_field(
-            pedersen_hash(
-                [pub_keys_hash.to_field(), partial_address.to_field()],
-                GENERATOR_INDEX__CONTRACT_ADDRESS
-            )
-        )
+        AztecAddress::from_field(poseidon_hash([pub_keys_hash.to_field(), partial_address.to_field()]))
     }
 
     pub fn is_zero(self) -> bool {

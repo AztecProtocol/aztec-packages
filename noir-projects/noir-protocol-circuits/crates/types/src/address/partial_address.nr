@@ -3,8 +3,7 @@ use crate::{
     eth_address::EthAddress, salted_initialization_hash::SaltedInitializationHash,
     aztec_address::AztecAddress
 },
-    constants::GENERATOR_INDEX__PARTIAL_ADDRESS, contract_class_id::ContractClassId,
-    hash::pedersen_hash, traits::ToField
+    contract_class_id::ContractClassId, hash::poseidon_hash, traits::ToField
 };
 
 // Partial address
@@ -40,15 +39,7 @@ impl PartialAddress {
         contract_class_id: ContractClassId,
         salted_initialization_hash: SaltedInitializationHash
     ) -> Self {
-        PartialAddress::from_field(
-            pedersen_hash(
-                [
-            contract_class_id.to_field(),
-            salted_initialization_hash.to_field()
-        ],
-                GENERATOR_INDEX__PARTIAL_ADDRESS
-            )
-        )
+        PartialAddress::from_field(poseidon_hash([contract_class_id.to_field(), salted_initialization_hash.to_field()]))
     }
 
     pub fn to_field(self) -> Field {

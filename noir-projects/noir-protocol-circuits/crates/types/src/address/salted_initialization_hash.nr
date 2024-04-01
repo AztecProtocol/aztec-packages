@@ -1,7 +1,4 @@
-use crate::{
-    address::{eth_address::EthAddress, aztec_address::AztecAddress},
-    constants::GENERATOR_INDEX__PARTIAL_ADDRESS, hash::pedersen_hash, traits::ToField
-};
+use crate::{address::{eth_address::EthAddress, aztec_address::AztecAddress}, hash::poseidon_hash, traits::ToField};
 
 // Salted initialization hash. Used in the computation of a partial address.
 struct SaltedInitializationHash {
@@ -26,15 +23,7 @@ impl SaltedInitializationHash {
         deployer: AztecAddress
     ) -> Self {
         SaltedInitializationHash::from_field(
-            pedersen_hash(
-                [
-            salt,
-            initialization_hash,
-            deployer.to_field(),
-            portal_contract_address.to_field()
-        ],
-                GENERATOR_INDEX__PARTIAL_ADDRESS
-            )
+            poseidon_hash([salt, initialization_hash, deployer.to_field(), portal_contract_address.to_field()])
         )
     }
 

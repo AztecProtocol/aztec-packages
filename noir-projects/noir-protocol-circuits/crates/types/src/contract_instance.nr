@@ -3,8 +3,7 @@ use crate::{
     aztec_address::AztecAddress, eth_address::EthAddress, partial_address::PartialAddress,
     public_keys_hash::PublicKeysHash
 },
-    contract_class_id::ContractClassId,
-    constants::{GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA, CONTRACT_INSTANCE_LENGTH},
+    contract_class_id::ContractClassId, constants::CONTRACT_INSTANCE_LENGTH,
     traits::{Deserialize, Hash, Serialize}
 };
 

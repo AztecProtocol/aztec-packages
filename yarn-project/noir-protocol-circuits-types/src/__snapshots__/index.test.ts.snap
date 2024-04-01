@@ -1900,7 +1900,7 @@ PrivateKernelTailCircuitPublicInputs {
     "newNoteHashes": [
       SideEffect {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000002>,
-        "value": Fr<0x12d57be1320db2f84e9ee09f4cb6d2845d5a813c7dc5be06779a58820db51183>,
+        "value": Fr<0x2ca6af56a985d56b7aeae576d2b0c3da7e9c5c4deaf313babdb8613595653b38>,
       },
       SideEffect {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,

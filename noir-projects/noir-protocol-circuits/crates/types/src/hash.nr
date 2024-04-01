@@ -7,8 +7,8 @@ use crate::abis::side_effect::SideEffect;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
     ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH, FUNCTION_TREE_HEIGHT,
-    GENERATOR_INDEX__VK, GENERATOR_INDEX__CONSTRUCTOR, GENERATOR_INDEX__PARTIAL_ADDRESS,
-    GENERATOR_INDEX__CONTRACT_ADDRESS, GENERATOR_INDEX__FUNCTION_ARGS
+    GENERATOR_INDEX__VK,
+    GENERATOR_INDEX__FUNCTION_ARGS
 };
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
 use crate::merkle_tree::root::root_from_sibling_path;
