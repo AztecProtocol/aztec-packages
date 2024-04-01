@@ -41,7 +41,7 @@ describe('PrivateCircuitPublicInputs', () => {
     expect(hash).toMatchSnapshot();
   });
 
-  it('computes empty inputs hash', () => {
+  it('computes default inputs hash', () => {
     const inputs = PrivateCircuitPublicInputs.default();
     const hash = inputs.hash();
     expect(hash).toMatchSnapshot();

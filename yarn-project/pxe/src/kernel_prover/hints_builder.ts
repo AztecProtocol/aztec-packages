@@ -29,7 +29,7 @@ export class HintsBuilder {
     const sorted = sideEffects
       .map((sideEffect, index) => ({ sideEffect, index }))
       .sort((a, b) => {
-        // Empty ones go to the right
+        // Default ones go to the right
         if (a.sideEffect.isDefault()) {
           return 1;
         }

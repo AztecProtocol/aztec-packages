@@ -127,7 +127,7 @@ export class KernelProver {
         }
       }
 
-      // fill in witnesses for remaining/empty read requests
+      // fill in witnesses for remaining/default read requests
       noteHashReadRequestMembershipWitnesses.push(
         ...Array(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - noteHashReadRequestMembershipWitnesses.length)
           .fill(0)
@@ -237,7 +237,7 @@ export class KernelProver {
     const { contractAddress, functionData, publicInputs } = callStackItem;
     const { portalContractAddress } = publicInputs.callContext;
 
-    // Pad with empty items to reach max/const length expected by circuit.
+    // Pad with default items to reach max/const length expected by circuit.
     const privateCallStack = padArrayEnd(
       privateCallRequests,
       CallRequest.default(),

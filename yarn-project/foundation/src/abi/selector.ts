@@ -15,8 +15,8 @@ export abstract class Selector {
   }
 
   /**
-   * Checks if the selector is empty (all bytes are 0).
-   * @returns True if the selector is empty (all bytes are 0).
+   * Checks if the selector is default (all bytes are 0).
+   * @returns True if the selector is default (all bytes are 0).
    */
   public isDefault(): boolean {
     return this.value === 0;
