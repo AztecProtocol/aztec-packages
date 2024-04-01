@@ -170,9 +170,8 @@ jobs:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      # TODO no longer exclusive.. revisit this
-      group: ${{ github.actor }}-x86
-      cancel-in-progress: ${{ github.ref_name != 'master' }}
+      # TODO this allows NO concurrency of bench jobs
+      group: bench-x86
     steps:
       - uses: earthly/actions-setup@v1
         with:
