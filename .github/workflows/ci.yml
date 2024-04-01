@@ -98,19 +98,11 @@ jobs:
       group: ${{ matrix.test }}-${{ github.event.pull_request.number || github.ref_name }}-x86
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
-      - uses: earthly/actions-setup@v1
+      - uses: ./.github/actions/ci-setup.yml
         with:
-          version: v0.8.5
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
-
-      - name: Setup
-        working-directory: ./scripts
-        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }} 
+          git_ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Pull E2E Images
         working-directory: ./barretenberg/cpp/
@@ -141,19 +133,11 @@ jobs:
       group: bb-native-tests-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
       cancel-in-progress: ${{ github.ref_name != 'master' }}
     steps:
-      - uses: earthly/actions-setup@v1
+      - uses: ./.github/actions/ci-setup.yml
         with:
-          version: v0.8.5
-
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
-
-      - name: Setup
-        working-directory: ./scripts
-        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }} 
+          git_ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Test
         working-directory: ./barretenberg/cpp/
@@ -174,19 +158,11 @@ jobs:
       # TODO if this takes too long, we need to divide up into different bench machines for each pipeline step
       group: bench-x86
     steps:
-      - uses: earthly/actions-setup@v1
+      - uses: ./.github/actions/ci-setup.yml
         with:
-          version: v0.8.5
-          
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
-
-      - name: Setup
-        working-directory: ./scripts
-        run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }} 
+          git_ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Build and Push Binaries
         working-directory: ./barretenberg/cpp/
