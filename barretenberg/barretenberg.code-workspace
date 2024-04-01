@@ -86,7 +86,7 @@
         // Clangd. Note that this setting may be overridden by  user settings
         // to the default value "clangd".
         //
-        "clangd.path": "/usr/bin/clangd",
+        "clangd.path": "clangd-16",
         // We should disable automatic inclusion of headers unless we decide to follow "WhyIWYU".
         "clangd.arguments": [
             "-header-insertion=never"

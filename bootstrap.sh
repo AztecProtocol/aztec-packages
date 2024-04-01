@@ -16,7 +16,7 @@ YELLOW="\033[93m"
 BOLD="\033[1m"
 RESET="\033[0m"
 
-# source ./build-system/scripts/setup_env '' '' '' > /dev/null
+source ./build-system/scripts/setup_env '' '' '' > /dev/null
 
 if [ "$CMD" = "clean" ]; then
   echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
@@ -54,7 +54,6 @@ else
 fi
 
 # Install pre-commit git hooks.
-
 HOOKS_DIR=$(git rev-parse --git-path hooks)
 echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
