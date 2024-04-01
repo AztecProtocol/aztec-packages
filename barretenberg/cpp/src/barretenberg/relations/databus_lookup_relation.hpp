@@ -35,7 +35,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     };
 
     /**
-     * @brief Determine whether the inverse I needs to be computed at a given row
+     * @brief Determine whether the inverse I needs to be computed at a given row for a given bus column
      * @details The value of the inverse polynomial I(X) only needs to be computed when the databus lookup gate is
      * "active". Otherwise it is set to 0. This method allows for determination of when the inverse should be computed.
      *
@@ -46,19 +46,19 @@ template <typename FF_> class DatabusLookupRelationImpl {
      */
     template <size_t bus_idx, typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
+        auto read_selector = get_read_selector<FF, bus_idx>(row);
+
         if constexpr (bus_idx == 0) {
-            bool is_read_gate = row.q_busread == 1 && row.q_l == 1;
-            return (is_read_gate || row.calldata_read_counts > 0);
+            return (read_selector == 1 || row.calldata_read_counts > 0);
         }
         if constexpr (bus_idx == 1) {
-            bool is_read_gate = row.q_busread == 1 && row.q_r == 1;
-            return (is_read_gate || row.return_data_read_counts > 0);
+            return (read_selector == 1 || row.return_data_read_counts > 0);
         }
         return false;
     }
 
     /**
-     * @brief Get the lookup inverse polynomial
+     * @brief Get the lookup inverse polynomial for the indicated bus column
      *
      * @tparam AllEntities
      * @param in
@@ -78,28 +78,22 @@ template <typename FF_> class DatabusLookupRelationImpl {
      * @brief Compute the Accumulator whose values indicate whether the inverse is computed or not
      * @details This is needed for efficiency since we don't need to compute the inverse unless the log derivative
      * lookup relation is active at a given row.
+     * @note read_counts is constructed such that read_count_i <= 1 and is thus treated as boolean.
      *
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
     static Accumulator compute_inverse_exists(const AllEntities& in)
     {
         using View = typename Accumulator::View;
-        if constexpr (bus_idx == 0) {
-            auto q_busread = View(in.q_busread);
-            auto q_1 = View(in.q_l);
-            const auto is_read_gate = q_busread * q_1;
-            // Note: read_counts is constructed such that read_count_i <= 1.
-            const auto is_read_data = View(in.calldata_read_counts);
 
+        const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in);
+
+        if constexpr (bus_idx == 0) {
+            const auto is_read_data = View(in.calldata_read_counts);
             return is_read_gate + is_read_data - (is_read_gate * is_read_data);
         }
         if constexpr (bus_idx == 1) {
-            auto q_busread = View(in.q_busread);
-            auto q_2 = View(in.q_r);
-            const auto is_read_gate = q_busread * q_2;
-            // Note: read_counts is constructed such that read_count_i <= 1.
             const auto is_read_data = View(in.return_data_read_counts);
-
             return is_read_gate + is_read_data - (is_read_gate * is_read_data);
         }
     }
@@ -123,24 +117,18 @@ template <typename FF_> class DatabusLookupRelationImpl {
      */
     template <typename Accumulator, size_t bus_idx, typename AllEntities>
     static Accumulator get_read_selector(const AllEntities& in)
-
     {
         using View = typename Accumulator::View;
+
+        auto q_busread = View(in.q_busread);
+
         if constexpr (bus_idx == 0) {
-            auto q_busread = View(in.q_busread);
             auto q_1 = View(in.q_l);
-
-            auto result = q_busread * q_1;
-
-            return result;
+            return q_busread * q_1;
         }
         if constexpr (bus_idx == 1) {
-            auto q_busread = View(in.q_busread);
             auto q_2 = View(in.q_r);
-
-            auto result = q_busread * q_2;
-
-            return result;
+            return q_busread * q_2;
         }
     }
 
@@ -154,24 +142,17 @@ template <typename FF_> class DatabusLookupRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = GetParameterView<Parameters, View>;
 
+        const auto& gamma = ParameterView(params.gamma);
+        const auto& beta = ParameterView(params.beta);
+        const auto& id = View(in.databus_id);
+
+        // Construct b_i + idx_i*\beta + \gamma
         if constexpr (bus_idx == 0) {
             const auto& calldata = View(in.calldata);
-            const auto& id = View(in.databus_id);
-
-            const auto& gamma = ParameterView(params.gamma);
-            const auto& beta = ParameterView(params.beta);
-
-            // Construct b_i + idx_i*\beta + \gamma
             return calldata + gamma + id * beta; // degree 1
         }
         if constexpr (bus_idx == 1) {
             const auto& return_data = View(in.return_data);
-            const auto& id = View(in.databus_id);
-
-            const auto& gamma = ParameterView(params.gamma);
-            const auto& beta = ParameterView(params.beta);
-
-            // Construct b_i + idx_i*\beta + \gamma
             return return_data + gamma + id * beta; // degree 1
         }
     }
@@ -220,7 +201,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                         compute_write_term<FF, bus_idx>(row, relation_parameters);
             }
         }
-        // Compute inverse polynomial I by inverting the product at each row
+        // Compute inverse polynomial I in place by inverting the product at each row
         FF::batch_invert(inverse_polynomial);
     };
 
