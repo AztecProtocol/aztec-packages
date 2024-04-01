@@ -47,8 +47,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@swc/core": "^1.4.11",
-    "@swc/jest": "^0.2.36",
     "@types/jest": "^29.5.0",
     "@types/levelup": "^5.1.2",
     "@types/memdown": "^3.0.0",

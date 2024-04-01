@@ -49,8 +49,6 @@
   "devDependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@jest/globals": "^29.5.0",
-    "@swc/core": "^1.4.11",
-    "@swc/jest": "^0.2.36",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.15.3",
     "@types/sha256": "^0.2.0",
