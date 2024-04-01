@@ -7,14 +7,13 @@ use crate::abis::side_effect::SideEffect;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
     ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH, FUNCTION_TREE_HEIGHT,
-    GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__VK,
-    GENERATOR_INDEX__CONSTRUCTOR, GENERATOR_INDEX__PARTIAL_ADDRESS, GENERATOR_INDEX__CONTRACT_ADDRESS,
-    GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__FUNCTION_ARGS
+    GENERATOR_INDEX__VK, GENERATOR_INDEX__CONSTRUCTOR, GENERATOR_INDEX__PARTIAL_ADDRESS,
+    GENERATOR_INDEX__CONTRACT_ADDRESS, GENERATOR_INDEX__FUNCTION_ARGS
 };
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
 use crate::merkle_tree::root::root_from_sibling_path;
 
-use dep::std::hash::{pedersen_hash_with_separator, sha256};
+use dep::std::hash::{pedersen_hash_with_separator, sha256, poseidon2::{Poseidon2, Poseidon2Hasher}};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
@@ -65,23 +64,11 @@ pub fn private_functions_root_from_siblings(
 }
 
 pub fn silo_note_hash(address: AztecAddress, inner_commitment: Field) -> Field {
-    pedersen_hash(
-        [
-        address.to_field(),
-        inner_commitment
-    ],
-        GENERATOR_INDEX__SILOED_NOTE_HASH
-    )
+    poseidon_hash([address.to_field(), inner_commitment])
 }
 
 pub fn silo_nullifier(address: AztecAddress, nullifier: Field) -> Field {
-    pedersen_hash(
-        [
-        address.to_field(),
-        nullifier
-    ],
-        GENERATOR_INDEX__OUTER_NULLIFIER
-    )
+    poseidon_hash([address.to_field(), nullifier])
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
@@ -159,23 +146,11 @@ pub fn compute_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> F
 }
 
 pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u64) -> Field {
-    pedersen_hash(
-        [
-        first_nullifier,
-        commitment_index as Field
-    ],
-        GENERATOR_INDEX__NOTE_HASH_NONCE
-    )
+    poseidon_hash([first_nullifier, commitment_index as Field])
 }
 
 pub fn compute_unique_siloed_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
-    pedersen_hash(
-        [
-        nonce,
-        siloed_note_hash
-    ],
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH
-    )
+    poseidon_hash([nonce, siloed_note_hash])
 }
 
 pub fn compute_unique_siloed_note_hashes<N>(
@@ -198,6 +173,10 @@ pub fn compute_unique_siloed_note_hashes<N>(
 
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
     dep::std::hash::pedersen_hash_with_separator(inputs, hash_index)
+}
+
+pub fn poseidon_hash<N>(inputs: [Field; N]) -> Field {
+    Poseidon2::hash(inputs, inputs.len())
 }
 
 #[test]

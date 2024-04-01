@@ -1,19 +1,17 @@
 use crate::{context::PrivateContext, note::{note_header::NoteHeader, note_interface::NoteInterface}};
 
 use dep::protocol_types::{
-    address::AztecAddress,
-    constants::{GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__SILOED_NOTE_HASH},
-    hash::pedersen_hash, utils::arr_copy_slice
+    address::AztecAddress, hash::{pedersen_hash, poseidon_hash, silo_note_hash, silo_nullifier},
+    utils::arr_copy_slice
 };
 
 fn compute_siloed_hash(contract_address: AztecAddress, inner_note_hash: Field) -> Field {
-    let inputs = [contract_address.to_field(), inner_note_hash];
-    pedersen_hash(inputs, GENERATOR_INDEX__SILOED_NOTE_HASH)
+    silo_note_hash(contract_address, inner_note_hash)
 }
 
 fn compute_unique_hash(nonce: Field, siloed_note_hash: Field) -> Field {
     let inputs = [nonce, siloed_note_hash];
-    pedersen_hash(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
+    poseidon_hash(inputs)
 }
 
 fn compute_inner_note_hash<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {
@@ -47,8 +45,7 @@ pub fn compute_siloed_nullifier<Note, N>(
     let header = note_with_header.get_header();
     let inner_nullifier = note_with_header.compute_nullifier(context);
 
-    let input = [header.contract_address.to_field(), inner_nullifier];
-    pedersen_hash(input, GENERATOR_INDEX__OUTER_NULLIFIER)
+    silo_nullifier(header.contract_address, inner_nullifier)
 }
 
 pub fn compute_note_hash_for_insertion<Note, N>(note: Note) -> Field where Note: NoteInterface<N> {

@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
+import { pedersenHash, pedersenHashBuffer, poseidonHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
@@ -61,7 +61,7 @@ export function hashVK(vkBuf: Buffer) {
  * @returns A commitment nonce.
  */
 export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
-  return pedersenHash([nullifierZero, numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.NOTE_HASH_NONCE);
+  return poseidonHash([nullifierZero, numToUInt32BE(commitmentIndex, 32)]);
 }
 
 /**
@@ -72,7 +72,7 @@ export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: numbe
  * @returns A siloed commitment.
  */
 export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
-  return pedersenHash([contract, innerNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
+  return poseidonHash([contract, innerNoteHash]);
 }
 
 /**
@@ -82,7 +82,7 @@ export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
  * @returns A unique commitment.
  */
 export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
-  return pedersenHash([nonce, siloedCommitment], GeneratorIndex.UNIQUE_NOTE_HASH);
+  return poseidonHash([nonce, siloedCommitment]);
 }
 
 /**
@@ -93,7 +93,7 @@ export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
-  return pedersenHash([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+  return poseidonHash([contract, innerNullifier]);
 }
 
 /**

@@ -12,10 +12,10 @@ The pseudocode for siloing and making a commitment unique is the following, wher
 
 ```
 fn compute_unique_siloed_note_hash(commitment, contract, transaction):
-  let siloed_note_hash = hash([contract, commitment], SILOED_NOTE_HASH)
+  let siloed_note_hash = hash([contract, commitment])
   let index = index_of(commitment, transaction.commitments)
-  let nonce = hash([transaction.tx_hash, index], NOTE_HASH_NONCE)
-  return hash([nonce, siloed_note_hash], UNIQUE_NOTE_HASH)
+  let nonce = hash([transaction.tx_hash, index])
+  return hash([nonce, siloed_note_hash])
 ```
 
 The unique siloed commitment of a note is included in the [transaction `data`](../transactions/tx-object.md), and then inserted into the Note Hash tree by the sequencer as the transaction is included in a block.
