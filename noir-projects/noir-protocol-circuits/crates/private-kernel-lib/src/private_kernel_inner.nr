@@ -71,7 +71,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        max_block_number::MaxBlockNumber, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress}, hash::compute_logs_hash,
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
@@ -98,12 +98,6 @@ mod tests {
 
         pub fn is_static_call(&mut self) -> Self {
             let _ = self.private_call.is_static_call();
-            *self
-        }
-
-        pub fn is_internal_call(&mut self) -> Self {
-            let _ = self.private_call.is_internal_call();
-            self.previous_kernel.contract_address = self.private_call.contract_address;
             *self
         }
 
@@ -265,24 +259,6 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 
         builder.private_call.contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
-
-        builder.failed();
-    }
-
-    #[test]
-    fn internal_call_succeeds() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new().is_internal_call();
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with = "call is internal but msg_sender is not self")]
-    fn private_function_incorrect_is_internal() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new().is_internal_call();
-
-        // Tweak the (storage) contract_address to be different to msg_sender.
-        let msg_sender = builder.private_call.public_inputs.call_context.msg_sender.to_field();
-        builder.private_call.contract_address = AztecAddress::from_field(msg_sender + 1);
-        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }
@@ -575,6 +551,36 @@ mod tests {
     }
 
     #[test]
+    fn propagate_previous_kernel_max_block_number() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.previous_kernel.validation_requests.max_block_number = MaxBlockNumber::new(13);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
+    }
+
+    #[test]
+    fn propagate_max_block_number_request() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.private_call.request_max_block_number(42);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
+    }
+
+    #[test]
+    fn ignore_larger_max_block_number() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.previous_kernel.validation_requests.max_block_number = MaxBlockNumber::new(13);
+        // A private call requesting a larger max_block_number should not change the current one as that constraint is
+        // already satisfied.
+        builder.private_call.request_max_block_number(42);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
+    }
+
+    #[test]
     fn native_no_note_hash_read_requests_works() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
@@ -583,7 +589,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -595,7 +601,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -607,7 +613,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -619,7 +625,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 0);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 0);
     }
 
     #[test]
@@ -631,7 +637,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 1);
     }
 
     #[test]
@@ -645,7 +651,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // non-transient read requests are NOT forwarded
-        assert_eq(array_length(public_inputs.end.note_hash_read_requests), 1);
+        assert_eq(array_length(public_inputs.validation_requests.note_hash_read_requests), 1);
     }
 
     #[test]
@@ -658,7 +664,7 @@ mod tests {
 
         // non-transient read requests are NOT forwarded
         assert_eq(
-            array_length(public_inputs.end.note_hash_read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
+            array_length(public_inputs.validation_requests.note_hash_read_requests), MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
         );
     }
 
@@ -667,17 +673,17 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // Logs for the current call stack.
-        let encrypted_logs_hash = [16, 69];
+        let encrypted_logs_hash = 16;
         let encrypted_log_preimages_length = 100;
-        let unencrypted_logs_hash = [26, 47];
+        let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
         builder.private_call.set_encrypted_logs(encrypted_logs_hash, encrypted_log_preimages_length);
         builder.private_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = [80, 429];
+        let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        let prev_unencrypted_logs_hash = [956, 112];
+        let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
         builder.previous_kernel.set_unencrypted_logs(

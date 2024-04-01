@@ -1,11 +1,13 @@
 import {
   AuthWitness,
   AztecNode,
-  FunctionL2Logs,
+  EncryptedFunctionL2Logs,
+  EncryptedL2Log,
   L1NotePayload,
   Note,
   NoteStatus,
   TaggedNote,
+  UnencryptedFunctionL2Logs,
   UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
@@ -56,7 +58,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * They should act as references for the read requests output by an app circuit via public inputs.
    */
   private gotNotes: Map<bigint, bigint> = new Map();
-  private encryptedLogs: Buffer[] = [];
+  private encryptedLogs: EncryptedL2Log[] = [];
   private unencryptedLogs: UnencryptedL2Log[] = [];
   private nestedExecutions: ExecutionResult[] = [];
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
@@ -144,14 +146,14 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Return the encrypted logs emitted during this execution.
    */
   public getEncryptedLogs() {
-    return new FunctionL2Logs(this.encryptedLogs);
+    return new EncryptedFunctionL2Logs(this.encryptedLogs);
   }
 
   /**
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
-    return new FunctionL2Logs(this.unencryptedLogs.map(log => log.toBuffer()));
+    return new UnencryptedFunctionL2Logs(this.unencryptedLogs);
   }
 
   /**
@@ -199,10 +201,14 @@ export class ClientExecutionContext extends ViewDataOracle {
   public async getNotes(
     storageSlot: Fr,
     numSelects: number,
-    selectBy: number[],
+    selectByIndexes: number[],
+    selectByOffsets: number[],
+    selectByLengths: number[],
     selectValues: Fr[],
     selectComparators: number[],
-    sortBy: number[],
+    sortByIndexes: number[],
+    sortByOffsets: number[],
+    sortByLengths: number[],
     sortOrder: number[],
     limit: number,
     offset: number,
@@ -216,10 +222,15 @@ export class ClientExecutionContext extends ViewDataOracle {
     const dbNotesFiltered = dbNotes.filter(n => !pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     const notes = pickNotes<NoteData>([...dbNotesFiltered, ...pendingNotes], {
-      selects: selectBy
-        .slice(0, numSelects)
-        .map((index, i) => ({ index, value: selectValues[i], comparator: selectComparators[i] })),
-      sorts: sortBy.map((index, i) => ({ index, order: sortOrder[i] })),
+      selects: selectByIndexes.slice(0, numSelects).map((index, i) => ({
+        selector: { index, offset: selectByOffsets[i], length: selectByLengths[i] },
+        value: selectValues[i],
+        comparator: selectComparators[i],
+      })),
+      sorts: sortByIndexes.map((index, i) => ({
+        selector: { index, offset: sortByOffsets[i], length: sortByLengths[i] },
+        order: sortOrder[i],
+      })),
       limit,
       offset,
     });
@@ -295,7 +306,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
     const taggedNote = new TaggedNote(l1NotePayload);
     const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
-    this.encryptedLogs.push(encryptedNote);
+    this.encryptedLogs.push(new EncryptedL2Log(encryptedNote));
   }
 
   /**

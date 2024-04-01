@@ -2,7 +2,6 @@
 // We should try to change this contract as little as possible, since any modification
 // would alter the metrics we're capturing in the benchmarks, and we want to keep the
 // subject being tested as unmodified as possible so we can detect metric changes that
-// arise from code changes.
 
 contract Benchmarking {
     use dep::aztec::prelude::{
@@ -11,7 +10,7 @@ contract Benchmarking {
     };
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{context::{Context}};
+    use dep::aztec::{context::Context};
 
     struct Storage {
         notes: Map<AztecAddress, PrivateSet<ValueNote>>,

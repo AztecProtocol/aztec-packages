@@ -143,10 +143,14 @@ export abstract class TypedOracle {
   getNotes(
     _storageSlot: Fr,
     _numSelects: number,
-    _selectBy: number[],
+    _selectByIndexes: number[],
+    _selectByOffsets: number[],
+    _selectByLengths: number[],
     _selectValues: Fr[],
     _selectComparators: number[],
-    _sortBy: number[],
+    _sortByIndexes: number[],
+    _sortByOffsets: number[],
+    _sortByLengths: number[],
     _sortOrder: number[],
     _limit: number,
     _offset: number,
@@ -167,7 +171,11 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('checkNullifierExists');
   }
 
-  getL1ToL2MembershipWitness(_entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+  getL1ToL2MembershipWitness(
+    _contractAddress: AztecAddress,
+    _messageHash: Fr,
+    _secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     throw new OracleMethodNotAvailableError('getL1ToL2MembershipWitness');
   }
 

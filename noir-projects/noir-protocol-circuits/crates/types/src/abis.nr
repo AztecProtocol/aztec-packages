@@ -4,7 +4,6 @@ mod contract_class_function_leaf_preimage;
 
 mod function_selector;
 mod function_data;
-mod function_leaf_preimage;
 
 mod global_variables;
 
@@ -21,6 +20,9 @@ mod public_data_read;
 mod public_data_update_request;
 
 mod accumulated_data;
+mod validation_requests;
+
+mod max_block_number;
 
 mod private_kernel;
 mod kernel_circuit_public_inputs;

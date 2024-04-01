@@ -1,4 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
+import { GasCost, GasCostConstants, getGasCostMultiplierFromTypeTag, makeGasCost } from '../avm_gas_cost.js';
 import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
@@ -78,6 +79,10 @@ export class Set extends Instruction {
     context.machineState.memory.set(this.dstOffset, res);
 
     context.machineState.incrementPc();
+  }
+
+  protected gasCost(): GasCost {
+    return makeGasCost({ l2Gas: GasCostConstants.SET_COST_PER_BYTE * getGasCostMultiplierFromTypeTag(this.inTag) });
   }
 }
 
@@ -183,12 +188,18 @@ export class CalldataCopy extends Instruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
+    const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], context.machineState.memory);
+
     const transformedData = context.environment.calldata
       .slice(this.cdOffset, this.cdOffset + this.copySize)
       .map(f => new Field(f));
 
-    context.machineState.memory.setSlice(this.dstOffset, transformedData);
+    context.machineState.memory.setSlice(dstOffset, transformedData);
 
     context.machineState.incrementPc();
+  }
+
+  protected gasCost(): GasCost {
+    return makeGasCost({ l2Gas: GasCostConstants.CALLDATACOPY_COST_PER_BYTE * this.copySize });
   }
 }

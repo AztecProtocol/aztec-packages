@@ -6,28 +6,12 @@ template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
-    OinkProver<Flavor> oink_prover(instance, commitment_key, transcript, domain_separator + '_');
+    OinkProver<Flavor> oink_prover(instance->proving_key, commitment_key, transcript, domain_separator + '_');
 
-    // Add circuit size public input size and public inputs to transcript
-    oink_prover.execute_preamble_round();
-
-    // Compute first three wire commitments
-    oink_prover.execute_wire_commitments_round();
-
-    // Compute sorted list accumulator and commitment
-    oink_prover.execute_sorted_list_accumulator_round();
-
-    // Fiat-Shamir: beta & gamma
-    oink_prover.execute_log_derivative_inverse_round();
-
-    // Compute grand product(s) and commitments.
-    oink_prover.execute_grand_product_computation_round();
-
-    // Generate relation separators alphas for sumcheck
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        instance->alphas[idx] =
-            transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
-    }
+    auto [relation_params, alphas] = oink_prover.prove();
+    instance->relation_parameters = std::move(relation_params);
+    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
+    instance->alphas = std::move(alphas);
 }
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
@@ -78,16 +62,16 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     next_accumulator->gate_challenges = instances.next_gate_challenges;
 
     // Initialize prover polynomials
-    ProverPolynomials acc_prover_polynomials;
-    for (auto& polynomial : acc_prover_polynomials.get_all()) {
+    ProvingKey acc_proving_key_polys;
+    for (auto& polynomial : acc_proving_key_polys.get_all()) {
         polynomial = typename Flavor::Polynomial(instances[0]->proving_key->circuit_size);
     }
 
-    // Fold the prover polynomials
+    // Fold the prover key polynomials
     for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-        auto accumulator_polys = acc_prover_polynomials.get_all();
-        auto input_polys = instances[inst_idx]->prover_polynomials.get_all();
-        run_loop_in_parallel(Flavor::NUM_ALL_ENTITIES, [&](size_t start_idx, size_t end_idx) {
+        auto accumulator_polys = acc_proving_key_polys.get_all();
+        auto input_polys = instances[inst_idx]->proving_key->get_all();
+        run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
             for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
                 auto& acc_poly = accumulator_polys[poly_idx];
                 auto& inst_poly = input_polys[poly_idx];
@@ -97,7 +81,10 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
             }
         });
     }
-    next_accumulator->prover_polynomials = std::move(acc_prover_polynomials);
+    for (auto [next_acc_poly, acc_poly] :
+         zip_view(next_accumulator->proving_key->get_all(), acc_proving_key_polys.get_all())) {
+        next_acc_poly = std::move(acc_poly);
+    }
 
     // Fold public data ϕ from all instances to produce ϕ* and add it to the transcript. As part of the folding
     // verification, the verifier will produce ϕ* as well and check it against what was sent by the prover.
@@ -129,12 +116,18 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto& combined_relation_parameters = instances.relation_parameters;
     auto folded_relation_parameters = bb::RelationParameters<FF>{
         combined_relation_parameters.eta.evaluate(challenge),
+        combined_relation_parameters.eta_two.evaluate(challenge),
+        combined_relation_parameters.eta_three.evaluate(challenge),
         combined_relation_parameters.beta.evaluate(challenge),
         combined_relation_parameters.gamma.evaluate(challenge),
         combined_relation_parameters.public_input_delta.evaluate(challenge),
         combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
     };
     next_accumulator->relation_parameters = folded_relation_parameters;
+    // Derive the prover polynomials from the proving key polynomials since we only fold the unshifted polynomials. This
+    // is extremely cheap since we only call .share() and .shifted() polynomial functions. We need the folded prover
+    // polynomials for the decider.
+    next_accumulator->prover_polynomials = ProverPolynomials(next_accumulator->proving_key);
     return next_accumulator;
 }
 

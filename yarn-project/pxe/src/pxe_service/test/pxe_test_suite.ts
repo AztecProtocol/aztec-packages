@@ -1,4 +1,10 @@
-import { DeployedContract, PXE, TxExecutionRequest, randomDeployedContract } from '@aztec/circuit-types';
+import {
+  PXE,
+  TxExecutionRequest,
+  randomContractArtifact,
+  randomContractInstanceWithAddress,
+  randomDeployedContract,
+} from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -7,6 +13,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   Point,
   TxContext,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
@@ -82,14 +89,38 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     });
 
     it('successfully adds a contract', async () => {
-      const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
-      await pxe.addContracts(contracts);
+      const contracts = [randomDeployedContract(), randomDeployedContract()];
+      for (const contract of contracts) {
+        await pxe.registerContract(contract);
+      }
 
       const expectedContractAddresses = contracts.map(contract => contract.instance.address);
       const contractAddresses = await pxe.getContracts();
-
-      // check if all the contracts were returned
       expect(contractAddresses).toEqual(expect.arrayContaining(expectedContractAddresses));
+    });
+
+    it('registers a class and adds a contract for it', async () => {
+      const artifact = randomContractArtifact();
+      const contractClass = getContractClassFromArtifact(artifact);
+      const contractClassId = contractClass.id;
+      const instance = randomContractInstanceWithAddress({ contractClassId });
+
+      await pxe.registerContractClass(artifact);
+      expect(await pxe.getContractClass(contractClassId)).toEqual(contractClass);
+
+      await pxe.registerContract({ instance });
+      expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
+    });
+
+    it('refuses to register a contract with a class that has not been registered', async () => {
+      const instance = randomContractInstanceWithAddress();
+      await expect(pxe.registerContract({ instance })).rejects.toThrow(/Missing contract artifact/i);
+    });
+
+    it('refuses to register a contract with an artifact with mismatching class id', async () => {
+      const artifact = randomContractArtifact();
+      const instance = randomContractInstanceWithAddress();
+      await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
     });
 
     it('throws when simulating a tx targeting public entrypoint', async () => {
@@ -119,7 +150,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       );
     });
 
-    // Note: Not testing `getExtendedContractData`, `getContractData` and `getUnencryptedLogs` here as these
+    // Note: Not testing `getContractData` and `getUnencryptedLogs` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
 
     it('successfully gets a block number', async () => {

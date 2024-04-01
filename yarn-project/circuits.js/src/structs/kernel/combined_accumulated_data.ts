@@ -14,149 +14,21 @@ import {
   MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
   MAX_REVERTIBLE_NULLIFIERS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX,
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
-import { NullifierKeyValidationRequestContext } from '../nullifier_key_validation_request.js';
-import { ReadRequestContext } from '../read_request.js';
+import { PublicDataUpdateRequest } from '../public_data_update_request.js';
+import { RevertCode } from '../revert_code.js';
 import { SideEffect, SideEffectLinkedToNoteHash, sideEffectCmp } from '../side_effects.js';
 
 const log = createDebugOnlyLogger('aztec:combined_accumulated_data');
-
-/**
- * Read operations from the public state tree.
- */
-export class PublicDataRead {
-  constructor(
-    /**
-     * Index of the leaf in the public data tree.
-     */
-    public readonly leafSlot: Fr,
-    /**
-     * Returned value from the public data tree.
-     */
-    public readonly value: Fr,
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public readonly sideEffectCounter?: number,
-  ) {}
-
-  static from(args: {
-    /**
-     * Index of the leaf in the public data tree.
-     */
-    leafIndex: Fr;
-    /**
-     * Returned value from the public data tree.
-     */
-    value: Fr;
-  }) {
-    return new PublicDataRead(args.leafIndex, args.value);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.leafSlot, this.value);
-  }
-
-  isEmpty() {
-    return this.leafSlot.isZero() && this.value.isZero();
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new PublicDataRead(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
-  }
-
-  static empty() {
-    return new PublicDataRead(Fr.ZERO, Fr.ZERO);
-  }
-
-  toFriendlyJSON() {
-    return `Leaf=${this.leafSlot.toFriendlyJSON()}: ${this.value.toFriendlyJSON()}`;
-  }
-
-  equals(other: PublicDataRead) {
-    return this.leafSlot.equals(other.leafSlot) && this.value.equals(other.value);
-  }
-}
-
-/**
- * Write operations on the public data tree including the previous value.
- */
-export class PublicDataUpdateRequest {
-  constructor(
-    /**
-     * Index of the leaf in the public data tree which is to be updated.
-     */
-    public readonly leafSlot: Fr,
-    /**
-     * New value of the leaf.
-     */
-    public readonly newValue: Fr,
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public readonly sideEffectCounter?: number,
-  ) {}
-
-  static from(args: {
-    /**
-     * Index of the leaf in the public data tree which is to be updated.
-     */
-    leafIndex: Fr;
-    /**
-     * New value of the leaf.
-     */
-    newValue: Fr;
-  }) {
-    return new PublicDataUpdateRequest(args.leafIndex, args.newValue);
-  }
-
-  toBuffer() {
-    return serializeToBuffer(this.leafSlot, this.newValue);
-  }
-
-  isEmpty() {
-    return this.leafSlot.isZero() && this.newValue.isZero();
-  }
-
-  static isEmpty(x: PublicDataUpdateRequest) {
-    return x.isEmpty();
-  }
-
-  equals(other: PublicDataUpdateRequest) {
-    return this.leafSlot.equals(other.leafSlot) && this.newValue.equals(other.newValue);
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new PublicDataUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
-  }
-
-  static empty() {
-    return new PublicDataUpdateRequest(Fr.ZERO, Fr.ZERO);
-  }
-
-  toFriendlyJSON() {
-    return `Leaf=${this.leafSlot.toFriendlyJSON()}: ${this.newValue.toFriendlyJSON()}`;
-  }
-}
 
 /**
  * Data that is accumulated during the execution of the transaction.
@@ -164,20 +36,9 @@ export class PublicDataUpdateRequest {
 export class CombinedAccumulatedData {
   constructor(
     /**
-     * All the read requests made in this transaction.
+     * Flag indicating whether the transaction reverted.
      */
-    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    /**
-     * All the nullifier read requests made in this transaction.
-     */
-    public nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    /**
-     * All the nullifier key validation requests made in this transaction.
-     */
-    public nullifierKeyValidationRequests: Tuple<
-      NullifierKeyValidationRequestContext,
-      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
-    >,
+    public revertCode: RevertCode,
     /**
      * The new note hashes made in this transaction.
      */
@@ -200,14 +61,14 @@ export class CombinedAccumulatedData {
     public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public encryptedLogsHash: Fr,
     /**
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public unencryptedLogsHash: Fr,
     /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
@@ -220,17 +81,11 @@ export class CombinedAccumulatedData {
      * All the public data update requests made in this transaction.
      */
     public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    /**
-     * All the public data reads made in this transaction.
-     */
-    public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
-      this.noteHashReadRequests,
-      this.nullifierReadRequests,
-      this.nullifierKeyValidationRequests,
+      this.revertCode,
       this.newNoteHashes,
       this.newNullifiers,
       this.privateCallStack,
@@ -241,7 +96,6 @@ export class CombinedAccumulatedData {
       this.encryptedLogPreimagesLength,
       this.unencryptedLogPreimagesLength,
       this.publicDataUpdateRequests,
-      this.publicDataReads,
     );
   }
 
@@ -257,20 +111,17 @@ export class CombinedAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
-      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
+      RevertCode.fromBuffer(reader),
       reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
-      reader.readArray(2, Fr),
-      reader.readArray(2, Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
 
@@ -285,20 +136,17 @@ export class CombinedAccumulatedData {
 
   static empty() {
     return new CombinedAccumulatedData(
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
+      RevertCode.OK,
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      makeTuple(2, Fr.zero),
-      makeTuple(2, Fr.zero),
+      Fr.zero(),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 
@@ -311,11 +159,10 @@ export class CombinedAccumulatedData {
   public static recombine(
     nonRevertible: PublicAccumulatedNonRevertibleData,
     revertible: PublicAccumulatedRevertibleData,
-    reverted: boolean,
   ): CombinedAccumulatedData {
-    if (reverted && !revertible.isEmpty()) {
+    if (!nonRevertible.revertCode.isOK() && !revertible.isEmpty()) {
       log(inspect(revertible));
-      throw new Error('Revertible data should be empty if the transaction is reverted');
+      throw new Error('Revertible data should be empty if the transaction is revertCode');
     }
 
     const newNoteHashes = padArrayEnd(
@@ -356,16 +203,8 @@ export class CombinedAccumulatedData {
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     );
 
-    const publicDataReads = padArrayEnd(
-      [...nonRevertible.publicDataReads, ...revertible.publicDataReads].filter(x => !x.isEmpty()),
-      PublicDataRead.empty(),
-      MAX_PUBLIC_DATA_READS_PER_TX,
-    );
-
     return new CombinedAccumulatedData(
-      revertible.noteHashReadRequests,
-      revertible.nullifierReadRequests,
-      revertible.nullifierKeyValidationRequests,
+      nonRevertible.revertCode,
       newNoteHashes,
       newNullifiers,
       revertible.privateCallStack,
@@ -376,28 +215,12 @@ export class CombinedAccumulatedData {
       revertible.encryptedLogPreimagesLength,
       revertible.unencryptedLogPreimagesLength,
       publicDataUpdateRequests,
-      publicDataReads,
     );
   }
 }
 
 export class PublicAccumulatedRevertibleData {
   constructor(
-    /**
-     * All the read requests made in this transaction.
-     */
-    public noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    /**
-     * All the read requests for nullifiers made in this transaction.
-     */
-    public nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    /**
-     * All the nullifier key validation requests made in this transaction.
-     */
-    public nullifierKeyValidationRequests: Tuple<
-      NullifierKeyValidationRequestContext,
-      typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
-    >,
     /**
      * The new note hashes made in this transaction.
      */
@@ -420,14 +243,14 @@ export class PublicAccumulatedRevertibleData {
     public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public encryptedLogsHash: Fr,
     /**
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public unencryptedLogsHash: Fr,
     /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
@@ -443,16 +266,10 @@ export class PublicAccumulatedRevertibleData {
       PublicDataUpdateRequest,
       typeof MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     >,
-    /**
-     * All the public data reads made in this transaction.
-     */
-    public publicDataReads: Tuple<PublicDataRead, typeof MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX>,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
-      this.noteHashReadRequests,
-      this.nullifierKeyValidationRequests,
       this.newNoteHashes,
       this.newNullifiers,
       this.privateCallStack,
@@ -463,7 +280,6 @@ export class PublicAccumulatedRevertibleData {
       this.encryptedLogPreimagesLength,
       this.unencryptedLogPreimagesLength,
       this.publicDataUpdateRequests,
-      this.publicDataReads,
     );
   }
 
@@ -473,40 +289,32 @@ export class PublicAccumulatedRevertibleData {
 
   isEmpty(): boolean {
     return (
-      this.noteHashReadRequests.every(x => x.isEmpty()) &&
-      this.nullifierReadRequests.every(x => x.isEmpty()) &&
-      this.nullifierKeyValidationRequests.every(x => x.isEmpty()) &&
       this.newNoteHashes.every(x => x.isEmpty()) &&
       this.newNullifiers.every(x => x.isEmpty()) &&
       this.privateCallStack.every(x => x.isEmpty()) &&
       this.publicCallStack.every(x => x.isEmpty()) &&
       this.newL2ToL1Msgs.every(x => x.isZero()) &&
-      this.encryptedLogsHash.every(x => x.isZero()) &&
-      this.unencryptedLogsHash.every(x => x.isZero()) &&
+      this.encryptedLogsHash.isZero() &&
+      this.unencryptedLogsHash.isZero() &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.publicDataUpdateRequests.every(x => x.isEmpty()) &&
-      this.publicDataReads.every(x => x.isEmpty())
+      this.publicDataUpdateRequests.every(x => x.isEmpty())
     );
   }
 
   [inspect.custom]() {
     // print out the non-empty fields
     return `PublicAccumulatedRevertibleData {
-  noteHashReadRequests: [${this.noteHashReadRequests.map(h => h.toString()).join(', ')}],
-  nullifierReadRequests: [${this.nullifierReadRequests.map(h => h.toString()).join(', ')}],
-  nullifierKeyValidationRequests: [${this.nullifierKeyValidationRequests.map(h => h.toString()).join(', ')}],
   newNoteHashes: [${this.newNoteHashes.map(h => h.toString()).join(', ')}],
   newNullifiers: [${this.newNullifiers.map(h => h.toString()).join(', ')}],
   privateCallStack: [${this.privateCallStack.map(h => h.toString()).join(', ')}],
   publicCallStack: [${this.publicCallStack.map(h => h.toString()).join(', ')}],
   newL2ToL1Msgs: [${this.newL2ToL1Msgs.map(h => h.toString()).join(', ')}],
-  encryptedLogsHash: [${this.encryptedLogsHash.map(h => h.toString()).join(', ')}],
-  unencryptedLogsHash: [${this.unencryptedLogsHash.map(h => h.toString()).join(', ')}],
+  encryptedLogsHash: ${this.encryptedLogsHash},
+  unencryptedLogsHash: ${this.unencryptedLogsHash},
   encryptedLogPreimagesLength: ${this.encryptedLogPreimagesLength}
   unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength}
   publicDataUpdateRequests: [${this.publicDataUpdateRequests.map(h => h.toString()).join(', ')}],
-  publicDataReads: [${this.publicDataReads.map(h => h.toString()).join(', ')}],
 }`;
   }
 
@@ -518,28 +326,21 @@ export class PublicAccumulatedRevertibleData {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
-      reader.readArray(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext),
       reader.readArray(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
-      reader.readArray(2, Fr),
-      reader.readArray(2, Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       reader.readArray(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
 
   static fromPrivateAccumulatedRevertibleData(finalData: PrivateAccumulatedRevertibleData) {
     return new this(
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       padArrayEnd(finalData.newNoteHashes, SideEffect.empty(), MAX_REVERTIBLE_NOTE_HASHES_PER_TX),
       padArrayEnd(finalData.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_REVERTIBLE_NULLIFIERS_PER_TX),
       finalData.privateCallStack,
@@ -550,7 +351,6 @@ export class PublicAccumulatedRevertibleData {
       finalData.encryptedLogPreimagesLength,
       finalData.unencryptedLogPreimagesLength,
       makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 
@@ -565,20 +365,16 @@ export class PublicAccumulatedRevertibleData {
 
   static empty() {
     return new this(
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, NullifierKeyValidationRequestContext.empty),
       makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      makeTuple(2, Fr.zero),
-      makeTuple(2, Fr.zero),
+      Fr.zero(),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
       makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 }
@@ -612,14 +408,14 @@ export class PrivateAccumulatedRevertibleData {
     public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public encryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public encryptedLogsHash: Fr,
     /**
      * Accumulated unencrypted logs hash from all the previous kernel iterations.
-     * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public unencryptedLogsHash: Fr,
     /**
      * Total accumulated length of the encrypted log preimages emitted in all the previous kernel iterations
      */
@@ -661,8 +457,8 @@ export class PrivateAccumulatedRevertibleData {
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
-      reader.readArray(2, Fr),
-      reader.readArray(2, Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
     );
@@ -684,8 +480,8 @@ export class PrivateAccumulatedRevertibleData {
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      makeTuple(2, Fr.zero),
-      makeTuple(2, Fr.zero),
+      Fr.zero(),
+      Fr.zero(),
       Fr.zero(),
       Fr.zero(),
     );
@@ -694,6 +490,10 @@ export class PrivateAccumulatedRevertibleData {
 
 export class PrivateAccumulatedNonRevertibleData {
   constructor(
+    /**
+     * Flag indicating whether the transaction reverted.
+     */
+    public revertCode: RevertCode,
     /**
      * The new non-revertible commitments made in this transaction.
      */
@@ -709,12 +509,13 @@ export class PrivateAccumulatedNonRevertibleData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.newNoteHashes, this.newNullifiers, this.publicCallStack);
+    return serializeToBuffer(this.revertCode.toBuffer(), this.newNoteHashes, this.newNullifiers, this.publicCallStack);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateAccumulatedNonRevertibleData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateAccumulatedNonRevertibleData(
+      RevertCode.fromBuffer(reader),
       reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
@@ -731,6 +532,7 @@ export class PrivateAccumulatedNonRevertibleData {
 
   static empty() {
     return new PrivateAccumulatedNonRevertibleData(
+      RevertCode.OK,
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
@@ -741,16 +543,9 @@ export class PrivateAccumulatedNonRevertibleData {
 export class PublicAccumulatedNonRevertibleData {
   constructor(
     /**
-     * The nullifier read requests made in this transaction.
+     * Flag indicating whether the transaction reverted.
      */
-    public nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    /**
-     * The nullifier read requests made in this transaction.
-     */
-    public nullifierNonExistentReadRequests: Tuple<
-      ReadRequestContext,
-      typeof MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX
-    >,
+    public revertCode: RevertCode,
     /**
      * The new non-revertible commitments made in this transaction.
      */
@@ -770,34 +565,26 @@ export class PublicAccumulatedNonRevertibleData {
       PublicDataUpdateRequest,
       typeof MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
     >,
-    /**
-     * All the public data reads made in this transaction.
-     */
-    public publicDataReads: Tuple<PublicDataRead, typeof MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX>,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
-      this.nullifierReadRequests,
-      this.nullifierNonExistentReadRequests,
+      this.revertCode,
       this.newNoteHashes,
       this.newNullifiers,
       this.publicCallStack,
       this.publicDataUpdateRequests,
-      this.publicDataReads,
     );
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext),
-      reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ReadRequestContext),
+      RevertCode.fromBuffer(reader),
       reader.readArray(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect),
       reader.readArray(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
 
@@ -811,35 +598,31 @@ export class PublicAccumulatedNonRevertibleData {
 
   static empty() {
     return new this(
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
+      RevertCode.OK,
       makeTuple(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, SideEffect.empty),
       makeTuple(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 
   static fromPrivateAccumulatedNonRevertibleData(data: PrivateAccumulatedNonRevertibleData) {
     return new this(
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
-      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, ReadRequestContext.empty),
+      data.revertCode,
       data.newNoteHashes,
       data.newNullifiers,
       data.publicCallStack,
       makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_NON_REVERTIBLE_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 
   [inspect.custom]() {
     return `PublicAccumulatedNonRevertibleData {
+  revertCode: ${this.revertCode},
   newNoteHashes: [${this.newNoteHashes.map(h => h.toString()).join(', ')}],
   newNullifiers: [${this.newNullifiers.map(h => h.toString()).join(', ')}],
   publicCallStack: [${this.publicCallStack.map(h => h.toString()).join(', ')}],
   publicDataUpdateRequests: [${this.publicDataUpdateRequests.map(h => h.toString()).join(', ')}],
-  publicDataReads: [${this.publicDataReads.map(h => h.toString()).join(', ')}],
 }`;
   }
 }

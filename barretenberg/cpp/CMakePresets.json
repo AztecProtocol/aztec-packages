@@ -71,6 +71,15 @@
       }
     },
     {
+      "name": "clang16-assert",
+      "displayName": "Build with Clang-16 using RelWithAssert",
+      "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
+      "inherits": "clang16",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
       "name": "asan",
       "displayName": "Debugging build with address sanitizer on Clang-16",
       "description": "Build with address sanitizer on clang16 with debugging information",
@@ -360,6 +369,11 @@
       "configurePreset": "clang16-dbg-fast"
     },
     {
+      "name": "clang16-assert",
+      "inherits": "default",
+      "configurePreset": "clang16-assert"
+    },
+    {
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
@@ -442,14 +456,18 @@
       "configurePreset": "wasm-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": [
+        "barretenberg.wasm"
+      ]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": [
+        "barretenberg.wasm"
+      ]
     },
     {
       "name": "xray",

@@ -1,5 +1,5 @@
 use dep::types::abis::public_call_data::PublicCallData;
-use dep::types::abis::kernel_data::{PublicKernelData};
+use dep::types::abis::kernel_data::PublicKernelData;
 use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
@@ -23,7 +23,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
-        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
+        common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -34,7 +34,9 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
         // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
 
-        if public_inputs.reverted == false {
+        common::update_validation_requests(self.public_call, &mut public_inputs);
+
+        if public_inputs.end_non_revertible.revert_code == 0 {
             // Pops the item from the call stack and validates it against the current execution.
             let call_request = public_inputs.end.public_call_stack.pop();
             common::validate_call_against_request(self.public_call, call_request);
@@ -224,7 +226,7 @@ mod tests {
 
         // Setup 2 data reads on the previous kernel.
         builder.previous_kernel.append_public_data_read_requests(2);
-        let previous = builder.previous_kernel.end.public_data_reads.storage;
+        let previous = builder.previous_kernel.validation_requests.public_data_reads.storage;
         // Setup 2 data reads on the current public inputs.
         builder.public_call.append_public_data_read_requests(2);
         let current = builder.get_current_public_data_reads();
@@ -232,7 +234,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq_public_data_reads(
-            public_inputs.end.public_data_reads,
+            public_inputs.validation_requests.public_data_reads,
             public_data_read_requests
         );
     }
@@ -293,14 +295,14 @@ mod tests {
     fn circuit_outputs_should_be_correctly_populated_with_previous_public_kernel_logs() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         // Logs for the current call stack.
-        let unencrypted_logs_hash = [26, 47];
+        let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
         builder.public_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = [80, 429];
+        let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        let prev_unencrypted_logs_hash = [956, 112];
+        let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
         builder.previous_kernel.set_unencrypted_logs(
@@ -417,7 +419,10 @@ mod tests {
             public_inputs.end.public_data_update_requests,
             update_requests
         );
-        assert_eq_public_data_reads(public_inputs.end.public_data_reads, read_requests);
+        assert_eq_public_data_reads(
+            public_inputs.validation_requests.public_data_reads,
+            read_requests
+        );
     }
 
     #[test]
@@ -432,7 +437,7 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        let end_requests = public_inputs.end_non_revertible.nullifier_non_existent_read_requests;
+        let end_requests = public_inputs.validation_requests.nullifier_non_existent_read_requests;
         assert_eq(array_length(end_requests), 2);
 
         let request_context = end_requests[0];

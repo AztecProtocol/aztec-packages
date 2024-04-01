@@ -12,7 +12,7 @@ namespace bb {
 class perm_main_mem_c_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 5;
+    constexpr static size_t COLUMNS_PER_SET = 6;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -23,7 +23,7 @@ class perm_main_mem_c_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.avm_main_mem_op_c == 1 || in.avm_mem_m_op_c == 1);
+        return (in.avm_main_mem_op_c == 1 || in.avm_mem_op_c == 1);
     }
 
     /**
@@ -49,17 +49,19 @@ class perm_main_mem_c_permutation_settings {
         return std::forward_as_tuple(in.perm_main_mem_c,
                                      in.avm_main_mem_op_c,
                                      in.avm_main_mem_op_c,
-                                     in.avm_mem_m_op_c,
+                                     in.avm_mem_op_c,
                                      in.avm_main_clk,
                                      in.avm_main_mem_idx_c,
                                      in.avm_main_ic,
                                      in.avm_main_rwc,
-                                     in.avm_main_in_tag,
-                                     in.avm_mem_m_clk,
-                                     in.avm_mem_m_addr,
-                                     in.avm_mem_m_val,
-                                     in.avm_mem_m_rw,
-                                     in.avm_mem_m_in_tag);
+                                     in.avm_main_r_in_tag,
+                                     in.avm_main_w_in_tag,
+                                     in.avm_mem_clk,
+                                     in.avm_mem_addr,
+                                     in.avm_mem_val,
+                                     in.avm_mem_rw,
+                                     in.avm_mem_r_in_tag,
+                                     in.avm_mem_w_in_tag);
     }
 
     /**
@@ -85,17 +87,19 @@ class perm_main_mem_c_permutation_settings {
         return std::forward_as_tuple(in.perm_main_mem_c,
                                      in.avm_main_mem_op_c,
                                      in.avm_main_mem_op_c,
-                                     in.avm_mem_m_op_c,
+                                     in.avm_mem_op_c,
                                      in.avm_main_clk,
                                      in.avm_main_mem_idx_c,
                                      in.avm_main_ic,
                                      in.avm_main_rwc,
-                                     in.avm_main_in_tag,
-                                     in.avm_mem_m_clk,
-                                     in.avm_mem_m_addr,
-                                     in.avm_mem_m_val,
-                                     in.avm_mem_m_rw,
-                                     in.avm_mem_m_in_tag);
+                                     in.avm_main_r_in_tag,
+                                     in.avm_main_w_in_tag,
+                                     in.avm_mem_clk,
+                                     in.avm_mem_addr,
+                                     in.avm_mem_val,
+                                     in.avm_mem_rw,
+                                     in.avm_mem_r_in_tag,
+                                     in.avm_mem_w_in_tag);
     }
 };
 

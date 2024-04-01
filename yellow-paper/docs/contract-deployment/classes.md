@@ -76,7 +76,7 @@ unconstrained_functions_artifact_tree_root = merkleize(unconstrained_functions_a
 
 artifact_hash = sha256(
   private_functions_artifact_tree_root,
-  unconstrained_functions_artifact_tree_root, 
+  unconstrained_functions_artifact_tree_root,
   artifact_metadata_hash,
 )
 ```
@@ -130,13 +130,13 @@ function register(
   private_functions_root: Field,
   public_bytecode_commitment: Point,
   packed_public_bytecode: Field[],
-) 
+)
   version = 1
 
   assert is_valid_packed_public_bytecode(packed_public_bytecode)
   computed_bytecode_commitment = calculate_commitment(packed_public_bytecode)
   assert public_bytecode_commitment == computed_bytecode_commitment
-  
+
   contract_class_id = pedersen([version, artifact_hash, private_functions_root, computed_bytecode_commitment], GENERATOR__CLASS_IDENTIFIER)
 
   emit_nullifier contract_class_id
@@ -157,43 +157,7 @@ The `ContractClassRegisterer` will need to exist from the genesis of the Aztec N
 
 The `ContractClassRegisterer` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private functions and unconstrained in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
 
-Broadcasted contract artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
-
-```
-function broadcast_all_private_functions(
-  contract_class_id: Field,
-  artifact_metadata_hash: Field,
-  unconstrained_functions_artifact_tree_root: Field,
-  functions: { selector: Field, metadata_hash: Field, vk_hash: Field, bytecode: Field[] }[],
-)
-  emit_unencrypted_event ClassPrivateFunctionsBroadcasted(
-    contract_class_id,
-    artifact_metadata_hash,
-    unconstrained_functions_artifact_tree_root,
-    functions,
-  )
-```
-
-```
-function broadcast_all_unconstrained_functions(
-  contract_class_id: Field,
-  artifact_metadata_hash: Field,
-  private_functions_artifact_tree_root: Field,
-  functions:{ selector: Field, metadata_hash: Field, bytecode: Field[] }[],
-)
-  emit_unencrypted_event ClassUnconstrainedFunctionsBroadcasted(
-    contract_class_id,
-    artifact_metadata_hash,
-    unconstrained_functions_artifact_tree_root,
-    functions,
-  )
-```
-
-<!-- TODO: What representation of bytecode can we use here? -->
-
-The broadcast functions are split between private and unconstrained to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include unconstrained functions, which could be costly to do due to data broadcasting costs. Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
-
-The `ContractClassRegisterer` contract also allows broadcasting individual functions, in case not every function needs to be put on-chain. This requires providing a Merkle membership proof for the function within its tree, that nodes can validate.
+Broadcasted function artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
 
 ```
 function broadcast_private_function(
@@ -201,7 +165,9 @@ function broadcast_private_function(
   artifact_metadata_hash: Field,
   unconstrained_functions_artifact_tree_root: Field,
   private_function_tree_sibling_path: Field[],
+  private_function_tree_leaf_index: Field,
   artifact_function_tree_sibling_path: Field[],
+  artifact_function_tree_leaf_index: Field,
   function: { selector: Field, metadata_hash: Field, vk_hash: Field, bytecode: Field[] },
 )
   emit_unencrypted_event ClassPrivateFunctionBroadcasted(
@@ -209,7 +175,9 @@ function broadcast_private_function(
     artifact_metadata_hash,
     unconstrained_functions_artifact_tree_root,
     private_function_tree_sibling_path,
+    private_function_tree_leaf_index,
     artifact_function_tree_sibling_path,
+    artifact_function_tree_leaf_index,
     function,
   )
 ```
@@ -220,6 +188,7 @@ function broadcast_unconstrained_function(
   artifact_metadata_hash: Field,
   private_functions_artifact_tree_root: Field,
   artifact_function_tree_sibling_path: Field[],
+  artifact_function_tree_leaf_index: Field
   function: { selector: Field, metadata_hash: Field, bytecode: Field[] }[],
 )
   emit_unencrypted_event ClassUnconstrainedFunctionBroadcasted(
@@ -227,9 +196,14 @@ function broadcast_unconstrained_function(
     artifact_metadata_hash,
     private_functions_artifact_tree_root,
     artifact_function_tree_sibling_path,
+    artifact_function_tree_leaf_index,
     function,
   )
 ```
+
+<!-- TODO: What representation of bytecode can we use here? -->
+
+The broadcast functions are split between private and unconstrained to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include unconstrained functions, which could be costly to do due to data broadcasting costs. Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
 
 A node that captures a `ClassPrivateFunctionBroadcasted` should perform the following validation steps before storing the private function information in its database:
 
@@ -239,12 +213,12 @@ contract_class = db.get_contract_class(contract_class_id)
 
 // Compute function leaf and assert it belongs to the private functions tree
 function_leaf = pedersen([selector as Field, vk_hash], GENERATOR__FUNCTION_LEAF)
-computed_private_function_tree_root = compute_root(function_leaf, private_function_tree_sibling_path)
+computed_private_function_tree_root = compute_root(function_leaf, private_function_tree_sibling_path, private_function_tree_leaf_index)
 assert computed_private_function_tree_root == contract_class.private_function_root
 
 // Compute artifact leaf and assert it belongs to the artifact
 artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
-computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path)
+computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
 computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, unconstrained_functions_artifact_tree_root, artifact_metadata_hash)
 assert computed_artifact_hash == contract_class.artifact_hash
 ```
@@ -259,12 +233,29 @@ contract_class = db.get_contract_class(contract_class_id)
 
 // Compute artifact leaf and assert it belongs to the artifact
 artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
-computed_artifact_unconstrained_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path)
+computed_artifact_unconstrained_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
 computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_unconstrained_function_tree_root, artifact_metadata_hash)
 assert computed_artifact_hash == contract_class.artifact_hash
 ```
 
 It is strongly recommended for developers registering new classes to broadcast the code for `compute_hash_and_nullifier`, so any private message recipients have the code available to process their incoming notes. However, the `ContractClassRegisterer` contract does not enforce this during registration, since it is difficult to check the multiple signatures for `compute_hash_and_nullifier` as they may evolve over time to account for new note sizes.
+
+### Encoding Bytecode
+
+The `register`, `broadcast_unconstrained_function`, and `broadcast_private_function` functions all receive and emit variable-length bytecode in unencrypted events. In every function, bytecode is encoded in a fixed-length array of field elements, which sets a maximum length for each:
+
+- `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS`: 15000 field elements, used for a contract's public bytecode in the `register` function.
+- `MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS`: 3000 field elements, used for the ACIR and Brillig bytecode of a broadcasted private function in `broadcast_private_function`.
+- `MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS`: 3000 field elements, used for the Brillig bytecode of a broadcasted unconstrained function in `broadcast_unconstrained_function`.
+
+To encode the bytecode into a fixed-length array of Fields, the bytecode is first split into 31-byte chunks, and each chunk interpreted big-endian as a field element. The total length in bytes is then prepended as an initial element, and then right-padded with zeroes.
+
+```
+chunks = chunk bytecode into 31 bytes elements, last element right-padded with zeroes
+fields = right-align each chunk into 32 bytes and cast to a field element
+padding = repeat a zero-value field MAX_SIZE - fields.count - 1 times
+encoded = [bytecode.length as field, ...fields, ...padding]
+```
 
 ## Discarded Approaches
 

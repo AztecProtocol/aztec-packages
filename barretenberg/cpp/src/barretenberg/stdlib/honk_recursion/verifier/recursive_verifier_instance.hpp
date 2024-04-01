@@ -29,6 +29,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     RelationParameters<FF> relation_parameters;
     RelationSeparator alphas;
     bool is_accumulator = false;
+    std::vector<FF> public_inputs;
 
     // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
     std::vector<FF> gate_challenges;
@@ -48,13 +49,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         : verification_key(std::make_shared<VerificationKey>(instance->verification_key->circuit_size,
                                                              instance->verification_key->num_public_inputs))
         , is_accumulator(bool(instance->is_accumulator))
+        , public_inputs(std::vector<FF>(instance->verification_key->num_public_inputs))
     {
 
         verification_key->pub_inputs_offset = instance->verification_key->pub_inputs_offset;
         verification_key->pcs_verification_key = instance->verification_key->pcs_verification_key;
-        verification_key->public_inputs = std::vector<FF>(instance->verification_key->num_public_inputs);
-        for (auto [public_input, native_public_input] :
-             zip_view(verification_key->public_inputs, instance->verification_key->public_inputs)) {
+
+        for (auto [public_input, native_public_input] : zip_view(public_inputs, instance->public_inputs)) {
             public_input = FF::from_witness(builder, native_public_input);
         }
 
@@ -83,6 +84,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             challenge_idx++;
         }
         relation_parameters.eta = FF::from_witness(builder, instance->relation_parameters.eta);
+        relation_parameters.eta_two = FF::from_witness(builder, instance->relation_parameters.eta_two);
+        relation_parameters.eta_three = FF::from_witness(builder, instance->relation_parameters.eta_three);
         relation_parameters.beta = FF::from_witness(builder, instance->relation_parameters.beta);
         relation_parameters.gamma = FF::from_witness(builder, instance->relation_parameters.gamma);
         relation_parameters.public_input_delta =
@@ -110,9 +113,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         VerifierInstance inst(inst_verification_key);
         inst.is_accumulator = is_accumulator;
 
-        inst.verification_key->public_inputs = std::vector<NativeFF>(verification_key->num_public_inputs);
-        for (auto [public_input, inst_public_input] :
-             zip_view(verification_key->public_inputs, inst.verification_key->public_inputs)) {
+        inst.public_inputs = std::vector<NativeFF>(verification_key->num_public_inputs);
+        for (auto [public_input, inst_public_input] : zip_view(public_inputs, inst.public_inputs)) {
             inst_public_input = public_input.get_value();
         }
 
@@ -131,6 +133,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
         }
 
         inst.relation_parameters.eta = relation_parameters.eta.get_value();
+        inst.relation_parameters.eta_two = relation_parameters.eta_two.get_value();
+        inst.relation_parameters.eta_three = relation_parameters.eta_three.get_value();
         inst.relation_parameters.beta = relation_parameters.beta.get_value();
         inst.relation_parameters.gamma = relation_parameters.gamma.get_value();
         inst.relation_parameters.public_input_delta = relation_parameters.public_input_delta.get_value();

@@ -28,7 +28,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
         // since this phase is non-revertible, we must assert the public call did not revert
         common::validate_public_call_non_revert(self.public_call);
-        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
+        common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -43,9 +43,11 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
 
+        common::update_validation_requests(self.public_call, &mut public_inputs);
+
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
-        if public_inputs.reverted == false {
+        if public_inputs.end_non_revertible.revert_code == 0 {
             common::accumulate_unencrypted_logs(
                 self.public_call,
                 self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
@@ -106,12 +108,6 @@ mod tests {
             *self
         }
 
-        pub fn is_internal_call(&mut self) -> Self {
-            let _ = self.public_call.is_internal_call();
-            self.previous_kernel.contract_address = self.public_call.contract_address;
-            *self
-        }
-
         pub fn get_current_public_data_reads(self) -> [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_CALL] {
             let read_requests = self.public_call.public_inputs.contract_storage_reads.storage;
             compute_public_data_reads(self.public_call.contract_address, read_requests)
@@ -150,24 +146,6 @@ mod tests {
     fn no_bytecode_hash_should_fail() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.bytecode_hash = 0;
-
-        builder.failed();
-    }
-
-    #[test]
-    fn internal_call_succeeds() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_internal_call();
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with="msg_sender must be self for internal calls")]
-    fn invalid_is_internal() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_internal_call();
-
-        // Tweak the (storage) contract_address to be different to msg_sender.
-        let msg_sender = builder.public_call.public_inputs.call_context.msg_sender.to_field();
-        builder.public_call.contract_address = AztecAddress::from_field(msg_sender + 1);
-        builder.public_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }
@@ -365,14 +343,14 @@ mod tests {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
 
         // Logs for the current call stack.
-        let unencrypted_logs_hash = [26, 47];
+        let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
         builder.public_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = [80, 429];
+        let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        let prev_unencrypted_logs_hash = [956, 112];
+        let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
         builder.previous_kernel.set_unencrypted_logs(
@@ -396,7 +374,7 @@ mod tests {
     #[test(should_fail_with="Public call cannot be reverted")]
     fn fails_if_public_call_reverted() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-        builder.public_call.public_inputs.reverted = true;
+        builder.public_call.public_inputs.revert_code = 1;
 
         builder.failed();
     }

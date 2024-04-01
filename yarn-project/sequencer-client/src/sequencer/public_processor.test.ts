@@ -1,12 +1,15 @@
 import {
+  EncryptedTxL2Logs,
   FunctionCall,
-  FunctionL2Logs,
+  ProcessedTx,
   PublicDataWrite,
   SiblingPath,
   SimulationError,
   Tx,
-  TxL2Logs,
+  UnencryptedFunctionL2Logs,
+  UnencryptedTxL2Logs,
   mockTx,
+  toTxEffect,
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
@@ -29,6 +32,7 @@ import {
   PublicAccumulatedRevertibleData,
   PublicCallRequest,
   PublicKernelCircuitPublicInputs,
+  ValidationRequests,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
@@ -41,24 +45,20 @@ import {
 } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { arrayNonEmptyLength, padArrayEnd, times } from '@aztec/foundation/collection';
-import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/simulator';
+import { PublicExecution, PublicExecutionResult, PublicExecutor, WASMSimulator } from '@aztec/simulator';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { PublicProver } from '../prover/index.js';
-import { WASMSimulator } from '../simulator/acvm_wasm.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { ProcessedTx, toTxEffect } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicProver: MockProxy<PublicProver>;
   let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
   let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
 
@@ -70,15 +70,12 @@ describe('public_processor', () => {
   beforeEach(() => {
     db = mock<MerkleTreeOperations>();
     publicExecutor = mock<PublicExecutor>();
-    publicProver = mock<PublicProver>();
     publicContractsDB = mock<ContractsDataSourcePublicDB>();
     publicWorldStateDB = mock<WorldStatePublicDB>();
 
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
 
-    publicProver.getPublicCircuitProof.mockResolvedValue(proof);
-    publicProver.getPublicKernelCircuitProof.mockResolvedValue(proof);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
   });
 
@@ -91,7 +88,6 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         GlobalVariables.empty(),
         Header.empty(),
         publicContractsDB,
@@ -104,7 +100,7 @@ describe('public_processor', () => {
       const includeLogs = false;
       const tx = mockTx(seed, includeLogs);
       tx.data.end.publicCallStack = makeTuple(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty);
-      tx.data.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      tx.data.end.unencryptedLogsHash = Fr.ZERO;
       tx.data.endNonRevertibleData.publicCallStack = makeTuple(
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
@@ -123,13 +119,14 @@ describe('public_processor', () => {
         hash,
         data: new PublicKernelCircuitPublicInputs(
           tx.data.aggregationObject,
+          tx.data.rollupValidationRequests,
+          ValidationRequests.empty(),
           PublicAccumulatedNonRevertibleData.fromPrivateAccumulatedNonRevertibleData(tx.data.endNonRevertibleData),
           PublicAccumulatedRevertibleData.fromPrivateAccumulatedRevertibleData(tx.data.end),
           tx.data.constants,
           tx.data.needsSetup,
           tx.data.needsAppLogic,
           tx.data.needsTeardown,
-          false, // reverted
         ),
         proof: tx.proof,
         encryptedLogs: tx.encryptedLogs,
@@ -179,7 +176,6 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         GlobalVariables.empty(),
         Header.empty(),
         publicContractsDB,
@@ -209,9 +205,15 @@ describe('public_processor', () => {
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
-      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), publicCallRequests);
+      const tx = new Tx(
+        kernelOutput,
+        proof,
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
+        publicCallRequests,
+      );
 
       tx.data.needsSetup = false;
       tx.data.needsTeardown = false;
@@ -252,12 +254,12 @@ describe('public_processor', () => {
         MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
         CallRequest.empty,
       );
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       kernelOutput.needsSetup = false;
       kernelOutput.needsTeardown = false;
 
-      const tx = new Tx(kernelOutput, proof, TxL2Logs.empty(), TxL2Logs.empty(), [callRequest]);
+      const tx = new Tx(kernelOutput, proof, EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty(), [callRequest]);
 
       const publicExecutionResult = PublicExecutionResultBuilder.fromPublicCallRequest({
         request: callRequest,
@@ -296,7 +298,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -307,8 +309,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -412,7 +414,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -423,8 +425,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -516,7 +518,7 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
 
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
@@ -527,8 +529,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -620,7 +622,7 @@ describe('public_processor', () => {
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
 
-      kernelOutput.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.end.unencryptedLogsHash = Fr.ZERO;
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
         appLogicCalls: [callRequests[2]],
@@ -630,8 +632,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -817,7 +819,7 @@ class PublicExecutionResultBuilder {
       newNullifiers: [],
       newL2ToL1Messages: [],
       contractStorageReads: [],
-      unencryptedLogs: new FunctionL2Logs([]),
+      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
@@ -830,11 +832,7 @@ const makeFunctionCall = (
   to = makeAztecAddress(30),
   selector = makeSelector(5),
   args = new Array(ARGS_LENGTH).fill(Fr.ZERO),
-) => ({
-  to,
-  functionData: new FunctionData(selector, false, false, false),
-  args,
-});
+) => ({ to, functionData: new FunctionData(selector, false), args });
 
 function addKernelPublicCallStack(
   kernelOutput: PrivateKernelTailCircuitPublicInputs,

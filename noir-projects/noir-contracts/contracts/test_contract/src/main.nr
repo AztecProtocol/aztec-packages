@@ -1,8 +1,8 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
     use dep::aztec::prelude::{
-        AztecAddress, EthAddress, NoteHeader, NoteGetterOptions, NoteViewerOptions, PrivateContext,
-        PrivateImmutable, PrivateSet
+        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
+        PrivateContext, PrivateImmutable, PrivateSet
     };
 
     use dep::aztec::protocol_types::{
@@ -20,8 +20,11 @@ contract Test {
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
-        deploy::{deploy_contract as aztec_deploy_contract},
-        oracle::{get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address, rand::rand},
+        deploy::deploy_contract as aztec_deploy_contract,
+        oracle::{
+        get_public_key::get_public_key as get_public_key_oracle, context::get_portal_address,
+        unsafe_rand::unsafe_rand
+    },
         log::emit_unencrypted_log_from_private
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
@@ -62,6 +65,25 @@ contract Test {
     fn get_this_address() -> AztecAddress {
         context.this_address()
     }
+
+    #[aztec(private)]
+    fn request_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
+        // docs:start:request-max-block-number
+        context.request_max_block_number(max_block_number);
+        // docs:end:request-max-block-number
+
+        if enqueue_public_call {
+            let _ = context.call_public_function(
+                context.this_address(),
+                FunctionSelector::from_signature("dummy_public_call()"),
+                []
+            );
+        }
+    }
+
+    #[aztec(public)]
+    #[aztec(internal)]
+    fn dummy_public_call() {}
 
     #[aztec(private)]
     fn call_create_note(value: Field, owner: AztecAddress, storage_slot: Field) {
@@ -170,7 +192,7 @@ contract Test {
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
     ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut args: BoundedVec<Field, 17> = BoundedVec::new();
+        let mut args = BoundedVec::new();
         args.push(a_field);
         args.push(a_bool as Field);
         args.push(a_number as Field);
@@ -185,7 +207,7 @@ contract Test {
             args.push(note.amount);
             args.push(note.secret_hash);
         }
-        let args_hash = hash_args(args.storage);
+        let args_hash = hash_args(args);
         let mut context = PrivateContext::new(inputs, args_hash);
         context.return_values.push(args_hash);
         context.finish()
@@ -242,7 +264,7 @@ contract Test {
 
     // docs:start:is-time-equal
     #[aztec(public)]
-    fn is_time_equal(time: Field) -> Field {
+    fn is_time_equal(time: u64) -> u64 {
         assert(context.timestamp() == time);
         time
     }
@@ -257,13 +279,8 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(
-        to: AztecAddress,
-        amount: Field,
-        canceller: EthAddress,
-        secret: Field
-    ) {
-        let content_hash = get_mint_public_content_hash(to, amount, canceller);
+    fn consume_mint_public_message(to: AztecAddress, amount: Field, secret: Field) {
+        let content_hash = get_mint_public_content_hash(to, amount);
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
     }
@@ -272,11 +289,10 @@ contract Test {
     fn consume_mint_private_message(
         secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
-        canceller: EthAddress,
         secret_for_L1_to_L2_message_consumption: Field
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount, canceller);
+        let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
@@ -321,7 +337,7 @@ contract Test {
         chain_id: Field,
         version: Field,
         block_number: Field,
-        timestamp: Field,
+        timestamp: u64,
         coinbase: EthAddress,
         fee_recipient: AztecAddress
     ) {
@@ -353,7 +369,7 @@ contract Test {
     fn consume_note_from_secret(secret: Field) {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
-        let options = NoteGetterOptions::new().select(0, secret_hash, Option::none()).set_limit(1);
+        let options = NoteGetterOptions::new().select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         notes_set.remove(note);
@@ -365,8 +381,8 @@ contract Test {
     }
 
     // Purely exists for testing
-    unconstrained fn get_random(kindaSeed: Field) -> pub Field {
-        kindaSeed * rand()
+    unconstrained fn get_random(kinda_seed: Field) -> pub Field {
+        kinda_seed * unsafe_rand()
     }
 
     struct DummyNote {

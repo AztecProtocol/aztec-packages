@@ -60,7 +60,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "ECC_OP_WIRE_4", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_READ_COUNTS", frs_per_G);
-        manifest_expected.add_challenge(round, "eta");
+        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
 
         round++;
         manifest_expected.add_entry(round, "SORTED_ACCUM", frs_per_G);
@@ -73,7 +73,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_LOOKUP", frs_per_G);
 
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "Sumcheck:alpha_" + std::to_string(i);
+            std::string label = "alpha_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
         }
@@ -107,8 +107,7 @@ class GoblinUltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "ZM:x", "ZM:z");
 
         round++;
-        // TODO(Mara): Make testing more flavor agnostic so we can test this with all flavors
-        manifest_expected.add_entry(round, "ZM:PI", frs_per_G);
+        manifest_expected.add_entry(round, "KZG:W", frs_per_G);
         manifest_expected.add_challenge(round); // no challenge
 
         return manifest_expected;

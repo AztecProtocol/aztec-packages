@@ -27,8 +27,8 @@ DeciderVerifier_<Flavor>::DeciderVerifier_()
  */
 template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const HonkProof& proof)
 {
-    using Curve = typename Flavor::Curve;
-    using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using PCS = typename Flavor::PCS;
+    using ZeroMorph = ZeroMorphVerifier_<PCS>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
 
     transcript = std::make_shared<Transcript>(proof);
@@ -55,8 +55,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const Hon
                                             multivariate_challenge,
                                             transcript);
 
-    auto verified =
-        accumulator->verification_key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;
 }

@@ -13,7 +13,7 @@ import { PublicKey } from '../types/public_key.js';
 /**
  * Returns the deployment address for a given contract instance as defined on the [Yellow Paper](../../../../yellow-paper/docs/addresses-and-keys/specification.md).
  * ```
- * salted_initialization_hash = pedersen([salt, initialization_hash, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
+ * salted_initialization_hash = pedersen([salt, initialization_hash, deployer, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
  * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
  * address = pedersen([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDRESS_V1)
  * ```
@@ -35,7 +35,7 @@ export function computeContractAddressFromInstance(
  */
 export function computePartialAddress(
   instance:
-    | Pick<ContractInstance, 'contractClassId' | 'initializationHash' | 'salt' | 'portalContractAddress'>
+    | Pick<ContractInstance, 'contractClassId' | 'initializationHash' | 'salt' | 'portalContractAddress' | 'deployer'>
     | { contractClassId: Fr; saltedInitializationHash: Fr },
 ): Fr {
   const saltedInitializationHash =
@@ -43,10 +43,7 @@ export function computePartialAddress(
       ? instance.saltedInitializationHash
       : computeSaltedInitializationHash(instance);
 
-  return pedersenHash(
-    [instance.contractClassId, saltedInitializationHash].map(x => x.toBuffer()),
-    GeneratorIndex.PARTIAL_ADDRESS,
-  );
+  return pedersenHash([instance.contractClassId, saltedInitializationHash], GeneratorIndex.PARTIAL_ADDRESS);
 }
 
 /**
@@ -54,10 +51,10 @@ export function computePartialAddress(
  * @param instance - Contract instance for which to compute the salted initialization hash.
  */
 export function computeSaltedInitializationHash(
-  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'portalContractAddress'>,
+  instance: Pick<ContractInstance, 'initializationHash' | 'salt' | 'portalContractAddress' | 'deployer'>,
 ): Fr {
   return pedersenHash(
-    [instance.salt, instance.initializationHash, instance.portalContractAddress].map(x => x.toBuffer()),
+    [instance.salt, instance.initializationHash, instance.deployer, instance.portalContractAddress],
     GeneratorIndex.PARTIAL_ADDRESS,
   );
 }
@@ -71,10 +68,7 @@ export function computeContractAddressFromPartial(
   args: ({ publicKeyHash: Fr } | { publicKey: PublicKey }) & { partialAddress: Fr },
 ): AztecAddress {
   const publicKeyHash = 'publicKey' in args ? computePublicKeysHash(args.publicKey) : args.publicKeyHash;
-  const result = pedersenHash(
-    [publicKeyHash.toBuffer(), args.partialAddress.toBuffer()],
-    GeneratorIndex.CONTRACT_ADDRESS,
-  );
+  const result = pedersenHash([publicKeyHash, args.partialAddress], GeneratorIndex.CONTRACT_ADDRESS);
   return AztecAddress.fromField(result);
 }
 
@@ -87,7 +81,7 @@ export function computePublicKeysHash(publicKey: PublicKey | undefined): Fr {
   if (!publicKey) {
     return Fr.ZERO;
   }
-  return pedersenHash([publicKey.x.toBuffer(), publicKey.y.toBuffer()], GeneratorIndex.PARTIAL_ADDRESS);
+  return pedersenHash([publicKey.x, publicKey.y], GeneratorIndex.PARTIAL_ADDRESS);
 }
 
 /**
@@ -113,5 +107,5 @@ export function computeInitializationHash(initFn: FunctionAbi | undefined, args:
  */
 export function computeInitializationHashFromEncodedArgs(initFn: FunctionSelector, encodedArgs: Fr[]): Fr {
   const argsHash = computeVarArgsHash(encodedArgs);
-  return pedersenHash([initFn.toBuffer(), argsHash.toBuffer()], GeneratorIndex.CONSTRUCTOR);
+  return pedersenHash([initFn, argsHash], GeneratorIndex.CONSTRUCTOR);
 }

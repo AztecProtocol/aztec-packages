@@ -156,6 +156,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       '<artifact>',
       "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js",
     )
+    .option('--initializer <string>', 'The contract initializer function to call')
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)
     .option(
@@ -178,23 +179,29 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
-    .action(async (artifactPath, { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey }) => {
-      const { deploy } = await import('./cmds/deploy.js');
-      await deploy(
+    .action(
+      async (
         artifactPath,
-        json,
-        rpcUrl,
-        publicKey,
-        rawArgs,
-        portalAddress,
-        salt,
-        privateKey,
-        wait,
-        debugLogger,
-        log,
-        logJson,
-      );
-    });
+        { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey, initializer },
+      ) => {
+        const { deploy } = await import('./cmds/deploy.js');
+        await deploy(
+          artifactPath,
+          json,
+          rpcUrl,
+          publicKey,
+          rawArgs,
+          portalAddress,
+          salt,
+          privateKey,
+          initializer,
+          wait,
+          debugLogger,
+          log,
+          logJson,
+        );
+      },
+    );
 
   program
     .command('check-deploy')
@@ -224,6 +231,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--salt <salt>', 'Optional deployment salt', parseFieldFromHexString)
     .option('-p, --public-key <public key>', 'Optional public key for this contract', parsePublicKey)
     .option('--portal-address <address>', 'Optional address to a portal contract on L1', parseEthereumAddress)
+    .option('--deployer-address <address>', 'Optional address of the contract deployer', parseAztecAddress)
     .addOption(pxeOption)
     .action(async options => {
       const { addContract } = await import('./cmds/add_contract.js');
@@ -235,6 +243,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         options.salt ?? Fr.ZERO,
         options.publicKey,
         options.portalContract,
+        options.deployerAddress,
         debugLogger,
         log,
       );

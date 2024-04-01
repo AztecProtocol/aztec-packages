@@ -1,14 +1,12 @@
 use crate::address::{AztecAddress, EthAddress};
 use crate::mocked::VerificationKey;
 use crate::abis::function_selector::FunctionSelector;
-use crate::abis::function_leaf_preimage::FunctionLeafPreimage;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
-use crate::abis::function_data::FunctionData;
-use crate::abis::side_effect::{SideEffect};
-use crate::utils::uint256::U256;
+use crate::abis::side_effect::SideEffect;
+use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
-    ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, FUNCTION_TREE_HEIGHT, NUM_FIELDS_PER_SHA256,
+    ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH, FUNCTION_TREE_HEIGHT,
     GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__VK,
     GENERATOR_INDEX__CONSTRUCTOR, GENERATOR_INDEX__PARTIAL_ADDRESS, GENERATOR_INDEX__CONTRACT_ADDRESS,
     GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__FUNCTION_ARGS
@@ -20,25 +18,18 @@ use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
-
-    // Convert it to a field element
-    let mut v = 1;
-    let mut high = 0 as Field;
-    let mut low = 0 as Field;
-
-    for i in 0..16 {
-        high = high + (sha256_hashed[15 - i] as Field) * v;
-        low = low + (sha256_hashed[16 + 15 - i] as Field) * v;
-        v = v * 256;
-    }
-
-    // Abuse that a % p + b % p = (a + b) % p and that low < p
-    let hash_in_a_field = low + high * v;
+    let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
 }
 
-pub fn hash_args<N>(args: [Field; N]) -> Field {
+pub fn hash_args_array<N>(args: [Field; N]) -> Field {
+    let mut args_vec = BoundedVec::new();
+    args_vec.extend_from_array(args);
+    hash_args(args_vec)
+}
+
+pub fn hash_args(args: BoundedVec<Field, MAX_ARGS_LENGTH>) -> Field {
     if args.len() == 0 {
         0
     } else {
@@ -51,7 +42,7 @@ pub fn hash_args<N>(args: [Field; N]) -> Field {
                 for j in 0..ARGS_HASH_CHUNK_LENGTH {
                     let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
                     if item_index < args.len() {
-                        chunk_args[j] = args[item_index];
+                        chunk_args[j] = args.get_unchecked(item_index);
                     }
                 }
                 chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
@@ -60,30 +51,6 @@ pub fn hash_args<N>(args: [Field; N]) -> Field {
         }
         pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
     }
-}
-
-// Calculate the function tree root from the sibling path and leaf preimage.
-//
-// TODO: The cpp code passes in components of the FunctionLeafPreimage and then 
-// builds it up. We should build it up and then pass the leaf preimage as a parameter.
-// We can then choose to have a general method that takes in anything hashable
-// and deduplicate the logic in `contract_tree_root_from_siblings`
-pub fn function_tree_root_from_siblings(
-    selector: FunctionSelector,
-    is_internal: bool,
-    is_private: bool,
-    vk_hash: Field,
-    acir_hash: Field,
-    function_leaf_index: Field,
-    function_leaf_sibling_path: [Field; FUNCTION_TREE_HEIGHT]
-) -> Field {
-    let function_leaf_preimage = FunctionLeafPreimage { selector, is_internal, is_private, vk_hash, acir_hash };
-
-    let function_leaf = function_leaf_preimage.hash();
-
-    let function_tree_root = root_from_sibling_path(function_leaf, function_leaf_index, function_leaf_sibling_path);
-
-    function_tree_root
 }
 
 pub fn private_functions_root_from_siblings(
@@ -129,11 +96,6 @@ pub fn stdlib_recursion_verification_key_compress_native_vk(_vk: VerificationKey
     0
 }
 
-// TODO CPP uses blake2s for this
-pub fn compute_new_contract_address_hash(new_contract_address: AztecAddress) -> Field {
-    dep::std::hash::pedersen_hash([new_contract_address.to_field()])
-}
-
 pub fn compute_l2_to_l1_hash(
     contract_address: AztecAddress,
     rollup_version_id: Field,
@@ -156,35 +118,15 @@ pub fn compute_l2_to_l1_hash(
     sha256_to_field(bytes.storage)
 }
 
-pub fn compute_constructor_hash(
-    function_data: FunctionData,
-    args_hash: Field,
-    constructor_vk_hash: Field
-) -> Field {
-    let function_data_hash = function_data.hash();
-
-    pedersen_hash(
-        [
-        function_data_hash,
-        args_hash,
-        constructor_vk_hash
-    ],
-        GENERATOR_INDEX__CONSTRUCTOR
-    )
-}
-
-// Computes sha256 hash of 2 input hashes stored in 4 fields.
-// 
-// This method is bn254 specific. Two fields is needed in order to 
-// encode the sha256 output. It can be abstracted away with any 4-2 hash function.
+// Computes sha256 hash of 2 input hashes.
+//
+// NB: This method now takes in two 31 byte fields - it assumes that any input
+// is the result of a sha_to_field hash and => is truncated
 //
 // TODO(Jan and David): This is used for the encrypted_log hashes.
 // Can we check to see if we can just use hash_to_field or pedersen_compress here?
 //
-// Returning a Field would be desirable because then this can be replaced with 
-// poseidon without changing the rest of the code
-//
-pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
     // 4 Field elements when converted to bytes will usually 
@@ -193,31 +135,25 @@ pub fn accumulate_sha256(input: [U128; 4]) -> [Field; NUM_FIELDS_PER_SHA256] {
     // only occupies 128 bits.
     //
     // TODO(David): This does not seem to be getting guaranteed anywhere in the code?
-    //
-    // Concatenate 4 u128 bit integers into a byte array.
+
+    // Concatentate two fields into 32x2 = 64 bytes
+    // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
     let mut hash_input_flattened = [0; 64];
-    for offset in 0..4 {
-        let input_as_bytes = input[offset].to_be_bytes();
-        for byte_index in 0..16 {
-            hash_input_flattened[offset * 16 + byte_index] = input_as_bytes[byte_index];
+    for offset in 0..input.len() {
+        let input_as_bytes = input[offset].to_be_bytes(32);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
     }
 
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    sha256_to_field(hash_input_flattened)
 }
 
-pub fn compute_logs_hash(
-    previous_log_hash: [Field; 2],
-    current_log_hash: [Field; 2]
-) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn compute_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> Field {
     accumulate_sha256(
         [
-        U128::from_integer(previous_log_hash[0]),
-        U128::from_integer(previous_log_hash[1]),
-        U128::from_integer(current_log_hash[0]),
-        U128::from_integer(current_log_hash[1])
+        previous_log_hash,
+        current_log_hash
     ]
     )
 }
@@ -277,27 +213,35 @@ fn smoke_sha256_to_field() {
         140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159
     ];
     let result = sha256_to_field(full_buffer);
-    assert(result == 0x142a6d57007171f6eaa33d55976d9dbe739c889c8e920f115f7808dea184c718);
+
+    assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
+
+    // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
+    let result_bytes = sha256(full_buffer);
+    let truncated_field = crate::utils::field::field_from_bytes_32_trunc(result_bytes);
+    assert(truncated_field == result);
+    let mod_res = result + (result_bytes[31] as Field);
+    assert(mod_res == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184e0);
 }
 
 #[test]
 fn compute_var_args_hash() {
-    let mut input = [0; 800];
+    let mut input = BoundedVec::new();
     for i in 0..800 {
-        input[i] = i as Field;
+        input.push(i as Field);
     }
     let hash = hash_args(input);
-    assert(hash == 0x371960dd84ed3445ab099ac4c1af5ba90e0c713b593e0ca52ee532087c7f097);
+    assert(hash == 0x05a1023fef839ac88731f49ae983e172c1b600a3c8f3393ad0ac25d819ac0f0f);
 }
 
 #[test]
 fn compute_l2_l1_hash() {
     // All zeroes
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());
-    assert(hash_result == 0x2266ac2f9f0c19c015239ef5ea85862fc6fac00db73779b220a4d49c4856c2e1);
+    assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
 
     // Non-zero case
     let message = L2ToL1Message { recipient: EthAddress::from_field(3), content: 5 };
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(1), 2, 4, message);
-    assert(hash_result == 0x0f24729168d4450a5681beafa5e3a899ac28bd17bf5a4877dab37bcd834e1634);
+    assert(hash_result == 0x3f88c1044a05e5340ed20466276500f6d45ca5603913b9091e957161734e16);
 }

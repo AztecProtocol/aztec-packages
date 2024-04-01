@@ -11,23 +11,7 @@ pragma solidity >=0.8.18;
  */
 library Errors {
   // Inbox
-  error Inbox__DeadlineBeforeNow(); // 0xbf94a5dc
-  error Inbox__NotPastDeadline(); //0x3218ad9e
-  error Inbox__PastDeadline(); // 0x1eb114ea
-  error Inbox__InvalidVersion(uint256 entry, uint256 rollup); // 0x60be5dca
-  error Inbox__FeeTooHigh(); // 0x6f478f42
-  error Inbox__FailedToWithdrawFees(); // 0xbc66d464
   error Inbox__Unauthorized(); // 0xe5336a6b
-  error Inbox__NothingToConsume(bytes32 entryKey); // 0xdd7e995e
-  error Inbox__IncompatibleEntryArguments(
-    bytes32 entryKey,
-    uint64 storedFee,
-    uint64 feePassed,
-    uint32 storedVersion,
-    uint32 versionPassed,
-    uint32 storedDeadline,
-    uint32 deadlinePassed
-  ); // 0xd483d8f2
   error Inbox__ActorTooLarge(bytes32 actor); // 0xa776a06e
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
@@ -36,9 +20,9 @@ library Errors {
   error Outbox__Unauthorized(); // 0x2c9490c2
   error Outbox__InvalidChainId(); // 0x577ec7c4
   error Outbox__InvalidVersion(uint256 entry, uint256 message); // 0x7915cac3
-  error Outbox__NothingToConsume(bytes32 entryKey); // 0xfb4fb506
+  error Outbox__NothingToConsume(bytes32 messageHash); // 0xfb4fb506
   error Outbox__IncompatibleEntryArguments(
-    bytes32 entryKey,
+    bytes32 messageHash,
     uint64 storedFee,
     uint64 feePassed,
     uint32 storedVersion,
@@ -46,6 +30,12 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0x5e789f34
+  error Outbox__InvalidPathLength(uint256 expected, uint256 actual); // 0x481bcd9c
+  error Outbox__InsertingInvalidRoot(); // 0x73c2daca
+  error Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber); // 0x3eccfd3e
+  error Outbox__InvalidRecipient(address expected, address actual); // 0x57aad581
+  error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex); // 0xfd71c2d4
+  error Outbox__NothingToConsumeAtBlock(uint256 l2BlockNumber); // 0xa4508f22
 
   // Rollup
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
@@ -63,4 +53,7 @@ library Errors {
 
   // HeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
+
+  // MerkleLib
+  error MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex); // 0x5f216bf1
 }

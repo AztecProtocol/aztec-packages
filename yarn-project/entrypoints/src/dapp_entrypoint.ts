@@ -1,5 +1,6 @@
 import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
-import { AuthWitnessProvider, EntrypointInterface } from '@aztec/aztec.js/account';
+import { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { EntrypointInterface } from '@aztec/aztec.js/entrypoint';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
@@ -32,9 +33,14 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
     const functionData = FunctionData.fromAbi(abi);
 
     const innerHash = computeInnerAuthWitHash([Fr.ZERO, functionData.selector.toField(), entrypointPackedArgs.hash]);
-    const outerHash = computeOuterAuthWitHash(this.dappEntrypointAddress, innerHash);
+    const outerHash = computeOuterAuthWitHash(
+      this.dappEntrypointAddress,
+      new Fr(this.chainId),
+      new Fr(this.version),
+      innerHash,
+    );
 
-    const authWitness = await this.userAuthWitnessProvider.createAuthWitness(outerHash);
+    const authWitness = await this.userAuthWitnessProvider.createAuthWit(outerHash);
 
     const txRequest = TxExecutionRequest.from({
       argsHash: entrypointPackedArgs.hash,

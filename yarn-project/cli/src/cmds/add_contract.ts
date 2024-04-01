@@ -20,6 +20,7 @@ export async function addContract(
   salt: Fr,
   publicKey: Point | undefined,
   portalContract: EthAddress | undefined,
+  deployer: AztecAddress | undefined,
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
@@ -32,6 +33,7 @@ export async function addContract(
     portalContractAddress: portalContract ?? EthAddress.ZERO,
     publicKeysHash: computePublicKeysHash(publicKey),
     address,
+    deployer: deployer ?? AztecAddress.ZERO,
   };
   const computed = computeContractAddressFromInstance(instance);
   if (!computed.equals(address)) {
@@ -40,6 +42,6 @@ export async function addContract(
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-  await client.addContracts([{ artifact, instance }]);
+  await client.registerContract({ artifact, instance });
   log(`\nContract added to PXE at ${address.toString()} with class ${instance.contractClassId.toString()}\n`);
 }

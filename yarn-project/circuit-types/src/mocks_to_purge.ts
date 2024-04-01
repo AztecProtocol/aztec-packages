@@ -25,10 +25,12 @@ import {
   PrivateAccumulatedRevertibleData,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
+  RevertCode,
   SideEffect,
   SideEffectLinkedToNoteHash,
   TxContext,
 } from '@aztec/circuits.js';
+import { makeRollupValidationRequests } from '@aztec/circuits.js/testing';
 import { makeHalfFullTuple, makeTuple, range } from '@aztec/foundation/array';
 
 import { makeHeader } from './l2_block_code_to_purge.js';
@@ -41,6 +43,7 @@ import { makeHeader } from './l2_block_code_to_purge.js';
 export function makePrivateKernelTailCircuitPublicInputs(seed = 1, full = true): PrivateKernelTailCircuitPublicInputs {
   return new PrivateKernelTailCircuitPublicInputs(
     makeAggregationObject(seed),
+    makeRollupValidationRequests(seed),
     makeAccumulatedNonRevertibleData(seed + 0x100, full),
     makeFinalAccumulatedData(seed + 0x200, full),
     makeConstantData(seed + 0x300),
@@ -82,6 +85,7 @@ export function makeAccumulatedNonRevertibleData(seed = 1, full = false): Privat
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PrivateAccumulatedNonRevertibleData(
+    RevertCode.OK,
     tupleGenerator(MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x101),
     tupleGenerator(MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x201),
     tupleGenerator(MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x501),
@@ -142,8 +146,8 @@ export function makeFinalAccumulatedData(seed = 1, full = false): PrivateAccumul
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400),
     tupleGenerator(MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
-    tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
-    tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x700), // encrypted logs hash
+    fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
   );
@@ -204,7 +208,7 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
   });
   return new PublicCallRequest(
     makeAztecAddress(seed),
-    new FunctionData(makeSelector(seed + 0x1), false, false, false),
+    new FunctionData(makeSelector(seed + 0x1), false),
     childCallContext,
     parentCallContext,
     makeTuple(ARGS_LENGTH, fr, seed + 0x10),

@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { L1ContractAddresses, NULL_KEY } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -40,11 +40,15 @@ export function getConfigEnvVars(): SequencerClientConfig {
     SEQ_TX_POLLING_INTERVAL_MS,
     SEQ_MAX_TX_PER_BLOCK,
     SEQ_MIN_TX_PER_BLOCK,
+    SEQ_FPC_CLASSES,
+    SEQ_FPC_INSTANCES,
     AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
     ROLLUP_CONTRACT_ADDRESS,
     REGISTRY_CONTRACT_ADDRESS,
     INBOX_CONTRACT_ADDRESS,
     OUTBOX_CONTRACT_ADDRESS,
+    GAS_TOKEN_CONTRACT_ADDRESS,
+    GAS_PORTAL_CONTRACT_ADDRESS,
     COINBASE,
     FEE_RECIPIENT,
     ACVM_WORKING_DIRECTORY,
@@ -63,6 +67,10 @@ export function getConfigEnvVars(): SequencerClientConfig {
     registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    gasPortalAddress: GAS_PORTAL_CONTRACT_ADDRESS
+      ? EthAddress.fromString(GAS_PORTAL_CONTRACT_ADDRESS)
+      : EthAddress.ZERO,
   };
 
   return {
@@ -82,5 +90,9 @@ export function getConfigEnvVars(): SequencerClientConfig {
     feeRecipient: FEE_RECIPIENT ? AztecAddress.fromString(FEE_RECIPIENT) : undefined,
     acvmWorkingDirectory: ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : undefined,
     acvmBinaryPath: ACVM_BINARY_PATH ? ACVM_BINARY_PATH : undefined,
+    allowedFeePaymentContractClasses: SEQ_FPC_CLASSES ? SEQ_FPC_CLASSES.split(',').map(Fr.fromString) : [],
+    allowedFeePaymentContractInstances: SEQ_FPC_INSTANCES
+      ? SEQ_FPC_INSTANCES.split(',').map(AztecAddress.fromString)
+      : [],
   };
 }
