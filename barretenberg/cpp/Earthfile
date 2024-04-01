@@ -85,12 +85,17 @@ source:
 preset-release:
     FROM +source
     RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
-    SAVE ARTIFACT bin
+    SAVE ARTIFACT build/bin
+
+preset-release-assert:
+    FROM +source
+    RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
+    SAVE ARTIFACT build/bin
 
 preset-debug:
     FROM +source
     RUN cmake --preset clang16-dbg -Bbuild && cmake --build build --target bb
-    SAVE ARTIFACT bin
+    SAVE ARTIFACT build/bin
 
 preset-wasm:
     ARG TARGETARCH
@@ -98,7 +103,7 @@ preset-wasm:
     IF [ $TARGETARCH = arm64 ]
         # Just use threads for now
         FROM +preset-wasm-threads
-        SAVE ARTIFACT bin
+        SAVE ARTIFACT build/bin
     ELSE
         COPY +get-wasi-sdk/wasi-sdk src/wasi-sdk
         RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm
