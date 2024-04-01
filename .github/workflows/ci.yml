@@ -155,10 +155,15 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
+      - name: Build and Push Binaries
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud build ${{ matrix.environment }} --push +test-base
+
+      # Use test_mode=cache to read the pushed build above
       - name: Test
         working-directory: ./barretenberg/cpp/
         run: |
-          earthly-cloud build ${{ matrix.environment }} --no-output +test
+          earthly-cloud test ${{ matrix.environment }} --no-output +test --test_mode=cache
 
   # All benchmarks, purposefully ran sequential on a machine
   # they should use parallelism within the benchmark, but only one thing should run at a time
@@ -190,7 +195,7 @@ jobs:
 
       - name: Build and Push Binaries
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud build x86 --push +bench-binaries
+        run: earthly-cloud build x86 --push +bench-base
 
       # Use bench_mode=cache to read the pushed build above
       - name: Client IVC Bench
