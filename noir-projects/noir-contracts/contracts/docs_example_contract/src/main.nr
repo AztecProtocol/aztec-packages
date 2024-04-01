@@ -18,7 +18,13 @@ contract DocsExample {
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
         PrivateSet, SharedImmutable
     };
-    use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
+    use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
+
+    use dep::aztec::{
+        note::note_getter_options::Comparator,
+        context::{PublicContext, Context},
+        state_vars::{FixedArray, PublicDynamicArray, PrivateDynamicArray},
+        log::emit_unencrypted_log};
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
@@ -48,6 +54,9 @@ contract DocsExample {
         // docs:start:storage-public-immutable-declaration
         public_immutable: PublicImmutable<Leader>,
         // docs:end:storage-public-immutable-declaration
+        fixed_array_test: FixedArray<PublicMutable<u64>, 10>,
+        dynamic_array_test_pub: PublicDynamicArray<PublicMutable<u64>>,
+        dynamic_array_test_priv: PrivateDynamicArray<PrivateMutable<CardNote>>,
     }
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
@@ -88,7 +97,28 @@ contract DocsExample {
                 ),
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable
-                public_immutable: PublicImmutable::new(context, 9)// docs:end:storage-public-immutable
+                public_immutable: PublicImmutable::new(context, 9), // docs:end:storage-public-immutable
+                fixed_array_test: FixedArray::new(
+                    context,
+                    10,
+                    |context, slot| {
+                        PublicMutable::new(context, slot)
+                    }
+                ),
+                dynamic_array_test_pub: PublicDynamicArray::new(
+                    context,
+                    11,
+                    |context, slot| {
+                        PublicMutable::new(context, slot)
+                    }
+                ),
+                dynamic_array_test_priv: PrivateDynamicArray::new(
+                    context,
+                    12,
+                    |context, slot| {
+                        PrivateMutable::new(context, slot)
+                    }
+                ),
             }
         }
     }
@@ -247,6 +277,86 @@ contract DocsExample {
 
     unconstrained fn is_priv_imm_initialized() -> pub bool {
         storage.private_immutable.is_initialized()
+    }
+
+    #[aztec(public)]
+    fn test_fixed_array() {
+        for i in 0..10 {
+            let mut inner = storage.fixed_array_test.at_index(i);
+            inner.write(i);
+        }
+    }
+
+    #[aztec(public)]
+    fn test_fixed_array_2() {
+        let mut inner = storage.fixed_array_test.at_index(6);
+        inner.write(9);
+
+        for i in 0..10 {
+            let mut inner = storage.fixed_array_test.at_index(i);
+            let num = inner.read();
+            emit_unencrypted_log(&mut context, num);
+        }
+    }
+
+    #[aztec(public)]
+    fn test_dynamic_array() {
+        storage.dynamic_array_test_pub.push().write(69);
+
+        let pop_response = storage.dynamic_array_test_pub.pop().read();
+
+        emit_unencrypted_log(&mut context, pop_response);
+        emit_unencrypted_log(&mut context, storage.dynamic_array_test_pub.length());
+    }
+    
+    #[aztec(public)]
+    fn test_dynamic_array_2() {
+        let mut inner = storage.dynamic_array_test_pub.push();
+        inner.write(420);
+    }
+
+    unconstrained fn test_dynamic_array_3() -> pub u64 {
+        let mut test = storage.dynamic_array_test_pub.at_index(0).read();
+
+        test
+    }
+
+    unconstrained fn test_dynamic_array_4() -> pub Field {
+        let length = storage.dynamic_array_test_pub.length();
+
+        length
+    }
+
+    #[aztec(private)]
+    fn test_dynamic_array_priv() {
+        let mut inner = storage.dynamic_array_test_priv.push();
+
+        let mut meme_card = CardNote::new(69, 420, context.msg_sender());
+        inner.initialize(&mut meme_card, true);
+    }
+
+    unconstrained fn test_dynamic_array_priv_view() -> pub CardNote {
+        let pop_response = storage.dynamic_array_test_priv.pop().view_note();
+
+        pop_response
+    }
+    
+    #[aztec(public)]
+    fn test_dynamic_array_priv_2() {
+        let mut inner = storage.dynamic_array_test_pub.push();
+        inner.write(420);
+    }
+
+    unconstrained fn test_dynamic_array_priv_3() -> pub u64 {
+        let mut test = storage.dynamic_array_test_pub.at_index(0).read();
+
+        test
+    }
+
+    unconstrained fn test_dynamic_array_priv_4() -> pub Field {
+        let length = storage.dynamic_array_test_pub.length();
+
+        length
     }
 
     /// Macro equivalence section

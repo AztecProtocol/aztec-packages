@@ -10,5 +10,6 @@ mod messaging;
 mod note;
 mod oracle;
 mod state_vars;
+mod state_vars_helpers;
 mod prelude;
 use dep::protocol_types;
