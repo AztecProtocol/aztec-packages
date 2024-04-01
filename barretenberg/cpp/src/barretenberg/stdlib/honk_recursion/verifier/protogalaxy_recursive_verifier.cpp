@@ -47,6 +47,10 @@ void ProtoGalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
             transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata);
         witness_commitments.calldata_read_counts =
             transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata_read_counts);
+        witness_commitments.return_data =
+            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.return_data);
+        witness_commitments.return_data_read_counts = transcript->template receive_from_prover<Commitment>(
+            domain_separator + "_" + labels.return_data_read_counts);
     }
 
     // Get challenge for sorted list batching and wire four memory records commitment
