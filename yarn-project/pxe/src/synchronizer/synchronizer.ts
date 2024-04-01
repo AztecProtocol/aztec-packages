@@ -1,19 +1,12 @@
-import {
-  type AztecNode,
-  type KeyStore,
-  L2BlockContext,
-  L2BlockL2Logs,
-  MerkleTreeId,
-  TxHash,
-} from '@aztec/circuit-types';
-import { type NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
+import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, MerkleTreeId, TxHash } from '@aztec/circuit-types';
+import { NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
+import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, PublicKey } from '@aztec/circuits.js';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
-import { type PxeDatabase } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from '../note_processor/index.js';
 

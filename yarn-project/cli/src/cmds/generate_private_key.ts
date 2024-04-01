@@ -1,5 +1,5 @@
 import { GrumpkinScalar, generatePublicKey } from '@aztec/aztec.js';
-import { type LogFn } from '@aztec/foundation/log';
+import { LogFn } from '@aztec/foundation/log';
 
 import { mnemonicToAccount } from 'viem/accounts';
 

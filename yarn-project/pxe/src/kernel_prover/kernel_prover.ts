@@ -26,11 +26,11 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { assertLength, mapTuple } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
-import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
+import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
 import { HintsBuilder } from './hints_builder.js';
-import { KernelProofCreator, type ProofCreator, type ProofOutput, type ProofOutputFinal } from './proof_creator.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
+import { ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
  * Represents an output note data object.

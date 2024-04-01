@@ -1,8 +1,8 @@
 import { AztecAddress, Fr } from '@aztec/aztec.js';
-import { CompleteAddress, type PXE } from '@aztec/circuit-types';
+import { CompleteAddress, PXE } from '@aztec/circuit-types';
 
 import { InvalidArgumentError } from 'commander';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 
 import { encodeArgs } from '../encoding.js';
 import { parseFieldFromHexString } from '../parse_args.js';

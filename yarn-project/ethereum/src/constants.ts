@@ -1,3 +1,3 @@
-import { type Hex } from 'viem';
+import { Hex } from 'viem';
 
 export const NULL_KEY: Hex = `0x${'0000000000000000000000000000000000000000000000000000000000000000'}`;

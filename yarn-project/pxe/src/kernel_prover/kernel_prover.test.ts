@@ -22,13 +22,13 @@ import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
+import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 
-import { KernelProver, type OutputNoteData } from './kernel_prover.js';
-import { type ProofCreator } from './proof_creator.js';
-import { type ProvingDataOracle } from './proving_data_oracle.js';
+import { KernelProver, OutputNoteData } from './kernel_prover.js';
+import { ProofCreator } from './proof_creator.js';
+import { ProvingDataOracle } from './proving_data_oracle.js';
 
 describe('Kernel Prover', () => {
   let txRequest: TxRequest;

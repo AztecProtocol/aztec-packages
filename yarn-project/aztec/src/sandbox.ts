@@ -1,13 +1,13 @@
 #!/usr/bin/env -S node --no-warnings
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, BatchCall, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecAddress, BatchCall, SignerlessWallet, Wallet } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { type AztecNode } from '@aztec/circuit-types';
+import { AztecNode } from '@aztec/circuit-types';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
 import {
-  type DeployL1Contracts,
-  type L1ContractAddresses,
-  type L1ContractArtifactsForDeployment,
+  DeployL1Contracts,
+  L1ContractAddresses,
+  L1ContractArtifactsForDeployment,
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
@@ -31,15 +31,9 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
-import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
-import {
-  type HDAccount,
-  type PrivateKeyAccount,
-  createPublicClient,
-  getContract,
-  http as httpViemTransport,
-} from 'viem';
+import { HDAccount, PrivateKeyAccount, createPublicClient, getContract, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 

@@ -1,8 +1,8 @@
 import {
   MerkleTreeId,
   PROVING_STATUS,
-  type ProcessedTx,
-  type ProvingSuccess,
+  ProcessedTx,
+  ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
   mockTx,
@@ -48,14 +48,14 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { WASMSimulator } from '@aztec/simulator';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 
 import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { type RollupProver } from '../prover/index.js';
-import { type RollupSimulator } from '../simulator/rollup.js';
+import { RollupProver } from '../prover/index.js';
+import { RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;

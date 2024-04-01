@@ -1,7 +1,7 @@
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type NullifierNonExistentReadRequestHints } from '../non_existent_read_request_hints.js';
-import { type NullifierReadRequestHints } from '../read_request_hints.js';
+import { NullifierNonExistentReadRequestHints } from '../non_existent_read_request_hints.js';
+import { NullifierReadRequestHints } from '../read_request_hints.js';
 import { PublicKernelData } from './public_kernel_data.js';
 
 /**

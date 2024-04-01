@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
-import { type PrivateFunction } from '@aztec/types/contracts';
+import { PrivateFunction } from '@aztec/types/contracts';
 
 import { fr, makeSelector } from '../tests/factories.js';
 import { computePrivateFunctionsRoot, computePrivateFunctionsTree } from './private_function.js';

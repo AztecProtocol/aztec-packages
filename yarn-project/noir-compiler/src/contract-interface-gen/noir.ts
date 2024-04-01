@@ -1,11 +1,11 @@
 import {
-  type ABIParameter,
-  type ABIVariable,
-  type ContractArtifact,
-  type FunctionArtifact,
+  ABIParameter,
+  ABIVariable,
+  ContractArtifact,
+  FunctionArtifact,
   FunctionSelector,
   FunctionType,
-  type StructType,
+  StructType,
 } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 

@@ -1,6 +1,6 @@
-import { type Chain } from 'viem';
+import { Chain } from 'viem';
 
-import { type EthereumChain } from './ethereum_chain.js';
+import { EthereumChain } from './ethereum_chain.js';
 
 const { DEPLOY_TAG = 'aztec-dev', CHAIN_ID = 31337 } = process.env;
 

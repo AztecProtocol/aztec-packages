@@ -1,20 +1,20 @@
-import { type FunctionCall, type PublicKey, Tx, TxExecutionRequest } from '@aztec/circuit-types';
+import { FunctionCall, PublicKey, Tx, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
+import { ContractArtifact, FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { type Wallet } from '../account/index.js';
+import { Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
+import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 import { type Contract } from './contract.js';
 import { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';

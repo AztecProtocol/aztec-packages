@@ -1,6 +1,6 @@
 import { randomBytes } from '@aztec/foundation/crypto';
-import { type FromBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { FromBuffer } from '@aztec/foundation/serialize';
+import { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { Pedersen, StandardTree, newTree } from '../index.js';

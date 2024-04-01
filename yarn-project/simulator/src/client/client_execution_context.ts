@@ -1,6 +1,6 @@
 import {
   AuthWitness,
-  type AztecNode,
+  AztecNode,
   EncryptedFunctionL2Logs,
   EncryptedL2Log,
   L1NotePayload,
@@ -22,16 +22,16 @@ import {
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
-import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { type NoteData, toACVMWitness } from '../acvm/index.js';
+import { NoteData, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
-import { type DBOracle } from './db_oracle.js';
+import { DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { type ExecutionResult, type NoteAndSlot } from './execution_result.js';
+import { ExecutionResult, NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';

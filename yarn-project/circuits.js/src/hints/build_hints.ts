@@ -1,7 +1,7 @@
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { Tuple } from '@aztec/foundation/serialize';
+import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import {
   MAX_NEW_NULLIFIERS_PER_TX,

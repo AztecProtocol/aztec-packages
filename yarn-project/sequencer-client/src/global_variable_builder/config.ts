@@ -1,4 +1,4 @@
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { L1ContractAddresses } from '@aztec/ethereum';
 
 /**
  * Configuration of the L1GlobalReader.

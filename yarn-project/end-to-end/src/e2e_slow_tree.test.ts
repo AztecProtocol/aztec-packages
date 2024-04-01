@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { CheatCodes, type DebugLogger, Fr, type Wallet } from '@aztec/aztec.js';
+import { CheatCodes, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
 import { SlowTreeContract } from '@aztec/noir-contracts.js/SlowTree';

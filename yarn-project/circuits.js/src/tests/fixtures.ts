@@ -1,6 +1,6 @@
-import { type ContractArtifact } from '@aztec/foundation/abi';
+import { ContractArtifact } from '@aztec/foundation/abi';
 import { loadContractArtifact } from '@aztec/types/abi';
-import { type NoirCompiledContract } from '@aztec/types/noir';
+import { NoirCompiledContract } from '@aztec/types/noir';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';

@@ -1,7 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 
 import { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';

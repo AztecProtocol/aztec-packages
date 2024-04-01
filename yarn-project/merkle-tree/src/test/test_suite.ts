@@ -1,11 +1,11 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type Hasher } from '@aztec/types/interfaces';
+import { Hasher } from '@aztec/types/interfaces';
 
 import { Pedersen } from '../index.js';
-import { type AppendOnlyTree } from '../interfaces/append_only_tree.js';
-import { type UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import { AppendOnlyTree } from '../interfaces/append_only_tree.js';
+import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { appendLeaves } from './utils/append_leaves.js';
 
 const expectSameTrees = async (

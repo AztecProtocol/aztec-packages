@@ -1,4 +1,4 @@
-import { type BlockProver } from './block-prover.js';
+import { BlockProver } from './block-prover.js';
 
 /**
  * The interface to the prover client.

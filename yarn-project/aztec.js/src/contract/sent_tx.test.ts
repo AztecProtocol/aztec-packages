@@ -1,6 +1,6 @@
-import { type PXE, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { PXE, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 
 import { SentTx } from './sent_tx.js';
 

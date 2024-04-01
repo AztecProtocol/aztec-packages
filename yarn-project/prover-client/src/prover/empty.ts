@@ -14,7 +14,7 @@ import {
   RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
-import { type PublicProver, type RollupProver } from './index.js';
+import { PublicProver, RollupProver } from './index.js';
 
 const EMPTY_PROOF_SIZE = 42;
 

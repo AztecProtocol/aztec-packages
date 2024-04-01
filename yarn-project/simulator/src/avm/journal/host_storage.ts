@@ -1,4 +1,4 @@
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '../../public/db.js';
+import { CommitmentsDB, PublicContractsDB, PublicStateDB } from '../../public/db.js';
 
 /**
  * Host storage

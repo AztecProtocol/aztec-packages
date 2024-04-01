@@ -2,7 +2,7 @@ import { NullifierMembershipWitness } from '@aztec/circuit-types';
 import { EthAddress, FunctionSelector, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { MessageLoadOracleInputs } from '../acvm/index.js';
 

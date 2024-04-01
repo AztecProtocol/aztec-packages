@@ -3,7 +3,7 @@ import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
-import { type GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
+import { GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
 
 /**
  *  Derives the public key of a secret key.

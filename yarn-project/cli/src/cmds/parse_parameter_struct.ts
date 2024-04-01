@@ -1,6 +1,6 @@
-import { type StructType } from '@aztec/foundation/abi';
+import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
-import { type LogFn } from '@aztec/foundation/log';
+import { LogFn } from '@aztec/foundation/log';
 
 import { parseStructString } from '../encoding.js';
 import { getContractArtifact } from '../utils.js';

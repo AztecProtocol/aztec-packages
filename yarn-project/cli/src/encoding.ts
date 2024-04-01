@@ -1,4 +1,4 @@
-import { type ABIParameter, type ABIType, type StructType } from '@aztec/foundation/abi';
+import { ABIParameter, ABIType, StructType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 /**

@@ -1,7 +1,7 @@
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractArtifact } from '@aztec/foundation/abi';
+import { ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { type Wallet } from '../wallet/index.js';
+import { Wallet } from '../wallet/index.js';
 import { ContractBase } from './contract_base.js';
 
 /** Unsafe constructor for ContractBase that bypasses the check that the instance is registered in the wallet. */

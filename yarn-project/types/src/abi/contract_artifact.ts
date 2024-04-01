@@ -1,9 +1,9 @@
 import {
-  type ABIParameter,
+  ABIParameter,
   ABIParameterVisibility,
-  type ABIType,
-  type ContractArtifact,
-  type FunctionArtifact,
+  ABIType,
+  ContractArtifact,
+  FunctionArtifact,
   FunctionType,
 } from '@aztec/foundation/abi';
 
@@ -13,7 +13,7 @@ import {
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
   AZTEC_PUBLIC_VM_ATTRIBUTE,
-  type NoirCompiledContract,
+  NoirCompiledContract,
 } from '../noir/index.js';
 import { mockVerificationKey } from './mocked_keys.js';
 

@@ -1,8 +1,8 @@
 import {
   AccountWallet,
   AztecAddress,
-  type AztecNode,
-  type DebugLogger,
+  AztecNode,
+  DebugLogger,
   EthAddress,
   Fr,
   L1Actor,

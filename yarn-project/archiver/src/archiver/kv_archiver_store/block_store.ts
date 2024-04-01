@@ -1,9 +1,9 @@
 import { L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
+import { AztecKVStore, AztecMap, AztecSingleton, Range } from '@aztec/kv-store';
 
-import { type DataRetrieval } from '../data_retrieval.js';
+import { DataRetrieval } from '../data_retrieval.js';
 import { BlockBodyStore } from './block_body_store.js';
 
 type BlockIndexValue = [blockNumber: number, index: number];

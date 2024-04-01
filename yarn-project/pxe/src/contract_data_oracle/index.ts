@@ -1,17 +1,17 @@
 import { AztecAddress, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
 import {
-  type ContractArtifact,
-  type FunctionArtifact,
-  type FunctionDebugMetadata,
+  ContractArtifact,
+  FunctionArtifact,
+  FunctionDebugMetadata,
   FunctionSelector,
   getFunctionDebugMetadata,
 } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractClassNotFoundError, ContractNotFoundError } from '@aztec/simulator';
-import { type ContractClass, type ContractInstance } from '@aztec/types/contracts';
+import { ContractClass, ContractInstance } from '@aztec/types/contracts';
 
-import { type ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
-import { type ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
+import { ContractArtifactDatabase } from '../database/contracts/contract_artifact_db.js';
+import { ContractInstanceDatabase } from '../database/contracts/contract_instance_db.js';
 import { PrivateFunctionsTree } from './private_functions_tree.js';
 
 /**

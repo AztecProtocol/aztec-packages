@@ -1,4 +1,4 @@
-import { type Chain } from 'viem';
+import { Chain } from 'viem';
 
 /**
  * Interface containing the connection and chain properties to interact with a blockchain.

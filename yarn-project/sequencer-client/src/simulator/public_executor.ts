@@ -14,18 +14,9 @@ import {
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import {
-  type CommitmentsDB,
-  MessageLoadOracleInputs,
-  type PublicContractsDB,
-  type PublicStateDB,
-} from '@aztec/simulator';
-import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-} from '@aztec/types/contracts';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
+import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { MerkleTreeOperations } from '@aztec/world-state';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.

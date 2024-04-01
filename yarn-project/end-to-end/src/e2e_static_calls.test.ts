@@ -1,4 +1,4 @@
-import { type Wallet } from '@aztec/aztec.js';
+import { Wallet } from '@aztec/aztec.js';
 import { ChildContract, ParentContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';

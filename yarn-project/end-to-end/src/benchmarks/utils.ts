@@ -1,11 +1,11 @@
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import {
-  type AztecNode,
+  AztecNode,
   BatchCall,
   GrumpkinScalar,
   INITIAL_L2_BLOCK_NUM,
-  type PXE,
-  type PartialAddress,
+  PXE,
+  PartialAddress,
   SentTx,
   retryUntil,
   sleep,
@@ -19,7 +19,7 @@ import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
 import { join } from 'path';
 
-import { type EndToEndContext, setup } from '../fixtures/utils.js';
+import { EndToEndContext, setup } from '../fixtures/utils.js';
 
 /**
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.

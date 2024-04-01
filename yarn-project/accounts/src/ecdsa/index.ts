@@ -4,9 +4,9 @@
  *
  * @packageDocumentation
  */
-import { AccountManager, type Salt } from '@aztec/aztec.js/account';
+import { AccountManager, Salt } from '@aztec/aztec.js/account';
 import { AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
-import { type GrumpkinPrivateKey, type PXE } from '@aztec/circuit-types';
+import { GrumpkinPrivateKey, PXE } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 
 import { EcdsaAccountContract } from './account_contract.js';

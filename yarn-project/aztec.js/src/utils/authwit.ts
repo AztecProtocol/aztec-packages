@@ -1,4 +1,4 @@
-import { type FunctionCall, PackedArguments } from '@aztec/circuit-types';
+import { FunctionCall, PackedArguments } from '@aztec/circuit-types';
 import { AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 

@@ -1,16 +1,16 @@
 import {
   AuthWitness,
-  type AztecNode,
+  AztecNode,
   EncryptedTxL2Logs,
   ExtendedNote,
-  type FunctionCall,
-  type GetUnencryptedLogsResponse,
-  type KeyStore,
+  FunctionCall,
+  GetUnencryptedLogsResponse,
+  KeyStore,
   L2Block,
-  type LogFilter,
+  LogFilter,
   MerkleTreeId,
-  type NoteFilter,
-  type PXE,
+  NoteFilter,
+  PXE,
   SimulationError,
   Tx,
   TxEffect,
@@ -20,42 +20,42 @@ import {
   UnencryptedTxL2Logs,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
-import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
+import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   CallRequest,
   CompleteAddress,
   FunctionData,
-  type GrumpkinPrivateKey,
+  GrumpkinPrivateKey,
   MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  type PartialAddress,
+  PartialAddress,
   PrivateKernelTailCircuitPublicInputs,
   PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { ContractArtifact, DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
   AcirSimulator,
-  type ExecutionResult,
+  ExecutionResult,
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
-import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
+import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { NodeInfo } from '@aztec/types/interfaces';
 
-import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';

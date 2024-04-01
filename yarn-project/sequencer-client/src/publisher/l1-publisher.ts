@@ -1,12 +1,12 @@
 import { L2Block } from '@aztec/circuit-types';
-import { type L1PublishStats } from '@aztec/circuit-types/stats';
+import { L1PublishStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 
 import pick from 'lodash.pick';
 
-import { type L2BlockReceiver } from '../receiver.js';
-import { type PublisherConfig } from './config.js';
+import { L2BlockReceiver } from '../receiver.js';
+import { PublisherConfig } from './config.js';
 
 /**
  * Stats for a sent transaction.

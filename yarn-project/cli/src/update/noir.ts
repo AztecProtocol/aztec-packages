@@ -1,4 +1,4 @@
-import { type LogFn } from '@aztec/foundation/log';
+import { LogFn } from '@aztec/foundation/log';
 import { parseNoirPackageConfig } from '@aztec/foundation/noir';
 
 import TOML from '@iarna/toml';
@@ -6,7 +6,7 @@ import { readFile } from 'fs/promises';
 import { join, relative, resolve } from 'path';
 
 import { atomicUpdateFile, prettyPrintNargoToml } from '../utils.js';
-import { type DependencyChanges } from './common.js';
+import { DependencyChanges } from './common.js';
 
 /**
  * Updates Aztec.nr dependencies

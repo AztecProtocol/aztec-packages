@@ -1,15 +1,15 @@
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
 import { Fr, Header, NullifierLeafPreimage, StateReference } from '@aztec/circuits.js';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { type BatchInsertionResult } from '@aztec/merkle-tree';
+import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { BatchInsertionResult } from '@aztec/merkle-tree';
 
-import { type MerkleTreeDb } from './merkle_tree_db.js';
+import { MerkleTreeDb } from './merkle_tree_db.js';
 import {
-  type HandleL2BlockAndMessagesResult,
-  type IndexedTreeId,
-  type MerkleTreeLeafType,
-  type MerkleTreeOperations,
-  type TreeInfo,
+  HandleL2BlockAndMessagesResult,
+  IndexedTreeId,
+  MerkleTreeLeafType,
+  MerkleTreeOperations,
+  TreeInfo,
 } from './merkle_tree_operations.js';
 
 /**

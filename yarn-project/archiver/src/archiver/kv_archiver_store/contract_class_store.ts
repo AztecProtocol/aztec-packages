@@ -1,10 +1,10 @@
 import { Fr, FunctionSelector, Vector } from '@aztec/circuits.js';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { AztecKVStore, AztecMap } from '@aztec/kv-store';
 import {
-  type ContractClassPublic,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
+  ContractClassPublic,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 /**

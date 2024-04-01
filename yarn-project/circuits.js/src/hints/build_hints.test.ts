@@ -2,13 +2,13 @@ import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
+import { Tuple } from '@aztec/foundation/serialize';
 
 import { MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX } from '../constants.gen.js';
 import { siloNullifier } from '../hash/index.js';
 import {
   NullifierNonExistentReadRequestHintsBuilder,
-  type NullifierReadRequestHints,
+  NullifierReadRequestHints,
   NullifierReadRequestHintsBuilder,
   PendingReadHint,
   ReadRequestContext,

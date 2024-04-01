@@ -1,11 +1,11 @@
-import { type FunctionCall } from '@aztec/circuit-types';
+import { FunctionCall } from '@aztec/circuit-types';
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { type Wallet } from '../account/wallet.js';
-import { type FeePaymentMethod } from './fee_payment_method.js';
+import { Wallet } from '../account/wallet.js';
+import { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Pay fee directly in the native gas token.

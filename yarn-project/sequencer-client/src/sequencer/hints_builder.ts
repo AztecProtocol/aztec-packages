@@ -14,8 +14,8 @@ import {
   buildNullifierReadRequestHints,
   concatAccumulatedData,
 } from '@aztec/circuits.js';
-import { type Tuple } from '@aztec/foundation/serialize';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { Tuple } from '@aztec/foundation/serialize';
+import { MerkleTreeOperations } from '@aztec/world-state';
 
 export class HintsBuilder {
   constructor(private db: MerkleTreeOperations) {}

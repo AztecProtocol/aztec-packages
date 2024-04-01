@@ -20,11 +20,11 @@
  * TODO: Ultimately reimplement this mega exporter by mega exporting a granular api (then deprecate it).
  */
 export {
-  type WaitOpts,
+  WaitOpts,
   ContractFunctionInteraction,
   Contract,
   ContractBase,
-  type ContractMethod,
+  ContractMethod,
   SentTx,
   BatchCall,
   DeployMethod,
@@ -35,12 +35,12 @@ export { ContractDeployer } from './deployment/index.js';
 
 export {
   generatePublicKey,
-  type FieldLike,
-  type EthAddressLike,
+  FieldLike,
+  EthAddressLike,
   CheatCodes,
-  type AztecAddressLike,
-  type FunctionSelectorLike,
-  type WrappedFieldLike,
+  AztecAddressLike,
+  FunctionSelectorLike,
+  WrappedFieldLike,
   EthCheatCodes,
   computeAuthWitMessageHash,
   computeInnerAuthWitHash,
@@ -51,12 +51,12 @@ export {
 
 export { createPXEClient } from './rpc_clients/index.js';
 
-export { type AuthWitnessProvider } from './account/index.js';
+export { AuthWitnessProvider } from './account/index.js';
 
-export { type AccountContract } from './account/index.js';
+export { AccountContract } from './account/index.js';
 export { AccountManager } from './account_manager/index.js';
 
-export { AccountWalletWithPrivateKey, AccountWallet, type Wallet, SignerlessWallet } from './wallet/index.js';
+export { AccountWalletWithPrivateKey, AccountWallet, Wallet, SignerlessWallet } from './wallet/index.js';
 
 // // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
 // // here once the issue is resolved.
@@ -79,12 +79,12 @@ export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
 export {
   AuthWitness,
-  type AztecNode,
+  AztecNode,
   Body,
   CompleteAddress,
   ExtendedNote,
-  type FunctionCall,
-  type GrumpkinPrivateKey,
+  FunctionCall,
+  GrumpkinPrivateKey,
   L1ToL2Message,
   L1Actor,
   L2Actor,
@@ -92,16 +92,16 @@ export {
   L2BlockL2Logs,
   EncryptedL2BlockL2Logs,
   UnencryptedL2BlockL2Logs,
-  type LogFilter,
+  LogFilter,
   LogId,
   LogType,
   MerkleTreeId,
   Note,
-  type PXE,
+  PXE,
   PackedArguments,
-  type PartialAddress,
-  type PublicKey,
-  type SyncStatus,
+  PartialAddress,
+  PublicKey,
+  SyncStatus,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -115,16 +115,16 @@ export {
   Comparator,
   SiblingPath,
 } from '@aztec/circuit-types';
-export { type NodeInfo } from '@aztec/types/interfaces';
+export { NodeInfo } from '@aztec/types/interfaces';
 
-export { type ContractInstanceWithAddress, type ContractClassWithId } from '@aztec/types/contracts';
+export { ContractInstanceWithAddress, ContractClassWithId } from '@aztec/types/contracts';
 
 // TODO: These kinds of things have no place on our public api.
 // External devs will almost certainly have their own methods of doing these things.
 // If we want to use them in our own "aztec.js consuming code", import them from foundation as needed.
 export { encodeArguments } from '@aztec/foundation/abi';
 export { sha256 } from '@aztec/foundation/crypto';
-export { type DebugLogger, createDebugLogger, onLog } from '@aztec/foundation/log';
+export { DebugLogger, createDebugLogger, onLog } from '@aztec/foundation/log';
 export { retry, retryUntil } from '@aztec/foundation/retry';
 export { sleep } from '@aztec/foundation/sleep';
 export { elapsed } from '@aztec/foundation/timer';
@@ -132,11 +132,11 @@ export { fileURLToPath } from '@aztec/foundation/url';
 export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
 export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 export { makeFetch } from '@aztec/foundation/json-rpc/client';
-export { type FieldsOf } from '@aztec/foundation/types';
+export { FieldsOf } from '@aztec/foundation/types';
 
 export {
-  type DeployL1Contracts,
-  type L1ContractArtifactsForDeployment,
+  DeployL1Contracts,
+  L1ContractArtifactsForDeployment,
   deployL1Contract,
   deployL1Contracts,
 } from '@aztec/ethereum';

@@ -1,7 +1,7 @@
 import { Fr, Vector } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import { FieldsOf } from '@aztec/foundation/types';
 
 /**
  * Packs a set of arguments into a hash.

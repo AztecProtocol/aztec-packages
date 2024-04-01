@@ -1,7 +1,7 @@
 import {
   AccountWalletWithPrivateKey,
   AztecAddress,
-  type FeePaymentMethod,
+  FeePaymentMethod,
   NativeFeePaymentMethod,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
@@ -13,7 +13,7 @@ import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, publicDeployAccounts, setup } from '../fixtures/utils.js';
+import { EndToEndContext, publicDeployAccounts, setup } from '../fixtures/utils.js';
 
 jest.setTimeout(50_000);
 

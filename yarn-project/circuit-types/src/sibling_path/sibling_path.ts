@@ -1,12 +1,12 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import {
-  type Tuple,
+  Tuple,
   assertLength,
   deserializeArrayFromVector,
   serializeArrayOfBufferableToVector,
 } from '@aztec/foundation/serialize';
-import { type Hasher } from '@aztec/types/interfaces';
+import { Hasher } from '@aztec/types/interfaces';
 
 /**
  * Contains functionality to compute and serialize/deserialize a sibling path.

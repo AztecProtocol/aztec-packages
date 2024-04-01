@@ -20,8 +20,8 @@ import { AcirSimulator } from '../client/simulator.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
-import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
+import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
+import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
 
 /**

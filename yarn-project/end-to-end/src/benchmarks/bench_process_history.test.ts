@@ -1,14 +1,14 @@
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GrumpkinScalar, INITIAL_L2_BLOCK_NUM, elapsed, sleep } from '@aztec/aztec.js';
 import {
   BENCHMARK_HISTORY_BLOCK_SIZE,
   BENCHMARK_HISTORY_CHAIN_LENGTHS,
-  type NodeSyncedChainHistoryStats,
+  NodeSyncedChainHistoryStats,
 } from '@aztec/circuit-types/stats';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { SequencerClient } from '@aztec/sequencer-client';
 
-import { type EndToEndContext } from '../fixtures/utils.js';
+import { EndToEndContext } from '../fixtures/utils.js';
 import {
   benchmarkSetup,
   getFolderSize,

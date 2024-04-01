@@ -1,5 +1,5 @@
 import {
-  type AztecNode,
+  AztecNode,
   EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
   L2Block,

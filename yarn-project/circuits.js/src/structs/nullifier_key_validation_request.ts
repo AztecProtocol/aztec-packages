@@ -6,7 +6,7 @@ import {
   NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH,
   NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH,
 } from '../constants.gen.js';
-import { type GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
+import { GrumpkinPrivateKey } from '../types/grumpkin_private_key.js';
 
 /**
  * Request for validating a nullifier key pair used in the app.

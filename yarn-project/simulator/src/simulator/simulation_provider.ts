@@ -1,6 +1,6 @@
-import { type NoirCompiledCircuit } from '@aztec/types/noir';
+import { NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { type WitnessMap } from '@noir-lang/types';
+import { WitnessMap } from '@noir-lang/types';
 
 /**
  * Low level simulation interface

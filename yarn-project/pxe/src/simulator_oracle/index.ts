@@ -1,6 +1,6 @@
 import {
-  type AztecNode,
-  type KeyStore,
+  AztecNode,
+  KeyStore,
   L2Block,
   MerkleTreeId,
   NoteStatus,
@@ -18,13 +18,13 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
-import { type FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type DBOracle, type KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
-import { type ContractInstance } from '@aztec/types/contracts';
+import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
+import { ContractInstance } from '@aztec/types/contracts';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { type PxeDatabase } from '../database/index.js';
+import { PxeDatabase } from '../database/index.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.

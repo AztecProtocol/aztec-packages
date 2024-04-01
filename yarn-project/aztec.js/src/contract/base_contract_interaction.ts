@@ -1,6 +1,6 @@
-import { type PXE, Tx, TxExecutionRequest } from '@aztec/circuit-types';
+import { PXE, Tx, TxExecutionRequest } from '@aztec/circuit-types';
 
-import { type FeeOptions } from '../entrypoint/entrypoint.js';
+import { FeeOptions } from '../entrypoint/entrypoint.js';
 import { SentTx } from './sent_tx.js';
 
 /**

@@ -1,12 +1,8 @@
-import {
-  type AztecNodeConfig,
-  createAztecNodeRpcServer,
-  getConfigEnvVars as getNodeConfigEnvVars,
-} from '@aztec/aztec-node';
+import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type ServerList } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
-import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
+import { ServerList } from '@aztec/foundation/json-rpc/server';
+import { LogFn } from '@aztec/foundation/log';
+import { PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 

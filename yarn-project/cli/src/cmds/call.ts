@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
 

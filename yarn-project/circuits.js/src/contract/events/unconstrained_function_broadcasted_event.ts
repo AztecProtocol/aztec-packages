@@ -3,8 +3,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
-import { type UnconstrainedFunction, type UnconstrainedFunctionWithMembershipProof } from '@aztec/types/contracts';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { UnconstrainedFunction, UnconstrainedFunctionWithMembershipProof } from '@aztec/types/contracts';
 
 import chunk from 'lodash.chunk';
 

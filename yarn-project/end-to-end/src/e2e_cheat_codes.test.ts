@@ -5,23 +5,14 @@ import {
   ExtendedNote,
   Fr,
   Note,
-  type PXE,
-  type Wallet,
+  PXE,
+  Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import {
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getAddress,
-  getContract,
-  parseEther,
-} from 'viem';
+import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
 
 import { setup } from './fixtures/utils.js';
 

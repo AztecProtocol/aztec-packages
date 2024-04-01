@@ -2,8 +2,8 @@ import { FunctionSelector, bufferFromFields } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, type Tuple } from '@aztec/foundation/serialize';
-import { type ExecutablePrivateFunctionWithMembershipProof, type PrivateFunction } from '@aztec/types/contracts';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { ExecutablePrivateFunctionWithMembershipProof, PrivateFunction } from '@aztec/types/contracts';
 
 import chunk from 'lodash.chunk';
 

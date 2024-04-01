@@ -1,6 +1,6 @@
 import { AztecAddress, EthAddress, Point } from '@aztec/circuits.js';
 
-import { type ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
+import { ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
 import { GasTokenArtifact } from './artifact.js';
 
 /** Returns the canonical deployment of the gas token. */

@@ -12,10 +12,10 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 
 import { createSimulationError } from '../common/errors.js';
-import { type PublicExecution, type PublicExecutionResult } from '../public/execution.js';
+import { PublicExecution, PublicExecutionResult } from '../public/execution.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { AvmContractCallResults } from './avm_message_call_result.js';
-import { type JournalData } from './journal/journal.js';
+import { JournalData } from './journal/journal.js';
 
 /** Temporary Method
  *

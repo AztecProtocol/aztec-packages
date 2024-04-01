@@ -1,4 +1,4 @@
-import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
@@ -20,9 +20,9 @@ import {
   convertPublicTeardownRollupInputsToWitnessMap,
   convertPublicTeardownRollupOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import { type PublicKernelCircuitSimulator } from './index.js';
+import { PublicKernelCircuitSimulator } from './index.js';
 
 /**
  * Implements the PublicKernelCircuitSimulator.

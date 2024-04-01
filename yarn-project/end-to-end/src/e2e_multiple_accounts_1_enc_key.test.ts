@@ -1,15 +1,15 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   AztecAddress,
-  type AztecNode,
+  AztecNode,
   CompleteAddress,
-  type DebugLogger,
+  DebugLogger,
   ExtendedNote,
   Fr,
   GrumpkinScalar,
   Note,
-  type PXE,
-  type Wallet,
+  PXE,
+  Wallet,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';

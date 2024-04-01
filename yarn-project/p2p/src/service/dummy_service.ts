@@ -1,6 +1,6 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
 
-import { type P2PService } from './service.js';
+import { P2PService } from './service.js';
 
 /**
  * A dummy implementation of the P2P Service.

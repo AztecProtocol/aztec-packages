@@ -1,4 +1,4 @@
-import { type AztecNode, L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { AztecNode, L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
@@ -21,7 +21,7 @@ import {
 import { computeCommitmentNonce, computeMessageSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
-  type FunctionArtifact,
+  FunctionArtifact,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -33,10 +33,10 @@ import { times } from '@aztec/foundation/collection';
 import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { type FieldsOf } from '@aztec/foundation/types';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
+import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -47,13 +47,13 @@ import {
 } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { type KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
+import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { type DBOracle } from './db_oracle.js';
+import { DBOracle } from './db_oracle.js';
 import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 

@@ -1,1 +1,1 @@
-export { type SequencerConfig } from '@aztec/circuit-types';
+export { SequencerConfig } from '@aztec/circuit-types';

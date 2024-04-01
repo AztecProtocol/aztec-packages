@@ -1,7 +1,7 @@
-import { type NodeInfo } from '@aztec/aztec.js';
-import { type PXE } from '@aztec/circuit-types';
+import { NodeInfo } from '@aztec/aztec.js';
+import { PXE } from '@aztec/circuit-types';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 
 import { checkServerVersion } from './client.js';
 

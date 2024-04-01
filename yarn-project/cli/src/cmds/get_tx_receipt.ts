@@ -1,6 +1,6 @@
 import { TxHash } from '@aztec/aztec.js';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 

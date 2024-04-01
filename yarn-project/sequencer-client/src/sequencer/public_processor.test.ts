@@ -1,7 +1,7 @@
 import {
   EncryptedTxL2Logs,
-  type FunctionCall,
-  type ProcessedTx,
+  FunctionCall,
+  ProcessedTx,
   PublicDataWrite,
   SiblingPath,
   SimulationError,
@@ -45,13 +45,13 @@ import {
 } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { arrayNonEmptyLength, padArrayEnd, times } from '@aztec/foundation/collection';
-import { type PublicExecution, type PublicExecutionResult, PublicExecutor, WASMSimulator } from '@aztec/simulator';
-import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
+import { PublicExecution, PublicExecutionResult, PublicExecutor, WASMSimulator } from '@aztec/simulator';
+import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
-import { type MockProxy, mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 
-import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';

@@ -1,4 +1,4 @@
-import { type MetricName } from './metrics.js';
+import { MetricName } from './metrics.js';
 
 /** Aggregated benchmark results. */
 export type BenchmarkResults = Partial<Record<MetricName, BenchmarkMetricResults>>;

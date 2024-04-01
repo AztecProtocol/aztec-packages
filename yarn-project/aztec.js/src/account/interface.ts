@@ -1,9 +1,9 @@
-import { AuthWitness, CompleteAddress, type FunctionCall } from '@aztec/circuit-types';
+import { AuthWitness, CompleteAddress, FunctionCall } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type EntrypointInterface } from '../entrypoint/entrypoint.js';
+import { EntrypointInterface } from '../entrypoint/entrypoint.js';
 
 // docs:start:account-interface
 /** Creates authorization witnesses. */

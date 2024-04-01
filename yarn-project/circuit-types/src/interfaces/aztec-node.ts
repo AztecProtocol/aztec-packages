@@ -6,25 +6,19 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import { L1ContractAddresses } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type ContractClassPublic, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { L2Block } from '../l2_block.js';
-import {
-  type FromLogType,
-  type GetUnencryptedLogsResponse,
-  L2BlockL2Logs,
-  type LogFilter,
-  LogType,
-} from '../logs/index.js';
+import { FromLogType, GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
 import { MerkleTreeId } from '../merkle_tree_id.js';
 import { SiblingPath } from '../sibling_path/index.js';
 import { Tx, TxHash, TxReceipt } from '../tx/index.js';
 import { TxEffect } from '../tx_effect.js';
-import { type SequencerConfig } from './configs.js';
-import { type L2BlockNumber } from './l2_block_number.js';
+import { SequencerConfig } from './configs.js';
+import { L2BlockNumber } from './l2_block_number.js';
 import { NullifierMembershipWitness } from './nullifier_tree.js';
 import { PublicDataWitness } from './public_data_tree.js';
 

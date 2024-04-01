@@ -4,12 +4,12 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type ContractInstance } from '@aztec/types/contracts';
+import { ContractInstance } from '@aztec/types/contracts';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
 import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
-import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
+import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
+import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { executePublicFunction } from './executor.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 

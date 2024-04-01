@@ -16,11 +16,11 @@ import { makeAztecAddress, makeGlobalVariables } from '@aztec/circuits.js/testin
 import { makeTuple } from '@aztec/foundation/array';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
-import { type ContractDataSource } from '@aztec/types/contracts';
+import { ContractDataSource } from '@aztec/types/contracts';
 
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { MockProxy, mock, mockFn } from 'jest-mock-extended';
 
-import { type NullifierSource, type PublicStateSource, TxValidator } from './tx_validator.js';
+import { NullifierSource, PublicStateSource, TxValidator } from './tx_validator.js';
 
 describe('TxValidator', () => {
   let validator: TxValidator;

@@ -43,19 +43,19 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { type Tuple } from '@aztec/foundation/serialize';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { Tuple } from '@aztec/foundation/serialize';
 import {
-  type PublicExecution,
-  type PublicExecutionResult,
+  PublicExecution,
+  PublicExecutionResult,
   PublicExecutor,
   collectPublicDataReads,
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { MerkleTreeOperations } from '@aztec/world-state';
 
-import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
 import { lastSideEffectCounter } from './utils.js';
 

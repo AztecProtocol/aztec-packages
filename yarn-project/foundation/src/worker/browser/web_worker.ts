@@ -1,6 +1,6 @@
-import { type DispatchMsg, TransportClient, WorkerConnector, createDispatchProxy } from '../../transport/index.js';
+import { DispatchMsg, TransportClient, WorkerConnector, createDispatchProxy } from '../../transport/index.js';
 import { WasmModule } from '../../wasm/index.js';
-import { type WasmWorker } from '../wasm_worker.js';
+import { WasmWorker } from '../wasm_worker.js';
 
 /**
  * Instantiate a web worker.

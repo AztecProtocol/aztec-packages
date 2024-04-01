@@ -1,4 +1,4 @@
-import { type DispatchMsg, TransportServer, WorkerListener } from '../../transport/index.js';
+import { DispatchMsg, TransportServer, WorkerListener } from '../../transport/index.js';
 import { WasmModule } from '../../wasm/index.js';
 
 /**

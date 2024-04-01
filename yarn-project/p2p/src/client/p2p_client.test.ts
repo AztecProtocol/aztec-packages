@@ -1,11 +1,11 @@
-import { type L2BlockSource, mockTx } from '@aztec/circuit-types';
-import { type AztecKVStore } from '@aztec/kv-store';
+import { L2BlockSource, mockTx } from '@aztec/circuit-types';
+import { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { expect, jest } from '@jest/globals';
 
-import { type P2PService } from '../index.js';
-import { type TxPool } from '../tx_pool/index.js';
+import { P2PService } from '../index.js';
+import { TxPool } from '../tx_pool/index.js';
 import { MockBlockSource } from './mocks.js';
 import { P2PClient } from './p2p_client.js';
 

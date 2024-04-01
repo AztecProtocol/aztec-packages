@@ -1,6 +1,6 @@
 import { mockTx } from '@aztec/circuit-types';
 
-import { type TxPool } from './tx_pool.js';
+import { TxPool } from './tx_pool.js';
 
 /**
  * Tests a TxPool implementation.

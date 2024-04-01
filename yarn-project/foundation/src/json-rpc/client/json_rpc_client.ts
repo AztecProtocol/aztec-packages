@@ -2,12 +2,12 @@
 //  Dev dependency just for the somewhat complex RemoteObject type
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
-import { type RemoteObject } from 'comlink';
+import { RemoteObject } from 'comlink';
 import { format } from 'util';
 
-import { type DebugLogger, createDebugLogger } from '../../log/index.js';
+import { DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
-import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
+import { ClassConverter, JsonClassConverterInput, StringClassConverterInput } from '../class_converter.js';
 import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
 
 export { JsonStringify } from '../convert.js';

@@ -1,20 +1,20 @@
 import {
   AztecAddress,
-  type AztecNode,
+  AztecNode,
   BatchCall,
   CompleteAddress,
-  type ContractArtifact,
+  ContractArtifact,
   ContractBase,
-  type ContractClassWithId,
+  ContractClassWithId,
   ContractDeployer,
-  type ContractInstanceWithAddress,
-  type DebugLogger,
+  ContractInstanceWithAddress,
+  DebugLogger,
   EthAddress,
   Fr,
-  type PXE,
+  PXE,
   SignerlessWallet,
   TxStatus,
-  type Wallet,
+  Wallet,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
@@ -24,7 +24,7 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, Point } from '@aztec/circuits.js';
+import { ContractClassIdPreimage, Point } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing';

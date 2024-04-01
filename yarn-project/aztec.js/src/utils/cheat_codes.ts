@@ -1,4 +1,4 @@
-import { Note, type PXE } from '@aztec/circuit-types';
+import { Note, PXE } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash } from '@aztec/foundation/crypto';

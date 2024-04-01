@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type FieldsOf } from '@aztec/foundation/types';
+import { Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { FieldsOf } from '@aztec/foundation/types';
 
 import {
   MAX_NEW_NULLIFIERS_PER_TX,

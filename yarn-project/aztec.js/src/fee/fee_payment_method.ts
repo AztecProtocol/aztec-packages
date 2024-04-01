@@ -1,4 +1,4 @@
-import { type FunctionCall } from '@aztec/circuit-types';
+import { FunctionCall } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 

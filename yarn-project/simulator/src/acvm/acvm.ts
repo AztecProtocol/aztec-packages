@@ -1,18 +1,18 @@
-import { type NoirCallStack, type SourceCodeLocation } from '@aztec/circuit-types';
-import { type FunctionDebugMetadata, type OpcodeLocation } from '@aztec/foundation/abi';
+import { NoirCallStack, SourceCodeLocation } from '@aztec/circuit-types';
+import { FunctionDebugMetadata, OpcodeLocation } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import {
-  type ExecutionError,
-  type ForeignCallInput,
-  type ForeignCallOutput,
+  ExecutionError,
+  ForeignCallInput,
+  ForeignCallOutput,
   WasmBlackBoxFunctionSolver,
   executeCircuitWithBlackBoxSolver,
 } from '@noir-lang/acvm_js';
 
 import { traverseCauseChain } from '../common/errors.js';
-import { type ACVMWitness } from './acvm_types.js';
-import { type ORACLE_NAMES } from './oracle/index.js';
+import { ACVMWitness } from './acvm_types.js';
+import { ORACLE_NAMES } from './oracle/index.js';
 
 /**
  * The callback interface for the ACIR.

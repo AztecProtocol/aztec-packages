@@ -6,9 +6,9 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
+import { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 
-import { type DataRetrieval } from '../data_retrieval.js';
+import { DataRetrieval } from '../data_retrieval.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.

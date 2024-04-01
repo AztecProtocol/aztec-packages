@@ -1,13 +1,13 @@
 import {
   AztecAddress,
-  type ContractInstanceWithAddress,
+  ContractInstanceWithAddress,
   EthAddress,
   Fr,
   Point,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { computeContractAddressFromInstance, computePublicKeysHash } from '@aztec/circuits.js/contract';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { getContractArtifact } from '../utils.js';

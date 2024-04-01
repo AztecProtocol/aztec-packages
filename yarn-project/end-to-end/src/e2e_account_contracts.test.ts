@@ -2,15 +2,15 @@ import { EcdsaAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import {
-  type AccountContract,
+  AccountContract,
   AccountManager,
   AccountWallet,
   CompleteAddress,
   Fr,
-  type GrumpkinPrivateKey,
+  GrumpkinPrivateKey,
   GrumpkinScalar,
-  type PXE,
-  type Wallet,
+  PXE,
+  Wallet,
 } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';

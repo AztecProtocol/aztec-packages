@@ -1,6 +1,6 @@
-import { type PXE } from '@aztec/circuit-types';
+import { PXE } from '@aztec/circuit-types';
 
-import { type AccountInterface } from './interface.js';
+import { AccountInterface } from './interface.js';
 
 /**
  * The wallet interface.

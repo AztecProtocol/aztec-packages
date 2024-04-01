@@ -1,22 +1,22 @@
 import {
   AztecAddress,
   BatchCall,
-  type DebugLogger,
+  DebugLogger,
   ExtendedNote,
   Fr,
-  type FunctionCall,
+  FunctionCall,
   FunctionSelector,
   Note,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxHash,
   TxStatus,
-  type Wallet,
+  Wallet,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { FunctionData, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { type ContractArtifact, decodeFunctionSignature } from '@aztec/foundation/abi';
+import { ContractArtifact, decodeFunctionSignature } from '@aztec/foundation/abi';
 import {
   TokenContract as BananaCoin,
   FPCContract,
@@ -27,14 +27,14 @@ import {
 import { jest } from '@jest/globals';
 
 import {
-  type BalancesFn,
-  type EndToEndContext,
+  BalancesFn,
+  EndToEndContext,
   expectMapping,
   getBalancesFn,
   publicDeployAccounts,
   setup,
 } from './fixtures/utils.js';
-import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
+import { GasPortalTestingHarnessFactory, IGasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
 
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';

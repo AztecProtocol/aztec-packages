@@ -1,23 +1,23 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { DebugLogger } from '@aztec/foundation/log';
 
 import type { Abi, Narrow } from 'abitype';
 import {
-  type Account,
-  type Chain,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
+  Account,
+  Chain,
+  Hex,
+  HttpTransport,
+  PublicClient,
+  WalletClient,
   createPublicClient,
   createWalletClient,
   getAddress,
   getContract,
   http,
 } from 'viem';
-import { type HDAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
 
-import { type L1ContractAddresses } from './l1_contract_addresses.js';
+import { L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
  * Return type of the deployL1Contract function.

@@ -1,11 +1,11 @@
-import { type FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
-import { type FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 
-import { type Wallet } from '../account/wallet.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
+import { Wallet } from '../account/wallet.js';
+import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 
-export { type SendMethodOptions };
+export { SendMethodOptions };
 
 /**
  * Represents the options for a view method in a contract function interaction.

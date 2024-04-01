@@ -1,13 +1,13 @@
-import { type FunctionCall } from '@aztec/circuit-types';
+import { FunctionCall } from '@aztec/circuit-types';
 import { FunctionData } from '@aztec/circuits.js';
 import { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { type Wallet } from '../account/wallet.js';
+import { Wallet } from '../account/wallet.js';
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
-import { type FeePaymentMethod } from './fee_payment_method.js';
+import { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.

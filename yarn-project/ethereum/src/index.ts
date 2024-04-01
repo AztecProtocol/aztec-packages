@@ -1,6 +1,6 @@
 import { foundry } from 'viem/chains';
 
-import { type EthereumChain } from './ethereum_chain.js';
+import { EthereumChain } from './ethereum_chain.js';
 import { createTestnetChain } from './testnet.js';
 
 export * from './testnet.js';

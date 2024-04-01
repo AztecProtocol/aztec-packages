@@ -1,12 +1,12 @@
 import {
   Body,
   EncryptedL2BlockL2Logs,
-  type FromLogType,
-  type GetUnencryptedLogsResponse,
+  FromLogType,
+  GetUnencryptedLogsResponse,
   InboxLeaf,
   L2Block,
   L2BlockL2Logs,
-  type LogFilter,
+  LogFilter,
   LogType,
   TxEffect,
   TxHash,
@@ -16,13 +16,13 @@ import {
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
-  type ContractClassPublic,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
+  ContractClassPublic,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { type DataRetrieval } from './data_retrieval.js';
+import { DataRetrieval } from './data_retrieval.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.

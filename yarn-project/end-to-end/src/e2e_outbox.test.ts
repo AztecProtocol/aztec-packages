@@ -1,8 +1,8 @@
 import {
   AccountWalletWithPrivateKey,
-  type AztecNode,
+  AztecNode,
   BatchCall,
-  type DeployL1Contracts,
+  DeployL1Contracts,
   EthAddress,
   Fr,
   SiblingPath,

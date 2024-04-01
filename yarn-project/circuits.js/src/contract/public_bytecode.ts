@@ -5,7 +5,7 @@ import {
   serializeArrayOfBufferableToVector,
   serializeToBuffer,
 } from '@aztec/foundation/serialize';
-import { type ContractClass } from '@aztec/types/contracts';
+import { ContractClass } from '@aztec/types/contracts';
 
 import { FUNCTION_SELECTOR_NUM_BYTES } from '../constants.gen.js';
 

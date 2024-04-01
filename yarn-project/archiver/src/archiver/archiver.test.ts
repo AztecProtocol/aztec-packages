@@ -4,19 +4,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { AvailabilityOracleAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
-import { type MockProxy, mock } from 'jest-mock-extended';
-import {
-  type Chain,
-  type HttpTransport,
-  type Log,
-  type PublicClient,
-  type Transaction,
-  encodeFunctionData,
-  toHex,
-} from 'viem';
+import { MockProxy, mock } from 'jest-mock-extended';
+import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
-import { type ArchiverDataStore } from './archiver_store.js';
+import { ArchiverDataStore } from './archiver_store.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 describe('Archiver', () => {

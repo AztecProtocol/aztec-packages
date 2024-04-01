@@ -1,4 +1,4 @@
-import { type PeerId } from '@libp2p/interface-peer-id';
+import { PeerId } from '@libp2p/interface-peer-id';
 
 /**
  * Keeps a record of which Peers have 'seen' which transactions.

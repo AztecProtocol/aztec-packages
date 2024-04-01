@@ -1,12 +1,12 @@
 import {
-  type FromLogType,
-  type GetUnencryptedLogsResponse,
-  type L1ToL2MessageSource,
+  FromLogType,
+  GetUnencryptedLogsResponse,
+  L1ToL2MessageSource,
   L2Block,
   L2BlockL2Logs,
-  type L2BlockSource,
-  type L2LogsSource,
-  type LogFilter,
+  L2BlockSource,
+  L2LogsSource,
+  LogFilter,
   LogType,
   TxEffect,
   TxHash,
@@ -25,25 +25,25 @@ import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import {
-  type ContractClassPublic,
-  type ContractDataSource,
-  type ContractInstanceWithAddress,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type PublicFunction,
-  type UnconstrainedFunctionWithMembershipProof,
+  ContractClassPublic,
+  ContractDataSource,
+  ContractInstanceWithAddress,
+  ExecutablePrivateFunctionWithMembershipProof,
+  PublicFunction,
+  UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
-import { type Chain, type HttpTransport, type PublicClient, createPublicClient, http } from 'viem';
+import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
 
-import { type ArchiverDataStore } from './archiver_store.js';
-import { type ArchiverConfig } from './config.js';
+import { ArchiverDataStore } from './archiver_store.js';
+import { ArchiverConfig } from './config.js';
 import {
-  type DataRetrieval,
+  DataRetrieval,
   retrieveBlockBodiesFromAvailabilityOracle,
   retrieveBlockMetadataFromRollup,
   retrieveL1ToL2Messages,

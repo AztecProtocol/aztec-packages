@@ -1,7 +1,7 @@
-import { Database, type RangeOptions } from 'lmdb';
+import { Database, RangeOptions } from 'lmdb';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecMultiMap } from '../interfaces/map.js';
+import { Key, Range } from '../interfaces/common.js';
+import { AztecMultiMap } from '../interfaces/map.js';
 
 /** The slot where a key-value entry would be stored */
 type MapValueSlot<K extends Key | Buffer> = ['map', string, 'slot', K];

@@ -1,1 +1,1 @@
-export { type ProtocolContract } from './protocol_contract.js';
+export { ProtocolContract } from './protocol_contract.js';
