@@ -31,10 +31,10 @@ impl PublicKernelTailCircuitPrivateInputs {
         assert(previous_public_inputs.needs_app_logic == false, "Previous kernel needs app logic");
         assert(previous_public_inputs.needs_teardown == false, "Previous kernel needs teardown");
         assert_eq(
-            array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
+            array_length(previous_public_inputs.end.public_call_stack), 0, "Public call stack must be default when executing the tail circuit"
         );
         assert_eq(
-            array_length(previous_public_inputs.end_non_revertible.public_call_stack), 0, "Public call stack must be empty when executing the tail circuit"
+            array_length(previous_public_inputs.end_non_revertible.public_call_stack), 0, "Public call stack must be default when executing the tail circuit"
         );
     }
 

@@ -121,14 +121,14 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     if is_static_call {
         // No state changes are allowed for static calls:
         assert(
-            is_default_array(public_inputs.new_note_hashes), "new_note_hashes must be empty for static calls"
+            is_default_array(public_inputs.new_note_hashes), "new_note_hashes must be default for static calls"
         );
         assert(
-            is_default_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls"
+            is_default_array(public_inputs.new_nullifiers), "new_nullifiers must be default for static calls"
         );
 
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
-        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
+        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be default for static calls");
 
         // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
         // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
@@ -359,7 +359,7 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;
-        assert(!is_default(caller_context), "caller context cannot be empty for delegate calls");
+        assert(!is_default(caller_context), "caller context cannot be default for delegate calls");
         assert(
             call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls"
         );

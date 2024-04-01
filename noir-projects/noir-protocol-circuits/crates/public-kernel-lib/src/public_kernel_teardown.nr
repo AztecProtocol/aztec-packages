@@ -215,13 +215,13 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="caller context cannot be empty for delegate calls")]
-    fn empty_caller_context_for_delegate_calls_fails() {
+    #[test(should_fail_with="caller context cannot be default for delegate calls")]
+    fn default_caller_context_for_delegate_calls_fails() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
         let public_call = builder.public_call.finish();
 
         let hash = public_call.call_stack_item.hash();
-        // Caller context is empty for regular calls.
+        // Caller context is default for regular calls.
         let is_delegate_call = false;
         builder.previous_kernel.push_public_call_request_non_revertible(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.to_public_kernel_data();
