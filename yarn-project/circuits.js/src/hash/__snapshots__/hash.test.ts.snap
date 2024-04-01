@@ -1,16 +1,16 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`hash Computes an empty nullifier hash  1`] = `"0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17"`;
+exports[`hash Computes an empty nullifier hash  1`] = `"0x2a5de47ed300af27b706aaa14762fc468f5cfc16cd8116eb6b09b0f2643ca2b9"`;
 
-exports[`hash Computes an empty sideeffect hash  1`] = `"0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed"`;
+exports[`hash Computes an empty sideeffect hash  1`] = `"0x0b63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1"`;
 
 exports[`hash Var args hash matches noir 1`] = `Fr<0x05a1023fef839ac88731f49ae983e172c1b600a3c8f3393ad0ac25d819ac0f0f>`;
 
-exports[`hash compute secret message hash 1`] = `Fr<0x0dc06f2167e2cd19adf738d1f38469d7f8bff1e26b029816e8230bcd6ab6332e>`;
+exports[`hash compute secret message hash 1`] = `Fr<0x1947bd057dbac9cf738f9e2fcbfca4a73e42f8dafbc2faab1143c7ed4f245df8>`;
 
 exports[`hash computes commitment nonce 1`] = `Fr<0x148c4666e2c5bce33dc53b30430808464f7ed76b28daf8a36722e93b49a31a5e>`;
 
-exports[`hash computes public data tree leaf slot 1`] = `Fr<0x14114ab3dbdd0a1ccc5c4fe68dd576f3c6cd79708770e06ab4086398cdd828f4>`;
+exports[`hash computes public data tree leaf slot 1`] = `Fr<0x11e37b81ef869f8ef9f0ffde8e5850d0680802913fbd9884a114fd28a0b58b0f>`;
 
 exports[`hash computes public data tree value 1`] = `Fr<0x0000000000000000000000000000000000000000000000000000000000000003>`;
 

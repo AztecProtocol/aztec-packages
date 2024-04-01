@@ -1,17 +1,15 @@
-use dep::protocol_types::{
-    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX, hash::pedersen_hash, address::AztecAddress,
-    header::Header, utils::field::full_field_less_than
-};
+use dep::protocol_types::{hash::poseidon_hash, address::AztecAddress, header::Header, utils::field::full_field_less_than};
 use dep::std::merkle::compute_merkle_root;
 
 use crate::{context::PrivateContext, oracle::get_public_data_witness::get_public_data_witness};
 
-fn _public_storage_historical_read(storage_slot: Field, contract_address: AztecAddress, header: Header) -> Field {
+fn _public_storage_historical_read(
+    storage_slot: Field,
+    contract_address: AztecAddress,
+    header: Header
+) -> Field {
     // 1) Compute the leaf slot by siloing the storage slot with the contract address
-    let public_value_leaf_slot = pedersen_hash(
-        [contract_address.to_field(), storage_slot],
-        GENERATOR_INDEX__PUBLIC_LEAF_INDEX
-    );
+    let public_value_leaf_slot = poseidon_hash([contract_address.to_field(), storage_slot]);
 
     // 2) Get the membership witness of the slot
     let witness = get_public_data_witness(

@@ -1,7 +1,7 @@
 use crate::{
-    address::AztecAddress, abis::function_data::FunctionData,
-    constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH}, hash::pedersen_hash,
-    traits::{Hash, Serialize, Deserialize}, transaction::tx_context::TxContext, utils::reader::Reader
+    address::AztecAddress, abis::function_data::FunctionData, constants::TX_REQUEST_LENGTH,
+    hash::poseidon_hash, traits::{Hash, Serialize, Deserialize}, transaction::tx_context::TxContext,
+    utils::reader::Reader
 };
 
 struct TxRequest {
@@ -22,7 +22,7 @@ impl Eq for TxRequest {
 
 impl Hash for TxRequest {
     fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__TX_REQUEST)
+        poseidon_hash(self.serialize())
     }
 }
 
@@ -83,7 +83,7 @@ mod tests {
             function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_private: true, is_transpiled: false }
         };
         // Value from tx_request.test.ts "compute hash" test
-        let test_data_tx_request_hash = 0x08e435f993536fd7a9d6faabfc03a18c4314a54d3d90d15a15275fcfe77bc5a3;
+        let test_data_tx_request_hash = 0x2ab8dbbd2d8bf15940d4c9f98394ecec9ad78deded4dbef1ea22253e0606beba;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

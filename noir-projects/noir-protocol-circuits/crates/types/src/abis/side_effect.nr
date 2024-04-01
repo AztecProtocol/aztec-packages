@@ -1,7 +1,4 @@
-use crate::{
-    address::AztecAddress, constants::GENERATOR_INDEX__SIDE_EFFECT,
-    traits::{Empty, Hash, Serialize, Deserialize}
-};
+use crate::{address::AztecAddress, traits::{Empty, Hash, Serialize, Deserialize}};
 use dep::std::cmp::Eq;
 
 global SIDE_EFFECT_SERIALIZED_LEN = 2;
@@ -59,8 +56,7 @@ impl Empty for SideEffect {
 
 impl Hash for SideEffect {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator(
-            self.serialize() , GENERATOR_INDEX__SIDE_EFFECT)
+        crate::hash::poseidon_hash(self.serialize())
     }
 }
 
@@ -120,9 +116,7 @@ impl Empty for SideEffectLinkedToNoteHash {
 
 impl Hash for SideEffectLinkedToNoteHash {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen_hash_with_separator(
-            self.serialize(),
-        GENERATOR_INDEX__SIDE_EFFECT)
+        crate::hash::poseidon_hash(self.serialize())
     }
 }
 

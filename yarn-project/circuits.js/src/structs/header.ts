@@ -1,8 +1,8 @@
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidonHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
+import { HEADER_LENGTH } from '../constants.gen.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
@@ -94,6 +94,6 @@ export class Header {
   }
 
   hash(): Fr {
-    return pedersenHash(this.toFields(), GeneratorIndex.BLOCK_HASH);
+    return poseidonHash(this.toFields());
   }
 }

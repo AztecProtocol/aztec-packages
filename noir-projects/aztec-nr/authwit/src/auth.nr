@@ -1,7 +1,6 @@
 use dep::aztec::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::{GENERATOR_INDEX__AUTHWIT_INNER, GENERATOR_INDEX__AUTHWIT_OUTER},
-    hash::{hash_args_array, pedersen_hash}
+    hash::{hash_args_array, poseidon_hash}
 };
 use dep::aztec::context::{PrivateContext, PublicContext, Context};
 
@@ -44,7 +43,7 @@ pub fn compute_call_authwit_hash<N>(
 // docs:end:compute_call_authwit_hash
 
 pub fn compute_inner_authwit_hash<N>(args: [Field; N]) -> Field {
-    pedersen_hash(args, GENERATOR_INDEX__AUTHWIT_INNER)
+    poseidon_hash(args)
 }
 
 pub fn compute_outer_authwit_hash(
@@ -53,13 +52,5 @@ pub fn compute_outer_authwit_hash(
     version: Field,
     inner_hash: Field
 ) -> Field {
-    pedersen_hash(
-        [
-        consumer.to_field(),
-        chain_id,
-        version,
-        inner_hash
-    ],
-        GENERATOR_INDEX__AUTHWIT_OUTER
-    )
+    poseidon_hash([consumer.to_field(), chain_id, version, inner_hash])
 }

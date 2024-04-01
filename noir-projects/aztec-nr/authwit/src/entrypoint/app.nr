@@ -1,5 +1,5 @@
 use dep::aztec::prelude::PrivateContext;
-use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}};
+use dep::aztec::protocol_types::{hash::poseidon_hash, traits::{Hash, Serialize}};
 
 use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
@@ -32,9 +32,8 @@ impl Serialize<APP_PAYLOAD_SIZE> for AppPayload {
 
 impl Hash for AppPayload {
   fn hash(self) -> Field {
-    pedersen_hash(
-      self.serialize(),
-      GENERATOR_INDEX__SIGNATURE_PAYLOAD
+    poseidon_hash(
+      self.serialize()
     )
   }
 }

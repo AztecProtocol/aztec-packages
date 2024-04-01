@@ -1,13 +1,12 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidonHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
 import {
-  GeneratorIndex,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -280,6 +279,6 @@ export class PublicCircuitPublicInputs {
   }
 
   hash(): Fr {
-    return pedersenHash(this.toFields(), GeneratorIndex.PUBLIC_CIRCUIT_PUBLIC_INPUTS);
+    return poseidonHash(this.toFields());
   }
 }

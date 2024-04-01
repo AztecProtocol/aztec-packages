@@ -106,7 +106,7 @@ fn compute_address() {
         deployer
     );
 
-    let expected_computed_address_from_preimage = 0x027ea2b41ced2ec9a98305984e96dd28518536a4628883ccdc06e38aa8997220;
+    let expected_computed_address_from_preimage = 0x029169f8a5b79aa15e9d142c4589acf9f4355009d9a71c880bf6cc58432589ce;
     assert(address.to_field() == expected_computed_address_from_preimage);
 }
 
@@ -116,6 +116,7 @@ fn compute_address_from_partial_and_pubkey() {
     let partial_address = PartialAddress::from_field(3);
 
     let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
-    let expected_computed_address_from_partial_and_pubkey = 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197;
+    let expected_computed_address_from_partial_and_pubkey = 0x1aa3f32cb0a5491c696519d83d9e82bb1d7bef8e7d427e1c96258044eef88193;
+
     assert(address.to_field() == expected_computed_address_from_partial_and_pubkey);
 }

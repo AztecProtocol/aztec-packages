@@ -3,7 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
 import { AztecAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidonHash } from '@aztec/foundation/crypto';
 
 // These must match the values defined in:
 // - noir-projects/aztec-nr/aztec/src/entrypoint/app.nr
@@ -98,8 +98,8 @@ export async function buildFeePayload(feeOpts?: FeeOptions): Promise<PayloadWith
 
 // TODO (dogfooding) change all of these names app/dapp/fee/payload and generator indices for all of them
 /** Hashes a payload to a 32-byte buffer */
-export function hashPayload(payload: EntrypointPayload, generatorIndex: number) {
-  return pedersenHash(flattenPayload(payload), generatorIndex);
+export function hashPayload(payload: EntrypointPayload) {
+  return poseidonHash(flattenPayload(payload));
 }
 
 /** Hash the payload for a dapp */

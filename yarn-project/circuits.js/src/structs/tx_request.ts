@@ -1,10 +1,10 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidonHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex, TX_REQUEST_LENGTH } from '../constants.gen.js';
+import { TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
 import { TxContext } from './tx_context.js';
 
@@ -71,7 +71,7 @@ export class TxRequest {
   }
 
   hash() {
-    return pedersenHash(this.toFields(), GeneratorIndex.TX_REQUEST);
+    return poseidonHash(this.toFields());
   }
 
   static empty() {

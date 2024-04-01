@@ -1,6 +1,5 @@
 use crate::{
-    abis::function_selector::FunctionSelector,
-    constants::{FUNCTION_DATA_LENGTH}, hash::poseidon_hash,
+    abis::function_selector::FunctionSelector, constants::FUNCTION_DATA_LENGTH, hash::poseidon_hash,
     traits::{Serialize, Hash, Deserialize}
 };
 
@@ -62,6 +61,6 @@ fn empty_hash() {
     let hash = data.hash();
 
     // Value from function_data.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17;
+    let test_data_empty_hash = 0x2a5de47ed300af27b706aaa14762fc468f5cfc16cd8116eb6b09b0f2643ca2b9;
     assert_eq(hash, test_data_empty_hash);
 }

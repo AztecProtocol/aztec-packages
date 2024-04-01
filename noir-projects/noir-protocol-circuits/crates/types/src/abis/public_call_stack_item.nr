@@ -1,6 +1,5 @@
 use crate::abis::{function_data::FunctionData, public_circuit_public_inputs::PublicCircuitPublicInputs};
 use crate::address::AztecAddress;
-use crate::constants::GENERATOR_INDEX__CALL_STACK_ITEM;
 use crate::traits::Hash;
 
 struct PublicCallStackItem {
@@ -20,11 +19,11 @@ impl Hash for PublicCallStackItem {
             self
         };
 
-        dep::std::hash::pedersen_hash_with_separator([
+        crate::hash::poseidon_hash([
             item.contract_address.to_field(),
             item.function_data.hash(),
             item.public_inputs.hash(),
-        ], GENERATOR_INDEX__CALL_STACK_ITEM)
+        ])
     }
 }
 
@@ -52,7 +51,7 @@ mod tests {
         public_circuit_public_inputs::PublicCircuitPublicInputs,
         public_call_stack_item::PublicCallStackItem, side_effect::SideEffect
     },
-        address::AztecAddress, constants::GENERATOR_INDEX__CALL_STACK_ITEM, traits::Hash
+        address::AztecAddress, traits::Hash
     };
 
     #[test]
@@ -69,7 +68,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        let test_data_call_stack_item_request_hash = 0x09bd19d3ebcda705ab1ed598db287340aed3efda0ad3bbbf3296737bda731fa9;
+        let test_data_call_stack_item_request_hash = 0x07ce89e72aa3644636e9a125b594fa1d33da3024587118dd2288faa2f4605d07;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_request_hash);
     }
 
@@ -87,7 +86,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        let test_data_call_stack_item_hash = 0x1fe20dd657d73941763bf8437471ac000be6efcb046895014b1a84b5aaf55905;
+        let test_data_call_stack_item_hash = 0x03e84ccb5ced9e57f185dcc354ac1302ee25290b3234f22bcad36651b8098d9d;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_hash);
     }
 }

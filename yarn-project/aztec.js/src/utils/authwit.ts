@@ -1,6 +1,6 @@
 import { FunctionCall, PackedArguments } from '@aztec/circuit-types';
-import { AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { poseidonHash } from '@aztec/foundation/crypto';
 
 // docs:start:authwit_computeAuthWitMessageHash
 /**
@@ -40,7 +40,7 @@ export const computeAuthWitMessageHash = (caller: AztecAddress, chainId: Fr, ver
  * @returns The inner hash for the witness
  */
 export const computeInnerAuthWitHash = (args: Fr[]) => {
-  return pedersenHash(args, GeneratorIndex.AUTHWIT_INNER);
+  return poseidonHash(args);
 };
 
 /**
@@ -58,5 +58,5 @@ export const computeInnerAuthWitHash = (args: Fr[]) => {
  * @returns The outer hash for the witness
  */
 export const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
-  return pedersenHash([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
+  return poseidonHash([consumer.toField(), chainId, version, innerHash]);
 };

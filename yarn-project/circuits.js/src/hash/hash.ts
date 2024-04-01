@@ -114,7 +114,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return pedersenHash([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+  return poseidonHash([contractAddress, storageSlot]);
 }
 
 /**
@@ -149,11 +149,11 @@ export function computeVarArgsHash(args: Fr[]) {
 }
 
 export function computeCommitmentsHash(input: SideEffect) {
-  return pedersenHash([input.value, input.counter], GeneratorIndex.SIDE_EFFECT);
+  return poseidonHash([input.value, input.counter]);
 }
 
 export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
-  return pedersenHash([input.value, input.noteHash, input.counter], GeneratorIndex.SIDE_EFFECT);
+  return poseidonHash([input.value, input.noteHash, input.counter]);
 }
 
 /**
@@ -162,7 +162,7 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
  * @returns the hash
  */
 export function computeMessageSecretHash(secretMessage: Fr) {
-  return pedersenHash([secretMessage], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET);
+  return poseidonHash([secretMessage]);
 }
 
 export function computeL1ToL2MessageNullifier(
