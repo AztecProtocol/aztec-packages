@@ -184,11 +184,11 @@ pub fn export_fn_abi(
 
     let (ast, errors) = parse_program(&program);
     if !errors.is_empty() {
-        return Err(AztecMacroError::CouldNotExportFunctionAbi { 
-            span: None, 
+        return Err(AztecMacroError::CouldNotExportFunctionAbi {
+            span: None,
             secondary_message: Some(
                 format!("Failed to parse Noir macro code (struct {}_abi). This is either a bug in the compiler or the Noir macro code", func.name())
-            ) 
+            )
         });
     }
 
