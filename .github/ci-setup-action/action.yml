@@ -37,5 +37,4 @@ runs:
 
     - name: Setup Env
       shell: bash
-      working-directory: ./scripts
       run: ./scripts/setup_env.sh ${{ inputs.dockerhub_password }} ${{ inputs.github_actor }}
