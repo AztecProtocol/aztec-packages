@@ -31,7 +31,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
         for i in 0..private_call_stack.len() {
             let private_call = private_call_stack[i];
             assert(
-                is_default(private_call), "Private call stack must be empty when executing in the public kernel"
+                is_default(private_call), "Private call stack must be default when executing in the public kernel"
             );
         }
 
