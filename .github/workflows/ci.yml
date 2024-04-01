@@ -188,6 +188,10 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
+      - name: Build and Push Binaries
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud build x86 --push +bench-binaries
+
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
         run: earthly-cloud bench x86 --no-output +bench-client-ivc
