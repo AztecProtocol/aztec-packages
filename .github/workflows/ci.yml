@@ -190,7 +190,7 @@ jobs:
 
       - name: Build and Push Binaries
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud build x86 --push +bench-binaries
+        run: earthly-cloud build x86 --push +bench-binaries --build_bench=true
 
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
