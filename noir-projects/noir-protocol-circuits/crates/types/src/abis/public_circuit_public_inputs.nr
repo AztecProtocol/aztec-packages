@@ -8,10 +8,11 @@ use crate::{
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, RETURN_VALUES_LENGTH, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, RETURN_VALUES_LENGTH, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    hash::poseidon_hash, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
+    hash::pedersen_hash, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Hash, Serialize, Deserialize}, utils::reader::Reader
 };
 
@@ -130,7 +131,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
 
 impl Hash for PublicCircuitPublicInputs {
     fn hash(self) -> Field {
-        poseidon_hash(self.serialize())
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)
     }
 }
 
@@ -148,6 +149,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x0781f81359ae2f2b078a60f982476d46deb9cd214ac3caeab233d75bf4add90e;
+    let test_data_empty_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
     assert_eq(hash, test_data_empty_hash);
 }

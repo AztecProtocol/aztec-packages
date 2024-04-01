@@ -1,10 +1,10 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { poseidonHash } from '@aztec/foundation/crypto';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { FieldsOf } from '@aztec/foundation/types';
 
-import { PRIVATE_CALL_STACK_ITEM_LENGTH } from '../constants.gen.js';
+import { GeneratorIndex, PRIVATE_CALL_STACK_ITEM_LENGTH } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
 import { CallRequest, CallerContext } from './call_request.js';
 import { FunctionData } from './function_data.js';
@@ -91,7 +91,7 @@ export class PrivateCallStackItem {
    * @returns Hash.
    */
   public hash(): Fr {
-    return poseidonHash(this.toFields());
+    return pedersenHash(this.toFields(), GeneratorIndex.CALL_STACK_ITEM);
   }
 
   /**

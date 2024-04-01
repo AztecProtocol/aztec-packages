@@ -1,6 +1,7 @@
 use crate::{
     abis::{function_data::FunctionData, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, constants::PRIVATE_CALL_STACK_ITEM_LENGTH, hash::poseidon_hash,
+    constants::GENERATOR_INDEX__CALL_STACK_ITEM, address::AztecAddress,
+    constants::PRIVATE_CALL_STACK_ITEM_LENGTH, hash::pedersen_hash,
     traits::{Deserialize, Hash, Serialize}, utils::reader::Reader
 };
 
@@ -55,7 +56,7 @@ impl Deserialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
 
 impl Hash for PrivateCallStackItem {
     fn hash(self) -> Field {
-        poseidon_hash(self.serialize())
+        pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_STACK_ITEM)
     }
 }
 
@@ -74,6 +75,6 @@ fn empty_hash() {
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x0d01cfdb290e6f765abcb744dc064379553d4933f9276f056eafda93663349ba;
+    let test_data_empty_hash = 0x06b381be873c42defb570287e3ba23900175838afb6047a27c7dce1f653b4ac5;
     assert_eq(hash, test_data_empty_hash);
 }

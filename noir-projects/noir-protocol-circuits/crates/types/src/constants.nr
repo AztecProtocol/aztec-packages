@@ -205,6 +205,11 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
  *
  * Note: When modifying, modify `GeneratorIndexPacker` in packer.hpp accordingly.
  */
+
+// Indices with size ≤ 8
+global GENERATOR_INDEX__CALL_STACK_ITEM = 18;
 // Indices with size ≤ 44
 // TODO: Function args generator index is being used to hash 64 items
 global GENERATOR_INDEX__FUNCTION_ARGS = 44;
+global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS = 42;
+global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS = 43;

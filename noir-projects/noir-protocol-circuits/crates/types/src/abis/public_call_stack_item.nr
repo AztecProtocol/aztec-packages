@@ -1,6 +1,7 @@
 use crate::abis::{function_data::FunctionData, public_circuit_public_inputs::PublicCircuitPublicInputs};
 use crate::address::AztecAddress;
 use crate::traits::Hash;
+use crate::constants::GENERATOR_INDEX__CALL_STACK_ITEM;
 
 struct PublicCallStackItem {
     contract_address: AztecAddress,
@@ -19,11 +20,11 @@ impl Hash for PublicCallStackItem {
             self
         };
 
-        crate::hash::poseidon_hash([
+        dep::std::hash::pedersen_hash_with_separator([
             item.contract_address.to_field(),
             item.function_data.hash(),
             item.public_inputs.hash(),
-        ])
+        ], GENERATOR_INDEX__CALL_STACK_ITEM)
     }
 }
 
@@ -68,7 +69,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        let test_data_call_stack_item_request_hash = 0x07ce89e72aa3644636e9a125b594fa1d33da3024587118dd2288faa2f4605d07;
+        let test_data_call_stack_item_request_hash = 0x0007c2acd2192f81e988f3b45f454b56ffa35a5ca968b899279a7c735c216912;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_request_hash);
     }
 
@@ -86,7 +87,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        let test_data_call_stack_item_hash = 0x03e84ccb5ced9e57f185dcc354ac1302ee25290b3234f22bcad36651b8098d9d;
+        let test_data_call_stack_item_hash = 0x1895471eb348fd84e607d3955bdc564e7fa2a17669e3f3580595d5c2a40d05b7;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_hash);
     }
 }
