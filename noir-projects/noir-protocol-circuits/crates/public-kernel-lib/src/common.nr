@@ -469,7 +469,7 @@ pub fn validate_call_against_request(public_call: PublicCallData, request: CallR
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;
-        assert(!is_default(caller_context), "caller context cannot be empty for delegate calls");
+        assert(!is_default(caller_context), "caller context cannot be default for delegate calls");
         assert(
             call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls"
         );
