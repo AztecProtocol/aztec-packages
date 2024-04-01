@@ -419,31 +419,27 @@ export abstract class AbstractPhaseManager {
 }
 
 function removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublicInputs, phase: PublicKernelPhase) {
-  const lastWritesMap = new Map<string, PublicDataUpdateRequest>();
-  const register = <N extends number>(requests: Tuple<PublicDataUpdateRequest, N>) => {
-    for (const write of requests) {
-      const key = write.leafSlot.toString();
-      lastWritesMap.set(key, write);
-    }
-  };
+  const lastWritesMap = new Map<string, boolean>();
   const patch = <N extends number>(requests: Tuple<PublicDataUpdateRequest, N>) =>
-    requests.filter(write => lastWritesMap.get(write.leafSlot.toString())?.equals(write));
+    requests.filter(write => {
+      const leafSlot = write.leafSlot.toString();
+      const exists = lastWritesMap.get(leafSlot);
+      lastWritesMap.set(leafSlot, true);
+      return !exists;
+    });
 
-  const [first, second] = PhaseIsRevertible[phase]
+  const [prev, curr] = PhaseIsRevertible[phase]
     ? [publicInputs.endNonRevertibleData, publicInputs.end]
     : [publicInputs.end, publicInputs.endNonRevertibleData];
 
-  register(first.publicDataUpdateRequests);
-  register(second.publicDataUpdateRequests);
-
-  first.publicDataUpdateRequests = padArrayEnd(
-    patch(first.publicDataUpdateRequests),
+  curr.publicDataUpdateRequests = padArrayEnd(
+    patch(curr.publicDataUpdateRequests.reverse()).reverse(),
     PublicDataUpdateRequest.empty(),
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 
-  second.publicDataUpdateRequests = padArrayEnd(
-    patch(second.publicDataUpdateRequests),
+  prev.publicDataUpdateRequests = padArrayEnd(
+    patch(prev.publicDataUpdateRequests.reverse()),
     PublicDataUpdateRequest.empty(),
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
