@@ -179,36 +179,48 @@ BENCH_RELEASE:
     FUNCTION
     ARG target
     ARG args
-    FROM +preset-release
-    DO +RUN_CMAKE --configure="--preset clang16" --build="--target $target"
-    COPY --dir ./srs_db/+build/. ../srs_db
-    RUN ./bin/$target $args
+    # Use a wait block to enforce single job execution
+    WAIT
+        FROM +preset-release
+        DO +RUN_CMAKE --configure="--preset clang16" --build="--target $target"
+        COPY --dir ./srs_db/+build/. ../srs_db
+        RUN ./bin/$target $args
+    END
 
 BENCH_OP_COUNT_TIME:
     FUNCTION
     ARG target
     ARG args
-    FROM +preset-op-count-time
-    DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
-    COPY --dir ./srs_db:+build/. ../srs_db
-    RUN ./bin/$target $args
+    # Use a wait block to enforce single job execution
+    WAIT
+        FROM +preset-op-count-time
+        DO +RUN_CMAKE --configure="--preset op-count-time" --build="--target $target"
+        COPY --dir ./srs_db:+build/. ../srs_db
+        RUN ./bin/$target $args
+    END
 
 BENCH_OP_COUNT:
     FUNCTION
     ARG target
     ARG args
-    FROM +preset-op-count
-    DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
-    COPY --dir ./srs_db/+build/. ../srs_db
-    RUN ./bin/$target $args
+    # Use a wait block to enforce single job execution
+    WAIT
+        FROM +preset-op-count
+        DO +RUN_CMAKE --configure="--preset op-count" --build="--target $target"
+        COPY --dir ./srs_db/+build/. ../srs_db
+        RUN ./bin/$target $args
+    END
 
 BENCH_WASM:
     FUNCTION
     ARG target
     ARG args
-    FROM +preset-wasm-threads
-    DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
-    COPY --dir ./srs_db/+build/. ../srs_db
-    # install
-    COPY +wasmtime/wasmtime /usr/bin/wasmtime
-    RUN wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
+    # Use a wait block to enforce single job execution
+    WAIT
+        FROM +preset-wasm-threads
+        DO +RUN_CMAKE --configure="--preset wasm-threads" --build="--target $target"
+        COPY --dir ./srs_db/+build/. ../srs_db
+        # install
+        COPY +wasmtime/wasmtime /usr/bin/wasmtime
+        RUN wasmtime run --env HARDWARE_CONCURRENCY=8 -Wthreads=y -Sthreads=y --dir=.. ./bin/$target $args
+    END

@@ -171,6 +171,7 @@ jobs:
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       # TODO this allows NO concurrency of bench jobs
+      # TODO if this takes too long, we need to divide up into different bench machines for each pipeline step
       group: bench-x86
     steps:
       - uses: earthly/actions-setup@v1
