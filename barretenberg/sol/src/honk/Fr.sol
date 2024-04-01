@@ -12,8 +12,6 @@ using {exp as ^} for Fr global;
 using {notEqual as !=} for Fr global;
 using {equal as ==} for Fr global;
 
-import {console2 as console} from "forge-std/console2.sol";
-
 uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
 
 // Instantiation
@@ -82,8 +80,6 @@ library FrLib {
     // TODO: Montgomery's batch inversion trick
     function div(Fr numerator, Fr denominator) internal view returns (Fr) {
         Fr inversion = invert(denominator);
-        console.log("inversion");
-        console.logBytes32(bytes32(Fr.unwrap(inversion)));
         return numerator * invert(denominator);
     }
 }
@@ -115,6 +111,6 @@ function notEqual(Fr a, Fr b) pure returns (bool) {
     return Fr.unwrap(a) != Fr.unwrap(b);
 }
 
-function notEqual(Fr a, Fr b) pure returns (bool) {
+function equal(Fr a, Fr b) pure returns (bool) {
     return Fr.unwrap(a) == Fr.unwrap(b);
 }

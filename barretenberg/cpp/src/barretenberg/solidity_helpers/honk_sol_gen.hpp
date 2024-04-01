@@ -16,12 +16,17 @@ inline void output_vk_sol_ultra_honk(
     auto const& key,
     std::string const& class_name)
 {
+
+    const auto print_u256_const = [&](const bb::fr& element, const std::string& name) {
+        os << "uint256 constant " << name << " = " << element << ";" << std::endl;
+    };
+
     const auto print_u256 = [&](const bb::fr& element, const std::string& name) {
         os << "            " << name << ": uint256(" << element << ")," << std::endl;
     };
 
     const auto print_g1 = [&](const bb::g1::affine_element& element, const std::string& name, const bool last = false) {
-        os << "            " << name << ": HonkTypes.G1Point({ \n"
+        os << "            " << name << ": Honk.G1Point({ \n"
            << "               "
            << "x: "
            << "uint256(" << element.x << "),\n"
@@ -45,13 +50,17 @@ inline void output_vk_sol_ultra_honk(
       "// Copyright 2022 Aztec\n"
       "pragma solidity >=0.8.21;\n"
       "\n"
-      "import { HonkTypes } from \"../HonkVerifierTypes.sol\";\n"
-      "library " << class_name << " {\n"
+      "import { Honk } from \"../HonkTypes.sol\";\n"
+    "";
+    print_u256_const(key->circuit_size, "N");
+    print_u256_const(key->log_circuit_size, "LOG_N");
+    os << ""
+    "library " << class_name << " {\n"
     //   "    function verificationKeyHash() internal pure returns(bytes32) {\n"
     //   "        return 0x" << key->sha256_hash() << ";\n"
     //   "    }\n\n"
-      "    function loadVerificationKey() internal pure returns (HonkTypes.VerificationKey memory) {\n"
-      "        HonkTypes.VerificationKey memory vk = HonkTypes.VerificationKey({\n";
+      "    function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {\n"
+      "        Honk.VerificationKey memory vk = Honk.VerificationKey({\n";
     print_u256(key->circuit_size, "circuitSize");
     print_u256(key->log_circuit_size, "logCircuitSize");
     print_u256(key->num_public_inputs, "publicInputsSize");

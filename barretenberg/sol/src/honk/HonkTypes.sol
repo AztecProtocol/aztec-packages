@@ -2,18 +2,16 @@
 pragma solidity >=0.8.21;
 
 import {Fr} from "./Fr.sol";
+import {LOG_N} from "./keys/Add2HonkVerificationKey.sol";
 
 uint256 constant NUMBER_OF_SUBRELATIONS = 18;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
 uint256 constant NUMBER_OF_ENTITIES = 43;
+uint256 constant NUMBER_OF_ALPHAS = 17;
 
 // Prime field order
 uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
 uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
-
-/// Log of the circuit size - precomputed
-uint256 constant N = 32;
-uint256 constant LOG_N = 5;
 
 // ENUM FOR WIRES
 enum WIRE {
@@ -134,4 +132,5 @@ library Honk {
         G1ProofPoint zmCq;
         G1ProofPoint zmPi;
     }
+
 }

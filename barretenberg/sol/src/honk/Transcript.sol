@@ -1,4 +1,4 @@
-import {Honk} from "./HonkTypes.sol";
+import {Honk, LOG_N, NUMBER_OF_ALPHAS, NUMBER_OF_ENTITIES, BATCHED_RELATION_PARTIAL_LENGTH} from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 
 struct Transcript {
@@ -40,7 +40,7 @@ library TranscriptLib {
 
         (t.zmX, t.zmZ) = generateZMXZChallenges(t.zmY, proof);
 
-        return tp;
+        return t;
     }
 
     function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs)
@@ -131,7 +131,7 @@ library TranscriptLib {
     function generateGateChallenges(Fr previousChallenge) internal view returns (Fr[LOG_N] memory gateChallenges) {
         for (uint256 i = 0; i < LOG_N; i++) {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
-            gateChallanges[i] = previousChallenge;
+            gateChallenges[i] = previousChallenge;
         }
     }
 
@@ -198,6 +198,6 @@ library TranscriptLib {
         buf[4] = proof.zmCq.y_1;
 
         zeromorphX = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
-        zeromorphZ = FrLib.fromBytes32(keccak256(abi.encodePacked(zmX)));
+        zeromorphZ = FrLib.fromBytes32(keccak256(abi.encodePacked(zeromorphX)));
     }
 }
