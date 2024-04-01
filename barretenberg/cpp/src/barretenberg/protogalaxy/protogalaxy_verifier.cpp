@@ -72,7 +72,13 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-    auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
+    auto lagranges = std::array<FF, VerifierInstances::NUM>{ FF(1) - combiner_challenge, combiner_challenge };
+    if constexpr (VerifierInstances::NUM == 3) {
+        vanishing_polynomial_at_challenge *= (combiner_challenge - FF(2));
+        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) / (FF(2)),
+                      combiner_challenge * (FF(2) - combiner_challenge),
+                      combiner_challenge * (combiner_challenge - FF(1)) / FF(2) };
+    }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>(accumulator->verification_key);

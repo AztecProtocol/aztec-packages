@@ -48,12 +48,12 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
     // and the computation of Lagrange basis for k instances
     auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
-    std::vector<FF> lagranges{ FF(1) - challenge, challenge };
-    if (ProverInstances::NUM == 3) {
+    std::array<FF, ProverInstances::NUM> lagranges{ FF(1) - challenge, challenge };
+    if constexpr (ProverInstances::NUM == 3) {
         vanishing_polynomial_at_challenge *= (challenge - FF(2));
         lagranges = { (FF(1) - challenge) * (FF(2) - challenge) / (FF(2)),
                       challenge * (FF(2) - challenge),
-                      challenge * (FF(1) - challenge) / FF(2) };
+                      challenge * (challenge - FF(1)) / FF(2) };
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern

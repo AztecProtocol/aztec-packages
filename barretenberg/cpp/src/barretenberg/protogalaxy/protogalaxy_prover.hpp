@@ -397,7 +397,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             auto idx = point - ProverInstances::NUM;
             auto lagrange_0 = FF(1) - FF(point);
             auto vanishing_polynomial = FF(point) * (FF(point) - 1);
-            if (ProverInstances::NUM == 3) {
+            if constexpr (ProverInstances::NUM == 3) {
                 lagrange_0 = (FF(1) - FF(point)) * (FF(2) - FF(point)) / (FF(2));
                 vanishing_polynomial *= (FF(point) - 2);
             }

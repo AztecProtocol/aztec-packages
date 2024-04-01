@@ -435,8 +435,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         //     fold_and_verify({ prover_instance_1, prover_instance_2, prover_instance_3 },
         //                     { verifier_instance_1, verifier_instance_2, verifier_instance_3 });
 
-        // check_accumulator_target_sum_manual(prover_accumulator, true);
-        auto instance_size = prover_accumulator->proving_key->circuit_size;
+        check_accumulator_target_sum_manual(prover_accumulator, true);
+        auto instance_size = prover_accumulator->proving_key.circuit_size;
         auto expected_honk_evals = ProtoGalaxyProver_<ProverInstances_<Flavor, 3>>::compute_full_honk_evaluations(
             prover_accumulator->prover_polynomials,
             prover_accumulator->alphas,
