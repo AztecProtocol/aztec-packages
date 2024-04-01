@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup.yml
 
       - uses: ./.github/actions/ci-setup.yml
@@ -61,7 +61,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup.yml
 
       - uses: ./.github/actions/ci-setup.yml
@@ -95,7 +95,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup.yml
 
       - uses: ./.github/actions/ci-setup.yml
@@ -135,7 +135,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup.yml
 
       - uses: ./.github/actions/ci-setup.yml
@@ -165,7 +165,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.git_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           submodules: false # we cache submodules in ci-setup.yml
 
       - uses: ./.github/actions/ci-setup.yml
