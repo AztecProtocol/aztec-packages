@@ -6,7 +6,7 @@ import {
   PROVING_STATUS,
   ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx
+  makeProcessedTx,
 } from '@aztec/circuit-types';
 import {
   EthAddress,
