@@ -123,7 +123,12 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: |
-          earthly-cloud build x86 --no-output +${{ matrix.test }} --e2e_mode=cache
+          # we blank earthly token just to be sure this is a pure local run
+          EARTHLY_TOKEN="" earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
+
+      - name: Upload logs
+        run: |
+          scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
 
   # barretenberg (prover) native tests
   bb-native-tests:
