@@ -3,6 +3,7 @@
 #![warn(unreachable_pub)]
 #![warn(clippy::semicolon_if_nothing_returned)]
 
+use abi_gen::value_from_hir_expression;
 use acvm::acir::circuit::ExpressionWidth;
 use clap::Args;
 use fm::{FileId, FileManager};
@@ -452,7 +453,7 @@ fn compile_contract_inner(
                     let let_statement =
                         context.def_interner.get_global_let_statement(*global_id).unwrap();
                     let hir_expression = context.def_interner.expression(&let_statement.expression);
-                    AbiValue::from_hir_expression(context, hir_expression)
+                    value_from_hir_expression(context, hir_expression)
                 })
                 .collect();
             (tag.to_string(), globals)

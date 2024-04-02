@@ -16,10 +16,10 @@ export interface BasicValue<T extends string, V> {
 /**
  * An exported value.
  */
-export type ABIValue =
+export type AbiValue =
   | BasicValue<'boolean', boolean>
   | BasicValue<'string', string>
-  | BasicValue<'array', ABIValue[]>
+  | BasicValue<'array', AbiValue[]>
   | IntegerValue
   | FieldValue
   | StructValue;
@@ -28,7 +28,7 @@ export type TypedStructFieldValue<T> = { name: string; value: T };
 
 export interface StructValue {
   kind: 'struct';
-  fields: TypedStructFieldValue<ABIValue>[];
+  fields: TypedStructFieldValue<AbiValue>[];
 }
 
 export interface FieldValue extends BasicValue<'field', string> {
@@ -50,7 +50,7 @@ export interface ABIVariable {
   /**
    * The type of the variable.
    */
-  type: ABIType;
+  type: AbiType;
 }
 
 /**
@@ -84,7 +84,7 @@ export interface BasicType<T extends string> {
 /**
  * A variable type.
  */
-export type ABIType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
+export type AbiType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
 
 /**
  * An integer type.
@@ -111,7 +111,7 @@ export interface ArrayType extends BasicType<'array'> {
   /**
    * The type of the array elements.
    */
-  type: ABIType;
+  type: AbiType;
 }
 
 /**
@@ -170,7 +170,7 @@ export interface FunctionAbi {
   /**
    * The types of the return values.
    */
-  returnTypes: ABIType[];
+  returnTypes: AbiType[];
   /**
    * Whether the function is flagged as an initializer.
    */
@@ -282,8 +282,8 @@ export interface ContractArtifact {
    * The outputs of the contract.
    */
   outputs: {
-    structs: Record<string, ABIType[]>;
-    globals: Record<string, ABIValue[]>;
+    structs: Record<string, AbiType[]>;
+    globals: Record<string, AbiValue[]>;
   };
 
   /**
