@@ -15,6 +15,7 @@ runs:
   using: composite
   steps:
     - name: Cache Submodules
+      id: cache-submodules
       uses: actions/cache@v2
       with:
         path: |
