@@ -7,6 +7,7 @@
 set -eu
 
 BUCKET_NAME="aztec-ci-artifacts"
+BARRETENBERG_BUCKET_NAME="aztec-ci-artifacts"
 LOG_FOLDER="${LOG_FOLDER:-log}"
 BENCH_FOLDER="${BENCH_FOLDER:-bench}"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
@@ -17,10 +18,12 @@ BASE_BENCHMARK_FILE_JSON="${BENCH_FOLDER}/base-benchmark.json"
 # Paths from build-system/scripts/upload_logs_to_s3
 if [ "${CIRCLE_BRANCH:-}" = "master" ]; then
   LOG_SOURCE_FOLDER="logs-v1/master/$COMMIT_HASH"
+  BARRETENBERG_BENCH_SOURCE_FOLDER="barretenberg-bench-v1/master/$COMMIT_HASH"
   BENCHMARK_TARGET_FILE="benchmarks-v1/master/$COMMIT_HASH.json"
   BENCHMARK_LATEST_FILE="benchmarks-v1/latest.json"
 elif [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
   LOG_SOURCE_FOLDER="logs-v1/pulls/${CIRCLE_PULL_REQUEST##*/}"
+  BARRETENBERG_BENCH_SOURCE_FOLDER="barretenberg-bench-v1/pulls/${CIRCLE_PULL_REQUEST##*/}"
   BENCHMARK_TARGET_FILE="benchmarks-v1/pulls/${CIRCLE_PULL_REQUEST##*/}.json"
 elif [ -n "${CIRCLE_TAG:-}" ]; then
   echo "Skipping benchmark run for ${CIRCLE_TAG} tagged release."
@@ -44,8 +47,11 @@ EXPECTED_LOGS_COUNT=$(find yarn-project/end-to-end/src -type f -name "bench*.tes
 DOWNLOADED_LOGS_COUNT=$(find $LOG_FOLDER -type f -name "*.jsonl" | wc -l)
 if [ "$DOWNLOADED_LOGS_COUNT" -lt "$EXPECTED_LOGS_COUNT" ]; then
   echo Found $DOWNLOADED_LOGS_COUNT out of $EXPECTED_LOGS_COUNT benchmark log files in s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/. Exiting.
-  exit 0
+  exit 1
 fi
+
+# Download barretenberg log files, these are direct benchmarks and separate from the above
+aws s3 cp "s3://${BUCKET_NAME}/${BARRETENBERG_BENCH_SOURCE_FOLDER}/" $LOG_FOLDER --exclude '*' --include '*_bench.json' --recursive
 
 # Generate the aggregated benchmark file
 mkdir -p $BENCH_FOLDER
