@@ -1,4 +1,6 @@
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
+  type AccountManager,
   type AztecAddress,
   BatchCall,
   type DebugLogger,
@@ -6,6 +8,7 @@ import {
   Fr,
   type FunctionCall,
   FunctionSelector,
+  NativeFeePaymentMethod,
   Note,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
@@ -15,7 +18,7 @@ import {
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { FunctionData, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { Fq, FunctionData, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { type ContractArtifact, decodeFunctionSignature } from '@aztec/foundation/abi';
 import {
   TokenContract as BananaCoin,
@@ -647,6 +650,48 @@ describe('e2e_fees', () => {
       [aliceAddress, bananaFPC.address, sequencerAddress],
       [initialAliceGas, initialFPCGas, initialSequencerGas],
     );
+  });
+
+  describe('deploying account contracts', () => {
+    let accountManager: AccountManager;
+    let initialGas: bigint;
+    let initialSequencerGas: bigint;
+    let maxFee: bigint;
+    let actualFee: bigint;
+
+    beforeEach(async () => {
+      accountManager = getSchnorrAccount(e2eContext.pxe, Fq.random(), Fq.random(), Fr.random());
+      maxFee = 3n;
+      actualFee = 1n;
+
+      await gasBridgeTestHarness.bridgeFromL1ToL2(
+        BRIDGED_FPC_GAS,
+        BRIDGED_FPC_GAS,
+        accountManager.getCompleteAddress().address,
+      );
+
+      [initialGas, initialSequencerGas] = await gasBalances(
+        accountManager.getCompleteAddress().address,
+        sequencerAddress,
+      );
+
+      // account has not been deployed but it's been funded with gas
+      expect(initialGas).toEqual(BRIDGED_FPC_GAS);
+    });
+
+    it('pays fee natively', async () => {
+      await (
+        await accountManager.deploy({
+          maxFee,
+          paymentMethod: await NativeFeePaymentMethod.create(await accountManager.getWallet()),
+        })
+      ).wait();
+
+      await expect(gasBalances(accountManager.getCompleteAddress().address, sequencerAddress)).resolves.toEqual([
+        initialGas - actualFee,
+        initialSequencerGas + actualFee,
+      ]);
+    });
   });
 
   function logFunctionSignatures(artifact: ContractArtifact, logger: DebugLogger) {

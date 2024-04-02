@@ -5,6 +5,8 @@ use dep::aztec::protocol_types::{address::AztecAddress, abis::function_selector:
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
 use crate::auth::{IS_VALID_SELECTOR, compute_outer_authwit_hash};
 
+use crate::capsule::pop_capsule;
+
 struct AccountActions {
   context: Context,
   is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
@@ -54,6 +56,17 @@ impl AccountActions {
         )
     }
 
+    pub fn initialize_account_contract(self) {
+        let valid_fn = self.is_valid_impl;
+        let mut private_context = self.context.private.unwrap();
+
+        let fee_payload = FeePayload::deserialize(pop_capsule());
+        let fee_hash = fee_payload.hash();
+        assert(valid_fn(private_context, fee_hash));
+        fee_payload.execute_calls(private_context);
+        private_context.capture_min_revertible_side_effect_counter();
+    }
+
     // docs:start:entrypoint
     pub fn entrypoint(self, app_payload: AppPayload, fee_payload: FeePayload) {
         let valid_fn = self.is_valid_impl;
@@ -73,7 +86,7 @@ impl AccountActions {
     // docs:start:spend_private_authwit
     pub fn spend_private_authwit(self, inner_hash: Field) -> Field {
         let context = self.context.private.unwrap();
-        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can 
+        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can
         // consume the message.
         // This ensures that contracts cannot consume messages that are not intended for them.
         let message_hash = compute_outer_authwit_hash(
@@ -92,7 +105,7 @@ impl AccountActions {
     // docs:start:spend_public_authwit
     pub fn spend_public_authwit(self, inner_hash: Field) -> Field {
         let context = self.context.public.unwrap();
-        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can 
+        // The `inner_hash` is "siloed" with the `msg_sender` to ensure that only it can
         // consume the message.
         // This ensures that contracts cannot consume messages that are not intended for them.
         let message_hash = compute_outer_authwit_hash(

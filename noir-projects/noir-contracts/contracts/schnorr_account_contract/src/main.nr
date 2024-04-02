@@ -33,6 +33,13 @@ contract SchnorrAccount {
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
         storage.signing_public_key.initialize(&mut pub_key_note, true);
         // docs:end:initialize
+
+        let actions = AccountActions::private(
+            &mut context,
+            storage.approved_actions.storage_slot,
+            is_valid_impl
+        );
+        actions.initialize_account_contract();
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
@@ -117,9 +124,9 @@ contract SchnorrAccount {
     * @param block_number The block number to check the nullifier against
     * @param check_private Whether to check the validity of the authwitness in private state or not
     * @param message_hash The message hash of the message to check the validity
-    * @return An array of two booleans, the first is the validity of the authwitness in the private state, 
+    * @return An array of two booleans, the first is the validity of the authwitness in the private state,
     * the second is the validity of the authwitness in the public state
-    * Both values will be `false` if the nullifier is spent 
+    * Both values will be `false` if the nullifier is spent
     */
     unconstrained fn lookup_validity(
         myself: AztecAddress,
@@ -147,7 +154,7 @@ contract SchnorrAccount {
         let valid_in_public = storage.approved_actions.at(message_hash).read();
 
         // Compute the nullifier and check if it is spent
-        // This will BLINDLY TRUST the oracle, but the oracle is us, and 
+        // This will BLINDLY TRUST the oracle, but the oracle is us, and
         // it is not as part of execution of the contract, so we are good.
         let siloed_nullifier = compute_siloed_nullifier(myself, message_hash);
         let lower_wit = get_low_nullifier_membership_witness(block_number, siloed_nullifier);

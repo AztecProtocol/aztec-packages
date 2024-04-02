@@ -1,5 +1,6 @@
 use dep::aztec::prelude::PrivateContext;
-use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__FEE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}};
+use dep::aztec::protocol_types::utils::reader::Reader;
+use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__FEE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize, Deserialize}};
 use crate::entrypoint::function_call::FunctionCall;
 
 // 2 * 4 (function call) + 1
@@ -26,6 +27,19 @@ impl Serialize<FEE_PAYLOAD_SIZE> for FeePayload {
     }
     fields.push(self.nonce);
     fields.storage
+  }
+}
+
+impl Deserialize<FEE_PAYLOAD_SIZE> for FeePayload {
+  // Deserializes the entrypoint struct
+  fn deserialize(fields: [Field; FEE_PAYLOAD_SIZE]) -> Self {
+    let mut reader = Reader::new(fields);
+    let payload = FeePayload {
+      function_calls: reader.read_struct_array(FunctionCall::deserialize, [FunctionCall::empty(); MAX_FEE_FUNCTION_CALLS]),
+      nonce: reader.read(),
+    };
+    reader.finish();
+    payload
   }
 }
 

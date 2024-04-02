@@ -6,9 +6,11 @@ import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type AccountContract } from '../account/contract.js';
 import { type Salt } from '../account/index.js';
 import { type AccountInterface } from '../account/interface.js';
+import { DeployAccountMethod } from '../contract/deploy_account_method.js';
 import { type DeployMethod } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
-import { ContractDeployer } from '../deployment/contract_deployer.js';
+import { type FeeOptions } from '../entrypoint/entrypoint.js';
+import { Contract } from '../index.js';
 import { waitForAccountSynch } from '../utils/account.js';
 import { generatePublicKey } from '../utils/index.js';
 import { AccountWalletWithPrivateKey, SignerlessWallet } from '../wallet/index.js';
@@ -132,13 +134,17 @@ export class AccountManager {
       // If we used getWallet, the deployment would get routed via the account contract entrypoint
       // instead of directly hitting the initializer.
       const deployWallet = new SignerlessWallet(this.pxe);
-      const deployer = new ContractDeployer(
-        this.accountContract.getContractArtifact(),
-        deployWallet,
-        encryptionPublicKey,
-      );
       const args = this.accountContract.getDeploymentArgs() ?? [];
-      this.deployMethod = deployer.deploy(...args);
+      this.deployMethod = new DeployAccountMethod(
+        await this.getAccount(),
+        encryptionPublicKey,
+        deployWallet,
+        this.accountContract.getContractArtifact(),
+        (address, wallet) => {
+          return Contract.at(address, this.accountContract.getContractArtifact(), wallet);
+        },
+        args,
+      );
     }
     return this.deployMethod;
   }
@@ -148,9 +154,10 @@ export class AccountManager {
    * Does not register the associated class nor publicly deploy the instance by default.
    * Uses the salt provided in the constructor or a randomly generated one.
    * Registers the account in the PXE Service before deploying the contract.
+   * @param fee - Fee to be paid for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
-  public async deploy(): Promise<DeployAccountSentTx> {
+  public async deploy(fee?: FeeOptions): Promise<DeployAccountSentTx> {
     const deployMethod = await this.getDeployMethod();
     const wallet = await this.getWallet();
     const sentTx = deployMethod.send({
@@ -158,6 +165,7 @@ export class AccountManager {
       skipClassRegistration: true,
       skipPublicDeployment: true,
       universalDeploy: true,
+      fee,
     });
     return new DeployAccountSentTx(wallet, sentTx.getTxHash());
   }

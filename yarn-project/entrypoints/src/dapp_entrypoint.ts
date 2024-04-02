@@ -1,12 +1,11 @@
 import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { type EntrypointInterface } from '@aztec/aztec.js/entrypoint';
+import { type EntrypointInterface, EntrypointPayload } from '@aztec/aztec.js/entrypoint';
 import { type FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
-import { buildDappPayload } from './entrypoint_payload.js';
 
 /**
  * Implementation for an entrypoint interface that follows the default entrypoint signature
@@ -23,9 +22,10 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
 
   async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
     if (executions.length !== 1) {
-      throw new Error('ILLEGAL');
+      throw new Error(`Expected exactly 1 function call, got ${executions.length}`);
     }
-    const { payload, packedArguments } = buildDappPayload(executions[0]);
+
+    const payload = EntrypointPayload.fromFunctionCalls(executions);
 
     const abi = this.getEntrypointAbi();
     const entrypointPackedArgs = PackedArguments.fromArgs(encodeArguments(abi, [payload, this.userAddress]));
@@ -47,7 +47,7 @@ export class DefaultDappEntrypoint implements EntrypointInterface {
       origin: this.dappEntrypointAddress,
       functionData,
       txContext: TxContext.empty(this.chainId, this.version),
-      packedArguments: [...packedArguments, entrypointPackedArgs],
+      packedArguments: [...payload.packedArguments, entrypointPackedArgs],
       authWitnesses: [authWitness],
     });
 

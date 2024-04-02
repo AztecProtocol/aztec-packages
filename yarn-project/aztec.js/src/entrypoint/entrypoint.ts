@@ -1,17 +1,8 @@
 import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
-import { type Fr } from '@aztec/foundation/fields';
 
-import { type FeePaymentMethod } from '../fee/fee_payment_method.js';
+import { EntrypointPayload, type FeeOptions } from './payload.js';
 
-/**
- * Fee payment options for a transaction.
- */
-export type FeeOptions = {
-  /** The fee payment method to use */
-  paymentMethod: FeePaymentMethod;
-  /** The fee limit to pay */
-  maxFee: bigint | number | Fr;
-};
+export { EntrypointPayload, FeeOptions };
 
 /** Creates transaction execution requests out of a set of function calls. */
 export interface EntrypointInterface {

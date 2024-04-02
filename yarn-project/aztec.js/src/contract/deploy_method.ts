@@ -60,7 +60,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   constructor(
     private publicKey: PublicKey,
     protected wallet: Wallet,
-    private artifact: ContractArtifact,
+    protected artifact: ContractArtifact,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
