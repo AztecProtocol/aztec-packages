@@ -43,6 +43,12 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void create_databus_read_gate(const databus_lookup_gate_<FF>& in);
     void create_calldata_read_gate(const databus_lookup_gate_<FF>& in);
     void create_return_data_read_gate(const databus_lookup_gate_<FF>& in);
+    uint32_t append_to_bus_vector(BusVector& bus_vector, const FF& in)
+    {
+        const uint32_t index = this->add_variable(in);
+        bus_vector.append(index);
+        return index;
+    }
 
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
@@ -129,13 +135,13 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      * @brief Add a witness variable to the public calldata.
      *
      * */
-    uint32_t add_public_calldata(const FF& in) { return add_to_bus_vector(databus.calldata, in); }
+    uint32_t add_public_calldata(const FF& in) { return append_to_bus_vector(databus.calldata, in); }
 
     /**
      * @brief Add a witness variable to the public return_data.
      *
      * */
-    uint32_t add_public_return_data(const FF& in) { return add_to_bus_vector(databus.return_data, in); }
+    uint32_t add_public_return_data(const FF& in) { return append_to_bus_vector(databus.return_data, in); }
 
     /**
      * @brief Read from calldata and create a corresponding databus read gate
@@ -162,13 +168,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         create_return_data_read_gate({ read_idx_witness_idx, value_witness_idx });
         return value_witness_idx;
     };
-
-    uint32_t add_to_bus_vector(BusVector& bus_vector, const FF& in)
-    {
-        const uint32_t index = this->add_variable(in);
-        bus_vector.append(index);
-        return index;
-    }
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);

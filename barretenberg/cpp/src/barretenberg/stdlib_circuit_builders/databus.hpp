@@ -19,7 +19,7 @@ struct BusVector {
     void append(const uint32_t& idx)
     {
         data.emplace_back(idx);
-        read_counts.resize(data.size()); // WORKTODO: emplace_back(0)?
+        read_counts.emplace_back(0);
     }
 
     size_t size() const { return data.size(); }
@@ -49,7 +49,11 @@ struct BusVector {
 
 /**
  * @brief The DataBus; facilitates storage of public circuit input/output
- * @details WORKTODO: explain basic purpose and ideas
+ * @details The DataBus is designed to facilitate efficient transfer of large amounts of public data between circuits.
+ * It is expected that only a small subset of the data being passed needs to be used in any single circuit, thus we
+ * provide a read mechanism (implemented through a Builder) that results in prover work proportional to only the data
+ * that is used. (The prover must still commit to all data in each bus vector but we do not need to hash all data
+ * in-circuit as we would with public inputs).
  *
  */
 struct DataBus {

@@ -17,13 +17,14 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-class DataBusComposerTests : public ::testing::Test {
+class DataBusTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
 
+    // Construct and verify a GUH proof for a given circuit
     static bool construct_and_verify_proof(GoblinUltraCircuitBuilder& builder)
     {
         GoblinUltraProver prover{ builder };
@@ -33,6 +34,7 @@ class DataBusComposerTests : public ::testing::Test {
         return verifier.verify_proof(proof);
     }
 
+    // Construct a Goblin Ultra circuit with some arbitrary sample gates
     static GoblinUltraCircuitBuilder construct_test_builder()
     {
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
@@ -47,7 +49,7 @@ class DataBusComposerTests : public ::testing::Test {
  * gates
  *
  */
-TEST_F(DataBusComposerTests, CallDataRead)
+TEST_F(DataBusTests, CallDataRead)
 {
     // Construct a circuit and add some ecc op gates and arithmetic gates
     auto builder = construct_test_builder();
@@ -90,7 +92,7 @@ TEST_F(DataBusComposerTests, CallDataRead)
  * gates
  *
  */
-TEST_F(DataBusComposerTests, ReturnDataRead)
+TEST_F(DataBusTests, ReturnDataRead)
 {
     // Construct a circuit and add some ecc op gates and arithmetic gates
     auto builder = construct_test_builder();
@@ -132,7 +134,7 @@ TEST_F(DataBusComposerTests, ReturnDataRead)
  * @brief Test reads from calldata and return data in the same circuit
  *
  */
-TEST_F(DataBusComposerTests, CallDataAndReturnData)
+TEST_F(DataBusTests, CallDataAndReturnData)
 {
     // Construct a circuit and add some ecc op gates and arithmetic gates
     auto builder = construct_test_builder();

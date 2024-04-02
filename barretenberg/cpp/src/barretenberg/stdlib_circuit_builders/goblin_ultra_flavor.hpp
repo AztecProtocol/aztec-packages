@@ -352,7 +352,7 @@ class GoblinUltraFlavor {
         }
 
         /**
-         * @brief Compute the inverse polynomial used in the log derivative lookup argument
+         * @brief Compute the inverse polynomial used in the databus log derivative lookup argument
          *
          * @tparam Flavor
          * @param beta
@@ -361,12 +361,13 @@ class GoblinUltraFlavor {
         void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
         {
             auto prover_polynomials = ProverPolynomials(*this);
-            // Compute inverses polynomial used in log derivative relations
-            // WORKTODO: make this a loop?
+
+            // Compute inverses for calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             this->calldata_inverses = prover_polynomials.calldata_inverses;
 
+            // Compute inverses for return data reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             this->return_data_inverses = prover_polynomials.return_data_inverses;

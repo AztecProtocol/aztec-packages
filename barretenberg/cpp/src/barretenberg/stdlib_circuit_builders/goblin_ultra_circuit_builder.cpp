@@ -306,7 +306,7 @@ void GoblinUltraCircuitBuilder_<FF>::create_calldata_read_gate(const databus_loo
 template <typename FF>
 void GoblinUltraCircuitBuilder_<FF>::create_return_data_read_gate(const databus_lookup_gate_<FF>& in)
 {
-    // Create generic read gate then set q_1 = 1 to specify a calldata read
+    // Create generic read gate then set q_2 = 1 to specify a return data read
     create_databus_read_gate(in);
     auto& block = this->blocks.busread;
     block.q_2()[block.size() - 1] = 1;

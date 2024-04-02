@@ -18,8 +18,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3;
 
-    // Note: The first subrelation actually has length = LENGTH-1 but taking advantage of this would require additional
-    // computation that would nullify the benefits.
+    // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work
     static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_PARTIAL_LENGTHS{
         LENGTH, // inverse polynomial correctness subrelation
         LENGTH, // log-derivative lookup argument subrelation
@@ -27,15 +26,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
         LENGTH  // log-derivative lookup argument subrelation
     };
 
-    // The lookup subrelations are "linearly dependent" in the sense that they establishe the value of a sum across the
+    // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
     static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
         true, false, true, false
     };
 
+    // Interface for easy access of databus components by column (bus_idx)
     template <size_t bus_idx, typename AllEntities> struct BusData;
 
-    // Specialization for bus_idx 0
+    // Specialization for calldata (bus_idx = 0)
     template <typename AllEntities> struct BusData</*bus_idx=*/0, AllEntities> {
         static auto& values(const AllEntities& in) { return in.calldata; }
         static auto& selector(const AllEntities& in) { return in.q_l; }
@@ -44,7 +44,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& read_counts(const AllEntities& in) { return in.calldata_read_counts; }
     };
 
-    // Specialization for bus_idx 1
+    // Specialization for return data (bus_idx = 1)
     template <typename AllEntities> struct BusData</*bus_idx=*/1, AllEntities> {
         static auto& values(const AllEntities& in) { return in.return_data; }
         static auto& selector(const AllEntities& in) { return in.q_r; }
@@ -60,8 +60,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
      *
      * @tparam AllValues
      * @param row
-     * @return true
-     * @return false
      */
     template <size_t bus_idx, typename AllValues> static bool operation_exists_at_row(const AllValues& row)
     {
@@ -119,7 +117,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto& gamma = ParameterView(params.gamma);
         const auto& beta = ParameterView(params.beta);
 
-        // Construct b_i + idx_i*\beta + \gamma
+        // Construct value_i + idx_i*\beta + \gamma
         return value + gamma + id * beta; // degree 1
     }
 
