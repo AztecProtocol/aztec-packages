@@ -100,9 +100,11 @@ export class Body {
       return 2;
     }
 
+    // Note that the following could be implemented in a more simple way as "2 ** Math.ceil(Math.log2(numTxEffects));"
+    // but we want to keep the same logic as in Solidity and there we don't have the math functions.
     let v = numTxEffects;
 
-    // the following rounds numTxEffects up to the next power of 2 (works only for 4 bytes value!)
+    // The following rounds numTxEffects up to the next power of 2 (works only for 4 bytes value!)
     v--;
     v |= v >> 1;
     v |= v >> 2;
