@@ -9,7 +9,7 @@ on:
 jobs:
   compare_protocol_circuits_gates:
     concurrency:
-      group: compare_protocol_circuits_gates-${{ github.ref_name == 'master' && env.GITHUB_SHA || github.ref_name }}
+      group: compare_protocol_circuits_gates-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
     if: "!startsWith(github.head_ref, 'release-please--')"
     runs-on: ubuntu-20.04
     steps:
