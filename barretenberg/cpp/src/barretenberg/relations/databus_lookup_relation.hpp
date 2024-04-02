@@ -37,7 +37,6 @@ namespace bb {
  * rows of the exectution trace is zero, rather than that some expression holds independently at each row. Accordingly,
  * this subrelation is not multiplied by a scaling factor at each accumulation step.
  *
- *
  */
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
