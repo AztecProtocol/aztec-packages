@@ -3,6 +3,7 @@ import { inspect } from 'util';
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
+import { TypeRegistry } from '../serialize/type_registry.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
 
@@ -266,6 +267,9 @@ export class Fr extends BaseField {
   }
 }
 
+// For deserializing JSON.
+TypeRegistry.register('Fr', Fr);
+
 /**
  * Branding to ensure fields are not interchangeable types.
  */
@@ -334,6 +338,9 @@ export class Fq extends BaseField {
     };
   }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('Fq', Fq);
 
 // Beware: Performance bottleneck below
 

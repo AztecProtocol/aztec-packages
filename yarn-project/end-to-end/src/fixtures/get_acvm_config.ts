@@ -29,7 +29,7 @@ export async function getACVMConfig(logger: DebugLogger) {
 
     const cleanup = async () => {
       if (directoryToCleanup) {
-        logger(`Cleaning up ACVM temp directory ${directoryToCleanup}`);
+        // logger(`Cleaning up ACVM temp directory ${directoryToCleanup}`);
         await fs.rm(directoryToCleanup, { recursive: true, force: true });
       }
     };
