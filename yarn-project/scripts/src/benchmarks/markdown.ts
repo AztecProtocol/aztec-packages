@@ -189,6 +189,7 @@ export function getMarkdown() {
   const metricsByClassesRegistered = Metrics.filter(m => m.groupBy === 'classes-registered').map(m => m.name);
   const metricsByFeePaymentMethod = Metrics.filter(m => m.groupBy === 'fee-payment-method').map(m => m.name);
   const metricsByLeafCount = Metrics.filter(m => m.groupBy === 'leaf-count').map(m => m.name);
+  const metricsByCircuitSize = Metrics.filter(m => m.groupBy === 'circuit-size-in-gates').map(m => m.name);
 
   const metricsTxPxeProcessing = Metrics.filter(m => m.name === 'tx_pxe_processing_time_ms').map(m => m.name);
   const metricsTxSeqProcessing = Metrics.filter(m => m.name === 'tx_sequencer_processing_time_ms').map(m => m.name);
@@ -214,9 +215,14 @@ ${getWarningsSummary(benchmark, baseBenchmark)}
 
 <summary>Detailed results</summary>
 
-All benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, an unencrypted log, and public storage read and write.
+Except for proving times, all benchmarks are run on txs on the \`Benchmarking\` contract on the repository. Each tx consists of a batch call  to \`create_note\` and \`increment_balance\`, which guarantees that each tx has a private call, a nested private call, a public call, and a nested public call, as well as an emitted private note, an unencrypted log, and public storage read and write.
 ${prSourceDataText}
 ${baseCommitText}
+
+### Proving times
+
+Average proving times for benchmarks measured in bb.
+${getTableContent(pick(benchmark, metricsByCircuitSize), baseBenchmark, 'gates', 'Circuit')}
 
 ### L2 block published to L1
 
