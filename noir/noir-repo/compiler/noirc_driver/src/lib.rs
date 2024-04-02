@@ -20,7 +20,6 @@ use noirc_frontend::macros_api::MacroProcessor;
 use noirc_frontend::monomorphization::{monomorphize, monomorphize_debug, MonomorphizationError};
 use noirc_frontend::node_interner::FuncId;
 use noirc_frontend::token::SecondaryAttribute;
-use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
