@@ -9,8 +9,8 @@ import {
 } from '@aztec/circuit-types';
 import {
   Fr,
-  Header,
-  Proof,
+  type Header,
+  type Proof,
   PublicAccumulatedNonRevertibleData,
   PublicAccumulatedRevertibleData,
   PublicKernelCircuitPublicInputs,
