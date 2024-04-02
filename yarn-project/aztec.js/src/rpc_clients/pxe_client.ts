@@ -8,13 +8,13 @@ import {
   Note,
   NullifierMembershipWitness,
   type PXE,
+  SimulatedTx,
   Tx,
   TxEffect,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
   UnencryptedL2BlockL2Logs,
-  Vue,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -54,7 +54,7 @@ export const createPXEClient = (url: string, fetch = makeFetch([1, 2, 3], false)
       TxExecutionRequest,
       TxHash,
     },
-    { Tx, Vue, TxReceipt, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
+    { Tx, SimulatedTx, TxReceipt, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
     false,
     'pxe',
     fetch,

@@ -14,7 +14,7 @@ import { type L2Block } from '../l2_block.js';
 import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
 import { type ExtendedNote } from '../notes/index.js';
 import { type NoteFilter } from '../notes/note_filter.js';
-import { type Tx, type TxHash, type TxReceipt, type Vue } from '../tx/index.js';
+import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
 import { type TxEffect } from '../tx_effect.js';
 import { type TxExecutionRequest } from '../tx_execution_request.js';
 import { type SyncStatus } from './sync-status.js';
@@ -146,7 +146,7 @@ export interface PXE {
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<Vue>;
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.

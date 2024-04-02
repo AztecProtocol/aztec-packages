@@ -7,13 +7,13 @@ import {
   type LogFilter,
   type NoteFilter,
   type PXE,
+  type SimulatedTx,
   type SyncStatus,
   type Tx,
   type TxEffect,
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
-  type Vue,
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
@@ -105,7 +105,7 @@ export abstract class BaseWallet implements Wallet {
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
     return this.pxe.proveTx(txRequest, simulatePublic);
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<Vue> {
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
     return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
   }
   sendTx(tx: Tx): Promise<TxHash> {

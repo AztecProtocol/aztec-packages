@@ -99,13 +99,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         packedArguments: [packedArgs],
         authWitnesses: [],
       });
-      const vue = await this.pxe.simulateTx(txRequest, false, options.from ?? this.wallet.getAddress());
-      return vue.privateReturnValues && vue.privateReturnValues[0];
+      const simulatedTx = await this.pxe.simulateTx(txRequest, false, options.from ?? this.wallet.getAddress());
+      return simulatedTx.privateReturnValues && simulatedTx.privateReturnValues[0];
     } else {
       const txRequest = await this.create();
-      const vue = await this.pxe.simulateTx(txRequest, true);
+      const simulatedTx = await this.pxe.simulateTx(txRequest, true);
       this.txRequest = undefined;
-      return vue.publicReturnValues && vue.publicReturnValues[0];
+      return simulatedTx.publicReturnValues && simulatedTx.publicReturnValues[0];
     }
   }
 }

@@ -11,6 +11,7 @@ import {
   MerkleTreeId,
   type NoteFilter,
   type PXE,
+  SimulatedTx,
   SimulationError,
   Tx,
   type TxEffect,
@@ -18,7 +19,6 @@ import {
   type TxHash,
   type TxReceipt,
   UnencryptedTxL2Logs,
-  Vue,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
@@ -403,24 +403,24 @@ export class PXEService implements PXE {
     }
     return await this.jobQueue.put(async () => {
       const timer = new Timer();
-      const vue = await this.#simulateAndProve(txRequest, msgSender);
+      const simulatedTx = await this.#simulateAndProve(txRequest, msgSender);
       if (!msgSender) {
-        this.log(`Processed private part of ${vue.tx.getTxHash()}`, {
+        this.log(`Processed private part of ${simulatedTx.tx.getTxHash()}`, {
           eventName: 'tx-pxe-processing',
           duration: timer.ms(),
-          ...vue.tx.getStats(),
+          ...simulatedTx.tx.getStats(),
         } satisfies TxPXEProcessingStats);
       }
 
       if (simulatePublic) {
         // Only one transaction, so we can take index 0.
-        vue.publicReturnValues = (await this.#simulatePublicCalls(vue.tx))[0];
+        simulatedTx.publicReturnValues = (await this.#simulatePublicCalls(simulatedTx.tx))[0];
       }
 
       if (!msgSender) {
-        this.log.info(`Executed local simulation for ${vue.tx.getTxHash()}`);
+        this.log.info(`Executed local simulation for ${simulatedTx.tx.getTxHash()}`);
       }
-      return vue;
+      return simulatedTx;
     });
   }
 
@@ -644,7 +644,7 @@ export class PXEService implements PXE {
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
     const tx = new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
-    return new Vue(tx, [executionResult.returnValues]);
+    return new SimulatedTx(tx, [executionResult.returnValues]);
   }
 
   /**

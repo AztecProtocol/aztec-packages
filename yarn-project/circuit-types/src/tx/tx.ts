@@ -17,7 +17,7 @@ import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import { type TxStats } from '../stats/stats.js';
 import { TxHash } from './tx_hash.js';
 
-export class Vue {
+export class SimulatedTx {
   constructor(
     public tx: Tx,
     public privateReturnValues?: ProcessReturnValues,
@@ -25,8 +25,8 @@ export class Vue {
   ) {}
 
   /**
-   * Convert a Vue class object to a plain JSON object.
-   * @returns A plain object with Vue properties.
+   * Convert a SimulatedTx class object to a plain JSON object.
+   * @returns A plain object with SimulatedTx properties.
    */
   public toJSON() {
     const returnToJson = (data: ProcessReturnValues): string => {
@@ -77,7 +77,7 @@ export class Vue {
     const privateReturnValues = returnFromJson(obj.privateReturnValues);
     const publicReturnValues = returnFromJson(obj.publicReturnValues);
 
-    return new Vue(tx, privateReturnValues, publicReturnValues);
+    return new SimulatedTx(tx, privateReturnValues, publicReturnValues);
   }
 }
 
