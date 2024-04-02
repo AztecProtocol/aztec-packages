@@ -19,7 +19,6 @@ use crate::hir_def::expr::{
 };
 
 use crate::hir_def::traits::{Trait, TraitConstraint};
-use crate::macros_api::SecondaryAttribute;
 use crate::token::{Attributes, FunctionAttribute};
 use regex::Regex;
 use std::collections::{BTreeMap, HashSet};
@@ -616,18 +615,6 @@ impl<'a> Resolver<'a> {
 
         match self.lookup_struct_or_error(path) {
             Some(struct_type) => {
-                if !self.in_contract
-                    && self.interner.struct_attributes(&struct_type.borrow().id).iter().any(
-                        |attr| match &attr {
-                            SecondaryAttribute::Abi(_) => true,
-                            _ => false,
-                        },
-                    )
-                {
-                    self.push_err(ResolverError::AbiAttributeOusideContract {
-                        span: struct_type.borrow().name.span(),
-                    });
-                }
                 let expected_generic_count = struct_type.borrow().generics.len();
 
                 self.verify_generics_count(expected_generic_count, &mut args, span, || {
@@ -1174,17 +1161,6 @@ impl<'a> Resolver<'a> {
         let expression = self.resolve_expression(let_stmt.expression);
         let global_id = self.interner.next_global_id();
         let definition = DefinitionKind::Global(global_id);
-
-        if !self.in_contract
-            && let_stmt.attributes.iter().any(|attr| match &attr {
-                SecondaryAttribute::Abi(_) => true,
-                _ => false,
-            })
-        {
-            self.push_err(ResolverError::AbiAttributeOusideContract {
-                span: let_stmt.pattern.span(),
-            });
-        }
 
         HirStatement::Let(HirLetStatement {
             pattern: self.resolve_pattern(let_stmt.pattern, definition),
