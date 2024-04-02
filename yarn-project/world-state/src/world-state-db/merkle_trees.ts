@@ -7,6 +7,7 @@ import {
   GlobalVariables,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_HEIGHT,
@@ -572,19 +573,23 @@ export class MerkleTrees implements MerkleTreeDb {
       this.log(`Block ${l2Block.number} is not ours, rolling back world state and committing state from chain`);
       await this.#rollback();
 
-      // We pad the messages because always a fixed number of messages is inserted and we need
+      // We pad note hashes and messages because always a fixed number of values is inserted and we need
       // the `nextAvailableLeafIndex` to correctly progress.
+      const noteHashesPadded = l2Block.body.txEffects.flatMap(txEffect =>
+        padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NEW_NOTE_HASHES_PER_TX),
+      );
       const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
       // Sync the append only trees
       for (const [tree, leaves] of [
-        [MerkleTreeId.NOTE_HASH_TREE, l2Block.body.txEffects.flatMap(txEffect => txEffect.noteHashes)],
+        [MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded],
         [MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded],
       ] as const) {
         await this.#appendLeaves(tree, leaves);
       }
 
       // Sync the indexed trees
+      // Note that we do not need to pad the values here because in indexed trees zero values are ignored.
       await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
         l2Block.body.txEffects.flatMap(txEffect => txEffect.nullifiers.map(nullifier => nullifier.toBuffer())),
         NULLIFIER_SUBTREE_HEIGHT,

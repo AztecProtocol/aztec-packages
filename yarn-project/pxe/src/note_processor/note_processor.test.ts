@@ -15,7 +15,6 @@ import { Fr, INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX } from '@aztec/cir
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
-import { type Tuple } from '@aztec/foundation/serialize';
 import { ConstantKeyPair } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AcirSimulator } from '@aztec/simulator';
@@ -108,10 +107,7 @@ describe('Note Processor', () => {
       for (let i = 0; i < TXS_PER_BLOCK; i++) {
         block.body.txEffects[i].noteHashes = newNotes
           .map(n => pedersenHash(n.notePayload.note.items))
-          .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX) as Tuple<
-          Fr,
-          typeof MAX_NEW_NOTE_HASHES_PER_TX
-        >;
+          .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX);
       }
 
       const randomBlockContext = new L2BlockContext(block);
