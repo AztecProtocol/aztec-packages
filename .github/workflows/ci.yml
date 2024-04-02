@@ -21,7 +21,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # we cache submodules in ci-setup-action
+          # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: ./.github/ci-setup-action
