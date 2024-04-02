@@ -222,16 +222,6 @@ export class L2Block {
   }
 
   /**
-   * Get all the transaction in an L2 block.
-   * @returns The tx.
-   */
-  getTxs() {
-    return Array(this.body.numberOfTxs)
-      .fill(0)
-      .map((_, i) => this.getTx(i));
-  }
-
-  /**
    * Returns stats used for logging.
    * @returns Stats on tx count, number, and log size and count.
    */
@@ -256,17 +246,17 @@ export class L2Block {
     };
 
     return {
-      txCount: this.body.numberOfTxs,
+      txCount: this.body.txEffects.length,
       blockNumber: this.number,
       ...logsStats,
     };
   }
 
   assertIndexInRange(txIndex: number) {
-    if (txIndex < 0 || txIndex >= this.body.numberOfTxs) {
+    if (txIndex < 0 || txIndex >= this.body.txEffects.length) {
       throw new IndexOutOfRangeError({
         txIndex,
-        numberOfTxs: this.body.numberOfTxs,
+        numberOfTxs: this.body.txEffects.length,
         blockNumber: this.number,
       });
     }

@@ -88,12 +88,6 @@ export class Body {
     return new UnencryptedL2BlockL2Logs(logs);
   }
 
-  get numberOfTxs() {
-    // TODO(benesjan): nuke this
-    // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
-    return this.txEffects.reduce((acc, txEffect) => (txEffect.nullifiers.length !== 0 ? acc + 1 : acc), 0);
-  }
-
   /**
    * Computes the number of transactions in the block including padding transactions.
    * @dev Modified code from TxsDecoder.computeNumTxEffectsToPad

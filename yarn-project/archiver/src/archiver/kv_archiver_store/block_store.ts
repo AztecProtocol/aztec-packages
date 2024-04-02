@@ -54,7 +54,7 @@ export class BlockStore {
           archive: block.archive.toBuffer(),
         });
 
-        block.getTxs().forEach((tx, i) => {
+        block.body.txEffects.forEach((tx, i) => {
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         });
       }
