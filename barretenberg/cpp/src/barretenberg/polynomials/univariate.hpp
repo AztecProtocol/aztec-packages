@@ -290,7 +290,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
             return result;
         } else if constexpr (LENGTH == 3) {
             Fr c = value_at(0);
-            Fr a = (value_at(2) + c) / Fr(2) - value_at(1);
+            Fr a = (value_at(2) + c) * Fr::inverse_two - value_at(1);
             Fr b = value_at(1) - a - c;
             Fr a2 = a + a;
             Fr a_mul = a2;
