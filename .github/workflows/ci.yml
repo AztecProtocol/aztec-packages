@@ -204,6 +204,7 @@ jobs:
         working-directory: ./barretenberg/cpp/
         run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache
 
+  # Post actions, deploy and summarize logs
   aztec-bench-summary:
     runs-on: ubuntu-latest
     needs: e2e-x86

@@ -18,7 +18,7 @@ E2E_TEST_LOCAL:
     --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
     --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
     # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-    RUN docker compose -f $compose_file up --exit-code-from=sandbox --force-recreate
+    RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
 
 # run locally and take from cache, used for our mainly x86 jobs
@@ -53,7 +53,7 @@ E2E_TEST_FROM_BUILD:
     --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
     --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
     # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-    RUN docker compose -f $compose_file up --exit-code-from=sandbox --force-recreate
+    RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
 
 E2E_TEST:
@@ -259,11 +259,11 @@ bench-publish-rollup:
   DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml 
 
 # TODO need to investigate why this isn't working
-# bench-process-history:
-#   ARG e2e_mode=local
-#   DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml 
+bench-process-history:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml 
 
 # TODO need to investigate why this isn't working
-# bench-tx-size:
-#   ARG e2e_mode=local
-#   DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml 
+bench-tx-size:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml 
