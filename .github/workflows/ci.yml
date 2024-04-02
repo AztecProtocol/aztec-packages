@@ -29,11 +29,11 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
 
-      - name: Test
+      - name: Build
         working-directory: ./yarn-project
         run: |
           # push to registry
-          #earthly-cloud build x86 --push +build-end-to-end
+          earthly-cloud build x86 --push +build-end-to-end
 
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
