@@ -1,16 +1,16 @@
-import { L2Block, ProcessedTx, ProvingResult } from '@aztec/circuit-types';
+import { L2Block, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
-  BaseOrMergeRollupPublicInputs,
-  Fr,
-  GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  Proof,
-  RootParityInput,
   RootRollupPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type Fr,
+  type GlobalVariables,
+  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type Proof,
+  type RootParityInput,
 } from '@aztec/circuits.js';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
 
 export type MergeRollupInputData = {

@@ -1,15 +1,13 @@
 import {
   MerkleTreeId,
   PROVING_STATUS,
-  ProcessedTx,
-  ProvingFailure,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
-  mockTx
+  mockTx,
+  type ProcessedTx
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  BaseOrMergeRollupPublicInputs,
   EthAddress,
   Fr,
   GlobalVariables,
@@ -29,10 +27,11 @@ import {
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
   PublicKernelCircuitPublicInputs,
-  RootRollupPublicInputs,
   SideEffect,
   SideEffectLinkedToNoteHash,
   sideEffectCmp,
+  type BaseOrMergeRollupPublicInputs,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import {
   fr,
@@ -48,15 +47,15 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { WASMSimulator } from '@aztec/simulator';
-import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees, type MerkleTreeOperations } from '@aztec/world-state';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { mock, type MockProxy } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
 
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVerificationKeys } from '../mocks/verification_keys.js';
-import { RollupProver } from '../prover/index.js';
-import { RollupSimulator } from '../simulator/rollup.js';
+import { type RollupProver } from '../prover/index.js';
+import { type RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 const logger = createDebugLogger('aztec:orchestrator-test');
@@ -171,91 +170,6 @@ describe('prover/tx-prover', () => {
       );
     }
   };
-
-  // const updateL1ToL2MessageTree = async (l1ToL2Messages: Fr[]) => {
-  //   const asBuffer = l1ToL2Messages.map(m => m.toBuffer());
-  //   await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, asBuffer);
-  // };
-
-  // const updateArchive = async () => {
-  //   const blockHash = rootRollupOutput.header.hash();
-  //   await expectsDb.appendLeaves(MerkleTreeId.ARCHIVE, [blockHash.toBuffer()]);
-  // };
-
-  // const getTreeSnapshot = async (tree: MerkleTreeId) => {
-  //   const treeInfo = await expectsDb.getTreeInfo(tree);
-  //   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
-  // };
-
-  // const getPartialStateReference = async () => {
-  //   return new PartialStateReference(
-  //     await getTreeSnapshot(MerkleTreeId.NOTE_HASH_TREE),
-  //     await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE),
-  //     await getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE),
-  //   );
-  // };
-
-  // const getStateReference = async () => {
-  //   return new StateReference(
-  //     await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-  //     await getPartialStateReference(),
-  //   );
-  // };
-
-  // const buildMockSimulatorInputs = async () => {
-  //   const kernelOutput = makePrivateKernelTailCircuitPublicInputs();
-  //   kernelOutput.constants.historicalHeader = await expectsDb.buildInitialHeader();
-  //   kernelOutput.needsAppLogic = false;
-  //   kernelOutput.needsSetup = false;
-  //   kernelOutput.needsTeardown = false;
-
-  //   const tx = makeProcessedTx(
-  //     new Tx(
-  //       kernelOutput,
-  //       emptyProof,
-  //       makeEmptyLogs(),
-  //       makeEmptyLogs(),
-  //       times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
-  //     ),
-  //   );
-
-  //   const txs = [tx, await makeEmptyProcessedTx()];
-
-  //   // Calculate what would be the tree roots after the first tx and update mock circuit output
-  //   await updateExpectedTreesFromTxs([txs[0]]);
-  //   baseRollupOutputLeft.end = await getPartialStateReference();
-  //   baseRollupOutputLeft.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
-
-  //   // Same for the tx on the right
-  //   await updateExpectedTreesFromTxs([txs[1]]);
-  //   baseRollupOutputRight.end = await getPartialStateReference();
-  //   baseRollupOutputRight.txsEffectsHash = to2Fields(toTxEffect(tx).hash());
-
-  //   // Update l1 to l2 message tree
-  //   await updateL1ToL2MessageTree(mockL1ToL2Messages);
-
-  //   // Collect all new nullifiers, commitments, and contracts from all txs in this block
-  //   const txEffects: TxEffect[] = txs.map(tx => toTxEffect(tx));
-
-  //   const body = new Body(padArrayEnd(mockL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
-  //   // We are constructing the block here just to get body hash/calldata hash so we can pass in an empty archive and header
-  //   const l2Block = L2Block.fromFields({
-  //     archive: AppendOnlyTreeSnapshot.zero(),
-  //     header: Header.empty(),
-  //     // Only the values below go to body hash/calldata hash
-  //     body,
-  //   });
-
-  //   // Now we update can make the final header, compute the block hash and update archive
-  //   rootRollupOutput.header.globalVariables = globalVariables;
-  //   rootRollupOutput.header.contentCommitment.txsEffectsHash = l2Block.body.getTxsEffectsHash();
-  //   rootRollupOutput.header.state = await getStateReference();
-
-  //   await updateArchive();
-  //   rootRollupOutput.archive = await getTreeSnapshot(MerkleTreeId.ARCHIVE);
-
-  //   return txs;
-  // };
 
   describe('error handling', () => {
     beforeEach(async () => {

@@ -1,13 +1,10 @@
-import { MerkleTreeId, ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
   BaseRollupInputs,
   ConstantRollupData,
   Fr,
-  GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -19,14 +16,12 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PreviousRollupData,
-  Proof,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   ROLLUP_VK_TREE_HEIGHT,
@@ -34,22 +29,27 @@ import {
   RollupKernelData,
   RollupTypes,
   RootParityInput,
-  RootParityInputs,
   RootRollupInputs,
-  RootRollupPublicInputs,
   StateDiffHints,
-  StateReference,
   VK_TREE_HEIGHT,
-  VerificationKey
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type GlobalVariables,
+  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type Proof,
+  type RootParityInputs,
+  type RootRollupPublicInputs,
+  type StateReference,
+  type VerificationKey
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
-import { DebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type DebugLogger } from '@aztec/foundation/log';
+import { assertLength, toFriendlyJSON, type Tuple } from '@aztec/foundation/serialize';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { RollupProver } from '../prover/index.js';
-import { RollupSimulator } from '../simulator/rollup.js';
+import { getVerificationKeys, type VerificationKeys } from '../mocks/verification_keys.js';
+import { type RollupProver } from '../prover/index.js';
+import { type RollupSimulator } from '../simulator/rollup.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);
