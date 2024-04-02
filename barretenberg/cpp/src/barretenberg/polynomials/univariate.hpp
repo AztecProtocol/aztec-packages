@@ -284,8 +284,23 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         if constexpr (LENGTH == 2) {
             Fr delta = value_at(1) - value_at(0);
             static_assert(EXTENDED_LENGTH != 0);
-            for (size_t idx = domain_start; idx < EXTENDED_DOMAIN_END - 1; idx++) {
+            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
                 result.value_at(idx + 1) = result.value_at(idx) + delta;
+            }
+            return result;
+        } else if constexpr (LENGTH == 3) {
+            Fr c = value_at(0);
+            Fr a = (value_at(2) + c) / Fr(2) - value_at(1);
+            Fr b = value_at(1) - a - c;
+            Fr a2 = a + a;
+            Fr a_mul = a2;
+            for (size_t i = 0; i < domain_end - 2; i++) {
+                a_mul += a2;
+            }
+            Fr extra = a_mul + a + b;
+            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
+                result.value_at(idx + 1) = result.value_at(idx) + extra;
+                extra += a2;
             }
             return result;
         } else {
