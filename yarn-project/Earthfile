@@ -55,7 +55,7 @@ aztec:
     # 62368   @types
 
 source:
-    # for debugging rebuilds
+    # for debugging rebuild
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 end-to-end:

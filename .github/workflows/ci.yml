@@ -32,6 +32,7 @@ jobs:
       - name: Build
         working-directory: ./yarn-project
         run: |
+          git rev-parse HEAD
           # push to registry
           earthly-cloud build x86 --push +build-end-to-end
 
@@ -67,14 +68,14 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
-          github_actor: ${{ github.actor }} 
+          github_actor: ${{ github.actor }}
 
-      - name: Test
+      - name: Build
         working-directory: ./yarn-project/end-to-end/
         # We don't do much on arm, just run it on their builder
         run:
           # Flags:
-          # - e2e_build=true to get images from a local build, not a dockerhub registry strategy
+          # - e2e_mode=build to get images from a local build, not a dockerhub registry strategy
           earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_mode=build
 
   # all the end-to-end integration tests for aztec
