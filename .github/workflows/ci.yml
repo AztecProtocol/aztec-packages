@@ -204,18 +204,18 @@ jobs:
         working-directory: ./barretenberg/cpp/
         run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache
 
-  # Post actions, deploy and summarize logs
-  aztec-bench-summary:
-    runs-on: ubuntu-latest
-    needs: e2e-x86
-    concurrency:
-      group: aztec-bench-summary-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
-      cancel-in-progress: true
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
+  # # Post actions, deploy and summarize logs
+  # aztec-bench-summary:
+  #   runs-on: ubuntu-latest
+  #   needs: e2e-x86
+  #   concurrency:
+  #     group: aztec-bench-summary-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+  #     cancel-in-progress: true
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: "Assemble benchmark summary from uploaded logs"
-          command: ./scripts/ci/assemble_e2e_benchmark.sh
+  #     - name: "Assemble benchmark summary from uploaded logs"
+  #         command: ./scripts/ci/assemble_e2e_benchmark_earthly.sh

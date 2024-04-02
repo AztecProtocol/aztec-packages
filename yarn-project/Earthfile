@@ -87,3 +87,6 @@ build-end-to-end:
     SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_GIT_HASH
     FROM +aztec
     SAVE IMAGE --push aztecprotocol/aztec-cache:$EARTHLY_GIT_HASH
+
+aggregate-bench:
+    
