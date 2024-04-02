@@ -33,7 +33,7 @@ jobs:
         # working-directory: ./yarn-project
         run: |
           # push to registry
-          earthly-cloud build x86 --push +echo-github-ref #build-end-to-end
+          earthly-cloud build x86 --push +echo-github-ref #build-end-to-end --EARTHLY_GIT_HASH=$(git rev-parse HEAD)
 
   #     # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
   #     # (Note ARM uses just 2 tests as a smoketest)
