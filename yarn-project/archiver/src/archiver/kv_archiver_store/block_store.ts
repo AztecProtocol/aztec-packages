@@ -119,7 +119,7 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber);
-    return block?.getTx(txIndex);
+    return block?.body.txEffects[txIndex];
   }
 
   /**
@@ -134,7 +134,7 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber)!;
-    const tx = block.getTx(txIndex);
+    const tx = block.body.txEffects[txIndex];
 
     return new TxReceipt(
       txHash,
