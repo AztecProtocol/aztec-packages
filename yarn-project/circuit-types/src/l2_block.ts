@@ -1,4 +1,4 @@
-import { Body, TxHash } from '@aztec/circuit-types';
+import { Body } from '@aztec/circuit-types';
 import { AppendOnlyTreeSnapshot, Header, STRING_ENCODING } from '@aztec/circuits.js';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -195,18 +195,6 @@ export class L2Block {
       this.archive,
     );
     return sha256(inputValue);
-  }
-
-  /**
-   * A lightweight method to get the tx hash of a tx in the block.
-   * @param txIndex - the index of the tx in the block
-   * @returns a hash of the tx, which is the first nullifier in the tx
-   */
-  getTxHash(txIndex: number): TxHash {
-    // Gets the first nullifier of the tx specified by txIndex
-    const firstNullifier = this.body.txEffects[txIndex].nullifiers[0];
-
-    return new TxHash(firstNullifier.toBuffer());
   }
 
   /**

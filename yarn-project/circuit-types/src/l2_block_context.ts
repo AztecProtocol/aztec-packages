@@ -20,7 +20,7 @@ export class L2BlockContext {
    * @returns The tx's hash.
    */
   public getTxHash(txIndex: number): TxHash {
-    return this.txHashes ? this.txHashes[txIndex] : this.block.getTxHash(txIndex);
+    return this.txHashes ? this.txHashes[txIndex] : this.block.body.txEffects[txIndex].txHash;
   }
 
   /**
