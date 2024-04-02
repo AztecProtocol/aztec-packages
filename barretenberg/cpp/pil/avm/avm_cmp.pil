@@ -1,0 +1,120 @@
+
+namespace avm_cmp(256);
+
+    pol commit cmp_clk;
+
+    // Copied from main trace
+    pol commit ia;
+    pol commit ib;
+    pol commit ic; //should be boolean
+    ic * (1 - ic) = 0;
+
+    // Selectors for LT or LTE
+    pol commit lt_sel;
+    pol commit lte_sel;
+    pol commit cmp_sel; // Used for perm check to main
+    cmp_sel = lt_sel + lte_sel;
+
+    // Both are restricted to booleans
+    lt_sel * (1 - lt_sel) = 0;
+    lte_sel * (1 - lte_sel) = 0;
+
+    // NAND check for selectors
+    lt_sel * lte_sel = 0;
+
+
+    // There are two routines that we utilise as part of this LT/LTE check
+    // (1) Decomposition into two 128-bit limbs, lo and hi respectively and a borrow (1 or 0);
+    // (2) 128 bit range checks when checking an arithmetic operations has not overflowed the field.
+
+    // ========= COMPARISON OPERATION - EXPLANATIONS =================================================
+    // To simplify the comparison circuit, we implement a GreaterThan(GT) circuit. This is ideal since
+    // if we need a LT operation, we just swap the inputs and if we need the LTE operation, we just NOT the query
+    // Given the inputs x, y and q where x & y are inputs and q is the boolean result to the query (x > y). Then there are two scenarios
+    // (x > y) -> x - y - 1 = result, where 0 <= result < p. In our case result should not overflow the field.
+    // OR 
+    // !(x > y) -> !(x - y - 1) = (p - 1) - (x - y -1) = y - x = result, where the same applies as above.
+    // These conditions can be combined with the query, q (that x > y) as follows:
+    // (x - y - 1) * q + (y - x) (1 - q) = result
+
+    pol commit input_ia;
+    pol commit input_ib;
+
+    //If LT, then swap ia and ib else keep the same
+    input_ia  = lt_sel * ib + lte_sel * ia;
+    input_ib  = lt_sel * ia + lte_sel * ib;
+
+    pol commit a_lo;
+    pol commit a_hi;
+    pol commit b_lo;
+    pol commit b_hi;
+    pol commit borrow;
+
+    // Lo 128-bits of the field modulus: 53438638232309528389504892708671455233
+    pol commit p_lo;
+    // Hi 128-bits of the field modulus: 64323764613183177041862057485226039389
+    pol commit p_hi;
+
+    // Check inputs are well formed from lo and hi parts
+    input_ia = a_lo + 2 ** 128 * a_hi;
+    input_ib = b_lo + 2 ** 128 * b_hi;
+
+    // TODO: Check that all inputs are valid ranges over the integers
+    // 128-bit Range check a_lo
+    // 128-bit Range check a_hi
+    // 128-bit Range check b_lo
+    // 128-bit Range check b_hi
+
+    // Used to check 128-bit decomposition of input_ia does not overflow the field
+    pol commit p_sub_a_lo; // p_lo - a_lo
+    pol commit p_sub_a_hi; // p_hi - a_hi
+    pol commit p_a_borrow;
+    
+    // Check that (p > a) by checking (p_lo > a_lo && p_hi >= ahi) || (p_lo <= a_lo && p_hi > a_hi)
+    // First condition is if borrow = 0, second condition is if borrow = 1;
+    p_sub_a_lo = p_lo - a_lo + p_a_borrow * 2 ** 128;
+    p_sub_a_hi = p_hi - a_hi - p_a_borrow;
+
+    // Used to check 128-bit decomposition of inpu_ib does not overflow the field
+    pol commit p_sub_b_lo;
+    pol commit p_sub_b_hi;
+    pol commit p_b_borrow;
+
+    p_sub_b_lo = p_lo - b_lo + p_b_borrow * 2 ** 128;
+    p_sub_b_hi = p_hi - b_hi - p_b_borrow;
+
+    // TODO More range checks
+    // 128-bit Range check p_sub_a_lo
+    // 128-bit Range check p_lo_sub_a_hi
+    // 128-bit Range check p_sub_b_lo
+    // 2**128 == 2^128
+    // 128-bit Range check p_lo_sub_b_hi
+
+
+    // Calculate the combined relation: (a - b - 1) * q + (b -a ) * (1-q)
+
+    // Check that (a > b) by checking (a_lo > b_lo && a_hi >= bhi) || (alo <= b_lo && a_hi > b_hi)
+    // First condition is if borrow = 0, second condition is if borrow = 1;
+    pol A_SUB_B_LO = a_lo - b_lo - 1 + borrow * 2 ** 128;
+    pol A_SUB_B_HI = a_hi - b_hi - borrow;
+
+    // Check that (a <= b) by checking (b_lo >= a_lo && b_hi >= a_hi) || (b_lo > a_lo && b_hi >= a_hi)
+    // First condition is if borrow = 0, second condition is if borrow = 1;
+    pol B_SUB_A_LO = b_lo - a_lo + borrow * 2 ** 128;
+    pol B_SUB_A_HI = b_hi - a_hi - borrow;
+
+    pol commit res_lo;
+    pol commit res_hi;
+    pol commit lt_query;
+
+    // If LT_SEL, we would have already swapped the input so the boolean in ic is still correct
+    // If LTE_SEL, we did not swap the input and we want to NOT the value of ic.
+    lt_query = lt_sel * ic + (1 - ic) * lte_sel;
+
+    res_lo = A_SUB_B_LO * lt_query + B_SUB_A_LO * (1 - lt_query);
+    res_hi = A_SUB_B_HI * lt_query + B_SUB_A_HI * (1 - lt_query);
+
+    // 128-bit Range check res_lo
+    // 128-bit Range check res_hi
+
+
