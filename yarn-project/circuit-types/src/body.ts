@@ -1,4 +1,5 @@
 import { EncryptedL2BlockL2Logs, TxEffect, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer, truncateAndPad } from '@aztec/foundation/serialize';
 
@@ -43,8 +44,8 @@ export class Body {
    * @returns The txs effects hash.
    */
   getTxsEffectsHash() {
-    const computeRoot = (leafs: Buffer[]): Buffer => {
-      const layers: Buffer[][] = [leafs];
+    const computeRoot = (leaves: Buffer[]): Buffer => {
+      const layers: Buffer[][] = [leaves];
       let activeLayer = 0;
 
       while (layers[activeLayer].length > 1) {
@@ -65,40 +66,14 @@ export class Body {
       return layers[layers.length - 1][0];
     };
 
-    // TODO(benesjan): merge this with numTxEffectsIncludingPadded
-    // Copy of TxsDecoder.computeNumTxEffectsToPad
-    const computeNumTxEffectsToPad = (numTxEffects: number) => {
-      // 2 is the minimum number of tx effects so we have to handle the following 2 cases separately
-      if (numTxEffects == 0) {
-        return 2;
-      } else if (numTxEffects == 1) {
-        return 1;
-      }
+    const emptyTxEffectHash = TxEffect.empty().hash();
+    const leaves: Buffer[] = padArrayEnd(
+      this.txEffects.map(txEffect => txEffect.hash()),
+      emptyTxEffectHash,
+      this.numberOfTxsIncludingPadded,
+    );
 
-      let v: number = numTxEffects;
-
-      // the following rounds numTxEffects up to the next power of 2 (works only for 4 bytes value!)
-      v--;
-      v |= v >> 1;
-      v |= v >> 2;
-      v |= v >> 4;
-      v |= v >> 8;
-      v |= v >> 16;
-      v++;
-
-      return v - numTxEffects;
-    };
-
-    const leafs: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
-    const numLeafsToPad = computeNumTxEffectsToPad(this.txEffects.length);
-    if (numLeafsToPad !== 0) {
-      const emptyTxEffectHash = TxEffect.empty().hash();
-      for (let i = 0; i < numLeafsToPad; i++) {
-        leafs.push(emptyTxEffectHash);
-      }
-    }
-
-    return computeRoot(leafs);
+    return computeRoot(leaves);
   }
 
   get encryptedLogs(): EncryptedL2BlockL2Logs {
@@ -119,11 +94,14 @@ export class Body {
     return this.txEffects.reduce((acc, txEffect) => (txEffect.nullifiers.length !== 0 ? acc + 1 : acc), 0);
   }
 
+  /**
+   * Computes the number of transactions in the block including padding transactions.
+   * @dev Modified code from TxsDecoder.computeNumTxEffectsToPad
+   */
   get numberOfTxsIncludingPadded() {
     const numTxEffects = this.txEffects.length;
 
-    // Copy of TxsDecoder.computeNumTxEffectsToPad
-    // 2 is the minimum number of tx effects so we have to add the following separately
+    // 2 is the minimum number of tx effects
     if (numTxEffects <= 2) {
       return 2;
     }
