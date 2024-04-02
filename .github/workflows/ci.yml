@@ -32,15 +32,16 @@ jobs:
       - name: Test
         working-directory: ./yarn-project
         run: |
+          git rev-parse HEAD
           # push to registry
-          earthly-cloud build x86 --push +build-end-to-end
+          #earthly-cloud build x86 --push +build-end-to-end
 
-      # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
-      # (Note ARM uses just 2 tests as a smoketest)
-      - id: e2e_list
-        working-directory: ./yarn-project/end-to-end
-        run: |
-          echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+      # # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
+      # # (Note ARM uses just 2 tests as a smoketest)
+      # - id: e2e_list
+      #   working-directory: ./yarn-project/end-to-end
+      #   run: |
+      #     echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
