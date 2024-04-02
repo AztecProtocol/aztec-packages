@@ -129,6 +129,7 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
 
         // Apply transformations to the function based on collected attributes
         if is_private || is_public || is_public_vm {
+            export_fn_abi(&mut module.types, func)?;
             transform_function(
                 if is_private {
                     "Private"
@@ -143,7 +144,6 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
                 insert_init_check,
                 is_internal,
             )?;
-            export_fn_abi(&mut module.types, func)?;
             has_transformed_module = true;
         } else if storage_defined && func.def.is_unconstrained {
             transform_unconstrained(func);
