@@ -1,7 +1,8 @@
 import {
   type ABIParameter,
   type ABIParameterVisibility,
-  type ABIType,
+  type AbiType,
+  type AbiValue,
   type DebugFileMap,
   type DebugInfo,
 } from '@aztec/foundation/abi';
@@ -26,7 +27,7 @@ export interface NoirFunctionAbi {
     /**
      * The type of the return value.
      */
-    abi_type: ABIType;
+    abi_type: AbiType;
     /**
      * The visibility of the return value.
      */
@@ -68,8 +69,8 @@ export interface NoirCompiledContract {
   functions: NoirFunctionEntry[];
   /** The events of the contract */
   outputs: {
-    structs: Record<string, ABIType[]>;
-    globals: Record<string, ABIValue[]>;
+    structs: Record<string, AbiType[]>;
+    globals: Record<string, AbiValue[]>;
   };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
