@@ -535,12 +535,12 @@ fn generate_note_properties_fn_source(
         .join(", ");
     format!(
         "
-        pub fn properties() -> {}Properties {{
-            {}Properties {{
-                {}
+        pub fn properties() -> {0}Properties {{
+            {0}Properties {{
+                {1}
             }}
         }}",
-        note_type, note_type, note_property_selectors
+        note_type, note_property_selectors
     )
     .to_string()
 }
