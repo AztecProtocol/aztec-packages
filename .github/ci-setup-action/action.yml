@@ -15,15 +15,21 @@ runs:
   using: composite
   steps:
     - name: Cache Submodules
+      id: cache-submodules
       uses: actions/cache@v3
       with:
         path: .git
         key: submodules-${{ hashFiles('.gitmodules') }}
 
     - name: Checkout Submodules
-      uses: actions/checkout@v3
-      with:
-        submodules: recursive
+      shell: bash
+      if: steps.cache-submodules.outputs.cache-hit != 'true'
+      run: git submodule sync --recursive && git submodule update --init --recursive
+
+    # - name: Checkout Submodules
+    #   uses: actions/checkout@v3
+    #   with:
+    #     submodules: recursive
 
     - name: Setup Earthly
       uses: earthly/actions-setup@v1
