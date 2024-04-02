@@ -320,7 +320,7 @@ describe('prover/tx-prover', () => {
 
         const finalisedBlock = await builder.finaliseBlock();
 
-        expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+        expect(finalisedBlock.block.number).toEqual(blockNumber);
 
         await updateExpectedTreesFromTxs(txs);
         const noteHashTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
@@ -353,7 +353,7 @@ describe('prover/tx-prover', () => {
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds a block with 1 transaction', async () => {
@@ -373,7 +373,7 @@ describe('prover/tx-prover', () => {
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('builds multiple blocks in sequence', async () => {
@@ -402,8 +402,8 @@ describe('prover/tx-prover', () => {
         expect(result.status).toBe(PROVING_STATUS.SUCCESS);
         const finalisedBlock = await builder.finaliseBlock();
 
-        expect(finalisedBlock.l2Block.number).toEqual(blockNum);
-        header = finalisedBlock.l2Block.header;
+        expect(finalisedBlock.block.number).toEqual(blockNum);
+        header = finalisedBlock.block.header;
 
         await builderDb.commit();
       }
@@ -434,7 +434,7 @@ describe('prover/tx-prover', () => {
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('builds a block concurrently with transactions', async () => {
@@ -463,7 +463,7 @@ describe('prover/tx-prover', () => {
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('cancels current block and switches to new ones', async () => {
@@ -503,7 +503,7 @@ describe('prover/tx-prover', () => {
       expect(result2.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(101);
+      expect(finalisedBlock.block.number).toEqual(101);
     }, 10000);
 
     it('automatically cancels an incomplete block when starting a new one', async () => {
@@ -535,7 +535,7 @@ describe('prover/tx-prover', () => {
       expect(result2.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(101);
+      expect(finalisedBlock.block.number).toEqual(101);
     }, 10000);
 
     it('builds an unbalanced L2 block', async () => {
@@ -556,7 +556,7 @@ describe('prover/tx-prover', () => {
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
     }, 200_000);
 
     it('throws if adding too many transactions', async () => {
@@ -581,7 +581,7 @@ describe('prover/tx-prover', () => {
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
 
-      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
     }, 30_000);
 
     it('throws if adding a transaction before start', async () => {
@@ -614,7 +614,7 @@ describe('prover/tx-prover', () => {
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
-      expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
       await expect(async () => await builder.finaliseBlock()).rejects.toThrow('Block already finalised');
     }, 20000);
 
