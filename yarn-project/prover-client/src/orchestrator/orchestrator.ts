@@ -1,5 +1,5 @@
 import { Body, L2Block, MerkleTreeId, type ProcessedTx, type TxEffect, toTxEffect } from '@aztec/circuit-types';
-import { PROVING_STATUS, type ProvingResult, type ProvingTicket } from '@aztec/circuit-types/interfaces';
+import { BlockResult, PROVING_STATUS, type ProvingResult, type ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type AppendOnlyTreeSnapshot,
@@ -280,10 +280,12 @@ export class ProvingOrchestrator {
 
     this.provingState.block = l2Block;
 
-    return {
-      l2Block,
+    const blockResult: BlockResult = {
       proof: this.provingState.finalProof,
-    };
+      block: l2Block,
+    }
+
+    return blockResult;
   }
 
   /**

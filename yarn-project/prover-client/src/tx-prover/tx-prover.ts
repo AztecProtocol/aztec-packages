@@ -76,7 +76,7 @@ export class TxProver implements ProverClient {
     this.orchestrator.cancelBlock();
   }
   public finaliseBlock(): Promise<BlockResult> {
-    return this.finaliseBlock();
+    return this.orchestrator.finaliseBlock();
   }
 
   public setBlockCompleted(): Promise<void> {
