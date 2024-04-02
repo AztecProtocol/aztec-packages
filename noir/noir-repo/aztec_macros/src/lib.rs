@@ -144,7 +144,6 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
                 insert_init_check,
                 is_internal,
             )?;
-            export_fn_abi(&mut module.types, func)?;
             has_transformed_module = true;
         } else if storage_defined && func.def.is_unconstrained {
             transform_unconstrained(func);
