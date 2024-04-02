@@ -15,7 +15,7 @@ jobs:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: build-${{ github.ref_name == 'master' && github.run_id|| github.ref_name }}-x86
+      group: build-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
     steps:
       - name: Checkout
         uses: actions/checkout@v4
