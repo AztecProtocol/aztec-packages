@@ -9,14 +9,41 @@
 
 namespace bb {
 
+/**
+ * @brief Log-derivative lookup argument relation for estabishing DataBus reads
+ * @details Each column of the databus can be thought of as a table from which we can look up values. The log-derivative
+ * lookup argument seeks to prove lookups from a column by establishing the following sum:
+ *
+ * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / write_term_i) + read_count_i * (1 / read_term_i) = 0
+ *
+ * where the read and write terms are both of the form value_i + idx_i*\beta + \gamma. For the write term, the (idx,
+ * value) pair comes from the "table" (bus column), and for the read term the (idx, value) pair comes from wires 1 and 2
+ * which should contain a valid entry in the table.
+ *
+ * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial I containing
+ * (indirectly) the rational functions in the above expression: I_i =  1/[(read_term_i) * (write_term_i)]. This leads to
+ * two subrelations. The first demonstrates that the inverse polynomial I is correctly formed. The second is the primary
+ * lookup identity, where the rational functions are replaced by the use of the inverse polynomial I. These two
+ * subrelations can be expressed as follows:
+ *
+ *  (1) I_i * (read_term_i) * (write_term_i) - 1 = 0
+ *
+ *  (2) \sum_{i=0}^{n-1} [q_{logderiv_lookup} * I_i * write_term_i + read_count_i * I_i * read_term_i] = 0
+ *
+ * Each column of the DataBus requires its own pair of subrelations. The column being read is selected via a unique
+ * product, i.e. a lookup from bus column j is selected via q_busread * q_j (j = 1,2,...).
+ *
+ * Note: that the latter subrelation is "linearly dependent" in the sense that it establishes that a sum across all
+ * rows of the exectution trace is zero, rather than that some expression holds independently at each row. Accordingly,
+ * this subrelation is not multiplied by a scaling factor at each accumulation step.
+ *
+ *
+ */
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t NUM_BUS_COLUMNS = 2;
-    static constexpr size_t READ_TERMS = 1;  // per bus column
-    static constexpr size_t WRITE_TERMS = 1; // per bus column
-    // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = READ_TERMS + WRITE_TERMS + 3;
+    static constexpr size_t LENGTH = 5;          // 1 + polynomial degree of this relation
+    static constexpr size_t NUM_BUS_COLUMNS = 2; // calldata, return data
 
     // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work
     static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_PARTIAL_LENGTHS{
