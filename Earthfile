@@ -26,9 +26,5 @@ build:
 test-end-to-end:
     BUILD ./yarn-project/end-to-end/+test-all
 
-echo-github-ref:
-    ARG EARTHLY_GIT_HASH
-    RUN echo $EARTHLY_GIT_HASH
-
 bench:
   RUN echo hi
