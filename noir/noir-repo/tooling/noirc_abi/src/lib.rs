@@ -524,7 +524,7 @@ pub enum AbiValue {
     },
     Integer {
         sign: bool,
-        value: String,
+        value: i128,
     },
     Boolean {
         value: bool,
@@ -545,53 +545,6 @@ pub enum AbiValue {
     Tuple {
         fields: Vec<AbiValue>,
     },
-}
-
-impl AbiValue {
-    pub fn from_hir_expression(context: &Context, expression: HirExpression) -> Self {
-        match expression {
-            HirExpression::Constructor(constructor) => {
-                let fields = constructor
-                    .fields
-                    .iter()
-                    .map(|(ident, expr_id)| {
-                        (
-                            ident.0.contents.to_string(),
-                            Self::from_hir_expression(
-                                context,
-                                context.def_interner.expression(expr_id),
-                            ),
-                        )
-                    })
-                    .collect();
-                Self::Struct { fields }
-            }
-            HirExpression::Literal(literal) => match literal {
-                HirLiteral::Array(hir_array) => match hir_array {
-                    HirArrayLiteral::Standard(expr_ids) => {
-                        let value = expr_ids
-                            .iter()
-                            .map(|expr_id| {
-                                Self::from_hir_expression(
-                                    context,
-                                    context.def_interner.expression(expr_id),
-                                )
-                            })
-                            .collect();
-                        Self::Array { value }
-                    }
-                    _ => unreachable!("Repeated arrays cannot be used in the abi"),
-                },
-                HirLiteral::Bool(value) => Self::Boolean { value },
-                HirLiteral::Str(value) => Self::String { value },
-                HirLiteral::Integer(field, sign) => {
-                    Self::Integer { value: field.to_string(), sign }
-                }
-                _ => unreachable!("Literal cannot be used in the abi"),
-            },
-            _ => unreachable!("Type cannot be used in the abi"),
-        }
-    }
 }
 
 fn range_to_vec(ranges: &[Range<Witness>]) -> Vec<Witness> {
