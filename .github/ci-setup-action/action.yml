@@ -25,11 +25,6 @@ runs:
       shell: bash
       run: git submodule sync --recursive && git submodule update --init --recursive
 
-    # - name: Checkout Submodules
-    #   uses: actions/checkout@v3
-    #   with:
-    #     submodules: recursive
-
     - name: Setup Earthly
       uses: earthly/actions-setup@v1
       with:
