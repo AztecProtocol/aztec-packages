@@ -14,17 +14,27 @@ export interface BasicValue<T extends string, V> {
 /**
  * An exported value.
  */
-export type ABIValue =
-  | BasicValue<'field', bigint>
+export type AbiValue =
   | BasicValue<'boolean', boolean>
-  | BasicValue<'integer', number>
   | BasicValue<'string', string>
-  | BasicValue<'array', ABIValue[]>
+  | BasicValue<'array', AbiValue[]>
+  | IntegerValue
+  | FieldValue
   | StructValue;
+
+export type TypedStructFieldValue<T> = { name: string; value: T };
 
 export interface StructValue {
   kind: 'struct';
-  fields: (ABIValue & { name: string })[];
+  fields: TypedStructFieldValue<AbiValue>[];
+}
+
+export interface FieldValue extends BasicValue<'field', string> {
+  sign: boolean;
+}
+
+export interface IntegerValue extends BasicValue<'integer', string> {
+  sign: boolean;
 }
 
 /**
@@ -72,7 +82,7 @@ export interface ContractArtifact {
 
   outputs: {
     structs: Record<string, AbiType[]>;
-    globals: Record<string, ABIValue[]>;
+    globals: Record<string, AbiValue[]>;
   };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
