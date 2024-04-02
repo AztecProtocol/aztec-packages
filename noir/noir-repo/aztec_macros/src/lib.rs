@@ -86,7 +86,7 @@ fn transform(
 fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> {
     let mut has_transformed_module = false;
 
-    // Check for a user defined storage stru
+    // Check for a user defined storage struct
 
     let maybe_storage_struct_name = check_for_storage_definition(module)?;
     let storage_defined = maybe_storage_struct_name.is_some();
