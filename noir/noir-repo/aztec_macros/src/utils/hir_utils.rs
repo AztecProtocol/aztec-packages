@@ -12,6 +12,8 @@ use noirc_frontend::{
     ItemVisibility, NoirFunction, Shared, Signedness, StructType, Type,
 };
 
+use super::ast_utils::is_custom_attribute;
+
 pub fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<StructId> {
     context
         .def_map(crate_id)
@@ -94,7 +96,6 @@ pub fn fetch_crate_notes(context: &HirContext, crate_id: &CrateId) -> Vec<Shared
         .filter_map(|&struct_id| {
             let r#struct = context.def_interner.get_struct(struct_id);
             let attributes = context.def_interner.struct_attributes(&struct_id);
-            let path = context.
             if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")) {
                 Some(r#struct)
             } else {

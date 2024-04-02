@@ -14,6 +14,34 @@ contract Child {
         a_private_value: PrivateSet<ValueNote>,
     }
 
+    struct ChildInterface {
+        target_contract: dep::aztec::protocol_types::address::AztecAddress,
+        value: fn[(dep::aztec::context::Context, dep::aztec::protocol_types::address::AztecAddress)](Field) -> [Field; 4],
+        // value_internal: fn(Field) -> Field,
+        // pub_get_value: fn(Field) -> Field,
+        // pub_set_value: fn(Field) -> Field,
+        // private_set_value: fn(Field, AztecAddress) -> Field,
+        // private_get_value: fn(Field, AztecAddress) -> Field,
+        // pub_inc_value: fn(Field) -> Field,
+        // pub_inc_value_internal: fn(Field) -> Field,
+        // set_value_twice_with_nested_first: fn() -> (),
+        // set_value_twice_with_nested_last: fn() -> ()
+    }
+
+    impl ChildInterface {
+        fn new(
+            context: dep::aztec::context::Context,
+            target_contract: dep::aztec::protocol_types::address::AztecAddress
+        ) -> Self {
+            Self {
+                target_contract,
+                value: | input: Field | {
+                    context.private.unwrap().call_private_function(target_contract, dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""), [input])
+                }
+            }
+        }
+    }
+
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     #[aztec(private)]
     fn value(input: Field) -> Field {

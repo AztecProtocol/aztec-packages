@@ -60,13 +60,8 @@ pub fn inject_compute_note_hash_and_nullifier(
         // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
         // contract might use. These are the types that implement the NoteInterface trait, which provides the
         // get_note_type_id function.
-        let note_types = fetch_notes(context)
-            .iter()
-            .map(|note| {
-                println!("note {:?}", note.borrow());
-                note.borrow().name.0.contents.clone()
-            })
-            .collect();
+        let note_types =
+            fetch_notes(context).iter().map(|note| note.borrow().name.0.contents.clone()).collect();
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
         let func = generate_compute_note_hash_and_nullifier(&note_types);

@@ -3,6 +3,7 @@ mod utils;
 
 use transforms::{
     compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
+    contract_interface::{generate_contract_interface, stub_function},
     events::{generate_selector_impl, transform_events},
     functions::{transform_function, transform_unconstrained},
     note_interface::generate_note_interface_impl,
@@ -59,7 +60,9 @@ fn transform(
     // Usage -> mut ast -> aztec_library::transform(&mut ast)
     // Covers all functions in the ast
     for submodule in ast.submodules.iter_mut().filter(|submodule| submodule.is_contract) {
-        if transform_module(&mut submodule.contents).map_err(|err| (err.into(), file_id))? {
+        if transform_module(&mut submodule.contents, submodule.name.0.contents.as_str())
+            .map_err(|err| (err.into(), file_id))?
+        {
             check_for_aztec_dependency(crate_id, context)?;
         }
     }
@@ -72,7 +75,7 @@ fn transform(
 /// Determines if ast nodes are annotated with aztec attributes.
 /// For annotated functions it calls the `transform` function which will perform the required transformations.
 /// Returns true if an annotated node is found, false otherwise
-fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> {
+fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool, AztecMacroError> {
     let mut has_transformed_module = false;
 
     // Check for a user defined storage stru
@@ -102,6 +105,8 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
             .any(|attr| is_custom_attribute(attr, "aztec(initializer)"))
     });
 
+    let mut stubs = vec![];
+
     for func in module.functions.iter_mut() {
         let mut is_private = false;
         let mut is_public = false;
@@ -129,14 +134,17 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
 
         // Apply transformations to the function based on collected attributes
         if is_private || is_public || is_public_vm {
+            let fn_type = if is_private {
+                "Private"
+            } else if is_public_vm {
+                "Avm"
+            } else {
+                "Public"
+            };
+            let stub = stub_function(fn_type, func);
+            stubs.push(stub);
             transform_function(
-                if is_private {
-                    "Private"
-                } else if is_public_vm {
-                    "Avm"
-                } else {
-                    "Public"
-                },
+                fn_type,
                 func,
                 storage_defined,
                 is_initializer,
@@ -170,6 +178,8 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
                 span: Span::default(),
             });
         }
+
+        generate_contract_interface(module, module_name, &stubs)?;
     }
 
     Ok(has_transformed_module)
