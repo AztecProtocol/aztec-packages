@@ -128,7 +128,7 @@ jobs:
       fail-fast: false
       matrix:
         environment: [x86]
-        # pending fix fot intermittent test
+        # pending fix for intermittent test
         # environment: [x86, arm]
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
