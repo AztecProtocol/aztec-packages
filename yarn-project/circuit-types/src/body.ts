@@ -65,6 +65,7 @@ export class Body {
       return layers[layers.length - 1][0];
     };
 
+    // TODO(benesjan): merge this with numTxEffectsIncludingPadded
     // Copy of TxsDecoder.computeNumTxEffectsToPad
     const computeNumTxEffectsToPad = (numTxEffects: number) => {
       // 2 is the minimum number of tx effects so we have to handle the following 2 cases separately
@@ -116,6 +117,29 @@ export class Body {
     // TODO(benesjan): nuke this
     // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
     return this.txEffects.reduce((acc, txEffect) => (txEffect.nullifiers.length !== 0 ? acc + 1 : acc), 0);
+  }
+
+  get numberOfTxsIncludingPadded() {
+    const numTxEffects = this.txEffects.length;
+
+    // Copy of TxsDecoder.computeNumTxEffectsToPad
+    // 2 is the minimum number of tx effects so we have to add the following separately
+    if (numTxEffects <= 2) {
+      return 2;
+    }
+
+    let v = numTxEffects;
+
+    // the following rounds numTxEffects up to the next power of 2 (works only for 4 bytes value!)
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+
+    return v;
   }
 
   static random(
