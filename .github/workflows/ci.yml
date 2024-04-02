@@ -24,7 +24,8 @@ jobs:
           # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: ./.github/ci-setup-action
+      - name: Setup
+        uses: ./.github/ci-setup-action
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
@@ -64,7 +65,8 @@ jobs:
           # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: ./.github/ci-setup-action
+      - name: Setup
+        uses: ./.github/ci-setup-action
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }}
@@ -98,7 +100,8 @@ jobs:
           # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: ./.github/ci-setup-action
+      - name: Setup
+        uses: ./.github/ci-setup-action
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
@@ -138,7 +141,8 @@ jobs:
           # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: ./.github/ci-setup-action
+      - name: Setup
+        uses: ./.github/ci-setup-action
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
@@ -168,7 +172,8 @@ jobs:
           # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: ./.github/ci-setup-action
+      - name: Setup
+        uses: ./.github/ci-setup-action
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
