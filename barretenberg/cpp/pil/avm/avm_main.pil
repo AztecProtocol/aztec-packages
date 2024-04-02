@@ -2,6 +2,7 @@
 include "avm_mem.pil";
 include "avm_alu.pil";
 include "avm_binary.pil";
+include "avm_cmp.pil";
 
 namespace avm_main(256);
 
@@ -53,12 +54,19 @@ namespace avm_main(256);
     pol commit sel_op_or;
     // XOR
     pol commit sel_op_xor;
+    // LT
+    pol commit sel_op_lt;
+    // LTE
+    pol commit sel_op_lte;
 
     // Helper selector to characterize an ALU chiplet selector
     pol commit alu_sel;
 
     // Helper selector to characterize a Binary chiplet selector
     pol commit bin_sel;
+
+    // Helper selector to characterize a Cmp chiplet selector
+    pol commit cmp_sel;
 
     // Instruction memory tags read/write (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field)
     pol commit r_in_tag;
@@ -121,6 +129,8 @@ namespace avm_main(256);
     sel_op_and * (1 - sel_op_and) = 0;
     sel_op_or * (1 - sel_op_or) = 0;
     sel_op_xor * (1 - sel_op_xor) = 0;
+    sel_op_lt * (1 - sel_op_lt) = 0;
+    sel_op_lte * (1 - sel_op_lte) = 0;
 
     sel_internal_call * (1 - sel_internal_call) = 0;
     sel_internal_return * (1 - sel_internal_return) = 0;
@@ -275,11 +285,20 @@ namespace avm_main(256);
     // the operation decomposition step during bytecode unpacking.
     #[BIN_SEL_2]
     bin_sel = sel_op_and + sel_op_or + sel_op_xor;
+
+    // Only 1 of these cmp selectors should be set
+    #[CMP_SEL]
+    cmp_sel = sel_op_lt + sel_op_lte;
     
     #[PERM_MAIN_BIN]
     bin_sel {ia, ib, ic, bin_op_id, r_in_tag}
     is
     avm_binary.start {avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic, avm_binary.op_id, avm_binary.in_tag};
+
+    #[PERM_MAIN_CMP]
+    cmp_sel {ia, ib, ic}
+    is
+    avm_cmp.cmp_sel {avm_cmp.ia, avm_cmp.ib, avm_cmp.ic};
 
     #[PERM_MAIN_MEM_A]
     mem_op_a {clk, mem_idx_a, ia, rwa, r_in_tag, w_in_tag, sel_mov}
