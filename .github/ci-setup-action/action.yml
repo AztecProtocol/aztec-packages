@@ -23,7 +23,6 @@ runs:
 
     - name: Checkout Submodules
       shell: bash
-      if: steps.cache-submodules.outputs.cache-hit != 'true'
       run: git submodule sync --recursive && git submodule update --init --recursive
 
     # - name: Checkout Submodules
