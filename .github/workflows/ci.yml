@@ -9,6 +9,8 @@ jobs:
   # there's a lot of x86 tasks - let's split out the build step
   build-x86:
     runs-on: ubuntu-latest
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
@@ -36,12 +38,20 @@ jobs:
           # push to registry
           earthly-cloud build x86 --push +build-end-to-end
 
+      # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
+      # (Note ARM uses just 2 tests as a smoketest)
+      - id: e2e_list
+        working-directory: ./yarn-project/end-to-end
+        run: |
+          echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+
   # all the end-to-end integration tests for aztec
   e2e-arm:
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
+      fail-fast: false
       matrix:
         test:
           - e2e-card-game
@@ -71,7 +81,7 @@ jobs:
         run:
           # Flags:
           # - e2e_build=true to get images from a local build, not a dockerhub registry strategy
-          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_build=true
+          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_mode=build
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
@@ -80,35 +90,9 @@ jobs:
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
+      fail-fast: false
       matrix:
-        test:
-          - e2e-state-vars
-          - e2e-block-building
-          - e2e-nested-contract
-          - e2e-static-calls
-          - e2e-delegate-calls
-          - e2e-non-contract-account
-          - e2e-cross-chain-messaging
-          - e2e-crowdfunding-and-claim
-          - e2e-public-cross-chain-messaging
-          - e2e-public-to-private-messaging
-          - e2e-account-contracts
-          - e2e-escrow-contract
-          - e2e-inclusion-proofs-contract
-          - e2e-pending-note-hashes-contract
-          - e2e-ordering
-          - uniswap-trade-on-l1-from-l2
-          - integration-l1-publisher
-          - e2e-cli
-          - e2e-persistence
-          - e2e-browser
-          - e2e-card-game
-          - e2e-avm-simulator
-          - e2e-fees
-          - e2e-dapp-subscription
-          - pxe
-          - cli-docs-sandbox
-          - e2e-docs-examples
+        test: ${{ fromJson( needs.build-x86.outputs.e2e_list )}}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: ${{ matrix.test }}-${{ github.event.pull_request.number || github.ref_name }}-x86
@@ -139,15 +123,19 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: |
-          earthly-cloud build x86 --no-output +${{ matrix.test }}
+          earthly-cloud build x86 --no-output +${{ matrix.test }} --e2e_mode=cache
 
   # barretenberg (prover) native tests
   bb-native-tests:
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
-    strategy: { matrix: { environment: [x86] } }
-    # strategy: { matrix: { environment: [x86, arm] } }
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [x86]
+        # pending fix fot intermittent test
+        # environment: [x86, arm]
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: bb-native-tests-${{ github.event.pull_request.number || github.ref_name }}-${{ matrix.environment }}
@@ -170,7 +158,7 @@ jobs:
       - name: Test
         working-directory: ./barretenberg/cpp/
         run: |
-          earthly-cloud build ${{ matrix.environment }} --no-output +test
+          earthly-cloud test ${{ matrix.environment }} --no-output +test
 
   # All benchmarks, purposefully ran sequential on a machine
   # they should use parallelism within the benchmark, but only one thing should run at a time
@@ -182,9 +170,9 @@ jobs:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      # TODO no longer exclusive.. revisit this
-      group: ${{ github.actor }}-x86
-      cancel-in-progress: ${{ github.ref_name != 'master' }}
+      # TODO this allows NO concurrency of bench jobs
+      # TODO if this takes too long, we need to divide up into different bench machines for each pipeline step
+      group: bench-x86
     steps:
       - uses: earthly/actions-setup@v1
         with:
@@ -200,10 +188,15 @@ jobs:
         working-directory: ./scripts
         run: ./setup_env.sh ${{ secrets.DOCKERHUB_PASSWORD }} ${{ github.actor }}
 
+      - name: Build and Push Binaries
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud build x86 --push +bench-base
+
+      # Use bench_mode=cache to read the pushed build above
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud bench x86 --no-output +bench-client-ivc
+        run: earthly-cloud bench x86 --no-output +bench-client-ivc --bench_mode=cache
 
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud bench x86 --no-output +bench-ultra-honk
+        run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache
