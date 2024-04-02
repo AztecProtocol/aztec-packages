@@ -105,9 +105,9 @@ describe('Note Processor', () => {
       encryptedLogsArr.push(encryptedLogs);
       ownedL1NotePayloads.push(...payloads);
       for (let i = 0; i < TXS_PER_BLOCK; i++) {
-        block.body.txEffects[i].noteHashes = newNotes
-          .map(n => pedersenHash(n.notePayload.note.items))
-          .slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX);
+        const txEffectNotes = newNotes.slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX);
+        block.body.txEffects[i].noteHashes = txEffectNotes
+          .map(n => pedersenHash(n.notePayload.note.items));
       }
 
       const randomBlockContext = new L2BlockContext(block);
