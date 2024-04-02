@@ -1,5 +1,5 @@
 import { type ProcessedTx } from '@aztec/circuit-types';
-import { BlockResult, type ProverClient, type ProvingTicket } from '@aztec/circuit-types/interfaces';
+import { type BlockResult, type ProverClient, type ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import { type SimulationProvider } from '@aztec/simulator';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
@@ -32,8 +32,7 @@ export class TxProver implements ProverClient {
    * Starts the prover instance
    */
   public start() {
-    this.orchestrator.start();
-    return Promise.resolve();
+    return this.orchestrator.start();
   }
 
   /**

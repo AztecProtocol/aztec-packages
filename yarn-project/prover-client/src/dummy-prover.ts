@@ -1,5 +1,5 @@
 import {
-  BlockResult,
+  type BlockResult,
   L2Block,
   PROVING_STATUS,
   type ProcessedTx,

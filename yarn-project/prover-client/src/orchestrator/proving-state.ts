@@ -1,8 +1,8 @@
-import { L2Block, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
+import { type L2Block, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  RootRollupPublicInputs,
+  type AppendOnlyTreeSnapshot,
+  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type RootRollupPublicInputs,
   type BaseOrMergeRollupPublicInputs,
   type Fr,
   type GlobalVariables,

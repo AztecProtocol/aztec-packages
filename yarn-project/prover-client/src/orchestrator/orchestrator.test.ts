@@ -1,10 +1,11 @@
 import {
-  MerkleTreeId,
-  PROVING_STATUS,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
+  MerkleTreeId,
   mockTx,
-  type ProcessedTx
+  PROVING_STATUS,
+  type ProcessedTx,
+  type ProvingFailure
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -22,14 +23,14 @@ import {
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PUBLIC_DATA_SUBTREE_HEIGHT,
   Proof,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
   PublicKernelCircuitPublicInputs,
   SideEffect,
-  SideEffectLinkedToNoteHash,
   sideEffectCmp,
+  SideEffectLinkedToNoteHash,
   type BaseOrMergeRollupPublicInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
@@ -52,13 +53,10 @@ import { MerkleTrees, type MerkleTreeOperations } from '@aztec/world-state';
 import { mock, type MockProxy } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
 
-import { createDebugLogger } from '@aztec/foundation/log';
 import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { type RollupProver } from '../prover/index.js';
 import { type RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
-
-const logger = createDebugLogger('aztec:orchestrator-test');
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -505,7 +503,7 @@ describe('prover/tx-prover', () => {
         expect((result1 as ProvingFailure).reason).toBe('Proving cancelled');
       }      
 
-      builderDb.rollback();
+      await builderDb.rollback();
 
       const blockTicket2 = await builder.startNewBlock(
         2,
@@ -549,7 +547,7 @@ describe('prover/tx-prover', () => {
 
       await builder.addNewTx(txs1[0]);
 
-      builderDb.rollback();
+      await builderDb.rollback();
 
       const blockTicket2 = await builder.startNewBlock(
         2,

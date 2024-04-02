@@ -13,7 +13,6 @@ import {
 // eslint-disable-next-line no-restricted-imports
 import {
   type ProcessedTx,
-  type ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/circuit-types';

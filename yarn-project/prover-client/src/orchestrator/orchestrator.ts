@@ -103,9 +103,9 @@ export class ProvingOrchestrator {
     this.simulator = new RealRollupCircuitSimulator(simulationProvider);
   }
 
-  public static new(db: MerkleTreeOperations, simulationProvider: SimulationProvider, prover: RollupProver) {
+  public static async new(db: MerkleTreeOperations, simulationProvider: SimulationProvider, prover: RollupProver) {
     const orchestrator = new ProvingOrchestrator(db, simulationProvider, getVerificationKeys(), prover);
-    orchestrator.start();
+    await orchestrator.start();
     return Promise.resolve(orchestrator);
   }
 
