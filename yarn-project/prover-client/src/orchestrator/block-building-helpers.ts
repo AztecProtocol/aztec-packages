@@ -8,7 +8,6 @@ import {
   ConstantRollupData,
   Fr,
   GlobalVariables,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -41,7 +40,7 @@ import {
   StateDiffHints,
   StateReference,
   VK_TREE_HEIGHT,
-  VerificationKey,
+  VerificationKey
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { DebugLogger } from '@aztec/foundation/log';

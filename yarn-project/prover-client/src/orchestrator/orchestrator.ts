@@ -1,5 +1,5 @@
 import { Body, L2Block, MerkleTreeId, ProcessedTx, TxEffect, toTxEffect } from '@aztec/circuit-types';
-import { PROVING_STATUS, ProverClient, ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
+import { PROVING_STATUS, ProvingResult, ProvingTicket } from '@aztec/circuit-types/interfaces';
 import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -27,6 +27,7 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
+import { makeTuple } from '@aztec/foundation/array';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
 import { RealRollupCircuitSimulator, RollupSimulator } from '../simulator/rollup.js';
@@ -44,7 +45,6 @@ import {
   validateTx,
 } from './block-building-helpers.js';
 import { MergeRollupInputData, ProvingState } from './proving-state.js';
-import { makeTuple } from '@aztec/foundation/array';
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 

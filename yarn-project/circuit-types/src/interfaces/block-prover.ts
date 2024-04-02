@@ -24,9 +24,9 @@ export type ProvingTicket = {
 };
 
 export type BlockResult = {
-  block: L2Block,
+  block: L2Block;
   proof: Proof;
-}
+};
 
 /**
  * The interface to the block prover.

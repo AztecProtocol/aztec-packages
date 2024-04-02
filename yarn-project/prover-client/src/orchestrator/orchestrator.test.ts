@@ -3,10 +3,9 @@ import {
   PROVING_STATUS,
   ProcessedTx,
   ProvingFailure,
-  ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
-  mockTx,
+  mockTx
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -52,13 +51,13 @@ import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { type MemDown, default as memdown } from 'memdown';
+import { default as memdown, type MemDown } from 'memdown';
 
+import { createDebugLogger } from '@aztec/foundation/log';
 import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { RollupProver } from '../prover/index.js';
 import { RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 const logger = createDebugLogger('aztec:orchestrator-test');
 

@@ -3,10 +3,10 @@ import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Body, Fr, GlobalVariables, L2Actor, L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
+  PROVING_STATUS,
   ProcessedTx,
-  ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx,
+  makeProcessedTx
 } from '@aztec/circuit-types';
 import {
   EthAddress,
@@ -381,6 +381,7 @@ describe('L1Publisher integration', () => {
       );
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
       const result = await ticket.provingPromise;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const blockResult = await builder.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
@@ -472,6 +473,7 @@ describe('L1Publisher integration', () => {
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
       const result = await blockTicket.provingPromise;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const blockResult = await builder.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
