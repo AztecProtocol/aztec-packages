@@ -147,7 +147,7 @@ pub(super) fn value_from_hir_expression(context: &Context, expression: HirExpres
             HirLiteral::Bool(value) => AbiValue::Boolean { value },
             HirLiteral::Str(value) => AbiValue::String { value },
             HirLiteral::Integer(field, sign) => {
-                AbiValue::Integer { value: field.to_u128().to_string(), sign }
+                AbiValue::Integer { value: field.to_string(), sign }
             }
             _ => unreachable!("Literal cannot be used in the abi"),
         },
