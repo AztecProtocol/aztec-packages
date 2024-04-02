@@ -110,7 +110,7 @@ fn collapse_ranges(witnesses: &[Witness]) -> Vec<Range<Witness>> {
     wit
 }
 
-pub fn value_from_hir_expression(context: &Context, expression: HirExpression) -> AbiValue {
+pub(super) fn value_from_hir_expression(context: &Context, expression: HirExpression) -> AbiValue {
     match expression {
         HirExpression::Constructor(constructor) => {
             let fields = constructor
@@ -146,7 +146,9 @@ pub fn value_from_hir_expression(context: &Context, expression: HirExpression) -
             },
             HirLiteral::Bool(value) => AbiValue::Boolean { value },
             HirLiteral::Str(value) => AbiValue::String { value },
-            HirLiteral::Integer(field, sign) => AbiValue::Integer { value: field.to_i128(), sign },
+            HirLiteral::Integer(field, sign) => {
+                AbiValue::Integer { value: field.to_u128().to_string(), sign }
+            }
             _ => unreachable!("Literal cannot be used in the abi"),
         },
         _ => unreachable!("Type cannot be used in the abi"),
