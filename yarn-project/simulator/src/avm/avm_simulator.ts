@@ -10,10 +10,14 @@ import { decodeFromBytecode } from './serialization/bytecode_serialization.js';
 
 export class AvmSimulator {
   private log: DebugLogger;
+  private logInstruction: DebugLogger;
 
   constructor(private context: AvmContext) {
     this.log = createDebugLogger(
       `aztec:avm_simulator:core(f:${context.environment.temporaryFunctionSelector.toString()})`,
+    );
+    this.logInstruction = createDebugLogger(
+      `aztec:avm_simulator:core(f:${context.environment.temporaryFunctionSelector.toString()}):instruction`,
     );
   }
 
@@ -50,6 +54,15 @@ export class AvmSimulator {
    */
   public async executeInstructions(instructions: Instruction[]): Promise<AvmContractCallResults> {
     assert(instructions.length > 0);
+    // For stats only.
+    let executedInstructions: bigint = 0n;
+    const initialGas = {
+      l1GasLeft: this.context.machineState.l1GasLeft,
+      l2GasLeft: this.context.machineState.l2GasLeft,
+      daGasLeft: this.context.machineState.daGasLeft,
+    };
+    const startingTime = Date.now();
+
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
@@ -60,11 +73,12 @@ export class AvmSimulator {
           'AVM attempted to execute non-existent instruction. This should never happen (invalid bytecode or AVM simulator bug)!',
         );
 
-        this.log.debug(`@${this.context.machineState.pc} ${instruction.toString()}`);
+        this.logInstruction(`@${this.context.machineState.pc} ${instruction.toString()}`);
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
         await instruction.execute(this.context);
+        executedInstructions++;
 
         if (this.context.machineState.pc >= instructions.length) {
           this.log('Passed end of program!');
@@ -75,6 +89,12 @@ export class AvmSimulator {
       // Return results for processing by calling context
       const results = this.context.machineState.getResults();
       this.log(`Context execution results: ${results.toString()}`);
+      this.log(`Executed ${executedInstructions} instructions in ${Date.now() - startingTime}ms.`);
+      this.log(
+        `Gas consumed: { l1: ${initialGas.l1GasLeft - this.context.machineState.l1GasLeft}, l2: ${
+          initialGas.l2GasLeft - this.context.machineState.l2GasLeft
+        }, da: ${initialGas.daGasLeft - this.context.machineState.daGasLeft} }`,
+      );
       return results;
     } catch (e) {
       this.log('Exceptional halt');
@@ -87,6 +107,12 @@ export class AvmSimulator {
       // Note: "exceptional halts" cannot return data
       const results = new AvmContractCallResults(/*reverted=*/ true, /*output=*/ [], /*revertReason=*/ e);
       this.log(`Context execution results: ${results.toString()}`);
+      this.log(`Executed ${executedInstructions} instructions in ${Date.now() - startingTime}ms.`);
+      this.log(
+        `Gas consumed: { l1: ${initialGas.l1GasLeft - this.context.machineState.l1GasLeft}, l2: ${
+          initialGas.l2GasLeft - this.context.machineState.l2GasLeft
+        }, da: ${initialGas.daGasLeft - this.context.machineState.daGasLeft} }`,
+      );
       return results;
     }
   }
