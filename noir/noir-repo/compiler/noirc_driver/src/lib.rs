@@ -20,7 +20,6 @@ use noirc_frontend::macros_api::MacroProcessor;
 use noirc_frontend::monomorphization::{monomorphize, monomorphize_debug, MonomorphizationError};
 use noirc_frontend::node_interner::FuncId;
 use noirc_frontend::token::SecondaryAttribute;
-use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
@@ -426,38 +425,46 @@ fn compile_contract_inner(
         let debug_infos: Vec<_> = functions.iter().map(|function| function.debug.clone()).collect();
         let file_map = filter_relevant_files(&debug_infos, &context.file_manager);
 
-        let mut out_structs = HashMap::new();
+        let out_structs = contract
+            .outputs
+            .structs
+            .into_iter()
+            .map(|(tag, structs)| {
+                let structs = structs
+                    .into_iter()
+                    .map(|struct_id| {
+                        let typ = context.def_interner.get_struct(struct_id);
+                        let typ = typ.borrow();
+                        let fields = vecmap(typ.get_fields(&[]), |(name, typ)| {
+                            (name, AbiType::from_type(context, &typ))
+                        });
+                        let path =
+                            context.fully_qualified_struct_path(context.root_crate_id(), typ.id);
+                        AbiType::Struct { path, fields }
+                    })
+                    .collect();
+                (tag.to_string(), structs)
+            })
+            .collect();
 
-        out_structs.extend(contract.outputs.structs.iter().map(|(tag, structs)| {
-            let structs = structs
-                .iter()
-                .map(|struct_id| {
-                    let typ = context.def_interner.get_struct(*struct_id);
-                    let typ = typ.borrow();
-                    let fields = vecmap(typ.get_fields(&[]), |(name, typ)| {
-                        (name, AbiType::from_type(context, &typ))
-                    });
-                    let path = context.fully_qualified_struct_path(context.root_crate_id(), typ.id);
-                    AbiType::Struct { path, fields }
-                })
-                .collect();
-            (tag.to_string(), structs)
-        }));
-
-        let mut out_globals = HashMap::new();
-
-        out_globals.extend(contract.outputs.globals.iter().map(|(tag, globals)| {
-            let globals: Vec<AbiValue> = globals
-                .iter()
-                .map(|global_id| {
-                    let let_statement =
-                        context.def_interner.get_global_let_statement(*global_id).unwrap();
-                    let hir_expression = context.def_interner.expression(&let_statement.expression);
-                    value_from_hir_expression(context, hir_expression)
-                })
-                .collect();
-            (tag.to_string(), globals)
-        }));
+        let out_globals = contract
+            .outputs
+            .globals
+            .iter()
+            .map(|(tag, globals)| {
+                let globals: Vec<AbiValue> = globals
+                    .iter()
+                    .map(|global_id| {
+                        let let_statement =
+                            context.def_interner.get_global_let_statement(*global_id).unwrap();
+                        let hir_expression =
+                            context.def_interner.expression(&let_statement.expression);
+                        value_from_hir_expression(context, hir_expression)
+                    })
+                    .collect();
+                (tag.to_string(), globals)
+            })
+            .collect();
 
         Ok(CompiledContract {
             name: contract.name,
