@@ -50,4 +50,8 @@ export class DummyProver implements ProverClient {
       proof: makeEmptyProof(),
     });
   }
+
+  setBlockCompleted(): Promise<void> {
+    return Promise.resolve();
+  }
 }

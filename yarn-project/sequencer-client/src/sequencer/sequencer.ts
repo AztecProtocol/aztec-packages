@@ -317,6 +317,8 @@ export class Sequencer {
       await this.prover.addNewTx(tx);
     }
 
+    await this.prover.setBlockCompleted();
+
     const result = await blockTicket.provingPromise;
     if (result.status === PROVING_STATUS.FAILURE) {
       throw new Error(`Block proving failed, reason: ${result.reason}`);

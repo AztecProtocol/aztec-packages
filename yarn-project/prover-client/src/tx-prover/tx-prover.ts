@@ -78,4 +78,8 @@ export class TxProver implements ProverClient {
   public finaliseBlock(): Promise<BlockResult> {
     return this.finaliseBlock();
   }
+
+  public setBlockCompleted(): Promise<void> {
+    return this.orchestrator.setBlockCompleted();
+  }
 }

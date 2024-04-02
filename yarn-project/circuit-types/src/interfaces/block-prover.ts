@@ -45,4 +45,6 @@ export interface BlockProver {
   cancelBlock(): void;
 
   finaliseBlock(): Promise<BlockResult>;
+
+  setBlockCompleted(): Promise<void>;
 }
