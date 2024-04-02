@@ -16,6 +16,7 @@ jobs:
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: build-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,6 +57,7 @@ jobs:
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: ${{ matrix.test }}-${{ github.ref_name == 'master' && github.run_id|| github.ref_name }}-arm
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,6 +92,7 @@ jobs:
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: ${{ matrix.test }}-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -131,6 +134,7 @@ jobs:
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
       group: bb-native-tests-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-${{ matrix.environment }}
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -162,6 +166,7 @@ jobs:
       # We use a looser concurrency limit here, but we place a lock 
       # in the actual step action so that only one bench takes place
       group: bench-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+      cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
