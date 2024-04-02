@@ -2,9 +2,12 @@ import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
   BaseRollupInputs,
   ConstantRollupData,
   Fr,
+  type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
@@ -16,12 +19,14 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
+  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PreviousRollupData,
+  type Proof,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   ROLLUP_VK_TREE_HEIGHT,
@@ -29,25 +34,20 @@ import {
   RollupKernelData,
   RollupTypes,
   RootParityInput,
-  RootRollupInputs,
-  StateDiffHints,
-  VK_TREE_HEIGHT,
-  type BaseOrMergeRollupPublicInputs,
-  type BaseParityInputs,
-  type GlobalVariables,
-  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  type Proof,
   type RootParityInputs,
+  RootRollupInputs,
   type RootRollupPublicInputs,
+  StateDiffHints,
   type StateReference,
-  type VerificationKey
+  VK_TREE_HEIGHT,
+  type VerificationKey,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { type DebugLogger } from '@aztec/foundation/log';
-import { assertLength, toFriendlyJSON, type Tuple } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { getVerificationKeys, type VerificationKeys } from '../mocks/verification_keys.js';
+import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { type RollupProver } from '../prover/index.js';
 import { type RollupSimulator } from '../simulator/rollup.js';
 
@@ -212,7 +212,15 @@ export async function executeRootRollupCircuit(
   logger?: DebugLogger,
 ): Promise<[RootRollupPublicInputs, Proof]> {
   logger?.debug(`Running root rollup circuit`);
-  const rootInput = await getRootRollupInput(...left, ...right, l1ToL2Roots, newL1ToL2Messages, messageTreeSnapshot, messageTreeRootSiblingPath, db);
+  const rootInput = await getRootRollupInput(
+    ...left,
+    ...right,
+    l1ToL2Roots,
+    newL1ToL2Messages,
+    messageTreeSnapshot,
+    messageTreeRootSiblingPath,
+    db,
+  );
 
   // Simulate and get proof for the root circuit
   const rootOutput = await simulator.rootRollupCircuit(rootInput);

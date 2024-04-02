@@ -1,14 +1,15 @@
 import {
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
-  makeProcessedTx,
   MerkleTreeId,
-  mockTx,
   PROVING_STATUS,
   type ProcessedTx,
-  type ProvingFailure
+  type ProvingFailure,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
+  makeProcessedTx,
+  mockTx,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  type BaseOrMergeRollupPublicInputs,
   EthAddress,
   Fr,
   GlobalVariables,
@@ -23,16 +24,15 @@ import {
   MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  Proof,
   PUBLIC_DATA_SUBTREE_HEIGHT,
+  Proof,
   PublicDataTreeLeaf,
   PublicDataUpdateRequest,
   PublicKernelCircuitPublicInputs,
-  SideEffect,
-  sideEffectCmp,
-  SideEffectLinkedToNoteHash,
-  type BaseOrMergeRollupPublicInputs,
   type RootRollupPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+  sideEffectCmp,
 } from '@aztec/circuits.js';
 import {
   fr,
@@ -48,10 +48,10 @@ import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { WASMSimulator } from '@aztec/simulator';
-import { MerkleTrees, type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
-import { mock, type MockProxy } from 'jest-mock-extended';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MockProxy, mock } from 'jest-mock-extended';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { getVerificationKeys } from '../mocks/verification_keys.js';
 import { type RollupProver } from '../prover/index.js';
@@ -85,7 +85,7 @@ describe('prover/tx-prover', () => {
 
   const makeGlobals = (blockNumber: number) => {
     return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
-  }
+  };
 
   beforeEach(async () => {
     blockNumber = 3;
@@ -392,12 +392,12 @@ describe('prover/tx-prover', () => {
 
         // This will need to be a 2 tx block
         const blockTicket = await builder.startNewBlock(2, globals, [], emptyTx);
-  
+
         await builder.addNewTx(tx);
-  
+
         //  we need to complete the block as we have not added a full set of txs
         await builder.setBlockCompleted();
-  
+
         const result = await blockTicket.provingPromise;
         expect(result.status).toBe(PROVING_STATUS.SUCCESS);
         const finalisedBlock = await builder.finaliseBlock();
@@ -467,27 +467,16 @@ describe('prover/tx-prover', () => {
     }, 200_000);
 
     it('cancels current block and switches to new ones', async () => {
-      const txs1 = await Promise.all([
-        makeBloatedProcessedTx(1),
-        makeBloatedProcessedTx(2),
-      ]);
+      const txs1 = await Promise.all([makeBloatedProcessedTx(1), makeBloatedProcessedTx(2)]);
 
-      const txs2 = await Promise.all([
-        makeBloatedProcessedTx(3),
-        makeBloatedProcessedTx(4),
-      ]);
+      const txs2 = await Promise.all([makeBloatedProcessedTx(3), makeBloatedProcessedTx(4)]);
 
       const globals1: GlobalVariables = makeGlobals(100);
       const globals2: GlobalVariables = makeGlobals(101);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await builder.startNewBlock(
-        2,
-        globals1,
-        l1ToL2Messages,
-        await makeEmptyProcessedTx(),
-      );
+      const blockTicket1 = await builder.startNewBlock(2, globals1, l1ToL2Messages, await makeEmptyProcessedTx());
 
       await builder.addNewTx(txs1[0]);
       await builder.addNewTx(txs1[1]);
@@ -501,16 +490,11 @@ describe('prover/tx-prover', () => {
       // however it may have actually completed proving before we cancelled in which case it could be a succes code
       if (result1.status === PROVING_STATUS.FAILURE) {
         expect((result1 as ProvingFailure).reason).toBe('Proving cancelled');
-      }      
+      }
 
       await builderDb.rollback();
 
-      const blockTicket2 = await builder.startNewBlock(
-        2,
-        globals2,
-        l1ToL2Messages,
-        await makeEmptyProcessedTx(),
-      );
+      const blockTicket2 = await builder.startNewBlock(2, globals2, l1ToL2Messages, await makeEmptyProcessedTx());
 
       await builder.addNewTx(txs2[0]);
       await builder.addNewTx(txs2[1]);
@@ -523,38 +507,22 @@ describe('prover/tx-prover', () => {
     }, 10000);
 
     it('automatically cancels an incomplete block when starting a new one', async () => {
-      const txs1 = await Promise.all([
-        makeBloatedProcessedTx(1),
-        makeBloatedProcessedTx(2),
-      ]);
+      const txs1 = await Promise.all([makeBloatedProcessedTx(1), makeBloatedProcessedTx(2)]);
 
-      const txs2 = await Promise.all([
-        makeBloatedProcessedTx(3),
-        makeBloatedProcessedTx(4),
-      ]);
+      const txs2 = await Promise.all([makeBloatedProcessedTx(3), makeBloatedProcessedTx(4)]);
 
       const globals1: GlobalVariables = makeGlobals(100);
       const globals2: GlobalVariables = makeGlobals(101);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await builder.startNewBlock(
-        2,
-        globals1,
-        l1ToL2Messages,
-        await makeEmptyProcessedTx(),
-      );
+      const blockTicket1 = await builder.startNewBlock(2, globals1, l1ToL2Messages, await makeEmptyProcessedTx());
 
       await builder.addNewTx(txs1[0]);
 
       await builderDb.rollback();
 
-      const blockTicket2 = await builder.startNewBlock(
-        2,
-        globals2,
-        l1ToL2Messages,
-        await makeEmptyProcessedTx(),
-      );
+      const blockTicket2 = await builder.startNewBlock(2, globals2, l1ToL2Messages, await makeEmptyProcessedTx());
 
       await builder.addNewTx(txs2[0]);
       await builder.addNewTx(txs2[1]);
@@ -576,12 +544,7 @@ describe('prover/tx-prover', () => {
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
       // this needs to be a 4 tx block that will need to be completed
-      const blockTicket = await builder.startNewBlock(
-        4,
-        globalVariables,
-        l1ToL2Messages,
-        await makeEmptyProcessedTx(),
-      );
+      const blockTicket = await builder.startNewBlock(4, globalVariables, l1ToL2Messages, await makeEmptyProcessedTx());
 
       for (const tx of txs) {
         await builder.addNewTx(tx);
@@ -640,11 +603,7 @@ describe('prover/tx-prover', () => {
     }, 1000);
 
     it('throws if finalising an already finalised block', async () => {
-
-      const txs = await Promise.all([
-        makeEmptyProcessedTx(),
-        makeEmptyProcessedTx(),
-      ]);
+      const txs = await Promise.all([makeEmptyProcessedTx(), makeEmptyProcessedTx()]);
 
       const blockTicket = await builder.startNewBlock(txs.length, globalVariables, [], await makeEmptyProcessedTx());
 
@@ -656,9 +615,7 @@ describe('prover/tx-prover', () => {
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
       const finalisedBlock = await builder.finaliseBlock();
       expect(finalisedBlock.l2Block.number).toEqual(blockNumber);
-      await expect(async () => await builder.finaliseBlock()).rejects.toThrow(
-        'Block already finalised',
-      );
+      await expect(async () => await builder.finaliseBlock()).rejects.toThrow('Block already finalised');
     }, 20000);
 
     it('throws if adding to a cancelled block', async () => {
@@ -669,17 +626,9 @@ describe('prover/tx-prover', () => {
       await expect(async () => await builder.addNewTx(await makeEmptyProcessedTx())).rejects.toThrow(
         'Rollup not accepting further transactions',
       );
-
     }, 10000);
 
-    it.each([
-      [-4],
-      [0],
-      [1],
-      [3],
-      [8.1],
-      [7]
-    ] as const)(
+    it.each([[-4], [0], [1], [3], [8.1], [7]] as const)(
       'fails to start a block with %i transaxctions',
       async (blockSize: number) => {
         await expect(

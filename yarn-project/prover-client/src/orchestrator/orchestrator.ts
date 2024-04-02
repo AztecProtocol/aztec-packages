@@ -8,14 +8,15 @@ import {
   type BaseRollupInputs,
   Fr,
   type GlobalVariables,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
   type RootParityInput,
   RootParityInputs,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
 } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { MemoryFifo } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -44,7 +45,6 @@ import {
   validateTx,
 } from './block-building-helpers.js';
 import { type MergeRollupInputData, ProvingState } from './proving-state.js';
-import { makeTuple } from '@aztec/foundation/array';
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 
@@ -160,10 +160,11 @@ export class ProvingOrchestrator {
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
       this.db,
     );
-  
+
     const newL1ToL2MessageTreeRootSiblingPath = makeTuple(
       L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-      i => (i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO),
+      i =>
+        i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO,
       0,
     );
 
@@ -232,11 +233,7 @@ export class ProvingOrchestrator {
     // we need to pad the rollup with empty transactions
     for (let i = this.provingState.transactionsReceived; i < this.provingState.totalNumTxs; i++) {
       const paddingTxIndex = this.provingState.addNewTx(this.provingState.emptyTx);
-      await this.prepareBaseRollupInputs(
-        this.provingState,
-        BigInt(paddingTxIndex),
-        this.provingState!.emptyTx,
-      );
+      await this.prepareBaseRollupInputs(this.provingState, BigInt(paddingTxIndex), this.provingState!.emptyTx);
     }
   }
 
@@ -286,7 +283,7 @@ export class ProvingOrchestrator {
     return {
       l2Block,
       proof: this.provingState.finalProof,
-    }
+    };
   }
 
   /**
@@ -318,11 +315,7 @@ export class ProvingOrchestrator {
   }
 
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
-  private async prepareBaseRollupInputs(
-    provingState: ProvingState | undefined,
-    index: bigint,
-    tx: ProcessedTx,
-  ) {
+  private async prepareBaseRollupInputs(provingState: ProvingState | undefined, index: bigint, tx: ProcessedTx) {
     if (!provingState?.verifyState()) {
       logger('Not preparing base rollup inputs, state invalid');
       return;
@@ -429,9 +422,7 @@ export class ProvingOrchestrator {
   }
 
   // Executes the root rollup circuit
-  private async runRootRollup(
-    provingState: ProvingState | undefined,
-  ) {
+  private async runRootRollup(provingState: ProvingState | undefined) {
     if (!provingState?.verifyState()) {
       logger('Not running root rollup, state no longer valid');
       return;
@@ -528,11 +519,7 @@ export class ProvingOrchestrator {
       logger('Not ready for root rollup');
       return;
     }
-    this.enqueueJob(provingState, PROVING_JOB_TYPE.ROOT_ROLLUP, () =>
-      this.runRootRollup(
-        provingState,
-      ),
-    );
+    this.enqueueJob(provingState, PROVING_JOB_TYPE.ROOT_ROLLUP, () => this.runRootRollup(provingState));
   }
 
   private storeAndExecuteNextMergeLevel(

@@ -27,7 +27,6 @@ export class TxProver implements ProverClient {
     );
   }
 
-
   /**
    * Starts the prover instance
    */

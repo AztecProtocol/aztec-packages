@@ -1,17 +1,16 @@
 import { type L2Block, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
 import {
   type AppendOnlyTreeSnapshot,
-  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  type RootRollupPublicInputs,
   type BaseOrMergeRollupPublicInputs,
   type Fr,
   type GlobalVariables,
+  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   type Proof,
   type RootParityInput,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
-
 
 export type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
@@ -86,7 +85,10 @@ export class ProvingState {
   }
 
   public verifyState() {
-    return this.provingStateLifecyle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED || this.provingStateLifecyle === PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
+    return (
+      this.provingStateLifecyle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED ||
+      this.provingStateLifecyle === PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL
+    );
   }
 
   public isAcceptingTransactions() {
@@ -123,7 +125,11 @@ export class ProvingState {
   }
 
   public isReadyForRootRollup() {
-    return !(this.mergeRollupInputs[0] === undefined || this.finalRootParityInput === undefined || this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1);
+    return !(
+      this.mergeRollupInputs[0] === undefined ||
+      this.finalRootParityInput === undefined ||
+      this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1
+    );
   }
 
   public setRootParityInputs(inputs: RootParityInput, index: number) {

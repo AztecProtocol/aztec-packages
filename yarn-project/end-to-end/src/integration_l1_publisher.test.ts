@@ -12,10 +12,10 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
+  PROVING_STATUS,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
-  PROVING_STATUS,
 } from '@aztec/circuit-types';
 import {
   EthAddress,

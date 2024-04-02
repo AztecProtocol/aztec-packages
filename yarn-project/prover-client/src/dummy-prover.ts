@@ -11,8 +11,6 @@ import { type GlobalVariables, makeEmptyProof } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 export class DummyProver implements ProverClient {
-
- 
   public start(): Promise<void> {
     return Promise.resolve();
   }
@@ -44,8 +42,7 @@ export class DummyProver implements ProverClient {
     return Promise.resolve();
   }
 
-  cancelBlock(): void {
-  }
+  cancelBlock(): void {}
 
   finaliseBlock(): Promise<BlockResult> {
     return Promise.resolve({
