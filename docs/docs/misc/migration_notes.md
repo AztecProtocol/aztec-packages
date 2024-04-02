@@ -19,10 +19,10 @@ This change was made to communicate that we do not constrain the value in circui
 
 ### [AztecJS] Simulate and get return values for ANY call
 Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
-This have lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`.
+This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`. 
 It is not possible to call `simulate` on any call to get the return values! 
-However, beware that it currently always return a Field array of size 4 for private and public.
-This will change to become similar to the return values of the `unconstrained` with proper return times.
+However, beware that it currently always returns a Field array of size 4 for private and public.  
+This will change to become similar to the return values of the `unconstrained` functions with proper return types.
 
 ```diff
 -    #[aztec(private)]

@@ -100,12 +100,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         authWitnesses: [],
       });
       const simulatedTx = await this.pxe.simulateTx(txRequest, false, options.from ?? this.wallet.getAddress());
-      return simulatedTx.privateReturnValues && simulatedTx.privateReturnValues[0];
+      return simulatedTx.privateReturnValues?.[0];
     } else {
       const txRequest = await this.create();
       const simulatedTx = await this.pxe.simulateTx(txRequest, true);
       this.txRequest = undefined;
-      return simulatedTx.publicReturnValues && simulatedTx.publicReturnValues[0];
+      return simulatedTx.publicReturnValues?.[0];
     }
   }
 }

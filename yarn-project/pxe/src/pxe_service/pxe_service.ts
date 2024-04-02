@@ -404,6 +404,11 @@ export class PXEService implements PXE {
     return await this.jobQueue.put(async () => {
       const timer = new Timer();
       const simulatedTx = await this.#simulateAndProve(txRequest, msgSender);
+      // We log only if the msgSender is undefined, as simulating with a different msgSender
+      // is unlikely to be a real transaction, and likely to be only used to read data.
+      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
+      // If we log, the `getTxHash` function will throw.
+
       if (!msgSender) {
         this.log(`Processed private part of ${simulatedTx.tx.getTxHash()}`, {
           eventName: 'tx-pxe-processing',
@@ -619,6 +624,7 @@ export class PXEService implements PXE {
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
+   * @param msgSender - (Optional) The message sender to use for the simulation.
    * @returns An object tract contains:
    * A private transaction object containing the proof, public inputs, and encrypted logs.
    * The return values of the private execution

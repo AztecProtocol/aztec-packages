@@ -34,6 +34,11 @@ describe('e2e_state_vars', () => {
     });
 
     it('private read of SharedImmutable', async () => {
+      // Initializes the shared immutable and then reads the value using an unconstrained function
+      // checking the return values with:
+      // 1. A constrained private function that reads it directly
+      // 2. A constrained private function that calls another private function that reads.
+
       await contract.methods.initialize_shared_immutable(1).send().wait();
 
       const a = await contract.methods.get_shared_immutable_constrained_private().simulate();
@@ -50,8 +55,12 @@ describe('e2e_state_vars', () => {
     });
 
     it('public read of SharedImmutable', async () => {
-      const a = await contract.methods.get_shared_immutable_constrained().simulate();
-      const b = await contract.methods.get_shared_immutable_constrained_indirect().simulate();
+      // Reads the value using an unconstrained function checking the return values with:
+      // 1. A constrained public function that reads it directly
+      // 2. A constrained public function that calls another public function that reads.
+
+      const a = await contract.methods.get_shared_immutable_constrained_public().simulate();
+      const b = await contract.methods.get_shared_immutable_constrained_public_indirect().simulate();
       const c = await contract.methods.get_shared_immutable().simulate();
 
       expect((a as any)[0]).toEqual((c as any)['account'].toBigInt());

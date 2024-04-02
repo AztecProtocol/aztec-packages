@@ -146,6 +146,26 @@ export interface PXE {
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+
+  /**
+   * Simulates a transaction based on the provided preauthenticated execution request.
+   * This will run a local simulation of private execution (and optionally of public as well), assemble
+   * the zero-knowledge proof for the private execution, and return the transaction object along
+   * with simulation results (return values).
+   *
+   *
+   * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
+   * In that case, the transaction returned is only potentially ready to be sent to the network for execution.
+   *
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param simulatePublic - Whether to simulate the public part of the transaction.
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @returns A simulated transaction object that includes a transaction that is potentially ready
+   * to be sent to the network for execution, along with public and private return values.
+   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
+   */
   simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx>;
 
   /**

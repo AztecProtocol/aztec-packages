@@ -110,6 +110,10 @@ contract DocsExample {
 
     #[aztec(private)]
     fn get_shared_immutable_constrained_private_indirect() -> pub Leader {
+        // This is a private function that calls another private function
+        // and returns the response.
+        // Used to test that we can retrieve values through calls and 
+        // correctly return them in the simulation
         let ret = context.call_private_function_no_args(
             context.this_address(),
             FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
@@ -118,16 +122,20 @@ contract DocsExample {
     }
 
     #[aztec(public)]
-    fn get_shared_immutable_constrained_indirect() -> pub Leader {
+    fn get_shared_immutable_constrained_public_indirect() -> pub Leader {
+        // This is a public function that calls another public function
+        // and returns the response.
+        // Used to test that we can retrieve values through calls and 
+        // correctly return them in the simulation
         let ret = context.call_public_function_no_args(
             context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained()")
+            FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
         );
         Leader::deserialize([ret[0], ret[1]])
     }
 
     #[aztec(public)]
-    fn get_shared_immutable_constrained() -> pub Leader {
+    fn get_shared_immutable_constrained_public() -> pub Leader {
         storage.shared_immutable.read_public()
     }
 
