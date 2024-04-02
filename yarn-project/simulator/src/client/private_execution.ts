@@ -1,5 +1,5 @@
 import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type FunctionArtifactWithDebugMetadata, decodeReturnValues, type ABIType } from '@aztec/foundation/abi';
+import { type ABIType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';

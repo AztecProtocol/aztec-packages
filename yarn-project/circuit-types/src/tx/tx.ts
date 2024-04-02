@@ -7,7 +7,7 @@ import {
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import { ProcessReturnValues } from '@aztec/foundation/abi';
+import { type ProcessReturnValues } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 

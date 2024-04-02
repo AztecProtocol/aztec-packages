@@ -8,10 +8,11 @@ import { BaseContractInteraction, SendMethodOptions } from './base_contract_inte
 export { SendMethodOptions };
 
 /**
- * Represents the options for a view method in a contract function interaction.
+ * Represents the options for simulating a contract function interaction.
  * Allows specifying the address from which the view method should be called.
+ * Disregarded for simulation of public functions
  */
-export type ViewMethodOptions = {
+export type SimulateMethodOptions = {
   /**
    * The sender's Aztec address.
    */
@@ -64,10 +65,20 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
   /**
    * Simulate a transaction and get its return values
+   * Differs from prove in a few important ways:
+   * 1. It returns the values of the function execution
+   * 2. It supports `unconstrained`, `private` and `public` functions
+   * 3. For `private` execution it:
+   * 3.a SKIPS the entrypoint and starts directly at the function
+   * 3.b SKIPS public execution entirely
+   * 4. For `public` execution it:
+   * 4.a Removes the `txRequest` value after ended simulation
+   * 4.b Ignores the `from` in the options
+   *
    * @param options - An optional object containing additional configuration for the transaction.
-   * @returns The result of the view transaction as returned by the contract function.
+   * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate(options: ViewMethodOptions = {}): Promise<any> {
+  public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
       return this.wallet.viewTx(this.functionDao.name, this.args, this.contractAddress, options.from);
     }
@@ -93,6 +104,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     } else {
       const txRequest = await this.create();
       const vue = await this.pxe.simulateTx(txRequest, true);
+      this.txRequest = undefined;
       return vue.publicReturnValues && vue.publicReturnValues[0];
     }
   }

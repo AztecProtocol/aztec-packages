@@ -27,7 +27,7 @@ describe('e2e_avm_simulator', () => {
   describe('Storage', () => {
     // FIX: Enable once the contract function works.
     // it('Read immutable (initialized) storage (Field)', async () => {
-    //   expect(await avmContact.methods.view_storage_immutable().view()).toEqual(42n);
+    //   expect(await avmContact.methods.view_storage_immutable().simulate()).toEqual(42n);
     // });
 
     it('Modifies storage (Field)', async () => {

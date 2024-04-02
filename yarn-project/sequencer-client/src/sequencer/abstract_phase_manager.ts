@@ -43,10 +43,10 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
-  ABIType,
-  DecodedReturn,
-  FunctionArtifact,
-  ProcessReturnValues,
+  type ABIType,
+  type DecodedReturn,
+  type FunctionArtifact,
+  type ProcessReturnValues,
   decodeReturnValues,
 } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
