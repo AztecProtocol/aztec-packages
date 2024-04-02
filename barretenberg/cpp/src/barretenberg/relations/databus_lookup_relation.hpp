@@ -10,7 +10,7 @@
 namespace bb {
 
 /**
- * @brief Log-derivative lookup argument relation for estabishing DataBus reads
+ * @brief Log-derivative lookup argument relation for establishing DataBus reads
  * @details Each column of the databus can be thought of as a table from which we can look up values. The log-derivative
  * lookup argument seeks to prove lookups from a column by establishing the following sum:
  *
