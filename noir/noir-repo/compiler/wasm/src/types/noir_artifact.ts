@@ -18,6 +18,7 @@ export type AbiValue =
   | BasicValue<'boolean', boolean>
   | BasicValue<'string', string>
   | BasicValue<'array', AbiValue[]>
+  | TupleValue
   | IntegerValue
   | FieldValue
   | StructValue;
@@ -27,6 +28,10 @@ export type TypedStructFieldValue<T> = { name: string; value: T };
 export interface StructValue {
   kind: 'struct';
   fields: TypedStructFieldValue<AbiValue>[];
+}
+
+export interface TupleValue {
+  fields: AbiValue[];
 }
 
 export interface FieldValue extends BasicValue<'field', string> {
