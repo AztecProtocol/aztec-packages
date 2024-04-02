@@ -512,7 +512,7 @@ jobs:
   yarn-project-test:
     docker:
       - image: aztecprotocol/alpine-build-image
-    resource_class: medium
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
