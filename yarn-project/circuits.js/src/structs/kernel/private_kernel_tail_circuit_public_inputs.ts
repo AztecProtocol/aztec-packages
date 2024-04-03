@@ -105,6 +105,11 @@ export class PrivateKernelTailCircuitPublicInputs {
     if (!forPublic && !forRollup) {
       throw new Error('Missing partial public inputs for private tail circuit.');
     }
+    if (forPublic && forRollup) {
+      throw new Error(
+        'Cannot create PrivateKernelTailCircuitPublicInputs that is for both public kernel circuit and rollup circuit.',
+      );
+    }
   }
 
   toPublicKernelCircuitPublicInputs() {
@@ -142,27 +147,25 @@ export class PrivateKernelTailCircuitPublicInputs {
   }
 
   getNonEmptyNoteHashes() {
-    let noteHashes = this.forRollup?.end.newNoteHashes;
-    if (this.forPublic) {
-      noteHashes = mergeAccumulatedData(
-        MAX_NEW_NULLIFIERS_PER_TX,
-        this.forPublic.endNonRevertibleData.newNoteHashes,
-        this.forPublic.end.newNoteHashes,
-      );
-    }
-    return noteHashes!.filter(n => !n.isEmpty());
+    const noteHashes = this.forPublic
+      ? mergeAccumulatedData(
+          MAX_NEW_NULLIFIERS_PER_TX,
+          this.forPublic.endNonRevertibleData.newNoteHashes,
+          this.forPublic.end.newNoteHashes,
+        )
+      : this.forRollup!.end.newNoteHashes;
+    return noteHashes.filter(n => !n.isEmpty());
   }
 
   getNonEmptyNullifiers() {
-    let nullifiers = this.forRollup?.end.newNullifiers;
-    if (this.forPublic) {
-      nullifiers = mergeAccumulatedData(
-        MAX_NEW_NULLIFIERS_PER_TX,
-        this.forPublic.endNonRevertibleData.newNullifiers,
-        this.forPublic.end.newNullifiers,
-      );
-    }
-    return nullifiers!.filter(n => !n.isEmpty());
+    const nullifiers = this.forPublic
+      ? mergeAccumulatedData(
+          MAX_NEW_NULLIFIERS_PER_TX,
+          this.forPublic.endNonRevertibleData.newNullifiers,
+          this.forPublic.end.newNullifiers,
+        )
+      : this.forRollup!.end.newNullifiers;
+    return nullifiers.filter(n => !n.isEmpty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
