@@ -75,6 +75,7 @@ describe('sequencer', () => {
       process: async txs => [
         await Promise.all(txs.map(tx => makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), makeProof()))),
         [],
+        [],
       ],
       makeEmptyProcessedTx: () => makeEmptyProcessedTx(Header.empty(), chainId, version),
     });

@@ -53,6 +53,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
       finalKernelOutput,
       publicKernelProof,
       revertReason: undefined,
+      returnValues: undefined,
     };
   }
 
