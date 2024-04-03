@@ -143,6 +143,7 @@ describe('L1Publisher integration', () => {
       l2QueueSize: 10,
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    await worldStateSynchronizer.start();
     builder = await TxProver.new({}, worldStateSynchronizer, new WASMSimulator());
     l2Proof = Buffer.alloc(0);
 
@@ -394,6 +395,8 @@ describe('L1Publisher integration', () => {
       const blockResult = await builder.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
+      blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
+      blockSource.getBlocks.mockResolvedValueOnce([block]);
 
       const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
@@ -486,6 +489,8 @@ describe('L1Publisher integration', () => {
       const blockResult = await builder.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
+      blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
+      blockSource.getBlocks.mockResolvedValueOnce([block]);
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
