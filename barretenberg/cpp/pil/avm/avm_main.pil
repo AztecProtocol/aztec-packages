@@ -2,7 +2,6 @@
 include "avm_mem.pil";
 include "avm_alu.pil";
 include "avm_binary.pil";
-include "avm_cmp.pil";
 
 namespace avm_main(256);
 
@@ -291,14 +290,14 @@ namespace avm_main(256);
     cmp_sel = sel_op_lt + sel_op_lte;
     
     #[PERM_MAIN_BIN]
-    bin_sel {ia, ib, ic, bin_op_id, r_in_tag}
+    bin_sel {clk, ia, ib, ic, bin_op_id, r_in_tag}
     is
-    avm_binary.start {avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic, avm_binary.op_id, avm_binary.in_tag};
+    avm_binary.start {avm_binary.clk, avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic, avm_binary.op_id, avm_binary.in_tag};
 
     #[PERM_MAIN_CMP]
-    cmp_sel {ia, ib, ic}
+    cmp_sel {clk, ia, ib, ic}
     is
-    avm_cmp.cmp_sel {avm_cmp.ia, avm_cmp.ib, avm_cmp.ic};
+    avm_alu.cmp_sel {avm_alu.clk, avm_alu.ia, avm_alu.ib, avm_alu.ic};
 
     #[PERM_MAIN_MEM_A]
     mem_op_a {clk, mem_idx_a, ia, rwa, r_in_tag, w_in_tag, sel_mov}

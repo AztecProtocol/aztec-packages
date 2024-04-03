@@ -12,7 +12,7 @@ namespace bb {
 class perm_main_cmp_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 3;
+    constexpr static size_t COLUMNS_PER_SET = 4;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -23,7 +23,7 @@ class perm_main_cmp_permutation_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.avm_main_cmp_sel == 1 || in.avm_cmp_cmp_sel == 1);
+        return (in.avm_main_cmp_sel == 1 || in.avm_alu_cmp_sel == 1);
     }
 
     /**
@@ -49,13 +49,15 @@ class perm_main_cmp_permutation_settings {
         return std::forward_as_tuple(in.perm_main_cmp,
                                      in.avm_main_cmp_sel,
                                      in.avm_main_cmp_sel,
-                                     in.avm_cmp_cmp_sel,
+                                     in.avm_alu_cmp_sel,
+                                     in.avm_main_clk,
                                      in.avm_main_ia,
                                      in.avm_main_ib,
                                      in.avm_main_ic,
-                                     in.avm_cmp_ia,
-                                     in.avm_cmp_ib,
-                                     in.avm_cmp_ic);
+                                     in.avm_alu_clk,
+                                     in.avm_alu_ia,
+                                     in.avm_alu_ib,
+                                     in.avm_alu_ic);
     }
 
     /**
@@ -81,13 +83,15 @@ class perm_main_cmp_permutation_settings {
         return std::forward_as_tuple(in.perm_main_cmp,
                                      in.avm_main_cmp_sel,
                                      in.avm_main_cmp_sel,
-                                     in.avm_cmp_cmp_sel,
+                                     in.avm_alu_cmp_sel,
+                                     in.avm_main_clk,
                                      in.avm_main_ia,
                                      in.avm_main_ib,
                                      in.avm_main_ic,
-                                     in.avm_cmp_ia,
-                                     in.avm_cmp_ib,
-                                     in.avm_cmp_ic);
+                                     in.avm_alu_clk,
+                                     in.avm_alu_ia,
+                                     in.avm_alu_ib,
+                                     in.avm_alu_ic);
     }
 };
 
