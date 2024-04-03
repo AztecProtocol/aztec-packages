@@ -17,6 +17,7 @@
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
     "./fifo": "./dest/fifo/index.js",
+    "./interfaces": "./dest/interfaces/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",
     "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
@@ -63,7 +64,7 @@
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@koa/cors": "^4.0.0",
+    "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
     "debug": "^4.3.4",
