@@ -1,4 +1,5 @@
 #include "avm_alu_trace.hpp"
+#include <sys/types.h>
 
 namespace bb::avm_trace {
 
@@ -431,4 +432,44 @@ FF AvmAluTraceBuilder::op_eq(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
     return res;
 }
 
+/**
+ * @brief Build Alu trace and return a boolean based on equality of operands of type defined by in_tag.
+ *
+ * @param a Left operand of the equality
+ * @param b Right operand of the equality
+ * @param in_tag Instruction tag defining the number of bits for equality
+ * @param clk Clock referring to the operation in the main trace.
+ *
+ * @return FF The boolean result of equality casted to a finite field element
+ */
+
+FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t const clk)
+{
+    FF c = a < b ? FF ::one() : FF::zero();
+
+    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry {
+        .alu_clk = clk, .alu_op_eq = true, .alu_ff_tag = in_tag == AvmMemoryTag::FF,
+        .alu_u8_tag = in_tag == AvmMemoryTag::U8, .alu_u16_tag = in_tag == AvmMemoryTag::U16,
+        .alu_u32_tag = in_tag == AvmMemoryTag::U32, .alu_u64_tag = in_tag == AvmMemoryTag::U64,
+        .alu_u128_tag = in_tag == AvmMemoryTag::U128, .alu_ia = a, .alu_ib = b, .alu_ic = res,
+        .alu_op_eq_diff_inv = inv_c, .input_ia = b, .input_ib = a, bool borrow,
+
+        uint128_t a_lo;
+        uint128_t a_hi;
+        uint128_t b_lo;
+        uint128_t b_hi;
+
+        uint128_t p_sub_a_lo;
+        uint128_t p_sub_a_hi;
+        bool p_a_borrow;
+        uint128_t p_sub_b_lo;
+        uint128_t p_sub_b_hi;
+        bool p_b_borrow;
+
+        uint128_t res_lo;
+        uint128_t res_hi;
+    });
+
+    return res;
+}
 } // namespace bb::avm_trace

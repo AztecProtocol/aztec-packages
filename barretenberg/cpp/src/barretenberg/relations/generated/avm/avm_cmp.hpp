@@ -7,30 +7,30 @@
 namespace bb::Avm_vm {
 
 template <typename FF> struct Avm_cmpRow {
-    FF avm_cmp_p_sub_a_hi{};
     FF avm_cmp_a_hi{};
-    FF avm_cmp_lt_query{};
-    FF avm_cmp_b_lo{};
-    FF avm_cmp_p_sub_a_lo{};
-    FF avm_cmp_res_lo{};
-    FF avm_cmp_borrow{};
-    FF avm_cmp_input_ia{};
-    FF avm_cmp_p_sub_b_hi{};
-    FF avm_cmp_lte_sel{};
-    FF avm_cmp_ic{};
-    FF avm_cmp_ib{};
-    FF avm_cmp_cmp_sel{};
     FF avm_cmp_a_lo{};
+    FF avm_cmp_b_hi{};
+    FF avm_cmp_b_lo{};
+    FF avm_cmp_borrow{};
+    FF avm_cmp_cmp_sel{};
+    FF avm_cmp_ia{};
+    FF avm_cmp_ib{};
+    FF avm_cmp_ic{};
+    FF avm_cmp_input_ia{};
+    FF avm_cmp_input_ib{};
+    FF avm_cmp_lt_query{};
+    FF avm_cmp_lt_sel{};
+    FF avm_cmp_lte_sel{};
+    FF avm_cmp_p_a_borrow{};
+    FF avm_cmp_p_b_borrow{};
     FF avm_cmp_p_hi{};
     FF avm_cmp_p_lo{};
-    FF avm_cmp_input_ib{};
-    FF avm_cmp_p_b_borrow{};
-    FF avm_cmp_p_a_borrow{};
-    FF avm_cmp_res_hi{};
-    FF avm_cmp_lt_sel{};
-    FF avm_cmp_ia{};
+    FF avm_cmp_p_sub_a_hi{};
+    FF avm_cmp_p_sub_a_lo{};
+    FF avm_cmp_p_sub_b_hi{};
     FF avm_cmp_p_sub_b_lo{};
-    FF avm_cmp_b_hi{};
+    FF avm_cmp_res_hi{};
+    FF avm_cmp_res_lo{};
 };
 
 inline std::string get_relation_label_avm_cmp(int index)

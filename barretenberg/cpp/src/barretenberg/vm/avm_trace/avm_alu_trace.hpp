@@ -1,6 +1,7 @@
 #pragma once
 
 #include "avm_common.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
 
 namespace bb::avm_trace {
 
@@ -15,6 +16,8 @@ class AvmAluTraceBuilder {
         bool alu_op_mul = false;
         bool alu_op_not = false;
         bool alu_op_eq = false;
+        bool alu_op_lt = false;
+        bool alu_op_lte = false;
 
         bool alu_ff_tag = false;
         bool alu_u8_tag = false;
@@ -37,6 +40,26 @@ class AvmAluTraceBuilder {
         uint64_t alu_u64_r0{};
 
         FF alu_op_eq_diff_inv{};
+
+        // Comparison check
+        FF input_ia;
+        FF input_ib;
+        bool borrow;
+
+        uint128_t a_lo;
+        uint128_t a_hi;
+        uint128_t b_lo;
+        uint128_t b_hi;
+
+        uint128_t p_sub_a_lo;
+        uint128_t p_sub_a_hi;
+        bool p_a_borrow;
+        uint128_t p_sub_b_lo;
+        uint128_t p_sub_b_hi;
+        bool p_b_borrow;
+
+        uint128_t res_lo;
+        uint128_t res_hi;
     };
 
     AvmAluTraceBuilder();
@@ -48,6 +71,8 @@ class AvmAluTraceBuilder {
     FF op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
     FF op_not(FF const& a, AvmMemoryTag in_tag, uint32_t clk);
     FF op_eq(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_lte(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
 
   private:
     std::vector<AluTraceEntry> alu_trace;
