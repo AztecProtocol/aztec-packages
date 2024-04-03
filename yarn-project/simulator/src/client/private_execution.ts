@@ -1,5 +1,5 @@
 import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type ABIType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
+import { type FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -53,12 +53,6 @@ export async function executePrivateFunction(
 
   const callStackItem = new PrivateCallStackItem(contractAddress, functionData, publicInputs);
 
-  // Mocking the return type to be an array of 4 fields
-  // TODO: @LHerskind must be updated as we are progressing with the macros to get the information
-  const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
-  const mockArtifact = { ...artifact, returnTypes };
-  const returnValues = decodeReturnValues(mockArtifact, publicInputs.returnValues);
-
   const noteHashReadRequestPartialWitnesses = context.getNoteHashReadRequestPartialWitnesses(
     publicInputs.noteHashReadRequests,
   );
@@ -72,7 +66,7 @@ export async function executePrivateFunction(
     acir,
     partialWitness,
     callStackItem,
-    returnValues,
+    returnValues: publicInputs.returnValues,
     noteHashReadRequestPartialWitnesses,
     newNotes,
     vk: Buffer.from(artifact.verificationKey!, 'hex'),

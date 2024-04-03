@@ -119,7 +119,7 @@ contract DocsExample {
             context.this_address(),
             FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
         );
-        Leader::deserialize([ret[0], ret[1]])
+        Leader::deserialize([ret[0], ret[1] + 1])
     }
 
     #[aztec(public)]
@@ -132,7 +132,7 @@ contract DocsExample {
             context.this_address(),
             FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
         );
-        Leader::deserialize([ret[0], ret[1]])
+        Leader::deserialize([ret[0], ret[1] + 1])
     }
 
     #[aztec(public)]

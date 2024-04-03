@@ -7,7 +7,7 @@ import {
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { type ContractArtifact, type DecodedReturn } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -56,7 +56,7 @@ export const mockTx = (seed = 1, logs = true) => {
 
 export const mockSimulatedTx = (seed = 1, logs = true) => {
   const tx = mockTx(seed, logs);
-  const dec: DecodedReturn = [1n, 2n, 3n, 4n];
+  const dec = [new Fr(1), new Fr(2), new Fr(3), new Fr(4)];
   return new SimulatedTx(tx, dec, dec);
 };
 

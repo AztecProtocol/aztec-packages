@@ -1,5 +1,6 @@
 import {
   type FailedTx,
+  type ProcessReturnValues,
   type ProcessedTx,
   type SimulationError,
   Tx,
@@ -11,7 +12,6 @@ import {
 } from '@aztec/circuit-types';
 import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import { type GlobalVariables, type Header } from '@aztec/circuits.js';
-import { type ProcessReturnValues } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { PublicExecutor, type PublicStateDB, type SimulationProvider } from '@aztec/simulator';

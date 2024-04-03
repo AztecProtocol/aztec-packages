@@ -119,7 +119,7 @@ type NoirCompiledContractFunction = NoirCompiledContract['functions'][number];
  * @param fn - Noir function entry.
  * @returns Function artifact.
  */
-function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArtifact {
+function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: NoirCompiledContract): FunctionArtifact {
   if (fn.custom_attributes === undefined) {
     throw new Error(
       `No custom attributes found for contract function ${fn.name}. Try rebuilding the contract with the latest nargo version.`,
@@ -134,10 +134,23 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
     parameters = parameters.slice(1);
   }
 
-  // If the function is secret, the return is the public inputs, which should be omitted
   let returnTypes: AbiType[] = [];
-  if (functionType !== 'secret' && fn.abi.return_type) {
+  if (functionType == FunctionType.UNCONSTRAINED && fn.abi.return_type) {
     returnTypes = [fn.abi.return_type.abi_type];
+  } else {
+    const pathToFind = `${contract.name}::${fn.name}_abi`;
+    const abiStructs: AbiType[] = contract.outputs.structs['functions'];
+    const toClean1 = abiStructs.filter(a => a.kind == 'struct' && a.path == pathToFind);
+    if (toClean1.length > 0) {
+      if (toClean1[0].kind == 'struct') {
+        const toClean2 = toClean1[0].fields.filter(a => a.name == 'return_type');
+        if (toClean2.length > 0) {
+          returnTypes = [toClean2[0].type];
+        }
+      } else {
+        throw new Error(`Could not generate contract function artifact}`);
+      }
+    }
   }
 
   return {
@@ -191,7 +204,7 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion?: string): ContractArtifact {
   return {
     name: contract.name,
-    functions: contract.functions.map(generateFunctionArtifact),
+    functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
     outputs: contract.outputs,
     fileMap: contract.file_map,
     aztecNrVersion,

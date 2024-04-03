@@ -676,7 +676,8 @@ export class AztecNodeService implements AztecNode {
       throw reverted[0].revertReason;
     }
     this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
-    return returns;
+    // We only have a single tx, so we can just return the first return value.
+    return returns[0];
   }
 
   public setConfig(config: Partial<SequencerConfig>): Promise<void> {
