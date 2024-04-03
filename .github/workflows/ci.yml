@@ -2,12 +2,24 @@ name: Earthly CI
 on:
   push:
     branches: [master]
-  pull_request: {}
+  pull_request_target: {types: [opened, synchronize, reopened, labeled]}
   workflow_dispatch: {}
 
 jobs:
+  check-run-condition:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Condition
+        run: |
+          if [[ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" && "${{ contains(github.event.pull_request.labels.*.name, 'external-ci') }}" != "true" ]]; then
+            echo "PR is not from the same repo and doesn't have the 'external-ci' label."
+            exit 1
+          fi
+
   # there's a lot of x86 tasks - let's split out the build step
   build-x86:
+    # IMPORTANT security flaw if we don't need 'check-run-condition'
+    needs: [check-run-condition]
     runs-on: ubuntu-latest
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
@@ -17,6 +29,8 @@ jobs:
     concurrency:
       group: build-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
       cancel-in-progress: true
+    # permission check
+    if: github.event.pull_request.head.repo.full_name == github.repository || contains(github.event.pull_request.labels.*.name, 'external-ci')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,6 +59,8 @@ jobs:
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
+    # IMPORTANT security flaw if we don't need 'check-run-condition'
+    needs: [check-run-condition]
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -80,7 +96,8 @@ jobs:
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
-    needs: build-x86
+    # IMPORTANT security flaw if we don't need 'check-run-condition'
+    needs: [build-x86, check-run-condition]
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -125,6 +142,8 @@ jobs:
 
   # barretenberg (prover) native tests
   bb-native-tests:
+    # IMPORTANT security flaw if we don't need 'check-run-condition'
+    needs: [build-x86, check-run-condition]
     runs-on: ubuntu-latest
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -207,7 +226,8 @@ jobs:
   # # Post actions, deploy and summarize logs
   # aztec-bench-summary:
   #   runs-on: ubuntu-latest
-  #   needs: e2e-x86
+  #  # IMPORTANT security flaw if we don't need 'check-run-condition'
+  #   needs: [e2e-x86, check-run-condition]
   #   concurrency:
   #     group: aztec-bench-summary-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
   #     cancel-in-progress: true

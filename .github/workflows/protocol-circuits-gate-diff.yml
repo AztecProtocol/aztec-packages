@@ -4,10 +4,21 @@ on:
   push:
     branches:
       - master
-  pull_request:
+  pull_request_target: {types: [opened, synchronize, reopened, labeled]}
 
 jobs:
+  check-run-condition:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Condition
+        run: |
+          if [[ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" && "${{ contains(github.event.pull_request.labels.*.name, 'external-ci') }}" != "true" ]]; then
+            echo "PR is not from the same repo and doesn't have the 'external-ci' label."
+            exit 1
+          fi
   compare_protocol_circuits_gates:
+    # IMPORTANT security flaw if we don't need 'check-run-condition'
+    needs: [check-run-condition]
     concurrency:
       group: compare_protocol_circuits_gates-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
       cancel-in-progress: true
