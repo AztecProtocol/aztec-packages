@@ -262,9 +262,10 @@ export class ProvingOrchestrator {
     await validateRootOutput(rootRollupOutputs, this.db);
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
-    const txEffects: TxEffect[] = this.provingState.allTxs.map(tx => toTxEffect(tx));
-
-    const blockBody = new Body(txEffects);
+    const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(tx => toTxEffect(tx)).filter(
+      txEffect => !txEffect.isEmpty(),
+    );
+    const blockBody = new Body(nonEmptyTxEffects);
 
     const l2Block = L2Block.fromFields({
       archive: rootRollupOutputs.archive,
