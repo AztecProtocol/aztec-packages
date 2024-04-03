@@ -67,7 +67,7 @@ TEST(secp256k1, TestToMontgomeryForm)
 {
     const size_t n = 10;
     for (size_t i = 0; i < n; ++i) {
-        uint256_t a_raw = get_fq_element() - 1;
+        uint256_t a_raw = get_fq_element();
         secp256k1::fq montgomery_result(a_raw);
 
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
