@@ -22,7 +22,7 @@ fi
 if [ "${BRANCH:-}" = "master" ]; then
   TARGET_FOLDER="logs-v1/master/$COMMIT_HASH/"
 elif [ -n "${PULL_REQUEST:-}" ]; then
-  TARGET_FOLDER="logs-v1/pulls/${PAULL_REQUEST##*/}"
+  TARGET_FOLDER="logs-v1/pulls/${PULL_REQUEST##*/}"
 fi
 
 if [ -n "${TARGET_FOLDER:-}" ]; then
