@@ -7,11 +7,10 @@
 set -eu
 
 BUCKET_NAME="aztec-ci-artifacts"
-BARRETENBERG_BUCKET_NAME="aztec-ci-artifacts"
 LOG_FOLDER="${LOG_FOLDER:-log}"
 BENCH_FOLDER="${BENCH_FOLDER:-bench}"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
-BASE_COMMIT_HASH=""
+BASE_BENCH_PATH=""
 BENCHMARK_FILE_JSON="${BENCH_FOLDER}/benchmark.json"
 BASE_BENCHMARK_FILE_JSON="${BENCH_FOLDER}/base-benchmark.json"
 
@@ -62,7 +61,7 @@ export DOCKER_RUN_OPTS="\
  -e BENCH_FOLDER=${CONTAINER_BENCH_FOLDER} \
  -v $(realpath $LOG_FOLDER):${CONTAINER_LOG_FOLDER}:rw \
  -e LOG_FOLDER=${CONTAINER_LOG_FOLDER} \
- -e BASE_COMMIT_HASH \
+ -e BASE_BENCH_PATH \
  -e AZTEC_BOT_COMMENTER_GITHUB_TOKEN \
  -e CIRCLE_PULL_REQUEST"
 yarn-project/scripts/run_script.sh workspace @aztec/scripts bench-aggregate
@@ -88,13 +87,13 @@ if [ -n "${CIRCLE_PULL_REQUEST:-}" ]; then
     aws s3 cp "s3://${BUCKET_NAME}/benchmarks-v1/master/$commit_hash.json" $BASE_BENCHMARK_FILE_JSON
     if [ $? -eq 0 ]; then
       echo "Downloaded base data from commit $commit_hash"
-      export BASE_COMMIT_HASH=$commit_hash
+      export BASE_BENCH_PATH=master/$commit_hash
       break;
     fi
   done
   set -e
 
-  if [ -z "${BASE_COMMIT_HASH:-}" ]; then
+  if [ -z "${BASE_BENCH_PATH:-}" ]; then
     echo "No base commit data found"
   fi
 

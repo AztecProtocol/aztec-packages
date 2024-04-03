@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+
 # Uploads to S3 the contents of the log file mounted on the end-to-end container,
 # which contains log entries with an associated event and metrics for it.
 # Logs are uploaded to aztec-ci-artifacts/logs-v1/master/$COMMIT/$JOB.jsonl

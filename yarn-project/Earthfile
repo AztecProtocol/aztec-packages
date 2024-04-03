@@ -32,7 +32,7 @@ build:
     SAVE ARTIFACT /usr/src
 
 # TODO versioning flow at end before publish?
-# ENV COMMIT_TAG=$EARTHLY_BUILD_SHA
+# ENV COMMIT_TAG=$EARTHLY_GIT_HASH
 # RUN ./scripts/version_packages.sh
 
 # run:
@@ -87,6 +87,3 @@ build-end-to-end:
     SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_GIT_HASH
     FROM +aztec
     SAVE IMAGE --push aztecprotocol/aztec-cache:$EARTHLY_GIT_HASH
-
-aggregate-bench:
-    

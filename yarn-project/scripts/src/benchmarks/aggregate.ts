@@ -262,7 +262,8 @@ export async function main() {
     }
   }
 
-  log(`Collected entries: ${JSON.stringify(collected)}`);
+  // Spammy if on by default
+  // log(`Collected entries: ${JSON.stringify(collected)}`);
 
   // For each bucket of each metric compute the average all collected data points
   const results: BenchmarkResults = {};
