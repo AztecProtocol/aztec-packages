@@ -642,7 +642,7 @@ void AvmTraceBuilder::op_xor(
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
-void AvmTraceBuilder::set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size());
     auto val_ff = FF{ uint256_t::from_uint128(val) };

@@ -212,7 +212,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                 break;
             }
 
-            trace_builder.set(val, dst_offset, in_tag);
+            trace_builder.op_set(val, dst_offset, in_tag);
             break;
         }
         case OpCode::MOV:
