@@ -44,7 +44,6 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         auto w_1_shift = View(in.w_l_shift);
         auto q_delta_range = View(in.q_delta_range);
 
-        static const FF one = FF(1);
         static const FF minus_one = FF(-1);
         static const FF minus_two = FF(-2);
 
@@ -55,29 +54,29 @@ template <typename FF_> class DeltaRangeConstraintRelationImpl {
         auto delta_4 = w_1_shift - w_4;
 
         // Contribution (1)
-        auto tmp_1 = (delta_1 + minus_one).sqr() - one;
-        tmp_1 *= (delta_1 + minus_two).sqr() - one;
+        auto tmp_1 = (delta_1 + minus_one).sqr() + minus_one;
+        tmp_1 *= (delta_1 + minus_two).sqr() + minus_one;
         tmp_1 *= q_delta_range;
         tmp_1 *= scaling_factor;
         std::get<0>(accumulators) += tmp_1;
 
         // Contribution (2)
-        auto tmp_2 = (delta_2 + minus_one).sqr() - one;
-        tmp_2 *= (delta_2 + minus_two).sqr() - one;
+        auto tmp_2 = (delta_2 + minus_one).sqr() + minus_one;
+        tmp_2 *= (delta_2 + minus_two).sqr() + minus_one;
         tmp_2 *= q_delta_range;
         tmp_2 *= scaling_factor;
         std::get<1>(accumulators) += tmp_2;
 
         // Contribution (3)
-        auto tmp_3 = (delta_3 + minus_one).sqr() - one;
-        tmp_3 *= (delta_3 + minus_two).sqr() - one;
+        auto tmp_3 = (delta_3 + minus_one).sqr() + minus_one;
+        tmp_3 *= (delta_3 + minus_two).sqr() + minus_one;
         tmp_3 *= q_delta_range;
         tmp_3 *= scaling_factor;
         std::get<2>(accumulators) += tmp_3;
 
         // Contribution (4)
-        auto tmp_4 = (delta_4 + minus_one).sqr() - one;
-        tmp_4 *= (delta_4 + minus_two).sqr() - one;
+        auto tmp_4 = (delta_4 + minus_one).sqr() + minus_one;
+        tmp_4 *= (delta_4 + minus_two).sqr() + minus_one;
         tmp_4 *= q_delta_range;
         tmp_4 *= scaling_factor;
         std::get<3>(accumulators) += tmp_4;
