@@ -34,11 +34,11 @@ class AvmMemOpcodeTests : public ::testing::Test {
                     uint32_t dir_dst_offset = 0)
     {
         if (indirect) {
-            trace_builder.op_set(dir_src_offset, src_offset, AvmMemoryTag::U32);
-            trace_builder.op_set(dir_dst_offset, dst_offset, AvmMemoryTag::U32);
-            trace_builder.op_set(val, dir_src_offset, tag);
+            trace_builder.op_set(0, dir_src_offset, src_offset, AvmMemoryTag::U32);
+            trace_builder.op_set(0, dir_dst_offset, dst_offset, AvmMemoryTag::U32);
+            trace_builder.op_set(0, val, dir_src_offset, tag);
         } else {
-            trace_builder.op_set(val, src_offset, tag);
+            trace_builder.op_set(0, val, src_offset, tag);
         }
 
         trace_builder.op_mov(indirect ? 3 : 0, src_offset, dst_offset);
@@ -174,7 +174,7 @@ TEST_F(AvmMemOpcodeTests, sameAddressMov)
 TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
 {
     auto trace_builder = AvmTraceBuilder();
-    trace_builder.op_set(4, 1, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
     trace_builder.op_mov(0, 0, 1);
     trace_builder.return_op(0, 0, 0);
     trace = trace_builder.finalize();
@@ -185,8 +185,8 @@ TEST_F(AvmMemOpcodeTests, uninitializedValueMov)
 TEST_F(AvmMemOpcodeTests, indUninitializedValueMov)
 {
     auto trace_builder = AvmTraceBuilder();
-    trace_builder.op_set(1, 3, AvmMemoryTag::U32);
-    trace_builder.op_set(4, 1, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 1, 3, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 4, 1, AvmMemoryTag::U32);
     trace_builder.op_mov(3, 2, 3);
     trace_builder.return_op(0, 0, 0);
     trace = trace_builder.finalize();
@@ -202,9 +202,9 @@ TEST_F(AvmMemOpcodeTests, indirectMov)
 
 TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
 {
-    trace_builder.op_set(15, 100, AvmMemoryTag::U32);
-    trace_builder.op_set(16, 101, AvmMemoryTag::U128); // This will make the indirect load failing.
-    trace_builder.op_set(5, 15, AvmMemoryTag::FF);
+    trace_builder.op_set(0, 15, 100, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 16, 101, AvmMemoryTag::U128); // This will make the indirect load failing.
+    trace_builder.op_set(0, 5, 15, AvmMemoryTag::FF);
     trace_builder.op_mov(3, 100, 101);
     trace_builder.return_op(0, 0, 0);
     trace = trace_builder.finalize();
