@@ -85,6 +85,8 @@ template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivativ
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
         prover_polynomials, relation_parameters, key->circuit_size);
+    key->lookup_inverses = prover_polynomials.lookup_inverses;
+
     transcript->send_to_verifier(commitment_labels.lookup_inverses, commitment_key->commit(key->lookup_inverses));
     prover_polynomials.lookup_inverses = key->lookup_inverses.share();
 }
@@ -97,7 +99,7 @@ template <IsECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_grand_product
 {
     // Compute permutation grand product and their commitments
     compute_permutation_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
-
+    key->z_perm = prover_polynomials.z_perm;
     transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->z_perm));
 }
 
