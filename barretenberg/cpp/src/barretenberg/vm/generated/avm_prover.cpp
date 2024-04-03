@@ -63,6 +63,35 @@ void AvmProver::execute_wire_commitments_round()
     }
 }
 
+void AvmProver::execute_log_derivative_inverse_round()
+{
+    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamma;
+
+    // TODO: Add an implementation of this to the flavor
+    // We will need to compute -> the inverse for each column and add it to the proving key
+    // -> I think we should be able to use each of the bespoke lookup relations for this???
+    // ->
+    // snippet is below
+    /**
+        void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
+        {
+            auto prover_polynomials = ProverPolynomials(*this);
+            // Compute permutation and lookup grand product polynomials
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, typename GoblinUltraFlavor::LogDerivLookupRelation>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            this->lookup_inverses = prover_polynomials.lookup_inverses;
+        }
+     */
+
+    key->compute_logderivative_inverses(relation_parameters);
+    // Add commitments for each below
+    // witness_commitments.lookup_inverses = commitment_key->commit(proving_key.lookup_inverses);
+    // transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
+    //  witness_commitments.lookup_inverses);
+}
+
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
  *
@@ -112,13 +141,12 @@ HonkProof& AvmProver::construct_proof()
     // Compute wire commitments
     execute_wire_commitments_round();
 
-    // TODO: not implemented for codegen just yet
     // Compute sorted list accumulator and commitment
-    // execute_log_derivative_commitments_round();
+    execute_log_derivative_commitments_round();
 
     // Fiat-Shamir: bbeta & gamma
     // Compute grand product(s) and commitments.
-    // execute_grand_product_computation_round();
+    execute_grand_product_computation_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

@@ -52,6 +52,16 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 159;
 
+    // TODO: what for?
+    using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
+                                             perm_main_bin_relation<FF>,
+                                             perm_main_mem_a_relation<FF>,
+                                             perm_main_mem_b_relation<FF>,
+                                             perm_main_mem_c_relation<FF>,
+                                             perm_main_mem_ind_a_relation<FF>,
+                                             perm_main_mem_ind_b_relation<FF>,
+                                             perm_main_mem_ind_c_relation<FF>>;
+
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
                                  Avm_vm::avm_main<FF>,
@@ -899,6 +909,41 @@ class AvmFlavor {
 
         // The plookup wires that store plookup read data.
         std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
+
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        {
+            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
+
+            // perm_main_alu_relation<FF>,
+            // perm_main_bin_relation<FF>,
+            // perm_main_mem_a_relation<FF>,
+            // perm_main_mem_b_relation<FF>,
+            // perm_main_mem_c_relation<FF>,
+            // perm_main_mem_ind_a_relation<FF>,
+            // perm_main_mem_ind_b_relation<FF>,
+            // perm_main_mem_ind_c_relation<FF>>;
+
+            // One of these for each
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_alu_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_bin_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_mem_a_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_mem_b_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_mem_c_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_mem_ind_a_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_mem_ind_b_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<GoblinUltraFlavor, perm_main_mem_ind_c_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+
+            // TODO: check if this has set the inverse for each of the polys
+            info("Computed logderivative inverses for all relations");
+        }
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
@@ -923,6 +968,20 @@ class AvmFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
+
+        // NOTE: copied from goblin ultra
+        ProverPolynomials(ProvingKey& proving_key)
+        {
+            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
+                prover_poly = key_poly.share();
+            }
+            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
+                prover_poly = key_poly.shifted();
+            }
+        }
+
         [[nodiscard]] size_t get_polynomial_size() const { return avm_alu_alu_sel.size(); }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
