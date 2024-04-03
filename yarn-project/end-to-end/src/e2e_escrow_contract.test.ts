@@ -1,16 +1,16 @@
 import {
-  AccountWallet,
-  AztecAddress,
+  type AccountWallet,
+  type AztecAddress,
   BatchCall,
-  CompleteAddress,
-  DebugLogger,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
-  GrumpkinPrivateKey,
+  type GrumpkinPrivateKey,
   GrumpkinScalar,
   Note,
-  PXE,
-  PublicKey,
+  type PXE,
+  type PublicKey,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -90,7 +90,7 @@ describe('e2e_escrow_contract', () => {
   afterEach(() => teardown(), 30_000);
 
   const expectBalance = async (who: AztecAddress, expectedBalance: bigint) => {
-    const balance = await token.methods.balance_of_private(who).view({ from: who });
+    const balance = await token.methods.balance_of_private(who).simulate({ from: who });
     logger(`Account ${who} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -110,7 +110,7 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).simulate(),
+      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).prove(),
     ).rejects.toThrow();
   }, 60_000);
 

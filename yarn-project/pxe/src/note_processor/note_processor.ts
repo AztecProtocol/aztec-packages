@@ -1,22 +1,22 @@
 import {
-  AztecNode,
-  EncryptedL2BlockL2Logs,
-  KeyStore,
+  type AztecNode,
+  type EncryptedL2BlockL2Logs,
+  type KeyStore,
   L1NotePayload,
-  L2BlockContext,
+  type L2BlockContext,
   TaggedNote,
 } from '@aztec/circuit-types';
-import { NoteProcessorStats } from '@aztec/circuit-types/stats';
-import { INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, PublicKey } from '@aztec/circuits.js';
+import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
+import { INITIAL_L2_BLOCK_NUM, MAX_NEW_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ContractNotFoundError } from '@aztec/simulator';
 
 import { DeferredNoteDao } from '../database/deferred_note_dao.js';
-import { PxeDatabase } from '../database/index.js';
-import { NoteDao } from '../database/note_dao.js';
+import { type PxeDatabase } from '../database/index.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { produceNoteDao } from './produce_note_dao.js';
 
@@ -115,7 +115,9 @@ export class NoteProcessor {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       const blockContext = l2BlockContexts[blockIndex];
       const block = blockContext.block;
-      const dataEndIndexForBlock = block.header.state.partial.noteHashTree.nextAvailableLeafIndex;
+      const dataStartIndexForBlock =
+        block.header.state.partial.noteHashTree.nextAvailableLeafIndex -
+        block.body.numberOfTxsIncludingPadded * MAX_NEW_NOTE_HASHES_PER_TX;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
@@ -125,8 +127,7 @@ export class NoteProcessor {
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
         this.stats.txs++;
-        const dataStartIndexForTx =
-          dataEndIndexForBlock - (txLogs.length - indexOfTxInABlock) * MAX_NEW_NOTE_HASHES_PER_TX;
+        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_NOTE_HASHES_PER_TX;
         const newNoteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.

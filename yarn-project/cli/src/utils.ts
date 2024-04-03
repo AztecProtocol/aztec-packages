@@ -2,16 +2,8 @@ import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } fr
 import { AztecAddress } from '@aztec/aztec.js/aztec_address';
 import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
 import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
-import { NoirPackageConfig } from '@aztec/foundation/noir';
-import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
-  GasPortalAbi,
-  GasPortalBytecode,
-  PortalERC20Abi,
-  PortalERC20Bytecode,
-} from '@aztec/l1-artifacts';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import { type NoirPackageConfig } from '@aztec/foundation/noir';
 
 import TOML from '@iarna/toml';
 import { CommanderError, InvalidArgumentError } from 'commander';
@@ -55,10 +47,16 @@ export async function deployAztecContracts(
   debugLogger: DebugLogger,
 ) {
   const {
+    AvailabilityOracleAbi,
+    AvailabilityOracleBytecode,
+    GasPortalAbi,
+    GasPortalBytecode,
     InboxAbi,
     InboxBytecode,
     OutboxAbi,
     OutboxBytecode,
+    PortalERC20Abi,
+    PortalERC20Bytecode,
     RegistryAbi,
     RegistryBytecode,
     RollupAbi,

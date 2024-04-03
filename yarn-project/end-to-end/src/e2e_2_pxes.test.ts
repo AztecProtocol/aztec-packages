@@ -1,15 +1,15 @@
 import { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
 import {
-  AztecAddress,
-  AztecNode,
-  CompleteAddress,
-  DebugLogger,
+  type AztecAddress,
+  type AztecNode,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   GrumpkinScalar,
   Note,
-  PXE,
-  Wallet,
+  type PXE,
+  type Wallet,
   computeMessageSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
@@ -82,7 +82,7 @@ describe('e2e_2_pxes', () => {
 
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
-    const balance = await contractWithWallet.methods.balance_of_private(owner).view({ from: owner });
+    const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };

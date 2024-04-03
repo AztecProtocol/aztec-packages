@@ -1,33 +1,33 @@
 import {
-  Body,
-  EncryptedL2BlockL2Logs,
+  type Body,
+  type EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
-  FromLogType,
-  GetUnencryptedLogsResponse,
-  InboxLeaf,
-  L2Block,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type InboxLeaf,
+  type L2Block,
   L2BlockContext,
-  L2BlockL2Logs,
-  LogFilter,
+  type L2BlockL2Logs,
+  type LogFilter,
   LogId,
   LogType,
-  TxEffect,
-  TxHash,
+  type TxEffect,
+  type TxHash,
   TxReceipt,
   TxStatus,
-  UnencryptedL2BlockL2Logs,
+  type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { Fr, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import {
-  ContractClassPublic,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { ArchiverDataStore, ArchiverL1SynchPoint } from '../archiver_store.js';
-import { DataRetrieval } from '../data_retrieval.js';
+import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
@@ -145,7 +145,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean> {
     this.lastL1BlockNewBlocks = blocks.lastProcessedL1BlockNumber;
     this.l2BlockContexts.push(...blocks.retrievedData.map(block => new L2BlockContext(block)));
-    this.txEffects.push(...blocks.retrievedData.flatMap(b => b.getTxs()));
+    this.txEffects.push(...blocks.retrievedData.flatMap(b => b.body.txEffects));
     return Promise.resolve(true);
   }
 
