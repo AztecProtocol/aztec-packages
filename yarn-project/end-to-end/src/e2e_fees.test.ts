@@ -304,7 +304,7 @@ describe('e2e_fees', () => {
 
       await expect(
         // this rejects if note can't be added
-        addPendingShieldNoteToPXE(0, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
+        addPendingShieldNoteToPXE(aliceAddress, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
       ).resolves.toBeUndefined();
     });
 
@@ -367,7 +367,7 @@ describe('e2e_fees', () => {
 
       await expect(
         // this rejects if note can't be added
-        addPendingShieldNoteToPXE(0, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
+        addPendingShieldNoteToPXE(aliceAddress, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
       ).resolves.toBeUndefined();
     });
 
@@ -431,10 +431,12 @@ describe('e2e_fees', () => {
         [InitialAliceGas, InitialFPCGas - FeeAmount, InitialSequencerGas + FeeAmount],
       );
 
-      await expect(addPendingShieldNoteToPXE(0, shieldedBananas, shieldSecretHash, tx.txHash)).resolves.toBeUndefined();
+      await expect(
+        addPendingShieldNoteToPXE(aliceAddress, shieldedBananas, shieldSecretHash, tx.txHash),
+      ).resolves.toBeUndefined();
 
       await expect(
-        addPendingShieldNoteToPXE(0, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
+        addPendingShieldNoteToPXE(aliceAddress, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
       ).resolves.toBeUndefined();
     });
 
@@ -508,10 +510,12 @@ describe('e2e_fees', () => {
         [InitialAliceGas, InitialFPCGas - FeeAmount, InitialSequencerGas + FeeAmount],
       );
 
-      await expect(addPendingShieldNoteToPXE(0, shieldedBananas, shieldSecretHash, tx.txHash)).resolves.toBeUndefined();
+      await expect(
+        addPendingShieldNoteToPXE(aliceAddress, shieldedBananas, shieldSecretHash, tx.txHash),
+      ).resolves.toBeUndefined();
 
       await expect(
-        addPendingShieldNoteToPXE(0, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
+        addPendingShieldNoteToPXE(aliceAddress, RefundAmount, computeMessageSecretHash(RefundSecret), tx.txHash),
       ).resolves.toBeUndefined();
     });
 
@@ -654,8 +658,9 @@ describe('e2e_fees', () => {
 
   describe('deploying account contracts', () => {
     let accountManager: AccountManager;
-    let initialGas: bigint;
     let initialSequencerGas: bigint;
+    let initialFPCGas: bigint;
+    let initialFPCPublicBananas: bigint;
     let maxFee: bigint;
     let actualFee: bigint;
 
@@ -664,22 +669,21 @@ describe('e2e_fees', () => {
       maxFee = 3n;
       actualFee = 1n;
 
+      [initialSequencerGas, initialFPCGas] = await gasBalances(sequencerAddress, bananaFPC.address);
+      [initialFPCPublicBananas] = await bananaPublicBalances(bananaFPC.address);
+    });
+
+    it('pays fee natively', async () => {
       await gasBridgeTestHarness.bridgeFromL1ToL2(
         BRIDGED_FPC_GAS,
         BRIDGED_FPC_GAS,
         accountManager.getCompleteAddress().address,
       );
 
-      [initialGas, initialSequencerGas] = await gasBalances(
-        accountManager.getCompleteAddress().address,
-        sequencerAddress,
-      );
-
+      const [initialGas] = await gasBalances(accountManager.getCompleteAddress().address);
       // account has not been deployed but it's been funded with gas
       expect(initialGas).toEqual(BRIDGED_FPC_GAS);
-    });
 
-    it('pays fee natively', async () => {
       await accountManager
         .deploy({
           maxFee,
@@ -690,6 +694,74 @@ describe('e2e_fees', () => {
       await expect(gasBalances(accountManager.getCompleteAddress().address, sequencerAddress)).resolves.toEqual([
         initialGas - actualFee,
         initialSequencerGas + actualFee,
+      ]);
+    });
+
+    it('pays fee privately through FPC', async () => {
+      const mintedPrivateBananas = 10n;
+      // first, register the account with the PXE so that it can receive notes
+      await accountManager.register();
+
+      // right now, the only way to fund an undeployed account with private notes is to transfer them
+      // mint a note for Alice
+      await bananaCoin.methods.privately_mint_private_note(mintedPrivateBananas).send().wait();
+      // then send it over to the new, undeployed, account
+      await bananaCoin.methods
+        .transfer(aliceAddress, accountManager.getCompleteAddress().address, mintedPrivateBananas, 0n)
+        .send()
+        .wait();
+
+      const [initialPrivateBananas] = await bananaPrivateBalances(accountManager.getCompleteAddress().address);
+      expect(initialPrivateBananas).toEqual(mintedPrivateBananas);
+
+      const rebateSecret = Fr.random();
+      const tx = await accountManager
+        .deploy({
+          maxFee,
+          paymentMethod: new PrivateFeePaymentMethod(
+            bananaCoin.address,
+            bananaFPC.address,
+            await accountManager.getWallet(),
+            rebateSecret,
+          ),
+        })
+        .wait();
+
+      expect(tx.status).toEqual(TxStatus.MINED);
+
+      // the new account should have paid the full fee to the FPC
+      await expect(bananaPrivateBalances(accountManager.getCompleteAddress().address)).resolves.toEqual([
+        mintedPrivateBananas - maxFee,
+      ]);
+
+      // the FPC got paid through "unshield", so it's got a new public balance
+      await expect(bananaPublicBalances(bananaFPC.address)).resolves.toEqual([initialFPCPublicBananas + actualFee]);
+
+      // the FPC should have paid the sequencer
+      await expect(gasBalances(bananaFPC.address, sequencerAddress)).resolves.toEqual([
+        initialFPCGas - actualFee,
+        initialSequencerGas + actualFee,
+      ]);
+
+      // the new account should have received a refund
+      await expect(
+        // this rejects if note can't be added
+        addPendingShieldNoteToPXE(
+          accountManager.getCompleteAddress().address,
+          maxFee - actualFee,
+          computeMessageSecretHash(rebateSecret),
+          tx.txHash,
+        ),
+      ).resolves.toBeUndefined();
+
+      // and it can redeem the refund
+      await bananaCoin.methods
+        .redeem_shield(accountManager.getCompleteAddress().address, maxFee - actualFee, rebateSecret)
+        .send()
+        .wait();
+
+      await expect(bananaPrivateBalances(accountManager.getCompleteAddress().address)).resolves.toEqual([
+        mintedPrivateBananas - actualFee,
       ]);
     });
   });
@@ -708,27 +780,25 @@ describe('e2e_fees', () => {
     const receipt = await bananaCoin.methods.mint_private(amount, secretHash).send().wait();
 
     // Setup auth wit
-    await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
+    await addPendingShieldNoteToPXE(aliceAddress, amount, secretHash, receipt.txHash);
     const txClaim = bananaCoin.methods.redeem_shield(address, amount, secret).send();
     const receiptClaim = await txClaim.wait({ debug: true });
     const { visibleNotes } = receiptClaim.debugInfo!;
     expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
   };
 
-  const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
+  const addPendingShieldNoteToPXE = async (
+    accountAddress: AztecAddress,
+    amount: bigint,
+    secretHash: Fr,
+    txHash: TxHash,
+  ) => {
     const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
     const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
 
     const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      e2eContext.accounts[accountIndex].address,
-      bananaCoin.address,
-      storageSlot,
-      noteTypeId,
-      txHash,
-    );
-    await e2eContext.wallets[accountIndex].addNote(extendedNote);
+    const extendedNote = new ExtendedNote(note, accountAddress, bananaCoin.address, storageSlot, noteTypeId, txHash);
+    await e2eContext.pxe.addNote(extendedNote);
   };
 });
 

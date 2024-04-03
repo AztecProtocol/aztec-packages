@@ -54,7 +54,14 @@ contract SchnorrAccount {
     }
 
     #[aztec(private)]
+    #[aztec(noinitcheck)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
+        // TODO Remove noinitcheck and this get_note call once we can read nullifiers emitted in the same tx
+        // This function disables the init check because it could get called in the same tx
+        // the contract is initialized in (e.g. for fee payments)
+        // Manually check that the note exists. If the note does not exit, this reverts
+        let _ = storage.signing_public_key.get_note();
+
         let actions = AccountActions::private(
             &mut context,
             storage.approved_actions.storage_slot,
