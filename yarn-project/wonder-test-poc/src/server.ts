@@ -93,6 +93,7 @@ server.addMethod('getNumberOfNewNotes', async params => {
 
 app.post('/', (req, res) => {
   const jsonRPCRequest = req.body;
+
   server.receive(jsonRPCRequest).then(jsonRPCResponse => {
     if (jsonRPCResponse) {
       res.json(jsonRPCResponse);

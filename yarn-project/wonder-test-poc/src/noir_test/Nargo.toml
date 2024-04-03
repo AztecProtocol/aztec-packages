@@ -1,8 +1,8 @@
 [package]
-name = "local_oracle"
+name = "noir_integration_tests"
 type = "contract"
 authors = ["wonderland"]
 compiler_version = ">=0.25.0"
 
 [dependencies]
-aztec = { path = "../../../aztec-nr/aztec" }
+aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }

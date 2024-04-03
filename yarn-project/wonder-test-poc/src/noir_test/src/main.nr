@@ -15,42 +15,42 @@ use dep::aztec::oracle::debug_log::{ debug_log, debug_log_field };
     #[aztec(private)]
     fn constructor() {}
 
-    // #[test]
-    // fn test_deploy() {
-    //     let deployment_address = deploy_contract();
+    #[test]
+    fn test_deploy() {
+        let deployment_address = deploy_contract();
 
-    //     assert(deployment_address != AztecAddress::zero());
-    // } 
+        assert(deployment_address != AztecAddress::zero());
+    } 
 
-    // #[test]
-    // fn test_view_unconstrained() {
-    //     let deployment_address = deploy_contract();
+    #[test]
+    fn test_view_unconstrained() {
+        let deployment_address = deploy_contract();
 
-    //     let function_selector = FunctionSelector::from_signature("get_meaning_of_life()");
+        let function_selector = FunctionSelector::from_signature("get_meaning_of_life()");
 
-    //     // add oracle call for the public/private call
-    //     let result = view(deployment_address, function_selector, [0,0,0,0]);
+        // add oracle call for the public/private call
+        let result = view(deployment_address, function_selector, [0,0,0,0]);
 
-    //     // assert result
-    //     assert_eq(result, 42);
-    // }   
+        // assert result
+        assert_eq(result, 42);
+    }   
     
-    // #[test]
-    // fn test_internal_call() {
-    //     let deployment_address = deploy_contract();
-    //     let tx_hash = call_private_function(deployment_address, FunctionSelector::from_signature("set_value(Field)"), [1337,0,0,0]);
+    #[test]
+    fn test_internal_call() {
+        let deployment_address = deploy_contract();
+        let tx_hash = call_private_function(deployment_address, FunctionSelector::from_signature("set_value(Field)"), [1337,0,0,0]);
 
-    //     let number_of_new_notes = get_number_of_new_notes(tx_hash);
-    //     assert_eq(number_of_new_notes, 1);
-    // }
+        let number_of_new_notes = get_number_of_new_notes(tx_hash);
+        assert_eq(number_of_new_notes, 1);
+    }
 
     #[test]
     fn test_public_call() {
         let deployment_address = deploy_contract();
         let tx_hash = call_public_function(deployment_address, FunctionSelector::from_signature("public_function_to_call(Field)"), 1337);
 
-        // let value_stored = view(deployment_address, FunctionSelector::from_signature("get_public_value()"), [0,0,0,0]);
-        // assert_eq(value_stored, 1337);
+        let value_stored = view(deployment_address, FunctionSelector::from_signature("get_public_value()"), [0,0,0,0]);
+        assert_eq(value_stored, 1337);
     }
 
     #[oracle(deployContract)]

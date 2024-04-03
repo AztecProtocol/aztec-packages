@@ -4,9 +4,9 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "cd noir_test && ../../../../noir/noir-repo/target/release/nargo compile test --oracle-resolver 'http://localhost:5555/'",
+    "test": "cd ./src/noir_test && ../../../../noir/noir-repo/target/release/nargo test --oracle-resolver 'http://localhost:5555/'",
     "run:resolver": "ts-node-esm ./src/server.ts",
-    "codegen:mock": "node ../cli/dest/bin/index.js codegen src/mocks/target/MockTestedContract-MeaningOfLife.json -o ./src/artifacts --ts",
+    "codegen:mock": "node ../cli/dest/bin/index.js codegen ./src/mocks/target/MockTestedContract-MeaningOfLife.json -o ./src/artifacts --ts",
     "compile:mock": "cd ./src/mocks && ../../../../noir/noir-repo/target/release/nargo compile"
   },
   "dependencies": {
