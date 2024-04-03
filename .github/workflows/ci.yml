@@ -17,9 +17,9 @@ jobs:
         id: start-ec2-runner
         uses: NextChapterSoftware/ec2-action-builder@v1
         with:
-          github_token: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
-          aws_access_key_id: ${{ secrets.DEPLOY_AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.DEPLOY_AWS_SECRET_ACCESS_KEY }}
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-west-2"
           ec2_instance_type: c5.4xlarge
           ec2_ami_id: ami-008fe2fc65df48dac
