@@ -5,6 +5,7 @@ import {
   type FunctionArtifact,
   type IntegerValue,
   type StructValue,
+  type TupleValue,
   type TypedStructFieldValue,
   getDefaultInitializer,
   isAztecAddressStruct,
@@ -223,14 +224,14 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
  * @param input - The contract artifact.
  */
 function generateNotesGetter(input: ContractArtifact) {
-  const notes = input.outputs.globals.notes ? (input.outputs.globals.notes as StructValue[]) : [];
-  const notesUnionType = notes.map(n => `'${(n.fields[1].value as BasicValue<'string', string>).value}'`).join(' | ');
+  const notes = input.outputs.globals.notes ? (input.outputs.globals.notes as TupleValue[]) : [];
+  const notesUnionType = notes.map(n => `'${(n.fields[1] as BasicValue<'string', string>).value}'`).join(' | ');
 
   const noteMetadata = notes
     .map(
       ({ fields: [id, typ] }) =>
-        `${(typ.value as BasicValue<'string', string>).value}: {
-        id: new Fr(${(id.value as IntegerValue).value}n),
+        `${(typ as BasicValue<'string', string>).value}: {
+        id: new Fr(${(id as IntegerValue).value}n),
       }
     `,
     )

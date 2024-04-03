@@ -267,7 +267,7 @@ pub fn assign_storage_slots(
     let traits: Vec<_> = collect_traits(context);
     if let Some((_, file_id)) = get_contract_module_data(context, crate_id) {
         let maybe_storage_struct =
-            collect_crate_structs(crate_id, context).iter().find_map(|&struct_id| {
+            collect_crate_structs(crate_id, context).iter().find_map(|&(_, struct_id)| {
                 let r#struct = context.def_interner.get_struct(struct_id);
                 let attributes = context.def_interner.struct_attributes(&struct_id);
                 if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)"))

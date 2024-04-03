@@ -5,7 +5,7 @@ use transforms::{
     compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
     events::{generate_selector_impl, transform_events},
     functions::{transform_function, transform_unconstrained},
-    note_interface::generate_note_interface_impl,
+    note_interface::{generate_note_interface_impl, inject_note_exports},
     storage::{
         assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
         generate_storage_implementation, generate_storage_layout,
@@ -187,7 +187,8 @@ fn transform_hir(
     if has_aztec_dependency(crate_id, context) {
         transform_events(crate_id, context)?;
         inject_compute_note_hash_and_nullifier(crate_id, context)?;
-        assign_storage_slots(crate_id, context)
+        assign_storage_slots(crate_id, context)?;
+        inject_note_exports(crate_id, context)
     } else {
         Ok(())
     }
