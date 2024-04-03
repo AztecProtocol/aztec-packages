@@ -27,8 +27,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(const std::shared_ptr<typename Flavor::Provin
     : transcript(transcript)
     , key(input_key)
     , commitment_key(commitment_key)
-{
-    // this will be initialized properly later
+{ // this will be initialized properly later
     key->z_perm = Polynomial(key->circuit_size);
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
@@ -44,9 +43,16 @@ template <IsECCVMFlavor Flavor>
 ECCVMProver_<Flavor>::ECCVMProver_(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
 {
     BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_prover");
-    auto the_key = std::make_shared<ProvingKey>(builder);
+    // compute wire polynomials and copy into proving key
+    auto local_key = std::make_shared<ProvingKey>(builder);
+    ProverPolynomials polynomials(builder); // WORKTODO: inefficient
+    for (auto [prover_poly, key_poly] : zip_view(polynomials.get_wires(), local_key->get_wires())) {
+        ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
+        std::copy(prover_poly.begin(), prover_poly.end(), key_poly.begin());
+    }
+
     *this = ECCVMProver_(
-        std::move(the_key), std::make_shared<typename Flavor::CommitmentKey>(the_key->circuit_size), transcript);
+        std::move(local_key), std::make_shared<typename Flavor::CommitmentKey>(local_key->circuit_size), transcript);
 }
 
 /**
