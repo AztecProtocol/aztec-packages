@@ -3,6 +3,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MAX_NEW_NULLIFIERS_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { AggregationObject } from '../aggregation_object.js';
+import { RevertCode } from '../revert_code.js';
+import { RollupValidationRequests } from '../rollup_validation_requests.js';
 import { ValidationRequests } from '../validation_requests.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
@@ -25,6 +27,18 @@ export class PartialPrivateTailPublicInputsForPublic {
      */
     public end: PublicAccumulatedData,
   ) {}
+
+  get needsSetup() {
+    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+  }
+
+  get needsAppLogic() {
+    return !this.end.publicCallStack[0].isEmpty();
+  }
+
+  get needsTeardown() {
+    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
+  }
 
   static fromBuffer(buffer: Buffer | BufferReader): PartialPrivateTailPublicInputsForPublic {
     const reader = BufferReader.asReader(buffer);
@@ -49,19 +63,25 @@ export class PartialPrivateTailPublicInputsForPublic {
 }
 
 export class PartialPrivateTailPublicInputsForRollup {
-  constructor(public end: CombinedAccumulatedData) {}
+  constructor(public rollupValidationRequests: RollupValidationRequests, public end: CombinedAccumulatedData) {}
 
   static fromBuffer(buffer: Buffer | BufferReader): PartialPrivateTailPublicInputsForRollup {
     const reader = BufferReader.asReader(buffer);
-    return new PartialPrivateTailPublicInputsForRollup(reader.readObject(CombinedAccumulatedData));
+    return new PartialPrivateTailPublicInputsForRollup(
+      reader.readObject(RollupValidationRequests),
+      reader.readObject(CombinedAccumulatedData),
+    );
   }
 
   toBuffer() {
-    return serializeToBuffer(this.end);
+    return serializeToBuffer(this.rollupValidationRequests, this.end);
   }
 
   static empty() {
-    return new PartialPrivateTailPublicInputsForRollup(CombinedAccumulatedData.empty());
+    return new PartialPrivateTailPublicInputsForRollup(
+      RollupValidationRequests.empty(),
+      CombinedAccumulatedData.empty(),
+    );
   }
 }
 
@@ -78,7 +98,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     /**
      * Indicates whether execution of the public circuit reverted.
      */
-    public reverted: boolean,
+    public revertCode: RevertCode,
     public forPublic?: PartialPrivateTailPublicInputsForPublic,
     public forRollup?: PartialPrivateTailPublicInputsForRollup,
   ) {
@@ -97,7 +117,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forPublic.endNonRevertibleData,
       this.forPublic.end,
       this.constants,
-      this.reverted,
+      this.revertCode,
     );
   }
 
@@ -105,7 +125,13 @@ export class PrivateKernelTailCircuitPublicInputs {
     if (!this.forRollup) {
       throw new Error('Private tail public inputs is not for rollup circuit.');
     }
-    return new KernelCircuitPublicInputs(this.aggregationObject, this.forRollup.end, this.constants, this.reverted);
+    return new KernelCircuitPublicInputs(
+      this.aggregationObject,
+      this.forRollup.rollupValidationRequests,
+      this.forRollup.end,
+      this.constants,
+      this.revertCode,
+    );
   }
 
   numberOfPublicCallRequests() {
@@ -145,7 +171,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     return new PrivateKernelTailCircuitPublicInputs(
       reader.readObject(AggregationObject),
       reader.readObject(CombinedConstantData),
-      reader.readBoolean(),
+      reader.readObject(RevertCode),
       isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForPublic) : undefined,
       !isForPublic ? reader.readObject(PartialPrivateTailPublicInputsForRollup) : undefined,
     );
@@ -157,7 +183,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       isForPublic,
       this.aggregationObject,
       this.constants,
-      this.reverted,
+      this.revertCode,
       isForPublic ? this.forPublic!.toBuffer() : this.forRollup!.toBuffer(),
     );
   }
@@ -166,7 +192,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     return new PrivateKernelTailCircuitPublicInputs(
       AggregationObject.makeFake(),
       CombinedConstantData.empty(),
-      false,
+      RevertCode.OK,
       undefined,
       PartialPrivateTailPublicInputsForRollup.empty(),
     );

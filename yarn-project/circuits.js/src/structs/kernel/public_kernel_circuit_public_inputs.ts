@@ -3,6 +3,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 
 import { AggregationObject } from '../aggregation_object.js';
+import { RevertCode } from '../revert_code.js';
 import { ValidationRequests } from '../validation_requests.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 import { PublicAccumulatedData } from './public_accumulated_data.js';
@@ -36,7 +37,7 @@ export class PublicKernelCircuitPublicInputs {
     /**
      * Indicates whether execution of the public circuit reverted.
      */
-    public reverted: boolean,
+    public revertCode: RevertCode,
   ) {}
 
   toBuffer() {
@@ -46,7 +47,7 @@ export class PublicKernelCircuitPublicInputs {
       this.endNonRevertibleData,
       this.end,
       this.constants,
-      this.reverted,
+      this.revertCode,
     );
   }
 
@@ -75,7 +76,7 @@ export class PublicKernelCircuitPublicInputs {
       reader.readObject(PublicAccumulatedData),
       reader.readObject(PublicAccumulatedData),
       reader.readObject(CombinedConstantData),
-      reader.readBoolean(),
+      reader.readObject(RevertCode),
     );
   }
 
@@ -86,7 +87,7 @@ export class PublicKernelCircuitPublicInputs {
       PublicAccumulatedData.empty(),
       PublicAccumulatedData.empty(),
       CombinedConstantData.empty(),
-      false,
+      RevertCode.OK,
     );
   }
 
@@ -97,7 +98,7 @@ export class PublicKernelCircuitPublicInputs {
       endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
       end: ${inspect(this.end)},
       constants: ${this.constants},
-      reverted: ${this.reverted}
+      revertCode: ${this.revertCode}
       }`;
   }
 }

@@ -57,8 +57,8 @@ describe('AVM WitGen and Proof Generation', () => {
   it.skip('Should prove valid execution contract function that performs addition', async () => {
     const args: Fr[] = [new Fr(1), new Fr(2)];
 
-    const addArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'avm_addArgsReturn')!;
-    const bytecode = Buffer.from(addArtifact.bytecode, 'base64');
+    const addArtifact = AvmTestContractArtifact.functions.find(f => f.name === 'add_args_return')!;
+    const bytecode = addArtifact.bytecode;
     publicContracts.getBytecode.mockResolvedValue(bytecode);
     const functionData = FunctionData.fromAbi(addArtifact);
     const execution: PublicExecution = { contractAddress, functionData, args, callContext };

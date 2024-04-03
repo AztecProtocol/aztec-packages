@@ -1,12 +1,15 @@
 import {
+  EncryptedTxL2Logs,
   FunctionCall,
-  FunctionL2Logs,
+  ProcessedTx,
   PublicDataWrite,
   SiblingPath,
   SimulationError,
   Tx,
-  TxL2Logs,
+  UnencryptedFunctionL2Logs,
+  UnencryptedTxL2Logs,
   mockTx,
+  toTxEffect,
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
@@ -38,24 +41,20 @@ import {
 } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { arrayNonEmptyLength, padArrayEnd, times } from '@aztec/foundation/collection';
-import { PublicExecution, PublicExecutionResult, PublicExecutor } from '@aztec/simulator';
+import { PublicExecution, PublicExecutionResult, PublicExecutor, WASMSimulator } from '@aztec/simulator';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 
-import { PublicProver } from '../prover/index.js';
-import { WASMSimulator } from '../simulator/acvm_wasm.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { ProcessedTx, toTxEffect } from './processed_tx.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicProver: MockProxy<PublicProver>;
   let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
   let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
 
@@ -67,16 +66,12 @@ describe('public_processor', () => {
   beforeEach(() => {
     db = mock<MerkleTreeOperations>();
     publicExecutor = mock<PublicExecutor>();
-    publicProver = mock<PublicProver>();
     publicContractsDB = mock<ContractsDataSourcePublicDB>();
     publicWorldStateDB = mock<WorldStatePublicDB>();
 
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
 
-    publicProver.getPublicCircuitProof.mockResolvedValue(proof);
-    publicProver.getPublicTailKernelCircuitProof.mockResolvedValue(proof);
-    publicProver.getPublicKernelCircuitProof.mockResolvedValue(proof);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
   });
 
@@ -89,7 +84,6 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         GlobalVariables.empty(),
         Header.empty(),
         publicContractsDB,
@@ -159,7 +153,6 @@ describe('public_processor', () => {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         GlobalVariables.empty(),
         Header.empty(),
         publicContractsDB,
@@ -256,8 +249,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -369,8 +362,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -472,8 +465,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -564,8 +557,8 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.forPublic!.end.encryptedLogsHash = [Fr.ZERO, Fr.ZERO];
-      kernelOutput.forPublic!.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+      kernelOutput.forPublic!.end.encryptedLogsHash = Fr.ZERO;
+      kernelOutput.forPublic!.end.unencryptedLogsHash = Fr.ZERO;
       kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         PublicDataUpdateRequest.empty,
@@ -584,8 +577,8 @@ describe('public_processor', () => {
       const tx = new Tx(
         kernelOutput,
         proof,
-        TxL2Logs.empty(),
-        TxL2Logs.empty(),
+        EncryptedTxL2Logs.empty(),
+        UnencryptedTxL2Logs.empty(),
         // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
         callRequests.slice().reverse(),
       );
@@ -771,7 +764,7 @@ class PublicExecutionResultBuilder {
       newNullifiers: [],
       newL2ToL1Messages: [],
       contractStorageReads: [],
-      unencryptedLogs: new FunctionL2Logs([]),
+      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
@@ -784,11 +777,7 @@ const makeFunctionCall = (
   to = makeAztecAddress(30),
   selector = makeSelector(5),
   args = new Array(ARGS_LENGTH).fill(Fr.ZERO),
-) => ({
-  to,
-  functionData: new FunctionData(selector, false, false, false),
-  args,
-});
+) => ({ to, functionData: new FunctionData(selector, false), args });
 
 function addKernelPublicCallStack(
   kernelOutput: PrivateKernelTailCircuitPublicInputs,

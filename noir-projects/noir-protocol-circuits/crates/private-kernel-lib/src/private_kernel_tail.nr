@@ -68,7 +68,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
         hash::compute_unique_siloed_note_hashes,
@@ -196,6 +196,15 @@ mod tests {
         let read_request = builder.previous_kernel.note_hash_read_requests.pop();
         builder.previous_kernel.note_hash_read_requests.push(SideEffect { value: read_request.value + 1, counter: 0 });
         builder.failed();
+    }
+
+    #[test]
+    fn propagate_previous_kernel_max_block_number() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
     }
 
     #[test]

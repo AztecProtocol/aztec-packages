@@ -1,6 +1,6 @@
 use crate::abis::{
     accumulated_data::PublicAccumulatedData, combined_constant_data::CombinedConstantData,
-    validation_requests::ValidationRequests
+    validation_requests::{RollupValidationRequests, ValidationRequests}
 };
 use crate::mocked::AggregationObject;
 
@@ -10,7 +10,7 @@ struct PublicKernelCircuitPublicInputs {
     end_non_revertible: PublicAccumulatedData,
     end: PublicAccumulatedData,
     constants: CombinedConstantData,
-    reverted: bool,
+    revert_code: u8,
 }
 
 impl PublicKernelCircuitPublicInputs {

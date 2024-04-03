@@ -2,7 +2,7 @@ mod lib;
 
 contract GasToken {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
-    use dep::aztec::{hash::{compute_secret_hash}, state_vars::{PublicMutable, Map}};
+    use dep::aztec::{hash::compute_secret_hash, state_vars::{PublicMutable, Map}};
 
     use crate::lib::{calculate_fee, get_bridge_gas_msg_hash};
 
@@ -11,8 +11,8 @@ contract GasToken {
     }
 
     #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, canceller: EthAddress, secret: Field) {
-        let content_hash = get_bridge_gas_msg_hash(to, amount, canceller);
+    fn claim_public(to: AztecAddress, amount: Field, secret: Field) {
+        let content_hash = get_bridge_gas_msg_hash(to, amount);
 
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());

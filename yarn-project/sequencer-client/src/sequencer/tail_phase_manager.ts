@@ -8,12 +8,12 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
   SideEffect,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { Tuple } from '@aztec/foundation/serialize';
 import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
@@ -23,14 +23,13 @@ export class TailPhaseManager extends AbstractPhaseManager {
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
-    protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
     public readonly phase: PublicKernelPhase = PublicKernelPhase.TAIL,
   ) {
-    super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
+    super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
   async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
@@ -62,11 +61,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
     previousProof: Proof,
   ): Promise<[KernelCircuitPublicInputs, Proof]> {
     const output = await this.simulate(previousOutput, previousProof);
-    const proof = await this.publicProver.getPublicTailKernelCircuitProof(output);
     // Temporary hack. Should sort them in the tail circuit.
     // TODO(#757): Enforce proper ordering of public state actions
     output.end.newNoteHashes = this.sortNoteHashes<typeof MAX_NEW_NOTE_HASHES_PER_TX>(output.end.newNoteHashes);
-    return [output, proof];
+    return [output, makeEmptyProof()];
   }
 
   private async simulate(

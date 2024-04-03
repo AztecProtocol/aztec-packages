@@ -23,8 +23,6 @@ describe('Simulator', () => {
   const ownerNullifierSecretKey = GrumpkinScalar.random();
   const ownerNullifierPublicKey = Point.random();
 
-  const hashFields = (data: Fr[]) => pedersenHash(data.map(f => f.toBuffer()));
-
   beforeEach(() => {
     oracle = mock<DBOracle>();
     node = mock<AztecNode>();
@@ -50,11 +48,11 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const tokenNoteHash = hashFields(note.items);
-      const innerNoteHash = hashFields([storageSlot, tokenNoteHash]);
+      const tokenNoteHash = pedersenHash(note.items);
+      const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      const innerNullifier = hashFields([
+      const innerNullifier = pedersenHash([
         uniqueSiloedNoteHash,
         ownerNullifierSecretKey.low,
         ownerNullifierSecretKey.high,
@@ -76,7 +74,7 @@ describe('Simulator', () => {
       const note = createNote();
       await expect(
         simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
-      ).rejects.toThrowError(/Mandatory implementation of "compute_note_hash_and_nullifier" missing/);
+      ).rejects.toThrow(/Mandatory implementation of "compute_note_hash_and_nullifier" missing/);
     });
 
     it('throw if "compute_note_hash_and_nullifier" has the wrong number of parameters', async () => {
@@ -90,7 +88,7 @@ describe('Simulator', () => {
 
       await expect(
         simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
-      ).rejects.toThrowError(
+      ).rejects.toThrow(
         new RegExp(
           `Expected 5 parameters in mandatory implementation of "compute_note_hash_and_nullifier", but found 4 in noir contract ${contractAddress}.`,
         ),
@@ -122,7 +120,7 @@ describe('Simulator', () => {
 
       await expect(
         simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note),
-      ).rejects.toThrowError(
+      ).rejects.toThrow(
         new RegExp(`"compute_note_hash_and_nullifier" can only handle a maximum of ${wrongPreimageLength} fields`),
       );
     });

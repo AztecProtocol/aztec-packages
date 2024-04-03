@@ -15,7 +15,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
     : instance(std::move(inst))
     , transcript(transcript)
     , commitment_key(instance->proving_key->commitment_key)
-    , oink_prover(inst, commitment_key, transcript, "")
+    , oink_prover(inst->proving_key, commitment_key, transcript, "")
 {}
 
 /**
@@ -30,7 +30,7 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     : instance(std::make_shared<ProverInstance>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key->commitment_key)
-    , oink_prover(instance, commitment_key, transcript, "")
+    , oink_prover(instance->proving_key, commitment_key, transcript, "")
 {}
 
 /**
@@ -42,11 +42,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_chec
     using Sumcheck = SumcheckProver<Flavor>;
     auto circuit_size = instance->proving_key->circuit_size;
     auto sumcheck = Sumcheck(circuit_size, transcript);
-    RelationSeparator alphas;
-    for (size_t idx = 0; idx < alphas.size(); idx++) {
-        alphas[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-    }
-    instance->alphas = alphas;
+
     std::vector<FF> gate_challenges(numeric::get_msb(circuit_size));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
@@ -79,20 +75,10 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::export_proof()
 
 template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof()
 {
-    // Add circuit size public input size and public inputs to transcript->
-    oink_prover.execute_preamble_round();
-
-    // Compute first three wire commitments
-    oink_prover.execute_wire_commitments_round();
-
-    // Compute sorted list accumulator and commitment
-    oink_prover.execute_sorted_list_accumulator_round();
-
-    // Fiat-Shamir: beta & gamma
-    oink_prover.execute_log_derivative_inverse_round();
-
-    // Compute grand product(s) and commitments.
-    oink_prover.execute_grand_product_computation_round();
+    auto [relation_params, alphas] = oink_prover.prove();
+    instance->relation_parameters = std::move(relation_params);
+    instance->alphas = alphas;
+    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

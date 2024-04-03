@@ -29,7 +29,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
         // since this phase is non-revertible, we must assert the public call did not revert
         common::validate_public_call_non_revert(self.public_call);
-        common::initialize_reverted_flag(self.previous_kernel, self.public_call, &mut public_inputs);
+        common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
         common::initialize_end_values(self.previous_kernel, &mut public_inputs);
@@ -70,9 +70,9 @@ mod tests {
     use dep::types::{
         abis::{
         call_request::CallRequest, function_selector::FunctionSelector,
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, public_call_data::PublicCallData,
-        read_request::ReadRequest
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
+        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+        public_call_data::PublicCallData, read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         contrakt::storage_read::StorageRead, hash::compute_logs_hash,
@@ -115,12 +115,6 @@ mod tests {
 
         pub fn is_delegate_call(&mut self) -> Self {
             let _ = self.public_call.is_delegate_call();
-            *self
-        }
-
-        pub fn is_internal_call(&mut self) -> Self {
-            let _ = self.public_call.is_internal_call();
-            self.previous_kernel.contract_address = self.public_call.contract_address;
             *self
         }
 
@@ -199,24 +193,6 @@ mod tests {
     fn no_bytecode_hash_should_fail() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
         builder.public_call.bytecode_hash = 0;
-
-        builder.failed();
-    }
-
-    #[test]
-    fn internal_call_succeeds() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new().is_internal_call();
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with="msg_sender must be self for internal calls")]
-    fn invalid_is_internal() {
-        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new().is_internal_call();
-
-        // Tweak the (storage) contract_address to be different to msg_sender.
-        let msg_sender = builder.public_call.public_inputs.call_context.msg_sender.to_field();
-        builder.public_call.contract_address = AztecAddress::from_field(msg_sender + 1);
-        builder.public_call.public_inputs.call_context.storage_contract_address = AztecAddress::from_field(msg_sender + 1);
 
         builder.failed();
     }
@@ -373,6 +349,8 @@ mod tests {
     fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
+        builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
+
         builder.public_call.append_public_call_requests_for_regular_calls(2);
         let storage = builder.public_call.public_call_stack.storage;
 
@@ -400,6 +378,7 @@ mod tests {
 
         let public_inputs = kernel.public_kernel_setup();
 
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
         assert_eq_call_requests(
             public_inputs.end_non_revertible.public_call_stack,
             non_revertible_call_stack
@@ -457,14 +436,14 @@ mod tests {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
         // Logs for the current call stack.
-        let unencrypted_logs_hash = [26, 47];
+        let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
         builder.public_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = [80, 429];
+        let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        let prev_unencrypted_logs_hash = [956, 112];
+        let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_revertible.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
         builder.previous_revertible.set_unencrypted_logs(
@@ -514,7 +493,7 @@ mod tests {
     #[test(should_fail_with="Public call cannot be reverted")]
     fn fails_if_public_call_reverted() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.public_inputs.reverted = true;
+        builder.public_call.public_inputs.revert_code = 1;
 
         builder.failed();
     }

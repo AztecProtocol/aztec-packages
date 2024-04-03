@@ -1,7 +1,4 @@
-use dep::types::{
-    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
-    constants::{NUM_FIELDS_PER_SHA256}, header::Header
-};
+use dep::types::{abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot, header::Header};
 use dep::types::mocked::AggregationObject;
 
 struct RootRollupPublicInputs {
@@ -13,7 +10,4 @@ struct RootRollupPublicInputs {
 
     // New block header
     header: Header,
-
-    // TODO(#4492): Nuke this once message hashing is moved out
-    l1_to_l2_messages_hash : [Field; NUM_FIELDS_PER_SHA256],
 }

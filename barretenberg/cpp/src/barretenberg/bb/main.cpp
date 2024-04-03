@@ -1,5 +1,6 @@
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/types.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
@@ -83,6 +84,18 @@ acir_format::AcirFormat get_constraint_system(std::string const& bytecode_path)
     return acir_format::circuit_buf_to_acir_format(bytecode);
 }
 
+acir_format::WitnessVectorStack get_witness_stack(std::string const& witness_path)
+{
+    auto witness_data = get_bytecode(witness_path);
+    return acir_format::witness_buf_to_witness_stack(witness_data);
+}
+
+std::vector<acir_format::AcirFormat> get_constraint_systems(std::string const& bytecode_path)
+{
+    auto bytecode = get_bytecode(bytecode_path);
+    return acir_format::program_buf_to_acir_format(bytecode);
+}
+
 /**
  * @brief Proves and Verifies an ACIR circuit
  *
@@ -127,41 +140,75 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     return verified;
 }
 
-/**
- * @brief Constructs and verifies a Honk proof for an ACIR circuit via the Goblin accumulate mechanism
- *
- * Communication:
- * - proc_exit: A boolean value is returned indicating whether the proof is valid.
- *   an exit code of 0 will be returned for success and 1 for failure.
- *
- * @param bytecodePath Path to the file containing the serialized acir constraint system
- * @param witnessPath Path to the file containing the serialized witness
- * @return verified
- */
-bool accumulateAndVerifyGoblin(const std::string& bytecodePath, const std::string& witnessPath)
+template <IsUltraFlavor Flavor>
+bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, acir_format::WitnessVector witness)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Don't hardcode dyadic circuit size. Currently set
-    // to max circuit size present in acir tests suite.
-    size_t hardcoded_bn254_dyadic_size_hack = 1 << 19;
-    init_bn254_crs(hardcoded_bn254_dyadic_size_hack);
-    size_t hardcoded_grumpkin_dyadic_size_hack = 1 << 10; // For eccvm only
-    init_grumpkin_crs(hardcoded_grumpkin_dyadic_size_hack);
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
 
+    // Construct a bberg circuit from the acir representation
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): Add a buffer to the expected circuit size to
+    // account for the addition of "gates to ensure nonzero polynomials" (in Honk only).
+    const size_t additional_gates_buffer = 15; // conservatively large to be safe
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    init_bn254_crs(srs_size);
+
+    // Construct Honk proof
+    Prover prover{ builder };
+    auto proof = prover.construct_proof();
+
+    // Verify Honk proof
+    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+    Verifier verifier{ verification_key };
+
+    return verifier.verify_proof(proof);
+}
+
+/**
+ * @brief Constructs and verifies a Honk proof for an acir-generated circuit
+ *
+ * @tparam Flavor
+ * @param bytecodePath Path to serialized acir circuit data
+ * @param witnessPath Path to serialized acir witness data
+ */
+template <IsUltraFlavor Flavor> bool proveAndVerifyHonk(const std::string& bytecodePath, const std::string& witnessPath)
+{
     // Populate the acir constraint system and witness from gzipped data
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
 
-    // Instantiate a Goblin acir composer and construct a bberg circuit from the acir representation
-    acir_proofs::GoblinAcirComposer acir_composer;
-    acir_composer.create_circuit(constraint_system, witness);
+    return proveAndVerifyHonkAcirFormat<Flavor>(constraint_system, witness);
+}
 
-    // Call accumulate to generate a GoblinUltraHonk proof
-    auto proof = acir_composer.accumulate();
+/**
+ * @brief Constructs and verifies multiple Honk proofs for an ACIR-generated program.
+ *
+ * @tparam Flavor
+ * @param bytecodePath Path to serialized acir program data. An ACIR program contains a list of circuits.
+ * @param witnessPath Path to serialized acir witness stack data. This dictates the execution trace the backend should
+ * follow.
+ */
+template <IsUltraFlavor Flavor>
+bool proveAndVerifyHonkProgram(const std::string& bytecodePath, const std::string& witnessPath)
+{
+    auto constraint_systems = get_constraint_systems(bytecodePath);
+    auto witness_stack = get_witness_stack(witnessPath);
 
-    // Verify the GoblinUltraHonk proof
-    auto verified = acir_composer.verify_accumulator(proof);
+    while (!witness_stack.empty()) {
+        auto witness_stack_item = witness_stack.back();
+        auto witness = witness_stack_item.second;
+        auto constraint_system = constraint_systems[witness_stack_item.first];
 
-    return verified;
+        if (!proveAndVerifyHonkAcirFormat<Flavor>(constraint_system, witness)) {
+            return false;
+        }
+        witness_stack.pop_back();
+    }
+    return true;
 }
 
 /**
@@ -490,7 +537,7 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     // Prove execution and return vk
     auto const [verification_key, proof] = avm_trace::Execution::prove(avm_bytecode, call_data);
     // TODO(ilyas): <#4887>: Currently we only need these two parts of the vk, look into pcs_verification key reqs
-    std::vector<size_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
+    std::vector<uint64_t> vk_vector = { verification_key.circuit_size, verification_key.num_public_inputs };
 
     std::filesystem::path output_vk_path = output_path.parent_path() / "vk";
     write_file(output_vk_path, to_buffer(vk_vector));
@@ -569,8 +616,14 @@ int main(int argc, char* argv[])
         if (command == "prove_and_verify") {
             return proveAndVerify(bytecode_path, witness_path) ? 0 : 1;
         }
-        if (command == "accumulate_and_verify_goblin") {
-            return accumulateAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;
+        if (command == "prove_and_verify_ultra_honk") {
+            return proveAndVerifyHonk<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+        }
+        if (command == "prove_and_verify_goblin_ultra_honk") {
+            return proveAndVerifyHonk<GoblinUltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
+        }
+        if (command == "prove_and_verify_ultra_honk_program") {
+            return proveAndVerifyHonkProgram<UltraFlavor>(bytecode_path, witness_path) ? 0 : 1;
         }
         if (command == "prove_and_verify_goblin") {
             return proveAndVerifyGoblin(bytecode_path, witness_path) ? 0 : 1;

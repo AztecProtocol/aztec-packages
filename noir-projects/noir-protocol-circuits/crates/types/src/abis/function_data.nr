@@ -5,20 +5,17 @@ use crate::{
 };
 
 struct FunctionData {
-    // First four bytes of the abi encoding 
-    // of a function. 
     selector : FunctionSelector,
-    is_internal : bool,
     is_private : bool,
-    is_constructor : bool,
+    // Remove once the AVM is fully operational.
+    is_transpiled: bool,
 }
 
 impl Eq for FunctionData {
     fn eq(self, other: Self) -> bool {
         self.selector.eq(other.selector) &
-        self.is_internal == other.is_internal &
-        self.is_private == other.is_private &
-        self.is_constructor == other.is_constructor
+        (self.is_private == other.is_private) &
+        (self.is_transpiled == other.is_transpiled)
     }
 }
 
@@ -29,9 +26,8 @@ impl Serialize<FUNCTION_DATA_LENGTH> for FunctionData {
     fn serialize(self) -> [Field; FUNCTION_DATA_LENGTH] {
         [
             self.selector.to_field(),
-            self.is_internal as Field,
             self.is_private as Field,
-            self.is_constructor as Field,
+            self.is_transpiled as Field,
         ]
     }
 }
@@ -40,9 +36,8 @@ impl Deserialize<FUNCTION_DATA_LENGTH> for FunctionData {
     fn deserialize(serialized: [Field; FUNCTION_DATA_LENGTH]) -> Self {
         Self {
             selector: FunctionSelector::from_field(serialized[0]),
-            is_internal: serialized[1] as bool,
-            is_private: serialized[2] as bool,
-            is_constructor: serialized[3] as bool,
+            is_private: serialized[1] as bool,
+            is_transpiled: serialized[2] as bool,
         }
     }
 }
@@ -67,5 +62,6 @@ fn empty_hash() {
     let hash = data.hash();
 
     // Value from function_data.test.ts "computes empty item hash" test
-    assert_eq(hash, 0x200569267c0f73ac89aaa414239398db9445dd4ad3a8cf37015cd55b8d4c5e8d);
+    let test_data_empty_hash = 0x066e6cdc4a6ba5e4781deda650b0be6c12f975f064fc38df72c1060716759b17;
+    assert_eq(hash, test_data_empty_hash);
 }

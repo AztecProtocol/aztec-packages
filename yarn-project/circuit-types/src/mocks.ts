@@ -1,32 +1,33 @@
 import {
   AztecAddress,
   CallRequest,
-  Fr,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   SideEffectLinkedToNoteHash,
+  computeContractClassId,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { makePublicCallRequest } from '@aztec/circuits.js/testing';
 import { ContractArtifact } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { to2Fields } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
 import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
-import { DeployedContract } from './interfaces/index.js';
-import { FunctionL2Logs, Note, TxL2Logs } from './logs/index.js';
+import { EncryptedL2Log } from './logs/encrypted_l2_log.js';
+import { EncryptedFunctionL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote } from './notes/index.js';
 import { Tx, TxHash } from './tx/index.js';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
  */
-export function makeEmptyLogs(): TxL2Logs {
-  const functionLogs = [new FunctionL2Logs([Buffer.alloc(0)])];
-  return new TxL2Logs(functionLogs);
+export function makeEmptyLogs(): EncryptedTxL2Logs {
+  const functionLogs = [new EncryptedFunctionL2Logs([EncryptedL2Log.empty()])];
+  return new EncryptedTxL2Logs(functionLogs);
 }
 
 export const randomTxHash = (): TxHash => new TxHash(randomBytes(32));
@@ -71,14 +72,14 @@ export const mockTx = (
 
   const target = isForPublic ? data.forPublic! : data.forRollup!;
 
-  const encryptedLogs = hasLogs ? TxL2Logs.random(8, 3) : TxL2Logs.empty(); // 8 priv function invocations creating 3 encrypted logs each
-  const unencryptedLogs = hasLogs ? TxL2Logs.random(11, 2) : TxL2Logs.empty(); // 8 priv function invocations creating 3 encrypted logs each
+  const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(8, 3) : EncryptedTxL2Logs.empty(); // 8 priv function invocations creating 3 encrypted logs each
+  const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(11, 2) : UnencryptedTxL2Logs.empty(); // 8 priv function invocations creating 3 encrypted logs each
   if (!hasLogs) {
-    target.end.encryptedLogsHash = [Fr.ZERO, Fr.ZERO];
-    target.end.unencryptedLogsHash = [Fr.ZERO, Fr.ZERO];
+    target.end.encryptedLogsHash = Fr.ZERO;
+    target.end.unencryptedLogsHash = Fr.ZERO;
   } else {
-    target.end.encryptedLogsHash = to2Fields(encryptedLogs.hash());
-    target.end.unencryptedLogsHash = to2Fields(encryptedLogs.hash());
+    target.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
+    target.end.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
   }
 
   const tx = new Tx(data, new Proof(Buffer.alloc(0)), encryptedLogs, unencryptedLogs, publicCallRequests);
@@ -96,13 +97,14 @@ export const randomContractArtifact = (): ContractArtifact => ({
   fileMap: {},
 });
 
-export const randomContractInstanceWithAddress = (): ContractInstanceWithAddress =>
-  SerializableContractInstance.random().withAddress(AztecAddress.random());
+export const randomContractInstanceWithAddress = (opts: { contractClassId?: Fr } = {}): ContractInstanceWithAddress =>
+  SerializableContractInstance.random(opts).withAddress(AztecAddress.random());
 
-export const randomDeployedContract = (): DeployedContract => ({
-  artifact: randomContractArtifact(),
-  instance: randomContractInstanceWithAddress(),
-});
+export const randomDeployedContract = () => {
+  const artifact = randomContractArtifact();
+  const contractClassId = computeContractClassId(getContractClassFromArtifact(artifact));
+  return { artifact, instance: randomContractInstanceWithAddress({ contractClassId }) };
+};
 
 export const randomExtendedNote = ({
   note = Note.random(),

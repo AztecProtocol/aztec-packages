@@ -6,7 +6,6 @@ import {
   Fr,
   Note,
   PXE,
-  TxStatus,
   Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
@@ -111,24 +110,25 @@ describe('e2e_cheat_codes', () => {
       // without impersonation we wouldn't be able to send funds.
       const myAddress = (await walletClient.getAddresses())[0];
       const randomAddress = EthAddress.random().toString();
-      await walletClient.sendTransaction({
+      const tx1Hash = await walletClient.sendTransaction({
         account: myAddress,
         to: randomAddress,
         value: parseEther('1'),
       });
+      await publicClient.waitForTransactionReceipt({ hash: tx1Hash });
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
       await cc.eth.startImpersonating(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
-      const txHash = await walletClient.sendTransaction({
+      const tx2Hash = await walletClient.sendTransaction({
         account: randomAddress,
         to: myAddress,
         value: amountToSend,
       });
-      const tx = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      const feePaid = tx.gasUsed * tx.effectiveGasPrice;
+      const txReceipt = await publicClient.waitForTransactionReceipt({ hash: tx2Hash });
+      const feePaid = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
       expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating
@@ -168,15 +168,14 @@ describe('e2e_cheat_codes', () => {
         expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
         expect(Number(await rollup.read.lastWarpedBlockTs())).toEqual(newTimestamp);
 
-        const txIsTimeEqual = contract.methods.is_time_equal(newTimestamp).send();
-        const isTimeEqualReceipt = await txIsTimeEqual.wait({ interval: 0.1 });
-        expect(isTimeEqualReceipt.status).toBe(TxStatus.MINED);
+        await contract.methods.is_time_equal(newTimestamp).send().wait({ interval: 0.1 });
 
         // Since last rollup block was warped, txs for this rollup will have time incremented by 1
         // See https://github.com/AztecProtocol/aztec-packages/issues/1614 for details
-        const txTimeNotEqual = contract.methods.is_time_equal(newTimestamp + 1).send();
-        const isTimeNotEqualReceipt = await txTimeNotEqual.wait({ interval: 0.1 });
-        expect(isTimeNotEqualReceipt.status).toBe(TxStatus.MINED);
+        await contract.methods
+          .is_time_equal(newTimestamp + 1)
+          .send()
+          .wait({ interval: 0.1 });
         // block is published at t >= newTimestamp + 1.
         expect(Number(await rollup.read.lastBlockTs())).toBeGreaterThanOrEqual(newTimestamp + 1);
       }, 50_000);

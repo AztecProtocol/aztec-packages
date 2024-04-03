@@ -58,6 +58,8 @@ impl KernelCircuitPublicInputsComposer {
             array_length(self.previous_kernel.public_inputs.end.private_call_stack), 0, "Private call stack must be empty when executing the tail circuit"
         );
 
+        self.propagate_rollup_validation_requests();
+
         self.propagate_constant_data();
 
         self.propagate_sorted_arrays();
@@ -105,6 +107,10 @@ impl KernelCircuitPublicInputsComposer {
                 self.public_inputs.end.new_note_hashes.storage[i].value = unique_note_hash;
             }
         }
+    }
+
+    fn propagate_rollup_validation_requests(&mut self) {
+        self.public_inputs.validation_requests.max_block_number = self.previous_kernel.public_inputs.validation_requests.for_rollup.max_block_number;
     }
 
     fn propagate_constant_data(&mut self) {

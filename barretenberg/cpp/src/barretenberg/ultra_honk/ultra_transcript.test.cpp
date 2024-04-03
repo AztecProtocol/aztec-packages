@@ -1,8 +1,8 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -55,7 +55,7 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_L", frs_per_G);
         manifest_expected.add_entry(round, "W_R", frs_per_G);
         manifest_expected.add_entry(round, "W_O", frs_per_G);
-        manifest_expected.add_challenge(round, "eta");
+        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
 
         round++;
         manifest_expected.add_entry(round, "SORTED_ACCUM", frs_per_G);
@@ -67,7 +67,7 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_LOOKUP", frs_per_G);
 
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "Sumcheck:alpha_" + std::to_string(i);
+            std::string label = "alpha_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
         }

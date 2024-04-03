@@ -1,9 +1,9 @@
 use dep::std;
 use dep::types::{
     abis::{
-    call_request::CallRequest, accumulated_data::PrivateAccumulatedData, function_data::FunctionData,
+    call_request::CallRequest, accumulated_data::PrivateAccumulatedData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
-    membership_witness::NoteHashReadRequestMembershipWitness,
+    max_block_number::MaxBlockNumber, membership_witness::NoteHashReadRequestMembershipWitness,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData, kernel_data::PrivateKernelData,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -91,6 +91,7 @@ pub fn initialize_end_values(
     public_inputs.min_revertible_side_effect_counter = previous_kernel.public_inputs.min_revertible_side_effect_counter;
 
     let start = previous_kernel.public_inputs.validation_requests;
+    public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
     public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
     public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
     public_inputs.validation_requests.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
@@ -178,6 +179,9 @@ pub fn update_end_values(
     let private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
+
+    // Update the max block number if the private call requested a lower one.
+    public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(public_inputs.validation_requests.max_block_number, private_call_public_inputs.max_block_number);
 
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
@@ -351,13 +355,6 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
     );
 
     let call_context = call_stack_item.public_inputs.call_context;
-
-    // Ensures that if the function is internal, only the contract itself can call it.
-    if call_stack_item.function_data.is_internal {
-        assert(
-            call_context.msg_sender.eq(call_context.storage_contract_address), "call is internal but msg_sender is not self"
-        );
-    }
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;

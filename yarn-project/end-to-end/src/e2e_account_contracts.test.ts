@@ -51,7 +51,7 @@ function itShouldBehaveLikeAnAccountContract(
     it('calls a public function', async () => {
       const { logger, pxe } = context;
       logger('Calling public function...');
-      await child.methods.pubIncValue(42).send().wait({ interval: 0.1 });
+      await child.methods.pub_inc_value(42).send().wait({ interval: 0.1 });
       const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
       expect(storedValue).toEqual(new Fr(42n));
     }, 60_000);
@@ -60,9 +60,7 @@ function itShouldBehaveLikeAnAccountContract(
       const accountAddress = wallet.getCompleteAddress();
       const invalidWallet = await walletAt(context.pxe, getAccountContract(GrumpkinScalar.random()), accountAddress);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
-      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
-        /Cannot satisfy constraint.*/,
-      );
+      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrow(/Cannot satisfy constraint.*/);
     });
   });
 }

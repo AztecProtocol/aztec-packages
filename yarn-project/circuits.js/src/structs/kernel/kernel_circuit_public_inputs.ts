@@ -1,6 +1,8 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AggregationObject } from '../aggregation_object.js';
+import { RevertCode } from '../revert_code.js';
+import { RollupValidationRequests } from '../rollup_validation_requests.js';
 import { CombinedAccumulatedData } from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
 
@@ -15,6 +17,10 @@ export class KernelCircuitPublicInputs {
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
+     * Validation requests accumulated from private and public execution to be completed by the rollup.
+     */
+    public rollupValidationRequests: RollupValidationRequests,
+    /**
      * Data accumulated from both public and private circuits.
      */
     public end: CombinedAccumulatedData,
@@ -23,9 +29,9 @@ export class KernelCircuitPublicInputs {
      */
     public constants: CombinedConstantData,
     /**
-     * Indicates whether execution of the public circuit reverted.
+     * Flag indicating whether the transaction reverted.
      */
-    public reverted: boolean,
+    public revertCode: RevertCode,
   ) {}
 
   getNonEmptyNullifiers() {
@@ -33,7 +39,13 @@ export class KernelCircuitPublicInputs {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.aggregationObject, this.end, this.constants, this.reverted);
+    return serializeToBuffer(
+      this.aggregationObject,
+      this.rollupValidationRequests,
+      this.end,
+      this.constants,
+      this.revertCode,
+    );
   }
 
   /**
@@ -45,18 +57,20 @@ export class KernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new KernelCircuitPublicInputs(
       reader.readObject(AggregationObject),
+      reader.readObject(RollupValidationRequests),
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
-      reader.readBoolean(),
+      reader.readObject(RevertCode),
     );
   }
 
   static empty() {
     return new KernelCircuitPublicInputs(
       AggregationObject.makeFake(),
+      RollupValidationRequests.empty(),
       CombinedAccumulatedData.empty(),
       CombinedConstantData.empty(),
-      false,
+      RevertCode.OK,
     );
   }
 }

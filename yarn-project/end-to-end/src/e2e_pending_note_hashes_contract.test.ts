@@ -1,4 +1,4 @@
-import { AztecAddress, AztecNode, CompleteAddress, DebugLogger, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, AztecNode, CompleteAddress, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
 import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
@@ -63,11 +63,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const receipt = await deployedContract.methods
-      .test_insert_then_get_then_nullify_flat(mintAmount, owner)
-      .send()
-      .wait();
-    expect(receipt.status).toBe(TxStatus.MINED);
+    await deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner).send().wait();
   }, 60_000);
 
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
@@ -77,18 +73,18 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const receipt = await deployedContract.methods
+    await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
-        deployedContract.methods.get_note_zero_balance.selector,
       )
       .send()
       .wait();
-
-    expect(receipt.status).toBe(TxStatus.MINED);
+    await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
+      `Assertion failed: Cannot return zero notes`,
+    );
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
@@ -101,7 +97,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const receipt = await deployedContract.methods
+    await deployedContract.methods
       .test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         mintAmount,
         owner,
@@ -110,8 +106,6 @@ describe('e2e_pending_note_hashes_contract', () => {
       )
       .send()
       .wait();
-
-    expect(receipt.status).toBe(TxStatus.MINED);
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
@@ -125,7 +119,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const receipt = await deployedContract.methods
+    await deployedContract.methods
       .test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         mintAmount,
         owner,
@@ -134,8 +128,6 @@ describe('e2e_pending_note_hashes_contract', () => {
       )
       .send()
       .wait();
-
-    expect(receipt.status).toBe(TxStatus.MINED);
 
     await expectNoteHashesSquashedExcept(1);
     await expectNullifiersSquashedExcept(0);
@@ -152,25 +144,24 @@ describe('e2e_pending_note_hashes_contract', () => {
     const deployedContract = await deployContract();
 
     // create persistent note
-    const receipt0 = await deployedContract.methods.insert_note(mintAmount, owner).send().wait();
-    expect(receipt0.status).toBe(TxStatus.MINED);
+    await deployedContract.methods.insert_note(mintAmount, owner).send().wait();
 
     await expectNoteHashesSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
 
     // create another note, and nullify it and AND nullify the above-created note in the same TX
-    const receipt1 = await deployedContract.methods
+    await deployedContract.methods
       .test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         mintAmount,
         owner,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
-        deployedContract.methods.get_note_zero_balance.selector,
       )
       .send()
       .wait();
-
-    expect(receipt1.status).toBe(TxStatus.MINED);
+    await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
+      `Assertion failed: Cannot return zero notes`,
+    );
 
     // second TX creates 1 note, but it is squashed!
     await expectNoteHashesSquashedExcept(0);
@@ -188,25 +179,20 @@ describe('e2e_pending_note_hashes_contract', () => {
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
-    const receipt = await deployedContract.methods.insert_note(mintAmount, owner).send().wait();
-
-    expect(receipt.status).toBe(TxStatus.MINED);
+    await deployedContract.methods.insert_note(mintAmount, owner).send().wait();
 
     // There is a single new note hash.
     await expectNoteHashesSquashedExcept(1);
 
-    const receipt2 = await deployedContract.methods
+    await deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         owner,
         deployedContract.methods.dummy.selector,
         deployedContract.methods.get_then_nullify_note.selector,
-        deployedContract.methods.get_note_zero_balance.selector,
       )
       .send()
       .wait();
-
-    expect(receipt2.status).toBe(TxStatus.MINED);
 
     // There is a single new nullifier.
     await expectNullifiersSquashedExcept(1);

@@ -11,7 +11,7 @@ use crate::constants::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, RETURN_VALUES_LENGTH
 };
 
 struct PublicCircuitPublicInputsBuilder {
@@ -28,11 +28,11 @@ struct PublicCircuitPublicInputsBuilder {
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash: Field,
     unencrypted_log_preimages_length: Field,
     historical_header: Header,
     prover_address: AztecAddress,
-    reverted: bool,
+    revert_code: u8,
 }
 
 impl PublicCircuitPublicInputsBuilder {
@@ -62,7 +62,7 @@ impl PublicCircuitPublicInputsBuilder {
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             prover_address: self.prover_address,
-            reverted: self.reverted
+            revert_code: self.revert_code
         }
     }
 }

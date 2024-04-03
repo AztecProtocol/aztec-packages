@@ -7,7 +7,7 @@ use crate::{
 },
     combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    kernel_data::{PrivateKernelData, PublicKernelData, KernelData},
+    kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
     read_request::ReadRequestContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash},
@@ -16,7 +16,7 @@ use crate::{
     address::AztecAddress,
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NUM_FIELDS_PER_SHA256,
+    MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -39,8 +39,8 @@ struct FixtureBuilder {
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
-    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    encrypted_logs_hash: Field,
+    unencrypted_logs_hash: Field,
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
@@ -48,6 +48,7 @@ struct FixtureBuilder {
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
     // Validation requests.
+    max_block_number: MaxBlockNumber,
     note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
@@ -59,7 +60,7 @@ struct FixtureBuilder {
     vk: VerificationKey,
     vk_index: u32,
     vk_path: [Field; VK_TREE_HEIGHT],
-    reverted: bool,
+    revert_code: u8,
     
     // Counters.
     min_revertible_side_effect_counter: u32,
@@ -78,13 +79,14 @@ impl FixtureBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            encrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
-            unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             public_data_update_requests: BoundedVec::new(),
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
+            max_block_number: MaxBlockNumber::default(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
@@ -94,7 +96,7 @@ impl FixtureBuilder {
             vk: VerificationKey {},
             vk_index: 0,
             vk_path: [0; VK_TREE_HEIGHT],
-            reverted: false,
+            revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter: 0
         }
@@ -150,6 +152,7 @@ impl FixtureBuilder {
 
     pub fn to_validation_requests(self) -> ValidationRequests {
         let validation_requests = ValidationRequestsBuilder {
+            max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests,
             nullifier_read_requests: self.nullifier_read_requests,
             nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests,
@@ -199,7 +202,7 @@ impl FixtureBuilder {
             end,
             validation_requests,
             constants,
-            reverted: self.reverted
+            revert_code: self.revert_code
         }
     }
 
@@ -209,10 +212,17 @@ impl FixtureBuilder {
     }
 
     pub fn to_kernel_circuit_public_inputs(self) -> KernelCircuitPublicInputs {
+        let rollup_validation_requests = self.to_validation_requests().for_rollup;
         let end = self.to_combined_accumulated_data();
         let constants = self.to_constant_data();
 
-        KernelCircuitPublicInputs { aggregation_object: AggregationObject {}, end, constants, reverted: self.reverted }
+        KernelCircuitPublicInputs {
+            aggregation_object: AggregationObject {},
+            rollup_validation_requests,
+            end,
+            constants,
+            revert_code: self.revert_code
+        }
     }
 
     pub fn to_kernel_data(self) -> KernelData {
@@ -306,12 +316,12 @@ impl FixtureBuilder {
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 
-    pub fn set_encrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         self.encrypted_logs_hash = hash;
         self.encrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         self.unencrypted_logs_hash = hash;
         self.unencrypted_log_preimages_length = preimages_length;
     }
@@ -328,6 +338,10 @@ impl FixtureBuilder {
 
     pub fn capture_min_revertible_side_effect_counter(&mut self) {
         self.min_revertible_side_effect_counter = self.counter;
+    }
+
+    pub fn set_max_block_number(&mut self, max_block_number: u32) {
+        self.max_block_number = MaxBlockNumber::new(max_block_number);
     }
 
     fn generate_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {

@@ -64,18 +64,15 @@ describe('Aztec persistence', () => {
     ownerAddress = ownerWallet.getCompleteAddress();
     ownerSalt = ownerWallet.salt;
 
-    const deployer = TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), 'Test token', 'TEST', 2);
-    await deployer.simulate({});
-
-    const contract = await deployer.send().deployed();
+    const contract = await TokenContract.deploy(ownerWallet, ownerWallet.getAddress(), 'Test token', 'TEST', 2)
+      .send()
+      .deployed();
     contractInstance = contract.instance;
     contractAddress = contract.address;
 
     const secret = Fr.random();
 
-    const mintTx = contract.methods.mint_private(1000n, computeMessageSecretHash(secret));
-    await mintTx.simulate();
-    const mintTxReceipt = await mintTx.send().wait();
+    const mintTxReceipt = await contract.methods.mint_private(1000n, computeMessageSecretHash(secret)).send().wait();
 
     await addPendingShieldNoteToPXE(
       ownerWallet,
@@ -85,9 +82,7 @@ describe('Aztec persistence', () => {
       mintTxReceipt.txHash,
     );
 
-    const redeemTx = contract.methods.redeem_shield(ownerAddress.address, 1000n, secret);
-    await redeemTx.simulate();
-    await redeemTx.send().wait();
+    await contract.methods.redeem_shield(ownerAddress.address, 1000n, secret).send().wait();
 
     await initialContext.teardown();
   }, 100_000);
@@ -191,7 +186,7 @@ describe('Aztec persistence', () => {
     });
 
     it('the node has the contract', async () => {
-      await expect(context.aztecNode.getContractData(contractAddress)).resolves.toBeDefined();
+      await expect(context.aztecNode.getContract(contractAddress)).resolves.toBeDefined();
     });
 
     it('pxe does not know of the deployed contract', async () => {
@@ -202,12 +197,10 @@ describe('Aztec persistence', () => {
     });
 
     it("pxe does not have owner's private notes", async () => {
-      await context.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await context.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
       await context.pxe.registerRecipient(ownerAddress);
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitSetup();
@@ -216,12 +209,10 @@ describe('Aztec persistence', () => {
     });
 
     it('has access to public storage', async () => {
-      await context.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await context.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
 
       const wallet = await getUnsafeSchnorrAccount(context.pxe, Fq.random(), Fr.ZERO).waitSetup();
       const contract = await TokenContract.at(contractAddress, wallet);
@@ -230,12 +221,10 @@ describe('Aztec persistence', () => {
     });
 
     it('pxe restores notes after registering the owner', async () => {
-      await context.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await context.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
 
       const ownerAccount = getUnsafeSchnorrAccount(context.pxe, ownerPrivateKey, ownerSalt);
       await ownerAccount.register();
@@ -263,12 +252,10 @@ describe('Aztec persistence', () => {
     beforeAll(async () => {
       const temporaryContext = await setup(0, { deployL1ContractsValues }, {});
 
-      await temporaryContext.pxe.addContracts([
-        {
-          artifact: TokenContract.artifact,
-          instance: contractInstance,
-        },
-      ]);
+      await temporaryContext.pxe.registerContract({
+        artifact: TokenContract.artifact,
+        instance: contractInstance,
+      });
 
       const ownerAccount = getUnsafeSchnorrAccount(temporaryContext.pxe, ownerPrivateKey, ownerSalt);
       await ownerAccount.register();

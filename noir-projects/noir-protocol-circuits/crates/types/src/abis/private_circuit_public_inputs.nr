@@ -1,15 +1,15 @@
 use crate::{
     abis::{
-    call_context::CallContext, nullifier_key_validation_request::NullifierKeyValidationRequest,
-    read_request::ReadRequest, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    call_context::CallContext, max_block_number::MaxBlockNumber,
+    nullifier_key_validation_request::NullifierKeyValidationRequest, read_request::ReadRequest,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, NUM_FIELDS_PER_SHA256,
-    RETURN_VALUES_LENGTH, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, RETURN_VALUES_LENGTH,
+    PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS
 },
     header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Hash, Serialize}, utils::reader::Reader
@@ -23,6 +23,8 @@ struct PrivateCircuitPublicInputs {
 
     min_revertible_side_effect_counter: u32,
 
+    max_block_number: MaxBlockNumber,
+
     note_hash_read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
     nullifier_key_validation_requests: [NullifierKeyValidationRequest; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL],
@@ -35,9 +37,8 @@ struct PrivateCircuitPublicInputs {
 
     start_side_effect_counter : u32,
     end_side_effect_counter : u32,
-
-    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    encrypted_logs_hash: Field,
+    unencrypted_logs_hash: Field,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -59,6 +60,7 @@ impl Eq for PrivateCircuitPublicInputs {
         self.call_context.eq(other.call_context) &
         self.args_hash.eq(other.args_hash) &
         (self.return_values == other.return_values) &
+        (self.max_block_number == other.max_block_number) &
         (self.note_hash_read_requests == other.note_hash_read_requests) &
         (self.nullifier_read_requests == other.nullifier_read_requests) &
         (self.nullifier_key_validation_requests == other.nullifier_key_validation_requests) &
@@ -88,6 +90,8 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
 
         fields.push(self.min_revertible_side_effect_counter as Field);
 
+        fields.extend_from_array(self.max_block_number.serialize());
+
         for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL{
             fields.extend_from_array(self.note_hash_read_requests[i].serialize());
         }
@@ -110,8 +114,8 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         }
         fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
-        fields.extend_from_array(self.encrypted_logs_hash);
-        fields.extend_from_array(self.unencrypted_logs_hash);
+        fields.push(self.encrypted_logs_hash);
+        fields.push(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
@@ -133,6 +137,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
             min_revertible_side_effect_counter: reader.read() as u32,
+            max_block_number: reader.read_struct(MaxBlockNumber::deserialize),
             note_hash_read_requests: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
             nullifier_key_validation_requests: reader.read_struct_array(NullifierKeyValidationRequest::deserialize, [NullifierKeyValidationRequest::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL]),
@@ -143,8 +148,8 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
-            encrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
-            unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
+            encrypted_logs_hash: reader.read() as Field,
+            unencrypted_logs_hash: reader.read() as Field,
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
@@ -177,6 +182,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x2b5ba01a6b73b68b4f44196e2dea49afd4076333e2dee8eddc9186e080f18201;
+    let test_data_empty_hash = 0x1304e6c42e3c53fc7c918cbf1ea70333b4f214726c0784cf9878cd641967dab1;
     assert_eq(hash, test_data_empty_hash);
 }

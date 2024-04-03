@@ -32,9 +32,10 @@ impl PrivateKernelCircuitPublicInputsBuilder {
     pub fn finish_tail(self) -> KernelCircuitPublicInputs {
         KernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
+            rollup_validation_requests: self.validation_requests.to_rollup(),
             end: self.end.to_combined(),
             constants: self.constants,
-            reverted: false
+            revert_code: 0
         }
     }
 
@@ -43,11 +44,11 @@ impl PrivateKernelCircuitPublicInputsBuilder {
 
         PublicKernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,
-            validation_requests: unsafe::zeroed(),
+            validation_requests: self.validation_requests.finish(),
             end_non_revertible,
             end,
             constants: self.constants,
-            reverted: false
+            revert_code: 0
         }
     }
 }

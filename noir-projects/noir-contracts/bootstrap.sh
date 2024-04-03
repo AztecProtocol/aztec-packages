@@ -16,10 +16,9 @@ if [ -n "$CMD" ]; then
 fi
 
 echo "Compiling contracts..."
-../../noir/noir-repo/target/release/nargo compile --silence-warnings
+NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+$NARGO compile --silence-warnings
 
-echo "Transpiling avm contracts..."
-for contract_json in target/avm_test_*.json; do
-  echo Transpiling $contract_json...
-  ../../avm-transpiler/target/release/avm-transpiler $contract_json $contract_json
-done
+echo "Transpiling avm contracts... (only '#[aztec(public-vm)]')"
+TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
+ls target/avm_*.json | parallel "$TRANSPILER {} {}"

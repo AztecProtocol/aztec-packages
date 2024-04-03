@@ -1,4 +1,4 @@
-import { FunctionL2Logs, NullifierMembershipWitness, UnencryptedL2Log } from '@aztec/circuit-types';
+import { NullifierMembershipWitness, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import { CallContext, FunctionData, FunctionSelector, GlobalVariables, Header } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -72,7 +72,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
-    return new FunctionL2Logs(this.unencryptedLogs.map(log => log.toBuffer()));
+    return new UnencryptedFunctionL2Logs(this.unencryptedLogs);
   }
 
   /**
@@ -92,12 +92,15 @@ export class PublicExecutionContext extends TypedOracle {
   }
 
   /**
-   * Fetches the a message from the db, given its key.
-   * @param entryKey - A buffer representing the entry key.
-   * @returns The l1 to l2 message data
+   * Fetches a message from the db, given its key.
+   * @param contractAddress - Address of a contract by which the message was emitted.
+   * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier.
+   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async getL1ToL2MembershipWitness(entryKey: Fr) {
-    return await this.commitmentsDb.getL1ToL2MembershipWitness(entryKey);
+  public async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
+    return await this.commitmentsDb.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
 
   /**
@@ -177,17 +180,13 @@ export class PublicExecutionContext extends TypedOracle {
     this.log(`Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`);
 
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
-    const isInternal = await this.contractsDb.getIsInternal(targetContractAddress, functionSelector);
-    if (isInternal === undefined) {
-      throw new Error(`ERR: Method not found - ${targetContractAddress.toString()}:${functionSelector.toString()}`);
-    }
 
     const acir = await this.contractsDb.getBytecode(targetContractAddress, functionSelector);
     if (!acir) {
       throw new Error(`Bytecode not found for ${targetContractAddress}:${functionSelector}`);
     }
 
-    const functionData = new FunctionData(functionSelector, isInternal, false, false);
+    const functionData = new FunctionData(functionSelector, false);
 
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
