@@ -90,7 +90,7 @@ export class EntrypointPayload {
    * Serializes the payload to an array of fields
    * @returns The fields of the payload
    */
-  toFields() {
+  toFields(): Fr[] {
     return [
       ...this.#functionCalls.flatMap(call => [
         call.args_hash,

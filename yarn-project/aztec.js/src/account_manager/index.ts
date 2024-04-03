@@ -7,13 +7,11 @@ import { type AccountContract } from '../account/contract.js';
 import { type Salt } from '../account/index.js';
 import { type AccountInterface } from '../account/interface.js';
 import { DeployAccountMethod } from '../contract/deploy_account_method.js';
-import { type DeployMethod } from '../contract/deploy_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { type FeeOptions } from '../entrypoint/entrypoint.js';
-import { Contract } from '../index.js';
 import { waitForAccountSynch } from '../utils/account.js';
 import { generatePublicKey } from '../utils/index.js';
-import { AccountWalletWithPrivateKey, SignerlessWallet } from '../wallet/index.js';
+import { AccountWalletWithPrivateKey } from '../wallet/index.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
 /**
@@ -28,7 +26,7 @@ export class AccountManager {
   private completeAddress?: CompleteAddress;
   private instance?: ContractInstanceWithAddress;
   private encryptionPublicKey?: PublicKey;
-  private deployMethod?: DeployMethod;
+  private deployMethod?: DeployAccountMethod;
 
   constructor(
     private pxe: PXE,
@@ -133,16 +131,12 @@ export class AccountManager {
       // We use a signerless wallet so we hit the account contract directly and it deploys itself.
       // If we used getWallet, the deployment would get routed via the account contract entrypoint
       // instead of directly hitting the initializer.
-      const deployWallet = new SignerlessWallet(this.pxe);
       const args = this.accountContract.getDeploymentArgs() ?? [];
       this.deployMethod = new DeployAccountMethod(
+        this.pxe,
         await this.getAccount(),
         encryptionPublicKey,
-        deployWallet,
         this.accountContract.getContractArtifact(),
-        (address, wallet) => {
-          return Contract.at(address, this.accountContract.getContractArtifact(), wallet);
-        },
         args,
       );
     }
@@ -162,9 +156,6 @@ export class AccountManager {
     const wallet = await this.getWallet();
     const sentTx = deployMethod.send({
       contractAddressSalt: this.salt,
-      skipClassRegistration: true,
-      skipPublicDeployment: true,
-      universalDeploy: true,
       fee,
     });
     return new DeployAccountSentTx(wallet, sentTx.getTxHash());

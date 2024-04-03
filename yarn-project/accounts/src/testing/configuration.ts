@@ -1,4 +1,4 @@
-import { generatePublicKey } from '@aztec/aztec.js';
+import { type DeploySentTx, generatePublicKey } from '@aztec/aztec.js';
 import { type AccountWalletWithPrivateKey } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
@@ -58,24 +58,26 @@ export async function deployInitialTestAccounts(pxe: PXE) {
       privateKey,
     };
   });
-  // Attempt to get as much parallelism as possible
-  const deployMethods = await Promise.all(
-    accounts.map(async x => {
-      const deployMethod = await x.account.getDeployMethod();
-      await deployMethod.create({
-        contractAddressSalt: x.account.salt,
-        skipClassRegistration: true,
-        skipPublicDeployment: true,
-        universalDeploy: true,
-      });
-      await deployMethod.prove({});
-      return deployMethod;
-    }),
-  );
-  // Send tx together to try and get them in the same rollup
-  const sentTxs = deployMethods.map(dm => {
-    return dm.send();
-  });
+
+  const sentTxs: DeploySentTx[] = [];
+  for (const { account } of accounts) {
+    const deploymentMethod = await account.getDeployMethod();
+
+    // pxe needs to prove txs one-by-one
+    // this is because the tx use capsules and the capsule stack is a shared resource
+    // TODO #5556 parallelize this back
+    await deploymentMethod.prove({
+      contractAddressSalt: account.salt,
+    });
+
+    // the txs can be processed in parallel by the sequencer though
+    sentTxs.push(
+      deploymentMethod.send({
+        contractAddressSalt: account.salt,
+      }),
+    );
+  }
+
   await Promise.all(
     sentTxs.map(async (tx, i) => {
       const wallet = await accounts[i].account.getWallet();

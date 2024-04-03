@@ -96,7 +96,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const args = this.packedArgsCache.unpack(this.argsHash);
 
     if (args.length !== argumentsSize) {
-      throw new Error('Invalid arguments size');
+      throw new Error(`Invalid number of arguments: expected ${argumentsSize}, got ${args.length}`);
     }
 
     const fields = [
