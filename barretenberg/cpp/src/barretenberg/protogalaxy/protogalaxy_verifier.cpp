@@ -71,13 +71,27 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
-    auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-    auto lagranges = std::array<FF, VerifierInstances::NUM>{ FF(1) - combiner_challenge, combiner_challenge };
-    if constexpr (VerifierInstances::NUM == 3) {
-        vanishing_polynomial_at_challenge *= (combiner_challenge - FF(2));
-        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) / (FF(2)),
+    constexpr FF inverse_two = FF(2).invert();
+    constexpr FF inverse_six = FF(6).invert();
+    FF vanishing_polynomial_at_challenge;
+    std::array<FF, VerifierInstances::NUM> lagranges;
+    if constexpr (VerifierInstances::NUM == 2) {
+        vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
+        lagranges = { FF(1) - combiner_challenge, combiner_challenge };
+    } else if constexpr (VerifierInstances::NUM == 3) {
+        vanishing_polynomial_at_challenge =
+            combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2));
+        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * inverse_two,
                       combiner_challenge * (FF(2) - combiner_challenge),
-                      combiner_challenge * (combiner_challenge - FF(1)) / FF(2) };
+                      combiner_challenge * (combiner_challenge - FF(1)) * inverse_two };
+    } else if (VerifierInstances::NUM == 4) {
+        vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1)) *
+                                            (combiner_challenge - FF(2)) * (combiner_challenge - FF(3));
+        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * (FF(3) - combiner_challenge) *
+                          inverse_six,
+                      combiner_challenge * (FF(2) - combiner_challenge) * (FF(3) - combiner_challenge) * inverse_two,
+                      combiner_challenge * (combiner_challenge - FF(1)) * (FF(3) - combiner_challenge) * inverse_two,
+                      combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2)) * inverse_six };
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
@@ -164,4 +178,7 @@ template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 2>>;
 
 template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 3>>;
 template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 3>>;
+
+template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 4>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 4>>;
 } // namespace bb

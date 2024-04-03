@@ -281,6 +281,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
 
         std::copy(evaluations.begin(), evaluations.end(), result.evaluations.begin());
 
+        static constexpr Fr inverse_two = Fr(2).invert();
         if constexpr (LENGTH == 2) {
             Fr delta = value_at(1) - value_at(0);
             static_assert(EXTENDED_LENGTH != 0);
@@ -289,9 +290,9 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
             }
             return result;
         } else if constexpr (LENGTH == 3) {
-            Fr c = value_at(0);
-            Fr a = (value_at(2) + c) * Fr::inverse_two - value_at(1);
-            Fr b = value_at(1) - a - c;
+            // Based off https://hackmd.io/@aztec-network/SyR45cmOq?type=view
+            Fr a = (value_at(2) + value_at(0)) * inverse_two - value_at(1);
+            Fr b = value_at(1) - a - value_at(0);
             Fr a2 = a + a;
             Fr a_mul = a2;
             for (size_t i = 0; i < domain_end - 2; i++) {
@@ -301,6 +302,46 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
             for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
                 result.value_at(idx + 1) = result.value_at(idx) + extra;
                 extra += a2;
+            }
+            return result;
+        } else if constexpr (LENGTH == 4) {
+            static constexpr Fr inverse_six = Fr(6).invert();
+
+            // These formulas were found by inverting the matrix representation of the coefficients of the 4 evaluations
+            // 19 adds, 7 subtracts, 3 muls
+            Fr zero_times_3 = value_at(0) + value_at(0) + value_at(0);
+            Fr zero_times_6 = zero_times_3 + zero_times_3;
+            Fr zero_times_12 = zero_times_6 + zero_times_6;
+            Fr one_times_3 = value_at(1) + value_at(1) + value_at(1);
+            Fr one_times_6 = one_times_3 + one_times_3;
+            Fr two_times_3 = value_at(2) + value_at(2) + value_at(2);
+            Fr three_times_2 = value_at(3) + value_at(3);
+            Fr three_times_3 = three_times_2 + value_at(3);
+
+            Fr one_minus_two_times_3 = one_times_3 - two_times_3;
+            Fr one_minus_two_times_6 = one_minus_two_times_3 + one_minus_two_times_3;
+            Fr one_minus_two_times_12 = one_minus_two_times_6 + one_minus_two_times_6;
+            Fr a = (one_minus_two_times_3 + value_at(3) - value_at(0)) * inverse_six; // compute a in 1 muls and 4 adds
+            Fr b = (zero_times_6 - one_minus_two_times_12 - one_times_3 - three_times_3) * inverse_six;
+            Fr c = (value_at(0) - zero_times_12 + one_minus_two_times_12 + one_times_6 + two_times_3 + three_times_2) *
+                   inverse_six;
+
+            // -1/6,	1/2,	-1/2,	1/6
+            // 1,	    -5/2,	2,	    -1/2
+            // -11/6,	3,	    -3/2,	1/3
+            // 1,	    0,	    0,	    0
+            // 5 adds
+            Fr a_plus_b = a + b;
+            Fr a_plus_b_times_2 = a_plus_b + a_plus_b;
+            size_t start_idx_sqr = (domain_end - 1) * (domain_end - 1);
+            size_t idx_sqr_three = start_idx_sqr + start_idx_sqr + start_idx_sqr;
+            Fr three_a_plus_two_b = a_plus_b_times_2 + a;
+            Fr linear_term = Fr(domain_end - 1) * three_a_plus_two_b;
+            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
+                result.value_at(idx + 1) = result.value_at(idx) + a * Fr(idx_sqr_three) + linear_term + (a_plus_b + c);
+                size_t sqr_delta = idx + idx + 1;
+                idx_sqr_three += sqr_delta + sqr_delta + sqr_delta;
+                linear_term += three_a_plus_two_b;
             }
             return result;
         } else {

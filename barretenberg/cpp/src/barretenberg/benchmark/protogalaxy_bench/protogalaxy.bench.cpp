@@ -69,11 +69,46 @@ template <typename Flavor> void fold_two(State& state) noexcept
     }
 }
 
+// Fold three instances into an accumulator.
+template <typename Flavor> void fold_three(State& state) noexcept
+{
+    using ProverInstance = ProverInstance_<Flavor>;
+    using Instance = ProverInstance;
+    using Instances = ProverInstances_<Flavor, 4>;
+    using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
+    using Builder = typename Flavor::CircuitBuilder;
+
+    bb::srs::init_crs_factory("../srs_db/ignition");
+
+    auto log2_num_gates = static_cast<size_t>(state.range(0));
+
+    const auto construct_instance = [&]() {
+        Builder builder;
+        MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
+        return std::make_shared<ProverInstance>(builder);
+    };
+
+    std::shared_ptr<Instance> instance_1 = construct_instance();
+    std::shared_ptr<Instance> instance_2 = construct_instance();
+    std::shared_ptr<Instance> instance_3 = construct_instance();
+    std::shared_ptr<Instance> instance_4 = construct_instance();
+
+    ProtoGalaxyProver folding_prover({ instance_1, instance_2, instance_3, instance_4 });
+
+    for (auto _ : state) {
+        auto proof = folding_prover.fold_instances();
+    }
+}
+
 BENCHMARK(fold_one<UltraFlavor>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 BENCHMARK(fold_one<GoblinUltraFlavor>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 
 BENCHMARK(fold_two<UltraFlavor>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 BENCHMARK(fold_two<GoblinUltraFlavor>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
+
+BENCHMARK(fold_three<UltraFlavor>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
+BENCHMARK(fold_three<GoblinUltraFlavor>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
+
 } // namespace bb
 
 BENCHMARK_MAIN();
