@@ -51,7 +51,7 @@
     "scripts",
     "types",
     "world-state",
-    "wonderland-resolver-rpc"
+    "wonder-test-poc"
   ],
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {

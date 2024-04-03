@@ -1,12 +1,9 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { createAccount, getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   ContractFunctionInteraction,
   ContractInstanceWithAddress,
-  DeployedContract,
   EthAddress,
-  ExtendedContractData,
   Fr,
   FunctionArtifact,
   FunctionSelector,
@@ -19,8 +16,6 @@ import {
   encodeArguments,
   initAztecJs,
 } from '@aztec/aztec.js';
-import { FunctionData, TxContext } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
 import { MeaningOfLifeContract } from './artifacts/MeaningOfLife.js';
 
@@ -48,12 +43,7 @@ export const deployContract = async (pxe: PXE) => {
   let instance: ContractInstanceWithAddress = deployedContract.instance;
   contractClassId = instance.contractClassId;
 
-  let deployedContractInstance: DeployedContract = {
-    artifact: MeaningOfLifeContract.artifact,
-    instance,
-  };
-
-  await pxe.addContracts([deployedContractInstance]);
+  await pxe.registerContract({ instance, artifact: MeaningOfLifeContract.artifact });
 
   console.log(' ----- contract deployed -----');
   // Resolve the function selectors and store them

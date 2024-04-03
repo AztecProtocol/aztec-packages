@@ -4,8 +4,10 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "aztec-nargo test --workspace --oracle-resolver 'http://localhost:5555/'",
-    "run:oracle": "ts-node-esm ./src/server.ts"
+    "test": "cd noir_test && ../../../../noir/noir-repo/target/release/nargo compile test --oracle-resolver 'http://localhost:5555/'",
+    "run:resolver": "ts-node-esm ./src/server.ts",
+    "codegen:mock": "node ../cli/dest/bin/index.js codegen src/mocks/target/MockTestedContract-MeaningOfLife.json -o ./src/artifacts --ts",
+    "compile:mock": "cd ./src/mocks && ../../../../noir/noir-repo/target/release/nargo compile"
   },
   "dependencies": {
     "@aztec/accounts": "workspace:^",
