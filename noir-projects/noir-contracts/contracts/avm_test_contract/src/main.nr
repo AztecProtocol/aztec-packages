@@ -176,6 +176,39 @@ contract AvmTest {
     }
 
     /************************************************************************
+     * ACVM interoperability
+     ************************************************************************/
+    #[aztec(public)]
+    fn constant_field_acvm() -> pub Field {
+        123456
+    }
+
+    #[aztec(public-vm)]
+    fn constant_field_avm() -> pub Field {
+        123456
+    }
+
+    #[aztec(public-vm)]
+    fn call_acvm_from_avm() -> pub Field {
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
+            context.this_address(),
+            FunctionSelector::from_signature("constant_field_acvm()"),
+            []
+        );
+        data_to_return[0]
+    }
+
+    #[aztec(public)]
+    fn call_avm_from_acvm() -> pub Field {
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
+            context.this_address(),
+            FunctionSelector::from_signature("constant_field_avm()"),
+            []
+        );
+        data_to_return[0]
+    }
+
+    /************************************************************************
      * Contract instance
      ************************************************************************/
     #[aztec(public-vm)]

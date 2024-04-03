@@ -24,16 +24,67 @@ import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
+import {
+  isAvmBytecode,
+  temporaryConvertAvmResults,
+  temporaryCreateAvmExecutionEnvironment,
+} from './transitional_migration.js';
 
 /**
  * Execute a public function and return the execution result.
  */
 export async function executePublicFunction(
   context: PublicExecutionContext,
+  nested: boolean,
+): Promise<PublicExecutionResult> {
+  const bytecode = await context.contractsDb.getBytecode(
+    context.execution.contractAddress,
+    context.execution.functionData.selector,
+  );
+  if (!bytecode) {
+    throw new Error(
+      `Bytecode not found for ${context.execution.contractAddress}:${context.execution.functionData.selector}`,
+    );
+  }
+
+  if (isAvmBytecode(bytecode)) {
+    return await executePublicFunctionAvm(context);
+  } else {
+    return await executePublicFunctionAcvm(context, bytecode, nested);
+  }
+}
+
+async function executePublicFunctionAvm(executionContext: PublicExecutionContext): Promise<PublicExecutionResult> {
+  // Temporary code to construct the AVM context
+  // These data structures will permeate across the simulator when the public executor is phased out
+  const hostStorage = new HostStorage(
+    executionContext.stateDb,
+    executionContext.contractsDb,
+    executionContext.commitmentsDb,
+  );
+  const worldStateJournal = new AvmPersistableStateManager(hostStorage);
+  const executionEnv = temporaryCreateAvmExecutionEnvironment(
+    executionContext.execution,
+    executionContext.globalVariables,
+  );
+  // TODO(@spalladino) Load initial gas from the public execution request
+  const machineState = new AvmMachineState(100_000, 100_000, 100_000);
+
+  const context = new AvmContext(worldStateJournal, executionEnv, machineState);
+  const simulator = new AvmSimulator(context);
+
+  const result = await simulator.execute();
+  const newWorldState = context.persistableState.flush();
+  // TODO(@spalladino) Read gas left from machineState and return it
+  return temporaryConvertAvmResults(executionContext.execution, newWorldState, result);
+}
+
+async function executePublicFunctionAcvm(
+  context: PublicExecutionContext,
   acir: Buffer,
   nested: boolean,
-  log = createDebugLogger('aztec:simulator:public_execution'),
 ): Promise<PublicExecutionResult> {
+  const log = createDebugLogger('aztec:simulator:public_execution');
   const execution = context.execution;
   const { contractAddress, functionData } = execution;
   const selector = functionData.selector;
@@ -203,12 +254,6 @@ export class PublicExecutor {
     globalVariables: GlobalVariables,
     sideEffectCounter: number = 0,
   ): Promise<PublicExecutionResult> {
-    const selector = execution.functionData.selector;
-    const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
-    if (!acir) {
-      throw new Error(`Bytecode not found for ${execution.contractAddress}:${selector}`);
-    }
-
     // Functions can request to pack arguments before calling other functions.
     // We use this cache to hold the packed arguments.
     const packedArgs = PackedArgsCache.create([]);
@@ -224,7 +269,7 @@ export class PublicExecutor {
       this.commitmentsDb,
     );
 
-    const executionResult = await executePublicFunction(context, acir, false /** nested */);
+    const executionResult = await executePublicFunction(context, /*nested=*/ false);
 
     if (executionResult.execution.callContext.isStaticCall) {
       checkValidStaticCall(

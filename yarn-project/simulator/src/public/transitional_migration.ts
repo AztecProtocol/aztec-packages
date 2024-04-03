@@ -1,4 +1,4 @@
-// All code in this file needs to die once the public executor is phased out.
+// All code in this file needs to die once the public executor is phased out in favor of the AVM.
 import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   ContractStorageRead,
@@ -12,12 +12,12 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
+import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
+import { type AvmContractCallResults } from '../avm/avm_message_call_result.js';
+import { type JournalData } from '../avm/journal/journal.js';
+import { Mov } from '../avm/opcodes/memory.js';
 import { createSimulationError } from '../common/errors.js';
-import { type PublicExecution, type PublicExecutionResult } from '../public/execution.js';
-import { AvmExecutionEnvironment } from './avm_execution_environment.js';
-import { type AvmContractCallResults } from './avm_message_call_result.js';
-import { type JournalData } from './journal/journal.js';
-import { Mov } from './opcodes/memory.js';
+import { type PublicExecution, type PublicExecutionResult } from './execution.js';
 
 /** Temporary Method
  *
