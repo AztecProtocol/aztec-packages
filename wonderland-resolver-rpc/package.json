@@ -1,0 +1,23 @@
+{
+  "name": "aztec-mock-pocs",
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "aztec-nargo test --workspace --oracle-resolver 'http://localhost:5555/'",
+    "run:oracle": "ts-node-esm ./src/server.ts"
+  },
+  "dependencies": {
+    "@aztec/accounts": "^0.26.0",
+    "@aztec/aztec.js": "^0.26.6",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.26",
+    "express": "^4.18.3",
+    "json-rpc-2.0": "^1.7.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.2"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0"
+  }
+}

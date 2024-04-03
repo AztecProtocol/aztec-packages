@@ -1,0 +1,8 @@
+[package]
+name = "local_oracle"
+type = "contract"
+authors = ["wonderland"]
+compiler_version = ">=0.25.0"
+
+[dependencies]
+aztec = { path = "../../../aztec-nr/aztec" }
