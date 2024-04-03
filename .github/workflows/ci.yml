@@ -8,14 +8,14 @@ on:
 jobs:
   start-runner:
     timeout-minutes: 5              # normally it only takes 1-2 minutes
-    name: Start self-hosted EC2 runner   
+    name: Start self-hosted EC2 runner
     runs-on: ubuntu-latest
     permissions:
       actions: write        
     steps:      
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: NextChapterSoftware/ec2-action-builder@v1
+        uses: AztecProtocol/ec2-action-builder@v1
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
