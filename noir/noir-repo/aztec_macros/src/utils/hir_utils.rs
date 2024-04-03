@@ -109,7 +109,7 @@ pub fn fetch_crate_notes(
         .iter()
         .filter_map(|(path, struct_id)| {
             let r#struct = context.def_interner.get_struct(*struct_id);
-            let attributes = context.def_interner.struct_attributes(&struct_id);
+            let attributes = context.def_interner.struct_attributes(struct_id);
             if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")) {
                 Some((path.clone(), r#struct))
             } else {
