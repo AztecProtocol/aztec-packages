@@ -33,12 +33,14 @@ ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructo
  * */
 template <IsECCVMFlavor Flavor>
 std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposer_<Flavor>::compute_verification_key(
-    [[maybe_unused]] CircuitConstructor& circuit_constructor)
+    CircuitConstructor& circuit_constructor)
 {
     if (verification_key) {
         return verification_key;
     }
 
+    proving_key = std::make_shared<typename Flavor::ProvingKey>(circuit_constructor);
+    commitment_key = std::make_shared<typename Flavor::CommitmentKey>(proving_key->circuit_size);
     verification_key =
         std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
 

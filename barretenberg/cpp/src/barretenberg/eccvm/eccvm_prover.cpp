@@ -44,7 +44,9 @@ template <IsECCVMFlavor Flavor>
 ECCVMProver_<Flavor>::ECCVMProver_(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
 {
     BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_prover");
-    *this = ECCVMProver_(std::make_shared<ProvingKey>(builder), key->commitment_key, transcript);
+    auto the_key = std::make_shared<ProvingKey>(builder);
+    *this = ECCVMProver_(
+        std::move(the_key), std::make_shared<typename Flavor::CommitmentKey>(the_key->circuit_size), transcript);
 }
 
 /**
