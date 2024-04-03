@@ -37,12 +37,12 @@ export class PublicExecutionContext extends TypedOracle {
      */
     public readonly execution: PublicExecution,
     private readonly header: Header,
-    private readonly globalVariables: GlobalVariables,
+    public readonly globalVariables: GlobalVariables,
     private readonly packedArgsCache: PackedArgsCache,
     private readonly sideEffectCounter: SideEffectCounter,
-    private readonly stateDb: PublicStateDB,
-    private readonly contractsDb: PublicContractsDB,
-    private readonly commitmentsDb: CommitmentsDB,
+    public readonly stateDb: PublicStateDB,
+    public readonly contractsDb: PublicContractsDB,
+    public readonly commitmentsDb: CommitmentsDB,
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -190,14 +190,7 @@ export class PublicExecutionContext extends TypedOracle {
     this.log(`Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`);
 
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
-
-    const acir = await this.contractsDb.getBytecode(targetContractAddress, functionSelector);
-    if (!acir) {
-      throw new Error(`Bytecode not found for ${targetContractAddress}:${functionSelector}`);
-    }
-
-    const functionData = new FunctionData(functionSelector, false);
-
+    const functionData = new FunctionData(functionSelector, /*isPrivate=*/ false);
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
@@ -227,7 +220,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.log,
     );
 
-    const childExecutionResult = await executePublicFunction(context, acir, true /** nested */);
+    const childExecutionResult = await executePublicFunction(context, /*nested=*/ true);
 
     if (isStaticCall) {
       checkValidStaticCall(
