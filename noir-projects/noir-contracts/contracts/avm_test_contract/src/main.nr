@@ -26,9 +26,11 @@ contract AvmTest {
     // Libs
     use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::history::nullifier_inclusion::prove_nullifier_inclusion;
     use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH,
-        contract_instance::ContractInstance
+        contract_instance::ContractInstance,
+        hash::silo_nullifier,
     };
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
@@ -187,6 +189,18 @@ contract AvmTest {
         123456
     }
 
+    #[aztec(public)]
+    fn new_nullifier_acvm(nullifier: Field) -> pub Field {
+        context.push_new_nullifier(nullifier, 0);
+    }
+
+    #[aztec(public)]
+    fn assert_unsiloed_nullifier_acvm(nullifier: Field) {
+        // ACVM requires siloed nullifier.
+        let siloed_nullifier = silo_nullifier(context.this_address(), nullifier);
+        prove_nullifier_inclusion(siloed_nullifier, context);
+    }
+
     #[aztec(public-vm)]
     fn call_acvm_from_avm() -> pub Field {
         let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
@@ -205,6 +219,15 @@ contract AvmTest {
             []
         );
         data_to_return[0]
+    }
+
+    #[aztec(public-vm)]
+    fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
+        context.call_public_function(
+            context.this_address(),
+            selector,
+            [args]
+        );
     }
 
     /************************************************************************

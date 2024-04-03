@@ -44,18 +44,19 @@ export class AvmPersistableStateManager {
   /** Reference to node storage */
   public readonly hostStorage: HostStorage;
 
+  // TODO: make members private once this is not used in transitional_adaptors.ts.
   /** World State */
   /** Public storage, including cached writes */
-  private publicStorage: PublicStorage;
+  public publicStorage: PublicStorage;
   /** Nullifier set, including cached/recently-emitted nullifiers */
-  private nullifiers: Nullifiers;
+  public nullifiers: Nullifiers;
 
   /** World State Access Trace */
-  private trace: WorldStateAccessTrace;
+  public trace: WorldStateAccessTrace;
 
   /** Accrued Substate **/
-  private newL1Messages: L2ToL1Message[] = [];
-  private newLogs: UnencryptedL2Log[] = [];
+  public newL1Messages: L2ToL1Message[] = [];
+  public newLogs: UnencryptedL2Log[] = [];
 
   constructor(hostStorage: HostStorage, parent?: AvmPersistableStateManager) {
     this.hostStorage = hostStorage;

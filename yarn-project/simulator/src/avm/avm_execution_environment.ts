@@ -48,15 +48,15 @@ export class AvmExecutionEnvironment {
   }
 
   public deriveEnvironmentForNestedCall(
-    address: AztecAddress,
+    targetAddress: AztecAddress,
     calldata: Fr[],
     temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
   ): AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
-      address,
-      /*storageAddress=*/ address,
+      targetAddress,
+      /*storageAddress=*/ targetAddress,
       this.origin,
-      this.sender,
+      this.address,
       this.portal,
       this.feePerL1Gas,
       this.feePerL2Gas,

@@ -10,6 +10,7 @@ import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 import { jest } from '@jest/globals';
 import { strict as assert } from 'assert';
 
+import { isAvmBytecode } from '../public/transitional_adaptors.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
@@ -23,7 +24,6 @@ import {
 } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
-import { isAvmBytecode } from './temporary_executor_migration.js';
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
