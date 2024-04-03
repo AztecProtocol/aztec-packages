@@ -1,7 +1,7 @@
 import {
   EncryptedTxL2Logs,
-  FunctionCall,
-  ProcessedTx,
+  type FunctionCall,
+  type ProcessedTx,
   PublicDataWrite,
   SiblingPath,
   SimulationError,
@@ -13,7 +13,7 @@ import {
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
-  AztecAddress,
+  type AztecAddress,
   CallContext,
   CallRequest,
   ContractStorageUpdateRequest,
@@ -25,9 +25,9 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
-  PrivateKernelTailCircuitPublicInputs,
-  Proof,
-  PublicCallRequest,
+  type PrivateKernelTailCircuitPublicInputs,
+  type Proof,
+  type PublicCallRequest,
   PublicDataUpdateRequest,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -41,14 +41,14 @@ import {
 } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { arrayNonEmptyLength, padArrayEnd, times } from '@aztec/foundation/collection';
-import { PublicExecution, PublicExecutionResult, PublicExecutor, WASMSimulator } from '@aztec/simulator';
-import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
+import { type PublicExecution, type PublicExecutionResult, type PublicExecutor, WASMSimulator } from '@aztec/simulator';
+import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB, WorldStatePublicDB } from '../simulator/public_executor.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type ContractsDataSourcePublicDB, type WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';
 

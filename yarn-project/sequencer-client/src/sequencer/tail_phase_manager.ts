@@ -1,21 +1,21 @@
-import { Tx } from '@aztec/circuit-types';
+import { type Tx } from '@aztec/circuit-types';
 import {
-  GlobalVariables,
-  Header,
-  KernelCircuitPublicInputs,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  Proof,
-  PublicKernelCircuitPublicInputs,
+  type GlobalVariables,
+  type Header,
+  type KernelCircuitPublicInputs,
+  type MAX_NEW_NOTE_HASHES_PER_TX,
+  type Proof,
+  type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
-  SideEffect,
+  type SideEffect,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { Tuple } from '@aztec/foundation/serialize';
-import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type Tuple } from '@aztec/foundation/serialize';
+import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 
 export class TailPhaseManager extends AbstractPhaseManager {

@@ -1,7 +1,7 @@
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 
-import { AvmContext } from '../avm_context.js';
+import { type AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -147,10 +147,12 @@ export class Pedersen extends Instruction {
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
+    OperandType.UINT32,
   ];
 
   constructor(
     private indirect: number,
+    private genIndexOffset: number,
     private dstOffset: number,
     private messageOffset: number,
     private messageSizeOffset: number,
@@ -159,17 +161,17 @@ export class Pedersen extends Instruction {
   }
 
   async execute(context: AvmContext): Promise<void> {
-    const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.dstOffset, this.messageOffset, this.messageSizeOffset],
+    const [genIndexOffset, dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.genIndexOffset, this.dstOffset, this.messageOffset, this.messageSizeOffset],
       context.machineState.memory,
     );
 
     // We hash a set of field elements
+    const genIndex = Number(context.machineState.memory.get(genIndexOffset).toBigInt());
     const messageSize = Number(context.machineState.memory.get(messageSizeOffset).toBigInt());
     const hashData = context.machineState.memory.getSlice(messageOffset, messageSize);
 
-    // No domain sep for now
-    const hash = pedersenHash(hashData);
+    const hash = pedersenHash(hashData, genIndex);
     context.machineState.memory.set(dstOffset, new Field(hash));
 
     context.machineState.incrementPc();

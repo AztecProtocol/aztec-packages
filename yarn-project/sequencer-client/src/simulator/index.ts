@@ -1,8 +1,8 @@
 import {
-  KernelCircuitPublicInputs,
-  PublicKernelCircuitPrivateInputs,
-  PublicKernelCircuitPublicInputs,
-  PublicKernelTailCircuitPrivateInputs,
+  type KernelCircuitPublicInputs,
+  type PublicKernelCircuitPrivateInputs,
+  type PublicKernelCircuitPublicInputs,
+  type PublicKernelTailCircuitPrivateInputs,
 } from '@aztec/circuits.js';
 
 /**

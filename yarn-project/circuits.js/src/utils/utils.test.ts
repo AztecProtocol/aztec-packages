@@ -1,6 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { IsEmpty } from '@aztec/foundation/interfaces';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type IsEmpty } from '@aztec/foundation/interfaces';
+import { type Tuple } from '@aztec/foundation/serialize';
 
 import { concatAccumulatedData, countAccumulatedItems, mergeAccumulatedData } from './index.js';
 

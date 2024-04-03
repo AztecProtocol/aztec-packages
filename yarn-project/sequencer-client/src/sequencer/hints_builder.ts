@@ -1,24 +1,24 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
-  Fr,
+  type Fr,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  type MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
+  type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  PublicDataRead,
+  type PublicDataRead,
   PublicDataTreeLeafPreimage,
-  ReadRequestContext,
-  SideEffectLinkedToNoteHash,
+  type ReadRequestContext,
+  type SideEffectLinkedToNoteHash,
   buildNullifierNonExistentReadRequestHints,
   buildNullifierReadRequestHints,
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { Tuple } from '@aztec/foundation/serialize';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type Tuple } from '@aztec/foundation/serialize';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
 export class HintsBuilder {
   constructor(private db: MerkleTreeOperations) {}

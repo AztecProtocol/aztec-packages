@@ -1,5 +1,5 @@
-import { IsEmpty } from '@aztec/foundation/interfaces';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type IsEmpty } from '@aztec/foundation/interfaces';
+import { type Tuple } from '@aztec/foundation/serialize';
 
 // Define these utils here as their design is very specific to kernel's accumulated data and not general enough to be put in foundation.
 

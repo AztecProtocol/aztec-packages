@@ -1,21 +1,21 @@
 /* eslint-disable require-await */
 import {
   AggregationObject,
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BaseRollupInputs,
-  KernelCircuitPublicInputs,
-  MergeRollupInputs,
-  ParityPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BaseRollupInputs,
+  type KernelCircuitPublicInputs,
+  type MergeRollupInputs,
+  type ParityPublicInputs,
   Proof,
-  PublicCircuitPublicInputs,
-  PublicKernelCircuitPublicInputs,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
+  type PublicCircuitPublicInputs,
+  type PublicKernelCircuitPublicInputs,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
-import { PublicProver, RollupProver } from './index.js';
+import { type PublicProver, type RollupProver } from './index.js';
 
 const EMPTY_PROOF_SIZE = 42;
 

@@ -1,26 +1,26 @@
 import {
   EncryptedTxL2Logs,
   PublicDataWrite,
-  SimulationError,
-  Tx,
+  type SimulationError,
+  type Tx,
   TxEffect,
   TxHash,
   UnencryptedTxL2Logs,
 } from '@aztec/circuit-types';
 import {
   Fr,
-  Header,
+  type Header,
   KernelCircuitPublicInputs,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  Proof,
-  PublicKernelCircuitPublicInputs,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
+  type MAX_NEW_NOTE_HASHES_PER_TX,
+  type MAX_NEW_NULLIFIERS_PER_TX,
+  type MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  type Proof,
+  type PublicKernelCircuitPublicInputs,
+  type SideEffect,
+  type SideEffectLinkedToNoteHash,
   makeEmptyProof,
 } from '@aztec/circuits.js';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,
