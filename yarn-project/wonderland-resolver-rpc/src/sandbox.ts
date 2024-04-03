@@ -1,38 +1,34 @@
-import {
-  createAccount,
-  getInitialTestAccountsWallets,
-} from "@aztec/accounts/testing";
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { createAccount, getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   ContractFunctionInteraction,
   ContractInstanceWithAddress,
-  createPXEClient,
   DeployedContract,
-  encodeArguments,
   EthAddress,
   ExtendedContractData,
   Fr,
   FunctionArtifact,
   FunctionSelector,
-  initAztecJs,
-  PackedArguments,
   PXE,
+  PackedArguments,
   Tx,
   TxExecutionRequest,
   TxHash,
-} from "@aztec/aztec.js";
+  createPXEClient,
+  encodeArguments,
+  initAztecJs,
+} from '@aztec/aztec.js';
+import { FunctionData, TxContext } from '@aztec/circuits.js';
+import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
-import { FunctionData, TxContext } from "@aztec/circuits.js";
-import { computeVarArgsHash } from "@aztec/circuits.js/hash";
-
-import { MeaningOfLifeContract } from "./artifacts/MeaningOfLife.ts";
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { MeaningOfLifeContract } from './artifacts/MeaningOfLife.js';
 
 let selectorsResolved = new Map<string, string>();
 let contractClassId: Fr = new Fr(0);
 
 export const initSandbox = async () => {
-  const SANDBOX_URL = "http://localhost:8080";
+  const SANDBOX_URL = 'http://localhost:8080';
   const pxe = createPXEClient(SANDBOX_URL);
   await initAztecJs();
 
@@ -40,16 +36,14 @@ export const initSandbox = async () => {
 };
 
 export const deployContract = async (pxe: PXE) => {
-  console.log(" ----- deploying contract -----");
+  console.log(' ----- deploying contract -----');
   let accounts = await createAccount(pxe);
 
-  console.log("deployer account: ", accounts.getAddress());
+  console.log('deployer account: ', accounts.getAddress());
 
-  let deployedContract = await MeaningOfLifeContract.deploy(accounts)
-    .send()
-    .deployed();
+  let deployedContract = await MeaningOfLifeContract.deploy(accounts).send().deployed();
 
-  console.log("target address: ", deployedContract.address.toString());
+  console.log('target address: ', deployedContract.address.toString());
 
   let instance: ContractInstanceWithAddress = deployedContract.instance;
   contractClassId = instance.contractClassId;
@@ -61,13 +55,10 @@ export const deployContract = async (pxe: PXE) => {
 
   await pxe.addContracts([deployedContractInstance]);
 
-  console.log(" ----- contract deployed -----");
+  console.log(' ----- contract deployed -----');
   // Resolve the function selectors and store them
   MeaningOfLifeContract.artifact.functions.forEach((f: FunctionArtifact) => {
-    selectorsResolved.set(
-      FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(),
-      f.name
-    );
+    selectorsResolved.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
   });
 
   return deployedContract.address;
@@ -78,7 +69,7 @@ export const privateCall = async (
   pxe: PXE,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  args: Fr[]
+  args: Fr[],
 ) => {
   // const functionName = selectorsResolved.get(functionSelector.toString());
 
@@ -118,16 +109,10 @@ export const privateCall = async (
 
   // TODO: obv easier this way, not sure how to mock sender in the future tho:
   let wallet = await createAccount(pxe);
-  let deployedContract = await MeaningOfLifeContract.at(
-    contractAddress,
-    wallet
-  );
+  let deployedContract = await MeaningOfLifeContract.at(contractAddress, wallet);
 
   // TODO: use the fn selector instead
-  let result = await deployedContract.methods
-    .set_value(args[0].toField())
-    .send()
-    .wait();
+  let result = await deployedContract.methods.set_value(args[0].toField()).send().wait();
 
   return result.txHash;
 };
@@ -136,15 +121,12 @@ export const publicCall = async (
   pxe: PXE,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  args: Fr
+  args: Fr,
 ) => {
   // This is the same as privateCall for now -> hopefully, context will be different
   let wallet = await createAccount(pxe);
-  let deployedContract = await MeaningOfLifeContract.at(
-    contractAddress,
-    wallet
-  );
-  console.log("args ", args.toField());
+  let deployedContract = await MeaningOfLifeContract.at(contractAddress, wallet);
+  console.log('args ', args.toField());
   let result = await deployedContract
     .withWallet(wallet)
     .methods.public_function_to_call(args.toField())
@@ -159,13 +141,13 @@ export const unconstrainedCall = async (
   pxe: PXE,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  args: any[]
+  args: any[],
 ) => {
   // reverse lookup the fn selector
   let methodName = selectorsResolved.get(functionSelector.toString());
 
   if (!methodName) {
-    throw new Error("Function not found");
+    throw new Error('Function not found');
   }
 
   // make the unconstrained call
