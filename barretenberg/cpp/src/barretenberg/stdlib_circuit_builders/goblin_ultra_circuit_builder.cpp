@@ -238,8 +238,9 @@ uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, 
     // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 
-    ASSERT(read_idx < bus_vector.size());            // Ensure that the read index is valid
-    ASSERT(bus_vector.get_read_count(read_idx) < 1); // Reading more than once at the same index is not supported
+    ASSERT(read_idx < bus_vector.size()); // Ensure that the read index is valid
+    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/937): Multiple reads at same index is not supported.
+    ASSERT(bus_vector.get_read_count(read_idx) < 1);
 
     // Create a variable corresponding to the result of the read. Note that we do not in general connect reads from
     // databus via copy constraints (i.e. we create a unique variable for the result of each read)

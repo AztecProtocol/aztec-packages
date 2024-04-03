@@ -57,8 +57,8 @@ struct BusVector {
  *
  */
 struct DataBus {
-    BusVector calldata;
-    BusVector return_data;
+    BusVector calldata;    // the public input to the circuit
+    BusVector return_data; // the public output of the circuit
 };
 
 } // namespace bb

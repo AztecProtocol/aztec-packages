@@ -16,9 +16,14 @@ namespace bb {
  *
  * \sum_{i=0}^{n-1} q_{logderiv_lookup}_i * (1 / write_term_i) + read_count_i * (1 / read_term_i) = 0
  *
- * where the read and write terms are both of the form value_i + idx_i*\beta + \gamma. For the write term, the (idx,
- * value) pair comes from the "table" (bus column), and for the read term the (idx, value) pair comes from wires 1 and 2
- * which should contain a valid entry in the table.
+ * where the read and write terms are both of the form value_i + idx_i*\beta + \gamma. This expression is motivated by
+ * taking the derivative of the log of a more conventional grand product style set equivalence argument (see e.g.
+ * https://eprint.iacr.org/2022/1530.pdf for details). For the write term, the (idx, value) pair comes from the "table"
+ * (bus column), and for the read term the (idx, value) pair comes from wires 1 and 2 which should contain a valid entry
+ * in the table. (Note: the meaning of "read" here is clear: the inputs are an (index, value) pair that we want to read
+ * from the table. Here "write" refers to data that is present in the "table", i.e. the bus column. There is no gate
+ * associated with a write, the data is simply populated in the corresponding column and committed to when constructing
+ * a proof).
  *
  * In practice, we must rephrase this expression in terms of polynomials, one of which is a polynomial I containing
  * (indirectly) the rational functions in the above expression: I_i =  1/[(read_term_i) * (write_term_i)]. This leads to
