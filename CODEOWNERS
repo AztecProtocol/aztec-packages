@@ -6,3 +6,4 @@
 
 # Notify the AVM team of changes to generated PIL code
 barretenberg/cpp/src/barretenberg/**/generated/* @Maddiaa0 @jeanmon @IlyasRidhuan
+#TESTING EXTERNAL CI
