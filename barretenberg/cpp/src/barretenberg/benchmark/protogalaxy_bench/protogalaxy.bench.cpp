@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 
+#include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -35,6 +36,7 @@ template <typename Flavor> void fold_one(State& state) noexcept
     ProtoGalaxyProver folding_prover({ instance_1, instance_2 });
 
     for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
         auto proof = folding_prover.fold_instances();
     }
 }
@@ -65,6 +67,7 @@ template <typename Flavor> void fold_two(State& state) noexcept
     ProtoGalaxyProver folding_prover({ instance_1, instance_2, instance_3 });
 
     for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
         auto proof = folding_prover.fold_instances();
     }
 }
@@ -96,6 +99,7 @@ template <typename Flavor> void fold_three(State& state) noexcept
     ProtoGalaxyProver folding_prover({ instance_1, instance_2, instance_3, instance_4 });
 
     for (auto _ : state) {
+        BB_REPORT_OP_COUNT_IN_BENCH(state);
         auto proof = folding_prover.fold_instances();
     }
 }
