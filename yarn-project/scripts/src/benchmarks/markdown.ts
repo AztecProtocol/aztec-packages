@@ -3,15 +3,10 @@
 import { BENCHMARK_HISTORY_BLOCK_SIZE, Metrics } from '@aztec/circuit-types/stats';
 import { createConsoleLogger } from '@aztec/foundation/log';
 
-
-
 import * as fs from 'fs';
 import pick from 'lodash.pick';
 
-
-
 import { BaseBenchFile, BenchFile } from './paths.js';
-
 
 // Input file paths
 const inputFile = BenchFile;
