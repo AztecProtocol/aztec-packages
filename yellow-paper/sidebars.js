@@ -152,6 +152,7 @@ const sidebars = {
       type: "category",
       link: { type: "doc", id: "gas-and-fees/index" },
       items: [
+        "gas-and-fees/gas-metering-and-fees",
         "gas-and-fees/fee-payments-and-metering",
         "gas-and-fees/fee-schedule",
       ],
