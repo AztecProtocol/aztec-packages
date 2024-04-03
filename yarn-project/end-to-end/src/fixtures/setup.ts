@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { reviver } from '@aztec/foundation/serialize';
+import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -45,14 +45,15 @@ export class SnapshotManager {
   private context?: SubsystemsContext;
   private livePath: string;
 
-  constructor(private testName: string, private dataPath: string, private logger: DebugLogger) {
-    this.livePath = join(this.dataPath, 'live', this.testName);
+  constructor(testName: string, private dataPath: string, private logger: DebugLogger) {
+    this.livePath = join(this.dataPath, 'live', testName);
   }
 
-  public async snapshot<T, U>(
+  public async snapshot<T>(
     name: string,
     apply: (context: SubsystemsContext, logger: DebugLogger) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext, logger: DebugLogger) => Promise<U>,
+    restore: (snapshotData: T, context: SubsystemsContext, logger: DebugLogger) => Promise<void> = () =>
+      Promise.resolve(),
   ) {
     const snapshotPath = join(this.dataPath, 'snapshots', ...this.snapshotStack.map(e => e.name), name, 'snapshot');
 
@@ -74,6 +75,7 @@ export class SnapshotManager {
     // Apply current state transition.
     this.logger(`Applying state transition for ${name}...`);
     const snapshotData = await apply(this.context, this.logger);
+    this.logger(`State transition for ${name} complete.`);
 
     // Execute the restoration function.
     await restore(snapshotData, this.context, this.logger);
@@ -82,7 +84,7 @@ export class SnapshotManager {
     const ethCheatCodes = new EthCheatCodes(this.context.aztecNodeConfig.rpcUrl);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
-    writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData));
+    writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
 
     // Copy everything to snapshot path.
     this.logger(`Saving snapshot to ${snapshotPath}...`);
@@ -105,6 +107,7 @@ export class SnapshotManager {
           const snapshotData = JSON.parse(readFileSync(`${e.snapshotPath}/${e.name}.json`, 'utf-8'), reviver);
           this.logger(`Executing restoration function for ${e.name}...`);
           await e.restore(snapshotData, this.context!, this.logger);
+          this.logger(`Restoration of ${e.name} complete.`);
         });
       } else {
         this.context = await this.setupFromFresh(this.livePath);
@@ -127,6 +130,7 @@ export class SnapshotManager {
     await this.context.acvmConfig?.cleanup();
     await this.context.anvil.stop();
     this.context = undefined;
+    removeSync(this.livePath);
   }
 
   private async setupFromFresh(livePath?: string): Promise<SubsystemsContext> {
@@ -260,18 +264,6 @@ export const addAccounts =
 
     return { accountKeys };
   };
-
-export async function restoreAccounts(
-  { accountKeys }: Awaited<ReturnType<ReturnType<typeof addAccounts>>>,
-  { pxe }: SubsystemsContext,
-  logger: DebugLogger,
-) {
-  const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-  const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-  const accounts = await pxe.getRegisteredAccounts();
-  logger(`Restored ${accounts.length} accounts.`);
-  return { wallets, accounts };
-}
 
 /**
  * Registers the contract class used for test accounts and publicly deploys the instances requested.
