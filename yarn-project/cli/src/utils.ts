@@ -5,8 +5,6 @@ import { type PXE } from '@aztec/aztec.js/interfaces/pxe';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { type NoirPackageConfig } from '@aztec/foundation/noir';
 
-// import {
-// } from '@aztec/l1-artifacts';
 import TOML from '@iarna/toml';
 import { CommanderError, InvalidArgumentError } from 'commander';
 import { readFile, rename, writeFile } from 'fs/promises';
