@@ -1,0 +1,280 @@
+import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
+
+import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { TestClass } from './test_class.js';
+
+// const { E2E_DATA_PATH: dataPath = './data' } = process.env;
+
+describe('e2e_token_contract', () => {
+  const t = new TestClass('transfer_public');
+  let { asset, accounts, tokenSim, wallets, badAccount } = t;
+
+  beforeAll(async () => {
+    await t.setup();
+  });
+
+  beforeEach(async () => {
+    await t.snapshotManager.setup();
+    // Have to destructure again to ensure we have latest refs.
+    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
+  });
+
+  afterEach(async () => {
+    await t.tokenSim.check();
+  });
+
+  afterAll(async () => {
+    await t.snapshotManager.teardown();
+  });
+
+  describe('Transfer', () => {
+    beforeAll(async () => await t.addTransferSnapshot());
+
+    describe('public', () => {
+      it('transfer less than balance', async () => {
+        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const amount = balance0 / 2n;
+        expect(amount).toBeGreaterThan(0n);
+        await asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0).send().wait();
+
+        tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+      });
+
+      it('transfer to self', async () => {
+        const balance = await asset.methods.balance_of_public(accounts[0].address).view();
+        const amount = balance / 2n;
+        expect(amount).toBeGreaterThan(0n);
+        await asset.methods.transfer_public(accounts[0].address, accounts[0].address, amount, 0).send().wait();
+
+        tokenSim.transferPublic(accounts[0].address, accounts[0].address, amount);
+      });
+
+      it('transfer on behalf of other', async () => {
+        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const amount = balance0 / 2n;
+        expect(amount).toBeGreaterThan(0n);
+        const nonce = Fr.random();
+
+        // docs:start:authwit_public_transfer_example
+        const action = asset
+          .withWallet(wallets[1])
+          .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+
+        await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+        // docs:end:authwit_public_transfer_example
+
+        // Perform the transfer
+        await action.send().wait();
+
+        tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+
+        // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
+        const txReplay = asset
+          .withWallet(wallets[1])
+          .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+          .send();
+        await expect(txReplay.wait()).rejects.toThrow('Transaction ');
+      });
+
+      describe('failure cases', () => {
+        it('transfer more than balance', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const amount = balance0 + 1n;
+          const nonce = 0;
+          await expect(
+            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+          ).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        });
+
+        it('transfer on behalf of self with non-zero nonce', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const amount = balance0 - 1n;
+          const nonce = 1;
+          await expect(
+            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+          ).rejects.toThrow('Assertion failed: invalid nonce');
+        });
+
+        it('transfer on behalf of other without "approval"', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const amount = balance0 + 1n;
+          const nonce = Fr.random();
+          await expect(
+            asset
+              .withWallet(wallets[1])
+              .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+              .simulate(),
+          ).rejects.toThrow('Assertion failed: Message not authorized by account');
+        });
+
+        it('transfer more than balance on behalf of other', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const amount = balance0 + 1n;
+          const nonce = Fr.random();
+          expect(amount).toBeGreaterThan(0n);
+
+          const action = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+
+          expect(
+            await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action }),
+          ).toEqual({
+            isValidInPrivate: false,
+            isValidInPublic: false,
+          });
+
+          // We need to compute the message we want to sign and add it to the wallet as approved
+          await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+
+          expect(
+            await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action }),
+          ).toEqual({
+            isValidInPrivate: false,
+            isValidInPublic: true,
+          });
+
+          // Perform the transfer
+          await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+
+          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+        });
+
+        it('transfer on behalf of other, wrong designated caller', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const amount = balance0 + 2n;
+          const nonce = Fr.random();
+          expect(amount).toBeGreaterThan(0n);
+
+          // We need to compute the message we want to sign and add it to the wallet as approved
+          const action = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+
+          await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+
+          // Perform the transfer
+          await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+
+          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+        });
+
+        it('transfer on behalf of other, wrong designated caller', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const amount = balance0 + 2n;
+          const nonce = Fr.random();
+          expect(amount).toBeGreaterThan(0n);
+
+          // We need to compute the message we want to sign and add it to the wallet as approved
+          const action = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+          await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+
+          // Perform the transfer
+          await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+
+          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+        });
+
+        it('transfer on behalf of other, cancelled authwit', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const amount = balance0 / 2n;
+          expect(amount).toBeGreaterThan(0n);
+          const nonce = Fr.random();
+
+          const action = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+
+          await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+
+          await wallets[0].cancelAuthWit({ caller: accounts[1].address, action }).send().wait();
+
+          // Check that the authwit is no longer valid. Need to try to send since nullifiers are handled by sequencer.
+          const txCancelledAuthwit = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+            .send();
+          await expect(txCancelledAuthwit.wait()).rejects.toThrowError('Transaction ');
+        });
+
+        it('transfer on behalf of other, cancelled authwit, flow 2', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const amount = balance0 / 2n;
+          expect(amount).toBeGreaterThan(0n);
+          const nonce = Fr.random();
+
+          const action = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+
+          await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+
+          await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, false).send().wait();
+
+          // Check that the authwit is no longer valid. Need to try to send since nullifiers are handled by sequencer.
+          const txCancelledAuthwit = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+            .send();
+          await expect(txCancelledAuthwit.wait()).rejects.toThrowError('Transaction ');
+        });
+
+        it('transfer on behalf of other, cancelled authwit, flow 3', async () => {
+          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const amount = balance0 / 2n;
+          expect(amount).toBeGreaterThan(0n);
+          const nonce = Fr.random();
+
+          const action = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+          const messageHash = computeAuthWitMessageHash(
+            accounts[1].address,
+            wallets[0].getChainId(),
+            wallets[0].getVersion(),
+            action.request(),
+          );
+
+          await wallets[0].setPublicAuthWit(messageHash, true).send().wait();
+
+          await wallets[0].cancelAuthWit(messageHash).send().wait();
+
+          // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
+          const txCancelledAuthwit = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+            .send();
+          await expect(txCancelledAuthwit.wait()).rejects.toThrow('Transaction ');
+        });
+
+        it('transfer on behalf of other, invalid spend_public_authwit on "from"', async () => {
+          const nonce = Fr.random();
+
+          // Should fail as the returned value from the badAccount is malformed
+          const txCancelledAuthwit = asset
+            .withWallet(wallets[1])
+            .methods.transfer_public(badAccount.address, accounts[1].address, 0, nonce)
+            .send();
+          await expect(txCancelledAuthwit.wait()).rejects.toThrow(
+            "Assertion failed: Message not authorized by account 'result == IS_VALID_SELECTOR'",
+          );
+        });
+
+        it.skip('transfer into account to overflow', () => {
+          // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is not
+          // a way to get funds enough to overflow.
+          // Require direct storage manipulation for us to perform a nice explicit case though.
+          // See https://github.com/AztecProtocol/aztec-packages/issues/1259
+        });
+      });
+    });
+  });
+});
