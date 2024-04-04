@@ -50,7 +50,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     FF vanishing_polynomial_at_challenge;
     std::array<FF, ProverInstances::NUM> lagranges;
     constexpr FF inverse_two = FF(2).invert();
-    constexpr FF inverse_six = FF(6).invert();
     if constexpr (ProverInstances::NUM == 2) {
         vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
         lagranges = { FF(1) - challenge, challenge };
@@ -59,7 +58,8 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
         lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * inverse_two,
                       challenge * (FF(2) - challenge),
                       challenge * (challenge - FF(1)) / FF(2) };
-    } else if (ProverInstances::NUM == 4) {
+    } else if constexpr (ProverInstances::NUM == 4) {
+        constexpr FF inverse_six = FF(6).invert();
         vanishing_polynomial_at_challenge = challenge * (challenge - FF(1)) * (challenge - FF(2)) * (challenge - FF(3));
         lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * (FF(3) - challenge) * inverse_six,
                       challenge * (FF(2) - challenge) * (FF(3) - challenge) * inverse_two,
