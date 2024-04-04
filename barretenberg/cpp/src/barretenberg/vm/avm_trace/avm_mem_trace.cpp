@@ -190,20 +190,66 @@ void AvmMemTraceBuilder::store_in_mem_trace(
  */
 AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint32_t const clk, uint32_t const addr)
 {
-    MemEntry memEntry = memory.contains(addr) ? memory.at(addr) : MemEntry{};
+    MemEntry mem_entry = memory.contains(addr) ? memory.at(addr) : MemEntry{};
 
     mem_trace.emplace_back(MemoryTraceEntry{
         .m_clk = clk,
         .m_sub_clk = SUB_CLK_LOAD_A,
         .m_addr = addr,
-        .m_val = memEntry.val,
-        .m_tag = memEntry.tag,
-        .r_in_tag = memEntry.tag,
-        .w_in_tag = memEntry.tag,
+        .m_val = mem_entry.val,
+        .m_tag = mem_entry.tag,
+        .r_in_tag = mem_entry.tag,
+        .w_in_tag = mem_entry.tag,
         .m_sel_mov_a = true,
     });
 
-    return memEntry;
+    return mem_entry;
+}
+
+std::array<AvmMemTraceBuilder::MemEntry, 3> AvmMemTraceBuilder::read_and_load_cmov_opcode(uint32_t clk,
+                                                                                          uint32_t a_addr,
+                                                                                          uint32_t b_addr,
+                                                                                          uint32_t cond_addr)
+{
+    MemEntry a_mem_entry = memory.contains(a_addr) ? memory.at(a_addr) : MemEntry{};
+    MemEntry b_mem_entry = memory.contains(b_addr) ? memory.at(b_addr) : MemEntry{};
+    MemEntry cond_mem_entry = memory.contains(cond_addr) ? memory.at(cond_addr) : MemEntry{};
+
+    bool mov_b = cond_mem_entry.val == 0;
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_A,
+        .m_addr = a_addr,
+        .m_val = a_mem_entry.val,
+        .m_tag = a_mem_entry.tag,
+        .r_in_tag = a_mem_entry.tag,
+        .w_in_tag = a_mem_entry.tag,
+        .m_sel_mov_a = !mov_b,
+    });
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_B,
+        .m_addr = b_addr,
+        .m_val = b_mem_entry.val,
+        .m_tag = b_mem_entry.tag,
+        .r_in_tag = b_mem_entry.tag,
+        .w_in_tag = b_mem_entry.tag,
+        .m_sel_mov_b = mov_b,
+    });
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_C,
+        .m_addr = cond_addr,
+        .m_val = cond_mem_entry.val,
+        .m_tag = cond_mem_entry.tag,
+        .r_in_tag = cond_mem_entry.tag,
+        .w_in_tag = cond_mem_entry.tag,
+    });
+
+    return { a_mem_entry, b_mem_entry, cond_mem_entry };
 }
 
 /**
