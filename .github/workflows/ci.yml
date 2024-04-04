@@ -23,12 +23,12 @@ jobs:
           aws_region: "us-east-2"
           ec2_instance_type: c5.4xlarge
           ec2_ami_id: ami-04d8422a9ba4de80f
-          ec2_subnet_id: "SUBNET_ID_REDACTED"
+          ec2_subnet_id: ""
           ec2_instance_tags: '[]'
           github_action_runner_version: v2.315.0
-          ec2_security_group_id: "SECURITY_GROUP_ID_REDACTED"
-          ec2_instance_ttl: 40                # Optional (default is 60 minutes)
-          ec2_spot_instance_strategy: None    # Other options are: SpotOnly, BestEffort, MaxPerformance 
+          ec2_security_group_id: sg-0ccd4e5df0dcca0c9
+          ec2_instance_ttl: 40 # 40 minutes to reap
+          ec2_spot_instance_strategy: BestEffort
 
   # Job that runs on the self-hosted runner 
   run-build:
