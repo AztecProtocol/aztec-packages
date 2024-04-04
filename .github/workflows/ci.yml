@@ -9,7 +9,7 @@ jobs:
   start-runner:
     timeout-minutes: 5              # normally it only takes 1-2 minutes
     name: Start self-hosted EC2 runner
-    runs-on: ${{ github.run_id }}     
+    runs-on: ubuntu-latest
     permissions:
       actions: write        
     steps:      
@@ -32,7 +32,8 @@ jobs:
 
   # there's a lot of x86 tasks - let's split out the build step
   build-x86:
-    runs-on: ${{ github.run_id }}     
+    needs: start-runner
+    runs-on: ${{ github.run_id }}
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
     env:
@@ -71,6 +72,7 @@ jobs:
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
+    needs: start-runner
     runs-on: ${{ github.run_id }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -151,7 +153,7 @@ jobs:
 
   # barretenberg (prover) native tests
   bb-native-tests:
-    needs: build-x86
+    needs: start-runner
     runs-on: ${{ github.run_id }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -188,7 +190,8 @@ jobs:
   # for accurate results
   # We don't depend on 'build' as we use a different runner and will build components on the fist step that uses them.
   bb-bench:
-    runs-on: ${{ github.run_id }}     
+    runs-on: ${{ github.run_id }}
+    needs: start-runner
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
