@@ -169,6 +169,35 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         return value_witness_idx;
     };
 
+    /**
+     * @brief Read from return_data and create a corresponding databus read gate
+     *
+     * @param read_idx_witness_idx Witness index for the return_data read index
+     * @return uint32_t Witness index for the result of the read
+     */
+    uint32_t read_bus_vector(const uint32_t& bus_idx, const uint32_t& read_idx_witness_idx)
+    {
+        if (bus_idx == 0) {
+            return read_calldata(read_idx_witness_idx);
+        }
+        if (bus_idx == 1) {
+            return read_return_data(read_idx_witness_idx);
+        }
+        return 0;
+    };
+
+    void append_to_bus_vector(const uint32_t& bus_idx, const uint32_t& witness_idx)
+    {
+        if (bus_idx == 0) {
+            databus.calldata.append(witness_idx);
+        }
+        if (bus_idx == 1) {
+            databus.return_data.append(witness_idx);
+        }
+    }
+
+    // void append_to_calldata(const uint32_t& witness_idx) { databus.calldata.append(witness_idx); }
+
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 };
