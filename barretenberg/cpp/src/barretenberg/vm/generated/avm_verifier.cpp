@@ -177,15 +177,19 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_main_ia = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ia);
     commitments.avm_main_ib = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ib);
     commitments.avm_main_ic = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ic);
+    commitments.avm_main_id = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_id);
     commitments.avm_main_ind_a = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_a);
     commitments.avm_main_ind_b = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_b);
     commitments.avm_main_ind_c = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_c);
+    commitments.avm_main_ind_d = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_d);
     commitments.avm_main_ind_op_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_op_a);
     commitments.avm_main_ind_op_b =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_op_b);
     commitments.avm_main_ind_op_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_op_c);
+    commitments.avm_main_ind_op_d =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_ind_op_d);
     commitments.avm_main_internal_return_ptr =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_internal_return_ptr);
     commitments.avm_main_inv = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_inv);
@@ -196,12 +200,16 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_idx_b);
     commitments.avm_main_mem_idx_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_idx_c);
+    commitments.avm_main_mem_idx_d =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_idx_d);
     commitments.avm_main_mem_op_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_a);
     commitments.avm_main_mem_op_b =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_b);
     commitments.avm_main_mem_op_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_c);
+    commitments.avm_main_mem_op_d =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_mem_op_d);
     commitments.avm_main_op_err =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_op_err);
     commitments.avm_main_pc = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_pc);
@@ -210,6 +218,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_main_rwa = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_rwa);
     commitments.avm_main_rwb = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_rwb);
     commitments.avm_main_rwc = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_rwc);
+    commitments.avm_main_rwd = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_rwd);
     commitments.avm_main_sel_halt =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_sel_halt);
     commitments.avm_main_sel_internal_call =
@@ -258,6 +267,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_ind_op_b);
     commitments.avm_mem_ind_op_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_ind_op_c);
+    commitments.avm_mem_ind_op_d =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_ind_op_d);
     commitments.avm_mem_last = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_last);
     commitments.avm_mem_lastAccess =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_lastAccess);
@@ -266,6 +277,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_mem_op_a = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_op_a);
     commitments.avm_mem_op_b = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_op_b);
     commitments.avm_mem_op_c = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_op_c);
+    commitments.avm_mem_op_d = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_op_d);
     commitments.avm_mem_r_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_r_in_tag);
     commitments.avm_mem_rw = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_rw);
@@ -335,12 +347,24 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_b);
     commitments.perm_main_mem_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_c);
+    commitments.perm_main_mem_d =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_d);
     commitments.perm_main_mem_ind_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_a);
     commitments.perm_main_mem_ind_b =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_b);
     commitments.perm_main_mem_ind_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_c);
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+    // Lookups
+=======
+    commitments.perm_main_mem_ind_d =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_d);
+>>>>>>> 7c841655b (5557: Add an additional intermediate register id)
+>>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
     commitments.lookup_byte_lengths =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =

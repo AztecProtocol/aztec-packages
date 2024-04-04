@@ -41,9 +41,11 @@
 #include "barretenberg/relations/generated/avm/perm_main_mem_a.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_c.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_d.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_a.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_b.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_ind_c.hpp"
+#include "barretenberg/relations/generated/avm/perm_main_mem_ind_d.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
@@ -134,27 +136,33 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_ia{};
     FF avm_main_ib{};
     FF avm_main_ic{};
+    FF avm_main_id{};
     FF avm_main_ind_a{};
     FF avm_main_ind_b{};
     FF avm_main_ind_c{};
+    FF avm_main_ind_d{};
     FF avm_main_ind_op_a{};
     FF avm_main_ind_op_b{};
     FF avm_main_ind_op_c{};
+    FF avm_main_ind_op_d{};
     FF avm_main_internal_return_ptr{};
     FF avm_main_inv{};
     FF avm_main_last{};
     FF avm_main_mem_idx_a{};
     FF avm_main_mem_idx_b{};
     FF avm_main_mem_idx_c{};
+    FF avm_main_mem_idx_d{};
     FF avm_main_mem_op_a{};
     FF avm_main_mem_op_b{};
     FF avm_main_mem_op_c{};
+    FF avm_main_mem_op_d{};
     FF avm_main_op_err{};
     FF avm_main_pc{};
     FF avm_main_r_in_tag{};
     FF avm_main_rwa{};
     FF avm_main_rwb{};
     FF avm_main_rwc{};
+    FF avm_main_rwd{};
     FF avm_main_sel_halt{};
     FF avm_main_sel_internal_call{};
     FF avm_main_sel_internal_return{};
@@ -180,12 +188,14 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_ind_op_a{};
     FF avm_mem_ind_op_b{};
     FF avm_mem_ind_op_c{};
+    FF avm_mem_ind_op_d{};
     FF avm_mem_last{};
     FF avm_mem_lastAccess{};
     FF avm_mem_one_min_inv{};
     FF avm_mem_op_a{};
     FF avm_mem_op_b{};
     FF avm_mem_op_c{};
+    FF avm_mem_op_d{};
     FF avm_mem_r_in_tag{};
     FF avm_mem_rw{};
     FF avm_mem_sel_mov{};
@@ -199,9 +209,11 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_mem_a{};
     FF perm_main_mem_b{};
     FF perm_main_mem_c{};
+    FF perm_main_mem_d{};
     FF perm_main_mem_ind_a{};
     FF perm_main_mem_ind_b{};
     FF perm_main_mem_ind_c{};
+    FF perm_main_mem_ind_d{};
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
     FF incl_main_tag_err{};
@@ -285,8 +297,13 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 224;
     static constexpr size_t num_polys = 195;
+=======
+    static constexpr size_t num_fixed_columns = 169;
+    static constexpr size_t num_polys = 150;
+>>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -387,27 +404,33 @@ class AvmCircuitBuilder {
             polys.avm_main_ia[i] = rows[i].avm_main_ia;
             polys.avm_main_ib[i] = rows[i].avm_main_ib;
             polys.avm_main_ic[i] = rows[i].avm_main_ic;
+            polys.avm_main_id[i] = rows[i].avm_main_id;
             polys.avm_main_ind_a[i] = rows[i].avm_main_ind_a;
             polys.avm_main_ind_b[i] = rows[i].avm_main_ind_b;
             polys.avm_main_ind_c[i] = rows[i].avm_main_ind_c;
+            polys.avm_main_ind_d[i] = rows[i].avm_main_ind_d;
             polys.avm_main_ind_op_a[i] = rows[i].avm_main_ind_op_a;
             polys.avm_main_ind_op_b[i] = rows[i].avm_main_ind_op_b;
             polys.avm_main_ind_op_c[i] = rows[i].avm_main_ind_op_c;
+            polys.avm_main_ind_op_d[i] = rows[i].avm_main_ind_op_d;
             polys.avm_main_internal_return_ptr[i] = rows[i].avm_main_internal_return_ptr;
             polys.avm_main_inv[i] = rows[i].avm_main_inv;
             polys.avm_main_last[i] = rows[i].avm_main_last;
             polys.avm_main_mem_idx_a[i] = rows[i].avm_main_mem_idx_a;
             polys.avm_main_mem_idx_b[i] = rows[i].avm_main_mem_idx_b;
             polys.avm_main_mem_idx_c[i] = rows[i].avm_main_mem_idx_c;
+            polys.avm_main_mem_idx_d[i] = rows[i].avm_main_mem_idx_d;
             polys.avm_main_mem_op_a[i] = rows[i].avm_main_mem_op_a;
             polys.avm_main_mem_op_b[i] = rows[i].avm_main_mem_op_b;
             polys.avm_main_mem_op_c[i] = rows[i].avm_main_mem_op_c;
+            polys.avm_main_mem_op_d[i] = rows[i].avm_main_mem_op_d;
             polys.avm_main_op_err[i] = rows[i].avm_main_op_err;
             polys.avm_main_pc[i] = rows[i].avm_main_pc;
             polys.avm_main_r_in_tag[i] = rows[i].avm_main_r_in_tag;
             polys.avm_main_rwa[i] = rows[i].avm_main_rwa;
             polys.avm_main_rwb[i] = rows[i].avm_main_rwb;
             polys.avm_main_rwc[i] = rows[i].avm_main_rwc;
+            polys.avm_main_rwd[i] = rows[i].avm_main_rwd;
             polys.avm_main_sel_halt[i] = rows[i].avm_main_sel_halt;
             polys.avm_main_sel_internal_call[i] = rows[i].avm_main_sel_internal_call;
             polys.avm_main_sel_internal_return[i] = rows[i].avm_main_sel_internal_return;
@@ -433,12 +456,14 @@ class AvmCircuitBuilder {
             polys.avm_mem_ind_op_a[i] = rows[i].avm_mem_ind_op_a;
             polys.avm_mem_ind_op_b[i] = rows[i].avm_mem_ind_op_b;
             polys.avm_mem_ind_op_c[i] = rows[i].avm_mem_ind_op_c;
+            polys.avm_mem_ind_op_d[i] = rows[i].avm_mem_ind_op_d;
             polys.avm_mem_last[i] = rows[i].avm_mem_last;
             polys.avm_mem_lastAccess[i] = rows[i].avm_mem_lastAccess;
             polys.avm_mem_one_min_inv[i] = rows[i].avm_mem_one_min_inv;
             polys.avm_mem_op_a[i] = rows[i].avm_mem_op_a;
             polys.avm_mem_op_b[i] = rows[i].avm_mem_op_b;
             polys.avm_mem_op_c[i] = rows[i].avm_mem_op_c;
+            polys.avm_mem_op_d[i] = rows[i].avm_mem_op_d;
             polys.avm_mem_r_in_tag[i] = rows[i].avm_mem_r_in_tag;
             polys.avm_mem_rw[i] = rows[i].avm_mem_rw;
             polys.avm_mem_sel_mov[i] = rows[i].avm_mem_sel_mov;
@@ -447,6 +472,27 @@ class AvmCircuitBuilder {
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
+<<<<<<< HEAD
+=======
+            polys.perm_main_alu[i] = rows[i].perm_main_alu;
+<<<<<<< HEAD
+
+=======
+            polys.perm_main_bin[i] = rows[i].perm_main_bin;
+            polys.perm_main_mem_a[i] = rows[i].perm_main_mem_a;
+            polys.perm_main_mem_b[i] = rows[i].perm_main_mem_b;
+            polys.perm_main_mem_c[i] = rows[i].perm_main_mem_c;
+            polys.perm_main_mem_d[i] = rows[i].perm_main_mem_d;
+            polys.perm_main_mem_ind_a[i] = rows[i].perm_main_mem_ind_a;
+            polys.perm_main_mem_ind_b[i] = rows[i].perm_main_mem_ind_b;
+            polys.perm_main_mem_ind_c[i] = rows[i].perm_main_mem_ind_c;
+            polys.perm_main_mem_ind_d[i] = rows[i].perm_main_mem_ind_d;
+            polys.lookup_byte_lengths[i] = rows[i].lookup_byte_lengths;
+            polys.lookup_byte_operations[i] = rows[i].lookup_byte_operations;
+            polys.incl_main_tag_err[i] = rows[i].incl_main_tag_err;
+            polys.incl_mem_tag_err[i] = rows[i].incl_mem_tag_err;
+>>>>>>> 7c841655b (5557: Add an additional intermediate register id)
+>>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
@@ -602,6 +648,9 @@ class AvmCircuitBuilder {
         if (!evaluate_logderivative.template operator()<perm_main_mem_c_relation<FF>>("PERM_MAIN_MEM_C")) {
             return false;
         }
+        if (!evaluate_logderivative.template operator()<perm_main_mem_d_relation<FF>>("PERM_MAIN_MEM_D")) {
+            return false;
+        }
         if (!evaluate_logderivative.template operator()<perm_main_mem_ind_a_relation<FF>>("PERM_MAIN_MEM_IND_A")) {
             return false;
         }
@@ -609,6 +658,9 @@ class AvmCircuitBuilder {
             return false;
         }
         if (!evaluate_logderivative.template operator()<perm_main_mem_ind_c_relation<FF>>("PERM_MAIN_MEM_IND_C")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<perm_main_mem_ind_d_relation<FF>>("PERM_MAIN_MEM_IND_D")) {
             return false;
         }
         if (!evaluate_logderivative.template operator()<lookup_byte_lengths_relation<FF>>("LOOKUP_BYTE_LENGTHS")) {

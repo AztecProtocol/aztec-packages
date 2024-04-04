@@ -1284,6 +1284,10 @@ std::vector<Row> AvmTraceBuilder::finalize()
         case AvmMemTraceBuilder::SUB_CLK_STORE_C:
             dest.avm_mem_op_c = 1;
             break;
+        case AvmMemTraceBuilder::SUB_CLK_LOAD_D:
+        case AvmMemTraceBuilder::SUB_CLK_STORE_D:
+            dest.avm_mem_op_d = 1;
+            break;
         case AvmMemTraceBuilder::SUB_CLK_IND_LOAD_A:
             dest.avm_mem_ind_op_a = 1;
             break;
@@ -1292,6 +1296,9 @@ std::vector<Row> AvmTraceBuilder::finalize()
             break;
         case AvmMemTraceBuilder::SUB_CLK_IND_LOAD_C:
             dest.avm_mem_ind_op_c = 1;
+            break;
+        case AvmMemTraceBuilder::SUB_CLK_IND_LOAD_D:
+            dest.avm_mem_ind_op_d = 1;
             break;
         default:
             break;

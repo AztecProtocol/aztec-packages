@@ -20,11 +20,13 @@ namespace avm_mem(256);
     pol commit op_a;
     pol commit op_b;
     pol commit op_c;
+    pol commit op_d;
 
     // Indicator of the indirect register pertaining to the memory operation (foreign key to avm_main.ind_op_XXX)
     pol commit ind_op_a;
     pol commit ind_op_b;
     pol commit ind_op_c;
+    pol commit ind_op_d;
 
     // Selector for MOV opcode (copied from main trace for loading operation on intermediated register ia)
     // Boolean constraint is performed in main trace.
@@ -44,20 +46,22 @@ namespace avm_mem(256);
     op_a * (1 - op_a) = 0;
     op_b * (1 - op_b) = 0;
     op_c * (1 - op_c) = 0;
+    op_d * (1 - op_d) = 0;
     ind_op_a * (1 - ind_op_a) = 0;
     ind_op_b * (1 - ind_op_b) = 0;
     ind_op_c * (1 - ind_op_c) = 0;
+    ind_op_d * (1 - ind_op_d) = 0;
 
     // TODO: addr is u32 and 0 <= tag <= 6
     //       (r_in_tag, w_in_tag will be constrained through inclusion check to main trace)
 
     // Maximum one memory operation enabled per row
-    pol MEM_SEL = op_a + op_b + op_c + ind_op_a + ind_op_b + ind_op_c;
+    pol MEM_SEL = op_a + op_b + op_c + op_d + ind_op_a + ind_op_b + ind_op_c + ind_op_d;
     MEM_SEL * (MEM_SEL - 1) = 0;
 
     // sub_clk derivation
-    pol IND_OP = ind_op_a + ind_op_b + ind_op_c;
-    sub_clk = MEM_SEL * (ind_op_b + op_b + 2 * (ind_op_c + op_c) + 3 * (1 - IND_OP + rw));
+    pol IND_OP = ind_op_a + ind_op_b + ind_op_c + ind_op_d;
+    sub_clk = MEM_SEL * (ind_op_b + op_b + 2 * (ind_op_c + op_c) + 3 * (ind_op_d + op_d) + 4 * (1 - IND_OP + rw));
     // We need the MEM_SEL factor as the right factor is not zero when all columns are zero.
 
     // Remark: lastAccess == 1 on first row and therefore any relation with the
@@ -140,11 +144,13 @@ namespace avm_mem(256);
     ind_op_a * (r_in_tag - 3) = 0;
     ind_op_b * (r_in_tag - 3) = 0;
     ind_op_c * (r_in_tag - 3) = 0;
+    ind_op_d * (r_in_tag - 3) = 0;
 
     // Indirect operation is always a load
     ind_op_a * rw = 0;
     ind_op_b * rw = 0;
     ind_op_c * rw = 0;
+    ind_op_d * rw = 0;
 
     //====== MOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to tag for
