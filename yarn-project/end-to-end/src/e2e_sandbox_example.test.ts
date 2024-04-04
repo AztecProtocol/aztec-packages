@@ -194,12 +194,12 @@ describe('e2e_sandbox_example', () => {
             GrumpkinScalar.random(), // signing private key
           ),
         );
-      return await Promise.all(
-        accountManagers.map(async x => {
-          await x.waitSetup({});
-          return x;
-        }),
-      );
+
+      for (const account of accountManagers) {
+        await account.waitSetup({});
+      }
+
+      return accountManagers;
     };
 
     // Create 2 accounts and wallets to go with each

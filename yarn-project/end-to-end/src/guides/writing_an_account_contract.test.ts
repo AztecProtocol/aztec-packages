@@ -26,9 +26,8 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     super(SchnorrHardcodedAccountContractArtifact);
   }
 
-  getDeploymentArgs(): undefined {
-    // This contract has no constructor
-    return undefined;
+  getDeploymentArgs(): [] {
+    return [];
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

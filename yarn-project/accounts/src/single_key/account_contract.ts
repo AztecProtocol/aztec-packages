@@ -18,8 +18,8 @@ export class SingleKeyAccountContract extends DefaultAccountContract {
     super(SchnorrSingleKeyAccountContractArtifact as ContractArtifact);
   }
 
-  getDeploymentArgs(): undefined {
-    return undefined;
+  getDeploymentArgs(): Array<void> {
+    return [];
   }
 
   getAuthWitnessProvider({ partialAddress }: CompleteAddress): AuthWitnessProvider {

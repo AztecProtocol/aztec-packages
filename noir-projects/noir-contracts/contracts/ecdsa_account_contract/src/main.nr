@@ -29,6 +29,9 @@ contract EcdsaAccount {
         let this = context.this_address();
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
         storage.public_key.initialize(&mut pub_key_note, true);
+
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.initialize_account_contract();
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
