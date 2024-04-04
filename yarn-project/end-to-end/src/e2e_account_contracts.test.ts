@@ -42,7 +42,7 @@ function itShouldBehaveLikeAnAccountContract(
 
       wallet = await walletSetup(pxe, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
       child = await ChildContract.deploy(wallet).send().deployed();
-      logger(`Deployed child contract at ${child.address}.`);
+      logger(`Deployed Child contract at ${child.address}.`);
     }, 60_000);
 
     afterEach(() => teardown());
