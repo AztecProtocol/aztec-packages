@@ -15,7 +15,7 @@ jobs:
     steps:      
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: AztecProtocol/ec2-action-builder@v1
+        uses: NextChapterSoftware/ec2-action-builder@v1
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
