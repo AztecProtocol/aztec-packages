@@ -11,7 +11,7 @@ using namespace bb;
 
 class ECCVMTranscriptTests : public ::testing::Test {
   public:
-    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
+    void SetUp() override { srs::init_grumpkin_crs_factory("../srs_db/grumpkin"); };
     using FF = grumpkin::fr;
     using Flavor = ECCVMFlavor;
 
