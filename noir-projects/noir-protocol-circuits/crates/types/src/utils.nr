@@ -6,6 +6,7 @@ mod arrays;
 mod field;
 mod reader;
 mod uint256;
+mod debug_log;
 
 // if predicate == true then return lhs, else return rhs
 pub fn conditional_assign(predicate: bool, lhs: Field, rhs: Field) -> Field {
