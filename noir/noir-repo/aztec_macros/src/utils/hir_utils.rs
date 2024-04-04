@@ -17,22 +17,33 @@ use super::ast_utils::is_custom_attribute;
 pub fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<(String, StructId)> {
     context
         .def_map(crate_id)
-        .map(|def_map| {
-            def_map
-                .modules()
-                .iter()
-                .flat_map(|(_, module)| {
-                    module.type_definitions().filter_map(|typ| {
-                        if let ModuleDefId::TypeId(struct_id) = typ {
-                            Some(struct_id)
+        .expect("ICE: Missing crate in def_map")
+        .modules()
+        .iter()
+        .flat_map(|(_, module)| {
+            module.type_definitions().filter_map(move |typ| {
+                if let ModuleDefId::TypeId(struct_id) = typ {
+                    let module_id = struct_id.module_id();
+                    let path =
+                        context.fully_qualified_struct_path(context.root_crate_id(), struct_id);
+                    let path = if path.contains("::") {
+                        let prefix = if &module_id.krate == context.root_crate_id() {
+                            "crate"
                         } else {
-                            None
-                        }
-                    })
-                })
-                .collect()
+                            "dep"
+                        };
+                        format!("{}::{}", prefix, path)
+                    } else {
+                        path
+                    };
+
+                    Some((path, struct_id))
+                } else {
+                    None
+                }
+            })
         })
-        .unwrap_or(vec![])
+        .collect()
 }
 
 pub fn collect_crate_functions(crate_id: &CrateId, context: &HirContext) -> Vec<FuncId> {

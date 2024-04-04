@@ -827,6 +827,7 @@ impl<'interner> Monomorphizer<'interner> {
         if let ImplKind::TraitMethod(method, _, _) = ident.impl_kind {
             return Ok(self.resolve_trait_method_reference(expr_id, typ, method));
         }
+
         let definition = self.interner.definition(ident.id);
         let ident = match &definition.kind {
             DefinitionKind::Function(func_id) => {

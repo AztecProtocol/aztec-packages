@@ -151,7 +151,7 @@ jobs:
       - name: Test
         working-directory: ./barretenberg/cpp/
         run: |
-          earthly-cloud build ${{ matrix.environment }} --no-output +test
+          earthly-cloud test ${{ matrix.environment }} --no-output +test
 
   # All benchmarks, purposefully ran sequential on a machine
   # they should use parallelism within the benchmark, but only one thing should run at a time
@@ -195,8 +195,8 @@ jobs:
       # Use bench_mode=cache to read the pushed build above
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud bench x86 --no-output +bench-client-ivc
+        run: earthly-cloud bench x86 --no-output +bench-client-ivc --bench_mode=cache
 
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
-        run: earthly-cloud bench x86 --no-output +bench-ultra-honk
+        run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache
