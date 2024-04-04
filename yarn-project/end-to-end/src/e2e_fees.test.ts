@@ -1,22 +1,26 @@
 import {
-  type AztecAddress,
   BatchCall,
-  type DebugLogger,
   ExtendedNote,
   Fr,
-  type FunctionCall,
   FunctionSelector,
   Note,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
-  type TxHash,
   TxStatus,
-  type Wallet,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
+  type DeployL1Contracts,
+  type FunctionCall,
+  type PXE,
+  type TxHash,
+  type Wallet,
 } from '@aztec/aztec.js';
 import { FunctionData, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { type ContractArtifact, decodeFunctionSignature } from '@aztec/foundation/abi';
+import { decodeFunctionSignature, type ContractArtifact } from '@aztec/foundation/abi';
 import {
   TokenContract as BananaCoin,
   FPCContract,
@@ -27,12 +31,11 @@ import {
 import { jest } from '@jest/globals';
 
 import {
-  type BalancesFn,
-  type EndToEndContext,
   expectMapping,
   getBalancesFn,
   publicDeployAccounts,
   setup,
+  type BalancesFn
 } from './fixtures/utils.js';
 import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
 
@@ -53,16 +56,15 @@ describe('e2e_fees', () => {
   let bananaFPC: FPCContract;
 
   let gasBridgeTestHarness: IGasBridgingTestHarness;
-  let e2eContext: EndToEndContext;
 
   let gasBalances: BalancesFn;
   let bananaPublicBalances: BalancesFn;
   let bananaPrivateBalances: BalancesFn;
 
   beforeAll(async () => {
-    e2eContext = await setup(3);
 
-    const { accounts, logger, aztecNode, pxe, deployL1ContractsValues, wallets } = e2eContext;
+    const { wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3);
+    
     await aztecNode.setConfig({
       allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
     });
@@ -73,13 +75,13 @@ describe('e2e_fees', () => {
     logFunctionSignatures(SchnorrAccountContract.artifact, logger);
 
     await aztecNode.setConfig({
-      feeRecipient: accounts.at(-1)!.address,
+      feeRecipient: wallets.at(-1)!.getAddress(),
     });
 
     aliceWallet = wallets[0];
-    aliceAddress = accounts[0].address;
-    bobAddress = accounts[1].address;
-    sequencerAddress = accounts[2].address;
+    aliceAddress = wallets[0].getAddress();
+    bobAddress = wallets[1].getAddress();
+    sequencerAddress = wallets[2].getAddress();
 
     gasBridgeTestHarness = await GasPortalTestingHarnessFactory.create({
       pxeService: pxe,
@@ -92,7 +94,7 @@ describe('e2e_fees', () => {
 
     gasTokenContract = gasBridgeTestHarness.l2Token;
 
-    bananaCoin = await BananaCoin.deploy(wallets[0], accounts[0], TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
+    bananaCoin = await BananaCoin.deploy(wallets[0], wallets[0].getAddress(), TOKEN_NAME, TOKEN_SYMBOL, TOKEN_DECIMALS)
       .send()
       .deployed();
 
@@ -100,7 +102,7 @@ describe('e2e_fees', () => {
 
     bananaFPC = await FPCContract.deploy(wallets[0], bananaCoin.address, gasTokenContract.address).send().deployed();
     logger(`bananaPay deployed at ${bananaFPC.address}`);
-    await publicDeployAccounts(wallets[0], accounts);
+    await publicDeployAccounts(wallets[0], wallets);
 
     await gasBridgeTestHarness.bridgeFromL1ToL2(BRIDGED_FPC_GAS, BRIDGED_FPC_GAS, bananaFPC.address);
 
@@ -118,7 +120,6 @@ describe('e2e_fees', () => {
     const FeeAmount = 1n;
     const RefundAmount = 2n;
     const MaxFee = FeeAmount + RefundAmount;
-    const { wallets } = e2eContext;
 
     const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await bananaPrivateBalances(
       aliceAddress,
@@ -547,7 +548,6 @@ describe('e2e_fees', () => {
     const FeeAmount = 1n;
     const RefundAmount = 2n;
     const MaxFee = FeeAmount + RefundAmount;
-    const { wallets } = e2eContext;
 
     // simulation throws an error when setup fails
     await expect(
@@ -587,7 +587,6 @@ describe('e2e_fees', () => {
     const FeeAmount = 1n;
     const RefundAmount = 2n;
     const MaxFee = FeeAmount + RefundAmount;
-    const { wallets } = e2eContext;
 
     const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await bananaPrivateBalances(
       aliceAddress,
@@ -677,13 +676,13 @@ describe('e2e_fees', () => {
     const note = new Note([new Fr(amount), secretHash]);
     const extendedNote = new ExtendedNote(
       note,
-      e2eContext.accounts[accountIndex].address,
+      wallets[accountIndex].getAddress(),
       bananaCoin.address,
       storageSlot,
       noteTypeId,
       txHash,
     );
-    await e2eContext.wallets[accountIndex].addNote(extendedNote);
+    await wallets[accountIndex].addNote(extendedNote);
   };
 });
 

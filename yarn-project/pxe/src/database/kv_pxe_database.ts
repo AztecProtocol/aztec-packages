@@ -106,6 +106,7 @@ export class KVPxeDatabase implements PxeDatabase {
   }
 
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    // tady se to pta na data
     const contract = this.#contractInstances.get(address.toString());
     return Promise.resolve(contract && SerializableContractInstance.fromBuffer(contract).withAddress(address));
   }

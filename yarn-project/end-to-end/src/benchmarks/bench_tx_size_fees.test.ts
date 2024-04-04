@@ -1,50 +1,56 @@
 import {
-  type AccountWalletWithPrivateKey,
-  type AztecAddress,
-  type FeePaymentMethod,
+  type AztecNode,
+  type DeployL1Contracts,
+  type EthAddress,
   NativeFeePaymentMethod,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
   getContractClassFromArtifact,
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
+  type FeePaymentMethod,
 } from '@aztec/aztec.js';
 import { FPCContract, GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, publicDeployAccounts, setup } from '../fixtures/utils.js';
+import { publicDeployAccounts, setup } from '../fixtures/utils.js';
 
 jest.setTimeout(50_000);
 
 describe('benchmarks/tx_size_fees', () => {
-  let ctx: EndToEndContext;
   let aliceWallet: AccountWalletWithPrivateKey;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
   let gas: GasTokenContract;
   let fpc: FPCContract;
   let token: TokenContract;
+  let gasPortalAddress: EthAddress;
 
   // setup the environment
   beforeAll(async () => {
-    ctx = await setup(3);
-    aliceWallet = ctx.wallets[0];
-    bobAddress = ctx.wallets[1].getAddress();
-    sequencerAddress = ctx.wallets[2].getAddress();
+    const { wallets, aztecNode, deployL1ContractsValues } = await setup(3);
 
-    await ctx.aztecNode.setConfig({
+    gasPortalAddress = deployL1ContractsValues.l1ContractAddresses.gasPortalAddress;
+
+    aliceWallet = wallets[0];
+    bobAddress = wallets[1].getAddress();
+    sequencerAddress = wallets[2].getAddress();
+
+    await aztecNode.setConfig({
       feeRecipient: sequencerAddress,
       allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
     });
 
-    await publicDeployAccounts(aliceWallet, ctx.accounts);
+    await publicDeployAccounts(aliceWallet, wallets);
   });
 
   // deploy the contracts
   beforeAll(async () => {
     gas = await GasTokenContract.at(
-      getCanonicalGasTokenAddress(ctx.deployL1ContractsValues.l1ContractAddresses.gasPortalAddress),
+      getCanonicalGasTokenAddress(gasPortalAddress),
       aliceWallet,
     );
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
