@@ -24,6 +24,6 @@ Pseudo-randomness is required in cases such as:
 
 - Fiat-Shamir challenge generation.
 - Expanding a random seed to generate additional randomness.
-  - See the derivation of [master secret keys](../../addresses-and-keys/keys.md#master-keys).
+  - See the derivation of [master secret keys](../../addresses-and-keys/keys.mdx#master-keys).
 - Deriving a nullifier, and siloing a nullifier.
-  - See [deriving a nullifier](../../addresses-and-keys/keys.md#deriving-a-nullifier-within-an-app-contract).
+  - See [deriving a nullifier](../../addresses-and-keys/keys.mdx#deriving-a-nullifier-within-an-app-contract).

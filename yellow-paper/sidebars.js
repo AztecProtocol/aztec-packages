@@ -178,7 +178,6 @@ const sidebars = {
         "decentralization/p2p-network",
       ],
     },
-    // Protocol Statements?
     {
       label: "Circuits",
       type: "category",
