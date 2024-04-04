@@ -8,11 +8,15 @@ template <typename Flavor> class ECCVMVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
+    using ProvingKey = typename Flavor::ProvingKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
 
   public:
     explicit ECCVMVerifier_(const std::shared_ptr<VerificationKey>& verifier_key = nullptr);
+
+    explicit ECCVMVerifier_(const std::shared_ptr<ECCVMVerifier_::ProvingKey>& proving_key)
+        : ECCVMVerifier_(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const HonkProof& proof);
 

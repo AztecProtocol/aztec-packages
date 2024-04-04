@@ -14,7 +14,8 @@ template <IsECCVMFlavor Flavor>
 ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructor& circuit_constructor,
                                                                const std::shared_ptr<Transcript>& transcript)
 {
-    auto verification_key = compute_verification_key(circuit_constructor);
+    proving_key = std::make_shared<typename Flavor::ProvingKey>(circuit_constructor);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key);
 
     ECCVMVerifier_<Flavor> output_state(verification_key);
 
@@ -26,29 +27,6 @@ ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructo
     return output_state;
 }
 
-/**
- * Compute verification key consisting of selector precommitments.
- *
- * @return Pointer to created circuit verification key.
- * */
-template <IsECCVMFlavor Flavor>
-std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposer_<Flavor>::compute_verification_key(
-    CircuitConstructor& circuit_constructor)
-{
-    if (verification_key) {
-        return verification_key;
-    }
-
-    proving_key = std::make_shared<typename Flavor::ProvingKey>(circuit_constructor);
-    commitment_key = std::make_shared<typename Flavor::CommitmentKey>(proving_key->circuit_size);
-    verification_key =
-        std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);
-
-    verification_key->lagrange_first = commitment_key->commit(proving_key->lagrange_first);
-    verification_key->lagrange_second = commitment_key->commit(proving_key->lagrange_second);
-    verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
-    return verification_key;
-}
 template class ECCVMComposer_<ECCVMFlavor>;
 
 } // namespace bb

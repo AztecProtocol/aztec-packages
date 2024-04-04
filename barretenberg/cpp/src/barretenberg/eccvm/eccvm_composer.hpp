@@ -56,9 +56,6 @@ template <IsECCVMFlavor Flavor> class ECCVMComposer_ {
     ECCVMComposer_& operator=(ECCVMComposer_ const& other) noexcept = default;
     ~ECCVMComposer_() = default;
 
-    std::shared_ptr<ProvingKey> compute_proving_key(CircuitConstructor& circuit_constructor);
-    std::shared_ptr<VerificationKey> compute_verification_key(CircuitConstructor& circuit_constructor);
-
     ECCVMVerifier_<Flavor> create_verifier(
         CircuitConstructor& circuit_constructor,
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());

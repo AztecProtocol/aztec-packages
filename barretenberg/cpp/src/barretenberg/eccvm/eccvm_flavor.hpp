@@ -336,7 +336,29 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+      public:
+        std::vector<FF> public_inputs;
+
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+            : VerificationKey_(circuit_size, num_public_inputs)
+        {}
+
+        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
+            : public_inputs(proving_key->public_inputs)
+        {
+            // this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(); // WORKTODO
+            this->circuit_size = proving_key->circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = proving_key->num_public_inputs;
+            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+
+            for (auto [polynomial, commitment] :
+                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
+                commitment = proving_key->commitment_key->commit(polynomial);
+            }
+        }
+    };
 
     /**
      * @brief A container for polynomials produced after the first round of sumcheck.
