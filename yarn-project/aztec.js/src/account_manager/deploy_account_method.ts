@@ -12,12 +12,12 @@ import { type FunctionArtifact, encodeArguments, getInitializer } from '@aztec/f
 
 import { type AuthWitnessProvider } from '../account/interface.js';
 import { type ContractArtifact } from '../api/abi.js';
+import { BaseContractInteraction, type SendMethodOptions } from '../contract/base_contract_interaction.js';
+import { Contract } from '../contract/contract.js';
+import { type ContractBase } from '../contract/contract_base.js';
+import { DeploySentTx } from '../contract/deploy_sent_tx.js';
 import { EntrypointPayload } from '../entrypoint/payload.js';
 import { type ContractInstanceWithAddress } from '../index.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
-import { Contract } from './contract.js';
-import { type ContractBase } from './contract_base.js';
-import { DeploySentTx } from './deploy_sent_tx.js';
 
 /**
  * Options to pass to account contract initialization.
@@ -30,8 +30,7 @@ type DeployAccountOptions = {
 } & SendMethodOptions;
 
 /**
- * Contract interaction for deployment. Handles class registration, public instance deployment,
- * and initialization of the contract. Extends the BaseContractInteraction class.
+ * Contract interaction for deploying an account contract. Handles fee preparation and contract initialization.
  */
 export class DeployAccountMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
   private initializerArtifact?: FunctionArtifact;
@@ -43,6 +42,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     private publicKey: PublicKey,
     private artifact: ContractArtifact,
     private args: any[] = [],
+    private registerAccount: () => Promise<void>,
     initializerNameOrArtifact?: string | FunctionArtifact,
   ) {
     super(pxe);
@@ -87,6 +87,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
       [feeAuthWit],
     );
 
+    await this.registerAccount();
     await this.pxe.registerContract({ artifact: this.artifact, instance });
 
     return this.txRequest;

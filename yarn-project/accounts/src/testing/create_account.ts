@@ -28,16 +28,15 @@ export async function createAccounts(pxe: PXE, numberOfAccounts = 1): Promise<Ac
     // Unfortunately the function below is not stateless and we call it here because it takes a long time to run and
     // the results get stored within the account object. By calling it here we increase the probability of all the
     // accounts being deployed in the same block because it makes the deploy() method basically instant.
-    await account.getDeployMethod().then(d =>
-      d.prove({
-        contractAddressSalt: account.salt,
-      }),
-    );
+    const d = account.getDeployMethod();
+    await d.prove({
+      contractAddressSalt: account.salt,
+    });
     accounts.push(account);
   }
 
   // Send them and await them to be mined
-  const txs = await Promise.all(accounts.map(account => account.deploy()));
+  const txs = accounts.map(account => account.deploy());
   await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
   return Promise.all(accounts.map(account => account.getWallet()));
 }

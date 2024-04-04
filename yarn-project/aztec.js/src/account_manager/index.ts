@@ -6,12 +6,12 @@ import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type AccountContract } from '../account/contract.js';
 import { type Salt } from '../account/index.js';
 import { type AccountInterface } from '../account/interface.js';
-import { DeployAccountMethod } from '../contract/deploy_account_method.js';
 import { DefaultWaitOpts, type WaitOpts } from '../contract/sent_tx.js';
 import { type FeeOptions } from '../entrypoint/entrypoint.js';
 import { waitForAccountSynch } from '../utils/account.js';
 import { generatePublicKey } from '../utils/index.js';
 import { AccountWalletWithPrivateKey } from '../wallet/index.js';
+import { DeployAccountMethod } from './deploy_account_method.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 
 /**
@@ -119,14 +119,13 @@ export class AccountManager {
    * grained control on when to create, simulate, and send the deployment tx.
    * @returns A DeployMethod instance that deploys this account contract.
    */
-  public async getDeployMethod() {
+  public getDeployMethod() {
     if (!this.deployMethod) {
       if (!this.isDeployable()) {
         throw new Error(
           `Account contract ${this.accountContract.getContractArtifact().name} does not require deployment.`,
         );
       }
-      await this.#register();
       const encryptionPublicKey = this.getEncryptionPublicKey();
       // We use a signerless wallet so we hit the account contract directly and it deploys itself.
       // If we used getWallet, the deployment would get routed via the account contract entrypoint
@@ -134,10 +133,11 @@ export class AccountManager {
       const args = this.accountContract.getDeploymentArgs() ?? [];
       this.deployMethod = new DeployAccountMethod(
         this.pxe,
-        await this.getAccount(),
+        this.accountContract.getAuthWitnessProvider(this.getCompleteAddress()),
         encryptionPublicKey,
         this.accountContract.getContractArtifact(),
         args,
+        () => this.#register(),
       );
     }
     return this.deployMethod;
@@ -151,14 +151,13 @@ export class AccountManager {
    * @param fee - Fee to be paid for the deployment.
    * @returns A SentTx object that can be waited to get the associated Wallet.
    */
-  public async deploy(fee?: FeeOptions): Promise<DeployAccountSentTx> {
-    const deployMethod = await this.getDeployMethod();
-    const wallet = await this.getWallet();
+  public deploy(fee?: FeeOptions): DeployAccountSentTx {
+    const deployMethod = this.getDeployMethod();
     const sentTx = deployMethod.send({
       contractAddressSalt: this.salt,
       fee,
     });
-    return new DeployAccountSentTx(wallet, sentTx.getTxHash());
+    return new DeployAccountSentTx(this.pxe, sentTx.getTxHash(), this.getWallet());
   }
 
   /**
@@ -169,7 +168,7 @@ export class AccountManager {
    * @returns A Wallet instance.
    */
   public async waitSetup(opts: WaitOpts = DefaultWaitOpts): Promise<AccountWalletWithPrivateKey> {
-    await (this.isDeployable() ? this.deploy().then(tx => tx.wait(opts)) : this.register());
+    await (this.isDeployable() ? this.deploy().wait(opts) : this.register());
     return this.getWallet();
   }
 

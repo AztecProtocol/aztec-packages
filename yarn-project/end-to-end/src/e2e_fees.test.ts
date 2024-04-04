@@ -680,12 +680,12 @@ describe('e2e_fees', () => {
     });
 
     it('pays fee natively', async () => {
-      await (
-        await accountManager.deploy({
+      await accountManager
+        .deploy({
           maxFee,
           paymentMethod: await NativeFeePaymentMethod.create(await accountManager.getWallet()),
         })
-      ).wait();
+        .wait();
 
       await expect(gasBalances(accountManager.getCompleteAddress().address, sequencerAddress)).resolves.toEqual([
         initialGas - actualFee,

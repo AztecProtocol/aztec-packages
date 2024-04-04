@@ -61,7 +61,7 @@ export async function deployInitialTestAccounts(pxe: PXE) {
 
   const sentTxs: DeploySentTx[] = [];
   for (const { account } of accounts) {
-    const deploymentMethod = await account.getDeployMethod();
+    const deploymentMethod = account.getDeployMethod();
 
     // pxe needs to prove txs one-by-one
     // this is because the tx use capsules and the capsule stack is a shared resource
