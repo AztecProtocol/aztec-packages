@@ -134,6 +134,8 @@ fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool
 
         // Apply transformations to the function based on collected attributes
         if is_private || is_public || is_public_vm {
+            let stub = stub_function(fn_type, func);
+            stubs.push(stub);
             let fn_type = if is_private {
                 "Private"
             } else if is_public_vm {
@@ -141,8 +143,7 @@ fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool
             } else {
                 "Public"
             };
-            let stub = stub_function(fn_type, func);
-            stubs.push(stub);
+            export_fn_abi(&mut module.types, func)?;
             transform_function(
                 fn_type,
                 func,
