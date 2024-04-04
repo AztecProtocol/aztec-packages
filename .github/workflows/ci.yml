@@ -22,7 +22,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_instance_type: c5.4xlarge
-          ec2_ami_id: ami-0d118c6e63bcb554e
+          ec2_ami_id: ami-04d8422a9ba4de80f
           ec2_subnet_id: "SUBNET_ID_REDACTED"
           ec2_instance_tags: '[]'
           github_action_runner_version: v2.315.0
