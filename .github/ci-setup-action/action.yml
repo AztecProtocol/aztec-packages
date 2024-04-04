@@ -19,7 +19,7 @@ runs:
       uses: actions/cache@v3
       with:
         path: .git
-        key: submodules-${{ hashFiles('.gitmodules') }}
+        key: submodules-${{ hashFiles('.gitmodules') }}-test
 
     - name: Checkout Submodules
       shell: bash
