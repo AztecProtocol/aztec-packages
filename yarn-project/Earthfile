@@ -49,7 +49,7 @@ aztec-prod:
 
 aztec-prod-slim:
     FROM node:18.19.1-slim
-    COPY +build-prod/usr/src /usr/src
+    COPY +aztec-prod/usr/src /usr/src
 
 aztec:
     FROM +aztec-prod-slim
