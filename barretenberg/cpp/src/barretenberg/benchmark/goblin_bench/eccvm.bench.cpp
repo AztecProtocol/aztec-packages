@@ -49,7 +49,7 @@ void eccvm_generate_prover(State& state) noexcept
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         Builder builder = generate_trace(target_num_gates);
-        ECCVMProver_<ECCVMFlavor> prover(builder);
+        ECCVMProver prover(builder);
     };
 }
 
@@ -59,7 +59,7 @@ void eccvm_prove(State& state) noexcept
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     Builder builder = generate_trace(target_num_gates);
-    ECCVMProver_<ECCVMFlavor> prover(builder);
+    ECCVMProver prover(builder);
     for (auto _ : state) {
         auto proof = prover.construct_proof();
     };

@@ -11,8 +11,8 @@ namespace bb {
 
 // We won't compile this class with Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
-template <IsECCVMFlavor Flavor> class ECCVMProver_ {
-
+class ECCVMProver {
+    using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
     using PCSCommitmentKey = typename Flavor::CommitmentKey;
@@ -27,12 +27,12 @@ template <IsECCVMFlavor Flavor> class ECCVMProver_ {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
 
   public:
-    explicit ECCVMProver_(const std::shared_ptr<ProvingKey>& input_key,
-                          const std::shared_ptr<PCSCommitmentKey>& commitment_key,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit ECCVMProver(const std::shared_ptr<ProvingKey>& input_key,
+                         const std::shared_ptr<PCSCommitmentKey>& commitment_key,
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit ECCVMProver_(CircuitBuilder& builder,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit ECCVMProver(CircuitBuilder& builder,
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     void compute_witness(CircuitBuilder& circuit_constructor); // WORKTODO: not in use?
 
     BB_PROFILE void execute_preamble_round();

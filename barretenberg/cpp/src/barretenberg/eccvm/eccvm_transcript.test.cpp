@@ -243,7 +243,7 @@ TEST_F(ECCVMTranscriptTests, ProverManifestConsistency)
     auto builder = this->generate_trace(&engine);
 
     // Automatically generate a transcript manifest by constructing a proof
-    ECCVMProver_<Flavor> prover(builder);
+    ECCVMProver prover(builder);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -267,7 +267,7 @@ TEST_F(ECCVMTranscriptTests, VerifierManifestConsistency)
     auto builder = this->generate_trace(&engine);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    ECCVMProver_<Flavor> prover(builder);
+    ECCVMProver prover(builder);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
@@ -319,7 +319,7 @@ TEST_F(ECCVMTranscriptTests, StructureTest)
     auto builder = this->generate_trace(&engine);
 
     // Automatically generate a transcript manifest by constructing a proof
-    ECCVMProver_<Flavor> prover(builder);
+    ECCVMProver prover(builder);
     auto proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
     EXPECT_TRUE(verifier.verify_proof(proof));

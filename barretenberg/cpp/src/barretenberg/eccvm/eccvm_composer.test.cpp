@@ -58,7 +58,7 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
 TEST_F(ECCVMComposerTests, BaseCase)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
-    ECCVMProver_<ECCVMFlavor> prover(builder);
+    ECCVMProver prover(builder);
     auto proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
     bool verified = verifier.verify_proof(proof);
@@ -80,7 +80,7 @@ TEST_F(ECCVMComposerTests, EqFails)
                                                            .z2 = 0,
                                                            .mul_scalar_full = 0 });
     builder.op_queue->num_transcript_rows++;
-    ECCVMProver_<ECCVMFlavor> prover(builder);
+    ECCVMProver prover(builder);
 
     auto proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
