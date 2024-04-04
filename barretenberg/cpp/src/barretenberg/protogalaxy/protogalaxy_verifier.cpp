@@ -72,7 +72,6 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     constexpr FF inverse_two = FF(2).invert();
-    constexpr FF inverse_six = FF(6).invert();
     FF vanishing_polynomial_at_challenge;
     std::array<FF, VerifierInstances::NUM> lagranges;
     if constexpr (VerifierInstances::NUM == 2) {
@@ -84,7 +83,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
         lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * inverse_two,
                       combiner_challenge * (FF(2) - combiner_challenge),
                       combiner_challenge * (combiner_challenge - FF(1)) * inverse_two };
-    } else if (VerifierInstances::NUM == 4) {
+    } else if constexpr (VerifierInstances::NUM == 4) {
+        constexpr FF inverse_six = FF(6).invert();
         vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1)) *
                                             (combiner_challenge - FF(2)) * (combiner_challenge - FF(3));
         lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * (FF(3) - combiner_challenge) *
