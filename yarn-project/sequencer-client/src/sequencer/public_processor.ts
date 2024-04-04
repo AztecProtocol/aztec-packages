@@ -1,26 +1,26 @@
 import {
-  FailedTx,
-  ProcessedTx,
-  SimulationError,
+  type FailedTx,
+  type ProcessedTx,
+  type SimulationError,
   Tx,
-  getPreviousOutputAndProof,
   makeEmptyProcessedTx,
   makeProcessedTx,
   toTxEffect,
   validateProcessedTx,
 } from '@aztec/circuit-types';
-import { TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
-import { GlobalVariables, Header } from '@aztec/circuits.js';
+import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
+import { type GlobalVariables, type Header, type KernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { type ProcessReturnValues } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { PublicExecutor, PublicStateDB, SimulationProvider } from '@aztec/simulator';
-import { ContractDataSource } from '@aztec/types/contracts';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { PublicExecutor, type PublicStateDB, type SimulationProvider } from '@aztec/simulator';
+import { type ContractDataSource } from '@aztec/types/contracts';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { AbstractPhaseManager } from './abstract_phase_manager.js';
+import { type AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
 
 /**
@@ -84,60 +84,21 @@ export class PublicProcessor {
    * @param txs - Txs to process.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: Tx[]): Promise<[ProcessedTx[], FailedTx[]]> {
+  public async process(txs: Tx[]): Promise<[ProcessedTx[], FailedTx[], ProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
     txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
+    const returns: ProcessReturnValues[] = [];
 
     for (const tx of txs) {
-      let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
-        tx,
-        this.db,
-        this.publicExecutor,
-        this.publicKernel,
-        this.globalVariables,
-        this.historicalHeader,
-        this.publicContractsDB,
-        this.publicStateDB,
-      );
-      this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
-      let { publicKernelPublicInput, previousProof: proof } = getPreviousOutputAndProof(tx, undefined, undefined);
-      let revertReason: SimulationError | undefined;
-      const timer = new Timer();
       try {
-        while (phase) {
-          const output = await phase.handle(tx, publicKernelPublicInput, proof);
-          publicKernelPublicInput = output.publicKernelOutput;
-          proof = output.publicKernelProof;
-          revertReason ??= output.revertReason;
-          phase = PhaseManagerFactory.phaseFromOutput(
-            publicKernelPublicInput,
-            phase,
-            this.db,
-            this.publicExecutor,
-            this.publicKernel,
-            this.globalVariables,
-            this.historicalHeader,
-            this.publicContractsDB,
-            this.publicStateDB,
-          );
-        }
-
-        const processedTransaction = makeProcessedTx(tx, publicKernelPublicInput, proof, revertReason);
-        validateProcessedTx(processedTransaction);
-
-        result.push(processedTransaction);
-
-        this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
-          eventName: 'tx-sequencer-processing',
-          duration: timer.ms(),
-          effectsSize: toTxEffect(processedTransaction).toBuffer().length,
-          publicDataUpdateRequests:
-            processedTransaction.data.combinedData.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ??
-            0,
-          ...tx.getStats(),
-        } satisfies TxSequencerProcessingStats);
+        const [processedTx, returnValues] = !tx.hasPublicCalls()
+          ? [makeProcessedTx(tx, tx.data.toKernelCircuitPublicInputs(), tx.proof)]
+          : await this.processTxWithPublicCalls(tx);
+        validateProcessedTx(processedTx);
+        result.push(processedTx);
+        returns.push(returnValues);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
@@ -146,10 +107,11 @@ export class PublicProcessor {
           tx,
           error: err instanceof Error ? err : new Error(errorMessage),
         });
+        returns.push([]);
       }
     }
 
-    return [result, failed];
+    return [result, failed, returns];
   }
 
   /**
@@ -159,5 +121,63 @@ export class PublicProcessor {
   public makeEmptyProcessedTx(): ProcessedTx {
     const { chainId, version } = this.globalVariables;
     return makeEmptyProcessedTx(this.historicalHeader, chainId, version);
+  }
+
+  private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, ProcessReturnValues | undefined]> {
+    let returnValues: ProcessReturnValues = undefined;
+    let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
+      tx,
+      this.db,
+      this.publicExecutor,
+      this.publicKernel,
+      this.globalVariables,
+      this.historicalHeader,
+      this.publicContractsDB,
+      this.publicStateDB,
+    );
+    this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
+    let proof = tx.proof;
+    let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
+    let finalKernelOutput: KernelCircuitPublicInputs | undefined;
+    let revertReason: SimulationError | undefined;
+    const timer = new Timer();
+    while (phase) {
+      const output = await phase.handle(tx, publicKernelPublicInput, proof);
+      if (phase.phase === PublicKernelPhase.APP_LOGIC) {
+        returnValues = output.returnValues;
+      }
+      publicKernelPublicInput = output.publicKernelOutput;
+      finalKernelOutput = output.finalKernelOutput;
+      proof = output.publicKernelProof;
+      revertReason ??= output.revertReason;
+      phase = PhaseManagerFactory.phaseFromOutput(
+        publicKernelPublicInput,
+        phase,
+        this.db,
+        this.publicExecutor,
+        this.publicKernel,
+        this.globalVariables,
+        this.historicalHeader,
+        this.publicContractsDB,
+        this.publicStateDB,
+      );
+    }
+
+    if (!finalKernelOutput) {
+      throw new Error('Final public kernel was not executed.');
+    }
+
+    const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, revertReason);
+
+    this.log(`Processed public part of ${tx.getTxHash()}`, {
+      eventName: 'tx-sequencer-processing',
+      duration: timer.ms(),
+      effectsSize: toTxEffect(processedTx).toBuffer().length,
+      publicDataUpdateRequests:
+        processedTx.data.end.publicDataUpdateRequests.filter(x => !x.leafSlot.isZero()).length ?? 0,
+      ...tx.getStats(),
+    } satisfies TxSequencerProcessingStats);
+
+    return [processedTx, returnValues];
   }
 }

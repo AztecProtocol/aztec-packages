@@ -1,8 +1,8 @@
 import {
-  AccountWallet,
-  AztecAddress,
-  AztecNode,
-  DebugLogger,
+  type AccountWallet,
+  type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
   EthAddress,
   Fr,
   L1Actor,
@@ -11,7 +11,7 @@ import {
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
+import { type TokenBridgeContract, type TokenContract } from '@aztec/noir-contracts.js';
 
 import { toFunctionSelector } from 'viem/utils';
 
@@ -173,7 +173,7 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
 
     // send the right one -
@@ -210,7 +210,7 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user1Wallet)
         .methods.exit_to_l1_private(l2Token.address, ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
   }, 120_000);
 
@@ -250,7 +250,7 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 120_000);
 });

@@ -1,7 +1,7 @@
 import {
-  AccountWalletWithPrivateKey,
-  AztecAddress,
-  FeePaymentMethod,
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
+  type FeePaymentMethod,
   Fr,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
@@ -21,8 +21,8 @@ import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token
 import { jest } from '@jest/globals';
 
 import {
-  BalancesFn,
-  EndToEndContext,
+  type BalancesFn,
+  type EndToEndContext,
   expectMapping,
   getBalancesFn,
   publicDeployAccounts,
@@ -209,11 +209,11 @@ describe('e2e_dapp_subscription', () => {
     const dappPayload = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
     const action = counterContract.methods.increment(bobAddress).request();
     const txExReq = await dappPayload.createTxExecutionRequest([action]);
-    const tx = await pxe.simulateTx(txExReq, true);
+    const tx = await pxe.proveTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     await sentTx.wait();
 
-    expect(await counterContract.methods.get_counter(bobAddress).view()).toBe(1n);
+    expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
 
     await expectMapping(
       gasBalances,
@@ -264,7 +264,7 @@ describe('e2e_dapp_subscription', () => {
     const dappEntrypoint = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
     const action = counterContract.methods.increment(bobAddress).request();
     const txExReq = await dappEntrypoint.createTxExecutionRequest([action]);
-    const tx = await pxe.simulateTx(txExReq, true);
+    const tx = await pxe.proveTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();
   }

@@ -1,5 +1,5 @@
 // Test suite for testing proper ordering of side effects
-import { Fr, FunctionSelector, PXE, Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 
@@ -58,10 +58,7 @@ describe('e2e_ordering', () => {
         async method => {
           const expectedOrder = expectedOrders[method];
           const action = parent.methods[method](child.address, pubSetValueSelector);
-          const tx = await action.simulate();
-          expect(tx.data.needsSetup).toBe(false);
-          expect(tx.data.needsAppLogic).toBe(true);
-          expect(tx.data.needsTeardown).toBe(false);
+          const tx = await action.prove();
 
           await action.send().wait();
 
@@ -71,7 +68,7 @@ describe('e2e_ordering', () => {
 
           // The call stack items in the output of the kernel proof match the tx enqueuedPublicFunctionCalls
           const callStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
-          expect(tx.data.end.publicCallStack.slice(0, 2)).toEqual(callStackItems);
+          expect(tx.data.forPublic!.end.publicCallStack.slice(0, 2)).toEqual(callStackItems);
 
           // The enqueued public calls are in the expected order based on the argument they set (stack is reversed!)
           expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual([...expectedOrder].reverse());
