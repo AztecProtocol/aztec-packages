@@ -109,6 +109,8 @@ private_function_leaf_crh(
 
 Even though not enforced by the protocol, it is suggested for the `artifact_hash` to follow this general structure, in order to be compatible with the definition of the [`broadcast` function below](#broadcast).
 
+Note: below, `sha256_modulo(x) = sha256(x) % FIELD_MODULUS`. This approach must not be used if seeking pseudo-randomness, but can be used for collision resistance.
+
 <!-- HASH DEFINITION -->
 
 ```rust
@@ -116,8 +118,8 @@ artifact_crh(
   artifact // This type is out of protocol, e.g. the format output by Nargo
 ) -> Field {
 
-  let private_functions_artifact_leaves: [u8; 32][] = artifact.private_functions.map(|f|
-    sha256(
+  let private_functions_artifact_leaves: Field[] = artifact.private_functions.map(|f|
+    sha256_modulo(
       be_string_to_bits("az_artifact_private_function_leaf"),
 
       f.selector, // 32-bits
@@ -125,10 +127,10 @@ artifact_crh(
       sha256(f.private_bytecode)
     )
   );
-  let private_functions_artifact_tree_root: [u8; 32] = merkleize(private_functions_artifact_leaves);
+  let private_functions_artifact_tree_root: Field = merkleize(private_functions_artifact_leaves);
 
-  let unconstrained_functions_artifact_leaves: [u8; 32][] = artifact.unconstrained_functions.map(|f|
-    sha256(
+  let unconstrained_functions_artifact_leaves: Field[] = artifact.unconstrained_functions.map(|f|
+    sha256_modulo(
       be_string_to_bits("az_artifact_unconstrained_function_leaf"),
 
       f.selector, // 32-bits
@@ -136,9 +138,9 @@ artifact_crh(
       sha256(f.unconstrained_bytecode)
     )
   );
-  let unconstrained_functions_artifact_tree_root: [u8; 32] = merkleize(unconstrained_functions_artifact_leaves);
+  let unconstrained_functions_artifact_tree_root: Field = merkleize(unconstrained_functions_artifact_leaves);
 
-  let artifact_hash_256_bit: [u8; 32] = sha256(
+  let artifact_hash: Field = sha256_modulo(
     be_string_to_field("az_artifact"),
 
     private_functions_artifact_tree_root, // 256-bits
@@ -165,10 +167,10 @@ The metadata hash for each function is suggested to be computed as the sha256 of
 ```rust
 function_metadata_crh(
   function // This type is out of protocol, e.g. the format output by Nargo
-) -> [u8; 32] {
+) -> Field {
   let function_metadata = omit(function, "bytecode", "debug_symbols");
 
-  let function_metadata_hash: [u8; 32] = sha256(
+  let function_metadata_hash: Field = sha256_modulo(
     be_string_to_bits("az_function_metadata"),
 
     json_serialize(function_metadata)
@@ -183,10 +185,10 @@ The artifact metadata stores all data that is not contained within the contract 
 ```rust
 artifact_metadata_crh(
   artifact // This type is out of protocol, e.g. the format output by Nargo
-) -> [u8; 32] {
+) -> Field {
   let artifact_metadata = omit(artifact, "functions", "file_map");
 
-  let artifact_metadata_hash: [u8; 32] = sha256(
+  let artifact_metadata_hash: Field = sha256_modulo(
     be_string_to_bits("az_artifact_metadata"),
 
     json_serialize(artifact_metadata)

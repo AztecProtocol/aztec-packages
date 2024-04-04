@@ -40,10 +40,6 @@ The leaves of a tree are indexed from `0`. The first, [left-most](#orientation) 
 
 All nodes of the tree (including the leaves) can be indexed. The method of indexing might depend on the algorithm being applied to the tree.
 
-### Relationships
-
-The terms "parent", "child", "sibling", "ancestor", "descendant", are the well-known definitions.
-
 ### Path
 
 The path from (or "of") a particular node is a vector of that node's ancestors. That is, the node's parent, then its parent's parent, and so on, all the way up to and including the root.
@@ -52,6 +48,15 @@ The path from (or "of") a particular node is a vector of that node's ancestors. 
 
 The sibling path of a particular node is, loosely, a vector of the siblings of the nodes in its [path](#path), except it also includes the node's sibling, and excludes the root (which has no sibling).
 The first element in the sibling path is the node's sibling. Then, the node's parent's sibling, then its parent's parent's sibling, and so on.
+
+### Membership Witness
+
+The membership witness for a particular leaf, is the minimum data needed to prove that leaf value's existence in the tree. That is:
+
+- The leaf's [leaf index](#leaf-index)
+- The leaf's [sibling path](#sibling-path)
+
+(and the leaf value itself, of course, but we don't include that in this "membership witness" definition).
 
 ## Hashing
 
