@@ -107,13 +107,6 @@ export class Synchronizer {
 
       const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
-      // TODO(benesjan): nuke this check - it's here to verify that the filter is followed
-      blocks.forEach(block => {
-        if (block.number < from) {
-          throw new Error('Unexpected block number');
-        }
-      });
-
       // Update latest tree roots from the most recent block
       const latestBlock = blocks[blocks.length - 1];
       await this.setHeaderFromBlock(latestBlock);
