@@ -35,32 +35,6 @@ template <IsECCVMFlavor Flavor> class ECCVMComposer_ {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
     bool computed_witness = false;
-    ECCVMComposer_()
-        requires(std::same_as<Flavor, ECCVMFlavor>)
-    {
-        crs_factory_ = bb::srs::get_grumpkin_crs_factory();
-    };
-
-    explicit ECCVMComposer_(std::shared_ptr<bb::srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory)
-        : crs_factory_(std::move(crs_factory))
-    {}
-
-    ECCVMComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
-        : proving_key(std::move(p_key))
-        , verification_key(std::move(v_key))
-    {}
-
-    ECCVMComposer_(ECCVMComposer_&& other) noexcept = default;
-    ECCVMComposer_(ECCVMComposer_ const& other) noexcept = default;
-    ECCVMComposer_& operator=(ECCVMComposer_&& other) noexcept = default;
-    ECCVMComposer_& operator=(ECCVMComposer_ const& other) noexcept = default;
-    ~ECCVMComposer_() = default;
-
-    ECCVMVerifier_<Flavor> create_verifier(
-        CircuitConstructor& circuit_constructor,
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-
-    void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
 };
 
 // TODO(#532): this pattern is weird; is this not instantiating the templates?

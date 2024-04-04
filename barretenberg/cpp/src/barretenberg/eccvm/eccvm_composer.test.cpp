@@ -75,7 +75,7 @@ TYPED_TEST(ECCVMComposerTests, BaseCase)
     ECCVMProver_<ECCVMFlavor> prover(builder);
 
     auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
+    ECCVMVerifier verifier(prover.key);
     bool verified = verifier.verify_proof(proof);
 
     ASSERT_TRUE(verified);
@@ -101,7 +101,7 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
     ECCVMProver_<ECCVMFlavor> prover(builder);
 
     auto proof = prover.construct_proof();
-    auto verifier = composer.create_verifier(builder);
+    ECCVMVerifier verifier(prover.key);
     bool verified = verifier.verify_proof(proof);
     ASSERT_FALSE(verified);
 }

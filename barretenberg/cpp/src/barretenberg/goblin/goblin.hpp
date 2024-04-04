@@ -205,7 +205,7 @@ class Goblin {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
-        auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
+        ECCVMVerifier eccvm_verifier(eccvm_prover->key);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
         GoblinTranslatorVerifier translator_verifier(translator_prover->key, eccvm_verifier.transcript);
@@ -292,7 +292,7 @@ class Goblin {
         // MergeVerifier merge_verifier;
         // bool merge_verified = merge_verifier.verify_proof(goblin_proof.merge_proof);
 
-        auto eccvm_verifier = eccvm_composer->create_verifier(*eccvm_builder);
+        ECCVMVerifier eccvm_verifier(eccvm_prover->key);
         bool eccvm_verified = eccvm_verifier.verify_proof(goblin_proof.eccvm_proof);
 
         GoblinTranslatorVerifier translator_verifier(translator_prover->key, eccvm_verifier.transcript);
