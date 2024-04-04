@@ -4,7 +4,8 @@
 #include <vector>
 
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
-#include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -71,7 +72,6 @@ TYPED_TEST(ECCVMComposerTests, BaseCase)
 
     auto builder = generate_circuit<Flavor>(&engine);
 
-    auto composer = ECCVMComposer_<Flavor>();
     ECCVMProver_<ECCVMFlavor> prover(builder);
 
     auto proof = prover.construct_proof();
@@ -97,7 +97,6 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
                                                            .z2 = 0,
                                                            .mul_scalar_full = 0 });
     builder.op_queue->num_transcript_rows++;
-    auto composer = ECCVMComposer_<Flavor>();
     ECCVMProver_<ECCVMFlavor> prover(builder);
 
     auto proof = prover.construct_proof();

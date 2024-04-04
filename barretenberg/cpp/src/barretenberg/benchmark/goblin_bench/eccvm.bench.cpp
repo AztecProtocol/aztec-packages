@@ -1,14 +1,14 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
-#include "barretenberg/eccvm/eccvm_composer.hpp"
+#include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/eccvm/eccvm_verifier.hpp"
 
 using namespace benchmark;
 using namespace bb;
 
 using Flavor = ECCVMFlavor;
 using Builder = ECCVMCircuitBuilder;
-using Composer = ECCVMComposer;
 
 namespace {
 
@@ -49,7 +49,6 @@ void eccvm_generate_prover(State& state) noexcept
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
         Builder builder = generate_trace(target_num_gates);
-        Composer composer;
         ECCVMProver_<ECCVMFlavor> prover(builder);
     };
 }
@@ -60,7 +59,6 @@ void eccvm_prove(State& state) noexcept
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     Builder builder = generate_trace(target_num_gates);
-    Composer composer;
     ECCVMProver_<ECCVMFlavor> prover(builder);
     for (auto _ : state) {
         auto proof = prover.construct_proof();
