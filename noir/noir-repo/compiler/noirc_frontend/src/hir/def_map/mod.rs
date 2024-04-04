@@ -246,35 +246,6 @@ impl CrateDefMap {
                         }
                     });
 
-                    let mut outputs =
-                        ContractOutputs { structs: HashMap::new(), globals: HashMap::new() };
-
-                    interner.get_all_globals().iter().for_each(|global_info| {
-                        interner.global_attributes(&global_info.id).iter().for_each(|attr| {
-                            if let SecondaryAttribute::Abi(tag) = attr {
-                                if let Some(tagged) = outputs.globals.get_mut(tag) {
-                                    tagged.push(global_info.id);
-                                } else {
-                                    outputs.globals.insert(tag.to_string(), vec![global_info.id]);
-                                }
-                            }
-                        });
-                    });
-
-                    module.type_definitions().for_each(|id| {
-                        if let ModuleDefId::TypeId(struct_id) = id {
-                            interner.struct_attributes(&struct_id).iter().for_each(|attr| {
-                                if let SecondaryAttribute::Abi(tag) = attr {
-                                    if let Some(tagged) = outputs.structs.get_mut(tag) {
-                                        tagged.push(struct_id);
-                                    } else {
-                                        outputs.structs.insert(tag.to_string(), vec![struct_id]);
-                                    }
-                                }
-                            });
-                        }
-                    });
-
                     let name = self.get_module_path(id, module.parent);
                     Some(Contract { name, location: module.location, functions, outputs })
                 } else {
