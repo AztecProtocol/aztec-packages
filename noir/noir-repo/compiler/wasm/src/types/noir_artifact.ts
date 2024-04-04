@@ -31,6 +31,7 @@ export interface StructValue {
 }
 
 export interface TupleValue {
+  kind: "tuple";
   fields: AbiValue[];
 }
 
