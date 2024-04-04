@@ -12,7 +12,7 @@ import {
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import { SnapshotManager, addAccounts, publicDeployAccounts } from '../fixtures/setup.js';
+import { SnapshotManager, addAccounts, publicDeployAccounts } from '../fixtures/snapshot_manager.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath = './data' } = process.env;
