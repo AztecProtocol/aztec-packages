@@ -9,15 +9,12 @@ import {
   TxStatus,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
-  type AccountWalletWithPrivateKey,
   type AztecAddress,
-  type AztecNode,
   type DebugLogger,
-  type DeployL1Contracts,
   type FunctionCall,
-  type PXE,
   type TxHash,
   type Wallet,
+  type AccountWallet
 } from '@aztec/aztec.js';
 import { FunctionData, getContractClassFromArtifact } from '@aztec/circuits.js';
 import { decodeFunctionSignature, type ContractArtifact } from '@aztec/foundation/abi';
@@ -47,6 +44,7 @@ const BRIDGED_FPC_GAS = 500n;
 jest.setTimeout(1_000_000_000);
 
 describe('e2e_fees', () => {
+  let wallets: AccountWallet[];
   let aliceWallet: Wallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
@@ -63,7 +61,8 @@ describe('e2e_fees', () => {
 
   beforeAll(async () => {
 
-    const { wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3);
+    const { wallets: _wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3);
+    wallets = _wallets;
     
     await aztecNode.setConfig({
       allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
