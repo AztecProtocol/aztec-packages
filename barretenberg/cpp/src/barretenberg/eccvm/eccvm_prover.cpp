@@ -40,7 +40,7 @@ ECCVMProver::ECCVMProver(const std::shared_ptr<ProvingKey>& input_key,
 
 ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
 {
-    BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_prover");
+    BB_OP_COUNT_TIME_NAME("ECCVMProver(CircuitBuilder&)");
     // compute wire polynomials and copy into proving key
     auto local_key = std::make_shared<ProvingKey>(builder);
     ProverPolynomials polynomials(builder); // WORKTODO: inefficient

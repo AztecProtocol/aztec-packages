@@ -311,7 +311,6 @@ class ECCVMFlavor {
             : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>(
                   builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
         {
-            BB_OP_COUNT_TIME_NAME("ECCVMComposer::create_proving_key");
             const auto [_lagrange_first, _lagrange_last] =
                 compute_first_and_last_lagrange_polynomials<FF>(circuit_size);
             lagrange_first = _lagrange_first;
