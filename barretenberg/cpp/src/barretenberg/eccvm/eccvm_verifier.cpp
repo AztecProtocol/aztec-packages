@@ -2,15 +2,13 @@
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace bb {
+namespace bb::eccvm {
 
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  */
 bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 {
-    using ZeroMorph = ZeroMorphVerifier_<PCS>;
-
     RelationParameters<FF> relation_parameters;
     transcript = std::make_shared<Transcript>(proof);
     VerifierCommitments commitments{ key };
@@ -136,13 +134,13 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
         return false;
     }
 
-    bool multivariate_opening_verified = ZeroMorph::verify(commitments.get_unshifted(),
-                                                           commitments.get_to_be_shifted(),
-                                                           claimed_evaluations.get_unshifted(),
-                                                           claimed_evaluations.get_shifted(),
-                                                           multivariate_challenge,
-                                                           key->pcs_verification_key,
-                                                           transcript);
+    bool multivariate_opening_verified = ZeroMorphVerifier_<PCS>::verify(commitments.get_unshifted(),
+                                                                         commitments.get_to_be_shifted(),
+                                                                         claimed_evaluations.get_unshifted(),
+                                                                         claimed_evaluations.get_shifted(),
+                                                                         multivariate_challenge,
+                                                                         key->pcs_verification_key,
+                                                                         transcript);
     // Execute transcript consistency univariate opening round
     // TODO(#768): Find a better way to do this. See issue for details.
     bool univariate_opening_verified = false;
@@ -188,4 +186,4 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 
     return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
 }
-} // namespace bb
+} // namespace bb::eccvm

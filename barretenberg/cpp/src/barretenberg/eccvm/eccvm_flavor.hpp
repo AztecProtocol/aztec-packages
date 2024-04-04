@@ -1241,4 +1241,29 @@ class ECCVMFlavor {
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
+namespace eccvm {
+using Flavor = ECCVMFlavor;
+using CircuitBuilder = ECCVMCircuitBuilder;
+using CycleGroup = bb::g1;
+using Curve = curve::Grumpkin;
+using G1 = typename Curve::Group;
+using PCS = IPA<Curve>;
+using FF = typename G1::subgroup_field;
+using Polynomial = bb::Polynomial<FF>;
+using GroupElement = typename G1::element;
+using Commitment = typename G1::affine_element;
+using CommitmentKey = bb::CommitmentKey<Curve>;
+using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+using RelationSeparator = FF;
+
+using ProvingKey = typename ECCVMFlavor::ProvingKey;
+using VerificationKey = typename ECCVMFlavor::VerificationKey;
+using AllValues = typename ECCVMFlavor::AllValues;
+using PartiallyEvaluatedMultivariates = typename ECCVMFlavor::PartiallyEvaluatedMultivariates;
+using ProverPolynomials = typename ECCVMFlavor::ProverPolynomials;
+using CommitmentLabels = typename ECCVMFlavor::CommitmentLabels;
+using VerifierCommitments = typename ECCVMFlavor::VerifierCommitments;
+using Transcript = typename ECCVMFlavor::Transcript;
+
+} // namespace eccvm
 } // namespace bb

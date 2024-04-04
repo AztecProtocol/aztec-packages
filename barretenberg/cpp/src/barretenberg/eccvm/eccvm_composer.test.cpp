@@ -14,7 +14,8 @@
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
 using namespace bb;
-using G1 = bb::g1;
+using namespace bb::eccvm;
+
 using Fr = bb::fr;
 
 class ECCVMComposerTests : public ::testing::Test {
@@ -29,11 +30,11 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
 {
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
-    auto generators = G1::derive_generators("test generators", 3);
+    auto generators = CycleGroup::derive_generators("test generators", 3);
 
-    typename G1::element a = generators[0];
-    typename G1::element b = generators[1];
-    typename G1::element c = generators[2];
+    typename CycleGroup::element a = generators[0];
+    typename CycleGroup::element b = generators[1];
+    typename CycleGroup::element c = generators[2];
     Fr x = Fr::random_element(engine);
     Fr y = Fr::random_element(engine);
 
@@ -68,14 +69,14 @@ TEST_F(ECCVMComposerTests, BaseCase)
 
 TEST_F(ECCVMComposerTests, EqFails)
 {
-    using ECCVMOperation = eccvm::VMOperation<G1>;
+    using ECCVMOperation = eccvm::VMOperation<CycleGroup>;
     auto builder = generate_circuit(&engine);
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->raw_ops.emplace_back(ECCVMOperation{ .add = false,
                                                            .mul = false,
                                                            .eq = true,
                                                            .reset = true,
-                                                           .base_point = G1::affine_one,
+                                                           .base_point = CycleGroup::affine_one,
                                                            .z1 = 0,
                                                            .z2 = 0,
                                                            .mul_scalar_full = 0 });
