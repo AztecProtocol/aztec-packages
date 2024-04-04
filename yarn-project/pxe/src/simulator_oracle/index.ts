@@ -101,12 +101,6 @@ export class SimulatorOracle implements DBOracle {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionArtifactWithDebugMetadata> {
-    // tady 1
-    {
-      // TODO(#5555): this log out is here to verify a hypothesis that the e2e_account test flakiness is caused by slow sync
-      const nodeSyncedUpToBlock = await this.aztecNode.getBlockNumber();
-      this.log(`Node synced up to block ${nodeSyncedUpToBlock}`);
-    }
     const artifact = await this.contractDataOracle.getFunctionArtifact(contractAddress, selector);
     const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {

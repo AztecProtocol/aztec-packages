@@ -1,16 +1,16 @@
 import {
+  type AccountWallet,
   AztecAddress,
+  type CheatCodes,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   FunctionSelector,
   Note,
+  type TxHash,
+  type Wallet,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
-  type AccountWallet,
-  type CheatCodes,
-  type DebugLogger,
-  type TxHash,
-  type Wallet
 } from '@aztec/aztec.js';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
@@ -793,9 +793,9 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[3].addCapsule(
             getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
           );
-          await expect(asset.methods.transfer(wallets[3].getAddress(), wallets[0].getAddress(), 1n, 0).prove()).rejects.toThrow(
-            "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
-          );
+          await expect(
+            asset.methods.transfer(wallets[3].getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
+          ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
         });
 
         it('transfer to a blacklisted account', async () => {
@@ -805,9 +805,9 @@ describe('e2e_blacklist_token_contract', () => {
           await wallets[0].addCapsule(
             getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
-          await expect(asset.methods.transfer(wallets[0].getAddress(), wallets[3].getAddress(), 1n, 0).prove()).rejects.toThrow(
-            "Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'",
-          );
+          await expect(
+            asset.methods.transfer(wallets[0].getAddress(), wallets[3].getAddress(), 1n, 0).prove(),
+          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
     });
@@ -833,7 +833,9 @@ describe('e2e_blacklist_token_contract', () => {
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-      await wallets[0].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)));
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
       await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
       tokenSim.redeemShield(wallets[0].getAddress(), amount);
@@ -863,7 +865,9 @@ describe('e2e_blacklist_token_contract', () => {
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-      await wallets[0].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)));
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
       await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
       tokenSim.redeemShield(wallets[0].getAddress(), amount);
@@ -944,8 +948,12 @@ describe('e2e_blacklist_token_contract', () => {
       const amount = balancePriv / 2n;
       expect(amount).toBeGreaterThan(0n);
 
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)));
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
       await asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).send().wait();
 
       tokenSim.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount);
@@ -958,8 +966,12 @@ describe('e2e_blacklist_token_contract', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)));
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
+      );
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
       const action = asset
         .withWallet(wallets[1])
         .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
@@ -973,8 +985,12 @@ describe('e2e_blacklist_token_contract', () => {
       tokenSim.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
       // Perform the transfer again, should fail
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)));
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
+      );
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
       const txReplay = asset
         .withWallet(wallets[1])
         .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
@@ -1083,9 +1099,9 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[0].addCapsule(
           getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
         );
-        await expect(asset.methods.unshield(wallets[3].getAddress(), wallets[0].getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
-        );
+        await expect(
+          asset.methods.unshield(wallets[3].getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
+        ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
       });
 
       it('unshield to blacklisted account', async () => {
@@ -1095,9 +1111,9 @@ describe('e2e_blacklist_token_contract', () => {
         await wallets[0].addCapsule(
           getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
-        await expect(asset.methods.unshield(wallets[0].getAddress(), wallets[3].getAddress(), 1n, 0).prove()).rejects.toThrow(
-          "Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'",
-        );
+        await expect(
+          asset.methods.unshield(wallets[0].getAddress(), wallets[3].getAddress(), 1n, 0).prove(),
+        ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
       });
     });
   });
@@ -1128,7 +1144,10 @@ describe('e2e_blacklist_token_contract', () => {
         tokenSim.burnPublic(wallets[0].getAddress(), amount);
 
         // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-        const txReplay = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).send();
+        const txReplay = asset
+          .withWallet(wallets[1])
+          .methods.burn_public(wallets[0].getAddress(), amount, nonce)
+          .send();
         await expect(txReplay.wait()).rejects.toThrow('Transaction ');
       });
 

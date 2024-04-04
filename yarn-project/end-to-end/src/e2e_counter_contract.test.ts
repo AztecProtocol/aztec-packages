@@ -13,11 +13,7 @@ describe('e2e_counter_contract', () => {
 
   beforeAll(async () => {
     // Setup environment
-    ({
-      teardown,
-      wallet,
-      logger,
-    } = await setup(1));
+    ({ teardown, wallet, logger } = await setup(1));
     owner = wallet.getAddress();
 
     counterContract = await CounterContract.deploy(wallet, 0, owner).send().deployed();

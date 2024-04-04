@@ -1,16 +1,16 @@
 import {
   type AccountWalletWithPrivateKey,
   type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
+  type DeployL1Contracts,
   type FeePaymentMethod,
   Fr,
+  type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   SentTx,
   getContractClassFromArtifact,
-  type AztecNode,
-  type DeployL1Contracts,
-  type PXE,
-  type DebugLogger,
 } from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
@@ -24,13 +24,7 @@ import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token
 
 import { jest } from '@jest/globals';
 
-import {
-  type BalancesFn,
-  expectMapping,
-  getBalancesFn,
-  publicDeployAccounts,
-  setup,
-} from './fixtures/utils.js';
+import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts, setup } from './fixtures/utils.js';
 
 jest.setTimeout(100_000);
 
@@ -71,11 +65,10 @@ describe('e2e_dapp_subscription', () => {
 
     let wallets: AccountWalletWithPrivateKey[];
     let aztecNode: AztecNode;
-    let   deployL1ContractsValues: DeployL1Contracts;
+    let deployL1ContractsValues: DeployL1Contracts;
     ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3));
 
     await publicDeployAccounts(wallets[0], wallets);
-
 
     await aztecNode.setConfig({
       allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],

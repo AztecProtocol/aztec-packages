@@ -1,10 +1,10 @@
 import {
+  type AccountWallet,
   AztecAddress,
   Fr,
   INITIAL_L2_BLOCK_NUM,
+  type PXE,
   getContractInstanceFromDeployParams,
-  type AccountWallet,
-  type PXE
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -12,7 +12,7 @@ import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-
 import { InclusionProofsContract } from '@aztec/noir-contracts.js/InclusionProofs';
 
 import { jest } from '@jest/globals';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { setup } from './fixtures/utils.js';
 
@@ -26,7 +26,6 @@ describe('e2e_inclusion_proofs_contract', () => {
   let pxe: PXE;
   let teardown: () => Promise<void>;
   let wallets: AccountWallet[];
-  
 
   let contract: InclusionProofsContract;
   let deploymentBlockNumber: number;

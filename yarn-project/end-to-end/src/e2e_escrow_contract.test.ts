@@ -1,17 +1,17 @@
 import {
-  BatchCall,
-  ExtendedNote,
-  Fr,
-  GrumpkinScalar,
-  Note,
-  computeMessageSecretHash,
-  generatePublicKey,
   type AccountWallet,
   type AztecAddress,
+  BatchCall,
   type DebugLogger,
+  ExtendedNote,
+  Fr,
   type GrumpkinPrivateKey,
+  GrumpkinScalar,
+  Note,
   type PXE,
-  type PublicKey
+  type PublicKey,
+  computeMessageSecretHash,
+  generatePublicKey,
 } from '@aztec/aztec.js';
 import { computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
@@ -26,7 +26,7 @@ describe('e2e_escrow_contract', () => {
   let pxe: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
-  
+
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 

@@ -355,7 +355,6 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    // tady 0
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 

@@ -1,12 +1,12 @@
 import {
+  type AccountWallet,
+  type CheatCodes,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   Note,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
-  type AccountWallet,
-  type CheatCodes,
-  type DebugLogger
 } from '@aztec/aztec.js';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts.js';
 
@@ -18,7 +18,7 @@ import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/i
 describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
   let wallet: AccountWallet;
-  
+
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 

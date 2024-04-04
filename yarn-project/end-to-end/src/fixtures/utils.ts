@@ -1,13 +1,23 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecNodeService, getConfigEnvVars, type AztecNodeConfig } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
+  type AztecNode,
   BatchCall,
   CheatCodes,
+  type ContractMethod,
+  type DebugLogger,
+  type DeployL1Contracts,
   EncryptedL2BlockL2Logs,
   EthCheatCodes,
+  type L1ContractArtifactsForDeployment,
   LogType,
+  type PXE,
+  type SentTx,
   SignerlessWallet,
+  type Wallet,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
@@ -15,16 +25,6 @@ import {
   fileURLToPath,
   makeFetch,
   waitForPXE,
-  type AccountWalletWithPrivateKey,
-  type AztecAddress,
-  type AztecNode,
-  type ContractMethod,
-  type DebugLogger,
-  type DeployL1Contracts,
-  type L1ContractArtifactsForDeployment,
-  type PXE,
-  type SentTx,
-  type Wallet
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
@@ -46,21 +46,21 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
-import { PXEService, createPXEService, getPXEServiceConfig, type PXEServiceConfig } from '@aztec/pxe';
+import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import {
-  createPublicClient,
-  createWalletClient,
-  getContract,
-  http,
   type Account,
   type Chain,
   type HDAccount,
   type HttpTransport,
   type PrivateKeyAccount,
+  createPublicClient,
+  createWalletClient,
+  getContract,
+  http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';

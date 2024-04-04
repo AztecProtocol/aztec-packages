@@ -34,7 +34,6 @@ export class ContractDataOracle {
     if (!this.contractInstances.has(contractAddress.toString())) {
       const instance = await this.db.getContractInstance(contractAddress);
       if (!instance) {
-        // tady 4
         throw new ContractNotFoundError(contractAddress.toString());
       }
       this.contractInstances.set(contractAddress.toString(), instance);
@@ -77,7 +76,6 @@ export class ContractDataOracle {
    * @returns The corresponding function's artifact as an object.
    */
   public async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector) {
-    // tady 2
     const tree = await this.getTreeForAddress(contractAddress);
     return tree.getFunctionArtifact(selector);
   }
@@ -194,7 +192,6 @@ export class ContractDataOracle {
    * @throws An Error if the contract is not found in the ContractDatabase.
    */
   private async getTreeForAddress(contractAddress: AztecAddress): Promise<PrivateFunctionsTree> {
-    // tady 3
     const instance = await this.getContractInstance(contractAddress);
     return this.getTreeForClassId(instance.contractClassId);
   }

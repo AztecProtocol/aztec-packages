@@ -1,23 +1,23 @@
 import {
+  type AccountWallet,
+  type AztecAddress,
   BatchCall,
+  type DebugLogger,
   ExtendedNote,
   Fr,
+  type FunctionCall,
   FunctionSelector,
   Note,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
+  type TxHash,
   TxStatus,
+  type Wallet,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
-  type AztecAddress,
-  type DebugLogger,
-  type FunctionCall,
-  type TxHash,
-  type Wallet,
-  type AccountWallet
 } from '@aztec/aztec.js';
 import { FunctionData, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { decodeFunctionSignature, type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact, decodeFunctionSignature } from '@aztec/foundation/abi';
 import {
   TokenContract as BananaCoin,
   FPCContract,
@@ -27,13 +27,7 @@ import {
 
 import { jest } from '@jest/globals';
 
-import {
-  expectMapping,
-  getBalancesFn,
-  publicDeployAccounts,
-  setup,
-  type BalancesFn
-} from './fixtures/utils.js';
+import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts, setup } from './fixtures/utils.js';
 import { GasPortalTestingHarnessFactory, type IGasBridgingTestHarness } from './shared/gas_portal_test_harness.js';
 
 const TOKEN_NAME = 'BananaCoin';
@@ -60,10 +54,9 @@ describe('e2e_fees', () => {
   let bananaPrivateBalances: BalancesFn;
 
   beforeAll(async () => {
-
     const { wallets: _wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3);
     wallets = _wallets;
-    
+
     await aztecNode.setConfig({
       allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
     });

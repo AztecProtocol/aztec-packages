@@ -1,11 +1,11 @@
-import { Fr, type AccountWallet, type AztecAddress, type DebugLogger } from '@aztec/aztec.js';
+import { type AccountWallet, type AztecAddress, type DebugLogger, Fr } from '@aztec/aztec.js';
 import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateVoting';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_voting_contract', () => {
   let wallet: AccountWallet;
-  
+
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
@@ -14,11 +14,7 @@ describe('e2e_voting_contract', () => {
 
   beforeAll(async () => {
     // Setup environment
-    ({
-      teardown,
-      wallet,
-      logger,
-    } = await setup(1));
+    ({ teardown, wallet, logger } = await setup(1));
     owner = wallet.getAddress();
 
     votingContract = await EasyPrivateVotingContract.deploy(wallet, owner).send().deployed();

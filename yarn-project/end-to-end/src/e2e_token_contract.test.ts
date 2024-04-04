@@ -1,13 +1,13 @@
 import {
+  type AccountWallet,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   FunctionSelector,
   Note,
+  type TxHash,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
-  type AccountWallet,
-  type DebugLogger,
-  type TxHash
 } from '@aztec/aztec.js';
 import { decodeFunctionSignature } from '@aztec/foundation/abi';
 import { DocsExampleContract, ReaderContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -28,7 +28,7 @@ describe('e2e_token_contract', () => {
   const TOKEN_DECIMALS = 18n;
   let teardown: () => Promise<void>;
   let wallets: AccountWallet[];
-  
+
   let logger: DebugLogger;
 
   let asset: TokenContract;
@@ -1011,7 +1011,10 @@ describe('e2e_token_contract', () => {
         tokenSim.burnPublic(wallets[0].getAddress(), amount);
 
         // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-        const txReplay = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).send();
+        const txReplay = asset
+          .withWallet(wallets[1])
+          .methods.burn_public(wallets[0].getAddress(), amount, nonce)
+          .send();
         await expect(txReplay.wait()).rejects.toThrow('Transaction ');
       });
 

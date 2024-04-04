@@ -1,15 +1,13 @@
 import {
-  type AztecNode,
-  type DeployL1Contracts,
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
   type EthAddress,
+  type FeePaymentMethod,
   NativeFeePaymentMethod,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
   getContractClassFromArtifact,
-  type AccountWalletWithPrivateKey,
-  type AztecAddress,
-  type FeePaymentMethod,
 } from '@aztec/aztec.js';
 import { FPCContract, GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
@@ -49,10 +47,7 @@ describe('benchmarks/tx_size_fees', () => {
 
   // deploy the contracts
   beforeAll(async () => {
-    gas = await GasTokenContract.at(
-      getCanonicalGasTokenAddress(gasPortalAddress),
-      aliceWallet,
-    );
+    gas = await GasTokenContract.at(getCanonicalGasTokenAddress(gasPortalAddress), aliceWallet);
     token = await TokenContract.deploy(aliceWallet, aliceWallet.getAddress(), 'test', 'test', 18).send().deployed();
     fpc = await FPCContract.deploy(aliceWallet, token.address, gas.address).send().deployed();
   });

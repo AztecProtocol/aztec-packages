@@ -1,17 +1,17 @@
 import {
-  EthAddress,
-  Fr,
-  L1Actor,
-  L1ToL2Message,
-  L2Actor,
-  computeAuthWitMessageHash,
-  computeMessageSecretHash,
   type AccountWallet,
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
   type DeployL1Contracts,
-  type PXE
+  EthAddress,
+  Fr,
+  L1Actor,
+  L1ToL2Message,
+  L2Actor,
+  type PXE,
+  computeAuthWitMessageHash,
+  computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, OutboxAbi } from '@aztec/l1-artifacts';

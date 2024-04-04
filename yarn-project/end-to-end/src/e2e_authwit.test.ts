@@ -1,9 +1,4 @@
-import {
-  Fr,
-  computeInnerAuthWitHash,
-  computeOuterAuthWitHash,
-  type AccountWallet
-} from '@aztec/aztec.js';
+import { type AccountWallet, Fr, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/aztec.js';
 import { SchnorrAccountContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';

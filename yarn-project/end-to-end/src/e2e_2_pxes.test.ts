@@ -134,7 +134,10 @@ describe('e2e_2_pxes', () => {
 
     // Transfer funds from A to B via PXE A
     const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
-    await contractWithWalletA.methods.transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0).send().wait();
+    await contractWithWalletA.methods
+      .transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0)
+      .send()
+      .wait();
 
     // Check balances and logs are as expected
     await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1);
@@ -149,7 +152,12 @@ describe('e2e_2_pxes', () => {
       .wait({ interval: 0.1 });
 
     // Check balances and logs are as expected
-    await expectTokenBalance(walletA, tokenAddress, walletA.getAddress(), initialBalance - transferAmount1 + transferAmount2);
+    await expectTokenBalance(
+      walletA,
+      tokenAddress,
+      walletA.getAddress(),
+      initialBalance - transferAmount1 + transferAmount2,
+    );
     await expectTokenBalance(walletB, tokenAddress, walletB.getAddress(), transferAmount1 - transferAmount2);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
   }, 120_000);
@@ -270,7 +278,10 @@ describe('e2e_2_pxes', () => {
 
     // Transfer funds from A to B via PXE A
     const contractWithWalletA = await TokenContract.at(tokenAddress, walletA);
-    await contractWithWalletA.methods.transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0).send().wait();
+    await contractWithWalletA.methods
+      .transfer(walletA.getAddress(), walletB.getAddress(), transferAmount1, 0)
+      .send()
+      .wait();
 
     // now add the contract and check balances
     await pxeB.registerContract({

@@ -247,7 +247,6 @@ export class PXEService implements PXE {
       }
     }
 
-    // here I don't see the contract being added
     this.log.info(`Added contract ${artifact.name} at ${instance.address.toString()}`);
     await this.db.addContractInstance(instance);
     await this.synchronizer.reprocessDeferredNotesForContract(instance.address);
