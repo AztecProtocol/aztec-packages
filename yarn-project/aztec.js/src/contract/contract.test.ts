@@ -1,13 +1,13 @@
-import { Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/circuit-types';
+import { type Tx, type TxExecutionRequest, type TxHash, type TxReceipt } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
-import { L1ContractAddresses } from '@aztec/ethereum';
-import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
-import { NodeInfo } from '@aztec/types/interfaces';
+import { type L1ContractAddresses } from '@aztec/ethereum';
+import { ABIParameterVisibility, type ContractArtifact, type DecodedReturn, FunctionType } from '@aztec/foundation/abi';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { ContractInstanceWithAddress } from '../index.js';
-import { Wallet } from '../wallet/index.js';
+import { type ContractInstanceWithAddress } from '../index.js';
+import { type Wallet } from '../wallet/index.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -113,10 +113,10 @@ describe('Contract Class', () => {
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractInstance.mockResolvedValue(contractInstance);
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.viewTx.mockResolvedValue(mockViewResultValue);
+    wallet.viewTx.mockResolvedValue(mockViewResultValue as any as DecodedReturn);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
-    wallet.simulateTx.mockResolvedValue(mockTx);
+    wallet.proveTx.mockResolvedValue(mockTx);
     wallet.getRegisteredAccounts.mockResolvedValue([account]);
   });
 
@@ -137,7 +137,7 @@ describe('Contract Class', () => {
 
   it('should call view on an unconstrained function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    const result = await fooContract.methods.qux(123n).view({
+    const result = await fooContract.methods.qux(123n).simulate({
       from: account.address,
     });
     expect(wallet.viewTx).toHaveBeenCalledTimes(1);
@@ -148,11 +148,5 @@ describe('Contract Class', () => {
   it('should not call create on an unconstrained function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
-  });
-
-  it('should not call view on a secret or open function', async () => {
-    const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
-    expect(() => fooContract.methods.bar().view()).toThrow();
-    expect(() => fooContract.methods.baz().view()).toThrow();
   });
 });

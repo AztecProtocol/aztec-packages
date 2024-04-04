@@ -1,8 +1,8 @@
 import {
-  AccountWallet,
-  CheatCodes,
-  CompleteAddress,
-  DebugLogger,
+  type AccountWallet,
+  type CheatCodes,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   Note,
@@ -392,7 +392,7 @@ describe('e2e_lending_contract', () => {
         // Withdraw more than possible to test the revert.
         logger('Withdraw: trying to withdraw more than possible');
         await expect(
-          lendingContract.methods.withdraw_public(lendingAccount.address, 10n ** 9n).simulate(),
+          lendingContract.methods.withdraw_public(lendingAccount.address, 10n ** 9n).prove(),
         ).rejects.toThrow();
       });
     });

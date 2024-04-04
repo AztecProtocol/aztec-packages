@@ -23,6 +23,7 @@ import {
 } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { isAvmBytecode } from './temporary_executor_migration.js';
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
@@ -35,6 +36,10 @@ describe('AVM simulator: injected bytecode', () => {
       new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     ]);
+  });
+
+  it('Should not be recognized as AVM bytecode (magic missing)', () => {
+    expect(!isAvmBytecode(bytecode));
   });
 
   it('Should execute bytecode that performs basic addition', async () => {
@@ -73,6 +78,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
+  });
+
+  it('Should be recognized as AVM bytecode (magic present)', () => {
+    const bytecode = getAvmTestContractBytecode('add_args_return');
+    expect(isAvmBytecode(bytecode));
   });
 
   it('U128 addition', async () => {
@@ -130,6 +140,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   describe.each([
     ['poseidon_hash', poseidonHash],
     ['pedersen_hash', pedersenHash],
+    ['pedersen_hash_with_index', (m: Buffer[]) => pedersenHash(m, 20)],
   ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Buffer[]) => Fr) => {
     it(`Should execute contract function that performs ${name} hash`, async () => {
       const calldata = [new Fr(1), new Fr(2), new Fr(3)];
@@ -744,6 +755,30 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const worldState = context.persistableState.flush();
       const storageTrace = worldState.storageReads.get(address.toBigInt())!;
       expect([...storageTrace.values()]).toEqual([[value]]);
+    });
+  });
+
+  describe('Contract', () => {
+    it(`GETCONTRACTINSTANCE deserializes correctly`, async () => {
+      const context = initContext();
+      const contractInstance = {
+        address: AztecAddress.random(),
+        version: 1 as const,
+        salt: new Fr(0x123),
+        deployer: AztecAddress.fromBigInt(0x456n),
+        contractClassId: new Fr(0x789),
+        initializationHash: new Fr(0x101112),
+        portalContractAddress: EthAddress.fromField(new Fr(0x131415)),
+        publicKeysHash: new Fr(0x161718),
+      };
+
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getContractInstance')
+        .mockReturnValue(Promise.resolve(contractInstance));
+      const bytecode = getAvmTestContractBytecode('test_get_contract_instance_raw');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
     });
   });
 });

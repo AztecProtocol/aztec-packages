@@ -1,10 +1,10 @@
 import {
-  AccountWallet,
+  type AccountWallet,
   AztecAddress,
-  CompleteAddress,
+  type CompleteAddress,
   Fr,
   INITIAL_L2_BLOCK_NUM,
-  PXE,
+  type PXE,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
@@ -261,7 +261,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
       // Or that the positive call fails when trying to prove in the older block
       await expect(
-        contract.methods.test_contract_inclusion(address, olderBlock, testDeploy, testInit).simulate(),
+        contract.methods.test_contract_inclusion(address, olderBlock, testDeploy, testInit).prove(),
       ).rejects.toThrow(/not found/);
     };
 

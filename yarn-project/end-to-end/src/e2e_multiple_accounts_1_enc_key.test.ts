@@ -1,15 +1,15 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  AztecAddress,
-  AztecNode,
-  CompleteAddress,
-  DebugLogger,
+  type AztecAddress,
+  type AztecNode,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   GrumpkinScalar,
   Note,
-  PXE,
-  Wallet,
+  type PXE,
+  type Wallet,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -88,7 +88,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
-    const balance = await contractWithWallet.methods.balance_of_private(owner).view({ from: owner.address });
+    const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner.address });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };

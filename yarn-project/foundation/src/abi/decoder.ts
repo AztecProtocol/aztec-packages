@@ -1,12 +1,13 @@
 import { AztecAddress } from '../aztec-address/index.js';
-import { Fr } from '../fields/index.js';
-import { ABIParameter, type ABIType, ABIVariable, FunctionArtifact } from './abi.js';
+import { type Fr } from '../fields/index.js';
+import { type ABIParameter, type ABIType, type ABIVariable, type FunctionArtifact } from './abi.js';
 import { isAztecAddressStruct } from './utils.js';
 
 /**
  * The type of our decoded ABI.
  */
 export type DecodedReturn = bigint | boolean | AztecAddress | DecodedReturn[] | { [key: string]: DecodedReturn };
+export type ProcessReturnValues = (DecodedReturn | undefined)[] | undefined;
 
 /**
  * Decodes return values from a function call.

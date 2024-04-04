@@ -1,9 +1,9 @@
 import {
-  ABIParameter,
-  ABIParameterVisibility,
-  ABIType,
-  ContractArtifact,
-  FunctionArtifact,
+  type ABIParameter,
+  type ABIParameterVisibility,
+  type ABIType,
+  type ContractArtifact,
+  type FunctionArtifact,
   FunctionType,
 } from '@aztec/foundation/abi';
 
@@ -13,7 +13,7 @@ import {
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
   AZTEC_PUBLIC_VM_ATTRIBUTE,
-  NoirCompiledContract,
+  type NoirCompiledContract,
 } from '../noir/index.js';
 import { mockVerificationKey } from './mocked_keys.js';
 
@@ -145,7 +145,6 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
     functionType,
     isInternal,
     isInitializer: fn.custom_attributes.includes(AZTEC_INITIALIZER_ATTRIBUTE),
-    isTranspiled: fn.custom_attributes.includes(AZTEC_PUBLIC_VM_ATTRIBUTE),
     parameters,
     returnTypes,
     bytecode: Buffer.from(fn.bytecode, 'base64'),

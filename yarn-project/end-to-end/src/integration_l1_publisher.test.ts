@@ -1,55 +1,63 @@
-import { ArchiveSource } from '@aztec/archiver';
+import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, Body, Fr, GlobalVariables, L2Actor, L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  Body,
+  Fr,
+  GlobalVariables,
+  L2Actor,
+  type L2Block,
+  createDebugLogger,
+  mockTx,
+} from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
-  ProcessedTx,
-  ProvingSuccess,
+  type ProcessedTx,
+  type ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/circuit-types';
 import {
   EthAddress,
-  Header,
+  type Header,
+  KernelCircuitPublicInputs,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
-  MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
-  PublicKernelCircuitPublicInputs,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
-import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { TxProver } from '@aztec/prover-client';
-import { L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { WASMSimulator } from '@aztec/simulator';
-import { MerkleTrees, ServerWorldStateSynchronizer, WorldStateConfig } from '@aztec/world-state';
+import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import * as fs from 'fs';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import {
-  Account,
-  Address,
-  Chain,
-  GetContractReturnType,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type Account,
+  type Address,
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   decodeEventLog,
   encodeFunctionData,
   getAbiItem,
   getAddress,
   getContract,
 } from 'viem';
-import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { setupL1Contracts } from './fixtures/utils.js';
 
@@ -159,21 +167,21 @@ describe('L1Publisher integration', () => {
 
   const makeBloatedProcessedTx = (seed = 0x1) => {
     const tx = mockTx(seed);
-    const kernelOutput = PublicKernelCircuitPublicInputs.empty();
+    const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
-      MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(i + 10)),
       seed + 0x500,
     );
 
     const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newNoteHashes = makeTuple(MAX_REVERTIBLE_NOTE_HASHES_PER_TX, makeNewSideEffect, seed + 0x100);
+    processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, makeNewSideEffect, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(
-      MAX_REVERTIBLE_NULLIFIERS_PER_TX,
+      MAX_NEW_NULLIFIERS_PER_TX,
       makeNewSideEffectLinkedToNoteHash,
       seed + 0x200,
     );
@@ -296,6 +304,7 @@ describe('L1Publisher integration', () => {
         },
         header: `0x${block.header.toBuffer().toString('hex')}`,
         publicInputsHash: `0x${block.getPublicInputsHash().toBuffer().toString('hex').padStart(64, '0')}`,
+        numTxs: block.body.txEffects.length,
       },
     };
 
@@ -451,7 +460,7 @@ describe('L1Publisher integration', () => {
     }
   }, 360_000);
 
-  it(`Build ${numberOfConsecutiveBlocks} blocks of 4 empty txs building on each other`, async () => {
+  it(`Build ${numberOfConsecutiveBlocks} blocks of 2 empty txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
     expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
 
@@ -459,7 +468,7 @@ describe('L1Publisher integration', () => {
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
-      const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx(), makeEmptyProcessedTx()];
+      const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
       const globalVariables = new GlobalVariables(
         new Fr(chainId),

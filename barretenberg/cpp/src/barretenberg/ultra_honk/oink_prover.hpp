@@ -25,7 +25,9 @@
 
 namespace bb {
 template <IsUltraFlavor Flavor> struct OinkProverOutput {
+    typename Flavor::ProvingKey proving_key;
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
+    typename Flavor::RelationSeparator alphas;
 };
 
 /**
@@ -43,22 +45,22 @@ template <IsUltraFlavor Flavor> class OinkProver {
     using FF = typename Flavor::FF;
 
   public:
-    std::shared_ptr<ProvingKey> proving_key;
+    ProvingKey proving_key;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
     typename Flavor::WitnessCommitments witness_commitments;
     typename Flavor::CommitmentLabels commitment_labels;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
 
-    OinkProver(const std::shared_ptr<ProvingKey>& proving_key,
-               const std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key,
+    OinkProver(ProvingKey& proving_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript,
                std::string domain_separator = "")
-        : proving_key(proving_key)
+        : proving_key(std::move(proving_key))
         , transcript(transcript)
-        , commitment_key(commitment_key)
+        , commitment_key(this->proving_key.commitment_key)
         , domain_separator(std::move(domain_separator))
     {}
 
@@ -68,5 +70,6 @@ template <IsUltraFlavor Flavor> class OinkProver {
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
+    RelationSeparator generate_alphas_round();
 };
 } // namespace bb

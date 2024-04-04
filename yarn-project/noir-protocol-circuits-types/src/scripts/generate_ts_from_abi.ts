@@ -1,6 +1,6 @@
-import { ABIType } from '@aztec/foundation/abi';
+import { type ABIType } from '@aztec/foundation/abi';
 import { createConsoleLogger } from '@aztec/foundation/log';
-import { NoirCompiledCircuit, NoirFunctionAbi } from '@aztec/types/noir';
+import { type NoirCompiledCircuit, type NoirFunctionAbi } from '@aztec/types/noir';
 
 import fs from 'fs/promises';
 
@@ -203,6 +203,7 @@ const circuits = [
   'private_kernel_init',
   'private_kernel_inner',
   'private_kernel_tail',
+  'private_kernel_tail_to_public',
   'public_kernel_setup',
   'public_kernel_app_logic',
   'public_kernel_teardown',

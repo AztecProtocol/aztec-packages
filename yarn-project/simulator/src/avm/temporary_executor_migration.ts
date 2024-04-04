@@ -3,19 +3,20 @@ import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  GlobalVariables,
+  type GlobalVariables,
   L2ToL1Message,
-  ReadRequest,
+  type ReadRequest,
   SideEffect,
   SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import { createSimulationError } from '../common/errors.js';
-import { PublicExecution, PublicExecutionResult } from '../public/execution.js';
+import { type PublicExecution, type PublicExecutionResult } from '../public/execution.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
-import { AvmContractCallResults } from './avm_message_call_result.js';
-import { JournalData } from './journal/journal.js';
+import { type AvmContractCallResults } from './avm_message_call_result.js';
+import { type JournalData } from './journal/journal.js';
+import { Mov } from './opcodes/memory.js';
 
 /** Temporary Method
  *
@@ -95,7 +96,9 @@ export function temporaryConvertAvmResults(
   const nestedExecutions: PublicExecutionResult[] = [];
   const nullifierReadRequests: ReadRequest[] = [];
   const nullifierNonExistentReadRequests: ReadRequest[] = [];
-  const newNullifiers: SideEffectLinkedToNoteHash[] = [];
+  const newNullifiers: SideEffectLinkedToNoteHash[] = newWorldState.newNullifiers.map(
+    (nullifier, i) => new SideEffectLinkedToNoteHash(nullifier.toField(), Fr.zero(), new Fr(i + 1)),
+  );
   const unencryptedLogs = UnencryptedFunctionL2Logs.empty();
   const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.empty());
   // TODO keep track of side effect counters
@@ -119,4 +122,15 @@ export function temporaryConvertAvmResults(
     reverted: result.reverted,
     revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,
   };
+}
+
+export function isAvmBytecode(bytecode: Buffer): boolean {
+  const magicBuf = Buffer.from([
+    Mov.opcode, // opcode
+    0x00, // indirect
+    ...Buffer.from('000018ca', 'hex'), // srcOffset
+    ...Buffer.from('000018ca', 'hex'), // dstOffset
+  ]);
+  const magicSize = magicBuf.length;
+  return bytecode.subarray(-magicSize).equals(magicBuf);
 }
