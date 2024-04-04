@@ -335,12 +335,19 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
             Fr a_plus_b_times_2 = a_plus_b + a_plus_b;
             size_t start_idx_sqr = (domain_end - 1) * (domain_end - 1);
             size_t idx_sqr_three = start_idx_sqr + start_idx_sqr + start_idx_sqr;
+            Fr idx_sqr_three_times_a = Fr(idx_sqr_three) * a;
+            Fr x_a_term = Fr(6 * (domain_end - 1)) * a;
+            Fr three_a = a + a + a;
+            Fr six_a = three_a + three_a;
+
             Fr three_a_plus_two_b = a_plus_b_times_2 + a;
-            Fr linear_term = Fr(domain_end - 1) * three_a_plus_two_b;
+            Fr linear_term = Fr(domain_end - 1) * three_a_plus_two_b + (a_plus_b + c);
             for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
-                result.value_at(idx + 1) = result.value_at(idx) + a * Fr(idx_sqr_three) + linear_term + (a_plus_b + c);
-                size_t sqr_delta = idx + idx + 1;
-                idx_sqr_three += sqr_delta + sqr_delta + sqr_delta;
+                result.value_at(idx + 1) = result.value_at(idx) + idx_sqr_three_times_a + linear_term;
+
+                idx_sqr_three_times_a += x_a_term + three_a;
+                x_a_term += six_a;
+
                 linear_term += three_a_plus_two_b;
             }
             return result;
