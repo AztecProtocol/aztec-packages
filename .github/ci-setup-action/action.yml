@@ -18,8 +18,8 @@ runs:
       id: cache-submodules
       uses: actions/cache@v3
       with:
-        path: .git
-        key: submodules-${{ hashFiles('.gitmodules') }}-test
+        path: .git/branches .git/objects
+        key: submodules-${{ hashFiles('.gitmodules') }}
 
     - name: Checkout Submodules
       shell: bash
