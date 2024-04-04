@@ -1244,7 +1244,7 @@ jobs:
             # Check if l1-contracts have changed
             if [ "$CONTRACTS_DEPLOYED" -eq 1 ]; then
               echo "Contracts have changed, taint nodes to force redeploy.."
-              deploy_terraform_services yarn-project/aztec-node aztec aztec-node "aws_ecs_task_definition.aztec-node[0],aws_ecs_task_definition.aztec-node[1]" 1
+              deploy_terraform_services yarn-project/aztec-node aztec aztec-node "aws_ecs_task_definition.aztec-node[0],aws_ecs_task_definition.aztec-node[1]"
             else
               deploy_terraform_services yarn-project/aztec-node aztec
             fi
