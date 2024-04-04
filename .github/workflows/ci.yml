@@ -33,8 +33,7 @@ jobs:
       - name: Build
         working-directory: ./yarn-project
         run: |
-          # push to registry, saving foundry with inline-cache
-          earthly-cloud build x86 --push --save-inline-cache +build-end-to-end
+          earthly-cloud build x86 --push +build-end-to-end
 
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
@@ -111,10 +110,10 @@ jobs:
         run: |
           docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
           docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
+          docker pull aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991-amd64:latest
           docker tag aztecprotocol/aztec-cache:$(git rev-parse HEAD) aztecprotocol/aztec:latest
           docker tag aztecprotocol/end-to-end-cache:$(git rev-parse HEAD) aztecprotocol/end-to-end:latest
-          # read foundry from inline cache 
-          earthly --use-inline-cache ./foundry/+build-save-local --image="aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest"
+          docker tag aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991-amd64:latest aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991-amd64:latest
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: |

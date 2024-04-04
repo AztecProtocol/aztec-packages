@@ -81,7 +81,7 @@ all:
 
 build-end-to-end:
     ARG EARTHLY_GIT_HASH
-    # for use with --save-inline-cache, makes sure this gets pushed
+    # pushes the foundry image
     BUILD ../foundry/+build
     FROM +end-to-end
     SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_GIT_HASH
