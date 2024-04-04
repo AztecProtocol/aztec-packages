@@ -1,4 +1,4 @@
-import { AztecAddress, Comparator, Fr, Wallet, toBigInt } from '@aztec/aztec.js';
+import { type AztecAddress, Comparator, Fr, type Wallet, toBigInt } from '@aztec/aztec.js';
 import { DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { setup } from './fixtures/utils.js';
@@ -159,7 +159,7 @@ describe('e2e_note_getter', () => {
     const VALUE = 5;
 
     // To prevent tests from interacting with one another, we'll have each use a different storage slot.
-    let storageSlot = TestContract.storage.example_set.slot.toNumber();
+    let storageSlot: number = 2;
 
     beforeEach(() => {
       storageSlot += 1;

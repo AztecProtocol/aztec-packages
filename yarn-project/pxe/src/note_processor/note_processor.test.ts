@@ -1,12 +1,12 @@
 import {
-  AztecNode,
+  type AztecNode,
   EncryptedFunctionL2Logs,
   EncryptedL2BlockL2Logs,
   EncryptedL2Log,
   EncryptedTxL2Logs,
-  KeyPair,
-  KeyStore,
-  L1NotePayload,
+  type KeyPair,
+  type KeyStore,
+  type L1NotePayload,
   L2Block,
   L2BlockContext,
   TaggedNote,
@@ -17,14 +17,14 @@ import { pedersenHash } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AcirSimulator } from '@aztec/simulator';
+import { type AcirSimulator } from '@aztec/simulator';
 
 import { jest } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { PxeDatabase } from '../database/index.js';
+import { type PxeDatabase } from '../database/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { NoteDao } from '../database/note_dao.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from './note_processor.js';
 
 const TXS_PER_BLOCK = 4;

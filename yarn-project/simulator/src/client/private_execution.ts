@@ -1,5 +1,5 @@
 import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type AbiType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
+import { type ABIType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -7,8 +7,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { extractReturnWitness } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
-import { ClientExecutionContext } from './client_execution_context.js';
-import { ExecutionResult } from './execution_result.js';
+import { type ClientExecutionContext } from './client_execution_context.js';
+import { type ExecutionResult } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 /**
@@ -55,7 +55,7 @@ export async function executePrivateFunction(
 
   // Mocking the return type to be an array of 4 fields
   // TODO: @LHerskind must be updated as we are progressing with the macros to get the information
-  const returnTypes: AbiType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
+  const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
   const mockArtifact = { ...artifact, returnTypes };
   const returnValues = decodeReturnValues(mockArtifact, publicInputs.returnValues);
 

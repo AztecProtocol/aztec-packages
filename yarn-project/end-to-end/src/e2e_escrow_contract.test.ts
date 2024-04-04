@@ -1,16 +1,16 @@
 import {
-  AccountWallet,
-  AztecAddress,
+  type AccountWallet,
+  type AztecAddress,
   BatchCall,
-  CompleteAddress,
-  DebugLogger,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
-  GrumpkinPrivateKey,
+  type GrumpkinPrivateKey,
   GrumpkinScalar,
   Note,
-  PXE,
-  PublicKey,
+  type PXE,
+  type PublicKey,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -21,6 +21,9 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
+  const pendingShieldsStorageSlot = new Fr(5);
+  const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
   let pxe: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
@@ -73,8 +76,8 @@ describe('e2e_escrow_contract', () => {
       note,
       owner,
       token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
+      pendingShieldsStorageSlot,
+      noteTypeId,
       receipt.txHash,
     );
     await pxe.addNote(extendedNote);
@@ -124,8 +127,8 @@ describe('e2e_escrow_contract', () => {
       note,
       owner,
       token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
+      pendingShieldsStorageSlot,
+      noteTypeId,
       receipt.txHash,
     );
     await pxe.addNote(extendedNote);

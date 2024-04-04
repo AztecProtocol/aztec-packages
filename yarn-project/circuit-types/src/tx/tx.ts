@@ -6,10 +6,10 @@ import {
 } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
-import { L2LogsSource } from '../logs/l2_logs_source.js';
+import { type GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
+import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
-import { TxStats } from '../stats/stats.js';
+import { type TxStats } from '../stats/stats.js';
 import { TxHash } from './tx_hash.js';
 
 /**

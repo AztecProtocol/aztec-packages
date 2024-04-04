@@ -1,18 +1,18 @@
 // docs:start:cross_chain_test_harness
 import {
-  AztecAddress,
-  AztecNode,
-  DebugLogger,
+  type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
   EthAddress,
   ExtendedNote,
-  FieldsOf,
+  type FieldsOf,
   Fr,
   Note,
-  PXE,
-  SiblingPath,
-  TxHash,
-  TxReceipt,
-  Wallet,
+  type PXE,
+  type SiblingPath,
+  type TxHash,
+  type TxReceipt,
+  type Wallet,
   computeMessageSecretHash,
   deployL1Contract,
   retryUntil,
@@ -30,12 +30,12 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import {
-  Account,
-  Chain,
-  GetContractReturnType,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type Account,
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   getContract,
   toFunctionSelector,
 } from 'viem';
@@ -423,13 +423,15 @@ export class CrossChainTestHarness {
 
   async addPendingShieldNoteToPXE(shieldAmount: bigint, secretHash: Fr, txHash: TxHash) {
     this.logger('Adding note to PXE');
+    const storageSlot = new Fr(5);
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
     const note = new Note([new Fr(shieldAmount), secretHash]);
     const extendedNote = new ExtendedNote(
       note,
       this.ownerAddress,
       this.l2Token.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
+      storageSlot,
+      noteTypeId,
       txHash,
     );
     await this.pxeService.addNote(extendedNote);

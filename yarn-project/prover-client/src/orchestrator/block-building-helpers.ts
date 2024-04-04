@@ -1,9 +1,9 @@
-import { MerkleTreeId, ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
   BaseRollupInputs,
   ConstantRollupData,
   Fr,
@@ -20,35 +20,35 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PreviousRollupData,
-  Proof,
+  type Proof,
   PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
   RootParityInput,
-  RootParityInputs,
+  type RootParityInputs,
   RootRollupInputs,
-  RootRollupPublicInputs,
+  type RootRollupPublicInputs,
   StateDiffHints,
-  StateReference,
+  type StateReference,
   VK_TREE_HEIGHT,
-  VerificationKey,
+  type VerificationKey,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
-import { DebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type DebugLogger } from '@aztec/foundation/log';
+import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { RollupProver } from '../prover/index.js';
-import { RollupSimulator } from '../simulator/rollup.js';
+import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
+import { type RollupProver } from '../prover/index.js';
+import { type RollupSimulator } from '../simulator/rollup.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);

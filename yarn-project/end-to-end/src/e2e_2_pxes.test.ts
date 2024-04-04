@@ -1,15 +1,15 @@
 import { getUnsafeSchnorrAccount } from '@aztec/accounts/single_key';
 import {
-  AztecAddress,
-  AztecNode,
-  CompleteAddress,
-  DebugLogger,
+  type AztecAddress,
+  type AztecNode,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   GrumpkinScalar,
   Note,
-  PXE,
-  Wallet,
+  type PXE,
+  type Wallet,
   computeMessageSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
@@ -106,15 +106,11 @@ describe('e2e_2_pxes', () => {
 
     const receipt = await contract.methods.mint_private(balance, secretHash).send().wait();
 
+    const storageSlot = new Fr(5);
+    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
     const note = new Note([new Fr(balance), secretHash]);
-    const extendedNote = new ExtendedNote(
-      note,
-      recipient,
-      contract.address,
-      TokenContract.storage.pending_shields.slot,
-      TokenContract.notes.TransparentNote.id,
-      receipt.txHash,
-    );
+    const extendedNote = new ExtendedNote(note, recipient, contract.address, storageSlot, noteTypeId, receipt.txHash);
     await pxe.addNote(extendedNote);
 
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();

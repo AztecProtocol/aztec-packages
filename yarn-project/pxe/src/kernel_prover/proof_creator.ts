@@ -1,4 +1,4 @@
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type PrivateCircuitPublicInputs,
   type PrivateKernelCircuitPublicInputs,
@@ -10,7 +10,7 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { executeInit, executeInner, executeTail, executeTailForPublic } from '@aztec/noir-protocol-circuits-types';

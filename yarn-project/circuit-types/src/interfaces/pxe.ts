@@ -1,7 +1,13 @@
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { NodeInfo } from '@aztec/types/interfaces';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fr,
+  type GrumpkinPrivateKey,
+  type PartialAddress,
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';

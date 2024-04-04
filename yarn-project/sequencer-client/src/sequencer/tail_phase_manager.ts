@@ -14,8 +14,8 @@ import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 
 export class TailPhaseManager extends AbstractPhaseManager {

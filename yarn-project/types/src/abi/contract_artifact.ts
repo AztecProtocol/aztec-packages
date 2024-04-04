@@ -1,7 +1,7 @@
 import {
   type ABIParameter,
   type ABIParameterVisibility,
-  type AbiType,
+  type ABIType,
   type ContractArtifact,
   type FunctionArtifact,
   FunctionType,
@@ -13,7 +13,7 @@ import {
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
   AZTEC_PUBLIC_VM_ATTRIBUTE,
-  NoirCompiledContract,
+  type NoirCompiledContract,
 } from '../noir/index.js';
 import { mockVerificationKey } from './mocked_keys.js';
 
@@ -135,7 +135,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
   }
 
   // If the function is secret, the return is the public inputs, which should be omitted
-  let returnTypes: AbiType[] = [];
+  let returnTypes: ABIType[] = [];
   if (functionType !== 'secret' && fn.abi.return_type) {
     returnTypes = [fn.abi.return_type.abi_type];
   }
@@ -191,7 +191,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
   return {
     name: contract.name,
     functions: contract.functions.map(generateFunctionArtifact),
-    outputs: contract.outputs,
+    events: contract.events,
     fileMap: contract.file_map,
     aztecNrVersion,
   };

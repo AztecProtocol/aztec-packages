@@ -1,16 +1,16 @@
 import { getUnsafeSchnorrAccount, getUnsafeSchnorrWallet } from '@aztec/accounts/single_key';
 import {
-  AccountWallet,
-  ContractInstanceWithAddress,
+  type AccountWallet,
+  type ContractInstanceWithAddress,
   ExtendedNote,
   Note,
-  TxHash,
+  type TxHash,
   computeMessageSecretHash,
   waitForAccountSynch,
 } from '@aztec/aztec.js';
-import { Salt } from '@aztec/aztec.js/account';
-import { AztecAddress, CompleteAddress, Fq, Fr } from '@aztec/circuits.js';
-import { DeployL1Contracts } from '@aztec/ethereum';
+import { type Salt } from '@aztec/aztec.js/account';
+import { type AztecAddress, type CompleteAddress, Fq, Fr } from '@aztec/circuits.js';
+import { type DeployL1Contracts } from '@aztec/ethereum';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -18,7 +18,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { EndToEndContext, setup } from './fixtures/utils.js';
+import { type EndToEndContext, setup } from './fixtures/utils.js';
 
 jest.setTimeout(60_000);
 
@@ -330,14 +330,12 @@ async function addPendingShieldNoteToPXE(
   secretHash: Fr,
   txHash: TxHash,
 ) {
+  // The storage slot of `pending_shields` is 5.
+  // TODO AlexG, this feels brittle
+  const storageSlot = new Fr(5);
+  const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
   const note = new Note([new Fr(amount), secretHash]);
-  const extendedNote = new ExtendedNote(
-    note,
-    wallet.getAddress(),
-    asset,
-    TokenContract.storage.pending_shields.slot,
-    TokenContract.notes.TransparentNote.id,
-    txHash,
-  );
+  const extendedNote = new ExtendedNote(note, wallet.getAddress(), asset, storageSlot, noteTypeId, txHash);
   await wallet.addNote(extendedNote);
 }

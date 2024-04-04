@@ -8,14 +8,14 @@ import {
   type MergeRollupInputs,
   type ParityPublicInputs,
   Proof,
-  PublicCircuitPublicInputs,
-  PublicKernelCircuitPublicInputs,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
+  type PublicCircuitPublicInputs,
+  type PublicKernelCircuitPublicInputs,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
-import { PublicProver, RollupProver } from './index.js';
+import { type PublicProver, type RollupProver } from './index.js';
 
 const EMPTY_PROOF_SIZE = 42;
 

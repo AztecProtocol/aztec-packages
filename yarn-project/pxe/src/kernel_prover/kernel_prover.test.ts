@@ -12,7 +12,7 @@ import {
   PrivateKernelCircuitPublicInputs,
   PrivateKernelTailCircuitPublicInputs,
   SideEffect,
-  TxRequest,
+  type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
@@ -21,7 +21,7 @@ import { makeTxRequest } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ExecutionResult, NoteAndSlot } from '@aztec/simulator';
+import { type ExecutionResult, type NoteAndSlot } from '@aztec/simulator';
 
 import { mock } from 'jest-mock-extended';
 

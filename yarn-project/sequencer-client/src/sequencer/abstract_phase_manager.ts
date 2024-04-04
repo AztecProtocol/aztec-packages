@@ -1,4 +1,4 @@
-import { MerkleTreeId, SimulationError, Tx, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import { MerkleTreeId, type SimulationError, type Tx, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CallRequest,
@@ -20,16 +20,16 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
-  PrivateKernelTailCircuitPublicInputs,
-  Proof,
+  type PrivateKernelTailCircuitPublicInputs,
+  type Proof,
   PublicCallData,
-  PublicCallRequest,
+  type PublicCallRequest,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicKernelCircuitPrivateInputs,
-  PublicKernelCircuitPublicInputs,
+  type PublicKernelCircuitPublicInputs,
   PublicKernelData,
   RETURN_VALUES_LENGTH,
   ReadRequest,
@@ -42,26 +42,26 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
-  type AbiType,
+  type ABIType,
   type DecodedReturn,
   type FunctionArtifact,
   type ProcessReturnValues,
   decodeReturnValues,
 } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Tuple } from '@aztec/foundation/serialize';
 import {
-  PublicExecution,
-  PublicExecutionResult,
-  PublicExecutor,
+  type PublicExecution,
+  type PublicExecutionResult,
+  type PublicExecutor,
   collectPublicDataReads,
   collectPublicDataUpdateRequests,
   isPublicExecutionResult,
 } from '@aztec/simulator';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { HintsBuilder } from './hints_builder.js';
 import { lastSideEffectCounter } from './utils.js';
 
@@ -284,7 +284,7 @@ export abstract class AbstractPhaseManager {
           const paddedReturn = padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH);
 
           // TODO(#5450) Need to use the proper return values here
-          const returnTypes: AbiType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
+          const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
           const mockArtifact = { returnTypes } as any as FunctionArtifact;
 
           currentReturn = decodeReturnValues(mockArtifact, paddedReturn);

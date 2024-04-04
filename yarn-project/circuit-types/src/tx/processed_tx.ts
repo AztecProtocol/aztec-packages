@@ -1,8 +1,8 @@
 import {
   EncryptedTxL2Logs,
   PublicDataWrite,
-  SimulationError,
-  Tx,
+  type SimulationError,
+  type Tx,
   TxEffect,
   TxHash,
   UnencryptedTxL2Logs,

@@ -1,6 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
-  Fr,
+  type Fr,
   MAX_NEW_NULLIFIERS_PER_TX,
   type MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   type MAX_NULLIFIER_READ_REQUESTS_PER_TX,

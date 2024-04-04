@@ -1,8 +1,8 @@
 import {
   CallRequest,
   Fr,
-  MAX_NEW_NOTE_HASHES_PER_TX,
-  MAX_NEW_NULLIFIERS_PER_TX,
+  type MAX_NEW_NOTE_HASHES_PER_TX,
+  type MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -13,9 +13,9 @@ import {
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-  TxRequest,
+  type SideEffect,
+  type SideEffectLinkedToNoteHash,
+  type TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
@@ -28,8 +28,8 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { type ExecutionResult } from '@aztec/simulator';
 
 import { HintsBuilder } from './hints_builder.js';
-import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
-import { ProvingDataOracle } from './proving_data_oracle.js';
+import { KernelProofCreator, type ProofCreator, type ProofOutput, type ProofOutputFinal } from './proof_creator.js';
+import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
  * The KernelProver class is responsible for generating kernel proofs.

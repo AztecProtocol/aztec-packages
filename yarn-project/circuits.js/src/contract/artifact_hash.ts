@@ -1,10 +1,10 @@
-import { ContractArtifact, FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Fr, reduceFn } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { numToUInt8 } from '@aztec/foundation/serialize';
 
-import { MerkleTree } from '../merkle/merkle_tree.js';
+import { type MerkleTree } from '../merkle/merkle_tree.js';
 import { MerkleTreeCalculator } from '../merkle/merkle_tree_calculator.js';
 
 const VERSION = 1;
@@ -60,7 +60,7 @@ export function computeArtifactHashPreimage(artifact: ContractArtifact) {
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
   // TODO(@spalladino): Should we use the sorted event selectors instead? They'd need to be unique for that.
-  const metadata = { name: artifact.name, outputs: artifact.outputs };
+  const metadata = { name: artifact.name, events: artifact.events };
   return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
 }
 

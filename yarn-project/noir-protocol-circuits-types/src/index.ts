@@ -17,11 +17,15 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
-import { NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { WasmBlackBoxFunctionSolver, createBlackBoxSolver, executeCircuitWithBlackBoxSolver } from '@noir-lang/acvm_js';
-import { Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
-import { WitnessMap } from '@noir-lang/types';
+import {
+  type WasmBlackBoxFunctionSolver,
+  createBlackBoxSolver,
+  executeCircuitWithBlackBoxSolver,
+} from '@noir-lang/acvm_js';
+import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+import { type WitnessMap } from '@noir-lang/types';
 
 import BaseParityJson from './target/parity_base.json' assert { type: 'json' };
 import RootParityJson from './target/parity_root.json' assert { type: 'json' };

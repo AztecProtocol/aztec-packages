@@ -1,8 +1,8 @@
 import {
-  AccountWallet,
-  CheatCodes,
-  CompleteAddress,
-  DebugLogger,
+  type AccountWallet,
+  type CheatCodes,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   Note,
@@ -103,14 +103,17 @@ describe('e2e_lending_contract', () => {
         const b = asset.methods.mint_private(mintAmount, secretHash).send();
         await Promise.all([a, b].map(tx => tx.wait()));
 
+        const storageSlot = new Fr(5);
+        const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+
         const note = new Note([new Fr(mintAmount), secretHash]);
         const txHash = await b.getTxHash();
         const extendedNote = new ExtendedNote(
           note,
           accounts[0].address,
           asset.address,
-          TokenContract.storage.pending_shields.slot,
-          TokenContract.notes.TransparentNote.id,
+          storageSlot,
+          noteTypeId,
           txHash,
         );
         await wallet.addNote(extendedNote);
