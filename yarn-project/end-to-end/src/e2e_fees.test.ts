@@ -671,16 +671,13 @@ describe('e2e_fees', () => {
   };
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
-    const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
     const note = new Note([new Fr(amount), secretHash]);
     const extendedNote = new ExtendedNote(
       note,
       e2eContext.accounts[accountIndex].address,
       bananaCoin.address,
-      storageSlot,
-      noteTypeId,
+      BananaCoin.storage.pending_shields.slot,
+      BananaCoin.notes.TransparentNote.id,
       txHash,
     );
     await e2eContext.wallets[accountIndex].addNote(extendedNote);

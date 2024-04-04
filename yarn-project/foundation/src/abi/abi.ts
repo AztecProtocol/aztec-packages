@@ -3,6 +3,48 @@ import { inflate } from 'pako';
 import { type FunctionSelector } from './function_selector.js';
 
 /**
+ * A basic value.
+ */
+export interface BasicValue<T extends string, V> {
+  /**
+   * The kind of the value.
+   */
+  kind: T;
+  value: V;
+}
+
+/**
+ * An exported value.
+ */
+export type AbiValue =
+  | BasicValue<'boolean', boolean>
+  | BasicValue<'string', string>
+  | BasicValue<'array', AbiValue[]>
+  | TupleValue
+  | IntegerValue
+  | FieldValue
+  | StructValue;
+
+export type TypedStructFieldValue<T> = { name: string; value: T };
+
+export interface StructValue {
+  kind: 'struct';
+  fields: TypedStructFieldValue<AbiValue>[];
+}
+
+export interface TupleValue {
+  fields: AbiValue[];
+}
+
+export interface FieldValue extends BasicValue<'field', string> {
+  sign: boolean;
+}
+
+export interface IntegerValue extends BasicValue<'integer', string> {
+  sign: boolean;
+}
+
+/**
  * A named type.
  */
 export interface ABIVariable {
@@ -13,7 +55,7 @@ export interface ABIVariable {
   /**
    * The type of the variable.
    */
-  type: ABIType;
+  type: AbiType;
 }
 
 /**
@@ -47,7 +89,7 @@ export interface BasicType<T extends string> {
 /**
  * A variable type.
  */
-export type ABIType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
+export type AbiType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
 
 /**
  * An integer type.
@@ -74,7 +116,7 @@ export interface ArrayType extends BasicType<'array'> {
   /**
    * The type of the array elements.
    */
-  type: ABIType;
+  type: AbiType;
 }
 
 /**
@@ -99,24 +141,6 @@ export interface StructType extends BasicType<'struct'> {
    * Fully qualified name of the struct.
    */
   path: string;
-}
-
-/**
- * A contract event.
- */
-export interface EventAbi {
-  /**
-   * The event name.
-   */
-  name: string;
-  /**
-   * Fully qualified name of the event.
-   */
-  path: string;
-  /**
-   * The fields of the event.
-   */
-  fields: ABIVariable[];
 }
 
 /**
@@ -151,7 +175,7 @@ export interface FunctionAbi {
   /**
    * The types of the return values.
    */
-  returnTypes: ABIType[];
+  returnTypes: AbiType[];
   /**
    * Whether the function is flagged as an initializer.
    */
@@ -256,9 +280,12 @@ export interface ContractArtifact {
    */
   functions: FunctionArtifact[];
   /**
-   * The events of the contract.
+   * The outputs of the contract.
    */
-  events: EventAbi[];
+  outputs: {
+    structs: Record<string, AbiType[]>;
+    globals: Record<string, AbiValue[]>;
+  };
 
   /**
    * The map of file ID to the source code and path of the file.
