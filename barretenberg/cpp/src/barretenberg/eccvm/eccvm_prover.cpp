@@ -20,8 +20,8 @@ namespace bb {
  *
  * @tparam settings Settings class.
  * */
-ECCVMProver::ECCVMProver(const std::shared_ptr<typename Flavor::ProvingKey>& input_key,
-                         const std::shared_ptr<PCSCommitmentKey>& commitment_key,
+ECCVMProver::ECCVMProver(const std::shared_ptr<ProvingKey>& input_key,
+                         const std::shared_ptr<CommitmentKey>& commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
     , key(input_key)
@@ -49,25 +49,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
         std::copy(prover_poly.begin(), prover_poly.end(), key_poly.begin());
     }
 
-    *this = ECCVMProver(
-        std::move(local_key), std::make_shared<typename Flavor::CommitmentKey>(local_key->circuit_size), transcript);
-}
-
-/**
- * @brief Compute witness polynomials
- */
-void ECCVMProver::compute_witness(CircuitBuilder& circuit)
-{
-    BB_OP_COUNT_TIME_NAME("ECCVMComposer::compute_witness");
-
-    ProverPolynomials polynomials(circuit);
-
-    auto key_wires = key->get_wires();
-    auto poly_wires = polynomials.get_wires();
-
-    for (size_t i = 0; i < key_wires.size(); ++i) {
-        std::copy(poly_wires[i].begin(), poly_wires[i].end(), key_wires[i].begin());
-    }
+    *this = ECCVMProver(std::move(local_key), std::make_shared<CommitmentKey>(local_key->circuit_size), transcript);
 }
 
 /**

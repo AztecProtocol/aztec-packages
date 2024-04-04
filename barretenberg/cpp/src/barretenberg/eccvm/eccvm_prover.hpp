@@ -15,12 +15,11 @@ class ECCVMProver {
     using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename Flavor::CommitmentKey;
+    using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations;
     using ZeroMorph = ZeroMorphProver_<PCS>;
@@ -28,12 +27,11 @@ class ECCVMProver {
 
   public:
     explicit ECCVMProver(const std::shared_ptr<ProvingKey>& input_key,
-                         const std::shared_ptr<PCSCommitmentKey>& commitment_key,
+                         const std::shared_ptr<CommitmentKey>& commitment_key,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     explicit ECCVMProver(CircuitBuilder& builder,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    void compute_witness(CircuitBuilder& circuit_constructor); // WORKTODO: not in use?
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
@@ -73,7 +71,7 @@ class ECCVMProver {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-    std::shared_ptr<PCSCommitmentKey> commitment_key;
+    std::shared_ptr<CommitmentKey> commitment_key;
 
   private:
     HonkProof proof;

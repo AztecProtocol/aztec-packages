@@ -1,32 +1,18 @@
 #include "./eccvm_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
-ECCVMVerifier::ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
-    : key(verifier_key)
-{}
 
 /**
  * @brief This function verifies an ECCVM Honk proof for given program settings.
- *
  */
 bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 {
-    using FF = typename Flavor::FF;
-    using Commitment = typename Flavor::Commitment;
-    using PCS = typename Flavor::PCS;
     using ZeroMorph = ZeroMorphVerifier_<PCS>;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
-    using Curve = typename Flavor::Curve;
 
     RelationParameters<FF> relation_parameters;
-
     transcript = std::make_shared<Transcript>(proof);
-
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
