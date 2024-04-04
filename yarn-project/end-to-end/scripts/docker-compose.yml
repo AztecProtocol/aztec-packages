@@ -44,7 +44,6 @@ services:
         yarn test ${TEST:-./src/e2e_deploy_contract.test.ts}
       '
     volumes:
-      # TODO(AD) currently earthly uses /build instead of /usr/src
       - ../log:/usr/src/yarn-project/end-to-end/log:rw
     depends_on:
       - sandbox

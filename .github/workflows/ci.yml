@@ -6,9 +6,34 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  start-runner:
+    timeout-minutes: 5              # normally it only takes 1-2 minutes
+    name: Start self-hosted EC2 runner
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write        
+    steps:      
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: AztecProtocol/ec2-action-builder@v11
+        with:
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: "us-east-2"
+          ec2_instance_type: r6a.32xlarge
+          ec2_ami_id: ami-04d8422a9ba4de80f
+          ec2_subnet_id: subnet-4cfabd25
+          ec2_instance_tags: '[]'
+          github_action_runner_version: v2.315.0
+          ec2_security_group_id: sg-0ccd4e5df0dcca0c9
+          ec2_instance_ttl: 40 # 40 minutes to reap
+          ec2_spot_instance_strategy: BestEffort
+
   # there's a lot of x86 tasks - let's split out the build step
   build-x86:
-    runs-on: ubuntu-latest
+    needs: start-runner
+    runs-on: ${{ github.run_id }}
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
     env:
@@ -17,6 +42,8 @@ jobs:
     concurrency:
       group: build-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
       cancel-in-progress: true
+    # permission check
+    if: github.event.pull_request.head.repo.full_name == github.repository || contains(github.event.pull_request.labels.*.name, 'external-ci')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,7 +72,8 @@ jobs:
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
-    runs-on: ubuntu-latest
+    needs: start-runner
+    runs-on: ${{ github.run_id }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -54,9 +82,8 @@ jobs:
         test:
           - e2e-card-game
           - e2e-crowdfunding-and-claim
-    # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: ${{ matrix.test }}-${{ github.ref_name == 'master' && github.run_id|| github.ref_name }}-arm
+      group: ${{ matrix.test }}-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-arm
       cancel-in-progress: true
     steps:
       - name: Checkout
@@ -82,7 +109,7 @@ jobs:
   # all the end-to-end integration tests for aztec
   e2e-x86:
     needs: build-x86
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.run_id }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -120,9 +147,14 @@ jobs:
           # we blank earthly token just to be sure this is a pure local run
           EARTHLY_TOKEN="" earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
 
+      - name: Upload logs
+        run: |
+          BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
+
   # barretenberg (prover) native tests
   bb-native-tests:
-    runs-on: ubuntu-latest
+    needs: start-runner
+    runs-on: ${{ github.run_id }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -157,8 +189,9 @@ jobs:
   # they should use parallelism within the benchmark, but only one thing should run at a time
   # for accurate results
   # We don't depend on 'build' as we use a different runner and will build components on the fist step that uses them.
-  bench:
-    runs-on: ubuntu-latest
+  bb-bench:
+    runs-on: ${{ github.run_id }}
+    needs: start-runner
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
@@ -200,3 +233,20 @@ jobs:
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
         run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache
+
+  # # Post actions, deploy and summarize logs
+  # aztec-bench-summary:
+  #   runs-on: ${{ github.run_id }}     
+  #  # IMPORTANT security flaw if we don't need 'check-run-condition'
+  #   needs: e2e-x86
+  #   concurrency:
+  #     group: aztec-bench-summary-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+  #     cancel-in-progress: true
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+
+  #     - name: "Assemble benchmark summary from uploaded logs"
+  #         command: ./scripts/ci/assemble_e2e_benchmark_earthly.sh

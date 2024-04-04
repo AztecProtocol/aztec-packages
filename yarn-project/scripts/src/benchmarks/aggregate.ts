@@ -228,6 +228,15 @@ function processEntry(entry: Stats, results: BenchmarkCollectedResults, fileName
   }
 }
 
+function getBarretenbergMetric(context: { executable?: string }): MetricName | undefined {
+  if (context.executable?.includes('ultra_honk')) {
+    return 'ultrahonk_proving_time_in_ms';
+  } else if (context.executable?.includes('client_ivc')) {
+    return 'client_ivc_proving_time_in_ms';
+  }
+  return undefined;
+}
+
 /** Array of collected raw results for a given metric. */
 type BenchmarkCollectedMetricResults = Record<string, number[]>;
 
@@ -253,7 +262,8 @@ export async function main() {
     }
   }
 
-  log(`Collected entries: ${JSON.stringify(collected)}`);
+  // Spammy if on by default
+  // log(`Collected entries: ${JSON.stringify(collected)}`);
 
   // For each bucket of each metric compute the average all collected data points
   const results: BenchmarkResults = {};
@@ -267,6 +277,28 @@ export async function main() {
       }
       resultMetric[bucketName] = avg;
     }
+  }
+
+  // Add google benchmark json files, which have data already averaged
+  const googleBenchmarkFiles = fs.readdirSync(LogsDir).filter(f => f.endsWith('.json'));
+  for (const file of googleBenchmarkFiles) {
+    const data = JSON.parse(fs.readFileSync(path.join(LogsDir, file), 'utf-8'));
+    if (!data.context || !data.benchmarks) {
+      log(`Invalid google benchmark file: ${file}`);
+      continue;
+    }
+    const metric = getBarretenbergMetric(data.context);
+    if (!metric) {
+      log(`Unknown executable in benchmark file ${file}: ${data.context.executable}`);
+      continue;
+    }
+    const circuitSize = '2^20'; // Where to load size from?
+    const value = data.benchmarks[0]?.real_time;
+    if (value === undefined) {
+      log(`Couldn't find real_time in benchmark file ${file}`);
+      continue;
+    }
+    results[metric] = { [circuitSize]: value };
   }
 
   const timestampedResults: BenchmarkResultsWithTimestamp = { ...results, timestamp: new Date().toISOString() };
