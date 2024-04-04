@@ -22,7 +22,6 @@ export type AbiValue =
   | BasicValue<'array', AbiValue[]>
   | TupleValue
   | IntegerValue
-  | FieldValue
   | StructValue;
 
 export type TypedStructFieldValue<T> = { name: string; value: T };
@@ -33,11 +32,8 @@ export interface StructValue {
 }
 
 export interface TupleValue {
+  kind: 'tuple';
   fields: AbiValue[];
-}
-
-export interface FieldValue extends BasicValue<'field', string> {
-  sign: boolean;
 }
 
 export interface IntegerValue extends BasicValue<'integer', string> {

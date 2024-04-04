@@ -319,7 +319,7 @@ impl From<ResolverError> for Diagnostic {
             ResolverError::AbiAttributeOusideContract { span } => {
                 Diagnostic::simple_error(
                     "#[abi(tag)] attributes can only be used in contracts".to_string(),
-                    "misplaced #[ab(tag)] attribute".to_string(),
+                    "misplaced #[abi(tag)] attribute".to_string(),
                     span,
                 )
             },
