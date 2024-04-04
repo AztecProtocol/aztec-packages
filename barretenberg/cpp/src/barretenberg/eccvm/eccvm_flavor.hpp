@@ -347,7 +347,7 @@ class ECCVMFlavor {
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
             : public_inputs(proving_key->public_inputs)
         {
-            // this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(); // WORKTODO
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
             this->circuit_size = proving_key->circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key->num_public_inputs;
