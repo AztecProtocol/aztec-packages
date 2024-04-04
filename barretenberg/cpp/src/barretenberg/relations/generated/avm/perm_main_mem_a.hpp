@@ -56,14 +56,14 @@ class perm_main_mem_a_permutation_settings {
                                      in.avm_main_rwa,
                                      in.avm_main_r_in_tag,
                                      in.avm_main_w_in_tag,
-                                     in.avm_main_sel_mov,
+                                     in.avm_main_sel_mov_a,
                                      in.avm_mem_clk,
                                      in.avm_mem_addr,
                                      in.avm_mem_val,
                                      in.avm_mem_rw,
                                      in.avm_mem_r_in_tag,
                                      in.avm_mem_w_in_tag,
-                                     in.avm_mem_sel_mov);
+                                     in.avm_mem_sel_mov_a);
     }
 
     /**
@@ -96,14 +96,14 @@ class perm_main_mem_a_permutation_settings {
                                      in.avm_main_rwa,
                                      in.avm_main_r_in_tag,
                                      in.avm_main_w_in_tag,
-                                     in.avm_main_sel_mov,
+                                     in.avm_main_sel_mov_a,
                                      in.avm_mem_clk,
                                      in.avm_mem_addr,
                                      in.avm_mem_val,
                                      in.avm_mem_rw,
                                      in.avm_mem_r_in_tag,
                                      in.avm_mem_w_in_tag,
-                                     in.avm_mem_sel_mov);
+                                     in.avm_mem_sel_mov_a);
     }
 };
 

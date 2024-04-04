@@ -30,6 +30,7 @@ namespace avm_main(256);
 
     //===== MEMORY OPCODES ==========================================================
     pol commit sel_mov;
+    pol commit sel_cmov;
     
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
@@ -75,6 +76,7 @@ namespace avm_main(256);
     // A helper witness being the inverse of some value
     // to show a non-zero equality
     pol commit inv;
+    pol commit id_zero; // Boolean telling whether id is zero (cmov opcode)
 
     // Intermediate register values
     pol commit ia;
@@ -139,9 +141,11 @@ namespace avm_main(256);
 
     // Might be removed if derived from opcode based on a lookup of constants
     sel_mov * ( 1 - sel_mov) = 0;
+    sel_cmov * ( 1 - sel_cmov) = 0;
 
     op_err * (1 - op_err) = 0;
     tag_err * (1 - tag_err) = 0; // Potential optimization (boolean constraint derivation from equivalence check to avm_mem)?
+    id_zero * (1 - id_zero) = 0;
 
     // Might be removed if derived from opcode based on a lookup of constants
     mem_op_a * (1 - mem_op_a) = 0;
@@ -252,10 +256,36 @@ namespace avm_main(256);
     // TODO: we want to set an initial number for the reserved memory of the jump pointer
 
     //====== MEMORY OPCODES CONSTRAINTS =========================================
-    #[MOV_SAME_VALUE]
-    sel_mov * (ia - ic) = 0; // Ensure that the correct value is moved/copied.
+
+    // TODO: consolidate with zero division error handling
+
+    // When sel_cmov == 1, we need id == 0 <==> id_zero == 0
+    // This can be achieved with the 2 following relations.
+    // inv is an extra witness to show that we can invert id, i.e., inv = id^(-1)
+    // If id == 0, we have to set inv = 1 to satisfy the second relation,
+    // because id_zero == 1 from the first relation.
+    #[CMOV_CONDITION_RES_1]
+    sel_cmov * (id * inv - 1 + id_zero) = 0;
+    #[CMOV_CONDITION_RES_2]
+    sel_cmov * id_zero * (1 - inv) = 0;
+
+    // Boolean selectors telling whether we move ia to ic or ib to ic.
+    // Boolean constraints and mutual exclusivity are derived from their
+    // respective definitions based on sel_mov, sel_cmov, and id_zero.
+    pol commit sel_mov_a;
+    pol commit sel_mov_b;
+
+    // For MOV, we copy ia to ic.
+    // For CMOV, we copy ia to ic if id is NOT zero, otherwise we copy ib to ic.
+    sel_mov_a = sel_mov + sel_cmov * (1 - id_zero);
+    sel_mov_b = sel_cmov * id_zero;
+
+    #[MOV_SAME_VALUE_A]
+    sel_mov_a * (ia - ic) = 0; // Ensure that the correct value is moved/copied.
+    #[MOV_SAME_VALUE_B]
+    sel_mov_b * (ib - ic) = 0; // Ensure that the correct value is moved/copied.
     #[MOV_MAIN_SAME_TAG]
-    sel_mov * (r_in_tag - w_in_tag) = 0;
+    (sel_mov + sel_cmov) * (r_in_tag - w_in_tag) = 0;
 
     //====== Inter-table Constraints ============================================
     #[INCL_MAIN_TAG_ERR]
@@ -295,14 +325,14 @@ namespace avm_main(256);
     avm_binary.start {avm_binary.clk, avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic, avm_binary.op_id, avm_binary.in_tag};
 
     #[PERM_MAIN_MEM_A]
-    mem_op_a {clk, mem_idx_a, ia, rwa, r_in_tag, w_in_tag, sel_mov}
+    mem_op_a {clk, mem_idx_a, ia, rwa, r_in_tag, w_in_tag, sel_mov_a}
     is
-    avm_mem.op_a {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw, avm_mem.r_in_tag, avm_mem.w_in_tag, avm_mem.sel_mov};
+    avm_mem.op_a {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw, avm_mem.r_in_tag, avm_mem.w_in_tag, avm_mem.sel_mov_a};
 
     #[PERM_MAIN_MEM_B]
-    mem_op_b {clk, mem_idx_b, ib, rwb, r_in_tag, w_in_tag}
+    mem_op_b {clk, mem_idx_b, ib, rwb, r_in_tag, w_in_tag, sel_mov_b}
     is
-    avm_mem.op_b {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw, avm_mem.r_in_tag, avm_mem.w_in_tag};
+    avm_mem.op_b {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw, avm_mem.r_in_tag, avm_mem.w_in_tag, avm_mem.sel_mov_b};
 
     #[PERM_MAIN_MEM_C]
     mem_op_c {clk, mem_idx_c, ic, rwc, r_in_tag, w_in_tag}

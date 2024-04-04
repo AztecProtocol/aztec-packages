@@ -832,6 +832,7 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
         .avm_main_r_in_tag = static_cast<uint32_t>(tag),
         .avm_main_rwc = 1,
         .avm_main_sel_mov = 1,
+        .avm_main_sel_mov_a = 1,
         .avm_main_tag_err = static_cast<uint32_t>(!tag_match),
         .avm_main_w_in_tag = static_cast<uint32_t>(tag),
     });
@@ -1267,7 +1268,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_mem_tag = FF(static_cast<uint32_t>(src.m_tag));
         dest.avm_mem_tag_err = FF(static_cast<uint32_t>(src.m_tag_err));
         dest.avm_mem_one_min_inv = src.m_one_min_inv;
-        dest.avm_mem_sel_mov = FF(static_cast<uint32_t>(src.m_sel_mov));
+        dest.avm_mem_sel_mov_a = FF(static_cast<uint32_t>(src.m_sel_mov_a));
 
         dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
 

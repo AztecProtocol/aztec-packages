@@ -137,6 +137,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_ib{};
     FF avm_main_ic{};
     FF avm_main_id{};
+    FF avm_main_id_zero{};
     FF avm_main_ind_a{};
     FF avm_main_ind_b{};
     FF avm_main_ind_c{};
@@ -163,11 +164,14 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_rwb{};
     FF avm_main_rwc{};
     FF avm_main_rwd{};
+    FF avm_main_sel_cmov{};
     FF avm_main_sel_halt{};
     FF avm_main_sel_internal_call{};
     FF avm_main_sel_internal_return{};
     FF avm_main_sel_jump{};
     FF avm_main_sel_mov{};
+    FF avm_main_sel_mov_a{};
+    FF avm_main_sel_mov_b{};
     FF avm_main_sel_op_add{};
     FF avm_main_sel_op_and{};
     FF avm_main_sel_op_div{};
@@ -198,7 +202,8 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_op_d{};
     FF avm_mem_r_in_tag{};
     FF avm_mem_rw{};
-    FF avm_mem_sel_mov{};
+    FF avm_mem_sel_mov_a{};
+    FF avm_mem_sel_mov_b{};
     FF avm_mem_sub_clk{};
     FF avm_mem_tag{};
     FF avm_mem_tag_err{};
@@ -298,12 +303,17 @@ class AvmCircuitBuilder {
     using ProverPolynomials = Flavor::ProverPolynomials;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 224;
     static constexpr size_t num_polys = 195;
 =======
     static constexpr size_t num_fixed_columns = 169;
     static constexpr size_t num_polys = 150;
 >>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
+=======
+    static constexpr size_t num_fixed_columns = 174;
+    static constexpr size_t num_polys = 155;
+>>>>>>> 220457275 (5557: PIL relations for CMOV opcode)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -405,6 +415,7 @@ class AvmCircuitBuilder {
             polys.avm_main_ib[i] = rows[i].avm_main_ib;
             polys.avm_main_ic[i] = rows[i].avm_main_ic;
             polys.avm_main_id[i] = rows[i].avm_main_id;
+            polys.avm_main_id_zero[i] = rows[i].avm_main_id_zero;
             polys.avm_main_ind_a[i] = rows[i].avm_main_ind_a;
             polys.avm_main_ind_b[i] = rows[i].avm_main_ind_b;
             polys.avm_main_ind_c[i] = rows[i].avm_main_ind_c;
@@ -431,11 +442,14 @@ class AvmCircuitBuilder {
             polys.avm_main_rwb[i] = rows[i].avm_main_rwb;
             polys.avm_main_rwc[i] = rows[i].avm_main_rwc;
             polys.avm_main_rwd[i] = rows[i].avm_main_rwd;
+            polys.avm_main_sel_cmov[i] = rows[i].avm_main_sel_cmov;
             polys.avm_main_sel_halt[i] = rows[i].avm_main_sel_halt;
             polys.avm_main_sel_internal_call[i] = rows[i].avm_main_sel_internal_call;
             polys.avm_main_sel_internal_return[i] = rows[i].avm_main_sel_internal_return;
             polys.avm_main_sel_jump[i] = rows[i].avm_main_sel_jump;
             polys.avm_main_sel_mov[i] = rows[i].avm_main_sel_mov;
+            polys.avm_main_sel_mov_a[i] = rows[i].avm_main_sel_mov_a;
+            polys.avm_main_sel_mov_b[i] = rows[i].avm_main_sel_mov_b;
             polys.avm_main_sel_op_add[i] = rows[i].avm_main_sel_op_add;
             polys.avm_main_sel_op_and[i] = rows[i].avm_main_sel_op_and;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
@@ -466,7 +480,8 @@ class AvmCircuitBuilder {
             polys.avm_mem_op_d[i] = rows[i].avm_mem_op_d;
             polys.avm_mem_r_in_tag[i] = rows[i].avm_mem_r_in_tag;
             polys.avm_mem_rw[i] = rows[i].avm_mem_rw;
-            polys.avm_mem_sel_mov[i] = rows[i].avm_mem_sel_mov;
+            polys.avm_mem_sel_mov_a[i] = rows[i].avm_mem_sel_mov_a;
+            polys.avm_mem_sel_mov_b[i] = rows[i].avm_mem_sel_mov_b;
             polys.avm_mem_sub_clk[i] = rows[i].avm_mem_sub_clk;
             polys.avm_mem_tag[i] = rows[i].avm_mem_tag;
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;

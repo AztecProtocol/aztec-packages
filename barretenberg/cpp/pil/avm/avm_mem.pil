@@ -28,9 +28,10 @@ namespace avm_mem(256);
     pol commit ind_op_c;
     pol commit ind_op_d;
 
-    // Selector for MOV opcode (copied from main trace for loading operation on intermediated register ia)
+    // Selectors for MOV/CMOV opcodes (copied from main trace for loading operation on intermediated register ia/ib)
     // Boolean constraint is performed in main trace.
-    pol commit sel_mov;
+    pol commit sel_mov_a;
+    pol commit sel_mov_b;
 
     // Error columns
     pol commit tag_err; // Boolean (1 if r_in_tag != tag is detected)
@@ -152,12 +153,12 @@ namespace avm_mem(256);
     ind_op_c * rw = 0;
     ind_op_d * rw = 0;
 
-    //====== MOV Opcode Tag Constraint =====================================
+    //====== MOV/CMOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to tag for
-    // the load operation pertaining to Ia.
-    // The permutation check #[PERM_MAIN_MEM_A] guarantees that the r_in_tag
-    // value load operation for Ia is copied back in the main trace.
+    // the load operation pertaining to Ia resp. Ib.
+    // The permutation check #[PERM_MAIN_MEM_A/B] guarantees that the r_in_tag
+    // value load operation for Ia/Ib is copied back in the main trace.
     // Constraint #[MOV_MAIN_SAME_TAG] copies r_in_tag to w_in_tag in the main
     // trace. Then, #[PERM_MAIN_MEM_C] copies w_in_tag for store operation from Ic.
     #[MOV_SAME_TAG]
-    sel_mov * tag_err = 0; // Equivalent to sel_mov * (r_in_tag - tag) = 0
+    (sel_mov_a + sel_mov_b) * tag_err = 0; // Equivalent to (sel_mov_a + sel_mov_b) * (r_in_tag - tag) = 0

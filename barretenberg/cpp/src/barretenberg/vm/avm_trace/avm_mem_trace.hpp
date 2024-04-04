@@ -36,7 +36,7 @@ class AvmMemTraceBuilder {
         bool m_rw = false;
         bool m_tag_err = false;
         FF m_one_min_inv{};
-        bool m_sel_mov = false;
+        bool m_sel_mov_a = false;
         bool m_tag_err_count_relevant = false;
 
         /**

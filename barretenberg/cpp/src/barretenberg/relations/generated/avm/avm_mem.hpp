@@ -23,7 +23,8 @@ template <typename FF> struct Avm_memRow {
     FF avm_mem_r_in_tag{};
     FF avm_mem_rw{};
     FF avm_mem_rw_shift{};
-    FF avm_mem_sel_mov{};
+    FF avm_mem_sel_mov_a{};
+    FF avm_mem_sel_mov_b{};
     FF avm_mem_sub_clk{};
     FF avm_mem_tag{};
     FF avm_mem_tag_err{};
@@ -342,7 +343,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(30);
 
-            auto tmp = (avm_mem_sel_mov * avm_mem_tag_err);
+            auto tmp = ((avm_mem_sel_mov_a + avm_mem_sel_mov_b) * avm_mem_tag_err);
             tmp *= scaling_factor;
             std::get<30>(evals) += tmp;
         }

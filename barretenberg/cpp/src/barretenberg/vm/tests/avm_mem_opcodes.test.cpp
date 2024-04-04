@@ -111,7 +111,9 @@ class AvmMemOpcodeTests : public ::testing::Test {
                               Field(&Row::avm_main_mem_idx_c, dir_dst_offset)));
         }
         EXPECT_THAT(main_row,
-                    AllOf(Field(&Row::avm_main_ia, val_ff),
+                    AllOf(Field(&Row::avm_main_sel_mov, 1),
+                          Field(&Row::avm_main_sel_mov_a, 1),
+                          Field(&Row::avm_main_ia, val_ff),
                           Field(&Row::avm_main_ib, 0),
                           Field(&Row::avm_main_ic, val_ff),
                           Field(&Row::avm_main_r_in_tag, static_cast<uint32_t>(tag)),
@@ -123,7 +125,7 @@ class AvmMemOpcodeTests : public ::testing::Test {
                     AllOf(Field(&Row::avm_mem_tag_err, 0),
                           Field(&Row::avm_mem_r_in_tag, static_cast<uint32_t>(tag)),
                           Field(&Row::avm_mem_tag, static_cast<uint32_t>(tag)),
-                          Field(&Row::avm_mem_sel_mov, 1),
+                          Field(&Row::avm_mem_sel_mov_a, 1),
                           Field(&Row::avm_mem_addr, indirect ? dir_src_offset : src_offset),
                           Field(&Row::avm_mem_val, val_ff),
                           Field(&Row::avm_mem_rw, 0),
@@ -351,7 +353,7 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputValue)
     compute_mov_indices(false);
     trace.at(main_idx).avm_main_ic = 233;
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
 }
 
 TEST_F(AvmMemOpcodeNegativeTests, indMovWrongOutputValue)
@@ -360,7 +362,7 @@ TEST_F(AvmMemOpcodeNegativeTests, indMovWrongOutputValue)
     compute_mov_indices(true);
     trace.at(main_idx).avm_main_ic = 8733;
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
 }
 
 // We want to test that the output tag for MOV cannot be altered.
@@ -405,7 +407,7 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputTagDisabledSelector)
     trace.at(mem_a_idx).avm_mem_w_in_tag = tag_u64;
     trace.at(mem_a_idx).avm_mem_tag_err = 1;
     trace.at(mem_a_idx).avm_mem_one_min_inv = one_min_inverse_diff;
-    trace.at(mem_a_idx).avm_mem_sel_mov = 0;
+    trace.at(mem_a_idx).avm_mem_sel_mov_a = 0;
     trace.at(mem_c_idx).avm_mem_tag = tag_u64;
     trace.at(mem_c_idx).avm_mem_r_in_tag = tag_u64;
     trace.at(mem_c_idx).avm_mem_w_in_tag = tag_u64;

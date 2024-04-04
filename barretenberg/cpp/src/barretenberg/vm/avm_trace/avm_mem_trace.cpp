@@ -200,7 +200,7 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint32
         .m_tag = memEntry.tag,
         .r_in_tag = memEntry.tag,
         .w_in_tag = memEntry.tag,
-        .m_sel_mov = true,
+        .m_sel_mov_a = true,
     });
 
     return memEntry;

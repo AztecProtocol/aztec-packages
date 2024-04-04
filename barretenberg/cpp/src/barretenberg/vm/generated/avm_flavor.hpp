@@ -70,6 +70,7 @@ class AvmFlavor {
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 193;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -82,6 +83,13 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 169;
 >>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 153;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 174;
+>>>>>>> 220457275 (5557: PIL relations for CMOV opcode)
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -275,6 +283,7 @@ class AvmFlavor {
                               avm_main_ib,
                               avm_main_ic,
                               avm_main_id,
+                              avm_main_id_zero,
                               avm_main_ind_a,
                               avm_main_ind_b,
                               avm_main_ind_c,
@@ -301,11 +310,14 @@ class AvmFlavor {
                               avm_main_rwb,
                               avm_main_rwc,
                               avm_main_rwd,
+                              avm_main_sel_cmov,
                               avm_main_sel_halt,
                               avm_main_sel_internal_call,
                               avm_main_sel_internal_return,
                               avm_main_sel_jump,
                               avm_main_sel_mov,
+                              avm_main_sel_mov_a,
+                              avm_main_sel_mov_b,
                               avm_main_sel_op_add,
                               avm_main_sel_op_and,
                               avm_main_sel_op_div,
@@ -336,7 +348,8 @@ class AvmFlavor {
                               avm_mem_op_d,
                               avm_mem_r_in_tag,
                               avm_mem_rw,
-                              avm_mem_sel_mov,
+                              avm_mem_sel_mov_a,
+                              avm_mem_sel_mov_b,
                               avm_mem_sub_clk,
                               avm_mem_tag,
                               avm_mem_tag_err,
@@ -481,6 +494,7 @@ class AvmFlavor {
                      avm_main_ib,
                      avm_main_ic,
                      avm_main_id,
+                     avm_main_id_zero,
                      avm_main_ind_a,
                      avm_main_ind_b,
                      avm_main_ind_c,
@@ -507,11 +521,14 @@ class AvmFlavor {
                      avm_main_rwb,
                      avm_main_rwc,
                      avm_main_rwd,
+                     avm_main_sel_cmov,
                      avm_main_sel_halt,
                      avm_main_sel_internal_call,
                      avm_main_sel_internal_return,
                      avm_main_sel_jump,
                      avm_main_sel_mov,
+                     avm_main_sel_mov_a,
+                     avm_main_sel_mov_b,
                      avm_main_sel_op_add,
                      avm_main_sel_op_and,
                      avm_main_sel_op_div,
@@ -542,7 +559,8 @@ class AvmFlavor {
                      avm_mem_op_d,
                      avm_mem_r_in_tag,
                      avm_mem_rw,
-                     avm_mem_sel_mov,
+                     avm_mem_sel_mov_a,
+                     avm_mem_sel_mov_b,
                      avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
@@ -692,6 +710,7 @@ class AvmFlavor {
                               avm_main_ib,
                               avm_main_ic,
                               avm_main_id,
+                              avm_main_id_zero,
                               avm_main_ind_a,
                               avm_main_ind_b,
                               avm_main_ind_c,
@@ -718,11 +737,14 @@ class AvmFlavor {
                               avm_main_rwb,
                               avm_main_rwc,
                               avm_main_rwd,
+                              avm_main_sel_cmov,
                               avm_main_sel_halt,
                               avm_main_sel_internal_call,
                               avm_main_sel_internal_return,
                               avm_main_sel_jump,
                               avm_main_sel_mov,
+                              avm_main_sel_mov_a,
+                              avm_main_sel_mov_b,
                               avm_main_sel_op_add,
                               avm_main_sel_op_and,
                               avm_main_sel_op_div,
@@ -753,7 +775,8 @@ class AvmFlavor {
                               avm_mem_op_d,
                               avm_mem_r_in_tag,
                               avm_mem_rw,
-                              avm_mem_sel_mov,
+                              avm_mem_sel_mov_a,
+                              avm_mem_sel_mov_b,
                               avm_mem_sub_clk,
                               avm_mem_tag,
                               avm_mem_tag_err,
@@ -929,6 +952,7 @@ class AvmFlavor {
                      avm_main_ib,
                      avm_main_ic,
                      avm_main_id,
+                     avm_main_id_zero,
                      avm_main_ind_a,
                      avm_main_ind_b,
                      avm_main_ind_c,
@@ -955,11 +979,14 @@ class AvmFlavor {
                      avm_main_rwb,
                      avm_main_rwc,
                      avm_main_rwd,
+                     avm_main_sel_cmov,
                      avm_main_sel_halt,
                      avm_main_sel_internal_call,
                      avm_main_sel_internal_return,
                      avm_main_sel_jump,
                      avm_main_sel_mov,
+                     avm_main_sel_mov_a,
+                     avm_main_sel_mov_b,
                      avm_main_sel_op_add,
                      avm_main_sel_op_and,
                      avm_main_sel_op_div,
@@ -990,7 +1017,8 @@ class AvmFlavor {
                      avm_mem_op_d,
                      avm_mem_r_in_tag,
                      avm_mem_rw,
-                     avm_mem_sel_mov,
+                     avm_mem_sel_mov_a,
+                     avm_mem_sel_mov_b,
                      avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
@@ -1166,6 +1194,7 @@ class AvmFlavor {
                      avm_main_ib,
                      avm_main_ic,
                      avm_main_id,
+                     avm_main_id_zero,
                      avm_main_ind_a,
                      avm_main_ind_b,
                      avm_main_ind_c,
@@ -1192,11 +1221,14 @@ class AvmFlavor {
                      avm_main_rwb,
                      avm_main_rwc,
                      avm_main_rwd,
+                     avm_main_sel_cmov,
                      avm_main_sel_halt,
                      avm_main_sel_internal_call,
                      avm_main_sel_internal_return,
                      avm_main_sel_jump,
                      avm_main_sel_mov,
+                     avm_main_sel_mov_a,
+                     avm_main_sel_mov_b,
                      avm_main_sel_op_add,
                      avm_main_sel_op_and,
                      avm_main_sel_op_div,
@@ -1227,7 +1259,8 @@ class AvmFlavor {
                      avm_mem_op_d,
                      avm_mem_r_in_tag,
                      avm_mem_rw,
-                     avm_mem_sel_mov,
+                     avm_mem_sel_mov_a,
+                     avm_mem_sel_mov_b,
                      avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
@@ -1576,6 +1609,7 @@ class AvmFlavor {
             Base::avm_main_ib = "AVM_MAIN_IB";
             Base::avm_main_ic = "AVM_MAIN_IC";
             Base::avm_main_id = "AVM_MAIN_ID";
+            Base::avm_main_id_zero = "AVM_MAIN_ID_ZERO";
             Base::avm_main_ind_a = "AVM_MAIN_IND_A";
             Base::avm_main_ind_b = "AVM_MAIN_IND_B";
             Base::avm_main_ind_c = "AVM_MAIN_IND_C";
@@ -1602,11 +1636,14 @@ class AvmFlavor {
             Base::avm_main_rwb = "AVM_MAIN_RWB";
             Base::avm_main_rwc = "AVM_MAIN_RWC";
             Base::avm_main_rwd = "AVM_MAIN_RWD";
+            Base::avm_main_sel_cmov = "AVM_MAIN_SEL_CMOV";
             Base::avm_main_sel_halt = "AVM_MAIN_SEL_HALT";
             Base::avm_main_sel_internal_call = "AVM_MAIN_SEL_INTERNAL_CALL";
             Base::avm_main_sel_internal_return = "AVM_MAIN_SEL_INTERNAL_RETURN";
             Base::avm_main_sel_jump = "AVM_MAIN_SEL_JUMP";
             Base::avm_main_sel_mov = "AVM_MAIN_SEL_MOV";
+            Base::avm_main_sel_mov_a = "AVM_MAIN_SEL_MOV_A";
+            Base::avm_main_sel_mov_b = "AVM_MAIN_SEL_MOV_B";
             Base::avm_main_sel_op_add = "AVM_MAIN_SEL_OP_ADD";
             Base::avm_main_sel_op_and = "AVM_MAIN_SEL_OP_AND";
             Base::avm_main_sel_op_div = "AVM_MAIN_SEL_OP_DIV";
@@ -1637,7 +1674,8 @@ class AvmFlavor {
             Base::avm_mem_op_d = "AVM_MEM_OP_D";
             Base::avm_mem_r_in_tag = "AVM_MEM_R_IN_TAG";
             Base::avm_mem_rw = "AVM_MEM_RW";
-            Base::avm_mem_sel_mov = "AVM_MEM_SEL_MOV";
+            Base::avm_mem_sel_mov_a = "AVM_MEM_SEL_MOV_A";
+            Base::avm_mem_sel_mov_b = "AVM_MEM_SEL_MOV_B";
             Base::avm_mem_sub_clk = "AVM_MEM_SUB_CLK";
             Base::avm_mem_tag = "AVM_MEM_TAG";
             Base::avm_mem_tag_err = "AVM_MEM_TAG_ERR";
@@ -1798,6 +1836,7 @@ class AvmFlavor {
         Commitment avm_main_ib;
         Commitment avm_main_ic;
         Commitment avm_main_id;
+        Commitment avm_main_id_zero;
         Commitment avm_main_ind_a;
         Commitment avm_main_ind_b;
         Commitment avm_main_ind_c;
@@ -1824,11 +1863,14 @@ class AvmFlavor {
         Commitment avm_main_rwb;
         Commitment avm_main_rwc;
         Commitment avm_main_rwd;
+        Commitment avm_main_sel_cmov;
         Commitment avm_main_sel_halt;
         Commitment avm_main_sel_internal_call;
         Commitment avm_main_sel_internal_return;
         Commitment avm_main_sel_jump;
         Commitment avm_main_sel_mov;
+        Commitment avm_main_sel_mov_a;
+        Commitment avm_main_sel_mov_b;
         Commitment avm_main_sel_op_add;
         Commitment avm_main_sel_op_and;
         Commitment avm_main_sel_op_div;
@@ -1859,7 +1901,8 @@ class AvmFlavor {
         Commitment avm_mem_op_d;
         Commitment avm_mem_r_in_tag;
         Commitment avm_mem_rw;
-        Commitment avm_mem_sel_mov;
+        Commitment avm_mem_sel_mov_a;
+        Commitment avm_mem_sel_mov_b;
         Commitment avm_mem_sub_clk;
         Commitment avm_mem_tag;
         Commitment avm_mem_tag_err;
@@ -2028,6 +2071,7 @@ class AvmFlavor {
             avm_main_ib = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ic = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_id_zero = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ind_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ind_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_ind_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2054,11 +2098,14 @@ class AvmFlavor {
             avm_main_rwb = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_rwc = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_rwd = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_halt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_internal_call = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_internal_return = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_jump = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_mov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_mov_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_mov_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_and = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2089,7 +2136,8 @@ class AvmFlavor {
             avm_mem_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_rw = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_mem_sel_mov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_sel_mov_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_sel_mov_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_sub_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2254,6 +2302,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_ib, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ic, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_id, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_id_zero, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ind_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ind_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_ind_c, Transcript::proof_data);
@@ -2280,11 +2329,14 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_rwb, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_rwc, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_rwd, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_cmov, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_halt, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_internal_call, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_internal_return, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_jump, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_mov, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_mov_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_mov_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_add, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_and, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_div, Transcript::proof_data);
@@ -2315,7 +2367,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_op_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_r_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_rw, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_mem_sel_mov, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_sel_mov_a, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_sel_mov_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_sub_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag_err, Transcript::proof_data);
