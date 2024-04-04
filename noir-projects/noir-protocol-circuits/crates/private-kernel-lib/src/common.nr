@@ -24,8 +24,6 @@ use dep::types::{
     traits::{is_empty, is_empty_array}
 };
 
-use dep::types::utils::debug_log::debug_log_format;
-
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     // Each of the following arrays is expected to be zero-padded.
     // In addition, some of the following arrays (new_note_hashes, etc...) are passed
@@ -69,8 +67,6 @@ pub fn validate_note_hash_read_requests(
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a 'pending note read'.
-
-        debug_log_format("historical_note_hash_tree_root:{0}", [historical_note_hash_tree_root]);
 
         if (read_request != 0) & (witness.is_transient == false) {
             assert(
