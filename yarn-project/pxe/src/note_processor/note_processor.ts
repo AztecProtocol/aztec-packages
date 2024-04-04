@@ -95,7 +95,7 @@ export class NoteProcessor {
         `Number of blocks and EncryptedLogs is not equal. Received ${l2Blocks.length} blocks, ${encryptedL2BlockLogs.length} encrypted logs.`,
       );
     }
-    if (!l2Blocks.length) {
+    if (l2Blocks.length === 0) {
       return;
     }
 
