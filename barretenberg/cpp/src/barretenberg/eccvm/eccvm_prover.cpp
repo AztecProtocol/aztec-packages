@@ -1,6 +1,7 @@
 #include "eccvm_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
@@ -10,7 +11,9 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
-namespace bb {
+namespace bb::eccvm {
+
+using ZeroMorph = ZeroMorphProver_<PCS>;
 
 /**
  * Create ECCVMProver from proving key, witness and manifest.
@@ -235,4 +238,4 @@ HonkProof& ECCVMProver::construct_proof()
 
     return export_proof();
 }
-} // namespace bb
+} // namespace bb::eccvm

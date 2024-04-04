@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+using namespace bb::eccvm;
 
 class ECCVMTranscriptTests : public ::testing::Test {
   public:

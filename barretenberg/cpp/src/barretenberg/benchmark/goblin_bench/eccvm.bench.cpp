@@ -6,16 +6,14 @@
 
 using namespace benchmark;
 using namespace bb;
-
-using Flavor = ECCVMFlavor;
-using Builder = ECCVMCircuitBuilder;
+using namespace eccvm;
 
 namespace {
 
-Builder generate_trace(size_t target_num_gates)
+CircuitBuilder generate_trace(size_t target_num_gates)
 {
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-    using G1 = typename Flavor::CycleGroup;
+    using G1 = CycleGroup;
     using Fr = typename G1::Fr;
 
     auto generators = G1::derive_generators("test generators", 2);
@@ -38,7 +36,7 @@ Builder generate_trace(size_t target_num_gates)
         op_queue->eq();
     }
 
-    Builder builder{ op_queue };
+    CircuitBuilder builder{ op_queue };
     return builder;
 }
 
@@ -48,7 +46,7 @@ void eccvm_generate_prover(State& state) noexcept
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
     for (auto _ : state) {
-        Builder builder = generate_trace(target_num_gates);
+        CircuitBuilder builder = generate_trace(target_num_gates);
         ECCVMProver prover(builder);
     };
 }
@@ -58,7 +56,7 @@ void eccvm_prove(State& state) noexcept
     bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
 
     size_t target_num_gates = 1 << static_cast<size_t>(state.range(0));
-    Builder builder = generate_trace(target_num_gates);
+    CircuitBuilder builder = generate_trace(target_num_gates);
     ECCVMProver prover(builder);
     for (auto _ : state) {
         auto proof = prover.construct_proof();

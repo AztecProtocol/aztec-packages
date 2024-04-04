@@ -7,24 +7,11 @@
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-namespace bb {
+namespace bb::eccvm {
 
 // We won't compile this class with Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
 class ECCVMProver {
-    using Flavor = ECCVMFlavor;
-    using FF = typename Flavor::FF;
-    using PCS = typename Flavor::PCS;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using Polynomial = typename Flavor::Polynomial;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
-    using TranslationEvaluations = bb::TranslationEvaluations;
-    using ZeroMorph = ZeroMorphProver_<PCS>;
-    using CircuitBuilder = typename Flavor::CircuitBuilder;
-
   public:
     explicit ECCVMProver(const std::shared_ptr<ProvingKey>& input_key,
                          const std::shared_ptr<CommitmentKey>& commitment_key,
@@ -77,4 +64,4 @@ class ECCVMProver {
     HonkProof proof;
 };
 
-} // namespace bb
+} // namespace bb::eccvm

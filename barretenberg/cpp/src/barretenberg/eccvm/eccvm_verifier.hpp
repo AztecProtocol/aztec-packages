@@ -1,26 +1,15 @@
 #pragma once
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 
-namespace bb {
+namespace bb::eccvm {
 class ECCVMVerifier {
-    using Flavor = ECCVMFlavor;
-    using FF = typename Flavor::FF;
-    using Curve = typename Flavor::Curve;
-    using Commitment = typename Flavor::Commitment;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Transcript = typename Flavor::Transcript;
-    using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
-    using PCS = typename Flavor::PCS;
 
   public:
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
         : key(verifier_key){};
 
-    explicit ECCVMVerifier(const std::shared_ptr<ECCVMVerifier::ProvingKey>& proving_key)
-        : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
+    explicit ECCVMVerifier(const std::shared_ptr<ProvingKey>& proving_key)
+        : ECCVMVerifier(std::make_shared<VerificationKey>(proving_key)){};
 
     bool verify_proof(const HonkProof& proof);
 
@@ -29,4 +18,4 @@ class ECCVMVerifier {
     std::map<std::string, FF> pcs_fr_elements;
     std::shared_ptr<Transcript> transcript;
 };
-} // namespace bb
+} // namespace bb::eccvm

@@ -28,15 +28,15 @@ class Goblin {
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
     using GoblinUltraProverInstance = ProverInstance_<GoblinUltraFlavor>;
-    using OpQueue = bb::ECCOpQueue;
-    using ECCVMFlavor = bb::ECCVMFlavor;
-    using ECCVMBuilder = bb::ECCVMCircuitBuilder;
-    using ECCVMProver = bb::ECCVMProver;
-    using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;
-    using TranslatorProver = bb::GoblinTranslatorProver;
-    using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
-    using MergeProver = bb::MergeProver_<GoblinUltraFlavor>;
-    using MergeVerifier = bb::MergeVerifier_<GoblinUltraFlavor>;
+    using OpQueue = ECCOpQueue;
+    using ECCVMFlavor = ECCVMFlavor;
+    using ECCVMBuilder = ECCVMCircuitBuilder;
+    using ECCVMProver = eccvm::ECCVMProver;
+    using TranslatorBuilder = GoblinTranslatorCircuitBuilder;
+    using TranslatorProver = GoblinTranslatorProver;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<GoblinUltraCircuitBuilder>;
+    using MergeProver = MergeProver_<GoblinUltraFlavor>;
+    using MergeVerifier = MergeVerifier_<GoblinUltraFlavor>;
     using VerificationKey = GoblinUltraFlavor::VerificationKey;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
@@ -203,7 +203,7 @@ class Goblin {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
-        ECCVMVerifier eccvm_verifier(eccvm_prover->key);
+        eccvm::ECCVMVerifier eccvm_verifier(eccvm_prover->key);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
         GoblinTranslatorVerifier translator_verifier(translator_prover->key, eccvm_verifier.transcript);
@@ -290,7 +290,7 @@ class Goblin {
         // MergeVerifier merge_verifier;
         // bool merge_verified = merge_verifier.verify_proof(goblin_proof.merge_proof);
 
-        ECCVMVerifier eccvm_verifier(eccvm_prover->key);
+        eccvm::ECCVMVerifier eccvm_verifier(eccvm_prover->key);
         bool eccvm_verified = eccvm_verifier.verify_proof(goblin_proof.eccvm_proof);
 
         GoblinTranslatorVerifier translator_verifier(translator_prover->key, eccvm_verifier.transcript);
