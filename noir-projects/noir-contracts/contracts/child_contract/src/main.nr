@@ -4,7 +4,8 @@ contract Child {
 
     use dep::aztec::{
         context::{PublicContext, Context}, protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
+        protocol_types::traits::Deserialize
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -15,7 +16,6 @@ contract Child {
     }
 
     struct ChildInterface {
-        target_contract: dep::aztec::protocol_types::address::AztecAddress,
         value: fn[(dep::aztec::context::Context, dep::aztec::protocol_types::address::AztecAddress)](Field) -> [Field; 4],
         // value_internal: fn(Field) -> Field,
         // pub_get_value: fn(Field) -> Field,
@@ -34,9 +34,12 @@ contract Child {
             target_contract: dep::aztec::protocol_types::address::AztecAddress
         ) -> Self {
             Self {
-                target_contract,
-                value: | input: Field | {
-                    context.private.unwrap().call_private_function(target_contract, dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""), [input])
+                value: | input | {
+                    context.private.unwrap().call_private_function(
+                        target_contract,
+                        dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""),
+                        [input]
+                    )
                 }
             }
         }
