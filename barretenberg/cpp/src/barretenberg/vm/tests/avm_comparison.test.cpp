@@ -1,0 +1,229 @@
+#include "avm_common.test.hpp"
+#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm/avm_trace/avm_common.hpp"
+#include "barretenberg/vm/tests/helpers.test.hpp"
+#include "gtest/gtest.h"
+#include <algorithm>
+#include <array>
+#include <cstdint>
+#include <iterator>
+#include <ranges>
+#include <tuple>
+#include <vector>
+
+namespace tests_avm {
+using namespace bb::avm_trace;
+namespace {
+
+void common_validate_cmp(Row row,
+                         Row alu_row,
+                         FF const& a,
+                         FF const& b,
+                         FF const& c,
+                         FF const& addr_a,
+                         FF const& addr_b,
+                         FF const& addr_c,
+                         avm_trace::AvmMemoryTag const tag)
+{
+
+    // Use the row in the main trace to find the same operation in the alu trace.
+    // Check that the correct result is stored at the expected memory location.
+    EXPECT_EQ(row.avm_main_ic, c);
+    EXPECT_EQ(row.avm_main_mem_idx_c, addr_c);
+    EXPECT_EQ(row.avm_main_mem_op_c, FF(1));
+    EXPECT_EQ(row.avm_main_rwc, FF(1));
+
+    // Check that ia register is correctly set with memory load operations.
+    EXPECT_EQ(row.avm_main_ia, a);
+    EXPECT_EQ(row.avm_main_mem_idx_a, addr_a);
+    EXPECT_EQ(row.avm_main_mem_op_a, FF(1));
+    EXPECT_EQ(row.avm_main_rwa, FF(0));
+
+    // Check that ib register is correctly set with memory load operations.
+    EXPECT_EQ(row.avm_main_ib, b);
+    EXPECT_EQ(row.avm_main_mem_idx_b, addr_b);
+    EXPECT_EQ(row.avm_main_mem_op_b, FF(1));
+    EXPECT_EQ(row.avm_main_rwb, FF(0));
+
+    // Check the instruction tags
+    EXPECT_EQ(row.avm_main_r_in_tag, FF(static_cast<uint32_t>(tag)));
+    EXPECT_EQ(row.avm_main_w_in_tag, FF(1));
+
+    // Check that intermediate registers are correctly copied in Alu trace
+    EXPECT_EQ(alu_row.avm_alu_ia, a);
+    EXPECT_EQ(alu_row.avm_alu_ib, b);
+    EXPECT_EQ(alu_row.avm_alu_ic, c);
+}
+} // namespace
+using ThreeOpParamRow = std::array<FF, 3>;
+std::vector<ThreeOpParamRow> positive_op_lt_test_values = { { { FF(1), FF(1), FF(0) },
+                                                              { FF(5323), FF(321), FF(0) },
+                                                              { FF(13793), FF(10590617LLU), FF(1) },
+                                                              { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0) },
+                                                              { FF(uint256_t{ 0xb900000000000001 }),
+                                                                FF(uint256_t{ 0x1006021301080000 } << 64) +
+                                                                    uint256_t{ 0x000000000000001080876844827 },
+                                                                1 } } };
+std::vector<ThreeOpParamRow> positive_op_lte_test_values = {
+    { { FF(1), FF(1), FF(1) },
+      { FF(5323), FF(321), FF(0) },
+      { FF(13793), FF(10590617LLU), FF(1) },
+      { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0) },
+      { FF(uint256_t{ 0x1006021301080000 } << 64) + uint256_t{ 0x000000000000001080876844827 },
+        FF(uint256_t{ 0x1006021301080000 } << 64) + uint256_t{ 0x000000000000001080876844827 },
+        FF(1) } }
+};
+class AvmCmpTests : public ::testing::Test {
+  public:
+    AvmTraceBuilder trace_builder;
+
+  protected:
+    // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
+    void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
+};
+class AvmCmpTestsLT : public AvmCmpTests, public testing::WithParamInterface<ThreeOpParamRow> {};
+class AvmCmpTestsLTE : public AvmCmpTests, public testing::WithParamInterface<ThreeOpParamRow> {};
+
+/******************************************************************************
+ *
+ * POSITIVE TESTS
+ *
+ ******************************************************************************/
+TEST_P(AvmCmpTestsLT, ParamTest)
+{
+    const auto [a, b, c] = GetParam();
+    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, c });
+    trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
+    trace_builder.return_op(0, 0, 0);
+    auto trace = trace_builder.finalize();
+    // Validate the trace
+
+    // Get the row in the avm with the LT selector set
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_lt == FF(1); });
+
+    // Use the row in the main trace to find the same operation in the alu trace.
+    FF clk = row->avm_main_clk;
+    auto alu_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk && r.avm_alu_op_lt; });
+    // Check that both rows were found
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_TRUE(alu_row != trace.end());
+    common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), AvmMemoryTag::FF);
+
+    validate_trace_proof(std::move(trace));
+}
+INSTANTIATE_TEST_SUITE_P(AvmCmpTests, AvmCmpTestsLT, testing::ValuesIn(positive_op_lt_test_values));
+
+TEST_P(AvmCmpTestsLTE, ParamTest)
+{
+    const auto [a, b, c] = GetParam();
+    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, c });
+    trace_builder.op_lte(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
+    trace_builder.return_op(0, 0, 0);
+    auto trace = trace_builder.finalize();
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_lte == FF(1); });
+
+    // Use the row in the main trace to find the same operation in the alu trace.
+    FF clk = row->avm_main_clk;
+    auto alu_row = std::ranges::find_if(
+        trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk && r.avm_alu_op_lte; });
+    // Check that both rows were found
+    EXPECT_TRUE(row != trace.end());
+    EXPECT_TRUE(alu_row != trace.end());
+    common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), AvmMemoryTag::FF);
+    validate_trace_proof(std::move(trace));
+}
+INSTANTIATE_TEST_SUITE_P(AvmCmpTests, AvmCmpTestsLTE, testing::ValuesIn(positive_op_lte_test_values));
+
+/******************************************************************************
+ *
+ * NEGATIVE TESTS
+ *
+ ******************************************************************************/
+enum CMP_FAILURES {
+    IncorrectInputDecomposition,
+    SubLoCheckFailed,
+    // SubHiCheckFailed,
+    ResLoCheckFailed,
+    ResHiCheckFailed,
+    CounterRelationFailed,
+    CounterNonZeroCheckFailed,
+    ShiftRelationFailed,
+};
+std::vector<std::tuple<std::string, CMP_FAILURES>> cmp_failures = {
+    { "INPUT_DECOMP_1", CMP_FAILURES::IncorrectInputDecomposition },
+    { "SUB_LO_1", CMP_FAILURES::SubLoCheckFailed },
+    // { "SUB_HI_1", CMP_FAILURES::SubHiCheckFailed },
+    { "RES_LO", CMP_FAILURES::ResLoCheckFailed },
+    { "RES_HI", CMP_FAILURES::ResHiCheckFailed },
+    { "CMP_CTR_REL_2", CMP_FAILURES::CounterRelationFailed },
+    { "CTR_NON_ZERO_REL", CMP_FAILURES::CounterNonZeroCheckFailed },
+    { "SHIFT_RELS", CMP_FAILURES::ShiftRelationFailed },
+};
+std::vector<ThreeOpParamRow> neg_test_lt = { { 12023, 439321, 1 } };
+
+using EXPECTED_ERRORS = std::tuple<std::string, CMP_FAILURES>;
+std::vector<Row> gen_mutated_trace_cmp(std::vector<Row> trace,
+                                       std::function<bool(Row)>&& select_row,
+                                       CMP_FAILURES fail_mode)
+{
+    auto main_trace_row = std::ranges::find_if(trace.begin(), trace.end(), select_row);
+    auto main_clk = main_trace_row->avm_main_clk;
+    // The corresponding row in the alu trace as well as the row where start = 1
+    auto alu_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [main_clk](Row r) { return r.avm_alu_clk == main_clk; });
+    // The corresponding row in the alu trace where the computation ends.
+    auto range_check_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_alu_cmp_rng_ctr > FF(0); });
+    switch (fail_mode) {
+    case IncorrectInputDecomposition:
+        alu_row->avm_alu_a_lo = FF(0);
+        break;
+    case SubLoCheckFailed:
+        alu_row->avm_alu_p_a_borrow = FF::one() - alu_row->avm_alu_p_a_borrow;
+        break;
+        // case SubHiCheckFailed:
+        //     alu_row->avm_alu_p_b_borrow = FF::one() - alu_row->avm_alu_p_b_borrow;
+        //     break;
+    case ResLoCheckFailed:
+        alu_row->avm_alu_res_lo = FF(0);
+        break;
+    case ResHiCheckFailed:
+        alu_row->avm_alu_res_hi = FF(1);
+        break;
+    case CounterRelationFailed:
+        range_check_row->avm_alu_cmp_rng_ctr = FF(0);
+        break;
+    case CounterNonZeroCheckFailed:
+        range_check_row->avm_alu_rng_chk_sel = FF(0);
+        break;
+    case ShiftRelationFailed:
+        range_check_row->avm_alu_a_lo = range_check_row->avm_alu_res_lo;
+        range_check_row->avm_alu_a_hi = range_check_row->avm_alu_res_hi;
+        break;
+    }
+    return trace;
+}
+class AvmCmpNegativeTestsLT : public AvmCmpTests,
+                              public testing::WithParamInterface<std::tuple<EXPECTED_ERRORS, ThreeOpParamRow>> {};
+
+TEST_P(AvmCmpNegativeTestsLT, ParamTest)
+{
+    const auto [failure, params] = GetParam();
+    const auto [failure_string, failure_mode] = failure;
+    const auto [a, b, output] = params;
+    auto trace_builder = avm_trace::AvmTraceBuilder();
+    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, output });
+    trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
+    trace_builder.return_op(0, 0, 0);
+    auto trace = trace_builder.finalize();
+    std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_lt == FF(1); };
+    trace = gen_mutated_trace_cmp(trace, std::move(select_row), failure_mode);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
+}
+
+INSTANTIATE_TEST_SUITE_P(AvmCmpNegativeTests,
+                         AvmCmpNegativeTestsLT,
+                         testing::Combine(testing::ValuesIn(cmp_failures), testing::ValuesIn(neg_test_lt)));
+} // namespace tests_avm

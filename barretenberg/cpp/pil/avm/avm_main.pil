@@ -64,9 +64,6 @@ namespace avm_main(256);
     // Helper selector to characterize a Binary chiplet selector
     pol commit bin_sel;
 
-    // Helper selector to characterize a Cmp chiplet selector
-    pol commit cmp_sel;
-
     // Instruction memory tags read/write (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field)
     pol commit r_in_tag;
     pol commit w_in_tag;
@@ -164,7 +161,7 @@ namespace avm_main(256);
     //====== COMPARATOR OPCODES CONSTRAINTS =====================================
     // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
     #[EQ_OUTPUT_U8]
-    sel_op_eq * (w_in_tag - 1) = 0;
+    (sel_op_eq + sel_op_lte + sel_op_lt) * (w_in_tag - 1) = 0;
 
     // Relation for division over the finite field
     // If tag_err == 1 in a division, then ib == 0 and op_err == 1.
@@ -263,7 +260,7 @@ namespace avm_main(256);
     // Predicate to activate the copy of intermediate registers to ALU table. If tag_err == 1,
     // the operation is not copied to the ALU table.
     // TODO: when division is moved to the alu, we will need to add the selector in the list below:
-    alu_sel = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_not + sel_op_eq) * (1 - tag_err);
+    alu_sel = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_not + sel_op_eq + sel_op_lt + sel_op_lte) * (1 - tag_err);
 
     #[PERM_MAIN_ALU]
     alu_sel {clk, ia, ib, ic, sel_op_add, sel_op_sub,
@@ -313,3 +310,9 @@ namespace avm_main(256);
 
     #[PERM_MAIN_MEM_IND_C]
     ind_op_c {clk, ind_c, mem_idx_c} is avm_mem.ind_op_c {avm_mem.clk, avm_mem.addr, avm_mem.val};
+
+    #[LOOKUP_U8_0]
+    avm_alu.rng_chk_lookup_selector { avm_alu.u8_r0 } in sel_rng_8 { clk };
+
+    #[LOOKUP_U8_1]
+    avm_alu.rng_chk_lookup_selector { avm_alu.u8_r1 } in sel_rng_8 { clk };

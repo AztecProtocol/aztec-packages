@@ -45,9 +45,19 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
         info("alu_ia              ", trace.at(i).avm_alu_ia);
         info("alu_ib              ", trace.at(i).avm_alu_ib);
         info("alu_ic              ", trace.at(i).avm_alu_ic);
+        info("alu_rng_CHECK       ", trace.at(i).avm_alu_rng_chk_sel);
+        info("alu_rng_shift_CHECK ", trace.at(i).avm_alu_rng_chk_sel_shift);
+        info("alu_rng_REMAINING   ", trace.at(i).avm_alu_cmp_rng_ctr);
+        info("alu_cmp_sel         ", trace.at(i).avm_alu_cmp_sel);
+        info("alu_sel             ", trace.at(i).avm_alu_alu_sel);
+        info("alu_a_lo           ", trace.at(i).avm_alu_a_lo);
+        info("alu_a_hi           ", trace.at(i).avm_alu_a_hi);
+        info("alu_u8_0          ", trace.at(i).avm_alu_u8_r0);
+        info("rng_chk_lookup_selector", trace.at(i).avm_alu_rng_chk_lookup_selector);
 
         info("=======MAIN TRACE====================================================================");
         info("clk:                ", trace.at(i).avm_main_clk);
+        info("Sel_rng_8:          ", trace.at(i).avm_main_sel_rng_8);
         info("ia:                 ", trace.at(i).avm_main_ia);
         info("ib:                 ", trace.at(i).avm_main_ib);
         info("ic:                 ", trace.at(i).avm_main_ic);
@@ -56,6 +66,7 @@ void log_avm_trace(std::vector<Row> const& trace, size_t beg, size_t end, bool e
         info("tag_err             ", trace.at(i).avm_main_tag_err);
         info("first:              ", trace.at(i).avm_main_first);
         info("last:               ", trace.at(i).avm_main_last);
+        info("avm_alu_sel         ", trace.at(i).avm_main_alu_sel);
 
         info("=======MEM_OP_A======================================================================");
         info("mem_op_a:           ", trace.at(i).avm_main_mem_op_a);

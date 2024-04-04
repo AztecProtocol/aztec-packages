@@ -10,7 +10,6 @@ template <typename FF> struct Avm_mainRow {
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
     FF avm_main_bin_sel{};
-    FF avm_main_cmp_sel{};
     FF avm_main_first{};
     FF avm_main_ia{};
     FF avm_main_ib{};
@@ -94,9 +93,6 @@ inline std::string get_relation_label_avm_main(int index)
 
     case 50:
         return "BIN_SEL_2";
-
-    case 51:
-        return "CMP_SEL";
     }
     return std::to_string(index);
 }
@@ -105,9 +101,9 @@ template <typename FF_> class avm_mainImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 51> SUBRELATION_PARTIAL_LENGTHS{
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 2, 2,
+        3, 3, 5, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 3, 3, 2,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -337,7 +333,8 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(27);
 
-            auto tmp = (avm_main_sel_op_eq * (avm_main_w_in_tag - FF(1)));
+            auto tmp =
+                (((avm_main_sel_op_eq + avm_main_sel_op_lte) + avm_main_sel_op_lt) * (avm_main_w_in_tag - FF(1)));
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
@@ -519,10 +516,13 @@ template <typename FF_> class avm_mainImpl {
         {
             Avm_DECLARE_VIEWS(48);
 
-            auto tmp = (avm_main_alu_sel -
-                        (((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_not) +
-                          avm_main_sel_op_eq) *
-                         (-avm_main_tag_err + FF(1))));
+            auto tmp =
+                (avm_main_alu_sel -
+                 (((((((avm_main_sel_op_add + avm_main_sel_op_sub) + avm_main_sel_op_mul) + avm_main_sel_op_not) +
+                     avm_main_sel_op_eq) +
+                    avm_main_sel_op_lt) +
+                   avm_main_sel_op_lte) *
+                  (-avm_main_tag_err + FF(1))));
             tmp *= scaling_factor;
             std::get<48>(evals) += tmp;
         }
@@ -541,14 +541,6 @@ template <typename FF_> class avm_mainImpl {
             auto tmp = (avm_main_bin_sel - ((avm_main_sel_op_and + avm_main_sel_op_or) + avm_main_sel_op_xor));
             tmp *= scaling_factor;
             std::get<50>(evals) += tmp;
-        }
-        // Contribution 51
-        {
-            Avm_DECLARE_VIEWS(51);
-
-            auto tmp = (avm_main_cmp_sel - (avm_main_sel_op_lt + avm_main_sel_op_lte));
-            tmp *= scaling_factor;
-            std::get<51>(evals) += tmp;
         }
     }
 };

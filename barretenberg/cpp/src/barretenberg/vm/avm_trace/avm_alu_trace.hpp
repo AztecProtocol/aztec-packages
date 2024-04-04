@@ -2,6 +2,9 @@
 
 #include "avm_common.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include <array>
+#include <unordered_map>
 
 namespace bb::avm_trace {
 
@@ -41,26 +44,18 @@ class AvmAluTraceBuilder {
 
         FF alu_op_eq_diff_inv{};
 
-        // Comparison check
-        FF input_ia;
-        FF input_ib;
-        bool borrow;
+        // Comparison Operation
+        bool borrow = false;
 
-        uint128_t a_lo;
-        uint128_t a_hi;
-        uint128_t b_lo;
-        uint128_t b_hi;
-
-        uint128_t p_sub_a_lo;
-        uint128_t p_sub_a_hi;
-        bool p_a_borrow;
-        uint128_t p_sub_b_lo;
-        uint128_t p_sub_b_hi;
-        bool p_b_borrow;
-
-        uint128_t res_lo;
-        uint128_t res_hi;
+        std::vector<FF> hi_lo_limbs;
+        bool p_a_borrow = false;
+        bool p_b_borrow = false;
+        uint8_t cmp_rng_ctr = 0;
+        bool rng_chk_sel = false;
     };
+
+    std::array<std::unordered_map<uint8_t, uint32_t>, 2> u8_range_chk_counters;
+    std::array<std::unordered_map<uint16_t, uint32_t>, 15> u16_range_chk_counters;
 
     AvmAluTraceBuilder();
     void reset();
@@ -76,5 +71,8 @@ class AvmAluTraceBuilder {
 
   private:
     std::vector<AluTraceEntry> alu_trace;
+    template <typename T> std::tuple<uint8_t, uint8_t, std::vector<uint16_t>> to_alu_slice_registers(T a);
+    std::vector<AluTraceEntry> cmp_range_check_helper(AluTraceEntry row, std::vector<uint256_t> hi_lo_limbs);
+    void count_range_checks(AluTraceEntry const& entry);
 };
 } // namespace bb::avm_trace
