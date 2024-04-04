@@ -117,7 +117,7 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: |
-          earthly -P --no-output +${{ matrix.test }}
+          earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
 
   # barretenberg (prover) native tests
   bb-native-tests:
