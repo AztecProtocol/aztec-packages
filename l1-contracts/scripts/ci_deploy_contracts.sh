@@ -29,7 +29,7 @@ retry docker pull $CLI_IMAGE
 
 # remove 0x prefix from private key
 PRIVATE_KEY=${CONTRACT_PUBLISHER_PRIVATE_KEY#0x}
-docker run \
+retry docker run \
   $CLI_IMAGE \
   deploy-l1-contracts -u $ETHEREUM_HOST -p $PRIVATE_KEY | tee ./serve/contract_addresses.json
 
