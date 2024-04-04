@@ -70,14 +70,14 @@ end-to-end:
     FROM node:18.19.1-slim
     RUN apt-get update && apt-get install jq chromium netcat-openbsd -y
     ENV CHROME_BIN="/usr/bin/chromium"
-    COPY +end-to-end/usr/src /usr/src
+    COPY +end-to-end-prod/usr/src /usr/src
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
 all:
     BUILD +aztec
     BUILD +cli
-    BUILD +end-to-end-slim
+    BUILD +end-to-end
 
 build-end-to-end:
     ARG EARTHLY_GIT_HASH
