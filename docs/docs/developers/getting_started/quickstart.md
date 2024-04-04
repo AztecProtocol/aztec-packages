@@ -15,11 +15,14 @@ In this guide, you will
 
 - Node.js >= v18 (recommend installing with [nvm](https://github.com/nvm-sh/nvm))
 
-## Install Docker
+## Install Docker daemon
 
-See [this page of the Docker docs](https://docs.docker.com/get-docker/) for instructions on how to install Docker Desktop for your operating system.
+Docker daemon is easily installed via Docker Desktop. See [this page of the Docker docs](https://docs.docker.com/get-docker/) for instructions on how to install Docker Desktop for your operating system.
+Note: if installing via Docker Desktop, you do NOT need to keep the application open at all times (just the daemon).
 
-Once you have Docker installed, make sure it is running by opening the Docker Desktop application.
+Docker daemon can also be installed via Docker Engine, see [these instructions](https://docs.docker.com/engine/install/).
+
+After Docker daemon is installed, ensure you have it running. See [start Docker daemon](https://docs.docker.com/config/daemon/start/).
 
 ### Note on Linux
 
