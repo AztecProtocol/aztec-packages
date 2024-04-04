@@ -2,6 +2,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   Note,
@@ -16,12 +17,12 @@ import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath = './data' } = process.env;
 
-export class TestClass {
+export class TokenContractTest {
   static TOKEN_NAME = 'Aztec Token';
   static TOKEN_SYMBOL = 'AZT';
   static TOKEN_DECIMALS = 18n;
-  logger = createDebugLogger('aztec:e2e_token_contract');
-  snapshotManager = new SnapshotManager('e2e_token_contract', dataPath, this.logger);
+  logger: DebugLogger;
+  snapshotManager: SnapshotManager;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
@@ -29,11 +30,17 @@ export class TestClass {
   badAccount!: DocsExampleContract;
 
   constructor(testName: string) {
+    this.logger = createDebugLogger(`aztec:e2e_token_contract:${testName}`);
     this.snapshotManager = new SnapshotManager(`e2e_token_contract/${testName}`, dataPath, this.logger);
   }
 
-  async setup() {
-    await this.snapshotManager.snapshot('3-accounts', addAccounts(3), async ({ accountKeys }, { pxe }) => {
+  /**
+   * Adds two state shifts to snapshot manager.
+   * 1. Add 3 accounts.
+   * 2. Publicly deploy accounts, deploy token contract and a "bad account".
+   */
+  async pushBaseSnapshots() {
+    await this.snapshotManager.snapshot('3_accounts', addAccounts(3), async ({ accountKeys }, { pxe }) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
       this.accounts = await pxe.getRegisteredAccounts();
@@ -53,9 +60,9 @@ export class TestClass {
         const asset = await TokenContract.deploy(
           this.wallets[0],
           this.accounts[0],
-          TestClass.TOKEN_NAME,
-          TestClass.TOKEN_SYMBOL,
-          TestClass.TOKEN_DECIMALS,
+          TokenContractTest.TOKEN_NAME,
+          TokenContractTest.TOKEN_SYMBOL,
+          TokenContractTest.TOKEN_DECIMALS,
         )
           .send()
           .deployed();
@@ -81,7 +88,7 @@ export class TestClass {
         this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
         this.logger(`Bad account restored to ${this.badAccount.address}.`);
 
-        expect(await this.asset.methods.admin().view()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.asset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
     );
 
@@ -89,6 +96,11 @@ export class TestClass {
     //   const sig = decodeFunctionSignature(fn.name, fn.parameters);
     //   logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
     // });
+  }
+
+  async popBaseSnapshots() {
+    await this.snapshotManager.pop(); // e2e_token_contract
+    await this.snapshotManager.pop(); // 3_accounts
   }
 
   async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
@@ -107,11 +119,10 @@ export class TestClass {
     await this.wallets[accountIndex].addNote(extendedNote);
   }
 
-  async addTransferSnapshot() {
+  async pushMintSnapshot() {
     await this.snapshotManager.snapshot(
-      'transfer',
+      'mint',
       async () => {
-        // Have to destructure again to ensure we have latest refs.
         const { asset, accounts } = this;
         const amount = 10000n;
         await asset.methods.mint_public(accounts[0].address, amount).send().wait();
@@ -129,12 +140,12 @@ export class TestClass {
       async ({ amount }) => {
         const { asset, accounts, tokenSim } = this;
         tokenSim.mintPublic(accounts[0].address, amount);
-        expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(
+        expect(await asset.methods.balance_of_public(accounts[0].address).simulate()).toEqual(
           tokenSim.balanceOfPublic(accounts[0].address),
         );
         tokenSim.mintPrivate(amount);
         tokenSim.redeemShield(accounts[0].address, amount);
-        expect(await asset.methods.total_supply().view()).toEqual(tokenSim.totalSupply);
+        expect(await asset.methods.total_supply().simulate()).toEqual(tokenSim.totalSupply);
         return Promise.resolve();
       },
     );

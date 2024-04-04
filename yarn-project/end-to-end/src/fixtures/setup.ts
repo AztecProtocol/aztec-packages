@@ -58,15 +58,17 @@ export class SnapshotManager {
     const snapshotPath = join(this.dataPath, 'snapshots', ...this.snapshotStack.map(e => e.name), name, 'snapshot');
 
     if (existsSync(snapshotPath)) {
-      // Snapshot exists. Delay creating subsystems as we're probably still descending the tree.
+      // Snapshot exists. Record entry on stack but do nothing else as we're probably still descending the tree.
+      // It's the tests responsibility to call setup() before a test to ensure subsystems get created.
       this.logger(`Snapshot exists at ${snapshotPath}. Continuing...`);
       this.snapshotStack.push({ name, apply, restore, snapshotPath });
       return;
     }
 
-    // Snapshot doesn't exist, and by definition none of the child snapshots can exist.
+    // Snapshot didn't exist at snapshotPath, and by definition none of the child snapshots can exist.
+
     if (!this.context) {
-      // We have no context yet, create from the previous snapshot if it exists.
+      // We have no subsystem context yet, create it from the top of the snapshot stack (if it exists).
       this.context = await this.setup();
     }
 
@@ -92,8 +94,15 @@ export class SnapshotManager {
     copySync(this.livePath, snapshotPath);
   }
 
+  /**
+   * Creates and returns the subsystem context based on the current snapshot stack.
+   * If the subsystem context already exists, just return it.
+   * If you want to be sure to get a clean snapshot, be sure to call teardown() before calling setup().
+   */
   public async setup() {
-    // We have no context yet, create from the last snapshot if it exists.
+    // We have no subsystem context yet.
+    // If one exists on the snapshot stack, create one from that snapshot.
+    // Otherwise create a fresh one.
     if (!this.context) {
       removeSync(this.livePath);
       mkdirSync(this.livePath, { recursive: true });
@@ -116,11 +125,17 @@ export class SnapshotManager {
     return this.context;
   }
 
+  /**
+   * Destroy the current subsystem context and pop off the top of the snapshot stack.
+   */
   public async pop() {
     this.snapshotStack.pop();
     await this.teardown();
   }
 
+  /**
+   * Destroys the current subsystem context.
+   */
   public async teardown() {
     if (!this.context) {
       return;
@@ -133,13 +148,18 @@ export class SnapshotManager {
     removeSync(this.livePath);
   }
 
-  private async setupFromFresh(livePath?: string): Promise<SubsystemsContext> {
+  /**
+   * Initializes a fresh set of subsystems.
+   * If given a statePath, the state will be written to the path.
+   * If there is no statePath, in-memory and temporary state locations will be used.
+   */
+  private async setupFromFresh(statePath?: string): Promise<SubsystemsContext> {
     this.logger(`Initializing state...`);
 
     // Fetch the AztecNode config.
     // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
-    aztecNodeConfig.dataDirectory = livePath;
+    aztecNodeConfig.dataDirectory = statePath;
 
     // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
     this.logger('Starting anvil...');
@@ -169,10 +189,10 @@ export class SnapshotManager {
 
     this.logger('Creating pxe...');
     const pxeConfig = getPXEServiceConfig();
-    pxeConfig.dataDirectory = livePath;
+    pxeConfig.dataDirectory = statePath;
     const pxe = await createPXEService(aztecNode, pxeConfig);
 
-    writeFileSync(`${livePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
+    writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
 
     return {
       aztecNodeConfig,
@@ -232,6 +252,10 @@ export class SnapshotManager {
   }
 }
 
+/**
+ * Snapshot 'apply' helper function to add accounts.
+ * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
+ */
 export const addAccounts =
   (numberOfAccounts: number) =>
   async ({ pxe }: SubsystemsContext, logger: DebugLogger) => {
@@ -248,7 +272,7 @@ export const addAccounts =
       // the results get stored within the account object. By calling it here we increase the probability of all the
       // accounts being deployed in the same block because it makes the deploy() method basically instant.
       await account.getDeployMethod().then(d =>
-        d.simulate({
+        d.prove({
           contractAddressSalt: account.salt,
           skipClassRegistration: true,
           skipPublicDeployment: true,

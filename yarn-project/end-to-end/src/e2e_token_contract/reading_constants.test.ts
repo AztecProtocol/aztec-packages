@@ -1,17 +1,45 @@
 import { ReaderContract } from '@aztec/noir-contracts.js';
 
-import { TestClass } from './test_class.js';
+import { TokenContractTest } from './token_contract_test.js';
 
-// const { E2E_DATA_PATH: dataPath = './data' } = process.env;
+const toString = (val: bigint[]) => {
+  let str = '';
+  for (let i = 0; i < val.length; i++) {
+    if (val[i] != 0n) {
+      str += String.fromCharCode(Number(val[i]));
+    }
+  }
+  return str;
+};
 
-describe('e2e_token_contract', () => {
-  const t = new TestClass('reading_constants');
-  const { TOKEN_DECIMALS, TOKEN_NAME, TOKEN_SYMBOL } = TestClass;
+describe('e2e_token_contract reading constants', () => {
+  const t = new TokenContractTest('reading_constants');
+  const { TOKEN_DECIMALS, TOKEN_NAME, TOKEN_SYMBOL } = TokenContractTest;
   // Do not destructure anything mutable.
   const { logger } = t;
+  let reader: ReaderContract;
 
   beforeAll(async () => {
-    await t.setup();
+    await t.pushBaseSnapshots();
+
+    await t.snapshotManager.snapshot(
+      'reading_constants',
+      async () => {
+        logger('Deploying ReaderContract...');
+        const reader = await ReaderContract.deploy(t.wallets[0]).send().deployed();
+        logger(`Deployed ReaderContract to ${reader.address}.`);
+        return { readerAddress: reader.address };
+      },
+      async ({ readerAddress }) => {
+        reader = await ReaderContract.at(readerAddress, t.wallets[0]);
+        logger(`Reader contract restored to ${readerAddress}.`);
+      },
+    );
+  });
+
+  afterAll(async () => {
+    await t.snapshotManager.pop(); // reading_constants
+    await t.popBaseSnapshots();
   });
 
   beforeEach(async () => {
@@ -22,110 +50,67 @@ describe('e2e_token_contract', () => {
     await t.tokenSim.check();
   });
 
-  afterAll(async () => {
-    await t.snapshotManager.teardown();
+  it('check name private', async () => {
+    const name = toString(await t.asset.methods.un_get_name().simulate());
+    expect(name).toBe(TOKEN_NAME);
+
+    await reader.methods.check_name_private(t.asset.address, TOKEN_NAME).send().wait();
+    await expect(reader.methods.check_name_private(t.asset.address, 'WRONG_NAME').simulate()).rejects.toThrow(
+      'name.is_eq(_what)',
+    );
   });
 
-  const toString = (val: bigint[]) => {
-    let str = '';
-    for (let i = 0; i < val.length; i++) {
-      if (val[i] != 0n) {
-        str += String.fromCharCode(Number(val[i]));
-      }
-    }
-    return str;
-  };
+  it('check name public', async () => {
+    const name = toString(await t.asset.methods.un_get_name().simulate());
+    expect(name).toBe(TOKEN_NAME);
 
-  describe('Reading constants', () => {
-    let reader: ReaderContract;
+    await reader.methods.check_name_public(t.asset.address, TOKEN_NAME).send().wait();
+    await expect(reader.methods.check_name_public(t.asset.address, 'WRONG_NAME').simulate()).rejects.toThrow(
+      'name.is_eq(_what)',
+    );
+  });
 
-    beforeAll(async () => {
-      await t.snapshotManager.snapshot(
-        'reading_constants',
-        async () => {
-          logger('Deploying ReaderContract...');
-          const reader = await ReaderContract.deploy(t.wallets[0]).send().deployed();
-          logger(`Deployed ReaderContract to ${reader.address}.`);
-          return { readerAddress: reader.address };
-        },
-        async ({ readerAddress }) => {
-          reader = await ReaderContract.at(readerAddress, t.wallets[0]);
-          logger(`Reader contract restored to ${readerAddress}.`);
-        },
-      );
-    });
+  it('check symbol private', async () => {
+    const sym = toString(await t.asset.methods.un_get_symbol().simulate());
+    expect(sym).toBe(TOKEN_SYMBOL);
 
-    afterAll(async () => {
-      await t.snapshotManager.pop();
-    });
+    await reader.methods.check_symbol_private(t.asset.address, TOKEN_SYMBOL).send().wait();
 
-    describe('name', () => {
-      it('check name private', async () => {
-        const name = toString(await t.asset.methods.un_get_name().view());
-        expect(name).toBe(TOKEN_NAME);
+    await expect(reader.methods.check_symbol_private(t.asset.address, 'WRONG_SYMBOL').simulate()).rejects.toThrow(
+      "Cannot satisfy constraint 'symbol.is_eq(_what)'",
+    );
+  });
 
-        await reader.methods.check_name_private(t.asset.address, TOKEN_NAME).send().wait();
-        await expect(reader.methods.check_name_private(t.asset.address, 'WRONG_NAME').simulate()).rejects.toThrow(
-          'name.is_eq(_what)',
-        );
-      });
+  it('check symbol public', async () => {
+    const sym = toString(await t.asset.methods.un_get_symbol().simulate());
+    expect(sym).toBe(TOKEN_SYMBOL);
 
-      it('check name public', async () => {
-        const name = toString(await t.asset.methods.un_get_name().view());
-        expect(name).toBe(TOKEN_NAME);
+    await reader.methods.check_symbol_public(t.asset.address, TOKEN_SYMBOL).send().wait();
 
-        await reader.methods.check_name_public(t.asset.address, TOKEN_NAME).send().wait();
-        await expect(reader.methods.check_name_public(t.asset.address, 'WRONG_NAME').simulate()).rejects.toThrow(
-          'name.is_eq(_what)',
-        );
-      });
-    });
+    await expect(reader.methods.check_symbol_public(t.asset.address, 'WRONG_SYMBOL').simulate()).rejects.toThrow(
+      "Failed to solve brillig function, reason: explicit trap hit in brillig 'symbol.is_eq(_what)'",
+    );
+  });
 
-    describe('symbol', () => {
-      it('private', async () => {
-        const sym = toString(await t.asset.methods.un_get_symbol().view());
-        expect(sym).toBe(TOKEN_SYMBOL);
+  it('check decimals private', async () => {
+    const dec = await t.asset.methods.un_get_decimals().simulate();
+    expect(dec).toBe(TOKEN_DECIMALS);
 
-        await reader.methods.check_symbol_private(t.asset.address, TOKEN_SYMBOL).send().wait();
+    await reader.methods.check_decimals_private(t.asset.address, TOKEN_DECIMALS).send().wait();
 
-        await expect(reader.methods.check_symbol_private(t.asset.address, 'WRONG_SYMBOL').simulate()).rejects.toThrow(
-          "Cannot satisfy constraint 'symbol.is_eq(_what)'",
-        );
-      });
-      it('public', async () => {
-        const sym = toString(await t.asset.methods.un_get_symbol().view());
-        expect(sym).toBe(TOKEN_SYMBOL);
+    await expect(reader.methods.check_decimals_private(t.asset.address, 99).simulate()).rejects.toThrow(
+      "Cannot satisfy constraint 'ret[0] as u8 == what'",
+    );
+  });
 
-        await reader.methods.check_symbol_public(t.asset.address, TOKEN_SYMBOL).send().wait();
+  it('check decimals public', async () => {
+    const dec = await t.asset.methods.un_get_decimals().simulate();
+    expect(dec).toBe(TOKEN_DECIMALS);
 
-        await expect(reader.methods.check_symbol_public(t.asset.address, 'WRONG_SYMBOL').simulate()).rejects.toThrow(
-          "Failed to solve brillig function, reason: explicit trap hit in brillig 'symbol.is_eq(_what)'",
-        );
-      });
-    });
+    await reader.methods.check_decimals_public(t.asset.address, TOKEN_DECIMALS).send().wait();
 
-    describe('decimals', () => {
-      it('private', async () => {
-        const dec = await t.asset.methods.un_get_decimals().view();
-        expect(dec).toBe(TOKEN_DECIMALS);
-
-        await reader.methods.check_decimals_private(t.asset.address, TOKEN_DECIMALS).send().wait();
-
-        await expect(reader.methods.check_decimals_private(t.asset.address, 99).simulate()).rejects.toThrow(
-          "Cannot satisfy constraint 'ret[0] as u8 == what'",
-        );
-      });
-
-      it('public', async () => {
-        const dec = await t.asset.methods.un_get_decimals().view();
-        expect(dec).toBe(TOKEN_DECIMALS);
-
-        await reader.methods.check_decimals_public(t.asset.address, TOKEN_DECIMALS).send().wait();
-
-        await expect(reader.methods.check_decimals_public(t.asset.address, 99).simulate()).rejects.toThrow(
-          "Failed to solve brillig function, reason: explicit trap hit in brillig 'ret[0] as u8 == what'",
-        );
-      });
-    });
+    await expect(reader.methods.check_decimals_public(t.asset.address, 99).simulate()).rejects.toThrow(
+      "Failed to solve brillig function, reason: explicit trap hit in brillig 'ret[0] as u8 == what'",
+    );
   });
 });
