@@ -82,13 +82,11 @@ export class NoteProcessor {
   }
 
   /**
-   * Process the given L2 block contexts and encrypted logs to update the note processor.
-   * It synchronizes the user's account by decrypting the encrypted logs and processing
-   * the transactions and auxiliary data associated with them.
-   * Throws an error if the number of block contexts and encrypted logs do not match.
+   * Extracts new user-relevant notes from the information contained in the provided L2 blocks and encrypted logs.
    *
-   * @param l2Blocks - An array of L2 block contexts to be processed.
-   * @param encryptedL2BlockLogs - An array of encrypted logs associated with the L2 block contexts.
+   * @throws If the number of blocks and encrypted logs do not match.
+   * @param l2Blocks - L2 blocks to be processed.
+   * @param encryptedL2BlockLogs - Encrypted logs associated with the L2 blocks.
    * @returns A promise that resolves once the processing is completed.
    */
   public async process(l2Blocks: L2Block[], encryptedL2BlockLogs: EncryptedL2BlockL2Logs[]): Promise<void> {
