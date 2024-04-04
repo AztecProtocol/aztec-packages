@@ -1,18 +1,19 @@
 import {
-  AuthWitness,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  L2Block,
-  LogFilter,
-  NoteFilter,
-  PXE,
-  SyncStatus,
-  Tx,
-  TxEffect,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
+  type AuthWitness,
+  type ExtendedNote,
+  type FunctionCall,
+  type GetUnencryptedLogsResponse,
+  type L2Block,
+  type LogFilter,
+  type NoteFilter,
+  type PXE,
+  type SimulatedTx,
+  type SyncStatus,
+  type Tx,
+  type TxEffect,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxReceipt,
 } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { ContractArtifact } from '@aztec/foundation/abi';
@@ -95,8 +96,11 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.simulateTx(txRequest, simulatePublic);
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.pxe.proveTx(txRequest, simulatePublic);
+  }
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);

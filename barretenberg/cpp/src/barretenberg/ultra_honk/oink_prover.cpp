@@ -86,12 +86,18 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             transcript->send_to_verifier(domain_separator + labels[idx], op_wire_comms[idx]);
         }
-        // Commit to DataBus columns
-        witness_commitments.calldata = commitment_key->commit(proving_key->calldata);
-        witness_commitments.calldata_read_counts = commitment_key->commit(proving_key->calldata_read_counts);
+
+        // Commit to DataBus columns and corresponding read counts
+        witness_commitments.calldata = commitment_key->commit(proving_key.calldata);
+        witness_commitments.calldata_read_counts = commitment_key->commit(proving_key.calldata_read_counts);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata, witness_commitments.calldata);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata_read_counts,
                                      witness_commitments.calldata_read_counts);
+        witness_commitments.return_data = commitment_key->commit(proving_key.return_data);
+        witness_commitments.return_data_read_counts = commitment_key->commit(proving_key.return_data_read_counts);
+        transcript->send_to_verifier(domain_separator + commitment_labels.return_data, witness_commitments.return_data);
+        transcript->send_to_verifier(domain_separator + commitment_labels.return_data_read_counts,
+                                     witness_commitments.return_data_read_counts);
     }
 }
 
@@ -130,10 +136,13 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     relation_parameters.gamma = gamma;
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
-        proving_key->compute_logderivative_inverse(relation_parameters);
-        witness_commitments.lookup_inverses = commitment_key->commit(proving_key->lookup_inverses);
-        transcript->send_to_verifier(domain_separator + commitment_labels.lookup_inverses,
-                                     witness_commitments.lookup_inverses);
+        proving_key.compute_logderivative_inverse(relation_parameters);
+        witness_commitments.calldata_inverses = commitment_key->commit(proving_key.calldata_inverses);
+        witness_commitments.return_data_inverses = commitment_key->commit(proving_key.return_data_inverses);
+        transcript->send_to_verifier(domain_separator + commitment_labels.calldata_inverses,
+                                     witness_commitments.calldata_inverses);
+        transcript->send_to_verifier(domain_separator + commitment_labels.return_data_inverses,
+                                     witness_commitments.return_data_inverses);
     }
 }
 

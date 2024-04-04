@@ -241,6 +241,20 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
         }
     }
 
+    // TEMPORARY: Add a "magic number" instruction to the end of the program.
+    // This makes it possible to know that the bytecode corresponds to the AVM.
+    // We are adding a MOV instruction that moves a value to itself.
+    // This should therefore not affect the program's execution.
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::MOV,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 { value: 0x18ca },
+            AvmOperand::U32 { value: 0x18ca },
+        ],
+        ..Default::default()
+    });
+
     dbg_print_avm_program(&avm_instrs);
 
     // Constructing bytecode from instructions
@@ -880,18 +894,22 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
     match operation {
         BlackBoxOp::PedersenHash {
             inputs,
-            domain_separator: _,
+            domain_separator,
             output,
         } => {
             let message_offset = inputs.pointer.0;
             let message_size_offset = inputs.size.0;
 
+            let index_offset = domain_separator.0;
             let dest_offset = output.0;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(FIRST_OPERAND_INDIRECT),
+                indirect: Some(SECOND_OPERAND_INDIRECT),
                 operands: vec![
+                    AvmOperand::U32 {
+                        value: index_offset as u32,
+                    },
                     AvmOperand::U32 {
                         value: dest_offset as u32,
                     },

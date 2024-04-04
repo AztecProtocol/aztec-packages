@@ -79,11 +79,11 @@ end-to-end:
     RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
     SAVE ARTIFACT /build
 
-end-to-end-minimal: 
+end-to-end-minimal:
     # end to end test runner
     BUILD +aztec
     FROM node:18.19.1-slim
-    RUN apt-get update && apt-get install jq chromium -y
+    RUN apt-get update && apt-get install jq chromium netcat-openbsd -y
     ENV CHROME_BIN="/usr/bin/chromium"
     COPY +end-to-end/build /build
     WORKDIR /build/yarn-project/end-to-end

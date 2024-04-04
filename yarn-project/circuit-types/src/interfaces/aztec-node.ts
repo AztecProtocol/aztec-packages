@@ -6,10 +6,11 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { L1ContractAddresses } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type ProcessReturnValues } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/foundation/fields';
+import { type ContractClassPublic, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { L2Block } from '../l2_block.js';
 import { FromLogType, GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
@@ -276,7 +277,7 @@ export interface AztecNode {
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx): Promise<void>;
+  simulatePublicCalls(tx: Tx): Promise<ProcessReturnValues[]>;
 
   /**
    * Updates the configuration of this node.

@@ -844,7 +844,7 @@ impl NodeInterner {
         &self.struct_attributes[struct_id]
     }
 
-    pub fn global_attributes(&self, global_id: &GlobalId) -> &Vec<SecondaryAttribute> {
+    pub fn global_attributes(&self, global_id: &GlobalId) -> &[SecondaryAttribute] {
         &self.global_attributes[global_id]
     }
 
