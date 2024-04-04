@@ -2,6 +2,8 @@ use noirc_frontend::{parse_program, parser::SortedModule, NoirFunction};
 
 use crate::utils::errors::AztecMacroError;
 
+fn compute_fn_signature(func: &NoirFunction) -> String {}
+
 pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, String, String) {
     let (fn_name, fn_type) = (
         func.name().to_string(),
@@ -12,28 +14,50 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, St
                 .map(|param| param.typ.to_string().replace("plain::", ""))
                 .collect::<Vec<_>>()
                 .join(", "),
-            func.return_type()
+            "[Field; 4]" // func.return_type()
         ),
     );
-    let fn_source = format!(
-        "|{}| {{
-            context.call_{}_function(target_contract, [{}])
-        }}",
-        func.parameters()
-            .iter()
-            .map(|param| format!(
+    let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", compute_fn_signature(func));
+    let fn_parameters = func
+        .parameters()
+        .iter()
+        .map(|param| {
+            format!(
                 "{}: {}",
                 param.pattern.name_ident().0.contents,
                 param.typ.to_string().replace("plain::", "")
-            ))
-            .collect::<Vec<_>>()
-            .join(", "),
-        if aztec_visibility == "Private" { "private" } else { "public" },
-        func.parameters()
-            .iter()
-            .map(|param| param.pattern.name_ident().0.contents.clone())
-            .collect::<Vec<_>>()
-            .join(", "),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let call_args = func
+        .parameters()
+        .iter()
+        .map(|param| param.pattern.name_ident().0.contents.clone())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let context_call = if aztec_visibility == "Private" {
+        format!(
+            "context.private.unwrap().call_private_function(target_contract, {}, [{}])",
+            fn_signature, call_args
+        )
+    } else {
+        format!(
+            "
+            if context.private.is_some() {{
+                context.private.unwrap().call_private_function(target_contract, {0}, [{1}])
+            }} else {{
+                context.public.unwrap().call_public_function(target_contract, {0}, [{1}])
+            }}
+        ",
+            fn_signature, call_args
+        )
+    };
+    let fn_source = format!(
+        "|{}| {{
+            {}
+        }}",
+        fn_parameters, context_call
     );
     (fn_name, fn_type, fn_source)
 }
@@ -46,17 +70,15 @@ pub fn generate_contract_interface(
     let contract_interface = format!(
         "
         struct {0}Interface {{
-            target_contract: dep::aztec::protocol_types::address::AztecAddress,
             {1}
         }}
 
-        impl {0}Interface {{
-            fn new<T>(
-                context: T,
-                target_contract: dep::aztec::protocol_types::address::AztecAddress
-            ) -> Self where T: dep::aztec::context::Context {{
-                Self {{ 
-                    target_contract, 
+        #[contract_library_method]
+        fn at(
+            context: dep::aztec::context::Context,
+            target_contract: dep::aztec::protocol_types::address::AztecAddress
+        ) -> {0}Interface {{
+                {0}Interface {{ 
                     {2} 
                 }}
             }}

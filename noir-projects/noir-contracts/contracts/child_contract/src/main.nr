@@ -28,19 +28,19 @@ contract Child {
         // set_value_twice_with_nested_last: fn() -> ()
     }
 
-    impl ChildInterface {
-        fn new(
-            context: dep::aztec::context::Context,
-            target_contract: dep::aztec::protocol_types::address::AztecAddress
-        ) -> Self {
-            Self {
-                value: | input | {
-                    context.private.unwrap().call_private_function(
-                        target_contract,
-                        dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""),
-                        [input]
-                    )
-                }
+    #[contract_library_method]
+    fn at(
+        context: dep::aztec::context::Context,
+        target_contract: dep::aztec::protocol_types::address::AztecAddress
+    ) -> ChildInterface {
+        ChildInterface {
+            value: | input | {
+                context.private.unwrap().call_private_function(
+                    target_contract,
+                    dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""),
+                    [input]
+                )
+                
             }
         }
     }
