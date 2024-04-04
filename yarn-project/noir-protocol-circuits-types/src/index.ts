@@ -17,6 +17,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  acvmFieldMessageToString,
   oracleDebugCallToFormattedStr,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -545,10 +546,15 @@ async function executePrivateKernelTailToPublicWithACVM(
 }
 
 const foreignCallHandler = (name: string, args: ForeignCallInput[]) => {
-  if (name !== 'debugLog') {
+  const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
+
+  if (name === 'debugLog') {
+    log(oracleDebugCallToFormattedStr(args));
+  } else if (name === 'debugLogWithPrefix') {
+    log(`${acvmFieldMessageToString(args[0])}: ${oracleDebugCallToFormattedStr(args.slice(1))}`);
+  } else {
     throw Error(`unexpected oracle during execution: ${name}`);
   }
-  const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
-  log(oracleDebugCallToFormattedStr(args));
+
   return Promise.resolve([`0x${Buffer.alloc(Fr.SIZE_IN_BYTES).toString('hex')}`]);
 };
