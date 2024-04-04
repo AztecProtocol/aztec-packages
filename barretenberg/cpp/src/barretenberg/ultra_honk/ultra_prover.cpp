@@ -45,6 +45,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_chec
     std::vector<FF> gate_challenges(numeric::get_msb(circuit_size));
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        info("gate_challenges[", idx, "] = ", gate_challenges[idx]);
     }
     instance->gate_challenges = gate_challenges;
     sumcheck_output = sumcheck.prove(instance);

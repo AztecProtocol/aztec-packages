@@ -47,8 +47,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
 
     if (circuit_size != key->circuit_size) {
+        info("circuit_size does not line up: {} != {}", circuit_size, key->circuit_size);
         return false;
     }
+    info("circuit_size has lined up: {}", circuit_size);
 
     // Get commitments to VM wires
     commitments.avm_alu_alu_sel =
@@ -246,6 +248,33 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_mem_val = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_val);
     commitments.avm_mem_w_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_w_in_tag);
+
+    // Lookup counts
+    commitments.lookup_byte_lengths_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths_counts);
+    commitments.lookup_byte_operations_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations_counts);
+    commitments.incl_main_tag_err_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.incl_main_tag_err_counts);
+    commitments.incl_mem_tag_err_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.incl_mem_tag_err_counts);
+
+    // TODO: Check that these all have values
+
+    // Calculate the alpha and beta challenges - log derivative inverse round
+    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
+
+    info("verifier beta = ", beta);
+    info("verifier gamma = ", gamm);
+
+    auto beta_sqr = beta * beta;
+    auto beta_cube = beta_sqr * beta;
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamm;
+    relation_parameters.beta_sqr = beta_sqr;
+    relation_parameters.beta_cube = beta_cube;
+
+    // Permutations
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
     commitments.perm_main_mem_a =
@@ -260,6 +289,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_b);
     commitments.perm_main_mem_ind_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_c);
+
+    // Lookups
     commitments.lookup_byte_lengths =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =
@@ -268,14 +299,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_main_tag_err);
     commitments.incl_mem_tag_err =
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_mem_tag_err);
-    commitments.lookup_byte_lengths_counts =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths_counts);
-    commitments.lookup_byte_operations_counts =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_operations_counts);
-    commitments.incl_main_tag_err_counts =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.incl_main_tag_err_counts);
-    commitments.incl_mem_tag_err_counts =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.incl_mem_tag_err_counts);
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
@@ -286,6 +309,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
+        info("verifier gate_challenges[", idx, "] = ", gate_challenges[idx]);
     }
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
@@ -293,6 +317,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+        info("Sumcheck did not verify");
         return false;
     }
 

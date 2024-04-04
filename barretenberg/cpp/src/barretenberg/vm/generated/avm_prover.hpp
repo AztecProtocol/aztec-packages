@@ -47,6 +47,7 @@ class AvmProver {
     ProverPolynomials prover_polynomials;
 
     CommitmentLabels commitment_labels;
+    typename Flavor::WitnessCommitments witness_commitments;
 
     Polynomial quotient_W;
 
