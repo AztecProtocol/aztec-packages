@@ -4,7 +4,8 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
-template <typename Flavor> class ECCVMVerifier_ {
+class ECCVMVerifier {
+    using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -13,10 +14,10 @@ template <typename Flavor> class ECCVMVerifier_ {
     using Transcript = typename Flavor::Transcript;
 
   public:
-    explicit ECCVMVerifier_(const std::shared_ptr<VerificationKey>& verifier_key = nullptr);
+    explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key = nullptr);
 
-    explicit ECCVMVerifier_(const std::shared_ptr<ECCVMVerifier_::ProvingKey>& proving_key)
-        : ECCVMVerifier_(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
+    explicit ECCVMVerifier(const std::shared_ptr<ECCVMVerifier::ProvingKey>& proving_key)
+        : ECCVMVerifier(std::make_shared<ECCVMFlavor::VerificationKey>(proving_key)){};
 
     bool verify_proof(const HonkProof& proof);
 
@@ -25,7 +26,4 @@ template <typename Flavor> class ECCVMVerifier_ {
     std::map<std::string, FF> pcs_fr_elements;
     std::shared_ptr<Transcript> transcript;
 };
-
-using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
-
 } // namespace bb

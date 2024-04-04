@@ -4,8 +4,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
-template <typename Flavor>
-ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::VerificationKey>& verifier_key)
+ECCVMVerifier::ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
     : key(verifier_key)
 {}
 
@@ -13,7 +12,7 @@ ECCVMVerifier_<Flavor>::ECCVMVerifier_(const std::shared_ptr<typename Flavor::Ve
  * @brief This function verifies an ECCVM Honk proof for given program settings.
  *
  */
-template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+bool ECCVMVerifier::verify_proof(const HonkProof& proof)
 {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -203,7 +202,4 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const HonkP
 
     return sumcheck_verified.value() && multivariate_opening_verified && univariate_opening_verified;
 }
-
-template class ECCVMVerifier_<ECCVMFlavor>;
-
 } // namespace bb
