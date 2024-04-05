@@ -24,7 +24,7 @@ pub fn validate_inputs(public_call: PublicCallData) {
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
     assert(
-        !this_call_stack_item.contract_address.eq(AztecAddress::default()), "Contract address cannot be zero"
+        !this_call_stack_item.contract_address.eq(AztecAddress::default()), "contract address cannot be default (zero)"
     );
     assert(this_call_stack_item.function_data.selector.to_field() != 0, "Function signature cannot be zero");
     assert(
