@@ -98,13 +98,10 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }}
 
-      # - name: Build
-      #   working-directory: ./yarn-project/end-to-end/
-      #   # We don't do much on arm, just run it on their builder
-      #   run:
-      #     # Flags:
-      #     # - e2e_mode=build to get images from a local build, not a dockerhub registry strategy
-      #     earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_mode=build
+      - name: Build
+        working-directory: ./yarn-project/end-to-end/
+        # We don't do much on arm, just run it on their builder
+        run: shutdown -c
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
