@@ -14,6 +14,7 @@ struct EasyPrivateUint {
 impl EasyPrivateUint {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+        assert(context.public.is_none(), "EasyPrivateUint can be initialized from private only.");
         let set = PrivateSet { context, storage_slot };
         EasyPrivateUint { context, set, storage_slot }
     }
