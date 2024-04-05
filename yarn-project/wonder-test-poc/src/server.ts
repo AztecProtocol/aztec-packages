@@ -23,6 +23,7 @@ const server = new JSONRPCServer();
 
 // Example: compute square root
 server.addMethod('getSqrt', async params => {
+  console.log(params);
   const values = params[0].Array.map(({ inner }: { inner: string }) => {
     return { inner: `${Math.sqrt(parseInt(inner, 16))}` };
   });
@@ -31,52 +32,55 @@ server.addMethod('getSqrt', async params => {
 
 // Deploy a contract
 server.addMethod('deployContract', async params => {
+  console.log(params);
   let contractAddy = await deployContract(pxe);
-  return ForeignCallResult.singleValue(contractAddy.toString());
+  console.log(contractAddy);
+
+  return { values: [{ Single: contractAddy.toString() }] };
 });
 
 // Handles a call to an unconstrained function
 // Todo: handle array of args and return values
 server.addMethod('view', async params => {
-  const contractAddress = AztecAddress.fromString(params[0].Single.inner);
-  const functionSelector = FunctionSelector.fromString(params[1].Single.inner.slice(-8));
+  const contractAddress = AztecAddress.fromString(params[0].Single);
+  const functionSelector = FunctionSelector.fromString(params[1].Single.slice(-8));
 
   // todo: type?
-  const args = params[2].Array.map(({ inner }: { inner: string }) => inner);
+  const args = params[2]; //.Array.map(({ inner }: { inner: string }) => inner);
 
   const result = await unconstrainedCall(pxe, contractAddress, functionSelector, args);
 
-  return { values: [{ Single: { inner: new Fr(result).toString() } }] };
+  return { values: [{ Single: new Fr(result).toString() }] };
 });
 
 server.addMethod('debugLog', async params => {
-  console.log('debug log: ' + params[0].Single.inner.toString());
-  return { values: [{ Single: { inner: '0' } }] };
+  console.log('debug log: ' + params[0].Single.toString());
+  return { values: [{ Single: '0' }] };
 });
 
 server.addMethod('callPrivateFunction', async params => {
-  const contractAddress = AztecAddress.fromString(params[0].Single.inner);
-  const functionSelector = FunctionSelector.fromString(params[1].Single.inner.slice(-8));
-  const args: Fr[] = params[2].Array.map(({ inner }: { inner: string }) => Fr.fromString(inner));
+  const contractAddress = AztecAddress.fromString(params[0].Single);
+  const functionSelector = FunctionSelector.fromString(params[1].Single.slice(-8));
+  const args: Fr[] = params[2];
 
   let txHash = await privateCall(pxe, contractAddress, functionSelector, args);
 
   // todo: handle revert -> return false? throw?
-  return { values: [{ Single: { inner: txHash.toString() } }] };
+  return { values: [{ Single: txHash.toString() }] };
 });
 
 server.addMethod('callPublicFunction', async params => {
-  const contractAddress = AztecAddress.fromString(params[0].Single.inner);
-  const functionSelector = FunctionSelector.fromString(params[1].Single.inner.slice(-8));
+  const contractAddress = AztecAddress.fromString(params[0].Single);
+  const functionSelector = FunctionSelector.fromString(params[1].Single.slice(-8));
   const arg: Fr = Fr.fromString(params[2].toString());
   let txHash = await publicCall(pxe, contractAddress, functionSelector, arg);
 
   // todo: handle revert -> return false? throw?
-  return { values: [{ Single: { inner: txHash.toString() } }] };
+  return { values: [{ Single: txHash.toString() }] };
 });
 
 server.addMethod('getNumberOfNewNotes', async params => {
-  const txHash = TxHash.fromString(params[0].Single.inner);
+  const txHash = TxHash.fromString(params[0].Single);
 
   const txEffect = await pxe.getTxEffect(txHash);
 

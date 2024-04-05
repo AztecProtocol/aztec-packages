@@ -19,21 +19,15 @@ export const initSandbox = async () => {
 };
 
 export const deployContract = async (pxe: PXE) => {
-  console.log(' ----- deploying contract -----');
   let accounts = await createAccount(pxe);
 
-  console.log('deployer account: ', accounts.getAddress());
-
   let deployedContract = await MeaningOfLifeContract.deploy(accounts).send().deployed();
-
-  console.log('target address: ', deployedContract.address.toString());
 
   let instance: ContractInstanceWithAddress = deployedContract.instance;
   contractClassId = instance.contractClassId;
 
   await pxe.registerContract({ instance, artifact: MeaningOfLifeContract.artifact });
 
-  console.log(' ----- contract deployed -----');
   // Resolve the function selectors and store them
   MeaningOfLifeContract.artifact.functions.forEach((f: FunctionArtifact) => {
     selectorsResolved.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
