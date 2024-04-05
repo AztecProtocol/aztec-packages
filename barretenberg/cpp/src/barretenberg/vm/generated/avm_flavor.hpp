@@ -1072,16 +1072,6 @@ class AvmFlavor {
         {
             ProverPolynomials prover_polynomials = ProverPolynomials(*this);
 
-            // perm_main_alu_relation<FF>,
-            // perm_main_bin_relation<FF>,
-            // perm_main_mem_a_relation<FF>,
-            // perm_main_mem_b_relation<FF>,
-            // perm_main_mem_c_relation<FF>,
-            // perm_main_mem_ind_a_relation<FF>,
-            // perm_main_mem_ind_b_relation<FF>,
-            // perm_main_mem_ind_c_relation<FF>>;
-
-            // One of these for each
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
@@ -1106,14 +1096,9 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-
-            // TODO: check if this has set the inverse for each of the polys
-            info("Computed logderivative inverses for all relations");
         }
     };
 
-    // TODO: altered this to be a class
-    // using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey() = default;
@@ -1126,10 +1111,6 @@ class AvmFlavor {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            // this->num_public_inputs = proving_key.num_public_inputs;
-
-            // TODO(md): we shouldnt have this
-            // this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
             for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
