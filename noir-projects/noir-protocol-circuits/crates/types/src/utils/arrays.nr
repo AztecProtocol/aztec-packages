@@ -75,7 +75,7 @@ pub fn array_cp<T, N, S>(array: [T; N]) -> [T; S] where T: Default {
     result
 }
 
-pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empty + Eq {
+pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Default + Eq {
     let mut result: [T; N] = [T::default(); N];
     let mut i = 0;
     for elem in array1 {

@@ -14,7 +14,7 @@ use dep::types::{
 },
     grumpkin_private_key::GrumpkinPrivateKey,
     hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
-    utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array}, traits::{Empty, is_empty}
+    utils::arrays::{array_length, array_to_bounded_vec, assert_sorted_array},
 };
 
 fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
@@ -178,8 +178,8 @@ impl KernelCircuitPublicInputsComposer {
                 // match found!
                 // squash both the nullifier and the hash
                 // (set to 0 here and then rearrange array after loop)
-                new_note_hashes[hint_pos] = SideEffect::empty();
-                new_nullifiers[n_idx] = SideEffectLinkedToNoteHash::empty();
+                new_note_hashes[hint_pos] = SideEffect::default();
+                new_nullifiers[n_idx] = SideEffectLinkedToNoteHash::default();
             }
             // non-transient (persistable) nullifiers are just kept in new_nullifiers array and forwarded
             // to public inputs (used later by base rollup circuit)

@@ -29,15 +29,15 @@ export class PartialPrivateTailPublicInputsForPublic {
   ) {}
 
   get needsSetup() {
-    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[1].isDefault();
   }
 
   get needsAppLogic() {
-    return !this.end.publicCallStack[0].isEmpty();
+    return !this.end.publicCallStack[0].isDefault();
   }
 
   get needsTeardown() {
-    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[0].isDefault();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PartialPrivateTailPublicInputsForPublic {
@@ -146,7 +146,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       : 0;
   }
 
-  getNonEmptyNoteHashes() {
+  getNonDefaultNoteHashes() {
     const noteHashes = this.forPublic
       ? mergeAccumulatedData(
           MAX_NEW_NULLIFIERS_PER_TX,
@@ -154,10 +154,10 @@ export class PrivateKernelTailCircuitPublicInputs {
           this.forPublic.end.newNoteHashes,
         )
       : this.forRollup!.end.newNoteHashes;
-    return noteHashes.filter(n => !n.isEmpty());
+    return noteHashes.filter(n => !n.isDefault());
   }
 
-  getNonEmptyNullifiers() {
+  getNonDefaultNullifiers() {
     const nullifiers = this.forPublic
       ? mergeAccumulatedData(
           MAX_NEW_NULLIFIERS_PER_TX,
@@ -165,7 +165,7 @@ export class PrivateKernelTailCircuitPublicInputs {
           this.forPublic.end.newNullifiers,
         )
       : this.forRollup!.end.newNullifiers;
-    return nullifiers.filter(n => !n.isEmpty());
+    return nullifiers.filter(n => !n.isDefault());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {

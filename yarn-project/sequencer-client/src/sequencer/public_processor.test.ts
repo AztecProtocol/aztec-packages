@@ -40,7 +40,7 @@ import {
   makeSelector,
 } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
-import { arrayNonEmptyLength, padArrayEnd, times } from '@aztec/foundation/collection';
+import { arrayNonDefaultLength, padArrayEnd, times } from '@aztec/foundation/collection';
 import { type PublicExecution, type PublicExecutionResult, type PublicExecutor, WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
 
@@ -109,7 +109,7 @@ describe('public_processor', () => {
         proof: tx.proof,
         encryptedLogs: tx.encryptedLogs,
         unencryptedLogs: tx.unencryptedLogs,
-        isEmpty: false,
+        isDefault: false,
         revertReason: undefined,
       };
 
@@ -233,11 +233,11 @@ describe('public_processor', () => {
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
+        PublicDataUpdateRequest.default,
       );
       kernelOutput.forPublic!.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
+        PublicDataUpdateRequest.default,
       );
 
       addKernelPublicCallStack(kernelOutput, {
@@ -328,7 +328,7 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0]);
-      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isDefault)).toEqual(2);
+      expect(arrayNonDefaultLength(txEffect.publicDataWrites, PublicDataWrite.isDefault)).toEqual(2);
       expect(txEffect.publicDataWrites[0]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotA), fr(0x101)),
       );
@@ -561,11 +561,11 @@ describe('public_processor', () => {
       kernelOutput.forPublic!.end.unencryptedLogsHash = Fr.ZERO;
       kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
+        PublicDataUpdateRequest.default,
       );
       kernelOutput.forPublic!.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
+        PublicDataUpdateRequest.default,
       );
 
       addKernelPublicCallStack(kernelOutput, {
@@ -651,7 +651,7 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       const txEffect = toTxEffect(processed[0]);
-      expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isDefault)).toEqual(3);
+      expect(arrayNonDefaultLength(txEffect.publicDataWrites, PublicDataWrite.isDefault)).toEqual(3);
       expect(txEffect.publicDataWrites[0]).toEqual(
         new PublicDataWrite(computePublicDataTreeLeafSlot(baseContractAddress, contractSlotC), fr(0x201)),
       );

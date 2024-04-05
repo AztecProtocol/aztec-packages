@@ -100,7 +100,7 @@ export function temporaryConvertAvmResults(
     (nullifier, i) => new SideEffectLinkedToNoteHash(nullifier.toField(), Fr.zero(), new Fr(i + 1)),
   );
   const unencryptedLogs = UnencryptedFunctionL2Logs.default();
-  const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.empty());
+  const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.default());
   // TODO keep track of side effect counters
   const startSideEffectCounter = Fr.ZERO;
   const endSideEffectCounter = Fr.ZERO;

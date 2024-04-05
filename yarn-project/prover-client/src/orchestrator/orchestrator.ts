@@ -339,7 +339,7 @@ export class ProvingOrchestrator {
     logger.info(`Completed root rollup`);
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
     const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(tx => toTxEffect(tx)).filter(
-      txEffect => !txEffect.isEmpty(),
+      txEffect => !txEffect.isDefault(),
     );
     const blockBody = new Body(nonEmptyTxEffects);
 

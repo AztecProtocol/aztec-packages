@@ -24,9 +24,8 @@ impl Default for PrivateKernelCircuitPublicInputsBuilder {
             aggregation_object: AggregationObject::default(),
             min_revertible_side_effect_counter: 0 as u32,
             validation_requests: ValidationRequestsBuilder::default(),
-            end: CombinedAccumulatedDataBuilder::default(),
+            end: PrivateAccumulatedDataBuilder::default(),
             constants: CombinedConstantData::default(),
-            is_private: false,
         }
     }
 }

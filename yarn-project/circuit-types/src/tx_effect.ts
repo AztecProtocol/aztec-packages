@@ -81,7 +81,7 @@ export class TxEffect {
       );
     }
     publicDataWrites.forEach(h => {
-      if (h.isEmpty()) {
+      if (h.isDefault()) {
         throw new Error('Public data write is empty');
       }
     });

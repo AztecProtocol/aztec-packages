@@ -30,11 +30,8 @@ struct CombinedAccumulatedData {
 impl Default for CombinedAccumulatedData {
     fn default() -> Self {
         CombinedAccumulatedData {
-            revert_code: 0 as u8,
             new_note_hashes: [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_TX],
             new_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_TX],
-            private_call_stack: [CallRequest::default(); MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX],
-            public_call_stack: [CallRequest::default(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
             new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,

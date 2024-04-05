@@ -21,7 +21,6 @@ impl Default for FunctionData {
         FunctionData {
             selector: FunctionSelector::default(),
             is_private: false,
-            is_transpiled: false,
         }
     }
 }

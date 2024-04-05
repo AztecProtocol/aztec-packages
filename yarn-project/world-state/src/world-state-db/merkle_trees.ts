@@ -578,7 +578,7 @@ export class MerkleTrees implements MerkleTreeDb {
       // by circuits.
       const paddedTxEffects = padArrayEnd(
         l2Block.body.txEffects,
-        TxEffect.empty(),
+        TxEffect.default(),
         l2Block.body.numberOfTxsIncludingPadded,
       );
 
@@ -609,7 +609,7 @@ export class MerkleTrees implements MerkleTreeDb {
         for (const txEffect of paddedTxEffects) {
           const publicDataWrites = padArrayEnd(
             txEffect.publicDataWrites,
-            PublicDataWrite.empty(),
+            PublicDataWrite.default(),
             MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
           );
 

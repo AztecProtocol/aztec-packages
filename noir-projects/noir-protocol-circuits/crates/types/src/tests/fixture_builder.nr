@@ -67,6 +67,40 @@ struct FixtureBuilder {
     counter: u32,
 }
 
+impl Default for FixtureBuilder {
+    fn default() -> Self {
+        FixtureBuilder {
+            contract_address: AztecAddress::default(),
+            storage_contract_address: AztecAddress::default(),
+            historical_header: Header::default(),
+            tx_context: TxContext::default(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: BoundedVec::new(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            max_block_number: MaxBlockNumber::default(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            public_data_reads: BoundedVec::new(),
+            proof: Proof::default(),
+            vk: VerificationKey::default(),
+            vk_index: 0,
+            vk_path: [0; VK_TREE_HEIGHT],
+            revert_code: 0,
+            min_revertible_side_effect_counter: 0,
+            counter: 0
+        }
+    }
+}
+
 impl FixtureBuilder {
     pub fn new() -> Self {
         let tx_context = TxContext { is_fee_payment_tx: false, is_rebate_payment_tx: false, chain_id: 1, version: 0 };
@@ -345,7 +379,7 @@ impl FixtureBuilder {
     }
 
     fn generate_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
-        let mut caller_context = CallerContext::empty();
+        let mut caller_context = CallerContext::default();
         if is_delegate_call {
             caller_context.msg_sender = fixtures::MSG_SENDER;
             caller_context.storage_contract_address = self.contract_address;

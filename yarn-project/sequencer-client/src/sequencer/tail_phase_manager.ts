@@ -95,7 +95,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
   private sortNoteHashes<N extends number>(noteHashes: Tuple<SideEffect, N>): Tuple<SideEffect, N> {
     return noteHashes.sort((n0, n1) => {
-      if (n0.isEmpty()) {
+      if (n0.isDefault()) {
         return 1;
       }
       return Number(n0.counter.toBigInt() - n1.counter.toBigInt());

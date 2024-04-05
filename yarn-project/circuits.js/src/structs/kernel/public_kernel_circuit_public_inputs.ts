@@ -52,15 +52,15 @@ export class PublicKernelCircuitPublicInputs {
   }
 
   get needsSetup() {
-    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[1].isDefault();
   }
 
   get needsAppLogic() {
-    return !this.end.publicCallStack[0].isEmpty();
+    return !this.end.publicCallStack[0].isDefault();
   }
 
   get needsTeardown() {
-    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[0].isDefault();
   }
 
   /**

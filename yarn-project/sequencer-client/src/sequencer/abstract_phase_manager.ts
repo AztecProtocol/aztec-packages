@@ -48,7 +48,7 @@ import {
   type ProcessReturnValues,
   decodeReturnValues,
 } from '@aztec/foundation/abi';
-import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
+import { arrayNonDefaultLength, padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import {
@@ -524,7 +524,7 @@ function patchPublicStorageActionOrdering(
 
   const effectSet = PhaseIsRevertible[phase] ? 'end' : 'endNonRevertibleData';
 
-  const numReadsInKernel = arrayNonEmptyLength(publicDataReads, f => f.isDefault());
+  const numReadsInKernel = arrayNonDefaultLength(publicDataReads, f => f.isDefault());
   const numReadsBeforeThisEnqueuedCall = numReadsInKernel - simPublicDataReads.length;
   publicInputs.validationRequests.publicDataReads = padArrayEnd(
     [
@@ -536,7 +536,7 @@ function patchPublicStorageActionOrdering(
     MAX_PUBLIC_DATA_READS_PER_TX,
   );
 
-  const numUpdatesInKernel = arrayNonEmptyLength(publicDataUpdateRequests, f => f.isDefault());
+  const numUpdatesInKernel = arrayNonDefaultLength(publicDataUpdateRequests, f => f.isDefault());
   const numUpdatesBeforeThisEnqueuedCall = numUpdatesInKernel - simPublicDataUpdateRequests.length;
   publicInputs[effectSet].publicDataUpdateRequests = padArrayEnd(
     [

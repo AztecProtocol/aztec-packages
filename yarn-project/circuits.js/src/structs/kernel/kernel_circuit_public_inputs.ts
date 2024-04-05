@@ -34,8 +34,8 @@ export class KernelCircuitPublicInputs {
     public revertCode: RevertCode,
   ) {}
 
-  getNonEmptyNullifiers() {
-    return this.end.newNullifiers.filter(n => !n.isEmpty());
+  getNonDefaultNullifiers() {
+    return this.end.newNullifiers.filter(n => !n.isDefault());
   }
 
   toBuffer() {

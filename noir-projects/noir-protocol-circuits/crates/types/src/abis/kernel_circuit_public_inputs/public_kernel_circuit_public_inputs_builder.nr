@@ -23,9 +23,10 @@ impl Default for PublicKernelCircuitPublicInputsBuilder {
         PublicKernelCircuitPublicInputsBuilder {
             aggregation_object: AggregationObject::default(),
             validation_requests: ValidationRequestsBuilder::default(),
-            end_non_revertible: AccumulatedNonRevertibleDataBuilder::default(),
-            end: AccumulatedRevertibleDataBuilder::default(),
+            end_non_revertible: PublicAccumulatedDataBuilder::default(),
+            end: PublicAccumulatedDataBuilder::default(),
             constants: CombinedConstantData::default(),
+            revert_code: 0,
         }
     }
 }

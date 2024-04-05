@@ -1,6 +1,6 @@
 import {
   type AccountWallet,
-  type AztecAddress,
+  AztecAddress,
   type CheatCodes,
   type DebugLogger,
   ExtendedNote,

@@ -29,11 +29,8 @@ struct CombinedAccumulatedDataBuilder {
 impl Default for CombinedAccumulatedDataBuilder {
     fn default() -> Self {
         CombinedAccumulatedDataBuilder {
-            revert_code: 0 as u8,
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
-            private_call_stack: BoundedVec::new(),
-            public_call_stack: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,

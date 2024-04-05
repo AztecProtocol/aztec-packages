@@ -63,17 +63,18 @@ mod tests {
         read_request_reset::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
     use dep::types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, 
+        MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
+        grumpkin_private_key::GrumpkinPrivateKey,
         hash::compute_unique_siloed_note_hashes,
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_default, is_default_array}
+        utils::{arrays::{array_eq, array_length}}, traits::{is_default, is_default_array}
     };
 
     struct PrivateKernelTailInputsBuilder {
@@ -316,7 +317,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // Only the first nullifier is left after squashing.
-        assert(is_empty_default(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
         assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
     }
 

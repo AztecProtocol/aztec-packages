@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
 import type { AvmContext } from '../avm_context.js';

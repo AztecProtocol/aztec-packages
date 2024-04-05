@@ -221,10 +221,10 @@ export function makePublicDataUpdateRequest(seed = 1): PublicDataUpdateRequest {
 }
 
 /**
- * Creates empty public data update request.
- * @returns An empty public data update request.
+ * Creates default public data update request.
+ * @returns An default public data update request.
  */
-export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
+export function makeDefaultPublicDataUpdateRequest(): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(fr(0), fr(0));
 }
 
@@ -238,10 +238,10 @@ export function makePublicDataRead(seed = 1): PublicDataRead {
 }
 
 /**
- * Creates empty public data read.
- * @returns An empty public data read.
+ * Creates default public data read.
+ * @returns An default public data read.
  */
-export function makeEmptyPublicDataRead(): PublicDataRead {
+export function makeDefaultPublicDataRead(): PublicDataRead {
   return new PublicDataRead(fr(0), fr(0));
 }
 
@@ -287,12 +287,12 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new CombinedAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120, SideEffect.empty),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120, SideEffect.default),
     tupleGenerator(
       MAX_NEW_NULLIFIERS_PER_TX,
       sideEffectLinkedFromNumber,
       seed + 0x200,
-      SideEffectLinkedToNoteHash.empty,
+      SideEffectLinkedToNoteHash.default,
     ),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // encrypted logs hash
@@ -303,7 +303,7 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
       seed + 0xd00,
-      PublicDataUpdateRequest.empty,
+      PublicDataUpdateRequest.default,
     ),
   );
 }
@@ -317,12 +317,12 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PublicAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120, SideEffect.empty),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120, SideEffect.default),
     tupleGenerator(
       MAX_NEW_NULLIFIERS_PER_TX,
       sideEffectLinkedFromNumber,
       seed + 0x200,
-      SideEffectLinkedToNoteHash.empty,
+      SideEffectLinkedToNoteHash.default,
     ),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // encrypted logs hash
@@ -333,9 +333,9 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       makePublicDataUpdateRequest,
       seed + 0xd00,
-      PublicDataUpdateRequest.empty,
+      PublicDataUpdateRequest.default,
     ),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.default),
   );
 }
 
@@ -348,20 +348,20 @@ export function makePrivateAccumulatedData(seed = 1, full = false) {
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new PrivateAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120, SideEffect.empty),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120, SideEffect.default),
     tupleGenerator(
       MAX_NEW_NULLIFIERS_PER_TX,
       sideEffectLinkedFromNumber,
       seed + 0x200,
-      SideEffectLinkedToNoteHash.empty,
+      SideEffectLinkedToNoteHash.default,
     ),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // encrypted logs hash
     fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
     fr(seed + 0xa00), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.empty),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.default),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.default),
   );
 }
 
@@ -414,24 +414,24 @@ export function makePublicCircuitPublicInputs(
     makeCallContext(seed, storageContractAddress),
     fr(seed + 0x100),
     tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200, Fr.zero),
-    tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.empty),
-    tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.empty),
+    tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.default),
+    tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.default),
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       makeContractStorageUpdateRequest,
       seed + 0x400,
-      ContractStorageUpdateRequest.empty,
+      ContractStorageUpdateRequest.default,
     ),
-    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500, ContractStorageRead.empty),
+    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500, ContractStorageRead.default),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600, Fr.zero),
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_CALL, makeNewSideEffect, seed + 0x700, SideEffect.empty),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_CALL, makeNewSideEffect, seed + 0x700, SideEffect.default),
     tupleGenerator(
       MAX_NEW_NULLIFIERS_PER_CALL,
       makeNewSideEffectLinkedToNoteHash,
       seed + 0x800,
-      SideEffectLinkedToNoteHash.empty,
+      SideEffectLinkedToNoteHash.default,
     ),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.empty),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.default),
     fr(seed + 0xa00),
     fr(seed + 0xa01),
     fr(seed + 0x901),
@@ -487,7 +487,7 @@ export function makePrivateKernelTailCircuitPublicInputs(
 ): PrivateKernelTailCircuitPublicInputs {
   const forPublic = isForPublic
     ? new PartialPrivateTailPublicInputsForPublic(
-        ValidationRequests.empty(),
+        ValidationRequests.default(),
         makePublicAccumulatedData(seed + 0x100, false),
         makePublicAccumulatedData(seed + 0x200, false),
       )
@@ -582,11 +582,11 @@ export function makeNoteHashReadRequestMembershipWitness(start: number): NoteHas
 }
 
 /**
- * Creates empty membership witness where the sibling paths is an array of fields filled with zeros.
+ * Creates default membership witness where the sibling paths is an array of fields filled with zeros.
  * @param start - The start of the membership witness.
- * @returns Non-transient empty read request membership witness.
+ * @returns Non-transient default read request membership witness.
  */
-export function makeEmptyNoteHashReadRequestMembershipWitness(): NoteHashReadRequestMembershipWitness {
+export function makeDefaultNoteHashReadRequestMembershipWitness(): NoteHashReadRequestMembershipWitness {
   return new NoteHashReadRequestMembershipWitness(
     new Fr(0),
     makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero),

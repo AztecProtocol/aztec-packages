@@ -34,7 +34,7 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'
   /**
    * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
    */
-  isEmpty: boolean;
+  isDefault: boolean;
 
   /**
    * Reason the tx was reverted.
@@ -100,7 +100,7 @@ export function makeProcessedTx(
     proof,
     encryptedLogs: revertReason ? EncryptedTxL2Logs.default() : tx.encryptedLogs,
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.default() : tx.unencryptedLogs,
-    isEmpty: false,
+    isDefault: false,
     revertReason,
   };
 }
@@ -123,7 +123,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     unencryptedLogs: UnencryptedTxL2Logs.default(),
     data: emptyKernelOutput,
     proof: emptyProof,
-    isEmpty: true,
+    isDefault: true,
     revertReason: undefined,
   };
 }
