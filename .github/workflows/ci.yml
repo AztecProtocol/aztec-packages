@@ -17,13 +17,13 @@ jobs:
     steps:
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: AztecProtocol/ec2-action-builder@v17
+        uses: AztecProtocol/ec2-action-builder@v18
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
-          runner_label: ${{ github.run_id }}
+          runner_label: ${{ github.actor }}
           runner_concurrency: 2
           ec2_instance_type: r6a.32xlarge
           ec2_ami_id: ami-04d8422a9ba4de80f
@@ -33,48 +33,11 @@ jobs:
           ec2_security_group_id: sg-0ccd4e5df0dcca0c9
           ec2_instance_ttl: 40 # 40 minutes to reap
           ec2_spot_instance_strategy: BestEffort
-
-  start-runner-retry:
-    timeout-minutes: 5
-    name: Start self-hosted EC2 runner
-    runs-on: ubuntu-latest
-    # We avoid the issue of having no runner on a rerun-just-failed
-    if: ${{ github.run_attempt == 2 }}
-    permissions:
-      actions: write        
-    steps:
-      - name: Start EC2 runner
-        id: start-ec2-runner
-        uses: AztecProtocol/ec2-action-builder@v17
-        with:
-          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_region: "us-east-2"
-          runner_label: ${{ github.run_id }}
-          runner_concurrency: 2
-          ec2_instance_type: r6a.32xlarge
-          ec2_ami_id: ami-04d8422a9ba4de80f
-          ec2_subnet_id: subnet-4cfabd25
-          ec2_instance_tags: '[]'
-          github_action_runner_version: v2.315.0
-          ec2_security_group_id: sg-0ccd4e5df0dcca0c9
-          ec2_instance_ttl: 40 # 40 minutes to reap
-          ec2_spot_instance_strategy: BestEffort
-
-  start-runner-retry-sorry:
-    timeout-minutes: 5
-    name: Start self-hosted EC2 runner
-    runs-on: ubuntu-latest
-    # We support only one rerun
-    if: ${{ github.run_attempt > 2 }}
-    steps:
-      - run: echo "We only support one re-run right now due to how spot tasks are cached!" && exit 1
 
   # there's a lot of x86 tasks - let's split out the build step
   build-x86:
     needs: start-runner
-    runs-on: ${{ github.run_id }}
+    runs-on: ${{ github.actor }}
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
     env:
@@ -112,7 +75,7 @@ jobs:
   # all the end-to-end integration tests for aztec
   e2e-arm:
     needs: start-runner
-    runs-on: ${{ github.run_id }}     
+    runs-on: ${{ github.actor }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -148,7 +111,7 @@ jobs:
   # all the end-to-end integration tests for aztec
   e2e-x86:
     needs: build-x86
-    runs-on: ${{ github.run_id }}     
+    runs-on: ${{ github.actor }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -193,7 +156,7 @@ jobs:
   # barretenberg (prover) native tests
   bb-native-tests:
     needs: start-runner
-    runs-on: ${{ github.run_id }}     
+    runs-on: ${{ github.actor }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -229,7 +192,7 @@ jobs:
   # for accurate results
   # We don't depend on 'build' as we use a different runner and will build components on the fist step that uses them.
   bb-bench:
-    runs-on: ${{ github.run_id }}
+    runs-on: ${{ github.actor }}
     needs: start-runner
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -275,7 +238,7 @@ jobs:
 
   # # Post actions, deploy and summarize logs
   # aztec-bench-summary:
-  #   runs-on: ${{ github.run_id }}     
+  #   runs-on: ${{ github.actor }}     
   #  # IMPORTANT security flaw if we don't need 'check-run-condition'
   #   needs: e2e-x86
   #   concurrency:
