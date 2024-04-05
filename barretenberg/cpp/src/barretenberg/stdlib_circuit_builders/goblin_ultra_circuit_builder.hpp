@@ -177,10 +177,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     uint32_t read_bus_vector(const uint32_t& bus_idx, const uint32_t& read_idx_witness_idx)
     {
-        if (bus_idx == 0) {
+        if (bus_idx == DataBus::CALLDATA) {
             return read_calldata(read_idx_witness_idx);
         }
-        if (bus_idx == 1) {
+        if (bus_idx == DataBus::RETURNDATA) {
             return read_return_data(read_idx_witness_idx);
         }
         return 0;
@@ -188,10 +188,10 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     void append_to_bus_vector(const uint32_t& bus_idx, const uint32_t& witness_idx)
     {
-        if (bus_idx == 0) {
+        if (bus_idx == DataBus::CALLDATA) {
             databus.calldata.append(witness_idx);
         }
-        if (bus_idx == 1) {
+        if (bus_idx == DataBus::RETURNDATA) {
             databus.return_data.append(witness_idx);
         }
     }

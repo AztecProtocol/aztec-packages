@@ -1,6 +1,7 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
 namespace bb::stdlib {
 
@@ -41,8 +42,8 @@ template <typename Builder> class bus_vector {
 };
 
 template <typename Builder> struct databus {
-    bus_vector<Builder> calldata{ 0 };
-    bus_vector<Builder> return_data{ 1 };
+    bus_vector<Builder> calldata{ bb::DataBus::CALLDATA };
+    bus_vector<Builder> return_data{ bb::DataBus::RETURNDATA };
 
     databus() = default;
 };

@@ -59,6 +59,8 @@ struct BusVector {
 struct DataBus {
     BusVector calldata;    // the public input to the circuit
     BusVector return_data; // the public output of the circuit
+
+    enum BusIdx { CALLDATA, RETURNDATA };
 };
 
 } // namespace bb
