@@ -93,7 +93,7 @@ class AvmFlavor {
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
@@ -1126,10 +1126,10 @@ class AvmFlavor {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
+            // this->num_public_inputs = proving_key.num_public_inputs;
 
             // TODO(md): we shouldnt have this
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
+            // this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
             for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
@@ -1211,6 +1211,7 @@ class AvmFlavor {
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
 
+    // TODO: add derived entities + witness entities
     /**
      * @brief A container for the witness commitments.
      *

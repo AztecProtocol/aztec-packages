@@ -103,7 +103,7 @@ template <typename Flavor> class SumcheckProver {
         pow_univariate.partially_evaluate(round_challenge);
         round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
                                                   // release memory?        // All but final round
-        // We operate on partially_evaluated_polynomials in place.
+                                                  // We operate on partially_evaluated_polynomials in place.
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             // Write the round univariate to the transcript
             round_univariate =
@@ -122,7 +122,6 @@ template <typename Flavor> class SumcheckProver {
              zip_view(multivariate_evaluations.get_all(), partially_evaluated_polynomials.get_all())) {
             eval = poly[0];
         }
-        info("Multivariate evaluations: {}", multivariate_evaluations.get_all().size());
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
 
         return { multivariate_challenge, multivariate_evaluations };

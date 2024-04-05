@@ -48,7 +48,6 @@ void AvmProver::execute_preamble_round()
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
     transcript->send_to_verifier("circuit_size", circuit_size);
-    info("Sent circuit size to verifier: ", circuit_size);
 }
 
 /**
@@ -57,18 +56,7 @@ void AvmProver::execute_preamble_round()
  */
 void AvmProver::execute_wire_commitments_round()
 {
-    // auto wire_polys = key->get_wit_wires();
 
-    // // TEMP: fine just using wires here and not wit wires as the indexes should still line up
-    // auto labels = commitment_labels.get_wires();
-    // for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-    //     info("Committing to wire ", labels[idx]);
-    //     transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
-    // }
-
-    // TODO: while debugging Temporarily manually commit to each wire
-    // All witness commitments
-    // TODO: check these -> was done with a macro
     auto labels = commitment_labels;
 
     witness_commitments.avm_alu_alu_sel = commitment_key->commit(key->avm_alu_alu_sel);
@@ -337,32 +325,16 @@ void AvmProver::execute_wire_commitments_round()
                                  witness_commitments.lookup_byte_operations_counts);
     transcript->send_to_verifier(labels.incl_main_tag_err_counts, witness_commitments.incl_main_tag_err_counts);
     transcript->send_to_verifier(labels.incl_mem_tag_err_counts, witness_commitments.incl_mem_tag_err_counts);
-
-    info("sent all witness contributions to the prover manually ");
 }
 
 void AvmProver::execute_log_derivative_inverse_round()
 {
     auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
 
-    info("prover beta ", beta);
-    info("prover gamma ", gamma);
-
-    auto beta_sqr = beta * beta;
-    auto beta_cube = beta_sqr * beta;
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    relation_parameters.beta_sqr = beta_sqr;
-    relation_parameters.beta_cube = beta_cube;
-
-    // TODO: Add an implementation of this to the flavor
-    // We will need to compute -> the inverse for each column and add it to the proving key
-    // -> I think we should be able to use each of the bespoke lookup relations for this???
 
     key->compute_logderivative_inverses(relation_parameters);
-
-    // Send each computed inverse to the verifier
-    // TODO(md): why is it computed within the flavor and not here? seems like it could be?
 
     // Permutations
     witness_commitments.perm_main_alu = commitment_key->commit(key->perm_main_alu);
@@ -393,8 +365,6 @@ void AvmProver::execute_log_derivative_inverse_round()
     transcript->send_to_verifier(commitment_labels.incl_mem_tag_err, witness_commitments.incl_mem_tag_err);
     transcript->send_to_verifier(commitment_labels.lookup_byte_lengths, witness_commitments.lookup_byte_lengths);
     transcript->send_to_verifier(commitment_labels.lookup_byte_operations, witness_commitments.lookup_byte_operations);
-
-    info("lookup byte operations ", witness_commitments.lookup_byte_operations);
 }
 
 /**
@@ -410,15 +380,12 @@ void AvmProver::execute_relation_check_rounds()
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    info("get msb ", numeric::get_msb(key->circuit_size));
     std::vector<FF> gate_challenges(numeric::get_msb(key->circuit_size));
 
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        info("gate chall", gate_challenges[idx]);
     }
     sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters, alpha, gate_challenges);
-    // info("Sumcheck output ", sumcheck_output);
 }
 
 /**

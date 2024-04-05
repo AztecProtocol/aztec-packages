@@ -47,10 +47,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
 
     if (circuit_size != key->circuit_size) {
-        info("circuit_size does not line up: {} != {}", circuit_size, key->circuit_size);
         return false;
     }
-    info("circuit_size has lined up: {}", circuit_size);
 
     // Get commitments to VM wires
     commitments.avm_alu_alu_sel =
@@ -259,14 +257,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.incl_mem_tag_err_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_mem_tag_err_counts);
 
-    // TODO: Check that these all have values
-
     // Calculate the alpha and beta challenges - log derivative inverse round
     auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
-
-    info("verifier beta = ", beta);
-    info("verifier gamma = ", gamm);
-
     auto beta_sqr = beta * beta;
     auto beta_cube = beta_sqr * beta;
     relation_parameters.beta = beta;
@@ -309,7 +301,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     auto gate_challenges = std::vector<FF>(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        info("verifier gate_challenges[", idx, "] = ", gate_challenges[idx]);
     }
 
     auto [multivariate_challenge, claimed_evaluations, sumcheck_verified] =
