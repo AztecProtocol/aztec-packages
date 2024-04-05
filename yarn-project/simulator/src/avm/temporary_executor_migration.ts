@@ -4,6 +4,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   type GlobalVariables,
+  type Header,
   L2ToL1Message,
   type ReadRequest,
   SideEffect,
@@ -28,6 +29,7 @@ import { Mov } from './opcodes/memory.js';
  */
 export function temporaryCreateAvmExecutionEnvironment(
   current: PublicExecution,
+  header: Header,
   globalVariables: GlobalVariables,
 ): AvmExecutionEnvironment {
   // Function selector is included temporarily until noir codegens public contract bytecode in a single blob
@@ -41,6 +43,7 @@ export function temporaryCreateAvmExecutionEnvironment(
     /*feePerL2Gas=*/ Fr.zero(),
     /*feePerDaGas=*/ Fr.zero(),
     /*contractCallDepth=*/ Fr.zero(),
+    header,
     globalVariables,
     current.callContext.isStaticCall,
     current.callContext.isDelegateCall,
