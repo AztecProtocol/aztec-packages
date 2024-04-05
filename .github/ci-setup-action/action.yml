@@ -25,6 +25,14 @@ runs:
       shell: bash
       run: git submodule sync --recursive && git submodule update --init --recursive
 
+    # Since we use multiple runners, dont want them clashing
+    - name: Generate Unique Home Directory
+      shell: bash
+      run: |
+        RUN_HOME=~/run-$RANDOM-$(date +%s)
+        echo HOME=$RUN_HOME >> $GITHUB_ENV
+        mkdir -p $RUN_HOME
+
     - name: Setup Earthly
       uses: earthly/actions-setup@v1
       with:
