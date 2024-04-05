@@ -173,6 +173,10 @@ class AvmMemOpcodeNegativeTests : public AvmMemOpcodeTests {};
  *
  ******************************************************************************/
 
+/******************************************************************************
+ * MOV Opcode
+ ******************************************************************************/
+
 TEST_F(AvmMemOpcodeTests, basicMov)
 {
     build_mov_trace(false, 42, 9, 13, AvmMemoryTag::U64);
@@ -234,6 +238,28 @@ TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
 
     validate_trace(std::move(trace));
 }
+
+/******************************************************************************
+ * CMOV Opcode
+ ******************************************************************************/
+
+TEST_F(AvmMemOpcodeTests, allDirectCMovA)
+{
+    trace_builder.op_set(0, 1979, 10, AvmMemoryTag::U16);   // a
+    trace_builder.op_set(0, 1980, 11, AvmMemoryTag::U128);  // b
+    trace_builder.op_set(0, 987162, 20, AvmMemoryTag::U64); // Non-zero condition value
+    trace_builder.op_set(0, 8, 12, AvmMemoryTag::U32);      // Target, should be overwritten
+
+    trace_builder.op_cmov(0, 10, 11, 20, 12);
+    trace_builder.return_op(0, 0, 0);
+    trace = trace_builder.finalize();
+
+    validate_trace_proof(std::move(trace));
+}
+
+/******************************************************************************
+ * SET Opcode
+ ******************************************************************************/
 
 TEST_F(AvmMemOpcodeTests, directSet)
 {

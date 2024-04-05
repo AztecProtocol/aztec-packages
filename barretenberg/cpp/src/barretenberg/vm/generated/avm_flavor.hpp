@@ -71,6 +71,7 @@ class AvmFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_WITNESS_ENTITIES = 193;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
@@ -90,6 +91,13 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 174;
 >>>>>>> 220457275 (5557: PIL relations for CMOV opcode)
+=======
+    static constexpr size_t NUM_WITNESS_ENTITIES = 155;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
+    // the unshifted and one for the shifted
+    static constexpr size_t NUM_ALL_ENTITIES = 176;
+>>>>>>> bdc8f5a57 (5557: several bug fixes for CMOV opcode and first unit test)
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -348,8 +356,10 @@ class AvmFlavor {
                               avm_mem_op_d,
                               avm_mem_r_in_tag,
                               avm_mem_rw,
+                              avm_mem_sel_cmov,
                               avm_mem_sel_mov_a,
                               avm_mem_sel_mov_b,
+                              avm_mem_skip_check_tag,
                               avm_mem_sub_clk,
                               avm_mem_tag,
                               avm_mem_tag_err,
@@ -559,8 +569,10 @@ class AvmFlavor {
                      avm_mem_op_d,
                      avm_mem_r_in_tag,
                      avm_mem_rw,
+                     avm_mem_sel_cmov,
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
+                     avm_mem_skip_check_tag,
                      avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
@@ -775,8 +787,10 @@ class AvmFlavor {
                               avm_mem_op_d,
                               avm_mem_r_in_tag,
                               avm_mem_rw,
+                              avm_mem_sel_cmov,
                               avm_mem_sel_mov_a,
                               avm_mem_sel_mov_b,
+                              avm_mem_skip_check_tag,
                               avm_mem_sub_clk,
                               avm_mem_tag,
                               avm_mem_tag_err,
@@ -1017,8 +1031,10 @@ class AvmFlavor {
                      avm_mem_op_d,
                      avm_mem_r_in_tag,
                      avm_mem_rw,
+                     avm_mem_sel_cmov,
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
+                     avm_mem_skip_check_tag,
                      avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
@@ -1259,8 +1275,10 @@ class AvmFlavor {
                      avm_mem_op_d,
                      avm_mem_r_in_tag,
                      avm_mem_rw,
+                     avm_mem_sel_cmov,
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
+                     avm_mem_skip_check_tag,
                      avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
@@ -1674,8 +1692,10 @@ class AvmFlavor {
             Base::avm_mem_op_d = "AVM_MEM_OP_D";
             Base::avm_mem_r_in_tag = "AVM_MEM_R_IN_TAG";
             Base::avm_mem_rw = "AVM_MEM_RW";
+            Base::avm_mem_sel_cmov = "AVM_MEM_SEL_CMOV";
             Base::avm_mem_sel_mov_a = "AVM_MEM_SEL_MOV_A";
             Base::avm_mem_sel_mov_b = "AVM_MEM_SEL_MOV_B";
+            Base::avm_mem_skip_check_tag = "AVM_MEM_SKIP_CHECK_TAG";
             Base::avm_mem_sub_clk = "AVM_MEM_SUB_CLK";
             Base::avm_mem_tag = "AVM_MEM_TAG";
             Base::avm_mem_tag_err = "AVM_MEM_TAG_ERR";
@@ -1901,8 +1921,10 @@ class AvmFlavor {
         Commitment avm_mem_op_d;
         Commitment avm_mem_r_in_tag;
         Commitment avm_mem_rw;
+        Commitment avm_mem_sel_cmov;
         Commitment avm_mem_sel_mov_a;
         Commitment avm_mem_sel_mov_b;
+        Commitment avm_mem_skip_check_tag;
         Commitment avm_mem_sub_clk;
         Commitment avm_mem_tag;
         Commitment avm_mem_tag_err;
@@ -2136,8 +2158,10 @@ class AvmFlavor {
             avm_mem_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_r_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_rw = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_sel_cmov = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_sel_mov_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_sel_mov_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_skip_check_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_sub_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2367,8 +2391,10 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_op_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_r_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_rw, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_sel_cmov, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_sel_mov_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_sel_mov_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_skip_check_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_sub_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag_err, Transcript::proof_data);

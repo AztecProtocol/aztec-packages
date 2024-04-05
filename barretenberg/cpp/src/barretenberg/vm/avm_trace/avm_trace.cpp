@@ -876,10 +876,10 @@ void AvmTraceBuilder::op_cmov(
     }
 
     if (indirect_cond_flag) {
-        auto read_ind_c =
-            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_C, cond_offset);
-        direct_cond_offset = uint32_t(read_ind_c.val);
-        tag_match = tag_match && read_ind_c.tag_match;
+        auto read_ind_d =
+            mem_trace_builder.indirect_read_and_load_from_memory(clk, IndirectRegister::IND_D, cond_offset);
+        direct_cond_offset = uint32_t(read_ind_d.val);
+        tag_match = tag_match && read_ind_d.tag_match;
     }
 
     if (indirect_dst_flag) {
@@ -890,7 +890,7 @@ void AvmTraceBuilder::op_cmov(
     }
 
     // Reading from memory and loading into ia or ib without tag check. We also load the conditional value
-    // in ic without any tag check.
+    // in id without any tag check.
     std::array<AvmMemTraceBuilder::MemEntry, 3> const cmov_res =
         mem_trace_builder.read_and_load_cmov_opcode(clk, direct_a_offset, direct_b_offset, direct_cond_offset);
 
@@ -936,7 +936,7 @@ void AvmTraceBuilder::op_cmov(
         .avm_main_pc = pc++,
         .avm_main_r_in_tag = static_cast<uint32_t>(tag),
         .avm_main_rwc = 1,
-        .avm_main_sel_mov = 1,
+        .avm_main_sel_cmov = 1,
         .avm_main_sel_mov_a = static_cast<uint32_t>(!id_zero),
         .avm_main_sel_mov_b = static_cast<uint32_t>(id_zero),
         .avm_main_tag_err = static_cast<uint32_t>(!tag_match),
@@ -1376,6 +1376,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         dest.avm_mem_one_min_inv = src.m_one_min_inv;
         dest.avm_mem_sel_mov_a = FF(static_cast<uint32_t>(src.m_sel_mov_a));
         dest.avm_mem_sel_mov_b = FF(static_cast<uint32_t>(src.m_sel_mov_b));
+        dest.avm_mem_sel_cmov = FF(static_cast<uint32_t>(src.m_sel_cmov));
 
         dest.incl_mem_tag_err_counts = FF(static_cast<uint32_t>(src.m_tag_err_count_relevant));
 
@@ -1410,6 +1411,11 @@ std::vector<Row> AvmTraceBuilder::finalize()
             break;
         default:
             break;
+        }
+
+        if (src.m_sel_cmov) {
+            dest.avm_mem_skip_check_tag = dest.avm_mem_op_d + dest.avm_mem_op_a * (-dest.avm_mem_sel_mov_a + 1) +
+                                          dest.avm_mem_op_b * (-dest.avm_mem_sel_mov_b + 1);
         }
 
         if (i + 1 < mem_trace_size) {

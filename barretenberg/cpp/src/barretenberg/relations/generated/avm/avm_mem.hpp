@@ -23,8 +23,10 @@ template <typename FF> struct Avm_memRow {
     FF avm_mem_r_in_tag{};
     FF avm_mem_rw{};
     FF avm_mem_rw_shift{};
+    FF avm_mem_sel_cmov{};
     FF avm_mem_sel_mov_a{};
     FF avm_mem_sel_mov_b{};
+    FF avm_mem_skip_check_tag{};
     FF avm_mem_sub_clk{};
     FF avm_mem_tag{};
     FF avm_mem_tag_err{};
@@ -49,16 +51,19 @@ inline std::string get_relation_label_avm_mem(int index)
     case 17:
         return "MEM_ZERO_INIT";
 
-    case 18:
+    case 19:
         return "MEM_IN_TAG_CONSISTENCY_1";
 
-    case 19:
+    case 20:
         return "MEM_IN_TAG_CONSISTENCY_2";
 
     case 21:
+        return "NO_TAG_ERR_WRITE_OR_SKIP";
+
+    case 23:
         return "NO_TAG_ERR_WRITE";
 
-    case 30:
+    case 32:
         return "MOV_SAME_TAG";
     }
     return std::to_string(index);
@@ -68,8 +73,8 @@ template <typename FF_> class avm_memImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 31> SUBRELATION_PARTIAL_LENGTHS{
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 33> SUBRELATION_PARTIAL_LENGTHS{
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 4, 4, 4, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -246,8 +251,9 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(18);
 
-            auto tmp = ((-avm_mem_rw + FF(1)) *
-                        (((avm_mem_r_in_tag - avm_mem_tag) * (-avm_mem_one_min_inv + FF(1))) - avm_mem_tag_err));
+            auto tmp = (avm_mem_skip_check_tag -
+                        (avm_mem_sel_cmov * ((avm_mem_op_d + (avm_mem_op_a * (-avm_mem_sel_mov_a + FF(1)))) +
+                                             (avm_mem_op_b * (-avm_mem_sel_mov_b + FF(1))))));
             tmp *= scaling_factor;
             std::get<18>(evals) += tmp;
         }
@@ -255,7 +261,8 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(19);
 
-            auto tmp = ((-avm_mem_tag_err + FF(1)) * avm_mem_one_min_inv);
+            auto tmp = (((-avm_mem_skip_check_tag + FF(1)) * (-avm_mem_rw + FF(1))) *
+                        (((avm_mem_r_in_tag - avm_mem_tag) * (-avm_mem_one_min_inv + FF(1))) - avm_mem_tag_err));
             tmp *= scaling_factor;
             std::get<19>(evals) += tmp;
         }
@@ -263,7 +270,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(20);
 
-            auto tmp = (avm_mem_rw * (avm_mem_w_in_tag - avm_mem_tag));
+            auto tmp = ((-avm_mem_tag_err + FF(1)) * avm_mem_one_min_inv);
             tmp *= scaling_factor;
             std::get<20>(evals) += tmp;
         }
@@ -271,7 +278,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(21);
 
-            auto tmp = (avm_mem_rw * avm_mem_tag_err);
+            auto tmp = ((avm_mem_skip_check_tag + avm_mem_rw) * avm_mem_tag_err);
             tmp *= scaling_factor;
             std::get<21>(evals) += tmp;
         }
@@ -279,7 +286,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(22);
 
-            auto tmp = (avm_mem_ind_op_a * (avm_mem_r_in_tag - FF(3)));
+            auto tmp = (avm_mem_rw * (avm_mem_w_in_tag - avm_mem_tag));
             tmp *= scaling_factor;
             std::get<22>(evals) += tmp;
         }
@@ -287,7 +294,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(23);
 
-            auto tmp = (avm_mem_ind_op_b * (avm_mem_r_in_tag - FF(3)));
+            auto tmp = (avm_mem_rw * avm_mem_tag_err);
             tmp *= scaling_factor;
             std::get<23>(evals) += tmp;
         }
@@ -295,7 +302,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(24);
 
-            auto tmp = (avm_mem_ind_op_c * (avm_mem_r_in_tag - FF(3)));
+            auto tmp = (avm_mem_ind_op_a * (avm_mem_r_in_tag - FF(3)));
             tmp *= scaling_factor;
             std::get<24>(evals) += tmp;
         }
@@ -303,7 +310,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(25);
 
-            auto tmp = (avm_mem_ind_op_d * (avm_mem_r_in_tag - FF(3)));
+            auto tmp = (avm_mem_ind_op_b * (avm_mem_r_in_tag - FF(3)));
             tmp *= scaling_factor;
             std::get<25>(evals) += tmp;
         }
@@ -311,7 +318,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(26);
 
-            auto tmp = (avm_mem_ind_op_a * avm_mem_rw);
+            auto tmp = (avm_mem_ind_op_c * (avm_mem_r_in_tag - FF(3)));
             tmp *= scaling_factor;
             std::get<26>(evals) += tmp;
         }
@@ -319,7 +326,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(27);
 
-            auto tmp = (avm_mem_ind_op_b * avm_mem_rw);
+            auto tmp = (avm_mem_ind_op_d * (avm_mem_r_in_tag - FF(3)));
             tmp *= scaling_factor;
             std::get<27>(evals) += tmp;
         }
@@ -327,7 +334,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(28);
 
-            auto tmp = (avm_mem_ind_op_c * avm_mem_rw);
+            auto tmp = (avm_mem_ind_op_a * avm_mem_rw);
             tmp *= scaling_factor;
             std::get<28>(evals) += tmp;
         }
@@ -335,7 +342,7 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(29);
 
-            auto tmp = (avm_mem_ind_op_d * avm_mem_rw);
+            auto tmp = (avm_mem_ind_op_b * avm_mem_rw);
             tmp *= scaling_factor;
             std::get<29>(evals) += tmp;
         }
@@ -343,9 +350,25 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(30);
 
-            auto tmp = ((avm_mem_sel_mov_a + avm_mem_sel_mov_b) * avm_mem_tag_err);
+            auto tmp = (avm_mem_ind_op_c * avm_mem_rw);
             tmp *= scaling_factor;
             std::get<30>(evals) += tmp;
+        }
+        // Contribution 31
+        {
+            Avm_DECLARE_VIEWS(31);
+
+            auto tmp = (avm_mem_ind_op_d * avm_mem_rw);
+            tmp *= scaling_factor;
+            std::get<31>(evals) += tmp;
+        }
+        // Contribution 32
+        {
+            Avm_DECLARE_VIEWS(32);
+
+            auto tmp = ((avm_mem_sel_mov_a + avm_mem_sel_mov_b) * avm_mem_tag_err);
+            tmp *= scaling_factor;
+            std::get<32>(evals) += tmp;
         }
     }
 };

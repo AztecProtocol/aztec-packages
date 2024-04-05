@@ -202,8 +202,10 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_op_d{};
     FF avm_mem_r_in_tag{};
     FF avm_mem_rw{};
+    FF avm_mem_sel_cmov{};
     FF avm_mem_sel_mov_a{};
     FF avm_mem_sel_mov_b{};
+    FF avm_mem_skip_check_tag{};
     FF avm_mem_sub_clk{};
     FF avm_mem_tag{};
     FF avm_mem_tag_err{};
@@ -304,6 +306,7 @@ class AvmCircuitBuilder {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t num_fixed_columns = 224;
     static constexpr size_t num_polys = 195;
 =======
@@ -314,6 +317,10 @@ class AvmCircuitBuilder {
     static constexpr size_t num_fixed_columns = 174;
     static constexpr size_t num_polys = 155;
 >>>>>>> 220457275 (5557: PIL relations for CMOV opcode)
+=======
+    static constexpr size_t num_fixed_columns = 176;
+    static constexpr size_t num_polys = 157;
+>>>>>>> bdc8f5a57 (5557: several bug fixes for CMOV opcode and first unit test)
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -480,8 +487,10 @@ class AvmCircuitBuilder {
             polys.avm_mem_op_d[i] = rows[i].avm_mem_op_d;
             polys.avm_mem_r_in_tag[i] = rows[i].avm_mem_r_in_tag;
             polys.avm_mem_rw[i] = rows[i].avm_mem_rw;
+            polys.avm_mem_sel_cmov[i] = rows[i].avm_mem_sel_cmov;
             polys.avm_mem_sel_mov_a[i] = rows[i].avm_mem_sel_mov_a;
             polys.avm_mem_sel_mov_b[i] = rows[i].avm_mem_sel_mov_b;
+            polys.avm_mem_skip_check_tag[i] = rows[i].avm_mem_skip_check_tag;
             polys.avm_mem_sub_clk[i] = rows[i].avm_mem_sub_clk;
             polys.avm_mem_tag[i] = rows[i].avm_mem_tag;
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;
