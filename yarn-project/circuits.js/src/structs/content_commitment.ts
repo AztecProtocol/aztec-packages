@@ -67,7 +67,7 @@ export class ContentCommitment {
 
   static default(): ContentCommitment {
     return new ContentCommitment(
-      Fr.zero(),
+      Fr.ZERO,
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       Buffer.alloc(NUM_BYTES_PER_SHA256),

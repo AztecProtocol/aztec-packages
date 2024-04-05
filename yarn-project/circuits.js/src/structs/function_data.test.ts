@@ -16,7 +16,7 @@ describe('FunctionData', () => {
     const buffer = functionData.toBuffer();
     const res = FunctionData.fromBuffer(buffer);
     expect(res).toEqual(functionData);
-    expect(res.isDefault()).toBe(false);
+    expect(res.isDefault(true)).toBe(false);
   });
 
   it('number of fields matches constant', () => {

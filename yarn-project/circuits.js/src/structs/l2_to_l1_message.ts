@@ -12,7 +12,7 @@ export class L2ToL1Message {
    * @returns An instance of L2ToL1Message with default fields.
    */
   static default(): L2ToL1Message {
-    return new L2ToL1Message(EthAddress.default(), Fr.zero());
+    return new L2ToL1Message(EthAddress.default(), Fr.ZERO);
   }
 
   /**

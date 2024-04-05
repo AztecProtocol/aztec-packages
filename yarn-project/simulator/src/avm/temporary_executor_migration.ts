@@ -37,10 +37,10 @@ export function temporaryCreateAvmExecutionEnvironment(
     current.callContext.msgSender, // TODO: origin is not available
     current.callContext.msgSender,
     current.callContext.portalContractAddress,
-    /*feePerL1Gas=*/ Fr.zero(),
-    /*feePerL2Gas=*/ Fr.zero(),
-    /*feePerDaGas=*/ Fr.zero(),
-    /*contractCallDepth=*/ Fr.zero(),
+    /*feePerL1Gas=*/ Fr.ZERO,
+    /*feePerL2Gas=*/ Fr.ZERO,
+    /*feePerDaGas=*/ Fr.ZERO,
+    /*contractCallDepth=*/ Fr.ZERO,
     globalVariables,
     current.callContext.isStaticCall,
     current.callContext.isDelegateCall,
@@ -63,7 +63,7 @@ export function temporaryConvertAvmResults(
   newWorldState: JournalData,
   result: AvmContractCallResults,
 ): PublicExecutionResult {
-  const newNoteHashes = newWorldState.newNoteHashes.map(noteHash => new SideEffect(noteHash, Fr.zero()));
+  const newNoteHashes = newWorldState.newNoteHashes.map(noteHash => new SideEffect(noteHash, Fr.ZERO));
 
   const contractStorageReads: ContractStorageRead[] = [];
   const reduceStorageReadRequests = (contractAddress: bigint, storageReads: Map<bigint, Fr[]>) => {
@@ -97,7 +97,7 @@ export function temporaryConvertAvmResults(
   const nullifierReadRequests: ReadRequest[] = [];
   const nullifierNonExistentReadRequests: ReadRequest[] = [];
   const newNullifiers: SideEffectLinkedToNoteHash[] = newWorldState.newNullifiers.map(
-    (nullifier, i) => new SideEffectLinkedToNoteHash(nullifier.toField(), Fr.zero(), new Fr(i + 1)),
+    (nullifier, i) => new SideEffectLinkedToNoteHash(nullifier.toField(), Fr.ZERO, new Fr(i + 1)),
   );
   const unencryptedLogs = UnencryptedFunctionL2Logs.default();
   const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.default());

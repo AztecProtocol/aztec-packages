@@ -38,7 +38,7 @@ export class KernelData {
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,
-      makeTuple(VK_TREE_HEIGHT, Fr.zero),
+      makeTuple(VK_TREE_HEIGHT, Fr.default),
     );
   }
 

@@ -81,7 +81,7 @@ export class PublicCallStackItem {
   }
 
   isDefault() {
-    return this.contractAddress.isDefault() && this.functionData.isDefault() && this.publicInputs.isDefault();
+    return this.contractAddress.isDefault() && this.functionData.isDefault(false) && this.publicInputs.isDefault();
   }
 
   /**

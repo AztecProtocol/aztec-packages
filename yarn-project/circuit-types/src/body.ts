@@ -66,10 +66,10 @@ export class Body {
       return layers[layers.length - 1][0];
     };
 
-    const emptyTxEffectHash = TxEffect.default().hash();
+    const defaultTxEffectHash = TxEffect.default().hash();
     const leaves: Buffer[] = padArrayEnd(
       this.txEffects.map(txEffect => txEffect.hash()),
-      emptyTxEffectHash,
+      defaultTxEffectHash,
       this.numberOfTxsIncludingPadded,
     );
 

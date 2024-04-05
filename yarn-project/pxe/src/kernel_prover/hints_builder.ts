@@ -59,7 +59,7 @@ export class HintsBuilder {
     noteHashReadRequests: Tuple<SideEffect, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX> {
-    const hints = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, Fr.zero);
+    const hints = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, Fr.default);
     for (let i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_TX && !noteHashReadRequests[i].isDefault(); i++) {
       const equalToRR = (cmt: SideEffect) => cmt.value.equals(noteHashReadRequests[i].value);
       const result = noteHashes.findIndex(equalToRR);
@@ -114,7 +114,7 @@ export class HintsBuilder {
     nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
-    const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
+    const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.default);
     const alreadyUsed = new Set<number>();
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
       if (!nullifiedNoteHashes[i].isZero()) {

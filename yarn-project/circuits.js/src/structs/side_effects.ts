@@ -79,7 +79,7 @@ export class SideEffect implements SideEffectType {
    * @returns Side-effect with both value and counter being zero.
    */
   static default(): SideEffect {
-    return new SideEffect(Fr.zero(), Fr.zero());
+    return new SideEffect(Fr.ZERO, Fr.ZERO);
   }
 
   /**
@@ -159,7 +159,7 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
    * @returns Side-effect with value, note hash and counter being zero.
    */
   static default(): SideEffectLinkedToNoteHash {
-    return new SideEffectLinkedToNoteHash(Fr.zero(), Fr.zero(), Fr.zero());
+    return new SideEffectLinkedToNoteHash(Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
   /**

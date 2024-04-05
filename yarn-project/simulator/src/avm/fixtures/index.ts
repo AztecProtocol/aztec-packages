@@ -63,10 +63,10 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.origin ?? AztecAddress.default(),
     overrides?.sender ?? AztecAddress.default(),
     overrides?.portal ?? EthAddress.default(),
-    overrides?.feePerL1Gas ?? Fr.zero(),
-    overrides?.feePerL2Gas ?? Fr.zero(),
-    overrides?.feePerDaGas ?? Fr.zero(),
-    overrides?.contractCallDepth ?? Fr.zero(),
+    overrides?.feePerL1Gas ?? Fr.ZERO,
+    overrides?.feePerL2Gas ?? Fr.ZERO,
+    overrides?.feePerDaGas ?? Fr.ZERO,
+    overrides?.contractCallDepth ?? Fr.ZERO,
     overrides?.globals ?? GlobalVariables.default(),
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
@@ -80,10 +80,10 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
  */
 export function initGlobalVariables(overrides?: Partial<GlobalVariables>): GlobalVariables {
   return new GlobalVariables(
-    overrides?.chainId ?? Fr.zero(),
-    overrides?.version ?? Fr.zero(),
-    overrides?.blockNumber ?? Fr.zero(),
-    overrides?.timestamp ?? Fr.zero(),
+    overrides?.chainId ?? Fr.ZERO,
+    overrides?.version ?? Fr.ZERO,
+    overrides?.blockNumber ?? Fr.ZERO,
+    overrides?.timestamp ?? Fr.ZERO,
     overrides?.coinbase ?? EthAddress.default(),
     overrides?.feeRecipient ?? AztecAddress.default(),
   );

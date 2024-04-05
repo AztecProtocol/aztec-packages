@@ -403,7 +403,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="Private call stack must be default when executing the tail circuit")]
+    #[test(should_fail_with="Private call stack must be empty when executing the tail circuit")]
     unconstrained fn non_empty_private_call_stack_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.push_private_call_request(1, false);

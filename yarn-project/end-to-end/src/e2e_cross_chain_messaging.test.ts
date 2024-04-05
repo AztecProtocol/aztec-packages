@@ -209,7 +209,7 @@ describe('e2e_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user1Wallet)
-        .methods.exit_to_l1_private(l2Token.address, ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
+        .methods.exit_to_l1_private(l2Token.address, ethAccount, withdrawAmount, EthAddress.default(), nonce)
         .prove(),
     ).rejects.toThrow(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
   }, 120_000);

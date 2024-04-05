@@ -62,7 +62,7 @@ export class PrivateKernelCircuitPublicInputs {
   static default() {
     return new PrivateKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      Fr.zero(),
+      Fr.ZERO,
       ValidationRequests.default(),
       PrivateAccumulatedData.default(),
       CombinedConstantData.default(),

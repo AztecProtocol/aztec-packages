@@ -58,7 +58,7 @@ export class ReadRequest {
    * @returns Side-effect with both value and counter being zero.
    */
   static default(): ReadRequest {
-    return new ReadRequest(Fr.zero(), 0);
+    return new ReadRequest(Fr.ZERO, 0);
   }
 }
 
@@ -125,6 +125,6 @@ export class ReadRequestContext {
    * @returns Side-effect with value, note hash and counter being zero.
    */
   static default(): ReadRequestContext {
-    return new ReadRequestContext(Fr.zero(), 0, AztecAddress.default());
+    return new ReadRequestContext(Fr.ZERO, 0, AztecAddress.default());
   }
 }

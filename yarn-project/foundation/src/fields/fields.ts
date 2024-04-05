@@ -132,6 +132,10 @@ abstract class BaseField {
     return this.toBuffer().equals(ZERO_BUFFER);
   }
 
+  isDefault(): boolean {
+    return this.toBuffer().equals(ZERO_BUFFER);
+  }
+
   toFriendlyJSON(): string {
     return this.toString();
   }
@@ -205,12 +209,12 @@ export class Fr extends BaseField {
     return random(Fr);
   }
 
-  static zero() {
+  static default() {
     return Fr.ZERO;
   }
 
-  static isZero(value: Fr) {
-    return value.isZero();
+  static isDefault(value: Fr) {
+    return value.isDefault();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {

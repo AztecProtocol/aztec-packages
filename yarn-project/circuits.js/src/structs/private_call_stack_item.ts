@@ -83,7 +83,7 @@ export class PrivateCallStackItem {
   }
 
   isDefault() {
-    return this.contractAddress.isDefault() && this.functionData.isDefault() && this.publicInputs.isDefault();
+    return this.contractAddress.isDefault() && this.functionData.isDefault(true) && this.publicInputs.isDefault();
   }
 
   /**

@@ -44,8 +44,8 @@ export class FunctionData {
    * Returns whether this instance is default.
    * @returns True if the function selector is zero.
    */
-  isDefault() {
-    return this.selector.isDefault();
+  isDefault(_private: boolean) {
+    return this.selector.isDefault() && _private == this.isPrivate;
   }
 
   /**
