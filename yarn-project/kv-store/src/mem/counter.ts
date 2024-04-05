@@ -10,16 +10,15 @@ export class MemAztecCounter implements AztecCounter<Key> {
     this.map = new MemAztecMap(name, db, false);
   }
 
-  async set(key: Key, value: number): Promise<boolean> {
+  async set(key: Key, value: number): Promise<void> {
     if (value) {
       return this.map.set(key, value);
     } else {
       await this.map.delete(key);
-      return true;
     }
   }
 
-  async update(key: Key, delta = 1): Promise<boolean> {
+  async update(key: Key, delta = 1): Promise<void> {
     const current = this.map.get(key) ?? 0;
     const next = current + delta;
 
@@ -32,8 +31,6 @@ export class MemAztecCounter implements AztecCounter<Key> {
     if (next > 0) {
       await this.map.set(key, next);
     }
-
-    return true;
   }
 
   get(key: Key): number {

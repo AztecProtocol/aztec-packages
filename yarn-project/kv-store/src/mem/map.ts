@@ -52,21 +52,21 @@ export class MemAztecMap<V> implements AztecMultiMap<Key, V> {
     return r ? r.length > 0 : false;
   }
 
-  set(key: Key, val: V): Promise<boolean> {
+  set(key: Key, val: V): Promise<void> {
     const r = this.db.get(this.slot(key));
     if (r && this.allowDups) {
       this.db.set(this.slot(key), [...r, val]);
     } else {
       this.db.set(this.slot(key), [val]);
     }
-    return Promise.resolve(true);
+    return Promise.resolve();
   }
 
-  swap(key: Key, fn: (val: V | undefined) => V): Promise<boolean> {
+  swap(key: Key, fn: (val: V | undefined) => V): Promise<void> {
     const entry = this.get(key);
     const newValue = fn(entry);
     this.db.set(this.slot(key), [newValue]);
-    return Promise.resolve(true);
+    return Promise.resolve();
   }
 
   async setIfNotExists(key: Key, val: V): Promise<boolean> {
@@ -78,13 +78,12 @@ export class MemAztecMap<V> implements AztecMultiMap<Key, V> {
     return false;
   }
 
-  delete(key: Key): Promise<boolean> {
+  delete(key: Key): Promise<void> {
     const r = this.db.get(this.slot(key));
     if (r?.length) {
       this.db.set(this.slot(key), []);
-      return Promise.resolve(true);
     }
-    return Promise.resolve(false);
+    return Promise.resolve();
   }
 
   deleteValue(key: Key, val: V): Promise<void> {
