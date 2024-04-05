@@ -32,7 +32,7 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'
    */
   hash: TxHash;
   /**
-   * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
+   * Flag indicating the tx is 'default' (empty) meaning it's a padding tx to take us to a power of 2.
    */
   isDefault: boolean;
 
