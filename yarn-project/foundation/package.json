@@ -17,6 +17,7 @@
     "./error": "./dest/error/index.js",
     "./eth-address": "./dest/eth-address/index.js",
     "./fifo": "./dest/fifo/index.js",
+    "./interfaces": "./dest/interfaces/index.js",
     "./json-rpc": "./dest/json-rpc/index.js",
     "./json-rpc/server": "./dest/json-rpc/server/index.js",
     "./json-rpc/client": "./dest/json-rpc/client/index.js",
@@ -45,25 +46,32 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
+    "generate": "true",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test:light": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
   },
   "inherits": [
     "../package.common.json"
   ],
   "jest": {
-    "preset": "ts-jest/presets/default-esm",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest"
+      ]
+    },
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ]
   },
   "dependencies": {
     "@aztec/bb.js": "portal:../../barretenberg/ts",
-    "@koa/cors": "^4.0.0",
+    "@koa/cors": "^5.0.0",
     "@noble/curves": "^1.2.0",
     "bn.js": "^5.2.1",
     "debug": "^4.3.4",
@@ -115,7 +123,6 @@
     "jest": "^29.5.0",
     "prettier": "^2.7.1",
     "supertest": "^6.3.3",
-    "ts-jest": "^29.1.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   },

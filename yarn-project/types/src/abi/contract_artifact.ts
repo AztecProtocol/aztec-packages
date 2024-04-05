@@ -1,7 +1,7 @@
 import {
   type ABIParameter,
   type ABIParameterVisibility,
-  type ABIType,
+  type AbiType,
   type ContractArtifact,
   type FunctionArtifact,
   FunctionType,
@@ -135,7 +135,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
   }
 
   // If the function is secret, the return is the public inputs, which should be omitted
-  let returnTypes: ABIType[] = [];
+  let returnTypes: AbiType[] = [];
   if (functionType !== 'secret' && fn.abi.return_type) {
     returnTypes = [fn.abi.return_type.abi_type];
   }
@@ -145,7 +145,6 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
     functionType,
     isInternal,
     isInitializer: fn.custom_attributes.includes(AZTEC_INITIALIZER_ATTRIBUTE),
-    isTranspiled: fn.custom_attributes.includes(AZTEC_PUBLIC_VM_ATTRIBUTE),
     parameters,
     returnTypes,
     bytecode: Buffer.from(fn.bytecode, 'base64'),
@@ -192,7 +191,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
   return {
     name: contract.name,
     functions: contract.functions.map(generateFunctionArtifact),
-    events: contract.events,
+    outputs: contract.outputs,
     fileMap: contract.file_map,
     aztecNrVersion,
   };
