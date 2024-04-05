@@ -217,13 +217,13 @@ jobs:
         working-directory: ./barretenberg/cpp/
         run: earthly-cloud build x86 --push +bench-base
 
-      # Only allow one person to use this runner
-      # The reason is that as detailed in https://github.com/ben-z/gh-action-mutex
-      # things do not become 'pending' in github actions, and instead just cancel one another
-      - name: Set up mutex
-        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
-        with:
-          branch: gh-action-mutex-bench
+      # # Only allow one person to use this runner
+      # # The reason is that as detailed in https://github.com/ben-z/gh-action-mutex
+      # # things do not become 'pending' in github actions, and instead just cancel one another
+      # - name: Set up mutex
+      #   uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+      #   with:
+      #     branch: gh-action-mutex-bench
 
       # Use bench_mode=cache to read the pushed build above
       - name: Client IVC Bench
