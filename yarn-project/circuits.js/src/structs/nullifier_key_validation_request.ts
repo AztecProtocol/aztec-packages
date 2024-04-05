@@ -52,7 +52,7 @@ export class NullifierKeyValidationRequest {
   }
 
   static default() {
-    return new NullifierKeyValidationRequest(Point.ZERO, GrumpkinScalar.ZERO);
+    return new NullifierKeyValidationRequest(Point.default(), GrumpkinScalar.ZERO);
   }
 }
 
@@ -112,6 +112,6 @@ export class NullifierKeyValidationRequestContext {
   }
 
   static default() {
-    return new NullifierKeyValidationRequestContext(Point.ZERO, GrumpkinScalar.ZERO, AztecAddress.default());
+    return new NullifierKeyValidationRequestContext(Point.default(), GrumpkinScalar.ZERO, AztecAddress.default());
   }
 }

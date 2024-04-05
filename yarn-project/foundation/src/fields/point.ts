@@ -34,6 +34,10 @@ export class Point {
     return new Point(Fr.random(), Fr.random());
   }
 
+  static default() {
+    return Point.default();
+  }
+
   /**
    * Create a Point instance from a given buffer or BufferReader.
    * The input 'buffer' should have exactly 64 bytes representing the x and y coordinates.

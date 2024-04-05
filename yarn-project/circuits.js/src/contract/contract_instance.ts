@@ -32,7 +32,7 @@ export function getContractInstanceFromDeployParams(
 ): ContractInstanceWithAddress {
   const args = opts.constructorArgs ?? [];
   const salt = opts.salt ?? Fr.random();
-  const publicKey = opts.publicKey ?? Point.ZERO;
+  const publicKey = opts.publicKey ?? Point.default();
   const portalContractAddress = opts.portalAddress ?? EthAddress.default();
   const constructorArtifact = getConstructorArtifact(artifact, opts.constructorArtifact);
   const deployer = opts.deployer ?? AztecAddress.default();

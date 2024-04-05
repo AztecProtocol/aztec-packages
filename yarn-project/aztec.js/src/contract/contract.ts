@@ -40,7 +40,7 @@ export class Contract extends ContractBase {
    */
   public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string) {
     const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, artifact, wallet);
-    return new DeployMethod(Point.ZERO, wallet, artifact, postDeployCtor, args, constructorName);
+    return new DeployMethod(Point.default(), wallet, artifact, postDeployCtor, args, constructorName);
   }
 
   /**

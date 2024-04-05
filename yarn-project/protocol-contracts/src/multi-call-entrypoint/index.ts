@@ -4,7 +4,7 @@ import { type ProtocolContract, getCanonicalProtocolContract } from '../protocol
 import { MultiCallEntrypointArtifact } from './artifact.js';
 
 export function getCanonicalMultiCallEntrypointContract(): ProtocolContract {
-  return getCanonicalProtocolContract(MultiCallEntrypointArtifact, 1, [], Point.ZERO, EthAddress.default());
+  return getCanonicalProtocolContract(MultiCallEntrypointArtifact, 1, [], Point.default(), EthAddress.default());
 }
 
 export function getCanonicalMultiCallEntrypointAddress(): AztecAddress {

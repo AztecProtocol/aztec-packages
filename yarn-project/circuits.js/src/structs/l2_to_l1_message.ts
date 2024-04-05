@@ -71,6 +71,6 @@ export class L2ToL1Message {
    * @returns True if recipient is default and content is zero.
    */
   isDefault(): boolean {
-    return this.recipient.isDefault() && this.content.isZero();
+    return this.recipient.isDefault() && this.content.isDefault();
   }
 }

@@ -165,8 +165,8 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
 
   it('builds default hints', async () => {
     const hints = await buildHints();
-    const emptyHints = NullifierNonExistentReadRequestHintsBuilder.default();
-    expect(hints).toEqual(emptyHints);
+    const defaultHints = NullifierNonExistentReadRequestHintsBuilder.default();
+    expect(hints).toEqual(defaultHints);
   });
 
   it('builds hints for full sorted nullifiers', async () => {
@@ -200,7 +200,7 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
       expect(nullifiers[i].value.equals(sortedPendingValues[index].value)).toBe(true);
     }
 
-    // The second half is empty.
+    // The second half is default (empty).
     for (let i = numNonEmptyNullifiers; i < sortedPendingValues.length; ++i) {
       expect(sortedPendingValues[i]).toEqual(SideEffectLinkedToNoteHash.default());
     }

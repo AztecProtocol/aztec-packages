@@ -31,7 +31,7 @@ export class ContractDeployer {
   public deploy(...args: any[]) {
     const postDeployCtor = (address: AztecAddress, wallet: Wallet) => Contract.at(address, this.artifact, wallet);
     return new DeployMethod(
-      this.publicKey ?? Point.ZERO,
+      this.publicKey ?? Point.default(),
       this.wallet,
       this.artifact,
       postDeployCtor,
