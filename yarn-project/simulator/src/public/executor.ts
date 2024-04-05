@@ -254,7 +254,7 @@ export class PublicExecutor {
     // These data structures will permeate across the simulator when the public executor is phased out
     const hostStorage = new HostStorage(this.stateDb, this.contractsDb, this.commitmentsDb);
     const worldStateJournal = new AvmPersistableStateManager(hostStorage);
-    const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, globalVariables);
+    const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, this.header, globalVariables);
     // TODO(@spalladino) Load initial gas from the public execution request
     const machineState = new AvmMachineState(1e10, 1e10, 1e10);
 
