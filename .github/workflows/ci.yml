@@ -15,13 +15,14 @@ jobs:
     steps:      
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: AztecProtocol/ec2-action-builder@v16
+        uses: AztecProtocol/ec2-action-builder@v17
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
-          runner_label: ${{ github.actor }}
+          runner_label: ${{ github.run_id }}
+          runner_concurrency: 5
           ec2_instance_type: r6a.32xlarge
           ec2_ami_id: ami-04d8422a9ba4de80f
           ec2_subnet_id: subnet-4cfabd25
