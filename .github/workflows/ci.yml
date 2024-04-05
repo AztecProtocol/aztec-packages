@@ -3,7 +3,11 @@ on:
   push:
     branches: [master]
   pull_request: {}
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      runner_action:
+        description: The action to take with the self-hosted runner (start, stop, restart).
+        required: false
 
 jobs:
   start-runner:
@@ -24,6 +28,7 @@ jobs:
           runner_label: ${{ github.actor }}
           runner_concurrency: 40
           ec2_instance_type: r6a.32xlarge
+          subaction: ${{ github.event.inputs.runner_action || 'start' }}
           ec2_ami_id: ami-04d8422a9ba4de80f
           ec2_subnet_id: subnet-4cfabd25
           # prevent reaping from our custom spot reaper (TODO do we need to reap in the future?)
