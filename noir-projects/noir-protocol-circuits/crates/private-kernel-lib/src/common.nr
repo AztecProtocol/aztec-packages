@@ -127,7 +127,7 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
         );
 
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
-        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be default for static calls");
+        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty (length 0) for static calls");
 
         // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
         // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
@@ -311,7 +311,7 @@ pub fn contract_logic(private_call: PrivateCallData) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062): Why is this using a hash function from the stdlib::recursion namespace
     let private_call_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
 
-    assert(!is_default(contract_address), "contract address cannot be zero");
+    assert(!is_default(contract_address), "contract address cannot be default (zero)");
     // std::println(f"contract_address={contract_address}");
     // std::println(f"private_call_vk_hash={private_call_vk_hash}");
 
