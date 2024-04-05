@@ -1,4 +1,4 @@
-import { AztecNode, L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecNode, type L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
@@ -21,7 +21,7 @@ import {
 import { computeCommitmentNonce, computeMessageSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
-  FunctionArtifact,
+  type FunctionArtifact,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -33,10 +33,10 @@ import { times } from '@aztec/foundation/collection';
 import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -47,13 +47,13 @@ import {
 } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
+import { type KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { DBOracle } from './db_oracle.js';
+import { type DBOracle } from './db_oracle.js';
 import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -1011,7 +1011,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
+      expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value, 0n, 0n]);
     });
   });
 
@@ -1040,7 +1040,7 @@ describe('Private Execution test suite', () => {
       // Overwrite the oracle return value
       oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
       const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual(portalContractAddress.toField().value);
+      expect(result.returnValues).toEqual([portalContractAddress.toField().value, 0n, 0n, 0n]);
     });
 
     it('this_address should return the current context address', async () => {
@@ -1052,7 +1052,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], contractAddress });
-      expect(result.returnValues).toEqual(contractAddress.toField().value);
+      expect(result.returnValues).toEqual([contractAddress.toField().value, 0n, 0n, 0n]);
     });
 
     it("this_portal_address should return the current context's portal address", async () => {
@@ -1064,7 +1064,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], portalContractAddress });
-      expect(result.returnValues).toEqual(portalContractAddress.toField().value);
+      expect(result.returnValues).toEqual([portalContractAddress.toField().value, 0n, 0n, 0n]);
     });
   });
 

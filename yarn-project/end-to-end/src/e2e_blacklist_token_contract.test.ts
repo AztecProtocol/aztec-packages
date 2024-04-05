@@ -1,21 +1,20 @@
 import {
-  AccountWallet,
+  type AccountWallet,
   AztecAddress,
-  CheatCodes,
-  CompleteAddress,
-  DebugLogger,
+  type CheatCodes,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   FunctionSelector,
   Note,
-  TxHash,
-  Wallet,
+  type TxHash,
+  type Wallet,
   computeAuthWitMessageHash,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { Pedersen, SparseTree, newTree } from '@aztec/merkle-tree';
-import { SlowTreeContract, TokenBlacklistContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SlowTreeContract, TokenBlacklistContract, type TokenContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -30,7 +29,6 @@ describe('e2e_blacklist_token_contract', () => {
 
   let teardown: () => Promise<void>;
   let wallets: AccountWallet[];
-  let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
   let asset: TokenBlacklistContract;
@@ -92,7 +90,7 @@ describe('e2e_blacklist_token_contract', () => {
     const note = new Note([new Fr(amount), secretHash]);
     const extendedNote = new ExtendedNote(
       note,
-      accounts[accountIndex].address,
+      wallets[accountIndex].getAddress(),
       asset.address,
       storageSlot,
       noteTypeId,
@@ -107,8 +105,8 @@ describe('e2e_blacklist_token_contract', () => {
   };
 
   beforeAll(async () => {
-    ({ teardown, logger, wallets, accounts, cheatCodes } = await setup(4));
-    await publicDeployAccounts(wallets[0], accounts.slice(0, 3));
+    ({ teardown, logger, wallets, cheatCodes } = await setup(4));
+    await publicDeployAccounts(wallets[0], wallets.slice(0, 3));
 
     slowTree = await SlowTreeContract.deploy(wallets[0]).send().deployed();
 
@@ -116,20 +114,20 @@ describe('e2e_blacklist_token_contract', () => {
     slowUpdateTreeSimulator = await newTree(SparseTree, openTmpStore(), new Pedersen(), 'test', Fr, depth);
 
     // Add account[0] as admin
-    await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[0].address, 4n);
+    await updateSlowTree(slowUpdateTreeSimulator, wallets[0], wallets[0].getAddress(), 4n);
 
-    const deployTx = TokenBlacklistContract.deploy(wallets[0], accounts[0], slowTree.address).send({});
+    const deployTx = TokenBlacklistContract.deploy(wallets[0], wallets[0].getAddress(), slowTree.address).send({});
     const receipt = await deployTx.wait();
     asset = receipt.contract;
 
-    await asset.methods.init_slow_tree(accounts[0].address).send().wait();
+    await asset.methods.init_slow_tree(wallets[0].getAddress()).send().wait();
 
     // Progress to next "epoch"
     const time = await cheatCodes.eth.timestamp();
     await cheatCodes.aztec.warp(time + 200);
     await slowUpdateTreeSimulator.commit();
 
-    const roleLeaf = await slowTree.methods.un_read_leaf_at(asset.address, accounts[0].address).view();
+    const roleLeaf = await slowTree.methods.un_read_leaf_at(asset.address, wallets[0].getAddress()).simulate();
     expect(roleLeaf['next_change']).toBeGreaterThan(0n);
     expect(roleLeaf['before']).toEqual(0n);
     expect(roleLeaf['after']).toEqual(4n);
@@ -138,7 +136,7 @@ describe('e2e_blacklist_token_contract', () => {
     tokenSim = new TokenSimulator(
       asset as unknown as TokenContract,
       logger,
-      accounts.map(a => a.address),
+      wallets.map(a => a.getAddress()),
     );
 
     asset.artifact.functions.forEach(fn => {
@@ -159,10 +157,10 @@ describe('e2e_blacklist_token_contract', () => {
 
   describe('Access controlled functions', () => {
     it('Extend account[0] roles with minter as admin', async () => {
-      const newMinter = accounts[0].address;
+      const newMinter = wallets[0].getAddress();
       const newRoles = 2n + 4n;
 
-      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).view();
+      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).simulate();
       // eslint-disable-next-line camelcase
       expect(beforeLeaf['next_change']).toBeGreaterThan(0n);
       expect(beforeLeaf['before']).toEqual(0n);
@@ -170,13 +168,13 @@ describe('e2e_blacklist_token_contract', () => {
 
       await updateSlowTree(slowUpdateTreeSimulator, wallets[0], newMinter, newRoles);
       await wallets[0].addCapsule(
-        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), false)),
       );
 
       await asset.methods.update_roles(newMinter, newRoles).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).view();
+      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, newMinter).simulate();
       expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
       expect(afterLeaf['before']).toEqual(4n);
       expect(afterLeaf['after']).toEqual(newRoles);
@@ -186,22 +184,22 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('Make account[1] admin', async () => {
-      const newAdmin = accounts[1].address;
+      const newAdmin = wallets[1].getAddress();
       const newRoles = 4n;
 
-      let v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).view();
+      let v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).simulate();
       // eslint-disable-next-line camelcase
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
       await updateSlowTree(slowUpdateTreeSimulator, wallets[0], newAdmin, newRoles);
       await wallets[0].addCapsule(
-        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), false)),
       );
 
       await asset.methods.update_roles(newAdmin, newRoles).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).view();
+      v = await slowTree.methods.un_read_leaf_at(asset.address, newAdmin).simulate();
       expect(v['next_change']).toBeGreaterThan(0n);
       expect(v['before']).toEqual(0n);
       expect(v['after']).toEqual(newRoles);
@@ -212,11 +210,11 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('Revoke admin as admin', async () => {
-      const actor = accounts[1].address;
+      const actor = wallets[1].getAddress();
       const newRoles = 0n;
       const currentRoles = 4n;
 
-      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).view();
+      const beforeLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).simulate();
       // eslint-disable-next-line camelcase
       expect(beforeLeaf['next_change']).toBeGreaterThan(0n);
       expect(beforeLeaf['before']).toEqual(0n);
@@ -224,13 +222,13 @@ describe('e2e_blacklist_token_contract', () => {
 
       await updateSlowTree(slowUpdateTreeSimulator, wallets[0], actor, newRoles);
       await wallets[0].addCapsule(
-        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), false)),
       );
 
       await asset.methods.update_roles(actor, newRoles).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).view();
+      const afterLeaf = await slowTree.methods.un_read_leaf_at(asset.address, actor).simulate();
       expect(afterLeaf['next_change']).toBeGreaterThan(beforeLeaf['next_change']);
       expect(afterLeaf['before']).toEqual(currentRoles);
       expect(afterLeaf['after']).toEqual(newRoles);
@@ -240,19 +238,19 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('Add account[3] to blacklist', async () => {
-      let v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
+      let v = await slowTree.methods.un_read_leaf_at(asset.address, wallets[3].getAddress()).simulate();
       // eslint-disable-next-line camelcase
       expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
-      await updateSlowTree(slowUpdateTreeSimulator, wallets[0], accounts[3].address, 1n);
+      await updateSlowTree(slowUpdateTreeSimulator, wallets[0], wallets[3].getAddress(), 1n);
       await wallets[0].addCapsule(
-        getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), false)),
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), false)),
       );
 
-      await asset.methods.update_roles(accounts[3].address, 1n).send().wait();
+      await asset.methods.update_roles(wallets[3].getAddress(), 1n).send().wait();
       await slowUpdateTreeSimulator.commit();
 
-      v = await slowTree.methods.un_read_leaf_at(asset.address, accounts[3].address).view();
+      v = await slowTree.methods.un_read_leaf_at(asset.address, wallets[3].getAddress()).simulate();
       expect(v['next_change']).toBeGreaterThan(0n);
       expect(v['before']).toEqual(0n);
       expect(v['after']).toEqual(1n);
@@ -264,22 +262,22 @@ describe('e2e_blacklist_token_contract', () => {
     describe('failure cases', () => {
       it('Set admin (not admin)', async () => {
         const account = AztecAddress.random();
-        const v = await slowTree.methods.un_read_leaf_at(asset.address, account).view();
+        const v = await slowTree.methods.un_read_leaf_at(asset.address, account).simulate();
         const newRoles = 4n;
         // eslint-disable-next-line camelcase
         expect(v).toEqual({ next_change: 0n, before: 0n, after: 0n });
 
         await wallets[3].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), false)),
+          getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), false)),
         );
-        await expect(asset.withWallet(wallets[3]).methods.update_roles(account, newRoles).simulate()).rejects.toThrow(
+        await expect(asset.withWallet(wallets[3]).methods.update_roles(account, newRoles).prove()).rejects.toThrow(
           "Assertion failed: caller is not admin 'caller_roles.is_admin'",
         );
       });
 
       it('Revoke minter not as admin', async () => {
-        const adminAccount = accounts[0].address;
-        const v = await slowTree.methods.un_read_leaf_at(asset.address, adminAccount).view();
+        const adminAccount = wallets[0].getAddress();
+        const v = await slowTree.methods.un_read_leaf_at(asset.address, adminAccount).simulate();
         const newRoles = 0n;
         // eslint-disable-next-line camelcase
         expect(v['next_change']).toBeGreaterThan(0n);
@@ -287,11 +285,11 @@ describe('e2e_blacklist_token_contract', () => {
         expect(v['after']).toEqual(6n);
 
         await wallets[3].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), false)),
+          getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), false)),
         );
-        await expect(
-          asset.withWallet(wallets[3]).methods.update_roles(adminAccount, newRoles).simulate(),
-        ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+        await expect(asset.withWallet(wallets[3]).methods.update_roles(adminAccount, newRoles).prove()).rejects.toThrow(
+          "Assertion failed: caller is not admin 'caller_roles.is_admin'",
+        );
       });
     });
   });
@@ -300,47 +298,47 @@ describe('e2e_blacklist_token_contract', () => {
     describe('Public', () => {
       it('as minter', async () => {
         const amount = 10000n;
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+        await asset.methods.mint_public(wallets[0].getAddress(), amount).send().wait();
 
-        tokenSim.mintPublic(accounts[0].address, amount);
-        expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(
-          tokenSim.balanceOfPublic(accounts[0].address),
+        tokenSim.mintPublic(wallets[0].getAddress(), amount);
+        expect(await asset.methods.balance_of_public(wallets[0].getAddress()).simulate()).toEqual(
+          tokenSim.balanceOfPublic(wallets[0].getAddress()),
         );
-        expect(await asset.methods.total_supply().view()).toEqual(tokenSim.totalSupply);
+        expect(await asset.methods.total_supply().simulate()).toEqual(tokenSim.totalSupply);
       });
 
       describe('failure cases', () => {
         it('as non-minter', async () => {
           const amount = 10000n;
           await expect(
-            asset.withWallet(wallets[1]).methods.mint_public(accounts[0].address, amount).simulate(),
+            asset.withWallet(wallets[1]).methods.mint_public(wallets[0].getAddress(), amount).prove(),
           ).rejects.toThrow('Assertion failed: caller is not minter');
         });
 
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
-          await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrow(
+          await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).prove()).rejects.toThrow(
             BITSIZE_TOO_BIG_ERROR,
           );
         });
 
         it('mint <u128 but recipient balance >u128', async () => {
-          const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
-          await expect(asset.methods.mint_public(accounts[0].address, amount).simulate()).rejects.toThrow(
+          const amount = 2n ** 128n - tokenSim.balanceOfPublic(wallets[0].getAddress());
+          await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).prove()).rejects.toThrow(
             U128_OVERFLOW_ERROR,
           );
         });
 
         it('mint <u128 but such that total supply >u128', async () => {
-          const amount = 2n ** 128n - tokenSim.balanceOfPublic(accounts[0].address);
-          await expect(asset.methods.mint_public(accounts[1].address, amount).simulate()).rejects.toThrow(
+          const amount = 2n ** 128n - tokenSim.balanceOfPublic(wallets[0].getAddress());
+          await expect(asset.methods.mint_public(wallets[1].getAddress(), amount).prove()).rejects.toThrow(
             U128_OVERFLOW_ERROR,
           );
         });
 
         it('mint to blacklisted entity', async () => {
           await expect(
-            asset.withWallet(wallets[1]).methods.mint_public(accounts[3].address, 1n).simulate(),
+            asset.withWallet(wallets[1]).methods.mint_public(wallets[3].getAddress(), 1n).prove(),
           ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
@@ -366,13 +364,13 @@ describe('e2e_blacklist_token_contract', () => {
         it('redeem as recipient', async () => {
           await addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
           const receiptClaim = await asset.methods
-            .redeem_shield(accounts[0].address, amount, secret)
+            .redeem_shield(wallets[0].getAddress(), amount, secret)
             .send()
             .wait({ debug: true });
-          tokenSim.redeemShield(accounts[0].address, amount);
+          tokenSim.redeemShield(wallets[0].getAddress(), amount);
           // 1 note should be created containing `amount` of tokens
           const { visibleNotes } = receiptClaim.debugInfo!;
           expect(visibleNotes.length).toBe(1);
@@ -386,43 +384,41 @@ describe('e2e_blacklist_token_contract', () => {
             'The note has been destroyed.',
           );
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
-          await expect(asset.methods.redeem_shield(accounts[0].address, amount, secret).simulate()).rejects.toThrow(
+          await expect(asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).prove()).rejects.toThrow(
             `Assertion failed: Cannot return zero notes`,
           );
         });
 
         it('mint_private as non-minter', async () => {
-          await expect(
-            asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).simulate(),
-          ).rejects.toThrow('Assertion failed: caller is not minter');
+          await expect(asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).prove()).rejects.toThrow(
+            'Assertion failed: caller is not minter',
+          );
         });
 
         it('mint >u128 tokens to overflow', async () => {
           const amount = 2n ** 128n; // U128::max() + 1;
-          await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(
-            BITSIZE_TOO_BIG_ERROR,
-          );
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(BITSIZE_TOO_BIG_ERROR);
         });
 
         it('mint <u128 but recipient balance >u128', async () => {
           // @todo @LHerskind this one don't make sense. It fails because of total supply overflowing.
-          const amount = 2n ** 128n - tokenSim.balanceOfPrivate(accounts[0].address);
+          const amount = 2n ** 128n - tokenSim.balanceOfPrivate(wallets[0].getAddress());
           expect(amount).toBeLessThan(2n ** 128n);
-          await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(U128_OVERFLOW_ERROR);
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(U128_OVERFLOW_ERROR);
         });
 
         it('mint <u128 but such that total supply >u128', async () => {
           const amount = 2n ** 128n - tokenSim.totalSupply;
-          await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(U128_OVERFLOW_ERROR);
+          await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(U128_OVERFLOW_ERROR);
         });
 
         it('mint and try to redeem at blacklist', async () => {
           await wallets[3].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
           );
-          await expect(asset.methods.redeem_shield(accounts[3].address, amount, secret).simulate()).rejects.toThrow(
+          await expect(asset.methods.redeem_shield(wallets[3].getAddress(), amount, secret).prove()).rejects.toThrow(
             "Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'",
           );
         });
@@ -433,25 +429,25 @@ describe('e2e_blacklist_token_contract', () => {
   describe('Transfer', () => {
     describe('public', () => {
       it('transfer less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
-        await asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, 0).send().wait();
+        await asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).send().wait();
 
-        tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+        tokenSim.transferPublic(wallets[0].getAddress(), wallets[1].getAddress(), amount);
       });
 
       it('transfer to self', async () => {
-        const balance = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance / 2n;
         expect(amount).toBeGreaterThan(0n);
-        await asset.methods.transfer_public(accounts[0].address, accounts[0].address, amount, 0).send().wait();
+        await asset.methods.transfer_public(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).send().wait();
 
-        tokenSim.transferPublic(accounts[0].address, accounts[0].address, amount);
+        tokenSim.transferPublic(wallets[0].getAddress(), wallets[0].getAddress(), amount);
       });
 
       it('transfer on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         const nonce = Fr.random();
@@ -459,79 +455,79 @@ describe('e2e_blacklist_token_contract', () => {
         // docs:start:authwit_public_transfer_example
         const action = asset
           .withWallet(wallets[1])
-          .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+          .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
 
-        await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+        await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
         // docs:end:authwit_public_transfer_example
 
         // Perform the transfer
         await action.send().wait();
 
-        tokenSim.transferPublic(accounts[0].address, accounts[1].address, amount);
+        tokenSim.transferPublic(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
         // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
         const txReplay = asset
           .withWallet(wallets[1])
-          .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
+          .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
           .send();
         await expect(txReplay.wait()).rejects.toThrow('Transaction ');
       });
 
       describe('failure cases', () => {
         it('transfer more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = 0;
           await expect(
-            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+            asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).prove(),
           ).rejects.toThrow(U128_UNDERFLOW_ERROR);
         });
 
         it('transfer on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 - 1n;
           const nonce = 1;
           await expect(
-            asset.methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce).simulate(),
+            asset.methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce).prove(),
           ).rejects.toThrow('Assertion failed: invalid nonce');
         });
 
         it('transfer on behalf of other without "approval"', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           await expect(
             asset
               .withWallet(wallets[1])
-              .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce)
-              .simulate(),
+              .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
+              .prove(),
           ).rejects.toThrow('Assertion failed: Message not authorized by account');
         });
 
         it('transfer more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
+          const balance1 = await asset.methods.balance_of_public(wallets[1].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           const action = asset
             .withWallet(wallets[1])
-            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+            .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
 
           // We need to compute the message we want to sign and add it to the wallet as approved
-          await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+          await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+          await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
-          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+          expect(await asset.methods.balance_of_public(wallets[0].getAddress()).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(wallets[1].getAddress()).simulate()).toEqual(balance1);
         });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
+          const balance1 = await asset.methods.balance_of_public(wallets[1].getAddress()).simulate();
           const amount = balance0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -539,20 +535,20 @@ describe('e2e_blacklist_token_contract', () => {
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset
             .withWallet(wallets[1])
-            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
+            .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
 
-          await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+          await wallets[0].setPublicAuthWit({ caller: wallets[0].getAddress(), action }, true).send().wait();
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
 
-          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+          expect(await asset.methods.balance_of_public(wallets[0].getAddress()).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(wallets[1].getAddress()).simulate()).toEqual(balance1);
         });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_public(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
+          const balance1 = await asset.methods.balance_of_public(wallets[1].getAddress()).simulate();
           const amount = balance0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -560,14 +556,14 @@ describe('e2e_blacklist_token_contract', () => {
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset
             .withWallet(wallets[1])
-            .methods.transfer_public(accounts[0].address, accounts[1].address, amount, nonce);
-          await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+            .methods.transfer_public(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+          await wallets[0].setPublicAuthWit({ caller: wallets[0].getAddress(), action }, true).send().wait();
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
 
-          expect(await asset.methods.balance_of_public(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_public(accounts[1].address).view()).toEqual(balance1);
+          expect(await asset.methods.balance_of_public(wallets[0].getAddress()).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public(wallets[1].getAddress()).simulate()).toEqual(balance1);
         });
 
         it.skip('transfer into account to overflow', () => {
@@ -579,13 +575,13 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('transfer from a blacklisted account', async () => {
           await expect(
-            asset.methods.transfer_public(accounts[3].address, accounts[0].address, 1n, 0n).simulate(),
+            asset.methods.transfer_public(wallets[3].getAddress(), wallets[0].getAddress(), 1n, 0n).prove(),
           ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
         });
 
         it('transfer to a blacklisted account', async () => {
           await expect(
-            asset.methods.transfer_public(accounts[0].address, accounts[3].address, 1n, 0n).simulate(),
+            asset.methods.transfer_public(wallets[0].getAddress(), wallets[3].getAddress(), 1n, 0n).prove(),
           ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
@@ -593,35 +589,35 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('private', () => {
       it('transfer less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
         );
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
-        await asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0).send().wait();
-        tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
+        await asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).send().wait();
+        tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
       });
 
       it('transfer to self', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
-        await asset.methods.transfer(accounts[0].address, accounts[0].address, amount, 0).send().wait();
-        tokenSim.transferPrivate(accounts[0].address, accounts[0].address, amount);
+        await asset.methods.transfer(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).send().wait();
+        tokenSim.transferPrivate(wallets[0].getAddress(), wallets[0].getAddress(), amount);
       });
 
       it('transfer on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -631,72 +627,72 @@ describe('e2e_blacklist_token_contract', () => {
         // docs:start:authwit_computeAuthWitMessageHash
         const action = asset
           .withWallet(wallets[1])
-          .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
+          .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
         // docs:end:authwit_computeAuthWitMessageHash
 
-        const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+        const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
         await wallets[1].addAuthWitness(witness);
         // docs:end:authwit_transfer_example
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
         );
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
 
         // Perform the transfer
         await action.send().wait();
-        tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
+        tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
         );
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
 
         // Perform the transfer again, should fail
         const txReplay = asset
           .withWallet(wallets[1])
-          .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce)
+          .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
           .send();
         await expect(txReplay.wait()).rejects.toThrow('Transaction ');
       });
 
       describe('failure cases', () => {
         it('transfer more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
           );
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
           await expect(
-            asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 0).simulate(),
+            asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0).prove(),
           ).rejects.toThrow('Assertion failed: Balance too low');
         });
 
         it('transfer on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
           );
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
           await expect(
-            asset.methods.transfer(accounts[0].address, accounts[1].address, amount, 1).simulate(),
+            asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 1).prove(),
           ).rejects.toThrow('Assertion failed: invalid nonce');
         });
 
         it('transfer more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
-          const balance1 = await asset.methods.balance_of_private(accounts[1].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
+          const balance1 = await asset.methods.balance_of_private(wallets[1].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -704,23 +700,23 @@ describe('e2e_blacklist_token_contract', () => {
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset
             .withWallet(wallets[1])
-            .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
+            .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
 
           // Both wallets are connected to same node and PXE so we could just insert directly
           // But doing it in two actions to show the flow.
-          const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+          const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
           await wallets[1].addAuthWitness(witness);
           await wallets[1].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
           );
           await wallets[1].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
 
           // Perform the transfer
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
-          expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
-          expect(await asset.methods.balance_of_private(accounts[1].address).view()).toEqual(balance1);
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
+          expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);
+          expect(await asset.methods.balance_of_private(wallets[1].getAddress()).simulate()).toEqual(balance1);
         });
 
         it.skip('transfer into account to overflow', () => {
@@ -731,7 +727,7 @@ describe('e2e_blacklist_token_contract', () => {
         });
 
         it('transfer on behalf of other without approval', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 / 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -739,27 +735,27 @@ describe('e2e_blacklist_token_contract', () => {
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset
             .withWallet(wallets[1])
-            .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
+            .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
           const messageHash = computeAuthWitMessageHash(
-            accounts[1].address,
+            wallets[1].getAddress(),
             wallets[0].getChainId(),
             wallets[0].getVersion(),
             action.request(),
           );
           await wallets[1].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
           );
           await wallets[1].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${messageHash.toString()}`,
           );
         });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 / 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
@@ -767,50 +763,50 @@ describe('e2e_blacklist_token_contract', () => {
           // We need to compute the message we want to sign and add it to the wallet as approved
           const action = asset
             .withWallet(wallets[2])
-            .methods.transfer(accounts[0].address, accounts[1].address, amount, nonce);
+            .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
           const expectedMessageHash = computeAuthWitMessageHash(
-            accounts[2].address,
+            wallets[2].getAddress(),
             wallets[0].getChainId(),
             wallets[0].getVersion(),
             action.request(),
           );
 
-          const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+          const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
           await wallets[2].addAuthWitness(witness);
           await wallets[2].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
           );
           await wallets[2].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
           );
-          expect(await asset.methods.balance_of_private(accounts[0].address).view()).toEqual(balance0);
+          expect(await asset.methods.balance_of_private(wallets[0].getAddress()).simulate()).toEqual(balance0);
         });
 
         it('transfer from a blacklisted account', async () => {
           await wallets[3].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
           await wallets[3].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
           );
           await expect(
-            asset.methods.transfer(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
+            asset.methods.transfer(wallets[3].getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
           ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
         });
 
         it('transfer to a blacklisted account', async () => {
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
           );
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
           await expect(
-            asset.methods.transfer(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
+            asset.methods.transfer(wallets[0].getAddress(), wallets[3].getAddress(), 1n, 0).prove(),
           ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
         });
       });
@@ -826,117 +822,121 @@ describe('e2e_blacklist_token_contract', () => {
     });
 
     it('on behalf of self', async () => {
-      const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+      const balancePub = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const amount = balancePub / 2n;
       expect(amount).toBeGreaterThan(0n);
 
-      const receipt = await asset.methods.shield(accounts[0].address, amount, secretHash, 0).send().wait();
+      const receipt = await asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).send().wait();
 
-      tokenSim.shield(accounts[0].address, amount);
+      tokenSim.shield(wallets[0].getAddress(), amount);
       await tokenSim.check();
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-      await wallets[0].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-      await asset.methods.redeem_shield(accounts[0].address, amount, secret).send().wait();
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
+      await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
-      tokenSim.redeemShield(accounts[0].address, amount);
+      tokenSim.redeemShield(wallets[0].getAddress(), amount);
     });
 
     it('on behalf of other', async () => {
-      const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+      const balancePub = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
       const amount = balancePub / 2n;
       const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce);
-      await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+      const action = asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce);
+      await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
 
       const receipt = await action.send().wait();
 
-      tokenSim.shield(accounts[0].address, amount);
+      tokenSim.shield(wallets[0].getAddress(), amount);
       await tokenSim.check();
 
       // Check that replaying the shield should fail!
       const txReplay = asset
         .withWallet(wallets[1])
-        .methods.shield(accounts[0].address, amount, secretHash, nonce)
+        .methods.shield(wallets[0].getAddress(), amount, secretHash, nonce)
         .send();
       await expect(txReplay.wait()).rejects.toThrow('Transaction ');
 
       // Redeem it
       await addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
-      await wallets[0].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-      await asset.methods.redeem_shield(accounts[0].address, amount, secret).send().wait();
+      await wallets[0].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
+      await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
-      tokenSim.redeemShield(accounts[0].address, amount);
+      tokenSim.redeemShield(wallets[0].getAddress(), amount);
     });
 
     describe('failure cases', () => {
       it('on behalf of self (more than balance)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balancePub + 1n;
         expect(amount).toBeGreaterThan(0n);
 
-        await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 0).simulate()).rejects.toThrow(
+        await expect(asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 0).prove()).rejects.toThrow(
           U128_UNDERFLOW_ERROR,
         );
       });
 
       it('on behalf of self (invalid nonce)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balancePub + 1n;
         expect(amount).toBeGreaterThan(0n);
 
-        await expect(asset.methods.shield(accounts[0].address, amount, secretHash, 1).simulate()).rejects.toThrow(
+        await expect(asset.methods.shield(wallets[0].getAddress(), amount, secretHash, 1).prove()).rejects.toThrow(
           'Assertion failed: invalid nonce',
         );
       });
 
       it('on behalf of other (more than balance)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balancePub + 1n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce);
-        await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+        const action = asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce);
+        await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
 
-        await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
 
       it('on behalf of other (wrong designated caller)', async () => {
-        const balancePub = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balancePub = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balancePub + 1n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[2]).methods.shield(accounts[0].address, amount, secretHash, nonce);
-        await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+        const action = asset.withWallet(wallets[2]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce);
+        await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
 
-        await expect(action.simulate()).rejects.toThrow('Assertion failed: Message not authorized by account');
+        await expect(action.prove()).rejects.toThrow('Assertion failed: Message not authorized by account');
       });
 
       it('on behalf of other (without approval)', async () => {
-        const balance = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance / 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         await expect(
-          asset.withWallet(wallets[1]).methods.shield(accounts[0].address, amount, secretHash, nonce).simulate(),
+          asset.withWallet(wallets[1]).methods.shield(wallets[0].getAddress(), amount, secretHash, nonce).prove(),
         ).rejects.toThrow(`Assertion failed: Message not authorized by account`);
       });
 
       it('shielding from blacklisted account', async () => {
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
         );
         await expect(
-          asset.withWallet(wallets[3]).methods.shield(accounts[3].address, 1n, secretHash, 0).simulate(),
+          asset.withWallet(wallets[3]).methods.shield(wallets[3].getAddress(), 1n, secretHash, 0).prove(),
         ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
       });
     });
@@ -944,44 +944,56 @@ describe('e2e_blacklist_token_contract', () => {
 
   describe('Unshielding', () => {
     it('on behalf of self', async () => {
-      const balancePriv = await asset.methods.balance_of_private(accounts[0].address).view();
+      const balancePriv = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balancePriv / 2n;
       expect(amount).toBeGreaterThan(0n);
 
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
-      await asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 0).send().wait();
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
+      await asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).send().wait();
 
-      tokenSim.unshield(accounts[0].address, accounts[0].address, amount);
+      tokenSim.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount);
     });
 
     it('on behalf of other', async () => {
-      const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+      const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balancePriv0 / 2n;
       const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
+      );
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
       const action = asset
         .withWallet(wallets[1])
-        .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
+        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
-      const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+      const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[1].addAuthWitness(witness);
 
       await action.send().wait();
-      tokenSim.unshield(accounts[0].address, accounts[1].address, amount);
+      tokenSim.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
       // Perform the transfer again, should fail
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)));
-      await wallets[1].addCapsule(getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)));
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
+      );
+      await wallets[1].addCapsule(
+        getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
+      );
       const txReplay = asset
         .withWallet(wallets[1])
-        .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce)
+        .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
         .send();
       await expect(txReplay.wait()).rejects.toThrow('Transaction ');
       // @todo @LHerskind This error is weird?
@@ -989,41 +1001,41 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('failure cases', () => {
       it('on behalf of self (more than balance)', async () => {
-        const balancePriv = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balancePriv + 1n;
         expect(amount).toBeGreaterThan(0n);
 
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
 
         await expect(
-          asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 0).simulate(),
+          asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 0).prove(),
         ).rejects.toThrow('Assertion failed: Balance too low');
       });
 
       it('on behalf of self (invalid nonce)', async () => {
-        const balancePriv = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balancePriv + 1n;
         expect(amount).toBeGreaterThan(0n);
 
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
 
         await expect(
-          asset.methods.unshield(accounts[0].address, accounts[0].address, amount, 1).simulate(),
+          asset.methods.unshield(wallets[0].getAddress(), wallets[0].getAddress(), amount, 1).prove(),
         ).rejects.toThrow('Assertion failed: invalid nonce');
       });
 
       it('on behalf of other (more than balance)', async () => {
-        const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balancePriv0 + 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -1031,24 +1043,24 @@ describe('e2e_blacklist_token_contract', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset
           .withWallet(wallets[1])
-          .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
+          .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+        const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
         await wallets[1].addAuthWitness(witness);
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
         );
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
 
-        await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
       });
 
       it('on behalf of other (invalid designated caller)', async () => {
-        const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balancePriv0 + 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -1056,9 +1068,9 @@ describe('e2e_blacklist_token_contract', () => {
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset
           .withWallet(wallets[2])
-          .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
+          .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
         const expectedMessageHash = computeAuthWitMessageHash(
-          accounts[2].address,
+          wallets[2].getAddress(),
           wallets[0].getChainId(),
           wallets[0].getVersion(),
           action.request(),
@@ -1066,41 +1078,41 @@ describe('e2e_blacklist_token_contract', () => {
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+        const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
         await wallets[2].addAuthWitness(witness);
         await wallets[2].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[1].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[1].getAddress().toBigInt(), true)),
         );
         await wallets[2].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
 
-        await expect(action.simulate()).rejects.toThrow(
+        await expect(action.prove()).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });
 
       it('unshield from blacklisted account', async () => {
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
         );
         await expect(
-          asset.methods.unshield(accounts[3].address, accounts[0].address, 1n, 0).simulate(),
+          asset.methods.unshield(wallets[3].getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
         ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
       });
 
       it('unshield to blacklisted account', async () => {
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
         );
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
         await expect(
-          asset.methods.unshield(accounts[0].address, accounts[3].address, 1n, 0).simulate(),
+          asset.methods.unshield(wallets[0].getAddress(), wallets[3].getAddress(), 1n, 0).prove(),
         ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
       });
     });
@@ -1109,92 +1121,95 @@ describe('e2e_blacklist_token_contract', () => {
   describe('Burn', () => {
     describe('public', () => {
       it('burn less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
-        await asset.methods.burn_public(accounts[0].address, amount, 0).send().wait();
+        await asset.methods.burn_public(wallets[0].getAddress(), amount, 0).send().wait();
 
-        tokenSim.burnPublic(accounts[0].address, amount);
+        tokenSim.burnPublic(wallets[0].getAddress(), amount);
       });
 
       it('burn on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         const nonce = Fr.random();
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-        await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+        const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
+        await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
 
         await action.send().wait();
 
-        tokenSim.burnPublic(accounts[0].address, amount);
+        tokenSim.burnPublic(wallets[0].getAddress(), amount);
 
         // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-        const txReplay = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).send();
+        const txReplay = asset
+          .withWallet(wallets[1])
+          .methods.burn_public(wallets[0].getAddress(), amount, nonce)
+          .send();
         await expect(txReplay.wait()).rejects.toThrow('Transaction ');
       });
 
       describe('failure cases', () => {
         it('burn more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = 0;
-          await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).prove()).rejects.toThrow(
             U128_UNDERFLOW_ERROR,
           );
         });
 
         it('burn on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           const nonce = 1;
-          await expect(asset.methods.burn_public(accounts[0].address, amount, nonce).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn_public(wallets[0].getAddress(), amount, nonce).prove()).rejects.toThrow(
             'Assertion failed: invalid nonce',
           );
         });
 
         it('burn on behalf of other without "approval"', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           await expect(
-            asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
+            asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).prove(),
           ).rejects.toThrow('Assertion failed: Message not authorized by account');
         });
 
         it('burn more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign and add it to the wallet as approved
-          const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-          await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+          const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
+          await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
 
-          await expect(action.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+          await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         });
 
         it('burn on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_public(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_public(wallets[0].getAddress()).simulate();
           const amount = balance0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign and add it to the wallet as approved
-          const action = asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce);
-          await wallets[0].setPublicAuthWit({ caller: accounts[0].address, action }, true).send().wait();
+          const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
+          await wallets[0].setPublicAuthWit({ caller: wallets[0].getAddress(), action }, true).send().wait();
 
           await expect(
-            asset.withWallet(wallets[1]).methods.burn_public(accounts[0].address, amount, nonce).simulate(),
+            asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).prove(),
           ).rejects.toThrow('Assertion failed: Message not authorized by account');
         });
 
         it('burn from blacklisted account', async () => {
-          await expect(asset.methods.burn_public(accounts[3].address, 1n, 0).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn_public(wallets[3].getAddress(), 1n, 0).prove()).rejects.toThrow(
             "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
           );
         });
@@ -1203,143 +1218,143 @@ describe('e2e_blacklist_token_contract', () => {
 
     describe('private', () => {
       it('burn less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         await wallets[0].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
-        await asset.methods.burn(accounts[0].address, amount, 0).send().wait();
-        tokenSim.burnPrivate(accounts[0].address, amount);
+        await asset.methods.burn(wallets[0].getAddress(), amount, 0).send().wait();
+        tokenSim.burnPrivate(wallets[0].getAddress(), amount);
       });
 
       it('burn on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+        const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
         const amount = balance0 / 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
+        const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
-        const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+        const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
         await wallets[1].addAuthWitness(witness);
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
 
-        await asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send().wait();
-        tokenSim.burnPrivate(accounts[0].address, amount);
+        await asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send().wait();
+        tokenSim.burnPrivate(wallets[0].getAddress(), amount);
 
         // Perform the transfer again, should fail
         await wallets[1].addCapsule(
-          getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+          getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
         );
-        const txReplay = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce).send();
+        const txReplay = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send();
         await expect(txReplay.wait()).rejects.toThrow('Transaction ');
       });
 
       describe('failure cases', () => {
         it('burn more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
-          await expect(asset.methods.burn(accounts[0].address, amount, 0).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn(wallets[0].getAddress(), amount, 0).prove()).rejects.toThrow(
             'Assertion failed: Balance too low',
           );
         });
 
         it('burn on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 - 1n;
           expect(amount).toBeGreaterThan(0n);
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
-          await expect(asset.methods.burn(accounts[0].address, amount, 1).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn(wallets[0].getAddress(), amount, 1).prove()).rejects.toThrow(
             'Assertion failed: invalid nonce',
           );
         });
 
         it('burn more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 + 1n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign and add it to the wallet as approved
-          const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
+          const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
 
           // Both wallets are connected to same node and PXE so we could just insert directly
           // But doing it in two actions to show the flow.
-          const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+          const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
           await wallets[1].addAuthWitness(witness);
           await wallets[1].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
 
-          await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+          await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
         });
 
         it('burn on behalf of other without approval', async () => {
-          const balance0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balance0 / 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           await wallets[1].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
-          const action = asset.withWallet(wallets[1]).methods.burn(accounts[0].address, amount, nonce);
+          const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
           const messageHash = computeAuthWitMessageHash(
-            accounts[1].address,
+            wallets[1].getAddress(),
             wallets[0].getChainId(),
             wallets[0].getVersion(),
             action.request(),
           );
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${messageHash.toString()}`,
           );
         });
 
         it('on behalf of other (invalid designated caller)', async () => {
-          const balancePriv0 = await asset.methods.balance_of_private(accounts[0].address).view();
+          const balancePriv0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
           const amount = balancePriv0 + 2n;
           const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign and add it to the wallet as approved
           await wallets[2].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[0].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[0].getAddress().toBigInt(), true)),
           );
-          const action = asset.withWallet(wallets[2]).methods.burn(accounts[0].address, amount, nonce);
+          const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
           const expectedMessageHash = computeAuthWitMessageHash(
-            accounts[2].address,
+            wallets[2].getAddress(),
             wallets[0].getChainId(),
             wallets[0].getVersion(),
             action.request(),
           );
 
-          const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+          const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
           await wallets[2].addAuthWitness(witness);
 
-          await expect(action.simulate()).rejects.toThrow(
+          await expect(action.prove()).rejects.toThrow(
             `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
           );
         });
 
         it('burn from blacklisted account', async () => {
           await wallets[0].addCapsule(
-            getMembershipCapsule(await getMembershipProof(accounts[3].address.toBigInt(), true)),
+            getMembershipCapsule(await getMembershipProof(wallets[3].getAddress().toBigInt(), true)),
           );
-          await expect(asset.methods.burn(accounts[3].address, 1n, 0).simulate()).rejects.toThrow(
+          await expect(asset.methods.burn(wallets[3].getAddress(), 1n, 0).prove()).rejects.toThrow(
             "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
           );
         });

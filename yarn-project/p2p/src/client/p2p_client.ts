@@ -1,11 +1,11 @@
-import { L2Block, L2BlockContext, L2BlockDownloader, L2BlockSource, Tx, TxHash } from '@aztec/circuit-types';
+import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecSingleton } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
 import { getP2PConfigEnvVars } from '../config.js';
-import { P2PService } from '../service/service.js';
-import { TxPool } from '../tx_pool/index.js';
+import { type P2PService } from '../service/service.js';
+import { type TxPool } from '../tx_pool/index.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -273,9 +273,8 @@ export class P2PClient implements P2P {
    * @returns Empty promise.
    */
   private async reconcileTxPool(blocks: L2Block[]): Promise<void> {
-    for (let i = 0; i < blocks.length; i++) {
-      const blockContext = new L2BlockContext(blocks[i]);
-      const txHashes = blockContext.getTxHashes();
+    for (const block of blocks) {
+      const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
       await this.txPool.deleteTxs(txHashes);
       this.p2pService.settledTxs(txHashes);
     }

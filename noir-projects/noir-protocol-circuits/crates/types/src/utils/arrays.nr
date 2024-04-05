@@ -75,26 +75,7 @@ pub fn array_cp<T, N, S>(array: [T; N]) -> [T; S] where T: Default {
     result
 }
 
-pub fn array_concat<T, N, S, M>(array1: [T; N], array2: [T; S]) -> [T; M] where T: Default + Eq {
-    assert(N + S <= M, "combined array length exceeds length of return array");
-    let mut result: [T; M] = [T::default(); M];
-    let mut i = 0;
-    for elem in array1 {
-        if !is_default(elem) {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    for elem in array2 {
-        if !is_default(elem) {
-            result[i] = elem;
-            i += 1;
-        }
-    }
-    result
-}
-
-pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Default + Eq {
+pub fn array_merge<T, N>(array1: [T; N], array2: [T; N]) -> [T; N] where T: Empty + Eq {
     let mut result: [T; N] = [T::default(); N];
     let mut i = 0;
     for elem in array1 {

@@ -1,18 +1,27 @@
 import {
-  CheatCodes,
-  CompleteAddress,
+  type CheatCodes,
+  type CompleteAddress,
   EthAddress,
   ExtendedNote,
   Fr,
   Note,
-  PXE,
-  Wallet,
+  type PXE,
+  type Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
+import {
+  type Account,
+  type Chain,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  getAddress,
+  getContract,
+  parseEther,
+} from 'viem';
 
 import { setup } from './fixtures/utils.js';
 
@@ -30,13 +39,12 @@ describe('e2e_cheat_codes', () => {
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    let accounts;
-    ({ teardown, wallet, accounts, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
     rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
-    admin = accounts[0];
+    admin = wallet.getCompleteAddress();
 
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
   }, 100_000);
