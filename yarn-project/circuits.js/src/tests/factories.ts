@@ -222,7 +222,7 @@ export function makePublicDataUpdateRequest(seed = 1): PublicDataUpdateRequest {
 
 /**
  * Creates default public data update request.
- * @returns An default public data update request.
+ * @returns A default public data update request.
  */
 export function makeDefaultPublicDataUpdateRequest(): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(fr(0), fr(0));
@@ -239,7 +239,7 @@ export function makePublicDataRead(seed = 1): PublicDataRead {
 
 /**
  * Creates default public data read.
- * @returns An default public data read.
+ * @returns A default public data read.
  */
 export function makeDefaultPublicDataRead(): PublicDataRead {
   return new PublicDataRead(fr(0), fr(0));

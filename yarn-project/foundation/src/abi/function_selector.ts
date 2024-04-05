@@ -92,8 +92,8 @@ export class FunctionSelector extends Selector {
   }
 
   /**
-   * Creates an default selector.
-   * @returns An default selector.
+   * Creates a default selector.
+   * @returns A default selector.
    */
   static default() {
     return new FunctionSelector(0);

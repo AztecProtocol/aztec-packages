@@ -15,7 +15,7 @@ describe('PublicCircuitPublicInputs', () => {
     expect(res).toEqual(expected);
   });
 
-  it(`initializes an default PrivateCircuitPublicInputs`, () => {
+  it(`initializes a default PrivateCircuitPublicInputs`, () => {
     const target = PublicCircuitPublicInputs.default();
     expect(target.isDefault()).toBe(true);
   });

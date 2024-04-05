@@ -8,7 +8,7 @@ export class L2ToL1Message {
   constructor(public recipient: EthAddress, public content: Fr) {}
 
   /**
-   * Creates an default L2ToL1Message with default values.
+   * Creates a default L2ToL1Message with default values.
    * @returns An instance of L2ToL1Message with default fields.
    */
   static default(): L2ToL1Message {

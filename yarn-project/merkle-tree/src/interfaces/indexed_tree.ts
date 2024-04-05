@@ -26,7 +26,7 @@ export interface PreimageFactory {
    */
   fromBuffer(buffer: Buffer): IndexedTreeLeafPreimage;
   /**
-   * Creates an default preimage.
+   * Creates a default preimage.
    */
   default(): IndexedTreeLeafPreimage;
   /**
