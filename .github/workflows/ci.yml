@@ -24,11 +24,12 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           runner_label: ${{ github.actor }}
-          runner_concurrency: 2
+          runner_concurrency: 40
           ec2_instance_type: r6a.32xlarge
           ec2_ami_id: ami-04d8422a9ba4de80f
           ec2_subnet_id: subnet-4cfabd25
-          ec2_instance_tags: '[]'
+          # prevent reaping from our custom spot reaper (TODO move away from that model?)
+          ec2_instance_tags: '[{"Keep-Alive": true}]'
           github_action_runner_version: v2.315.0
           ec2_security_group_id: sg-0ccd4e5df0dcca0c9
           ec2_instance_ttl: 40 # 40 minutes to reap
