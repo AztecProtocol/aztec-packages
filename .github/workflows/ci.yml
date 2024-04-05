@@ -69,6 +69,8 @@ jobs:
       - id: e2e_list
         working-directory: ./yarn-project/end-to-end
         run: |
+          set -eu
+          sudo apt-get install jq
           echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
   # all the end-to-end integration tests for aztec
