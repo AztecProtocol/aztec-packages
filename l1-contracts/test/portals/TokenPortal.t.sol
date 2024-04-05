@@ -83,7 +83,7 @@ contract TokenPortalTest is Test {
         abi.encodeWithSignature(
           "mint_private(bytes32,uint256)", secretHashForRedeemingMintedNotes, amount
         )
-        ),
+      ),
       secretHash: secretHashForL2MessageConsumption
     });
   }
@@ -161,7 +161,7 @@ contract TokenPortalTest is Test {
           abi.encodeWithSignature(
             "withdraw(address,uint256,address)", recipient, withdrawAmount, _designatedCaller
           )
-          )
+        )
       })
     );
 
