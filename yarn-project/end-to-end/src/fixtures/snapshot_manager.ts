@@ -89,9 +89,15 @@ export class SnapshotManager {
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
 
     // Copy everything to snapshot path.
+    // We want it to be atomic, in case multiple processes are racing to create the snapshot.
     this.logger(`Saving snapshot to ${snapshotPath}...`);
-    mkdirSync(snapshotPath, { recursive: true });
-    copySync(this.livePath, snapshotPath);
+    if (mkdirSync(snapshotPath, { recursive: true })) {
+      copySync(this.livePath, snapshotPath);
+      this.logger(`Snapshot copied to ${snapshotPath}.`);
+    } else {
+      this.logger(`Snapshot already exists at ${snapshotPath}. Discarding our version.`);
+      await this.teardown();
+    }
   }
 
   /**
