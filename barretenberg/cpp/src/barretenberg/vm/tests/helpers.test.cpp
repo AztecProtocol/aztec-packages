@@ -1,7 +1,5 @@
 #include "avm_common.test.hpp"
 #include "barretenberg/vm/generated/avm_flavor.hpp"
-#include <bitset>
-#include <iostream>
 
 namespace tests_avm {
 /**

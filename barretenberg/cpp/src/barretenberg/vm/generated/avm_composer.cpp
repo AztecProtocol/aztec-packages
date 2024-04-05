@@ -31,7 +31,6 @@ AvmProver AvmComposer::create_prover(CircuitConstructor& circuit_constructor)
     compute_witness(circuit_constructor);
     compute_commitment_key(circuit_constructor.get_circuit_subgroup_size());
 
-    // TODO: check ptrs - align with other impls
     AvmProver output_state(proving_key, proving_key->commitment_key);
 
     return output_state;

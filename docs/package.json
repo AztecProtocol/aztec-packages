@@ -20,10 +20,10 @@
     "write-heading-ids": "docusaurus write-heading-ids"
   },
   "dependencies": {
-    "@docusaurus/core": "^3.2.0",
-    "@docusaurus/plugin-ideal-image": "^3.2.0",
-    "@docusaurus/preset-classic": "^3.2.0",
-    "@docusaurus/theme-mermaid": "^3.2.0",
+    "@docusaurus/core": "^2.4.1",
+    "@docusaurus/plugin-ideal-image": "^2.4.1",
+    "@docusaurus/preset-classic": "^2.4.1",
+    "@docusaurus/theme-mermaid": "^2.4.1",
     "@mdx-js/react": "^1.6.22",
     "axios": "^1.4.0",
     "clsx": "^1.1.1",
@@ -32,7 +32,7 @@
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-player": "^2.12.0",
-    "rehype-katex": "^7.0.0",
+    "rehype-katex": "5",
     "remark-math": "3"
   },
   "devDependencies": {

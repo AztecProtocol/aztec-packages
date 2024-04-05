@@ -259,12 +259,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
 
     // Calculate the alpha and beta challenges - log derivative inverse round
     auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
-    auto beta_sqr = beta * beta;
-    auto beta_cube = beta_sqr * beta;
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamm;
-    relation_parameters.beta_sqr = beta_sqr;
-    relation_parameters.beta_cube = beta_cube;
 
     // Permutations
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);

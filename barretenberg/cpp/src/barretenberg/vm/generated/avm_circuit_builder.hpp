@@ -350,20 +350,6 @@ class AvmCircuitBuilder {
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
             polys.incl_mem_tag_err_counts[i] = rows[i].incl_mem_tag_err_counts;
-
-            // TODO: check that these are calculated at circuit building time - I believe they
-            // are rather added at proving time, and thus can be removed
-            polys.perm_main_bin[i] = rows[i].perm_main_bin;
-            polys.perm_main_mem_a[i] = rows[i].perm_main_mem_a;
-            polys.perm_main_mem_b[i] = rows[i].perm_main_mem_b;
-            polys.perm_main_mem_c[i] = rows[i].perm_main_mem_c;
-            polys.perm_main_mem_ind_a[i] = rows[i].perm_main_mem_ind_a;
-            polys.perm_main_mem_ind_b[i] = rows[i].perm_main_mem_ind_b;
-            polys.perm_main_mem_ind_c[i] = rows[i].perm_main_mem_ind_c;
-            polys.lookup_byte_lengths[i] = rows[i].lookup_byte_lengths;
-            polys.lookup_byte_operations[i] = rows[i].lookup_byte_operations;
-            polys.incl_main_tag_err[i] = rows[i].incl_main_tag_err;
-            polys.incl_mem_tag_err[i] = rows[i].incl_mem_tag_err;
         }
 
         polys.avm_alu_u16_r0_shift = Polynomial(polys.avm_alu_u16_r0.shifted());

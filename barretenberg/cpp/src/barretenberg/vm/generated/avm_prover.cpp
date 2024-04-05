@@ -373,8 +373,6 @@ void AvmProver::execute_log_derivative_inverse_round()
  */
 void AvmProver::execute_relation_check_rounds()
 {
-    // TODO: check prover polynomials are set here
-
     using Sumcheck = SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
