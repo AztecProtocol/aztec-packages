@@ -117,7 +117,7 @@ contract TokenPortal {
           _amount,
           _withCaller ? msg.sender : address(0)
         )
-        )
+      )
     });
 
     IOutbox outbox = registry.getOutbox();
