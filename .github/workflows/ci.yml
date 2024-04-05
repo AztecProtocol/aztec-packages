@@ -21,6 +21,7 @@ jobs:
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
+          runner_label: ${{ github.actor }}
           ec2_instance_type: r6a.32xlarge
           ec2_ami_id: ami-04d8422a9ba4de80f
           ec2_subnet_id: subnet-4cfabd25
