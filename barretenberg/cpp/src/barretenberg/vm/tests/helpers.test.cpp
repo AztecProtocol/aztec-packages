@@ -3,25 +3,19 @@
 #include <bitset>
 #include <iostream>
 
-// TODO: remove this
-std::string bytes_to_hex_string(const std::vector<uint8_t>& input)
-{
-    static const char characters[] = "0123456789ABCDEF";
-
-    // Zeroes out the buffer unnecessarily, can't be avoided for std::string.
-    std::string ret(input.size() * 2, 0);
-
-    // Hack... Against the rules but avoids copying the whole buffer.
-    auto buf = const_cast<char*>(ret.data());
-
-    for (const auto& oneInputByte : input) {
-        *buf++ = characters[oneInputByte >> 4];
-        *buf++ = characters[oneInputByte & 0x0F];
-    }
-    return ret;
-}
-
 namespace tests_avm {
+/**
+ * @brief Helper routine proving and verifying a proof based on the supplied trace
+ *
+ * @param trace The execution trace
+ */
+void validate_trace_check_circuit(std::vector<Row>&& trace)
+{
+    auto circuit_builder = AvmCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+    EXPECT_TRUE(circuit_builder.check_circuit());
+};
+
 /**
  * @brief Helper routine proving and verifying a proof based on the supplied trace
  *
@@ -33,23 +27,14 @@ void validate_trace_proof(std::vector<Row>&& trace)
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
 
-    // TODO(#4944): uncomment the following lines to revive full verification
     auto composer = AvmComposer();
     auto prover = composer.create_prover(circuit_builder);
-    info("batched relation partial lengh:", AvmFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
     auto proof = prover.construct_proof();
-    info("Proof size: {}", proof.size());
-
-    // info("Proof ", bytes_to_hex_string(to_buffer(proof)));
 
     auto verifier = composer.create_verifier(circuit_builder);
     bool verified = verifier.verify_proof(proof);
 
     EXPECT_TRUE(verified);
-
-    // if (!verified) {
-    //     avm_trace::log_avm_trace(circuit_builder.rows, 0, 10);
-    // }
 };
 
 /**
