@@ -123,7 +123,7 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with = "contract address cannot be zero")]
+    #[test(should_fail_with = "contract address cannot be default (zero)")]
     fn private_function_zero_storage_contract_address_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
