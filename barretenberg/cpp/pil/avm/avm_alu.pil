@@ -285,11 +285,12 @@ namespace avm_alu(256);
     // ========= COMPARISON OPERATION - EXPLANATIONS =================================================
     // To simplify the comparison circuit, we implement a GreaterThan(GT) circuit. This is ideal since
     // if we need a LT operation, we just swap the inputs and if we need the LTE operation, we just NOT the GT constraint
-    // Given the inputs x, y and q where x & y are inputs and q is the boolean result to the query (x > y). Then there are two scenarios
-    // (x > y) -> x - y - 1 = result, where 0 <= result < p. In our case result should not overflow the field.
-    // OR 
-    // !(x > y) -> !(x - y - 1) = (p - 1) - (x - y -1) = y - x = result, where the same applies as above.
-    // These conditions can be combined with the query, q (that x > y) as follows:
+    // Given the inputs x, y and q where x & y are integers in the range [0,...,p-1] and q is the boolean result to the query (x > y).
+    // Then there are two scenarios:
+    //    (1) (x > y) -> x - y - 1 = result, where 0 <= result. i.e. the result does not underflow the field.
+    //    (2)!(x > y) -> (x <= y) = y - x = result, where the same applies as above.
+
+    // These conditions can be combined with the GT constraint, q (that x > y) as follows:
     // (x - y - 1) * q + (y - x) (1 - q) = result
     pol commit input_ia;
     pol commit input_ib;
@@ -314,11 +315,13 @@ namespace avm_alu(256);
     pol commit p_a_borrow;
     p_a_borrow * (1 - p_a_borrow) = 0;
 
-    // Check that decomposition of a into lo and hi limbs do not overflow p.
-    // This is achieved by checking (p_lo > a_lo && p_hi >= ahi) || (p_lo <= a_lo && p_hi > a_hi)
-    // First condition is if borrow = 0, second condition is if borrow = 1;
     // (p - 1) lower 128 bits = 53438638232309528389504892708671455232
     // (p - 1) upper 128 bits = 64323764613183177041862057485226039389 
+
+    // Check that decomposition of a into lo and hi limbs do not overflow p.
+    // This is achieved by checking a does not underflow p: (p_lo > a_lo && p_hi >= ahi) || (p_lo <= a_lo && p_hi > a_hi)
+    // First condition is if borrow = 0, second condition is if borrow = 1
+    // This underflow check is done by the 128-bit check that is performed on each of these lo and hi limbs.
     p_sub_a_lo = (53438638232309528389504892708671455232 - a_lo + p_a_borrow * 2 ** 128) * cmp_sel;
     p_sub_a_hi = (64323764613183177041862057485226039389 - a_hi - p_a_borrow) * cmp_sel;
 
@@ -352,27 +355,85 @@ namespace avm_alu(256);
     // If this is a LTE operation, we invert the value of ic.
     pol IS_GT = op_lt * ic + (1 - ic) * op_lte;
 
+    // When IS_GT = 1, we enforce the condition that a > b and thus a - b - 1 does not underflow.
+    // When IS_GT = 0, we enforce the condition that a <= b and thus b - a does not underflow.
+    // ========= Analysing res_lo and res_hi scenarios for x <= y ===============================
+    // (1) An honest prover claims that LTE(x,y,1). Therefore ia = x, ib = y and ic = 1.
+    //    (a) We do not swap the operands, so a = x and b = y,
+    //    (b) IS_GT = 1 - ic = 0
+    //    (c) res_lo = B_SUB_A_LO and res_hi = B_SUB_A_HI
+    //    (d) res_lo = y_lo - x_lo + borrow * 2**128 and res_hi = y_hi - x_hi - borrow.
+    //    (e) the only valid input here to ensure no underflow is
+    //      (i)   x == y && borrow = 0 or,
+    //      (ii)  x < y where x_lo < y_lo && x_hi <= y_hi && borrow = 0 or
+    //      (iii) x < y where x_lo > y_lo && x_hi < y_hi && borrow = 1
+    //
+    // (2) A malicious prover claims that LTE(x,y,0), i.e. y > x. Therefore ia = x, ib = y and ic = 0.
+    //    (a) We do not swap the operands, so a = x and b = y,
+    //    (b) IS_GT = 1 - ic = 1
+    //    (c) res_lo = A_SUB_B_LO and res_hi = A_SUB_B_HI
+    //    (d) res_lo = x_lo - y_lo - 1 + borrow * 2**128 and res_hi = x_hi - y_hi - borrow.
+    //    (e) Given that, in reality, x <= y. The following underflows happen
+    //      (i)    x == y && borrow = 0, res_lo = -1 and underflows.
+    //      (ii)   x == y && borrow = 1, res_hi = -1 and underflows.
+    //      (iii)  x < y where x_lo < y_lo && x_hi  == y_hi && borrow = 0, res_lo < 0 and underflows
+    //      (iv)   x < y where x_lo < y_lo && x_hi  == y_hi && borrow = 1, res_hi = -1 and underflows
+    //      (v)    x < y where x_lo < y_lo && x_hi  <  y_hi && borrow = 0, res_lo & res_hi < 0 both underflows
+    //      (vi)   x < y where x_lo < y_lo && x_hi  <  y_hi && borrow = 1, res_hi < 0 and underflows
+    //      (vii)  x < y where x_lo == y_lo && x_hi < y_hi && borrow = 0, res_lo = -1 && res_hi < 0 both underflows
+    //      (viii) x < y where x_lo == y_lo && x_hi < y_hi && borrow = 1, res_hi < 0 and underflows
+    //      (ix)   x < y where x_lo > y_lo && x_hi  <  y_hi && borrow = 0, res_hi < 0 and underflows
+    //      (x)    x < y where x_lo > y_lo && x_hi  <  y_hi && borrow = 1, res_hi < 0 and underflows
+
+
+    // ========= Analysing res_lo and res_hi scenarios for x < y ===============================
+    // (1) An honest prover claims that LT(x,y,1). Therefore ia = x, ib = y and ic = 1.
+    //    (a) We DO swap the operands, so a = y and b = x,
+    //    (b) IS_GT = ic = 1
+    //    (c) res_lo = A_SUB_B_LO and res_hi = A_SUB_B_HI, **remember we have swapped inputs**
+    //    (d) res_lo = y_lo - x_lo - 1 + borrow * 2**128 and res_hi = y_hi - x_hi - borrow.
+    //    (e) the only valid input here to ensure no underflow is
+    //      (i)  x < y where x_lo < y_lo && x_hi <= y_hi && borrow = 0 or
+    //      (ii) x < y where x_lo >= y_lo && x_hi < y_hi && borrow = 1
+    //
+    // (2) A malicious prover claims that LT(x,y,0), i.e. !(x < y) -> (x >= y). Therefore ia = x, ib = y and ic = 0.
+    //    (a) We DO swap the operands, so a = y and b = x,
+    //    (b) IS_GT = ic = 0
+    //    (c) res_lo = B_SUB_A_LO and res_hi = B_SUB_A_HI, **remember we have swapped inputs**
+    //    (d) res_lo = x_lo - y_lo + borrow * 2**128 and res_hi = x_hi - y_hi - borrow.
+    //    (e) Given that, in reality, x < y. The following underflows happen
+    //      (i)   x < y where x_lo < y_lo && x_hi == y_hi && borrow = 0, res_lo < 0 and underflows
+    //      (ii)  x < y where x_lo < y_lo && x_hi == y_hi && borrow = 1, res_hi = -1 and underflows
+    //      (iii) x < y where x_lo < y_lo && x_hi <  y_hi && borrow = 0, res_lo && res_hi < 0 and underflows
+    //      (iv)  x < y where x_lo < y_lo && x_hi <  y_hi && borrow = 1, res_hi < 0 and underflows
+    //      (v)   x < y where x_lo > y_lo && x_hi <  y_hi && borrow = 0, res_hi < 0 and underflows
+    //      (vi)  x < y where x_lo > y_lo && x_hi <  y_hi && borrow = 1, res_lo overflows && res_hi < 0 and underflows
+
     res_lo = (A_SUB_B_LO * IS_GT + B_SUB_A_LO * (1 - IS_GT)) * cmp_sel;
     res_hi = (A_SUB_B_HI * IS_GT + B_SUB_A_HI * (1 - IS_GT)) * cmp_sel;
 
 
     // ========= RANGE OPERATIONS ===============================
+    // TODO: 8-bit and 16-bit range checks for the respective registers have not yet been implemented.
+
     // Each call to LT/LTE requires 5x 256-bit range checks. We keep track of how many are left here.
-    pol commit rng_chk_remaining;
+    pol commit cmp_rng_ctr;
 
     // TODO: combine into 1 equation, left separate for debugging
     // the number of range checks must decrement by 1 until it is equal to 0;
-    (rng_chk_remaining' - rng_chk_remaining + 1) * rng_chk_remaining = 0;
+    (cmp_rng_ctr' - cmp_rng_ctr + 1) * cmp_rng_ctr = 0;
     // if this row is a comparison operation, the next range_check_remaining value is set to 4
     // it is not set to 5 since we do 1 as part of the comparison.
-    (rng_chk_remaining' - 4) * cmp_sel = 0;
+    (cmp_rng_ctr' - 4) * cmp_sel = 0;
     
     pol commit rng_chk_sel; // A boolean representing if we have range checks remaining
     rng_chk_sel * (1 - rng_chk_sel) = 0;
-    rng_chk_sel * cmp_sel = 0; // If we have remaining range checks, we cannot have cmp_sel set
+    // If we have remaining range checks, we cannot have cmp_sel set. This prevents malicious truncating of the range
+    // checks by adding a new LT/LTE operation before all the range checks from the previous computation are complete.
+    rng_chk_sel * cmp_sel = 0; 
 
-    // rng_chk_sel = 1 when rng_chk_remaining != 0 and rng_chk_sel = 0 when rng_chk_remaining = 0;
-    rng_chk_remaining * ((1 - rng_chk_sel) * (1 -  op_eq_diff_inv) +  op_eq_diff_inv) - rng_chk_sel = 0;
+    // rng_chk_sel = 1 when cmp_rng_ctr != 0 and rng_chk_sel = 0 when cmp_rng_ctr = 0;
+    cmp_rng_ctr * ((1 - rng_chk_sel) * (1 -  op_eq_diff_inv) +  op_eq_diff_inv) - rng_chk_sel = 0;
 
     // We perform a range check if we have some range checks remaining or we are performing a comparison op
     pol RNG_CHK_OP = (rng_chk_sel + cmp_sel);
