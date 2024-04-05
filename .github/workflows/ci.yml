@@ -71,7 +71,7 @@ jobs:
         run: |
           set -eu
           # TODO bundle this
-          sudo apt-get update && sudo apt-get -y jq
+          sudo apt-get update && sudo apt-get -y install jq
           echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
   # all the end-to-end integration tests for aztec
