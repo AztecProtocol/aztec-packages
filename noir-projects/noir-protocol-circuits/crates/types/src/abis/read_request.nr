@@ -2,8 +2,7 @@ use crate::{
     abis::side_effect::{OrderedValue, ContractScopedOrderedValue},
     traits::{Serialize, Deserialize}, address::AztecAddress
 };
-use dep::std::cmp::Eq;
-use dep::std::default::Default;
+use dep::std::{cmp::Eq,default::Default};
 
 global READ_REQUEST_SERIALIZED_LEN = 2;
 global READ_REQUEST_CONTEXT_SERIALIZED_LEN = 3;

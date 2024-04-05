@@ -1,5 +1,4 @@
-use dep::std::cmp::Eq;
-use dep::std::default::Default;
+use dep::std::{cmp::Eq,default::Default};
 
 struct AppendOnlyTreeSnapshot {
     root : Field,

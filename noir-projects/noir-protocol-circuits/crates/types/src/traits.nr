@@ -1,5 +1,4 @@
-use dep::std::cmp::Eq;
-use dep::std::default::Default;
+use dep::std::{cmp::Eq,default::Default};
 
 pub fn is_default<T>(item: T) -> bool where T: Default + Eq {
     item.eq(T::default())

@@ -1,6 +1,5 @@
 use crate::address::AztecAddress;
-use dep::std::cmp::Eq;
-use dep::std::default::Default;
+use dep::std::{cmp::Eq,default::Default};
 use crate::abis::caller_context::CallerContext;
 
 struct CallRequest {

@@ -2,8 +2,7 @@ use crate::{
     constants::{CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST},
     hash::pedersen_hash, traits::{Deserialize, Hash, Serialize}
 };
-use dep::std::cmp::Eq;
-use dep::std::default::Default;
+use dep::std::{cmp::Eq,default::Default};
 
 struct StorageUpdateRequest{
     storage_slot : Field,

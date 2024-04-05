@@ -1,6 +1,5 @@
 use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_READ;
-use dep::std::cmp::Eq;
-use dep::std::default::Default;
+use dep::std::{cmp::Eq,default::Default};
 use crate::traits::Hash;
 
 struct PublicDataRead {
