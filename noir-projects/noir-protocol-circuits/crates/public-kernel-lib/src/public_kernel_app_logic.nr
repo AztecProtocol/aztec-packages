@@ -341,7 +341,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="new_note_hashes must be a default array (zeroed) for static calls")]
+    #[test(should_fail_with="new_note_hashes must be a default array (empty) for static calls")]
     fn public_kernel_fails_creating_new_note_hashes_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
@@ -350,7 +350,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="new_nullifiers must be a default array (zeroed) for static calls")]
+    #[test(should_fail_with="new_nullifiers must be a default array (empty) for static calls")]
     fn public_kernel_fails_creating_new_nullifiers_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
