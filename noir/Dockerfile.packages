@@ -16,8 +16,6 @@ ENV COMMIT_HASH=${COMMIT_HASH}
 WORKDIR /usr/src/noir
 COPY . .
 
-# We probably want to use cargo-installed wasm-opt instead
-RUN npm i -g wasm-opt
 RUN ./scripts/bootstrap_packages.sh
 
 FROM scratch
