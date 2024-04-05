@@ -18,6 +18,9 @@ namespace avm_alu(256);
     pol commit op_not;
     pol commit op_eq;
     pol commit alu_sel; // Predicate to activate the copy of intermediate registers to ALU table.
+    pol commit op_lt;
+    pol commit op_lte;
+    pol commit cmp_sel; // Predicate if LT or LTE is set
 
     // Instruction tag (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field) copied from Main table
     pol commit in_tag;
@@ -58,7 +61,9 @@ namespace avm_alu(256);
     pol commit cf;
 
     // Compute predicate telling whether there is a row entry in the ALU table.
-    alu_sel = op_add + op_sub + op_mul + op_not + op_eq;
+    alu_sel = op_add + op_sub + op_mul + op_not + op_eq + op_lt + op_lte;
+
+    cmp_sel = op_lt + op_lte;
 
     // ========= Type Constraints =============================================
     // TODO: Range constraints
@@ -257,24 +262,15 @@ namespace avm_alu(256);
     // Need an additional helper that holds the inverse of the difference;
     pol commit op_eq_diff_inv;
 
-    // If EQ selector is set, ic needs to be boolean
+    // If EQ or CMP_SEL selector is set, ic needs to be boolean
     #[ALU_RES_IS_BOOL]
-    op_eq * (ic * (1 - ic)) = 0;
+    (cmp_sel + op_eq) * (ic * (1 - ic)) = 0;
 
     #[ALU_OP_EQ]
     op_eq * (DIFF * (ic * (1 - op_eq_diff_inv) + op_eq_diff_inv) - 1 + ic) = 0;
 
     // ========= LT/LTE Operation Constraints ===============================
 
-    pol commit op_lt;
-    pol commit op_lte;
-
-    // Used for perm check to main, designates if a comparison operation is being used.
-    pol commit cmp_sel; 
-    cmp_sel = op_lt + op_lte;
-
-    // ic is restricted to be 1 or 0 if we are performing a comparison
-    (cmp_sel + op_eq) * (ic * (1 - ic)) = 0;
 
    
 
