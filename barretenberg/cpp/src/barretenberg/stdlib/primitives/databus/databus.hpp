@@ -42,8 +42,8 @@ template <typename Builder> class bus_vector {
 };
 
 template <typename Builder> struct databus {
-    bus_vector<Builder> calldata{ bb::DataBus::CALLDATA };
-    bus_vector<Builder> return_data{ bb::DataBus::RETURNDATA };
+    bus_vector<Builder> calldata{ BusId::CALLDATA };
+    bus_vector<Builder> return_data{ BusId::RETURNDATA };
 
     databus() = default;
 };
