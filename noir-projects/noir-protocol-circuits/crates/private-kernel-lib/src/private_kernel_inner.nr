@@ -691,7 +691,7 @@ mod tests {
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
-    #[test(should_fail_with="new_note_hashes must be default for static calls")]
+    #[test(should_fail_with="new_note_hashes must be a default array (zeroed) for static calls")]
     fn creating_new_note_hashes_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
@@ -700,7 +700,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="new_nullifiers must be default for static calls")]
+    #[test(should_fail_with="new_nullifiers must be a default array (zeroed) for static calls")]
     fn creating_new_nullifiers_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 

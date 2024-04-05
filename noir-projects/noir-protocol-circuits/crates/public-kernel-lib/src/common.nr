@@ -113,10 +113,10 @@ fn perform_static_call_checks(public_call: PublicCallData) {
     if public_inputs.call_context.is_static_call {
         // No state changes are allowed for static calls:
         let new_note_hashes_length = array_length(public_inputs.new_note_hashes);
-        assert(new_note_hashes_length == 0, "new_note_hashes must be default for static calls");
+        assert(new_note_hashes_length == 0, "new_note_hashes must be a default array (zeroed) for static calls");
 
         let new_nullifiers_length = array_length(public_inputs.new_nullifiers);
-        assert(new_nullifiers_length == 0, "new_nullifiers must be default for static calls");
+        assert(new_nullifiers_length == 0, "new_nullifiers must be a default array (zeroed) for static calls");
 
         let update_requests_length = array_length(public_inputs.contract_storage_update_requests);
         assert(

@@ -120,10 +120,10 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     if is_static_call {
         // No state changes are allowed for static calls:
         assert(
-            is_default_array(public_inputs.new_note_hashes), "new_note_hashes must be default for static calls"
+            is_default_array(public_inputs.new_note_hashes), "new_note_hashes must be a default array (zeroed) for static calls"
         );
         assert(
-            is_default_array(public_inputs.new_nullifiers), "new_nullifiers must be default for static calls"
+            is_default_array(public_inputs.new_nullifiers), "new_nullifiers must be a default array (zeroed) for static calls"
         );
 
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
