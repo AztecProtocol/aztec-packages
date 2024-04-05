@@ -59,10 +59,7 @@ pub fn inject_compute_note_hash_and_nullifier(
 
         // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
         // contract might use. These are the types that are marked as #[aztec(note)].
-        let note_types = fetch_notes(context)
-            .iter()
-            .map(|(_, note)| note.borrow().name.0.contents.clone())
-            .collect();
+        let note_types = fetch_notes(context).iter().map(|(path, _)| path.to_string()).collect();
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
         let func = generate_compute_note_hash_and_nullifier(&note_types);
@@ -73,7 +70,14 @@ pub fn inject_compute_note_hash_and_nullifier(
         // pass an empty span. This function should not produce errors anyway so this should not matter.
         let location = Location::new(Span::empty(0), file_id);
 
-        inject_fn(crate_id, context, func, location, module_id, file_id);
+        inject_fn(crate_id, context, func, location, module_id, file_id).map_err(|err| {
+            (
+                AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
+                    secondary_message: err.secondary_message,
+                },
+                file_id,
+            )
+        })?;
     }
     Ok(())
 }

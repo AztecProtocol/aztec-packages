@@ -2,8 +2,6 @@
 // A contract used along with `Child` contract to test nested calls.
 contract Parent {
     use dep::aztec::prelude::{AztecAddress, FunctionSelector};
-    use dep::child_contract::Child;
-    use dep::value_note::value_note::ValueNote;
     // Private function to call another private function in the target_contract using the provided selector
     #[aztec(private)]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {

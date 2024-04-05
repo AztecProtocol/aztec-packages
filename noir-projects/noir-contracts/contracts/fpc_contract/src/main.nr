@@ -19,6 +19,31 @@ contract FPC {
         storage.gas_token_address.initialize(gas_token_address);
     }
 
+    #[contract_library_function]
+    pub fn test(
+        context: &mut dep::aztec::context::PrivateContext,
+        target_contract: dep::aztec::protocol_types::address::AztecAddress,
+        amount: Field,
+        an_array: [Field; 4]
+    ) -> pub [Field; 4] {
+        let mut args: [Field] = [0; 0].as_slice();
+        let hash_0 = amount.serialize();
+        args = args.append(hash_0.as_slice());
+        let hash_1 = an_array.map(|x: Field| x.serialize());
+        for i in 0..hash_1.len() {
+            args = args.append(hash_1[i].as_slice());
+        }
+        let args_hash = dep::aztec::hash::hash_args(args);
+        assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args));
+        context.call_private_function_with_packed_args(
+            target_contract,
+            dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""),
+            args_hash,
+            false,
+            false
+        )
+    }
+
     #[aztec(private)]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read_private());

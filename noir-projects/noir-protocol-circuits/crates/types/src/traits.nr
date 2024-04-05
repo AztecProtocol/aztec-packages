@@ -1,4 +1,5 @@
 use dep::std::cmp::Eq;
+use crate::utils::field::field_from_bytes;
 
 // Trait: is_empty
 //
@@ -53,6 +54,11 @@ impl ToField for u64 { fn to_field(self) -> Field { self as Field } }
 impl ToField for U128 {
     fn to_field(self) -> Field {
         self.to_integer()
+    }
+}
+impl<N> ToField for str<N> {
+    fn to_field(self) -> Field {
+        field_from_bytes(self.as_bytes(), true)
     }
 }
 

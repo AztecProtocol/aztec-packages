@@ -1,8 +1,59 @@
-use noirc_frontend::{parse_program, parser::SortedModule, NoirFunction};
+use noirc_frontend::{
+    parse_program, parser::SortedModule, NoirFunction, Signedness, UnresolvedType,
+    UnresolvedTypeData, UnresolvedTypeExpression,
+};
 
 use crate::utils::errors::AztecMacroError;
 
-fn compute_fn_signature(func: &NoirFunction) -> String {}
+fn get_parameter_type(typ: UnresolvedType) -> String {
+    match typ.typ {
+        UnresolvedTypeData::FieldElement => "Field".to_string(),
+        UnresolvedTypeData::Integer(signed, width) => {
+            if signed == Signedness::Signed {
+                panic!("Signed integers are not supported")
+            } else {
+                format!("u{}", width)
+            }
+        }
+        UnresolvedTypeData::Bool => "bool".to_string(),
+        UnresolvedTypeData::Array(len_typ, typ) => {
+            let len = match len_typ {
+                UnresolvedTypeExpression::Constant(value, _) => value.to_string(),
+                _ => panic!("Only constant array lengths are supported"),
+            };
+            format!("[{}; {}]", get_parameter_type(*typ), len)
+        }
+        UnresolvedTypeData::String(len_typ) => {
+            let len = if let Some(UnresolvedTypeExpression::Constant(value, _)) = len_typ {
+                value.to_string()
+            } else {
+                panic!("Only constant string lengths are supported");
+            };
+            format!("str<{}>", len)
+        }
+        UnresolvedTypeData::Named(_, fields, _) => format!(
+            "({})",
+            fields
+                .iter()
+                .map(|field| get_parameter_type(field.clone()))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        _ => panic!("Unsupported type"),
+    }
+}
+
+fn compute_fn_signature(func: &NoirFunction) -> String {
+    format!(
+        "{}({})",
+        func.name(),
+        func.parameters()
+            .iter()
+            .map(|param| get_parameter_type(param.typ.clone()))
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
 
 pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, String, String) {
     let (fn_name, fn_type) = (
@@ -33,24 +84,35 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, St
     let call_args = func
         .parameters()
         .iter()
-        .map(|param| param.pattern.name_ident().0.contents.clone())
+        .map(|arg| {
+            format!(
+                "hasher.add_multiple({}.serialize());\n",
+                arg.pattern.name_ident().0.contents.clone()
+            )
+        })
         .collect::<Vec<_>>()
-        .join(", ");
+        .join("");
     let context_call = if aztec_visibility == "Private" {
         format!(
-            "context.private.unwrap().call_private_function(target_contract, {}, [{}])",
-            fn_signature, call_args
+            "let hasher = dep::aztec::hash::ArgsHasher::new();
+            {1}
+            assert(args_hash == arguments::pack_arguments(args));
+            let args_hash = hasher.hash();
+            context.private.unwrap().call_private_function(target_contract, {}, args_hash, false, false)",
+            fn_selector, call_args
         )
     } else {
         format!(
-            "
+            "let hasher = dep::aztec::hash::ArgsHasher::new();
+            {1}
+            let args_hash = hasher.hash();
+            assert(args_hash == arguments::pack_arguments(args));
             if context.private.is_some() {{
-                context.private.unwrap().call_private_function(target_contract, {0}, [{1}])
+                context.private.unwrap().call_private_function_with_packed_args(target_contract, {0}, args_hash, false, false)
             }} else {{
-                context.public.unwrap().call_public_function(target_contract, {0}, [{1}])
-            }}
-        ",
-            fn_signature, call_args
+                context.public.unwrap().call_public_function_with_packed_args(target_contract, {0}, args_hash, false, false)
+            }}",
+            fn_selector, call_args
         )
     };
     let fn_source = format!(
@@ -78,9 +140,8 @@ pub fn generate_contract_interface(
             context: dep::aztec::context::Context,
             target_contract: dep::aztec::protocol_types::address::AztecAddress
         ) -> {0}Interface {{
-                {0}Interface {{ 
-                    {2} 
-                }}
+            {0}Interface {{ 
+                {2} 
             }}
         }}
     ",
@@ -97,8 +158,6 @@ pub fn generate_contract_interface(
             .join(",\n")
     );
 
-    println!("{}", contract_interface);
-
     let (contract_interface_ast, errors) = parse_program(&contract_interface);
     if !errors.is_empty() {
         dbg!(errors);
@@ -107,7 +166,7 @@ pub fn generate_contract_interface(
 
     let mut contract_interface_ast = contract_interface_ast.into_sorted();
     module.types.push(contract_interface_ast.types.pop().unwrap());
-    module.impls.push(contract_interface_ast.impls.pop().unwrap());
+    module.functions.push(contract_interface_ast.functions.pop().unwrap());
 
     Ok(())
 }

@@ -10,6 +10,7 @@ pub enum AztecMacroError {
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
+    CouldNotImplementComputeNoteHashAndNullifier { secondary_message: Option<String> },
     CouldNotImplementNoteInterface { span: Option<Span>, secondary_message: Option<String> },
     MultipleStorageDefinitions { span: Option<Span> },
     CouldNotExportStorageLayout { span: Option<Span>, secondary_message: Option<String> },
@@ -43,6 +44,11 @@ impl From<AztecMacroError> for MacroError {
             },
             AztecMacroError::CouldNotAssignStorageSlots { secondary_message } => MacroError {
                 primary_message: "Could not assign storage slots, please provide a custom storage implementation".to_string(),
+                secondary_message,
+                span: None,
+            },
+            AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier { secondary_message } => MacroError {
+                primary_message: "Could not implement compute_note_hash_and_nullifier automatically, please provide an implementation".to_string(),
                 secondary_message,
                 span: None,
             },
