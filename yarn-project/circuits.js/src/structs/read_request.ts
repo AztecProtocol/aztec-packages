@@ -54,7 +54,7 @@ export class ReadRequest {
   }
 
   /**
-   * Returns a default instance of side-effect.
+   * Returns a default instance of side-effect (zeroed).
    * @returns Side-effect with both value and counter being zero.
    */
   static default(): ReadRequest {
@@ -121,7 +121,7 @@ export class ReadRequestContext {
   }
 
   /**
-   * Returns a default instance of side-effect.
+   * Returns a default instance of side-effect (zeroed).
    * @returns Side-effect with value, note hash and counter being zero.
    */
   static default(): ReadRequestContext {

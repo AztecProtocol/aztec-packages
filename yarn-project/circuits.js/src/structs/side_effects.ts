@@ -155,7 +155,7 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
   }
 
   /**
-   * Returns an default instance of side-effect.
+   * Returns an default instance of side-effect (zeroed).
    * @returns Side-effect with value, note hash and counter being zero.
    */
   static default(): SideEffectLinkedToNoteHash {

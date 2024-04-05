@@ -99,7 +99,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log> {
 }
 
 export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
-  /** Creates an default instance. */
+  /** Creates an empty instance. */
   public static default() {
     return new UnencryptedTxL2Logs([]);
   }
@@ -148,7 +148,7 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
 }
 
 export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
-  /** Creates a default instance. */
+  /** Creates a empty instance. */
   public static default() {
     return new EncryptedTxL2Logs([]);
   }
