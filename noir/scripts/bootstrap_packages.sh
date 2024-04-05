@@ -5,7 +5,6 @@ ROOT=$(realpath $(dirname "$0")/..)
 cd $ROOT/noir-repo
 
 ./.github/scripts/wasm-bindgen-install.sh
-./.github/scripts/wasm-opt-install.sh
 
 # Set build data manually.
 export SOURCE_DATE_EPOCH=$(date +%s)
