@@ -12,6 +12,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { resolver, reviver } from '@aztec/foundation/serialize';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -35,8 +36,8 @@ type SubsystemsContext = {
 
 type SnapshotEntry = {
   name: string;
-  apply: (context: SubsystemsContext, logger: DebugLogger) => Promise<any>;
-  restore: (snapshotData: any, context: SubsystemsContext, logger: DebugLogger) => Promise<any>;
+  apply: (context: SubsystemsContext) => Promise<any>;
+  restore: (snapshotData: any, context: SubsystemsContext) => Promise<any>;
   snapshotPath: string;
 };
 
@@ -44,15 +45,17 @@ export class SnapshotManager {
   private snapshotStack: SnapshotEntry[] = [];
   private context?: SubsystemsContext;
   private livePath: string;
+  private logger: DebugLogger;
 
-  constructor(testName: string, private dataPath: string, private logger: DebugLogger) {
+  constructor(testName: string, private dataPath: string) {
     this.livePath = join(this.dataPath, 'live', testName);
+    this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
   }
 
   public async snapshot<T>(
     name: string,
-    apply: (context: SubsystemsContext, logger: DebugLogger) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext, logger: DebugLogger) => Promise<void> = () =>
+    apply: (context: SubsystemsContext) => Promise<T>,
+    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () =>
       Promise.resolve(),
   ) {
     const snapshotPath = join(this.dataPath, 'snapshots', ...this.snapshotStack.map(e => e.name), name, 'snapshot');
@@ -76,11 +79,11 @@ export class SnapshotManager {
 
     // Apply current state transition.
     this.logger(`Applying state transition for ${name}...`);
-    const snapshotData = await apply(this.context, this.logger);
+    const snapshotData = await apply(this.context);
     this.logger(`State transition for ${name} complete.`);
 
     // Execute the restoration function.
-    await restore(snapshotData, this.context, this.logger);
+    await restore(snapshotData, this.context);
 
     // Save the snapshot data.
     const ethCheatCodes = new EthCheatCodes(this.context.aztecNodeConfig.rpcUrl);
@@ -121,7 +124,7 @@ export class SnapshotManager {
         await asyncMap(this.snapshotStack, async e => {
           const snapshotData = JSON.parse(readFileSync(`${e.snapshotPath}/${e.name}.json`, 'utf-8'), reviver);
           this.logger(`Executing restoration function for ${e.name}...`);
-          await e.restore(snapshotData, this.context!, this.logger);
+          await e.restore(snapshotData, this.context!);
           this.logger(`Restoration of ${e.name} complete.`);
         });
       } else {
@@ -263,8 +266,8 @@ export class SnapshotManager {
  * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
  */
 export const addAccounts =
-  (numberOfAccounts: number) =>
-  async ({ pxe }: SubsystemsContext, logger: DebugLogger) => {
+  (numberOfAccounts: number, logger: DebugLogger) =>
+  async ({ pxe }: SubsystemsContext) => {
     // Generate account keys.
     const accountKeys: [GrumpkinPrivateKey, GrumpkinPrivateKey][] = Array.from({ length: numberOfAccounts }).map(_ => [
       GrumpkinPrivateKey.random(),
