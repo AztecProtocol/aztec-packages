@@ -148,7 +148,7 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
 }
 
 export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
-  /** Creates a empty instance. */
+  /** Creates an empty instance. */
   public static default() {
     return new EncryptedTxL2Logs([]);
   }

@@ -19,7 +19,7 @@ describe('address', () => {
   });
 
   it('should have correct zero address', () => {
-    expect(EthAddress.ZERO.toString()).toBe('0x0000000000000000000000000000000000000000');
+    expect(EthAddress.default().toString()).toBe('0x0000000000000000000000000000000000000000');
   });
 
   it('should check if is zero', () => {

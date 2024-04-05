@@ -89,7 +89,7 @@ describe('e2e_cheat_codes', () => {
 
     it('load a value at a particular storage slot', async () => {
       // check that storage slot 0 is empty as expected
-      const res = await cc.eth.load(EthAddress.ZERO, 0n);
+      const res = await cc.eth.load(EthAddress.default(), 0n);
       expect(res).toBe(0n);
     });
 
