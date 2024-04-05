@@ -12,7 +12,6 @@ import { JSONRPCServer } from 'json-rpc-2.0';
 import { ForeignCallResult } from './ForeignCallResult.js';
 import { deployContract, initSandbox, privateCall, publicCall, unconstrainedCall } from './sandbox.js';
 
-
 const PORT = 5555;
 const app = express();
 app.use(bodyParser.json());
@@ -23,7 +22,6 @@ const server = new JSONRPCServer();
 
 // Example: compute square root
 server.addMethod('getSqrt', async params => {
-  console.log(params);
   const values = params[0].Array.map(({ inner }: { inner: string }) => {
     return { inner: `${Math.sqrt(parseInt(inner, 16))}` };
   });
@@ -32,9 +30,7 @@ server.addMethod('getSqrt', async params => {
 
 // Deploy a contract
 server.addMethod('deployContract', async params => {
-  console.log(params);
   let contractAddy = await deployContract(pxe);
-  console.log(contractAddy);
 
   return { values: [{ Single: contractAddy.toString() }] };
 });
@@ -54,7 +50,7 @@ server.addMethod('view', async params => {
 });
 
 server.addMethod('debugLog', async params => {
-  console.log('debug log: ' + params[0].Single.toString());
+  console.log('-- debug log: ' + params[0].Single.toString());
   return { values: [{ Single: '0' }] };
 });
 

@@ -97,8 +97,9 @@ export const publicCall = async (
 ) => {
   // This is the same as privateCall for now -> hopefully, context will be different
   let wallet = await createAccount(pxe);
+
   let deployedContract = await MeaningOfLifeContract.at(contractAddress, wallet);
-  console.log('args ', args.toField());
+
   let result = await deployedContract
     .withWallet(wallet)
     .methods.public_function_to_call(args.toField())
