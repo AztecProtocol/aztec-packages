@@ -44,8 +44,6 @@ jobs:
     concurrency:
       group: build-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
       cancel-in-progress: true
-    # permission check
-    if: github.event.pull_request.head.repo.full_name == github.repository || contains(github.event.pull_request.labels.*.name, 'external-ci')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -99,11 +97,6 @@ jobs:
         with:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }}
-
-      - name: Build
-        working-directory: ./yarn-project/end-to-end/
-        # We don't do much on arm, just run it on their builder
-        run: shutdown now
 
       - name: Build
         working-directory: ./yarn-project/end-to-end/
