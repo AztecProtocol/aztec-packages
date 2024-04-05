@@ -1,18 +1,17 @@
-import {
-  AztecAddress,
-  ContractFunctionInteraction,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  PXE,
-  TxHash,
-} from '@aztec/aztec.js';
+import { AztecAddress, ContractFunctionInteraction, EthAddress, Fr, FunctionSelector, PXE, TxHash } from '@aztec/aztec.js';
+import { toACVMField } from '@aztec/simulator';
+
+
 
 import bodyParser from 'body-parser';
 import express from 'express';
 import { JSONRPCServer } from 'json-rpc-2.0';
 
+
+
+import { ForeignCallResult } from './ForeignCallResult.js';
 import { deployContract, initSandbox, privateCall, publicCall, unconstrainedCall } from './sandbox.js';
+
 
 const PORT = 5555;
 const app = express();
@@ -33,7 +32,7 @@ server.addMethod('getSqrt', async params => {
 // Deploy a contract
 server.addMethod('deployContract', async params => {
   let contractAddy = await deployContract(pxe);
-  return { values: [{ Single: { inner: contractAddy.toString() } }] };
+  return ForeignCallResult.singleValue(contractAddy.toString());
 });
 
 // Handles a call to an unconstrained function
@@ -109,28 +108,3 @@ app.listen(PORT, () => {
     console.log(`Oracle resolver running at port: ${PORT}`);
   });
 });
-
-export function toACVMField(
-  value: AztecAddress | EthAddress | Fr | Buffer | boolean | number | bigint | string,
-): string {
-  let buffer;
-  if (Buffer.isBuffer(value)) {
-    buffer = value;
-  } else if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'bigint') {
-    buffer = new Fr(value).toBuffer();
-  } else if (typeof value === 'string') {
-    buffer = Fr.fromString(value).toBuffer();
-  } else {
-    buffer = value.toBuffer();
-  }
-  return `0x${adaptBufferSize(buffer).toString('hex')}`;
-}
-
-function adaptBufferSize(originalBuf: Buffer) {
-  const buffer = Buffer.alloc(Fr.SIZE_IN_BYTES);
-  if (originalBuf.length > buffer.length) {
-    throw new Error('Buffer does not fit in field');
-  }
-  originalBuf.copy(buffer, buffer.length - originalBuf.length);
-  return buffer;
-}

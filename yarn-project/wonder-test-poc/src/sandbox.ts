@@ -1,23 +1,11 @@
 import { createAccount, getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  ContractFunctionInteraction,
-  ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  FunctionArtifact,
-  FunctionSelector,
-  PXE,
-  PackedArguments,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  createPXEClient,
-  encodeArguments,
-  initAztecJs,
-} from '@aztec/aztec.js';
+import { AztecAddress, ContractFunctionInteraction, ContractInstanceWithAddress, EthAddress, Fr, FunctionArtifact, FunctionSelector, PXE, PackedArguments, Tx, TxExecutionRequest, TxHash, createPXEClient, encodeArguments, initAztecJs } from '@aztec/aztec.js';
+import { toACVMField } from '@aztec/simulator';
+
+
 
 import { MeaningOfLifeContract } from './artifacts/MeaningOfLife.js';
+
 
 let selectorsResolved = new Map<string, string>();
 let contractClassId: Fr = new Fr(0);

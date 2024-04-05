@@ -12,9 +12,9 @@ src
     └── main.nr: the actual integration test along the oracle calls. run the test with `yarn test`
 
 To run this, after bootstrapping the whole multirepo (./bootstrap.sh full at the root) - this does *not* work with the docker container:
-- yarn compile:mock then yarn codegen:mock after modifying the mocked contract tested
-- launch anvil in one terminal, aztec node in another (yarn start in yarn-project/aztec), then the oracle resolver: yarn run:resolver
-- finally, execute the test: yarn test
+- `yarn compile:mock` then `yarn codegen:mock` after modifying the mocked contract tested
+- launch anvil in one terminal, aztec node in another (`yarn start` in `yarn-project/aztec`), then the oracle resolver: `yarn run:resolver` (using node 18)
+- finally, execute the test: `yarn test`
 
 
 To debug, the debugLog oracle call has been made available to the rpc, but will be logged in the rpc window itself (not in the sandbox)
