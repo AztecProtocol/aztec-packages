@@ -193,9 +193,28 @@ export class Sequencer {
       this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
+      // Get l1 to l2 messages from the contract
+      this.log('Requesting L1 to L2 messages from contract');
+      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(newBlockNumber));
+      this.log(`Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newBlockNumber}`);
+
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
-      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs));
+
+      const emptyTx = processor.makeEmptyProcessedTx();
+
+      const numRealTxs = validTxs.length;
+      const pow2 = Math.log2(numRealTxs);
+      const totalTxs = 2 ** Math.ceil(pow2);
+      const blockSize = Math.max(2, totalTxs);
+      const blockTicket = await this.prover.startNewBlock(
+        blockSize,
+        newGlobalVariables,
+        l1ToL2Messages,
+        emptyTx,
+      );
+
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs, blockSize, this.prover, txValidator));
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
@@ -206,37 +225,42 @@ export class Sequencer {
       // public functions emitting nullifiers would pass earlier check but fail here.
       // Note that we're checking all nullifiers generated in the private execution twice,
       // we could store the ones already checked and skip them here as an optimization.
-      const processedValidTxs = await this.takeValidTxs(processedTxs, txValidator);
+      const processedValidTxs = processedTxs;
 
       if (processedValidTxs.length === 0) {
         this.log('No txs processed correctly to build block. Exiting');
+        this.prover.cancelBlock();
         return;
       }
 
-      await assertBlockHeight();
+      await this.prover.setBlockCompleted();
 
-      // Get l1 to l2 messages from the contract
-      this.log('Requesting L1 to L2 messages from contract');
-      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(newBlockNumber));
-      this.log(`Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newBlockNumber}`);
+      const result = await blockTicket.provingPromise;
+      if (result.status === PROVING_STATUS.FAILURE) {
+        throw new Error(`Block proving failed, reason: ${result.reason}`);
+      }
+      const blockResult = await this.prover.finaliseBlock();
+      const block = blockResult.block;
+
+      await assertBlockHeight();
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
 
       await assertBlockHeight();
 
-      const emptyTx = processor.makeEmptyProcessedTx();
-      const [rollupCircuitsDuration, block] = await elapsed(() =>
-        this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
-      );
+      
+      // const [rollupCircuitsDuration, block] = await elapsed(() =>
+      //   this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
+      // );
 
-      this.log(`Assembled block ${block.number}`, {
-        eventName: 'l2-block-built',
-        duration: workTimer.ms(),
-        publicProcessDuration: publicProcessorDuration,
-        rollupCircuitsDuration: rollupCircuitsDuration,
-        ...block.getStats(),
-      } satisfies L2BlockBuiltStats);
+      // this.log(`Assembled block ${block.number}`, {
+      //   eventName: 'l2-block-built',
+      //   duration: workTimer.ms(),
+      //   publicProcessDuration: publicProcessorDuration,
+      //   rollupCircuitsDuration: rollupCircuitsDuration,
+      //   ...block.getStats(),
+      // } satisfies L2BlockBuiltStats);
 
       await assertBlockHeight();
 

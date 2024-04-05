@@ -8,6 +8,7 @@ import {
   makeProcessedTx,
   toTxEffect,
   validateProcessedTx,
+  BlockProver,
 } from '@aztec/circuit-types';
 import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import { type GlobalVariables, type Header } from '@aztec/circuits.js';
@@ -23,6 +24,7 @@ import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '.
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { type AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
+import { TxValidator } from './tx_validator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -85,7 +87,7 @@ export class PublicProcessor {
    * @param txs - Txs to process.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: Tx[]): Promise<[ProcessedTx[], FailedTx[], ProcessReturnValues[]]> {
+  public async process(txs: Tx[], maxTransactions = txs.length, blockProver?: BlockProver, txValidator?: TxValidator): Promise<[ProcessedTx[], FailedTx[], ProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
     txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
@@ -93,6 +95,9 @@ export class PublicProcessor {
     const returns: ProcessReturnValues[] = [];
 
     for (const tx of txs) {
+      if (result.length >= maxTransactions) {
+        break;
+      }
       let returnValues: ProcessReturnValues = undefined;
       let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
         tx,
@@ -133,7 +138,6 @@ export class PublicProcessor {
         const processedTransaction = makeProcessedTx(tx, publicKernelPublicInput, proof, revertReason);
         validateProcessedTx(processedTransaction);
 
-        result.push(processedTransaction);
         returns.push(returnValues);
 
         this.log(`Processed public part of ${tx.data.endNonRevertibleData.newNullifiers[0].value}`, {
@@ -145,6 +149,16 @@ export class PublicProcessor {
             0,
           ...tx.getStats(),
         } satisfies TxSequencerProcessingStats);
+        if (txValidator) {
+          const [_, invalid] = await txValidator.validateTxs([processedTransaction]);
+          if (invalid.length) {
+            throw new Error(`Transaction ${invalid[0].hash} invalid after public processing`);
+          }
+        }
+        if (blockProver) {
+          await blockProver?.addNewTx(processedTransaction);
+        }        
+        result.push(processedTransaction);
       } catch (err: any) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${tx.getTxHash()}: ${errorMessage}`);
