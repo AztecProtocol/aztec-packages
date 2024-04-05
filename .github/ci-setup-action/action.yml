@@ -28,6 +28,8 @@ runs:
     - name: Setup Earthly
       uses: earthly/actions-setup@v1
       with:
+        # permission issue with spot runners, simpler to leave out
+        use-cache: false
         version: 'v0.8.5'
 
     - name: Setup Env
