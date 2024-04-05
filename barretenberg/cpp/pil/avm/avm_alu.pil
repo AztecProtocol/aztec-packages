@@ -274,7 +274,7 @@ namespace avm_alu(256);
     cmp_sel = op_lt + op_lte;
 
     // ic is restricted to be 1 or 0 if we are performing a comparison
-    cmp_sel * (ic * (1 - ic)) = 0;
+    (cmp_sel + op_eq) * (ic * (1 - ic)) = 0;
 
    
 
@@ -292,23 +292,21 @@ namespace avm_alu(256);
 
     // These conditions can be combined with the GT constraint, q (that x > y) as follows:
     // (x - y - 1) * q + (y - x) (1 - q) = result
-    pol commit input_ia;
-    pol commit input_ib;
-    pol commit borrow;
 
     // If LT, then swap ia and ib else keep the same
-    input_ia  = op_lt * ib + op_lte * ia;
-    input_ib  = op_lt * ia + op_lte * ib;
+    pol INPUT_IA  = op_lt * ib + op_lte * ia;
+    pol INPUT_IB  = op_lt * ia + op_lte * ib;
 
+    pol commit borrow;
     pol commit a_lo;
     pol commit a_hi;
-    // Check input_ia is well formed from its lo and hi limbs
-    input_ia = (a_lo + 2 ** 128 * a_hi) * cmp_sel;
+    // Check INPUT_IA is well formed from its lo and hi limbs
+    INPUT_IA = (a_lo + 2 ** 128 * a_hi) * cmp_sel;
 
     pol commit b_lo;
     pol commit b_hi;
-    // Check input_ib is well formed from its lo and hi limbs
-    input_ib = (b_lo + 2 ** 128 * b_hi) * cmp_sel;
+    // Check INPUT_IB is well formed from its lo and hi limbs
+    INPUT_IB = (b_lo + 2 ** 128 * b_hi) * cmp_sel;
 
     pol commit p_sub_a_lo; // p_lo - a_lo
     pol commit p_sub_a_hi; // p_hi - a_hi
@@ -372,7 +370,7 @@ namespace avm_alu(256);
     //        This concludes the proof as for both cases, we must have: y >= x
     //
     // (2) Assume a proof satisfies the constraints for LTE(x,y,0), i.e. x > y.
-           Therefore ia = x, ib = y and ic = 0.
+    //     Therefore ia = x, ib = y and ic = 0.
     //    (a) We do not swap the operands, so a = x and b = y,
     //    (b) IS_GT = 1 - ic = 1
     //    (c) res_lo = A_SUB_B_LO and res_hi = A_SUB_B_HI
@@ -387,7 +385,7 @@ namespace avm_alu(256);
 
     // ========= Analysing res_lo and res_hi scenarios for LT ==================================
     // (1) Assume a proof satisfies the constraints for LT(x,y,1), i.e. x < y.
-           Therefore ia = x, ib = y and ic = 1.
+    //     Therefore ia = x, ib = y and ic = 1.
     //    (a) We DO swap the operands, so a = y and b = x,
     //    (b) IS_GT = ic = 1
     //    (c) res_lo = A_SUB_B_LO and res_hi = A_SUB_B_HI, **remember we have swapped inputs**
@@ -400,7 +398,7 @@ namespace avm_alu(256);
     //        This concludes the proof as for both cases, we must have: x < y
     //
     // (2) Assume a proof satisfies the constraint for LT(x,y,0), i.e. x >= y.
-           Therefore ia = x, ib = y and ic = 0.
+    //     Therefore ia = x, ib = y and ic = 0.
     //    (a) We DO swap the operands, so a = y and b = x,
     //    (b) IS_GT = ic = 0
     //    (c) res_lo = B_SUB_A_LO and res_hi = B_SUB_A_HI, **remember we have swapped inputs**
