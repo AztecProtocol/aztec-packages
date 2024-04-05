@@ -101,7 +101,10 @@ jobs:
       - name: Build
         working-directory: ./yarn-project/end-to-end/
         # We don't do much on arm, just run it on their builder
-        run: sleep 5
+        run:
+          # Flags:
+          # - e2e_mode=build to get images from a local build, not a dockerhub registry strategy
+          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_mode=build
 
   # all the end-to-end integration tests for aztec
   e2e-x86:
@@ -130,23 +133,23 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
 
-      # - name: Pull E2E Images
-      #   working-directory: ./barretenberg/cpp/
-      #   run: |
-      #     docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
-      #     docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
-      #     docker tag aztecprotocol/aztec-cache:$(git rev-parse HEAD) aztecprotocol/aztec:latest
-      #     docker tag aztecprotocol/end-to-end-cache:$(git rev-parse HEAD) aztecprotocol/end-to-end:latest
+      - name: Pull E2E Images
+        working-directory: ./barretenberg/cpp/
+        run: |
+          docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
+          docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
+          docker tag aztecprotocol/aztec-cache:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+          docker tag aztecprotocol/end-to-end-cache:$(git rev-parse HEAD) aztecprotocol/end-to-end:latest
 
-      # - name: Test
-      #   working-directory: ./yarn-project/end-to-end/
-      #   run: |
-      #     # we blank earthly token just to be sure this is a pure local run
-      #     EARTHLY_TOKEN="" earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
+      - name: Test
+        working-directory: ./yarn-project/end-to-end/
+        run: |
+          # we blank earthly token just to be sure this is a pure local run
+          EARTHLY_TOKEN="" earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
 
-      # - name: Upload logs
-      #   run: |
-      #     BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
+      - name: Upload logs
+        run: |
+          BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
 
   # barretenberg (prover) native tests
   bb-native-tests:
@@ -177,10 +180,10 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
 
-      # - name: Test
-      #   working-directory: ./barretenberg/cpp/
-      #   run: |
-      #     earthly-cloud test ${{ matrix.environment }} --no-output +test
+      - name: Test
+        working-directory: ./barretenberg/cpp/
+        run: |
+          earthly-cloud test ${{ matrix.environment }} --no-output +test
 
   # All benchmarks, purposefully ran sequential on a machine
   # they should use parallelism within the benchmark, but only one thing should run at a time
@@ -210,26 +213,26 @@ jobs:
           dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
           github_actor: ${{ github.actor }} 
 
-      # - name: Build and Push Binaries
-      #   working-directory: ./barretenberg/cpp/
-      #   run: earthly-cloud build x86 --push +bench-base
+      - name: Build and Push Binaries
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud build x86 --push +bench-base
 
-      # # Only allow one person to use this runner
-      # # The reason is that as detailed in https://github.com/ben-z/gh-action-mutex
-      # # things do not become 'pending' in github actions, and instead just cancel one another
-      # - name: Set up mutex
-      #   uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
-      #   with:
-      #     branch: gh-action-mutex-bench
+      # Only allow one person to use this runner
+      # The reason is that as detailed in https://github.com/ben-z/gh-action-mutex
+      # things do not become 'pending' in github actions, and instead just cancel one another
+      - name: Set up mutex
+        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+        with:
+          branch: gh-action-mutex-bench
 
-      # # Use bench_mode=cache to read the pushed build above
-      # - name: Client IVC Bench
-      #   working-directory: ./barretenberg/cpp/
-      #   run: earthly-cloud bench x86 --no-output +bench-client-ivc --bench_mode=cache
+      # Use bench_mode=cache to read the pushed build above
+      - name: Client IVC Bench
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud bench x86 --no-output +bench-client-ivc --bench_mode=cache
 
-      # - name: Ultrahonk Bench
-      #   working-directory: ./barretenberg/cpp/
-      #   run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache
+      - name: Ultrahonk Bench
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache
 
   # # Post actions, deploy and summarize logs
   # aztec-bench-summary:
