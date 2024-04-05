@@ -159,30 +159,7 @@ export class PublicCircuitPublicInputs {
   }
 
   isDefault() {
-    const isSideEffectArrayDefault = (arr: SideEffect[]) => isArrayEmpty(arr, item => item.isDefault());
-    const isSideEffectLinkedArrayDefault = (arr: SideEffectLinkedToNoteHash[]) =>
-      isArrayEmpty(arr, item => item.isDefault());
-    const isFrArrayZero = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
-    return (
-      this.callContext.isDefault() &&
-      this.argsHash.isZero() &&
-      isFrArrayZero(this.returnValues) &&
-      isArrayEmpty(this.nullifierReadRequests, item => item.isDefault()) &&
-      isArrayEmpty(this.nullifierNonExistentReadRequests, item => item.isDefault()) &&
-      isArrayEmpty(this.contractStorageUpdateRequests, item => item.isDefault()) &&
-      isArrayEmpty(this.contractStorageReads, item => item.isDefault()) &&
-      isFrArrayZero(this.publicCallStackHashes) &&
-      isSideEffectArrayDefault(this.newNoteHashes) &&
-      isSideEffectLinkedArrayDefault(this.newNullifiers) &&
-      isArrayEmpty(this.newL2ToL1Msgs, item => item.isDefault()) &&
-      this.startSideEffectCounter.isZero() &&
-      this.endSideEffectCounter.isZero() &&
-      this.unencryptedLogsHash.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicalHeader.isDefault() &&
-      this.proverAddress.isDefault() &&
-      this.revertCode.isOK()
-    );
+    return PublicCircuitPublicInputs.default().toBuffer().equals(this.toBuffer());
   }
 
   /**
