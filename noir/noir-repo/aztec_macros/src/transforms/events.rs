@@ -16,8 +16,7 @@ use crate::{
     chained_dep,
     utils::{
         ast_utils::{
-            call, expression, ident, ident_path, is_custom_attribute, make_statement, make_type,
-            path, variable_path,
+            call, expression, ident, ident_path, make_statement, make_type, path, variable_path,
         },
         constants::SIGNATURE_PLACEHOLDER,
         errors::AztecMacroError,
@@ -39,8 +38,7 @@ use crate::{
 /// This allows developers to emit events without having to write the signature of the event every time they emit it.
 /// The signature cannot be known at this point since types are not resolved yet, so we use a signature placeholder.
 /// It'll get resolved after by transforming the HIR.
-pub fn generate_selector_impl(structure: &mut NoirStruct) -> TypeImpl {
-    structure.attributes.push(SecondaryAttribute::Abi("events".to_string()));
+pub fn generate_selector_impl(structure: &NoirStruct) -> TypeImpl {
     let struct_type =
         make_type(UnresolvedTypeData::Named(path(structure.name.clone()), vec![], true));
 
@@ -176,7 +174,7 @@ pub fn transform_events(
 ) -> Result<(), (AztecMacroError, FileId)> {
     for struct_id in collect_crate_structs(crate_id, context) {
         let attributes = context.def_interner.struct_attributes(&struct_id);
-        if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(event)")) {
+        if attributes.iter().any(|attr| matches!(attr, SecondaryAttribute::Event)) {
             transform_event(struct_id, &mut context.def_interner)?;
         }
     }

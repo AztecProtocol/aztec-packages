@@ -1,25 +1,13 @@
 use acvm::acir::circuit::Program;
-use noirc_abi::{Abi, AbiType, AbiValue};
-use noirc_driver::{CompiledContract, CompiledContractOutputs, ContractFunction};
+use noirc_abi::{Abi, ContractEvent};
+use noirc_driver::{CompiledContract, ContractFunction};
 use serde::{Deserialize, Serialize};
 
 use noirc_driver::DebugFile;
 use noirc_errors::debug_info::DebugInfo;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use fm::FileId;
-
-#[derive(Serialize, Deserialize)]
-pub struct ContractOutputsArtifact {
-    pub structs: HashMap<String, Vec<AbiType>>,
-    pub globals: HashMap<String, Vec<AbiValue>>,
-}
-
-impl From<CompiledContractOutputs> for ContractOutputsArtifact {
-    fn from(outputs: CompiledContractOutputs) -> Self {
-        ContractOutputsArtifact { structs: outputs.structs, globals: outputs.globals }
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct ContractArtifact {
@@ -29,8 +17,8 @@ pub struct ContractArtifact {
     pub name: String,
     /// Each of the contract's functions are compiled into a separate program stored in this `Vec`.
     pub functions: Vec<ContractFunctionArtifact>,
-
-    pub outputs: ContractOutputsArtifact,
+    /// All the events defined inside the contract scope.
+    pub events: Vec<ContractEvent>,
     /// Map of file Id to the source code so locations in debug info can be mapped to source code they point to.
     pub file_map: BTreeMap<FileId, DebugFile>,
 }
@@ -41,7 +29,7 @@ impl From<CompiledContract> for ContractArtifact {
             noir_version: contract.noir_version,
             name: contract.name,
             functions: contract.functions.into_iter().map(ContractFunctionArtifact::from).collect(),
-            outputs: contract.outputs.into(),
+            events: contract.events,
             file_map: contract.file_map,
         }
     }

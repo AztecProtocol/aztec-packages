@@ -14,7 +14,10 @@ use transforms::{
 
 use noirc_frontend::{
     hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl},
-    macros_api::{CrateId, FileId, HirContext, MacroError, MacroProcessor, SortedModule, Span},
+    macros_api::{
+        CrateId, FileId, HirContext, MacroError, MacroProcessor, SecondaryAttribute, SortedModule,
+        Span,
+    },
 };
 
 use utils::{
@@ -87,18 +90,15 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
     let mut has_transformed_module = false;
 
     // Check for a user defined storage struct
+    let storage_defined = check_for_storage_definition(module);
+    let storage_implemented = check_for_storage_implementation(module);
 
-    let maybe_storage_struct_name = check_for_storage_definition(module)?;
-    let storage_defined = maybe_storage_struct_name.is_some();
-
-    if let Some(storage_struct_name) = maybe_storage_struct_name {
-        if !check_for_storage_implementation(module, &storage_struct_name) {
-            generate_storage_implementation(module, &storage_struct_name)?;
-        }
+    if storage_defined && !storage_implemented {
+        generate_storage_implementation(module)?;
     }
 
-    for structure in module.types.iter_mut() {
-        if structure.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(event)")) {
+    for structure in module.types.iter() {
+        if structure.attributes.iter().any(|attr| matches!(attr, SecondaryAttribute::Event)) {
             module.impls.push(generate_selector_impl(structure));
             has_transformed_module = true;
         }

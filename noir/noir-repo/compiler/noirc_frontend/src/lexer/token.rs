@@ -510,7 +510,6 @@ impl Attribute {
                 Attribute::Secondary(SecondaryAttribute::ContractLibraryMethod)
             }
             ["event"] => Attribute::Secondary(SecondaryAttribute::Event),
-            ["abi", tag] => Attribute::Secondary(SecondaryAttribute::Abi(tag.to_string())),
             ["export"] => Attribute::Secondary(SecondaryAttribute::Export),
             ["deprecated", name] => {
                 if !name.starts_with('"') && !name.ends_with('"') {
@@ -605,7 +604,6 @@ pub enum SecondaryAttribute {
     Export,
     Field(String),
     Custom(String),
-    Abi(String),
 }
 
 impl fmt::Display for SecondaryAttribute {
@@ -620,7 +618,6 @@ impl fmt::Display for SecondaryAttribute {
             SecondaryAttribute::Event => write!(f, "#[event]"),
             SecondaryAttribute::Export => write!(f, "#[export]"),
             SecondaryAttribute::Field(ref k) => write!(f, "#[field({k})]"),
-            SecondaryAttribute::Abi(ref k) => write!(f, "#[abi({k})]"),
         }
     }
 }
@@ -643,9 +640,7 @@ impl AsRef<str> for SecondaryAttribute {
         match self {
             SecondaryAttribute::Deprecated(Some(string)) => string,
             SecondaryAttribute::Deprecated(None) => "",
-            SecondaryAttribute::Custom(string)
-            | SecondaryAttribute::Field(string)
-            | SecondaryAttribute::Abi(string) => string,
+            SecondaryAttribute::Custom(string) | SecondaryAttribute::Field(string) => string,
             SecondaryAttribute::ContractLibraryMethod => "",
             SecondaryAttribute::Event | SecondaryAttribute::Export => "",
         }

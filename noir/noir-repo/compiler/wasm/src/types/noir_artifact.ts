@@ -1,44 +1,6 @@
 import { Abi, AbiType } from '@noir-lang/types';
 
 /**
- * A basic value.
- */
-export interface BasicValue<T extends string, V> {
-  /**
-   * The kind of the value.
-   */
-  kind: T;
-  value: V;
-}
-
-/**
- * An exported value.
- */
-export type AbiValue =
-  | BasicValue<'boolean', boolean>
-  | BasicValue<'string', string>
-  | BasicValue<'array', AbiValue[]>
-  | TupleValue
-  | IntegerValue
-  | StructValue;
-
-export type TypedStructFieldValue<T> = { name: string; value: T };
-
-export interface StructValue {
-  kind: 'struct';
-  fields: TypedStructFieldValue<AbiValue>[];
-}
-
-export interface TupleValue {
-  kind: 'tuple';
-  fields: AbiValue[];
-}
-
-export interface IntegerValue extends BasicValue<'integer', string> {
-  sign: boolean;
-}
-
-/**
  * A named type.
  */
 export interface ABIVariable {
@@ -50,6 +12,24 @@ export interface ABIVariable {
    * The type of the variable.
    */
   type: AbiType;
+}
+
+/**
+ * A contract event.
+ */
+export interface EventAbi {
+  /**
+   * The event name.
+   */
+  name: string;
+  /**
+   * Fully qualified name of the event.
+   */
+  path: string;
+  /**
+   * The fields of the event.
+   */
+  fields: ABIVariable[];
 }
 
 /**
@@ -80,11 +60,8 @@ export interface ContractArtifact {
   noir_version: string;
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
-
-  outputs: {
-    structs: Record<string, AbiType[]>;
-    globals: Record<string, AbiValue[]>;
-  };
+  /** The events of the contract */
+  events: EventAbi[];
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
 }
