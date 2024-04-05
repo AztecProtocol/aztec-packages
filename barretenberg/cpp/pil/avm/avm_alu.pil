@@ -357,61 +357,63 @@ namespace avm_alu(256);
 
     // When IS_GT = 1, we enforce the condition that a > b and thus a - b - 1 does not underflow.
     // When IS_GT = 0, we enforce the condition that a <= b and thus b - a does not underflow.
-    // ========= Analysing res_lo and res_hi scenarios for x <= y ===============================
-    // (1) An honest prover claims that LTE(x,y,1). Therefore ia = x, ib = y and ic = 1.
+    // ========= Analysing res_lo and res_hi scenarios for LTE =================================
+    // (1) Assume a proof satisfies the constraints for LTE(x,y,1), i.e., x <= y
+    //     Therefore ia = x, ib = y and ic = 1.
     //    (a) We do not swap the operands, so a = x and b = y,
     //    (b) IS_GT = 1 - ic = 0
     //    (c) res_lo = B_SUB_A_LO and res_hi = B_SUB_A_HI
     //    (d) res_lo = y_lo - x_lo + borrow * 2**128 and res_hi = y_hi - x_hi - borrow.
-    //    (e) the only valid input here to ensure no underflow is
-    //      (i)   x == y && borrow = 0 or,
-    //      (ii)  x < y where x_lo < y_lo && x_hi <= y_hi && borrow = 0 or
-    //      (iii) x < y where x_lo > y_lo && x_hi < y_hi && borrow = 1
+    //    (e) Due to 128-bit range checks on res_lo, res_hi, y_lo, x_lo, y_hi, y_lo, we
+    //        have the guarantee that res_lo >= 0 && res_hi >= 0. Furthermore, borrow is
+    //        boolean and so we have two cases to consider:
+    //         (i)  borrow == 0 ==> y_lo >= x_lo && y_hi >= x_hi
+    //         (ii) borrow == 1 ==> y_hi >= x_hi + 1 ==> y_hi > x_hi
+    //        This concludes the proof as for both cases, we must have: y >= x
     //
-    // (2) A malicious prover claims that LTE(x,y,0), i.e. y > x. Therefore ia = x, ib = y and ic = 0.
+    // (2) Assume a proof satisfies the constraints for LTE(x,y,0), i.e. x > y.
+           Therefore ia = x, ib = y and ic = 0.
     //    (a) We do not swap the operands, so a = x and b = y,
     //    (b) IS_GT = 1 - ic = 1
     //    (c) res_lo = A_SUB_B_LO and res_hi = A_SUB_B_HI
     //    (d) res_lo = x_lo - y_lo - 1 + borrow * 2**128 and res_hi = x_hi - y_hi - borrow.
-    //    (e) Given that, in reality, x <= y. The following underflows happen
-    //      (i)    x == y && borrow = 0, res_lo = -1 and underflows.
-    //      (ii)   x == y && borrow = 1, res_hi = -1 and underflows.
-    //      (iii)  x < y where x_lo < y_lo && x_hi  == y_hi && borrow = 0, res_lo < 0 and underflows
-    //      (iv)   x < y where x_lo < y_lo && x_hi  == y_hi && borrow = 1, res_hi = -1 and underflows
-    //      (v)    x < y where x_lo < y_lo && x_hi  <  y_hi && borrow = 0, res_lo & res_hi < 0 both underflows
-    //      (vi)   x < y where x_lo < y_lo && x_hi  <  y_hi && borrow = 1, res_hi < 0 and underflows
-    //      (vii)  x < y where x_lo == y_lo && x_hi < y_hi && borrow = 0, res_lo = -1 && res_hi < 0 both underflows
-    //      (viii) x < y where x_lo == y_lo && x_hi < y_hi && borrow = 1, res_hi < 0 and underflows
-    //      (ix)   x < y where x_lo > y_lo && x_hi  <  y_hi && borrow = 0, res_hi < 0 and underflows
-    //      (x)    x < y where x_lo > y_lo && x_hi  <  y_hi && borrow = 1, res_hi < 0 and underflows
+    //    (e) Due to 128-bit range checks on res_lo, res_hi, y_lo, x_lo, y_hi, y_lo, we
+    //        have the guarantee that res_lo >= 0 && res_hi >= 0. Furthermore, borrow is
+    //        boolean and so we have two cases to consider:
+    //         (i)  borrow == 0 ==> x_lo > y_lo && x_hi >= y_hi
+    //         (ii) borrow == 1 ==> x_hi > y_hi
+    //        This concludes the proof as for both cases, we must have: x > y
+    //
 
-
-    // ========= Analysing res_lo and res_hi scenarios for x < y ===============================
-    // (1) An honest prover claims that LT(x,y,1). Therefore ia = x, ib = y and ic = 1.
+    // ========= Analysing res_lo and res_hi scenarios for LT ==================================
+    // (1) Assume a proof satisfies the constraints for LT(x,y,1), i.e. x < y.
+           Therefore ia = x, ib = y and ic = 1.
     //    (a) We DO swap the operands, so a = y and b = x,
     //    (b) IS_GT = ic = 1
     //    (c) res_lo = A_SUB_B_LO and res_hi = A_SUB_B_HI, **remember we have swapped inputs**
     //    (d) res_lo = y_lo - x_lo - 1 + borrow * 2**128 and res_hi = y_hi - x_hi - borrow.
-    //    (e) the only valid input here to ensure no underflow is
-    //      (i)  x < y where x_lo < y_lo && x_hi <= y_hi && borrow = 0 or
-    //      (ii) x < y where x_lo >= y_lo && x_hi < y_hi && borrow = 1
+    //    (e) Due to 128-bit range checks on res_lo, res_hi, y_lo, x_lo, y_hi, y_lo, we
+    //        have the guarantee that res_lo >= 0 && res_hi >= 0. Furthermore, borrow is
+    //        boolean and so we have two cases to consider:
+    //         (i)  borrow == 0 ==> y_lo > x_lo && y_hi >= x_hi
+    //         (ii) borrow == 1 ==> y_hi > x_hi
+    //        This concludes the proof as for both cases, we must have: x < y
     //
-    // (2) A malicious prover claims that LT(x,y,0), i.e. !(x < y) -> (x >= y). Therefore ia = x, ib = y and ic = 0.
+    // (2) Assume a proof satisfies the constraint for LT(x,y,0), i.e. x >= y.
+           Therefore ia = x, ib = y and ic = 0.
     //    (a) We DO swap the operands, so a = y and b = x,
     //    (b) IS_GT = ic = 0
     //    (c) res_lo = B_SUB_A_LO and res_hi = B_SUB_A_HI, **remember we have swapped inputs**
     //    (d) res_lo = x_lo - y_lo + borrow * 2**128 and res_hi = x_hi - y_hi - borrow.
-    //    (e) Given that, in reality, x < y. The following underflows happen
-    //      (i)   x < y where x_lo < y_lo && x_hi == y_hi && borrow = 0, res_lo < 0 and underflows
-    //      (ii)  x < y where x_lo < y_lo && x_hi == y_hi && borrow = 1, res_hi = -1 and underflows
-    //      (iii) x < y where x_lo < y_lo && x_hi <  y_hi && borrow = 0, res_lo && res_hi < 0 and underflows
-    //      (iv)  x < y where x_lo < y_lo && x_hi <  y_hi && borrow = 1, res_hi < 0 and underflows
-    //      (v)   x < y where x_lo > y_lo && x_hi <  y_hi && borrow = 0, res_hi < 0 and underflows
-    //      (vi)  x < y where x_lo > y_lo && x_hi <  y_hi && borrow = 1, res_lo overflows && res_hi < 0 and underflows
+    //    (e) Due to 128-bit range checks on res_lo, res_hi, y_lo, x_lo, y_hi, y_lo, we
+    //        have the guarantee that res_lo >= 0 && res_hi >= 0. Furthermore, borrow is
+    //        boolean and so we have two cases to consider:
+    //         (i)  borrow == 0 ==> x_lo >= y_lo && x_hi >= y_hi
+    //         (ii) borrow == 1 ==> x_hi > y_hi
+    //        This concludes the proof as for both cases, we must have: x >= y
 
     res_lo = (A_SUB_B_LO * IS_GT + B_SUB_A_LO * (1 - IS_GT)) * cmp_sel;
     res_hi = (A_SUB_B_HI * IS_GT + B_SUB_A_HI * (1 - IS_GT)) * cmp_sel;
-
 
     // ========= RANGE OPERATIONS ===============================
     // TODO: 8-bit and 16-bit range checks for the respective registers have not yet been implemented.
