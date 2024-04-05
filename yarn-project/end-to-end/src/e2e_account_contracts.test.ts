@@ -38,6 +38,7 @@ function itShouldBehaveLikeAnAccountContract(
 
     beforeEach(async () => {
       ({ logger, pxe, teardown } = await setup(0));
+
       encryptionPrivateKey = GrumpkinScalar.random();
 
       wallet = await walletSetup(pxe, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
