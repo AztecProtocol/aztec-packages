@@ -132,8 +132,8 @@ export class PublicCircuitPublicInputs {
   }
 
   /**
-   * Returns an default instance (zeroed).
-   * @returns An default instance (zeroed).
+   * Returns a default instance (zeroed).
+   * @returns A default instance (zeroed).
    */
   public static default() {
     return new PublicCircuitPublicInputs(
