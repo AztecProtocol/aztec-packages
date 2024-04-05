@@ -34,7 +34,7 @@ jobs:
   # there's a lot of x86 tasks - let's split out the build step
   build-x86:
     needs: start-runner
-    runs-on: ${{ github.run_id }}
+    runs-on: ${{ github.actor }}
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
     env:
@@ -74,7 +74,7 @@ jobs:
   # all the end-to-end integration tests for aztec
   e2e-arm:
     needs: start-runner
-    runs-on: ${{ github.run_id }}     
+    runs-on: ${{ github.actor }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -107,7 +107,7 @@ jobs:
   # all the end-to-end integration tests for aztec
   e2e-x86:
     needs: build-x86
-    runs-on: ${{ github.run_id }}     
+    runs-on: ${{ github.actor }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -152,7 +152,7 @@ jobs:
   # barretenberg (prover) native tests
   bb-native-tests:
     needs: start-runner
-    runs-on: ${{ github.run_id }}     
+    runs-on: ${{ github.actor }}     
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     strategy:
@@ -188,7 +188,7 @@ jobs:
   # for accurate results
   # We don't depend on 'build' as we use a different runner and will build components on the fist step that uses them.
   bb-bench:
-    runs-on: ${{ github.run_id }}
+    runs-on: ${{ github.actor }}
     needs: start-runner
     env:
       EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
@@ -234,7 +234,7 @@ jobs:
 
   # # Post actions, deploy and summarize logs
   # aztec-bench-summary:
-  #   runs-on: ${{ github.run_id }}     
+  #   runs-on: ${{ github.actor }}     
   #  # IMPORTANT security flaw if we don't need 'check-run-condition'
   #   needs: e2e-x86
   #   concurrency:
