@@ -32,13 +32,13 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
     // calldata with some mock data then constuct a single calldata read gate
 
     // Create an arbitrary calldata read gate
-    add_public_calldata(FF(25)); // ensure there is at least one entry in calldata
+    add_public_calldata(this->add_variable(25)); // ensure there is at least one entry in calldata
     auto raw_read_idx = static_cast<uint32_t>(databus[BusId::CALLDATA].size()) - 1; // read data that was just added
     auto read_idx = this->add_variable(raw_read_idx);
     read_calldata(read_idx);
 
     // Create an arbitrary return data read gate
-    add_public_return_data(FF(17)); // ensure there is at least one entry in return data
+    add_public_return_data(this->add_variable(17)); // ensure there is at least one entry in return data
     raw_read_idx = static_cast<uint32_t>(databus[BusId::RETURNDATA].size()) - 1; // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
     read_return_data(read_idx);
@@ -233,8 +233,9 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
  * @return uint32_t Variable index of the result of the read
  */
 template <typename FF>
-uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, const uint32_t& read_idx_witness_idx)
+uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx)
 {
+    auto& bus_vector = databus[bus_idx];
     // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 
@@ -247,6 +248,8 @@ uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusVector& bus_vector, 
     FF value = this->get_variable(bus_vector[read_idx]);
     uint32_t value_witness_idx = this->add_variable(value);
 
+    // WORKTODO: make bus idx first input?
+    create_databus_read_gate({ read_idx_witness_idx, value_witness_idx }, bus_idx);
     bus_vector.increment_read_count(read_idx);
 
     return value_witness_idx;

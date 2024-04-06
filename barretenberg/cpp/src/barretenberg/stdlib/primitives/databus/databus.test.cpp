@@ -16,32 +16,6 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-TEST(Databus, CallDataRead)
-{
-    Builder builder;
-
-    // Define values that will comprise calldata
-    std::vector<field_ct> table_values;
-    const size_t bus_vector_size = 10;
-    for (size_t i = 0; i < bus_vector_size; ++i) {
-        table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
-    }
-
-    // Instantiate bus vector with values
-    bus_vector_ct bus_vector(table_values);
-
-    // Perform some reads from the calldata
-    field_ct read_idx(witness_ct(&builder, 3));
-    field_ct read_result = bus_vector[read_idx];
-
-    // Perform some operations on the read results to create more gates
-    field_ct a(witness_ct(&builder, fr::random_element()));
-    field_ct b(witness_ct(&builder, fr::random_element()));
-    [[maybe_unused]] field_ct c = a * read_result + b;
-
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
 TEST(Databus, CallDataAndReturnData)
 {
     Builder builder;

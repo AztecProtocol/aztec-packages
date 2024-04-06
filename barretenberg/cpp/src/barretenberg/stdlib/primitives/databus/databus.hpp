@@ -6,6 +6,7 @@
 namespace bb::stdlib {
 
 // WORKTODO: template with GoblinBuilder only
+// WORKTODO: make this a member of the databus class. dont want it to be usable independently
 template <typename Builder> class bus_vector {
   private:
     using field_pt = field_t<Builder>;
@@ -13,10 +14,8 @@ template <typename Builder> class bus_vector {
   public:
     bus_vector() = default;
     bus_vector(const std::vector<field_pt>& entries);
-    bus_vector(const uint32_t& bus_idx)
+    bus_vector(const BusId bus_idx)
         : bus_idx(bus_idx){};
-
-    void set_bus_idx(const uint32_t& idx) { bus_idx = idx; };
 
     void set_values(const std::vector<field_pt>& entries);
 
@@ -36,7 +35,7 @@ template <typename Builder> class bus_vector {
     std::vector<field_pt> raw_entries;
     mutable std::vector<field_pt> entries;
     size_t length = 0;
-    mutable uint32_t bus_idx = 0; // Idx of column in bus
+    mutable BusId bus_idx; // Idx of column in bus
     mutable bool initialized = false;
     mutable Builder* context = nullptr;
 };
