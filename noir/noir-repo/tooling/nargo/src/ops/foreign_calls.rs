@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use acvm::{
     acir::brillig::{ForeignCallParam, ForeignCallResult},
     pwg::ForeignCallWaitInfo,
@@ -162,7 +164,7 @@ impl DefaultForeignCallExecutor {
     pub fn new(show_output: bool, resolver_url: Option<&str>) -> Self {
         let oracle_resolver = resolver_url.map(|resolver_url| {
             let transport_builder =
-                Builder::new().url(resolver_url).expect("Invalid oracle resolver URL");
+                Builder::new().url(resolver_url).expect("Invalid oracle resolver URL").timeout(Duration::from_secs(120));
             Client::with_transport(transport_builder.build())
         });
         DefaultForeignCallExecutor {
