@@ -41,23 +41,3 @@ impl<T> PublicMutable<T> {
     }
     // docs:end:public_mutable_struct_write
 }
-
-trait WrapperRead<T> {
-    fn wrapper_read(self) -> T;
-}
-
-trait WrapperWrite<T> {
-    fn wrapper_write(self, val: T) -> ();
-}
-
-impl<T, T_SERIALIZED_LEN> WrapperRead<T> for PublicMutable<T> where T: Deserialize<T_SERIALIZED_LEN> {
-    fn wrapper_read(self) -> T {
-        self.read()
-    }
-}
-
-impl<T, T_SERIALIZED_LEN> WrapperWrite<T> for PublicMutable<T> where T: Serialize<T_SERIALIZED_LEN> {
-    fn wrapper_write(self, val: T) -> () {
-        self.write(val)
-    }
-}
