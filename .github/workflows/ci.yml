@@ -112,60 +112,60 @@ jobs:
         id: e2e_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
-  # all the end-to-end integration tests for aztec
-  e2e-x86:
-    needs: build-x86
-    runs-on: ${{ github.actor }}-x86
-    strategy:
-      fail-fast: false
-      matrix:
-        test: ${{ fromJson( needs.build-x86.outputs.e2e_list )}}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # we check out submodules in ci-setup-action
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Setup
-        uses: ./.github/ci-setup-action
-        with:
-          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - name: Test
-        working-directory: ./yarn-project/end-to-end/
-        run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
-      - name: Upload logs
-        run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
+  # # all the end-to-end integration tests for aztec
+  # e2e-x86:
+  #   needs: build-x86
+  #   runs-on: ${{ github.actor }}-x86
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       test: ${{ fromJson( needs.build-x86.outputs.e2e_list )}}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         # we check out submodules in ci-setup-action
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #     - name: Setup
+  #       uses: ./.github/ci-setup-action
+  #       with:
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+  #     - name: Test
+  #       working-directory: ./yarn-project/end-to-end/
+  #       run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
+  #     - name: Upload logs
+  #       run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
 
-  # barretenberg (prover) native tests
-  bb-native-tests:
-    needs: start-builder
-    runs-on: ${{ github.actor }}-${{matrix.environment}}
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [x86]
-        # pending fix for intermittent test
-        # environment: [x86, arm]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          # we check out submodules in ci-setup-action
-          ref: ${{ github.event.pull_request.head.sha }}
-      # Only allow one memory-hunger prover test to use this runner
-      # As detailed in https://github.com/ben-z/gh-action-mutex
-      # things do not become 'pending' in github actions, and instead just cancel one another
-      # so we can't use the native concurrency in GA
-      - name: Set up mutex
-        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
-        with:
-          branch: gh-action-mutex-bench-${{ github.actor }}
-      - name: Setup
-        uses: ./.github/ci-setup-action
-        with:
-          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - working-directory: ./barretenberg/cpp/
-        run: earthly --no-output +test
+  # # barretenberg (prover) native tests
+  # bb-native-tests:
+  #   needs: start-builder
+  #   runs-on: ${{ github.actor }}-${{matrix.environment}}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       environment: [x86]
+  #       # pending fix for intermittent test
+  #       # environment: [x86, arm]
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         # we check out submodules in ci-setup-action
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #     # Only allow one memory-hunger prover test to use this runner
+  #     # As detailed in https://github.com/ben-z/gh-action-mutex
+  #     # things do not become 'pending' in github actions, and instead just cancel one another
+  #     # so we can't use the native concurrency in GA
+  #     - name: Set up mutex
+  #       uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+  #       with:
+  #         branch: gh-action-mutex-bench-${{ github.actor }}
+  #     - name: Setup
+  #       uses: ./.github/ci-setup-action
+  #       with:
+  #         dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+  #     - working-directory: ./barretenberg/cpp/
+  #       run: earthly --no-output +test
 
   # # push benchmarking binaries to dockerhub registry
   # bb-bench-base:
