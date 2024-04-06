@@ -6,10 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       runner_action:
-        description: The action to take with the self-hosted runner (start, stop, restart).
+        description: "The action to take with the self-hosted runner (start, stop, restart)."
         required: false
 concurrency:
-  group: ci-${{ github.ref_name == 'master' && github.run_id || github.actor }}
+  # force parallelism 
+  group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   # Start cheap (~1/8th the cost of on demand, ~13th the cost of large GA runners) spot builders
   # just for the CI job. These are specced per user and run the entire CI. 
@@ -153,6 +155,14 @@ jobs:
         with:
           # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
+      # Only allow one memory-hunger prover test to use this runner
+      # As detailed in https://github.com/ben-z/gh-action-mutex
+      # things do not become 'pending' in github actions, and instead just cancel one another
+      # so we can't use the native concurrency in GA
+      - name: Set up mutex
+        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+        with:
+          branch: gh-action-mutex-bench-${{ github.actor }}
       - name: Setup
         uses: ./.github/ci-setup-action
         with:
