@@ -1,4 +1,4 @@
-mod array_dynamic_private;
+// mod array_dynamic_private;
 mod array_dynamic_public;
 mod array_fixed;
 mod map;
@@ -10,7 +10,7 @@ mod private_set;
 mod shared_immutable;
 mod storage;
 
-use crate::state_vars::array_dynamic_private::PrivateDynamicArray;
+// use crate::state_vars::array_dynamic_private::PrivateDynamicArray;
 use crate::state_vars::array_dynamic_public::PublicDynamicArray;
 use crate::state_vars::array_fixed::FixedArray;
 
