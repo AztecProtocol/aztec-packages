@@ -6,10 +6,6 @@ inputs:
   dockerhub_password:
     required: true
     description: 'DockerHub Password'
-  github_actor:
-    required: true
-    description: 'GitHub Actor'
-
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -46,4 +42,4 @@ runs:
 
     - name: Setup Env
       shell: bash
-      run: ./scripts/setup_env.sh ${{ inputs.dockerhub_password }} ${{ inputs.github_actor }}
+      run: ./scripts/setup_env.sh ${{ inputs.dockerhub_password }}
