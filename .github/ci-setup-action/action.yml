@@ -33,6 +33,10 @@ runs:
         echo HOME=$RUN_HOME >> $GITHUB_ENV
         mkdir -p $RUN_HOME
 
+    # TODO reconsider how jq gets into image
+    - name: Setup jq
+      uses: dcarbone/install-jq-action@v2.1.0
+
     - name: Setup Earthly
       uses: earthly/actions-setup@v1
       with:

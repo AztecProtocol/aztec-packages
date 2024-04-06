@@ -13,6 +13,7 @@ E2E_TEST_LOCAL:
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
   ENV DEBUG="$debug"
+  ENV AZTEC_DOCKER_TAG=
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
     --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
@@ -22,16 +23,18 @@ E2E_TEST_LOCAL:
   END
 
 # run locally and take from cache, used for our mainly x86 jobs
-E2E_TEST_FROM_DOCKERHUB:
+E2E_TEST_FROM_CACHE:
   FUNCTION
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG enable_gas=""
   ARG debug="aztec:*"
+  ARG aztec_docker_tag
   LOCALLY
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
   ENV DEBUG="$debug"
+  ENV AZTEC_DOCKER_TAG=$aztec_docker_tag
   # In CI we do not use WITH DOCKER as we have had issues with earthly copying big images
   RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
@@ -47,7 +50,7 @@ E2E_TEST_FROM_BUILD:
   ENV TEST=$test
   ENV DEBUG=$debug
   COPY $compose_file $compose_file
-  # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_DOCKERHUB
+  # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_CACHE
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
     --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
@@ -67,7 +70,7 @@ E2E_TEST:
   IF [ $e2e_mode = local ]
     DO +E2E_TEST_LOCAL --test=$test --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
   ELSE IF [ $e2e_mode = cache ]
-    DO +E2E_TEST_FROM_DOCKERHUB --test=$test --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
+    DO +E2E_TEST_FROM_CACHE --test=$test --aztec_docker_tag=$(git rev-parse HEAD) --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
   ELSE
     DO +E2E_TEST_FROM_BUILD --test=$test --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
   END

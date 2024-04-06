@@ -13,10 +13,10 @@ services:
       - '8545'
 
   sandbox:
-    image: aztecprotocol/aztec:latest
+    image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
     environment:
       DEBUG: 'aztec:*'
-      DEBUG_COLORS: 1
+      DEBUG_COLORS: 1A
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       ARCHIVER_POLLING_INTERVAL_MS: 50
@@ -30,7 +30,7 @@ services:
       - '8080'
 
   end-to-end:
-    image: aztecprotocol/end-to-end:latest
+    image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
     environment:
       BENCHMARK: 'true'
       DEBUG: ${DEBUG:-aztec:*}

@@ -84,6 +84,6 @@ end-to-end-minimal:
 build-end-to-end:
     ARG EARTHLY_GIT_HASH
     FROM +end-to-end-minimal
-    SAVE IMAGE --push aztecprotocol/end-to-end-cache:$EARTHLY_GIT_HASH
+    SAVE IMAGE --push aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
     FROM +aztec
-    SAVE IMAGE --push aztecprotocol/aztec-cache:$EARTHLY_GIT_HASH
+    SAVE IMAGE --push aztecprotocol/aztec:$EARTHLY_GIT_HASH
