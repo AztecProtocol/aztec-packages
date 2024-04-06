@@ -241,6 +241,20 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
         }
     }
 
+    // TEMPORARY: Add a "magic number" instruction to the end of the program.
+    // This makes it possible to know that the bytecode corresponds to the AVM.
+    // We are adding a MOV instruction that moves a value to itself.
+    // This should therefore not affect the program's execution.
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::MOV,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 { value: 0x18ca },
+            AvmOperand::U32 { value: 0x18ca },
+        ],
+        ..Default::default()
+    });
+
     dbg_print_avm_program(&avm_instrs);
 
     // Constructing bytecode from instructions
@@ -286,6 +300,9 @@ fn handle_foreign_call(
         }
         "avmOpcodePoseidon" => {
             handle_single_field_hash_instruction(avm_instrs, function, destinations, inputs)
+        }
+        "avmOpcodeGetContractInstance" => {
+            handle_get_contract_instance(avm_instrs, destinations, inputs)
         }
         "storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
@@ -949,6 +966,42 @@ fn handle_storage_write(
             },
             AvmOperand::U32 {
                 value: slot_offset as u32,
+            },
+        ],
+        ..Default::default()
+    })
+}
+
+/// Emit a GETCONTRACTINSTANCE opcode
+fn handle_get_contract_instance(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 1);
+    assert!(destinations.len() == 1);
+
+    let address_offset_maybe = inputs[0];
+    let address_offset = match address_offset_maybe {
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
+        _ => panic!("GETCONTRACTINSTANCE address should be a single value"),
+    };
+
+    let dest_offset_maybe = destinations[0];
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer.0,
+        _ => panic!("GETCONTRACTINSTANCE destination should be an array"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::GETCONTRACTINSTANCE,
+        indirect: Some(FIRST_OPERAND_INDIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: address_offset as u32,
+            },
+            AvmOperand::U32 {
+                value: dest_offset as u32,
             },
         ],
         ..Default::default()

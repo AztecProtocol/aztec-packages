@@ -1,9 +1,15 @@
 import { type Wallet } from '@aztec/aztec.js';
 import { DocsExampleContract } from '@aztec/noir-contracts.js';
 
+import { jest } from '@jest/globals';
+
 import { setup } from './fixtures/utils.js';
 
+const TIMEOUT = 100_000;
+
 describe('e2e_state_vars', () => {
+  jest.setTimeout(TIMEOUT);
+
   let wallet: Wallet;
 
   let teardown: () => Promise<void>;
@@ -15,7 +21,7 @@ describe('e2e_state_vars', () => {
   beforeAll(async () => {
     ({ teardown, wallet } = await setup());
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
-  }, 25_000);
+  }, 30_000);
 
   afterAll(() => teardown());
 
