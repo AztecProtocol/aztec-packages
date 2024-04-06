@@ -19,5 +19,9 @@ COPY --dir lib scripts src terraform test *.json *.toml *.sh .
 
 build:
     RUN git init && git add . && yarn lint && yarn slither && yarn slither-has-diff
-    RUN forge clean && forge fmt --check && forge build && forge test --no-match-contract UniswapPortalTest
+    RUN forge clean && forge build && forge test --no-match-contract UniswapPortalTest
     SAVE ARTIFACT out
+
+# not part of build as was too brittle - should CI just push if this changes?
+format-check:
+    RUN forge fmt --check

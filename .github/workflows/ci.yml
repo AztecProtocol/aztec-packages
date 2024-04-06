@@ -19,7 +19,7 @@ jobs:
   # TODO build steps that ran in previous invocations are quickly ran from cache.
   start-builder:
     timeout-minutes: 5
-    name: Start self-hosted EC2 runner (x86)
+    name: Start Build Runner (${{ matrix.config.runner_label_suffix }})
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -172,7 +172,7 @@ jobs:
     timeout-minutes: 5
     # We wait for binaries to be done for kickoff
     needs: bb-bench-base
-    name: Start self-hosted EC2 runner (ARM)
+    name: Start Bench Runner
     runs-on: ubuntu-latest
     permissions:
       actions: write        
