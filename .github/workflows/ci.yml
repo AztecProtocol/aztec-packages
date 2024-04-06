@@ -135,7 +135,7 @@ jobs:
 
   # barretenberg (prover) native tests
   bb-native-tests:
-    needs: start-builder
+    needs: setup-x86
     runs-on: ${{ github.actor }}-${{matrix.environment}}
     strategy:
       fail-fast: false
@@ -160,7 +160,7 @@ jobs:
   # push benchmarking binaries to dockerhub registry
   bb-bench-base:
     runs-on: ${{ github.actor }}-x86
-    needs: start-builder
+    needs: setup-x86
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
