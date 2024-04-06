@@ -6,9 +6,6 @@ use crate::{
     context::{Context,PrivateContext}, state_vars::{storage::Storage,map::Map},
 };
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
-use crate::note::{
-    note_header::NoteHeader, note_interface::NoteInterface,
-};
 
 global SIMPLE_NOTE_LENGTH = 1;
 

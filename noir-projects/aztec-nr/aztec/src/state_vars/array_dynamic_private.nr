@@ -1,8 +1,4 @@
 use crate::{
-    note::{
-      note_header::NoteHeader,
-      note_interface::NoteInterface,
-  },
     context::{Context,PrivateContext}, oracle::{storage::{storage_read, storage_write}}, state_vars::{storage::Storage,map::Map,private_mutable::PrivateMutable},
 };
 use dep::protocol_types::{hash::pedersen_hash, constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};

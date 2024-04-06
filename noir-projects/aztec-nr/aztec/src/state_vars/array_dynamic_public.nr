@@ -18,6 +18,7 @@ impl<T> PublicDynamicArray<T> {
     state_var_constructor: fn(Context, Field) -> T
   ) -> Self {
     assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
+    assert(context.private.is_none(), "PublicDynamicArrays can be initialized from public only.");
 
     PublicDynamicArray { 
       context, 
@@ -31,6 +32,8 @@ impl<T> PublicDynamicArray<T> {
   }
 
   pub fn push(mut self) -> T {
+    assert(self.context.private.is_none(), "PublicDynamicArrays can be pushed from public only.");
+
     let array_read: [Field; 1] = storage_read(self.storage_slot);
     let array_length = array_read[0];
 
@@ -42,6 +45,8 @@ impl<T> PublicDynamicArray<T> {
   }
 
   pub fn pop<U, T_SERIALIZED_LEN>(mut self) -> T where U: Deserialize<T_SERIALIZED_LEN> {
+    assert(self.context.private.is_none(), "PublicDynamicArrays can be popped from public only.");
+
     let array_read: [Field; 1] = storage_read(self.storage_slot);
     let array_length = array_read[0];
     let new_array_length = array_length - 1;
@@ -59,15 +64,14 @@ impl<T> PublicDynamicArray<T> {
   }
 
   pub fn remove<U, T_SERIALIZED_LEN>(self, index: Field) where U: Deserialize<T_SERIALIZED_LEN> {
+    assert(self.context.private.is_none(), "PublicDynamicArrays can be pushed from public only.");
+
     let derived_storage_slot = pedersen_hash([self.storage_slot + INITIALIZATION_SLOT_SEPARATOR, index], 0);
 
     storage_write(derived_storage_slot, [0; T_SERIALIZED_LEN]);
   }
 
   pub fn at_index(self, index: Field) -> T {
-    let array_read: [Field; 1] = storage_read(self.storage_slot);
-    let array_length = array_read[0];
-
     self.map.at(index)
   }
 
