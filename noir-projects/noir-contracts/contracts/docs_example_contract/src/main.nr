@@ -23,7 +23,7 @@ contract DocsExample {
     use dep::aztec::{
         note::note_getter_options::Comparator,
         context::{PublicContext, Context},
-        state_vars::{FixedArray, PublicDynamicArray, PrivateDynamicArray},
+        state_vars::{FixedArray, PublicDynamicArray},
         log::emit_unencrypted_log};
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
@@ -55,9 +55,9 @@ contract DocsExample {
         // docs:start:storage-public-immutable-declaration
         public_immutable: PublicImmutable<Leader>,
         // docs:end:storage-public-immutable-declaration
-        fixed_array_test: FixedArray<PublicMutable<u64>, 10>,
-        dynamic_array_test_pub: PublicDynamicArray<PublicMutable<u64>>,
-        dynamic_array_test_priv: PrivateDynamicArray<PrivateMutable<CardNote>>,
+        fixed_array_test_pub: FixedArray<PublicMutable<u64>, 10>,
+        fixed_array_test_priv: FixedArray<PrivateMutable<CardNote>, 10>,
+        public_dynamic_array_test: PublicDynamicArray<PublicMutable<u64>>,
     }
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
@@ -99,25 +99,25 @@ contract DocsExample {
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable
                 public_immutable: PublicImmutable::new(context, 9), // docs:end:storage-public-immutable
-                fixed_array_test: FixedArray::new(
+                fixed_array_test_pub: FixedArray::new(
                     context,
                     10,
                     |context, slot| {
                         PublicMutable::new(context, slot)
                     }
                 ),
-                dynamic_array_test_pub: PublicDynamicArray::new(
+                fixed_array_test_priv: FixedArray::new(
                     context,
                     11,
                     |context, slot| {
-                        PublicMutable::new(context, slot)
+                        PrivateMutable::new(context, slot)
                     }
                 ),
-                dynamic_array_test_priv: PrivateDynamicArray::new(
+                public_dynamic_array_test: PublicDynamicArray::new(
                     context,
                     12,
                     |context, slot| {
-                        PrivateMutable::new(context, slot)
+                        PublicMutable::new(context, slot)
                     }
                 ),
             }
@@ -317,84 +317,66 @@ contract DocsExample {
     }
 
     #[aztec(public)]
-    fn test_fixed_array() {
+    fn test_fixed_array_pub_1() {
         for i in 0..10 {
-            let mut inner = storage.fixed_array_test.at_index(i);
+            let mut inner = storage.fixed_array_test_pub.at_index(i);
             inner.write(i);
         }
     }
 
     #[aztec(public)]
-    fn test_fixed_array_2() {
-        let mut inner = storage.fixed_array_test.at_index(6);
+    fn test_fixed_array_pub_2() {
+        let mut inner = storage.fixed_array_test_pub.at_index(6);
         inner.write(9);
 
         for i in 0..10 {
-            let mut inner = storage.fixed_array_test.at_index(i);
+            let mut inner = storage.fixed_array_test_pub.at_index(i);
             let num = inner.read();
             emit_unencrypted_log(&mut context, num);
         }
     }
 
     #[aztec(public)]
-    fn test_dynamic_array() {
-        storage.dynamic_array_test_pub.push().write(69);
+    fn test_public_dynamic_array_1() {
+        storage.public_dynamic_array_test.push().write(69);
 
-        let pop_response = storage.dynamic_array_test_pub.pop().read();
+        let pop_response = storage.public_dynamic_array_test.pop().read();
 
         emit_unencrypted_log(&mut context, pop_response);
-        emit_unencrypted_log(&mut context, storage.dynamic_array_test_pub.length());
+        emit_unencrypted_log(&mut context, storage.public_dynamic_array_test.length());
     }
     
     #[aztec(public)]
-    fn test_dynamic_array_2() {
-        let mut inner = storage.dynamic_array_test_pub.push();
+    fn test_public_dynamic_array_2() {
+        let mut inner = storage.public_dynamic_array_test.push();
         inner.write(420);
     }
 
-    unconstrained fn test_dynamic_array_3() -> pub u64 {
-        let mut test = storage.dynamic_array_test_pub.at_index(0).read();
+    unconstrained fn test_public_dynamic_array_3() -> pub u64 {
+        let mut test = storage.public_dynamic_array_test.at_index(0).read();
 
         test
     }
 
-    unconstrained fn test_dynamic_array_4() -> pub Field {
-        let length = storage.dynamic_array_test_pub.length();
+    unconstrained fn test_public_dynamic_array_4() -> pub Field {
+        let length = storage.public_dynamic_array_test.length();
 
         length
     }
 
-    #[aztec(private)]
-    fn test_dynamic_array_priv() {
-        let mut inner = storage.dynamic_array_test_priv.push();
+    // #[aztec(private)]
+    // fn test_dynamic_array_priv() {
+    //     let mut inner = storage.public_dynamic_array_test.push();
 
-        let mut meme_card = CardNote::new(69, 420, context.msg_sender());
-        inner.initialize(&mut meme_card, true);
-    }
+    //     let mut meme_card = CardNote::new(69, 420, context.msg_sender());
+    //     inner.initialize(&mut meme_card, true);
+    // }
 
-    unconstrained fn test_dynamic_array_priv_view() -> pub CardNote {
-        let pop_response = storage.dynamic_array_test_priv.pop().view_note();
+    // unconstrained fn test_dynamic_array_priv_view() -> pub CardNote {
+    //     let pop_response = storage.public_dynamic_array_test.pop().view_note();
 
-        pop_response
-    }
-    
-    #[aztec(public)]
-    fn test_dynamic_array_priv_2() {
-        let mut inner = storage.dynamic_array_test_pub.push();
-        inner.write(420);
-    }
-
-    unconstrained fn test_dynamic_array_priv_3() -> pub u64 {
-        let mut test = storage.dynamic_array_test_pub.at_index(0).read();
-
-        test
-    }
-
-    unconstrained fn test_dynamic_array_priv_4() -> pub Field {
-        let length = storage.dynamic_array_test_pub.length();
-
-        length
-    }
+    //     pop_response
+    // }
 
     /// Macro equivalence section
     use dep::aztec::hash::hash_args;
