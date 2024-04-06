@@ -35,7 +35,7 @@ export class Point {
   }
 
   static default() {
-    return Point.default();
+    return Point.ZERO;
   }
 
   /**
