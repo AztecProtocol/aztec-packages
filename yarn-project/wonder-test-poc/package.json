@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "cd ./src/noir_test && ../../../../noir/noir-repo/target/release/nargo test --oracle-resolver 'http://localhost:5555/'",
-    "run:resolver": "ts-node-esm ./src/server.ts",
+    "run:resolver": "nodemon ./src/server.ts",
     "codegen:mock": "node ../cli/dest/bin/index.js codegen ./src/mocks/target/MockTestedContract-MeaningOfLife.json -o ./src/artifacts --ts",
     "compile:mock": "cd ./src/mocks && ../../../../noir/noir-repo/target/release/nargo compile"
   },
@@ -17,10 +17,21 @@
     "@types/node": "^20.11.26",
     "express": "^4.18.3",
     "json-rpc-2.0": "^1.7.0",
+    "nodemon": "^3.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.2"
   },
   "devDependencies": {
     "ts-node-dev": "^2.0.0"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "server.ts",
+      "sandbox.ts"
+    ],
+    "ext": "ts",
+    "execMap": {
+      "ts": "ts-node-esm"
+    }
   }
 }

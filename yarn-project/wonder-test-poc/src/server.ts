@@ -12,6 +12,7 @@ import { JSONRPCServer } from 'json-rpc-2.0';
 import { ForeignCallResult } from './ForeignCallResult.js';
 import { deployContract, initSandbox, privateCall, publicCall, unconstrainedCall } from './sandbox.js';
 
+
 const PORT = 5555;
 const app = express();
 app.use(bodyParser.json());
