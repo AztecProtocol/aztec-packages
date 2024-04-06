@@ -97,7 +97,8 @@ jobs:
   build-x86:
     needs: start-builder
     runs-on: ${{ github.actor }}-x86
-    outputs: {e2e_list: ${{ steps.e2e_list.outputs.list }}}
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
     steps:
       - *checkout
       - *setup
