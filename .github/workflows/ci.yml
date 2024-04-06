@@ -98,6 +98,7 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
+      - run: apt-get update && apt-get -y install docker
       - run: earthly bootstrap
 
   build-x86:
@@ -146,14 +147,14 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
-      # # Only allow one memory-hunger prover test to use this runner
-      # # As detailed in https://github.com/ben-z/gh-action-mutex
-      # # things do not become 'pending' in github actions, and instead just cancel one another
-      # # so we can't use the native concurrency in GA
-      # - name: Set up mutex
-      #   uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
-      #   with:
-      #     branch: gh-action-mutex-bench-${{ github.actor }}
+      # Only allow one memory-hunger prover test to use this runner
+      # As detailed in https://github.com/ben-z/gh-action-mutex
+      # things do not become 'pending' in github actions, and instead just cancel one another
+      # so we can't use the native concurrency in GA
+      - name: Set up mutex
+        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+        with:
+          branch: gh-action-mutex-bench-${{ github.actor }}
       - working-directory: ./barretenberg/cpp/
         run: earthly --no-output +test
 

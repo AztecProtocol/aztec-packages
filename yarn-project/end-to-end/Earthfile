@@ -18,8 +18,8 @@ E2E_TEST_LOCAL:
     --load aztecprotocol/aztec:latest=../+aztec \
     --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
     --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
-    # Run our docker-compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-    RUN docker-compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
+    # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+    RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
 
 # run locally and take from cache, used for our mainly x86 jobs
@@ -36,7 +36,7 @@ E2E_TEST_FROM_CACHE:
   ENV DEBUG="$debug"
   ENV AZTEC_DOCKER_TAG=$aztec_docker_tag
   # In CI we do not use WITH DOCKER as we have had issues with earthly copying big images
-  RUN docker-compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
+  RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
 
 # run on satellite and build, used for our few ARM jobs (means github runner doesn't need to be ARM)
 E2E_TEST_FROM_BUILD:
@@ -55,8 +55,8 @@ E2E_TEST_FROM_BUILD:
     --load aztecprotocol/aztec:latest=../+aztec \
     --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
     --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
-    # Run our docker-compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-    RUN docker-compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
+    # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+    RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
 
 E2E_TEST:
