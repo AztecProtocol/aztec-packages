@@ -9,31 +9,6 @@ on:
         required: false
 concurrency:
   group: ci-${{ github.ref_name == 'master' && github.run_id || github.actor }}
-step_macros:
-  checkout: &checkout
-    name: Checkout
-    uses: actions/checkout@v4
-    with:
-      # we check out submodules in ci-setup-action
-      ref: ${{ github.event.pull_request.head.sha }}
-  setup: &setup
-    name: Setup
-    uses: ./.github/ci-setup-action
-    with:
-      dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      github_actor: ${{ github.actor }}
-  spot_runner_config: &spot_runner_config
-    github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
-    aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    aws_region: "us-east-2"
-    ec2_subnet_id: subnet-4cfabd25
-    subaction: ${{ github.event.inputs.runner_action || 'start' }}
-    # prevent reaping by mainframe spot reaper
-    ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
-    github_action_runner_version: v2.315.0
-    ec2_security_group_id: sg-0ccd4e5df0dcca0c9
-    ec2_spot_instance_strategy: BestEffort
 jobs:
   # Start cheap (~1/8th the cost of on demand, ~13th the cost of large GA runners) spot builders
   # just for the CI job. These are specced per user and run the entire CI. 
@@ -55,7 +30,17 @@ jobs:
         id: start-ec2-runner
         uses: AztecProtocol/ec2-action-builder@v37
         with:
-          <<: *spot_runner_config
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: "us-east-2"
+          ec2_subnet_id: subnet-4cfabd25
+          subaction: ${{ github.event.inputs.runner_action || 'start' }}
+          # prevent reaping by mainframe spot reaper
+          ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
+          github_action_runner_version: v2.315.0
+          ec2_security_group_id: sg-0ccd4e5df0dcca0c9
+          ec2_spot_instance_strategy: BestEffort
           runner_label: ${{ github.actor }}-${{ matrix.config.runner_label_suffix }}
           runner_concurrency: ${{ matrix.config.runner_concurrency }}
           ec2_instance_type: ${{ matrix.config.ec2_instance_type }}
@@ -69,8 +54,16 @@ jobs:
     needs: start-builder
     runs-on: ${{ github.actor }}-arm
     steps:
-      - *checkout
-      - *setup
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }}
       # prepare images, tagged by commit hash
       - run: earthly ./yarn-project+build-end-to-end
 
@@ -85,8 +78,16 @@ jobs:
           - e2e-card-game
           - e2e-crowdfunding-and-claim
     steps:
-      - *checkout
-      - *setup
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }}
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
@@ -98,7 +99,7 @@ jobs:
     needs: start-builder
     runs-on: ${{ github.actor }}-x86
     outputs:
-      e2e_list: ${{ steps.e2e_list.outputs.list }}
+      e2e_list: ${{ steps.e2e_list.outputs.list }}}
     steps:
       - *checkout
       - *setup
@@ -119,8 +120,16 @@ jobs:
       matrix:
         test: ${{ fromJson( needs.build-x86.outputs.e2e_list )}}
     steps:
-      - *checkout
-      - *setup
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }}
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
@@ -138,9 +147,17 @@ jobs:
         # pending fix for intermittent test
         # environment: [x86, arm]
     steps:
-      - *checkout
-      - *setup
-      - working_directory: ./barretenberg/cpp/
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }}
+      - working-directory: ./barretenberg/cpp/
         run: earthly --no-output +test
 
   # push benchmarking binaries to dockerhub registry
@@ -148,8 +165,16 @@ jobs:
     runs-on: ${{ github.actor }}-x86
     needs: start-builder
     steps:
-      - *checkout
-      - *setup
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }}
       - name: Build and Push Binaries
         working-directory: ./barretenberg/cpp/
         run: earthly --push +bench-base
@@ -167,7 +192,17 @@ jobs:
         id: start-ec2-runner
         uses: AztecProtocol/ec2-action-builder@v37
         with:
-          <<: *aws_config
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: "us-east-2"
+          ec2_subnet_id: subnet-4cfabd25
+          subaction: ${{ github.event.inputs.runner_action || 'start' }}
+          # prevent reaping by mainframe spot reaper
+          ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
+          github_action_runner_version: v2.315.0
+          ec2_security_group_id: sg-0ccd4e5df0dcca0c9
+          ec2_spot_instance_strategy: BestEffort
           runner_label: ${{ github.actor }}-bench
           runner_concurrency: 1
           ec2_instance_type: r6g.4xlarge
@@ -180,8 +215,16 @@ jobs:
     runs-on: ${{ github.actor }}-bench-x86
     needs: start-bb-bench-runner
     steps:
-      - *checkout
-      - *setup
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }}
       # Use bench_mode=cache to read the pushed build above
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/
