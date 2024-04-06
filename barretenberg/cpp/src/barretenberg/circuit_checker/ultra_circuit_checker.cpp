@@ -113,6 +113,11 @@ bool UltraCircuitChecker::check_block(Builder& builder,
                 info("Failed PoseidonExternal relation at row idx = ", idx);
                 return false;
             }
+            result = result && check_databus_read(values, builder);
+            if (result == false) {
+                info("Failed databus read at row idx = ", idx);
+                return false;
+            }
         }
         if (result == false) {
             info("Failed at row idx = ", idx);
@@ -152,6 +157,31 @@ bool UltraCircuitChecker::check_lookup(auto& values, auto& lookup_hash_table)
                                             values.w_r + values.q_m * values.w_r_shift,
                                             values.w_o + values.q_c * values.w_o_shift,
                                             values.q_o });
+    }
+    return true;
+};
+
+template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& values, Builder& builder)
+{
+    if (!values.q_busread.is_zero()) {
+        auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r));
+        auto value = values.w_l;
+
+        bool is_calldata_read = (values.q_l == 1);
+        bool is_return_data_read = (values.q_r == 1);
+        ASSERT(is_calldata_read || is_return_data_read);
+
+        FF bus_value;
+        // If this is a lookup gate, check the inputs are in the hash table containing all table entries
+        if (is_calldata_read) {
+            auto calldata = builder.get_calldata();
+            bus_value = builder.get_variable(calldata[raw_read_idx]);
+        }
+        if (is_return_data_read) {
+            auto return_data = builder.get_return_data();
+            bus_value = builder.get_variable(return_data[raw_read_idx]);
+        }
+        return (value == bus_value);
     }
     return true;
 };
@@ -254,6 +284,7 @@ void UltraCircuitChecker::populate_values(
     values.q_aux = block.q_aux()[idx];
     values.q_lookup = block.q_lookup_type()[idx];
     if constexpr (IsGoblinBuilder<Builder>) {
+        values.q_busread = block.q_busread()[idx];
         values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
         values.q_poseidon2_external = block.q_poseidon2_external()[idx];
     }
