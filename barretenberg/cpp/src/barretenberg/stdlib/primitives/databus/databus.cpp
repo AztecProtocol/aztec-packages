@@ -6,18 +6,7 @@ using namespace bb;
 
 namespace bb::stdlib {
 
-template <typename Builder>
-bus_vector<Builder>::bus_vector(const std::vector<field_pt>& entries_in)
-    : raw_entries(entries_in)
-    , length(raw_entries.size())
-{
-    // do not initialize the table yet. The input entries might all be constant,
-    // if this is the case we might not have a valid pointer to a Builder
-    // We get around this, by initializing the table when `operator[]` is called
-    // with a non-const field element.
-}
-
-template <typename Builder> void bus_vector<Builder>::set_values(const std::vector<field_pt>& entries_in)
+template <typename Builder> void databus<Builder>::bus_vector::set_values(const std::vector<field_pt>& entries_in)
 {
     raw_entries = entries_in;
     length = raw_entries.size();
@@ -27,7 +16,7 @@ template <typename Builder> void bus_vector<Builder>::set_values(const std::vect
 // pointer to a Builder.
 // (if both the table entries and the index are constant, we don't need a builder as we
 // can directly extract the desired value from `raw_entries`)
-template <typename Builder> void bus_vector<Builder>::initialize() const
+template <typename Builder> void databus<Builder>::bus_vector::initialize() const
 {
     ASSERT(!initialized);
     ASSERT(context != nullptr);
@@ -45,7 +34,7 @@ template <typename Builder> void bus_vector<Builder>::initialize() const
     initialized = true;
 }
 
-template <typename Builder> field_t<Builder> bus_vector<Builder>::operator[](const size_t index) const
+template <typename Builder> field_t<Builder> databus<Builder>::bus_vector::operator[](const size_t index) const
 {
     if (index >= length) {
         ASSERT(context != nullptr);
@@ -55,7 +44,7 @@ template <typename Builder> field_t<Builder> bus_vector<Builder>::operator[](con
     return entries[index];
 }
 
-template <typename Builder> field_t<Builder> bus_vector<Builder>::operator[](const field_pt& index) const
+template <typename Builder> field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index) const
 {
     auto raw_index = static_cast<size_t>(uint256_t(index.get_value()).data[0]);
     if (index.is_constant()) { // WORKTODO: is this constant path viable for the bus?
@@ -76,5 +65,5 @@ template <typename Builder> field_t<Builder> bus_vector<Builder>::operator[](con
     return field_pt::from_witness_index(context, output_idx);
 }
 
-template class bus_vector<bb::GoblinUltraCircuitBuilder>;
+template class databus<bb::GoblinUltraCircuitBuilder>;
 } // namespace bb::stdlib
