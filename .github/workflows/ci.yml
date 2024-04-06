@@ -105,7 +105,8 @@ jobs:
       - *checkout
       - *setup
       # prepare images, tagged by commit hash
-      - run: earthly ./yarn-project+build-end-to-end
+      - name: Build
+        run: earthly ./yarn-project+build-end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of end-to-end jobs
