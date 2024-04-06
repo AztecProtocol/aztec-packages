@@ -161,13 +161,11 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
 
     void append_to_bus_vector(const BusId bus_idx, const uint32_t& witness_idx)
     {
-        auto idx = static_cast<size_t>(bus_idx);
-        ASSERT(idx < databus.size());
-        databus[idx].append(witness_idx);
+        databus[static_cast<size_t>(bus_idx)].append(witness_idx);
     }
 
-    const BusVector& get_calldata() { return databus[BusId::CALLDATA]; }
-    const BusVector& get_return_data() { return databus[BusId::RETURNDATA]; }
+    const BusVector& get_calldata() { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
+    const BusVector& get_return_data() { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);

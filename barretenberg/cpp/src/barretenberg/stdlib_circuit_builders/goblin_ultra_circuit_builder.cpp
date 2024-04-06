@@ -33,13 +33,13 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
 
     // Create an arbitrary calldata read gate
     add_public_calldata(this->add_variable(25)); // ensure there is at least one entry in calldata
-    auto raw_read_idx = static_cast<uint32_t>(databus[BusId::CALLDATA].size()) - 1; // read data that was just added
+    auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
     auto read_idx = this->add_variable(raw_read_idx);
     read_calldata(read_idx);
 
     // Create an arbitrary return data read gate
     add_public_return_data(this->add_variable(17)); // ensure there is at least one entry in return data
-    raw_read_idx = static_cast<uint32_t>(databus[BusId::RETURNDATA].size()) - 1; // read data that was just added
+    raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1; // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
     read_return_data(read_idx);
 
@@ -235,7 +235,7 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_co
 template <typename FF>
 uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx)
 {
-    auto& bus_vector = databus[bus_idx];
+    auto& bus_vector = databus[static_cast<size_t>(bus_idx)];
     // Get the raw index into the databus column
     const uint32_t read_idx = static_cast<uint32_t>(uint256_t(this->get_variable(read_idx_witness_idx)));
 

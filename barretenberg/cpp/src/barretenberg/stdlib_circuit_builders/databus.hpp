@@ -57,6 +57,6 @@ struct BusVector {
  *
  */
 using DataBus = std::array<BusVector, 2>;
-enum BusId { CALLDATA, RETURNDATA };
+enum class BusId { CALLDATA, RETURNDATA };
 
 } // namespace bb
