@@ -1,7 +1,7 @@
-import { type L1ToL2MessageSource, type L2Block, type L2BlockSource, type ProcessedTx, Tx } from '@aztec/circuit-types';
-import { type BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
+import { Tx, type L1ToL2MessageSource, type L2Block, type L2BlockSource, type ProcessedTx } from '@aztec/circuit-types';
+import { PROVING_STATUS, type BlockProver } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, EthAddress, type GlobalVariables } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -203,6 +203,8 @@ export class Sequencer {
 
       const emptyTx = processor.makeEmptyProcessedTx();
 
+      const blockBuildingTimer = new Timer();
+
       const numRealTxs = validTxs.length;
       const pow2 = Math.log2(numRealTxs);
       const totalTxs = 2 ** Math.ceil(pow2);
@@ -249,18 +251,13 @@ export class Sequencer {
 
       await assertBlockHeight();
 
-      
-      // const [rollupCircuitsDuration, block] = await elapsed(() =>
-      //   this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables),
-      // );
-
-      // this.log(`Assembled block ${block.number}`, {
-      //   eventName: 'l2-block-built',
-      //   duration: workTimer.ms(),
-      //   publicProcessDuration: publicProcessorDuration,
-      //   rollupCircuitsDuration: rollupCircuitsDuration,
-      //   ...block.getStats(),
-      // } satisfies L2BlockBuiltStats);
+      this.log(`Assembled block ${block.number}`, {
+        eventName: 'l2-block-built',
+        duration: workTimer.ms(),
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: blockBuildingTimer.ms(),
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats);
 
       await assertBlockHeight();
 
@@ -268,6 +265,7 @@ export class Sequencer {
       this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
     } catch (err) {
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
+      this.prover?.cancelBlock();
       await this.worldState.getLatest().rollback();
     }
   }
@@ -311,44 +309,6 @@ export class Sequencer {
     ]);
     const min = Math.min(...syncedBlocks);
     return min >= this.lastPublishedBlock;
-  }
-
-  /**
-   * Pads the set of txs to a power of two and assembles a block by calling the block builder.
-   * @param txs - Processed txs to include in the next block.
-   * @param l1ToL2Messages - L1 to L2 messages to be part of the block.
-   * @param emptyTx - Empty tx to repeat at the end of the block to pad to a power of two.
-   * @param globalVariables - Global variables to use in the block.
-   * @returns The new block.
-   */
-  protected async buildBlock(
-    txs: ProcessedTx[],
-    l1ToL2Messages: Fr[],
-    emptyTx: ProcessedTx,
-    globalVariables: GlobalVariables,
-  ) {
-    const numRealTxs = txs.length;
-    const pow2 = Math.log2(numRealTxs);
-    const totalTxs = 2 ** Math.ceil(pow2);
-    const blockTicket = await this.prover.startNewBlock(
-      Math.max(totalTxs, 2),
-      globalVariables,
-      l1ToL2Messages,
-      emptyTx,
-    );
-
-    for (const tx of txs) {
-      await this.prover.addNewTx(tx);
-    }
-
-    await this.prover.setBlockCompleted();
-
-    const result = await blockTicket.provingPromise;
-    if (result.status === PROVING_STATUS.FAILURE) {
-      throw new Error(`Block proving failed, reason: ${result.reason}`);
-    }
-    const blockResult = await this.prover.finaliseBlock();
-    return blockResult.block;
   }
 
   get coinbase(): EthAddress {

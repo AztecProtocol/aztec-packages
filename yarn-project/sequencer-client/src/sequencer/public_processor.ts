@@ -1,4 +1,5 @@
 import {
+  type BlockProver,
   type FailedTx,
   type ProcessedTx,
   type SimulationError,
@@ -7,7 +8,6 @@ import {
   makeProcessedTx,
   toTxEffect,
   validateProcessedTx,
-  BlockProver,
 } from '@aztec/circuit-types';
 import { type TxSequencerProcessingStats } from '@aztec/circuit-types/stats';
 import { type GlobalVariables, type Header, type KernelCircuitPublicInputs } from '@aztec/circuits.js';
@@ -23,7 +23,7 @@ import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '.
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { type AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import { TxValidator } from './tx_validator.js';
+import { type TxValidator } from './tx_validator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -86,7 +86,12 @@ export class PublicProcessor {
    * @param txs - Txs to process.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: Tx[], maxTransactions = txs.length, blockProver?: BlockProver, txValidator?: TxValidator): Promise<[ProcessedTx[], FailedTx[], ProcessReturnValues[]]> {
+  public async process(
+    txs: Tx[],
+    maxTransactions = txs.length,
+    blockProver?: BlockProver,
+    txValidator?: TxValidator,
+  ): Promise<[ProcessedTx[], FailedTx[], ProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
     txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
