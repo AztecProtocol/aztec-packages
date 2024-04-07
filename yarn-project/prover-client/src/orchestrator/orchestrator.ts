@@ -236,6 +236,7 @@ export class ProvingOrchestrator {
     }
 
     // we need to pad the rollup with empty transactions
+    logger.info(`Padding rollup with ${this.provingState.totalNumTxs - this.provingState.transactionsReceived} empty transactions`);
     for (let i = this.provingState.transactionsReceived; i < this.provingState.totalNumTxs; i++) {
       const paddingTxIndex = this.provingState.addNewTx(this.provingState.emptyTx);
       await this.prepareBaseRollupInputs(this.provingState, BigInt(paddingTxIndex), this.provingState!.emptyTx);

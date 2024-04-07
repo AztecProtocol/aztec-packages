@@ -110,6 +110,10 @@ export class PublicProcessor {
         validateProcessedTx(processedTx);
         // Re-validate the transaction
         if (txValidator) {
+          // Only accept processed transactions that are not double-spends,
+          // public functions emitting nullifiers would pass earlier check but fail here.
+          // Note that we're checking all nullifiers generated in the private execution twice,
+          // we could store the ones already checked and skip them here as an optimization.
           const [_, invalid] = await txValidator.validateTxs([processedTx]);
           if (invalid.length) {
             throw new Error(`Transaction ${invalid[0].hash} invalid after processing public functions`);
@@ -142,7 +146,7 @@ export class PublicProcessor {
    */
   public makeEmptyProcessedTx(): ProcessedTx {
     const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.historicalHeader, chainId, version);
+    return makeEmptyProcessedTx(this.historicalHeader.clone(), chainId, version);
   }
 
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, ProcessReturnValues | undefined]> {
