@@ -98,7 +98,8 @@ contract DocsExample {
                 ),
                 // docs:end:storage-minters-init
                 // docs:start:storage-public-immutable
-                public_immutable: PublicImmutable::new(context, 9), // docs:end:storage-public-immutable
+                public_immutable: PublicImmutable::new(context, 9),
+                // docs:end:storage-public-immutable
                 fixed_array_test_pub: FixedArray::new(
                     context,
                     10,
