@@ -1,5 +1,5 @@
-import { Tx, type L1ToL2MessageSource, type L2Block, type L2BlockSource, type ProcessedTx } from '@aztec/circuit-types';
-import { PROVING_STATUS, type BlockProver } from '@aztec/circuit-types/interfaces';
+import { type L1ToL2MessageSource, type L2Block, type L2BlockSource, type ProcessedTx, Tx } from '@aztec/circuit-types';
+import { type BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import { AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -209,14 +209,11 @@ export class Sequencer {
       const pow2 = Math.log2(numRealTxs);
       const totalTxs = 2 ** Math.ceil(pow2);
       const blockSize = Math.max(2, totalTxs);
-      const blockTicket = await this.prover.startNewBlock(
-        blockSize,
-        newGlobalVariables,
-        l1ToL2Messages,
-        emptyTx,
-      );
+      const blockTicket = await this.prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages, emptyTx);
 
-      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() => processor.process(validTxs, blockSize, this.prover, txValidator));
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+        processor.process(validTxs, blockSize, this.prover, txValidator),
+      );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
