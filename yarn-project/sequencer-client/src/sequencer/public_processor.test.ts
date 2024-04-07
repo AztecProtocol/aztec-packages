@@ -10,6 +10,7 @@ import {
   UnencryptedTxL2Logs,
   mockTx,
   toTxEffect,
+  BlockProver,
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
@@ -57,6 +58,7 @@ describe('public_processor', () => {
   let publicExecutor: MockProxy<PublicExecutor>;
   let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
   let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
+  let prover: MockProxy<BlockProver>;
 
   let proof: Proof;
   let root: Buffer;
@@ -68,6 +70,7 @@ describe('public_processor', () => {
     publicExecutor = mock<PublicExecutor>();
     publicContractsDB = mock<ContractsDataSourcePublicDB>();
     publicWorldStateDB = mock<WorldStatePublicDB>();
+    prover = mock<BlockProver>();
 
     proof = makeEmptyProof();
     root = Buffer.alloc(32, 5);
@@ -98,7 +101,7 @@ describe('public_processor', () => {
       });
 
       const hash = tx.getTxHash();
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed.length).toBe(1);
 
@@ -126,19 +129,22 @@ describe('public_processor', () => {
       }
 
       expect(failed).toEqual([]);
+
+      expect(prover.addNewTx).toHaveBeenCalledWith(p);
     });
 
     it('returns failed txs without aborting entire operation', async function () {
       publicExecutor.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
 
       const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toEqual([]);
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
+      expect(prover.addNewTx).toHaveBeenCalledTimes(0);
     });
   });
 
@@ -180,7 +186,7 @@ describe('public_processor', () => {
         throw new Error(`Unexpected execution request: ${execution}`);
       });
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([expectedTxByHash(tx)]);
@@ -188,6 +194,8 @@ describe('public_processor', () => {
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+
+      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('runs a tx with an enqueued public call with nested execution', async function () {
@@ -206,7 +214,7 @@ describe('public_processor', () => {
 
       publicExecutor.simulate.mockResolvedValue(publicExecutionResult);
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([expectedTxByHash(tx)]);
@@ -216,6 +224,39 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(1);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+
+      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+    });
+
+    it('does not attempt to overfill a block', async function () {
+      const txs = Array.from([1, 2, 3], (index) => mockTx(index, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 }));
+
+      let txCount = 0;
+
+      publicExecutor.simulate.mockImplementation(execution => {
+        const tx = txs[txCount++];
+        for (const request of tx.enqueuedPublicFunctionCalls) {
+          if (execution.contractAddress.equals(request.contractAddress)) {
+            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
+            // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
+            return Promise.resolve(result);
+          }
+        }
+        throw new Error(`Unexpected execution request: ${execution}`);
+      });
+
+      // We are passing 3 txs but only 2 can fit in the block
+      const [processed, failed] = await processor.process(txs, 2, prover);
+
+      expect(processed).toHaveLength(2);
+      expect(processed).toEqual([expectedTxByHash(txs[0]), expectedTxByHash(txs[1])]);
+      expect(failed).toHaveLength(0);
+      expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
+      expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(2);
+      expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
+
+      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
+      expect(prover.addNewTx).toHaveBeenCalledWith(processed[1]);
     });
 
     it('rolls back app logic db updates on failed public execution, but persists setup/teardown', async function () {
@@ -312,7 +353,7 @@ describe('public_processor', () => {
       const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
       const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([expectedTxByHash(tx)]);
@@ -337,6 +378,8 @@ describe('public_processor', () => {
       );
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
+
+      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
     it('fails a transaction that reverts in setup', async function () {
@@ -425,7 +468,7 @@ describe('public_processor', () => {
       const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
       const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(0);
       expect(failed).toHaveLength(1);
@@ -440,6 +483,8 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
+
+      expect(prover.addNewTx).toHaveBeenCalledTimes(0);
     });
 
     it('fails a transaction that reverts in teardown', async function () {
@@ -528,7 +573,7 @@ describe('public_processor', () => {
       const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
       const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(0);
       expect(failed).toHaveLength(1);
@@ -542,6 +587,8 @@ describe('public_processor', () => {
       expect(publicWorldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(0);
       expect(publicWorldStateDB.commit).toHaveBeenCalledTimes(0);
       expect(publicWorldStateDB.rollbackToCommit).toHaveBeenCalledTimes(1);
+
+      expect(prover.addNewTx).toHaveBeenCalledTimes(0);
     });
 
     it('runs a tx with setup and teardown phases', async function () {
@@ -635,7 +682,7 @@ describe('public_processor', () => {
       const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
       const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], 1, prover);
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([expectedTxByHash(tx)]);
@@ -663,6 +710,8 @@ describe('public_processor', () => {
       );
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
+
+      expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
   });
 });
