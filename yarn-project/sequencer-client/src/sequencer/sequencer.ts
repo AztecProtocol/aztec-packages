@@ -205,6 +205,7 @@ export class Sequencer {
 
       const blockBuildingTimer = new Timer();
 
+      // We must initialise the block to be a power of 2 in size
       const numRealTxs = validTxs.length;
       const pow2 = Math.log2(numRealTxs);
       const totalTxs = 2 ** Math.ceil(pow2);
@@ -226,19 +227,21 @@ export class Sequencer {
         return;
       }
 
+      await assertBlockHeight();
+
+      // All real transactions have been added, set the block as full and complete the proving.
       await this.prover.setBlockCompleted();
 
       const result = await blockTicket.provingPromise;
       if (result.status === PROVING_STATUS.FAILURE) {
         throw new Error(`Block proving failed, reason: ${result.reason}`);
       }
-      const blockResult = await this.prover.finaliseBlock();
-      const block = blockResult.block;
 
       await assertBlockHeight();
 
-      // Build the new block by running the rollup circuits
-      this.log(`Assembling block with txs ${processedTxs.map(tx => tx.hash).join(', ')}`);
+      // Block is proven, now finalise and publish!
+      const blockResult = await this.prover.finaliseBlock();
+      const block = blockResult.block;
 
       await assertBlockHeight();
 
@@ -250,12 +253,11 @@ export class Sequencer {
         ...block.getStats(),
       } satisfies L2BlockBuiltStats);
 
-      await assertBlockHeight();
-
       await this.publishL2Block(block);
       this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
     } catch (err) {
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
+      // Cancel any further proving on the block
       this.prover?.cancelBlock();
       await this.worldState.getLatest().rollback();
     }
