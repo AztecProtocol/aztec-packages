@@ -39,9 +39,17 @@ We will hold our projects inside of `packages` to follow the design of the proje
 
 # Create a noir project
 
-Now inside `packages` create a new directory called `aztec-contracts`
+Inside `packages` create a new directory `aztec-contracts`:
 
-Inside `aztec-contracts`, create the following file structure:
+`cd packages && mkdir aztec-contracts`
+
+Inside `aztec-contracts` create a new contract project like this:
+
+```bash
+aztec-nargo new --contract token_bridge
+```
+
+Your file structure should look something like this:
 
 ```tree
 aztec-contracts
@@ -51,15 +59,9 @@ aztec-contracts
        ├── main.nr
 ```
 
-Inside `Nargo.toml` add the following content:
+Inside `Nargo.toml` add the following dependencies:
 
 ```toml
-[package]
-name = "token_bridge"
-authors = [""]
-compiler_version = ">=0.18.0"
-type = "contract"
-
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 token_portal_content_hash_lib = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_portal_content_hash_lib" }
@@ -92,7 +94,7 @@ npx hardhat init
 Once you have a hardhat project set up, delete the existing contracts, tests, and scripts, and create a `TokenPortal.sol`:
 
 ```bash
-rm -rf contracts test scripts
+rm -rf contracts test scripts ignition
 mkdir contracts && cd contracts
 touch TokenPortal.sol
 ```
@@ -100,8 +102,7 @@ touch TokenPortal.sol
 Now add dependencies that are required. These include interfaces to Aztec Inbox, Outbox and Registry smart contracts, OpenZeppelin contracts, and NomicFoundation.
 
 ```bash
-yarn add @aztec/foundation @aztec/l1-contracts @openzeppelin/contracts && yarn add --dev @nomicfoundation/hardhat-network-helpers @nomicfoundation/hardhat-chai-matchers @nomiclabs/hardhat-ethers @nomiclabs/hardhat-etherscan @types/chai @types/mocha @typechain/ethers-v5 @typechain/hardhat chai@4.0.0 hardhat-gas-reporter solidity-coverage ts-node typechain typescript
-
+yarn add @aztec/foundation @aztec/l1-contracts @openzeppelin/contracts && yarn add --dev @nomicfoundation/hardhat-network-helpers @nomicfoundation/hardhat-chai-matchers @nomiclabs/hardhat-ethers @nomiclabs/hardhat-etherscan @types/chai @types/mocha @typechain/ethers-v5 @typechain/hardhat chai@4.0.0 hardhat-gas-reporter solidity-coverage ts-node typechain typescript @nomicfoundation/hardhat-ignition @nomicfoundation/hardhat-ignition-ethers @nomicfoundation/hardhat-verify
 ```
 
 This is what your `l1-contracts` should look like:
@@ -130,7 +131,7 @@ Inside the `packages` directory, run
 
 ```bash
 mkdir src && cd src && yarn init -yp
-yarn add typescript @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js @aztec/types @aztec/foundation @aztec/l1-artifacts viem@1.21.4 "@types/node@^20.8.2"
+yarn add typescript @aztec/aztec.js @aztec/accounts @aztec/noir-contracts.js @aztec/types @aztec/foundation @aztec/l1-artifacts viem@^2.7.15 "@types/node@^20.8.2"
 yarn add -D jest @jest/globals ts-jest
 ```
 
@@ -141,7 +142,7 @@ In `package.json`, add:
 ```json
 "type": "module",
 "scripts": {
-  "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest)"
+  "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest)",
 }
 ```
 
