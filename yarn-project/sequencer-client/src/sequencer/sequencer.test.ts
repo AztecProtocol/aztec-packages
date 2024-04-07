@@ -145,6 +145,7 @@ describe('sequencer', () => {
       publicProcessor.makeEmptyProcessedTx(),
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
+    expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -189,6 +190,7 @@ describe('sequencer', () => {
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
+    expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
@@ -228,6 +230,7 @@ describe('sequencer', () => {
     );
     expect(publisher.processL2Block).toHaveBeenCalledWith(block);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
+    expect(proverClient.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {
@@ -263,6 +266,7 @@ describe('sequencer', () => {
     await sequencer.work();
 
     expect(publisher.processL2Block).not.toHaveBeenCalled();
+    expect(proverClient.cancelBlock).toHaveBeenCalledTimes(1);
   });
 });
 

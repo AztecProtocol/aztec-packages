@@ -1,4 +1,5 @@
 import {
+  type BlockProver,
   EncryptedTxL2Logs,
   type FunctionCall,
   type ProcessedTx,
@@ -10,7 +11,6 @@ import {
   UnencryptedTxL2Logs,
   mockTx,
   toTxEffect,
-  BlockProver,
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
@@ -52,6 +52,7 @@ import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { type ContractsDataSourcePublicDB, type WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { PublicProcessor } from './public_processor.js';
+import { type TxValidator } from './tx_validator.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
@@ -229,7 +230,9 @@ describe('public_processor', () => {
     });
 
     it('does not attempt to overfill a block', async function () {
-      const txs = Array.from([1, 2, 3], (index) => mockTx(index, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 }));
+      const txs = Array.from([1, 2, 3], index =>
+        mockTx(index, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 }),
+      );
 
       let txCount = 0;
 
@@ -257,6 +260,32 @@ describe('public_processor', () => {
 
       expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
       expect(prover.addNewTx).toHaveBeenCalledWith(processed[1]);
+    });
+
+    it('does not send a transaction to the prover if validation fails', async function () {
+      const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
+
+      publicExecutor.simulate.mockImplementation(execution => {
+        for (const request of tx.enqueuedPublicFunctionCalls) {
+          if (execution.contractAddress.equals(request.contractAddress)) {
+            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
+            // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
+            return Promise.resolve(result);
+          }
+        }
+        throw new Error(`Unexpected execution request: ${execution}`);
+      });
+
+      const txValidator: MockProxy<TxValidator> = mock<TxValidator>();
+      txValidator.validateTxs.mockRejectedValue([[], [tx]]);
+
+      const [processed, failed] = await processor.process([tx], 1, prover, txValidator);
+
+      expect(processed).toHaveLength(0);
+      expect(failed).toHaveLength(1);
+      expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
+
+      expect(prover.addNewTx).toHaveBeenCalledTimes(0);
     });
 
     it('rolls back app logic db updates on failed public execution, but persists setup/teardown', async function () {
