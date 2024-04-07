@@ -328,12 +328,43 @@ contract DocsExample {
     fn test_fixed_array_pub_2() {
         let mut inner = storage.fixed_array_test_pub.at_index(6);
         inner.write(9);
+    }
 
+    #[aztec(public)]
+    fn test_fixed_array_pub_3() {
         for i in 0..10 {
             let mut inner = storage.fixed_array_test_pub.at_index(i);
             let num = inner.read();
             emit_unencrypted_log(&mut context, num);
         }
+    }
+
+    #[aztec(private)]
+    fn test_fixed_array_priv_1() {
+        for i in 0..10 {
+            let mut note = CardNote::new(i, i as Field, context.msg_sender());
+            let mut inner = storage.fixed_array_test_priv.at_index(i as u64);
+            inner.initialize(&mut note, true);
+        }
+    }
+
+    #[aztec(private)]
+    fn test_fixed_array_priv_2() {
+        let mut inner = storage.fixed_array_test_priv.at_index(6);
+
+        let mut note = CardNote::new(9, 9 as Field, context.msg_sender());
+        inner.replace(&mut note, true);
+    }
+
+    unconstrained fn test_fixed_array_priv_3() -> pub [Option<CardNote>; 10] {
+        let mut ret = [Option::none(); 10];
+        for i in 0..10 {
+            let mut inner = storage.fixed_array_test_priv.at_index(i);
+            let note = inner.view_note();
+            ret[i] = Option::some(note);
+        }
+
+        ret
     }
 
     #[aztec(public)]
@@ -364,19 +395,16 @@ contract DocsExample {
         length
     }
 
-    // #[aztec(private)]
-    // fn test_dynamic_array_priv() {
-    //     let mut inner = storage.public_dynamic_array_test.push();
+    #[aztec(public)]
+    fn test_public_dynamic_array_5() {
+       storage.public_dynamic_array_test.remove(0);
+    }
 
-    //     let mut meme_card = CardNote::new(69, 420, context.msg_sender());
-    //     inner.initialize(&mut meme_card, true);
-    // }
+    unconstrained fn test_public_dynamic_array_6() -> pub u64 {
+        let test = storage.public_dynamic_array_test.at_index(0).read();
 
-    // unconstrained fn test_dynamic_array_priv_view() -> pub CardNote {
-    //     let pop_response = storage.public_dynamic_array_test.pop().view_note();
-
-    //     pop_response
-    // }
+        test
+    }
 
     /// Macro equivalence section
     use dep::aztec::hash::hash_args;

@@ -5,7 +5,7 @@ use dep::protocol_types::{hash::pedersen_hash, constants::INITIALIZATION_SLOT_SE
 
 struct PublicDynamicArray<T> {
   context: Context,
-  map: Map<Field, T>,
+  map: Map<u64, T>,
   storage_slot: Field,
 }
 
@@ -18,7 +18,6 @@ impl<T> PublicDynamicArray<T> {
     state_var_constructor: fn(Context, Field) -> T
   ) -> Self {
     assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-    assert(context.private.is_none(), "PublicDynamicArrays can be initialized from public only.");
 
     PublicDynamicArray { 
       context, 
@@ -37,7 +36,7 @@ impl<T> PublicDynamicArray<T> {
     let array_read: [Field; 1] = storage_read(self.storage_slot);
     let array_length = array_read[0];
 
-    let mut ret = self.map.at(array_length);
+    let mut ret = self.map.at(array_length as u64);
 
     storage_write(self.storage_slot, [array_length + 1]);
 
@@ -49,9 +48,11 @@ impl<T> PublicDynamicArray<T> {
 
     let array_read: [Field; 1] = storage_read(self.storage_slot);
     let array_length = array_read[0];
+    assert(array_length as u64 > 0, "Array length must be > 0 to be popped");
+
     let new_array_length = array_length - 1;
 
-    let mut ret = self.map.at(new_array_length);
+    let mut ret = self.map.at(new_array_length as u64);
 
     // we make sure to overwrite the slot that is 1 greater than the one we are popping to make sure ret still has a value that can be read from.
     // Any subsequent pushes will overwrite the value, and we will at most have 1 dead value.
@@ -63,15 +64,22 @@ impl<T> PublicDynamicArray<T> {
     ret
   }
 
-  pub fn remove<U, T_SERIALIZED_LEN>(self, index: Field) where U: Deserialize<T_SERIALIZED_LEN> {
+  pub fn remove<U, T_SERIALIZED_LEN>(self, index: u64) where U: Deserialize<T_SERIALIZED_LEN> {
     assert(self.context.private.is_none(), "PublicDynamicArrays can be pushed from public only.");
+    let array_read: [Field; 1] = storage_read(self.storage_slot);
+    let array_length = array_read[0];
+    assert(index < array_length as u64, "remove must be called with index < length");
 
-    let derived_storage_slot = pedersen_hash([self.storage_slot + INITIALIZATION_SLOT_SEPARATOR, index], 0);
+    let derived_storage_slot = pedersen_hash([self.storage_slot + INITIALIZATION_SLOT_SEPARATOR, index as Field], 0);
 
     storage_write(derived_storage_slot, [0; T_SERIALIZED_LEN]);
   }
 
-  pub fn at_index(self, index: Field) -> T {
+  pub fn at_index(self, index: u64) -> T {
+    let array_read: [Field; 1] = storage_read(self.storage_slot);
+    let array_length = array_read[0];
+    assert(index < array_length as u64, "at_index must be called with index < length");
+
     self.map.at(index)
   }
 
