@@ -164,15 +164,17 @@ bool UltraCircuitChecker::check_lookup(auto& values, auto& lookup_hash_table)
 template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& values, Builder& builder)
 {
     if (!values.q_busread.is_zero()) {
+        // Extract the {index, value} pair from the read gate inputs
         auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r));
         auto value = values.w_l;
 
+        // Determine the type of read based on selector values
         bool is_calldata_read = (values.q_l == 1);
         bool is_return_data_read = (values.q_r == 1);
         ASSERT(is_calldata_read || is_return_data_read);
 
+        // Check that the claimed value is present in the calldata/return data at the corresponding index
         FF bus_value;
-        // If this is a lookup gate, check the inputs are in the hash table containing all table entries
         if (is_calldata_read) {
             auto calldata = builder.get_calldata();
             bus_value = builder.get_variable(calldata[raw_read_idx]);

@@ -75,7 +75,7 @@ TEST(Databus, CallDataAndReturnData)
  * the databus will result in an invalid witness.
  *
  */
-TEST(Databus, Failure)
+TEST(Databus, BadReadFailure)
 {
     Builder builder;
     databus_ct databus;
@@ -94,11 +94,11 @@ TEST(Databus, Failure)
     // Since the read gate implicitly created by using operator[] on return data is valid, the witness is valid
     EXPECT_TRUE(CircuitChecker::check(builder));
 
-    // Now assert that the read result is equal to some erroneous value. This effecitvely updates the return data read
+    // Now assert that the read result is equal to some erroneous value. This effectively updates the return data read
     // gate to attest to the erroneous value being present at index 0 in the return data.
     field_ct erroneous_value(witness_ct(&builder, actual_value - 1));
     erroneous_value.assert_equal(read_result);
 
-    // Since the read gate is no longer valid, the witness is no longer valid
+    // Since the read gate is no longer valid, the circuit checker will fail
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

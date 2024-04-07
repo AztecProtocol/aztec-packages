@@ -5,7 +5,6 @@
 
 namespace bb::stdlib {
 
-// WORKTODO: template with GoblinBuilder only
 template <typename Builder> class databus {
   public:
     databus() = default;
@@ -16,16 +15,6 @@ template <typename Builder> class databus {
         using field_pt = field_t<Builder>;
 
       public:
-        // bus_vector() = default;
-        bus_vector(const std::vector<field_pt>& entries_in)
-            : raw_entries(entries_in)
-            , length(raw_entries.size()){
-                // do not initialize the table yet. The input entries might all be constant,
-                // if this is the case we might not have a valid pointer to a Builder
-                // We get around this, by initializing the table when `operator[]` is called
-                // with a non-const field element.
-            };
-
         bus_vector(const BusId bus_idx)
             : bus_idx(bus_idx){};
 
@@ -47,7 +36,7 @@ template <typename Builder> class databus {
         std::vector<field_pt> raw_entries;
         mutable std::vector<field_pt> entries;
         size_t length = 0;
-        mutable BusId bus_idx; // Idx of column in bus
+        BusId bus_idx; // Idx of column in bus
         mutable bool initialized = false;
         mutable Builder* context = nullptr;
     };
