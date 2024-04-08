@@ -21,6 +21,13 @@
 #endif
 
 namespace bb {
+/**
+ * @brief General class for prime fields
+ *
+ *@details see \ref field_docs["field documentation"] for more
+ *
+ * @tparam Params_
+ */
 template <class Params_> struct alignas(32) field {
   public:
     using View = field;
