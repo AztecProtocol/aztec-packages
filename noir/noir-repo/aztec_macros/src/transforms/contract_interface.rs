@@ -85,28 +85,37 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, St
         .parameters()
         .iter()
         .map(|arg| {
-            format!(
-                "hasher.add_multiple({}.serialize());\n",
-                arg.pattern.name_ident().0.contents.clone()
-            )
+            let param_name = arg.pattern.name_ident().0.contents.clone();
+            match arg.typ.typ {
+                UnresolvedTypeData::Array(_, _) => {
+                    format!(
+                        "let hash_{0} = an_array.map(|x: Field| x.serialize());
+                        for i in 0..{0}.len() {{
+                            args = args.append(hash_{0}[i].as_slice());
+                        }}\n",
+                        param_name
+                    )
+                }
+                _ => format!("args = args.append({}.serialize());\n", param_name),
+            }
         })
         .collect::<Vec<_>>()
         .join("");
     let context_call = if aztec_visibility == "Private" {
         format!(
-            "let hasher = dep::aztec::hash::ArgsHasher::new();
+            "let mut args: [Field] = [0; 0].as_slice();
             {1}
-            assert(args_hash == arguments::pack_arguments(args));
-            let args_hash = hasher.hash();
+            let args_hash = dep::aztec::hash::hash_args(args);
+            assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args));
             context.private.unwrap().call_private_function(target_contract, {}, args_hash, false, false)",
             fn_selector, call_args
         )
     } else {
         format!(
-            "let hasher = dep::aztec::hash::ArgsHasher::new();
+            "let mut args: [Field] = [0; 0].as_slice();
             {1}
-            let args_hash = hasher.hash();
-            assert(args_hash == arguments::pack_arguments(args));
+            let args_hash = dep::aztec::hash::hash_args(args);
+            assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args));
             if context.private.is_some() {{
                 context.private.unwrap().call_private_function_with_packed_args(target_contract, {0}, args_hash, false, false)
             }} else {{

@@ -271,7 +271,7 @@ impl PublicContextInterface for PublicContext {
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -282,7 +282,7 @@ impl PublicContextInterface for PublicContext {
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -293,7 +293,7 @@ impl PublicContextInterface for PublicContext {
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 }
