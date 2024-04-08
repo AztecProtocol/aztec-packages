@@ -62,7 +62,7 @@ pub fn inject_compute_note_hash_and_nullifier(
         let note_types = fetch_notes(context)
             .iter()
             .map(|(_, note)| note.borrow().name.0.contents.clone())
-            .collect();
+            .collect::<Vec<_>>();
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
         let func = generate_compute_note_hash_and_nullifier(&note_types);
