@@ -138,8 +138,8 @@ export class Tx {
    */
   getTxHash(): TxHash {
     // Private kernel functions are executed client side and for this reason tx hash is already set as first nullifier
-    const firstNullifier = this.data.getNonDefaultNullifiers()[0];
-    if (!firstNullifier || firstNullifier.isDefault()) {
+    const firstNullifier = this.data.getNonZeroNullifiers()[0];
+    if (!firstNullifier || firstNullifier.isZero()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
     return new TxHash(firstNullifier.toBuffer());
@@ -154,8 +154,8 @@ export class Tx {
       encryptedLogSize: this.encryptedLogs.getSerializedLength(),
       unencryptedLogSize: this.unencryptedLogs.getSerializedLength(),
 
-      newCommitmentCount: this.data.getNonDefaultNoteHashes().length,
-      newNullifierCount: this.data.getNonDefaultNullifiers().length,
+      newCommitmentCount: this.data.getNonZeroNoteHashes().length,
+      newNullifierCount: this.data.getNonZeroNullifiers().length,
 
       proofSize: this.proof.buffer.length,
       size: this.toBuffer().length,

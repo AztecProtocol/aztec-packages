@@ -104,7 +104,7 @@ mod tests {
             note_hashes: [SideEffect; N]
         ) -> [SideEffect; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
-            let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
+            let mut unique_siloed_note_hashes = [SideEffect::default(); N];
             for i in 0..N {
                 if note_hashes[i].value != 0 {
                     let nonce = compute_note_hash_nonce(first_nullifier.value, i);

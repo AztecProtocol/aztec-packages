@@ -30,8 +30,8 @@ struct CombinedAccumulatedData {
 impl Default for CombinedAccumulatedData {
     fn default() -> Self {
         CombinedAccumulatedData {
-            new_note_hashes: [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_TX],
-            new_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_TX],
+            new_note_hashes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
+            new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_TX],
             new_l2_to_l1_msgs: [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX],
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,

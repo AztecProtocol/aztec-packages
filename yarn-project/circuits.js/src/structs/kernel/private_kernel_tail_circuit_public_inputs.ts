@@ -146,7 +146,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       : 0;
   }
 
-  getNonDefaultNoteHashes() {
+  getNonZeroNoteHashes() {
     const noteHashes = this.forPublic
       ? mergeAccumulatedData(
           MAX_NEW_NULLIFIERS_PER_TX,
@@ -154,10 +154,10 @@ export class PrivateKernelTailCircuitPublicInputs {
           this.forPublic.end.newNoteHashes,
         ).map(n => n.value)
       : this.forRollup!.end.newNoteHashes;
-    return noteHashes.filter(n => !n.isDefault());
+    return noteHashes.filter(n => !n.isZero());
   }
 
-  getNonDefaultNullifiers() {
+  getNonZeroNullifiers() {
     const nullifiers = this.forPublic
       ? mergeAccumulatedData(
           MAX_NEW_NULLIFIERS_PER_TX,
@@ -165,7 +165,7 @@ export class PrivateKernelTailCircuitPublicInputs {
           this.forPublic.end.newNullifiers,
         ).map(n => n.value)
       : this.forRollup!.end.newNullifiers;
-    return nullifiers.filter(n => !n.isDefault());
+    return nullifiers.filter(n => !n.isZero());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelTailCircuitPublicInputs {
