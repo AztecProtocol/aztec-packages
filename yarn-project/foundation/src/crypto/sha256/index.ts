@@ -1,10 +1,12 @@
-import { default as hash } from 'hash.js';
+import { BarretenbergSync, RawBuffer } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
 import { truncateAndPad } from '../../serialize/free_funcs.js';
 import { type Bufferable, serializeToBuffer } from '../../serialize/serialize.js';
 
-export const sha256 = (data: Buffer) => Buffer.from(hash.sha256().update(data).digest());
+export function sha256(data: Buffer) {
+  return Buffer.from(BarretenbergSync.getSingleton().sha256Hash(new RawBuffer(data), data.length).toBuffer());
+}
 
 export const sha256Trunc = (data: Buffer) => truncateAndPad(sha256(data));
 

@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'crypto';
 import { sha256 } from './index.js';
 
 describe('sha256', () => {
-  it('should correctly hash data using hash.js', () => {
+  it('should correctly hash data', () => {
     const data = randomBytes(67);
 
     const expected = createHash('sha256').update(data).digest();

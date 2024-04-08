@@ -140,6 +140,26 @@
     "isAsync": false
   },
   {
+    "functionName": "sha256__hash",
+    "inArgs": [
+      {
+        "name": "input",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "length_ptr",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "r",
+        "type": "out_buf32"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "schnorr_compute_public_key",
     "inArgs": [
       {

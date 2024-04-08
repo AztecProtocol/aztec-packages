@@ -111,6 +111,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async sha256Hash(input: Uint8Array, lengthPtr: number): Promise<Buffer32> {
+    const inArgs = [input, lengthPtr].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer32];
+    const result = await this.wasm.callWasmExport(
+      'sha256__hash',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async schnorrComputePublicKey(privateKey: Fr): Promise<Point> {
     const inArgs = [privateKey].map(serializeBufferable);
     const outTypes: OutputType[] = [Point];
@@ -648,6 +660,18 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [Fr];
     const result = this.wasm.callWasmExport(
       'blake2s_to_field_',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  sha256Hash(input: Uint8Array, lengthPtr: number): Buffer32 {
+    const inArgs = [input, lengthPtr].map(serializeBufferable);
+    const outTypes: OutputType[] = [Buffer32];
+    const result = this.wasm.callWasmExport(
+      'sha256__hash',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
