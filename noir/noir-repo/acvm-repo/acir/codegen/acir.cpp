@@ -2596,14 +2596,6 @@ namespace Program {
 } // end of namespace Program
 
 template <>
-template <typename Serializer>
-void serde::Serializable<Program::BlackBoxFuncCall::Keccak256VariableLength>::serialize(const Program::BlackBoxFuncCall::Keccak256VariableLength &obj, Serializer &serializer) {
-    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
-    serde::Serializable<decltype(obj.var_message_size)>::serialize(obj.var_message_size, serializer);
-    serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
-}
-
-template <>
 template <typename Deserializer>
 Program::BlackBoxFuncCall::Keccak256VariableLength serde::Deserializable<Program::BlackBoxFuncCall::Keccak256VariableLength>::deserialize(Deserializer &deserializer) {
     Program::BlackBoxFuncCall::Keccak256VariableLength obj;
