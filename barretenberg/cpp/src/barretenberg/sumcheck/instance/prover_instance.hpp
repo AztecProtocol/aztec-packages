@@ -85,7 +85,8 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void compute_databus_id() requires IsGoblinFlavor<Flavor>;
+    void compute_databus_id()
+        requires IsGoblinFlavor<Flavor>;
 
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
@@ -94,7 +95,8 @@ template <class Flavor> class ProverInstance_ {
 
     size_t compute_dyadic_size(Circuit&);
 
-    void construct_databus_polynomials(Circuit&) requires IsGoblinFlavor<Flavor>;
+    void construct_databus_polynomials(Circuit&)
+        requires IsGoblinFlavor<Flavor>;
 
     void construct_table_polynomials(Circuit&, size_t);
 };
