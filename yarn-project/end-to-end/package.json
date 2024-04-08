@@ -102,7 +102,7 @@
     "node": ">=18"
   },
   "jest": {
-    "slowTestThreshold": 180,
+    "slowTestThreshold": 300,
     "extensionsToTreatAsEsm": [
       ".ts"
     ],
