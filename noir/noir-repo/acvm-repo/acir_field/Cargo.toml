@@ -24,7 +24,7 @@ ark-bn254 = { version = "^0.4.0", optional = true, default-features = false, fea
 ark-bls12-381 = { version = "^0.4.0", optional = true, default-features = false, features = [
     "curve",
 ] }
-ark-ff = { version = "^0.4.0", optional = true, default-features = false }
+ark-ff = { version = "^0.4.0", optional = true, default-features = false, features = [ "asm" ]  }
 
 cfg-if = "1.0.0"
 
