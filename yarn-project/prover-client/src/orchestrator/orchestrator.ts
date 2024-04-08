@@ -144,7 +144,8 @@ export class ProvingOrchestrator {
     if (!Number.isInteger(numTxs) || numTxs < 2 || (numTxs & (numTxs - 1)) !== 0) {
       throw new Error(`Length of txs for the block should be a power of two and at least two (got ${numTxs})`);
     }
-    this.provingState?.cancel();
+    // Cancel any currently proving block before starting a new one
+    this.cancelBlock();
     logger.info(`Starting new block with ${numTxs} transactions`);
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
@@ -230,23 +231,37 @@ export class ProvingOrchestrator {
     await this.prepareBaseRollupInputs(this.provingState, BigInt(txIndex), tx);
   }
 
+  /**
+   * Marks the block as full and pads it to the full power of 2 block size, no more transactions will be accepted.
+   */
   public async setBlockCompleted() {
     if (!this.provingState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
     }
 
     // we need to pad the rollup with empty transactions
-    logger.info(`Padding rollup with ${this.provingState.totalNumTxs - this.provingState.transactionsReceived} empty transactions`);
+    logger.info(
+      `Padding rollup with ${
+        this.provingState.totalNumTxs - this.provingState.transactionsReceived
+      } empty transactions`,
+    );
     for (let i = this.provingState.transactionsReceived; i < this.provingState.totalNumTxs; i++) {
       const paddingTxIndex = this.provingState.addNewTx(this.provingState.emptyTx);
       await this.prepareBaseRollupInputs(this.provingState, BigInt(paddingTxIndex), this.provingState!.emptyTx);
     }
   }
 
+  /**
+   * Cancel any further proving of the block
+   */
   public cancelBlock() {
     this.provingState?.cancel();
   }
 
+  /**
+   * Performs the final tree update for the block and returns the fully proven block.
+   * @returns The fully proven block and proof.
+   */
   public async finaliseBlock() {
     if (!this.provingState || !this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
       throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
