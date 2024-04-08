@@ -138,14 +138,8 @@ impl PublicContextInterface for AvmContext {
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let gas = [
-            gas_opts.l1_gas.unwrap_or_else(|| l1_gas_left()), 
-            gas_opts.l2_gas.unwrap_or_else(|| l2_gas_left() - NESTED_CALL_L2_GAS_BUFFER), 
-            gas_opts.da_gas.unwrap_or_else(|| da_gas_left()), 
-        ];
-
         let results = call(
-            gas,
+            gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
@@ -164,14 +158,8 @@ impl PublicContextInterface for AvmContext {
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let gas = [
-            gas_opts.l1_gas.unwrap_or_else(|| l1_gas_left()), 
-            gas_opts.l2_gas.unwrap_or_else(|| l2_gas_left() - NESTED_CALL_L2_GAS_BUFFER), 
-            gas_opts.da_gas.unwrap_or_else(|| da_gas_left()), 
-        ];
-
         let (data_to_return, success): ([Field; RETURN_VALUES_LENGTH], u8) = call_static(
-            gas,
+            gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
