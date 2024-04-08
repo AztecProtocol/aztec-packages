@@ -4,7 +4,7 @@ contract FPC {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_empty};
     use dep::aztec::state_vars::SharedImmutable;
 
-    use crate::interfaces::Token;
+    use dep::token::Token;
 
     #[aztec(storage)]
     struct Storage {
@@ -19,35 +19,34 @@ contract FPC {
         storage.gas_token_address.initialize(gas_token_address);
     }
 
-    #[contract_library_function]
-    pub fn test(
-        context: &mut dep::aztec::context::PrivateContext,
-        target_contract: dep::aztec::protocol_types::address::AztecAddress,
-        amount: Field,
-        an_array: [Field; 4]
-    ) -> pub [Field; 4] {
-        let mut args: [Field] = [0; 0].as_slice();
-        let hash_0 = amount.serialize();
-        args = args.append(hash_0.as_slice());
-        let hash_1 = an_array.map(|x: Field| x.serialize());
-        for i in 0..hash_1.len() {
-            args = args.append(hash_1[i].as_slice());
-        }
-        let args_hash = dep::aztec::hash::hash_args(args);
-        assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args));
-        context.call_private_function_with_packed_args(
-            target_contract,
-            dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""),
-            args_hash,
-            false,
-            false
-        )
-    }
+    // #[contract_library_function]
+    // pub fn test(
+    //     context: &mut dep::aztec::context::PrivateContext,
+    //     target_contract: dep::aztec::protocol_types::address::AztecAddress,
+    //     amount: Field,
+    //     an_array: [Field; 4]
+    // ) -> pub [Field; 4] {
+    //     let mut args: [Field] = [0; 0].as_slice();
+    //     let hash_0 = amount.serialize();
+    //     args = args.append(hash_0.as_slice());
+    //     let hash_1 = an_array.map(|x: Field| x.serialize());
+    //     for i in 0..hash_1.len() {
+    //         args = args.append(hash_1[i].as_slice());
+    //     }
+    //     let args_hash = dep::aztec::hash::hash_args(args);
+    //     assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args));
+    //     context.call_private_function_with_packed_args(
+    //         target_contract,
+    //         dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(""),
+    //         args_hash,
+    //         false,
+    //         false
+    //     )
+    // }
 
     #[aztec(private)]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read_private());
-
         let _res = Token::at(asset).unshield(
             &mut context,
             context.msg_sender(),
@@ -55,12 +54,7 @@ contract FPC {
             amount,
             nonce
         );
-
-        let _void = context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("pay_fee_with_shielded_rebate(Field,(Field),Field)"),
-            [amount, asset.to_field(), secret_hash]
-        );
+        at(context.this_address()).pay_fee_with_shielded_rebate(&mut context, amount, asset, secret_hash);
     }
 
     #[aztec(private)]

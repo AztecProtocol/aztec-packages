@@ -53,7 +53,9 @@ pub fn inject_compute_note_hash_and_nullifier(
         // If compute_note_hash_and_nullifier is already defined by the user, we skip auto-generation in order to provide an
         // escape hatch for this mechanism.
         // TODO(#4647): improve this diagnosis and error messaging.
-        if check_for_compute_note_hash_and_nullifier_definition(crate_id, context) {
+        if context.crate_graph.root_crate_id() != crate_id
+            || check_for_compute_note_hash_and_nullifier_definition(crate_id, context)
+        {
             return Ok(());
         }
 
@@ -105,7 +107,7 @@ fn generate_compute_note_hash_and_nullifier_source(note_types: &[String]) -> Str
         // so we include a dummy version.
         "
         unconstrained fn compute_note_hash_and_nullifier(
-            contract_address: AztecAddress,
+            contract_address: dep::aztec::protocol_types::address::AztecAddress,
             nonce: Field,
             storage_slot: Field,
             note_type_id: Field,
@@ -135,7 +137,7 @@ fn generate_compute_note_hash_and_nullifier_source(note_types: &[String]) -> Str
         format!(
             "
             unconstrained fn compute_note_hash_and_nullifier(
-                contract_address: AztecAddress,
+                contract_address: dep::aztec::protocol_types::address::AztecAddress,
                 nonce: Field,
                 storage_slot: Field,
                 note_type_id: Field,

@@ -55,20 +55,8 @@ fn compute_fn_signature(func: &NoirFunction) -> String {
     )
 }
 
-pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, String, String) {
-    let (fn_name, fn_type) = (
-        func.name().to_string(),
-        format!(
-            "fn[(dep::aztec::context::Context, dep::aztec::protocol_types::address::AztecAddress)]({}) -> {}",
-            func.parameters()
-                .iter()
-                .map(|param| param.typ.to_string().replace("plain::", ""))
-                .collect::<Vec<_>>()
-                .join(", "),
-            "[Field; 4]" // func.return_type()
-        ),
-    );
-    let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", compute_fn_signature(func));
+pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
+    let fn_name = func.name().to_string();
     let fn_parameters = func
         .parameters()
         .iter()
@@ -81,6 +69,22 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, St
         })
         .collect::<Vec<_>>()
         .join(", ");
+
+    let return_type = "[Field; 4]"; // func.return_type()
+
+    let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", compute_fn_signature(func));
+    // let fn_parameters = func
+    //     .parameters()
+    //     .iter()
+    //     .map(|param| {
+    //         format!(
+    //             "{}: {}",
+    //             param.pattern.name_ident().0.contents,
+    //             param.typ.to_string().replace("plain::", "")
+    //         )
+    //     })
+    //     .collect::<Vec<_>>()
+    //     .join(", ");
     let call_args = func
         .parameters()
         .iter()
@@ -96,75 +100,72 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> (String, St
                         param_name
                     )
                 }
-                _ => format!("args = args.append({}.serialize());\n", param_name),
+                _ => format!("args = args.append({}.serialize().as_slice());\n", param_name),
             }
         })
         .collect::<Vec<_>>()
         .join("");
-    let context_call = if aztec_visibility == "Private" {
-        format!(
+    if aztec_visibility == "Private" {
+        let fn_source = format!(
             "let mut args: [Field] = [0; 0].as_slice();
             {1}
             let args_hash = dep::aztec::hash::hash_args(args);
             assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args));
-            context.private.unwrap().call_private_function(target_contract, {}, args_hash, false, false)",
+            context.call_private_function_with_packed_args(self.target_contract, {0}, args_hash, false, false)",
             fn_selector, call_args
+        );
+        format!(
+            "pub fn {}(self, context: &mut dep::aztec::context::PrivateContext, {}) -> {} {{
+                {}
+            }}",
+            fn_name, fn_parameters, return_type, fn_source
         )
     } else {
-        format!(
+        let fn_source = format!(
             "let mut args: [Field] = [0; 0].as_slice();
             {1}
             let args_hash = dep::aztec::hash::hash_args(args);
             assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args));
             if context.private.is_some() {{
-                context.private.unwrap().call_private_function_with_packed_args(target_contract, {0}, args_hash, false, false)
+                context.private.unwrap().call_private_function_with_packed_args(self.target_contract, {0}, args_hash, false, false)
             }} else {{
-                context.public.unwrap().call_public_function_with_packed_args(target_contract, {0}, args_hash, false, false)
+                context.public.unwrap().call_public_function_with_packed_args(self.target_contract, {0}, args_hash, false, false)
             }}",
             fn_selector, call_args
+        );
+        format!(
+            "pub fn {}(self, context: &mut dep::aztec::context::Context, {}) -> {} {{
+                {}
+            }}",
+            fn_name, fn_parameters, return_type, fn_source
         )
-    };
-    let fn_source = format!(
-        "|{}| {{
-            {}
-        }}",
-        fn_parameters, context_call
-    );
-    (fn_name, fn_type, fn_source)
+    }
 }
 
 pub fn generate_contract_interface(
     module: &mut SortedModule,
     module_name: &str,
-    stubs: &[(String, String, String)],
+    stubs: &[String],
 ) -> Result<(), AztecMacroError> {
     let contract_interface = format!(
         "
         struct {0}Interface {{
+            target_contract: dep::aztec::protocol_types::address::AztecAddress
+        }}
+
+        impl {0}Interface {{
             {1}
         }}
 
         #[contract_library_method]
-        fn at(
-            context: dep::aztec::context::Context,
+        pub fn at(
             target_contract: dep::aztec::protocol_types::address::AztecAddress
-        ) -> {0}Interface {{
-            {0}Interface {{ 
-                {2} 
-            }}
+        ) -> pub {0}Interface {{
+            {0}Interface {{ target_contract }}
         }}
     ",
         module_name,
-        stubs
-            .iter()
-            .map(|(fn_name, fn_type, _)| format!("{}: {}", fn_name, fn_type))
-            .collect::<Vec<_>>()
-            .join(",\n"),
-        stubs
-            .iter()
-            .map(|(fn_name, _, fn_source)| format!("{}: {}", fn_name, fn_source))
-            .collect::<Vec<_>>()
-            .join(",\n")
+        stubs.join("\n"),
     );
 
     let (contract_interface_ast, errors) = parse_program(&contract_interface);
@@ -175,6 +176,7 @@ pub fn generate_contract_interface(
 
     let mut contract_interface_ast = contract_interface_ast.into_sorted();
     module.types.push(contract_interface_ast.types.pop().unwrap());
+    module.impls.push(contract_interface_ast.impls.pop().unwrap());
     module.functions.push(contract_interface_ast.functions.pop().unwrap());
 
     Ok(())

@@ -22,8 +22,13 @@ export class Oracle {
     return toACVMField(val);
   }
 
-  async packArguments(args: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArguments(args.map(fromACVMField));
+  async packArguments([_len, args]: [ACVMField, ACVMField[]]): Promise<ACVMField> {
+    const packed = await this.typedOracle.packArgumentsArray(args.map(fromACVMField));
+    return toACVMField(packed);
+  }
+
+  async packArgumentsArray(args: ACVMField[]): Promise<ACVMField> {
+    const packed = await this.typedOracle.packArgumentsArray(args.map(fromACVMField));
     return toACVMField(packed);
   }
 
