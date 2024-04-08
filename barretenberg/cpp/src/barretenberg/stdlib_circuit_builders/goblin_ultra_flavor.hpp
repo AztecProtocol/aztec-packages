@@ -87,6 +87,9 @@ class GoblinUltraFlavor {
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
+    template <size_t NUM_INSTANCES>
+    using ProtogalaxyOptimisedTupleOfTuplesOfUnivariates =
+        decltype(create_optimised_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 

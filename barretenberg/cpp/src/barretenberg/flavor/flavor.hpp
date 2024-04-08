@@ -242,6 +242,26 @@ static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 }
 
 /**
+ * @brief Recursive utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
+ * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
+ * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
+ * tuple is determined by the corresponding subrelation length and the number of instances to be folded.
+ */
+template <typename Tuple, size_t NUM_INSTANCES, size_t Index = 0>
+static constexpr auto create_optimised_protogalaxy_tuple_of_tuples_of_univariates()
+{
+    if constexpr (Index >= std::tuple_size<Tuple>::value) {
+        return std::tuple<>{}; // Return empty when reach end of the tuple
+    } else {
+        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::
+            template ProtogalaxyOptimisedTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>;
+        return std::tuple_cat(
+            std::tuple<UnivariateTuple>{},
+            create_optimised_protogalaxy_tuple_of_tuples_of_univariates<Tuple, NUM_INSTANCES, Index + 1>());
+    }
+}
+
+/**
  * @brief Recursive utility function to construct a container for the subrelation accumulators of sumcheck proving.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner

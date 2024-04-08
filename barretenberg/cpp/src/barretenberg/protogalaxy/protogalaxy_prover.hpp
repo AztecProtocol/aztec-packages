@@ -56,6 +56,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                    (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
 
+    using OptimisedTupleOfTuplesOfUnivariates =
+        typename Flavor::template ProtogalaxyOptimisedTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using TupleOfTuplesOfUnivariates =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
@@ -280,11 +282,14 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         auto base_univariates = instances.row_to_univariates(row_idx);
         for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
             extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
+            std::copy(std::next(extended_univariate.evaluations.begin(), 2),
+                      extended_univariate.evaluations.end(),
+                      std::next(extended_univariate.evaluations.begin()));
         }
     }
 
     template <typename Parameters, size_t relation_idx = 0>
-    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
+    void accumulate_relation_univariates(OptimisedTupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const ExtendedUnivariates& extended_univariates,
                                          const Parameters& relation_parameters,
                                          const FF& scaling_factor)
@@ -331,7 +336,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = common_instance_size / num_threads;   // actual iterations per thread
         // Construct univariate accumulator containers; one per thread
-        std::vector<TupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<OptimisedTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             // just normal relation lengths
             Utils::zero_univariates(accum);
@@ -362,15 +367,40 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                     pow_challenge);
             }
         });
-
+        OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators;
+        Utils::zero_univariates(optimised_univariate_accumulators);
         // Accumulate the per-thread univariate accumulators into a single set of accumulators
         for (auto& accumulators : thread_univariate_accumulators) {
-            Utils::add_nested_tuples(univariate_accumulators, accumulators);
+            Utils::add_nested_tuples(optimised_univariate_accumulators, accumulators);
         }
+        restore_univariates(optimised_univariate_accumulators, univariate_accumulators);
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(univariate_accumulators, instances.alphas);
     }
 
+    template <typename OptimisedTuple, typename RegularTuple, size_t subrelation_idx = 0>
+    static void restore_tuple(const OptimisedTuple& optimised_tuple, RegularTuple& regular_tuple)
+    {
+        auto& from = std::get<subrelation_idx>(optimised_tuple);
+        auto& to = std::get<subrelation_idx>(regular_tuple);
+        to.value_at(0) = from.value_at(0);
+        to.value_at(1) = 0;
+        std::copy(std::next(from.evaluations.begin()), from.evaluations.end(), std::next(to.evaluations.begin(), 2));
+        if constexpr (subrelation_idx + 1 < std::tuple_size_v<OptimisedTuple>) {
+            restore_tuple<OptimisedTuple, RegularTuple, subrelation_idx + 1>(optimised_tuple, regular_tuple);
+        }
+    }
+    template <size_t relation_idx = 0>
+    static void restore_univariates(const OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators,
+                                    TupleOfTuplesOfUnivariates& univariate_accumulators)
+    {
+        restore_tuple(std::get<relation_idx>(optimised_univariate_accumulators),
+                      std::get<relation_idx>(univariate_accumulators));
+        // Repeat for the next relation.
+        if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
+            restore_univariates<relation_idx + 1>(optimised_univariate_accumulators, univariate_accumulators);
+        }
+    }
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                                                     const CombinedRelationSeparator& alpha)
     {
