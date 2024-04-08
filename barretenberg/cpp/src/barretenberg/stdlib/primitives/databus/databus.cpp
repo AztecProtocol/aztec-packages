@@ -9,15 +9,11 @@ template <typename Builder> void databus<Builder>::bus_vector::set_values(const 
     length = raw_entries.size();
 }
 
-// initialize the table once we perform a read. This ensures we always have a valid
-// pointer to a Builder.
-// (if both the table entries and the index are constant, we don't need a builder as we
-// can directly extract the desired value from `raw_entries`)
 template <typename Builder> void databus<Builder>::bus_vector::initialize() const
 {
     ASSERT(!initialized);
     ASSERT(context != nullptr);
-    // populate table. Table entries must be normalized and cannot be constants
+    // Populate the bus vector entries from raw entries; Must be normalized and cannot be constants
     for (const auto& entry : raw_entries) {
         if (entry.is_constant()) {
             entries.emplace_back(
@@ -37,7 +33,6 @@ template <typename Builder> field_t<Builder> databus<Builder>::bus_vector::opera
         ASSERT(context != nullptr);
         context->failure("bus_vector: access out of bounds");
     }
-
     return entries[index];
 }
 
