@@ -78,7 +78,6 @@ const {
   TEMP_DIR = '/tmp',
   ACVM_BINARY_PATH = '',
   ACVM_WORKING_DIRECTORY = '',
-  ENABLE_GAS = '',
 } = process.env;
 
 const getAztecUrl = () => {
@@ -222,6 +221,7 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
+  enableGas: boolean,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
@@ -259,7 +259,7 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  if (['1', 'true'].includes(ENABLE_GAS)) {
+  if (enableGas) {
     // this contract might already have been deployed
     // the following function is idempotent
     await deployCanonicalGasToken(new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint()));
@@ -322,6 +322,7 @@ export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
+  enableGas = false,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
 
@@ -354,7 +355,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts);
+    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
@@ -377,7 +378,7 @@ export async function setup(
   logger('Creating a pxe...');
   const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
-  if (['1', 'true'].includes(ENABLE_GAS)) {
+  if (enableGas) {
     logger(`Deploying canonical gas token...`);
     await deployCanonicalGasToken(new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()));
     logger(`Done.`);
