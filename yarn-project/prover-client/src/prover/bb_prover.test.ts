@@ -115,7 +115,6 @@ describe('prover/bb_prover', () => {
       bbWorkingDirectory: config.bbWorkingDirectory,
     };
     prover = await BBNativeRollupProver.new(bbConfig);
-    logger('AFTER PROVER START');
   }, 200_000);
 
   afterEach(async () => {
@@ -124,15 +123,8 @@ describe('prover/bb_prover', () => {
     }
   }, 5000);
 
-  it('proves the base rollup circuit', async () => {
-    const txs = await Promise.all([
-      makeBloatedProcessedTx(builderDb, 1),
-      makeBloatedProcessedTx(builderDb, 2),
-      makeBloatedProcessedTx(builderDb, 3),
-      makeBloatedProcessedTx(builderDb, 4),
-    ]);
-
-    logger('Starting Test!!');
+  it('proves the base rollup', async () => {
+    const txs = await Promise.all([makeBloatedProcessedTx(builderDb, 1)]);
 
     logger('Building base rollup inputs');
     const baseRollupInputs = [];
@@ -140,55 +132,7 @@ describe('prover/bb_prover', () => {
       baseRollupInputs.push(await buildBaseRollupInput(tx, globalVariables, builderDb));
     }
     logger('Proving base rollups');
-    const baseRollupOutputs = await Promise.all(baseRollupInputs.map(inputs => prover.getBaseRollupProof(inputs)));
-    logger('Proving merge rollups');
-    const mergeRollupInputs = [];
-    for (let i = 0; i < 4; i += 2) {
-      mergeRollupInputs.push(
-        createMergeRollupInputs(
-          [baseRollupOutputs[i][0]!, baseRollupOutputs[i][1]!],
-          [baseRollupOutputs[i + 1][0]!, baseRollupOutputs[i + 1][1]!],
-        ),
-      );
-    }
-    const mergeRollupOutputs = await Promise.all(mergeRollupInputs.map(inputs => prover.getMergeRollupProof(inputs)));
-
-    let baseParityInputs: BaseParityInputs[] = [];
-    let l1ToL2MessagesPadded: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>;
-    try {
-      l1ToL2MessagesPadded = padArrayEnd([], Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    } catch (err) {
-      throw new Error('Too many L1 to L2 messages');
-    }
-    baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
-      BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i),
-    );
-
-    logger('Proving base parity circuits');
-    const baseParityOutputs = await Promise.all(baseParityInputs.map(inputs => prover.getBaseParityProof(inputs)));
-
-    const rootParityInputs = new RootParityInputs(
-      baseParityOutputs.map(([publicInputs, proof]) => new RootParityInput(proof, publicInputs)) as Tuple<
-        RootParityInput,
-        typeof NUM_BASE_PARITY_PER_ROOT_PARITY
-      >,
-    );
-    logger('Proving root parity circuit');
-    const rootParityCircuitOutput = await prover.getRootParityProof(rootParityInputs);
-
-    const rootParityInput = new RootParityInput(rootParityCircuitOutput[1], rootParityCircuitOutput[0]);
-
-    logger('Proving root rollup circuit')!;
-    await executeRootRollupCircuit(
-      [mergeRollupOutputs[0][0]!, mergeRollupOutputs[0][1]!],
-      [mergeRollupOutputs[1][0]!, mergeRollupOutputs[1][1]!],
-      rootParityInput,
-      l1ToL2MessagesPadded,
-      prover,
-      builderDb,
-      logger,
-    );
-    logger('Completed!!');
+    await Promise.all(baseRollupInputs.map(inputs => prover.getBaseRollupProof(inputs)));
   }, 600_000);
 
   it('proves all circuits', async () => {

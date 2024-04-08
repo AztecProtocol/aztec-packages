@@ -89,7 +89,7 @@ export class BBNativeRollupProver implements CircuitProver {
    */
   public async getRootParityProof(inputs: RootParityInputs): Promise<[ParityPublicInputs, Proof]> {
     // verify all base parity inputs
-    await Promise.all(inputs.children.map(child => this.verifyProof('BaseParityInput', child.proof)));
+    await Promise.all(inputs.children.map(child => this.verifyProof('BaseParityArtifact', child.proof)));
 
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
@@ -168,7 +168,19 @@ export class BBNativeRollupProver implements CircuitProver {
           this.verificationKeyDirectories.set(circuitName, result);
         }
       });
+      // const provingKeyPromise = generateProvingKeyForNoirCircuit(
+      //   this.config.bbBinaryPath,
+      //   this.config.bbWorkingDirectory,
+      //   circuitName,
+      //   ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
+      //   logger,
+      // ).then(result => {
+      //   if (result) {
+      //     this.provingKeyDirectories.set(circuitName, result);
+      //   }
+      // });
       promises.push(verificationKeyPromise);
+      //promises.push(provingKeyPromise);
     }
     await Promise.all(promises);
   }
@@ -200,6 +212,7 @@ export class BBNativeRollupProver implements CircuitProver {
       BaseRollupArtifact,
       outputWitnessFile,
       logger,
+      //this.provingKeyDirectories.get(circuitType)!,
     );
 
     if (provingResult.result.status === BB_RESULT.FAILURE) {

@@ -41,19 +41,20 @@ export function executeBB(
   resultParser = (code: number) => code === 0,
 ) {
   return new Promise<BBResult>((resolve, reject) => {
-    let errorBuffer = Buffer.alloc(0);
     const acvm = proc.spawn(pathToBB, [command, ...args]);
     acvm.stdout.on('data', data => {
-      logger(data.toString('utf-8').replace(/\n$/, ''));
+      const message = data.toString('utf-8').replace(/\n$/, '');
+      logger(message);
     });
     acvm.stderr.on('data', data => {
-      errorBuffer = Buffer.concat([errorBuffer, data]);
+      const message = data.toString('utf-8').replace(/\n$/, '');
+      logger(message);
     });
     acvm.on('close', (code: number) => {
       if (resultParser(code)) {
         resolve({ status: BB_RESULT.SUCCESS });
       } else {
-        reject(errorBuffer.toString('utf-8'));
+        reject('BB execution failed');
       }
     });
   }).catch((reason: string) => ({ status: BB_RESULT.FAILURE, reason }));
@@ -80,6 +81,8 @@ async function generateKeyForNoirCircuit(
   const bytecodeHashPath = `${circuitOutputDirectory}/${bytecodeHashFilename}`;
   const bytecodeHash = sha256(bytecode);
 
+  const outputPath = `${circuitOutputDirectory}/${key}`;
+
   let mustRegenerate =
     force ||
     (await fs
@@ -94,7 +97,7 @@ async function generateKeyForNoirCircuit(
 
   if (!mustRegenerate) {
     const alreadyPresent: BBSuccess = { status: BB_RESULT.ALREADY_PRESENT };
-    return { result: alreadyPresent, outputPath: circuitOutputDirectory };
+    return { result: alreadyPresent, outputPath: outputPath };
   }
 
   const binaryPresent = await fs
@@ -103,7 +106,7 @@ async function generateKeyForNoirCircuit(
     .catch(_ => false);
   if (!binaryPresent) {
     const failed: BBFailure = { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-    return { result: failed, outputPath: circuitOutputDirectory };
+    return { result: failed, outputPath: outputPath };
   }
 
   // Clear up the circuit output directory removing anything that is there
@@ -112,9 +115,7 @@ async function generateKeyForNoirCircuit(
   // Write the bytecode and input witness to the working directory
   await fs.writeFile(bytecodePath, bytecode);
 
-  // For verification keys, the argument is the full file path
-  const outputPath = key === 'pk' ? circuitOutputDirectory : `${circuitOutputDirectory}/vk`;
-  const args = ['-o', outputPath, '-b', bytecodePath];
+  const args = ['-o', outputPath, '-b', bytecodePath, '-v'];
   const timer = new Timer();
   const result = await executeBB(pathToBB, `write_${key}`, args, log);
   const duration = timer.ms();
@@ -123,14 +124,14 @@ async function generateKeyForNoirCircuit(
   return { result, duration, outputPath };
 }
 
-const directorySize = async (directory: string, filesToOmit: string[]) => {
-  const files = await fs.readdir(directory);
-  const stats = files
-    .filter(f => !filesToOmit.find(file => file === f))
-    .map(file => fs.stat(path.join(directory, file)));
+// const directorySize = async (directory: string, filesToOmit: string[]) => {
+//   const files = await fs.readdir(directory);
+//   const stats = files
+//     .filter(f => !filesToOmit.find(file => file === f))
+//     .map(file => fs.stat(path.join(directory, file)));
 
-  return (await Promise.all(stats)).reduce((accumulator, { size }) => accumulator + size, 0);
-};
+//   return (await Promise.all(stats)).reduce((accumulator, { size }) => accumulator + size, 0);
+// };
 
 export async function generateVerificationKeyForNoirCircuit(
   pathToBB: string,
@@ -187,10 +188,10 @@ export async function generateProvingKeyForNoirCircuit(
     log(`Proving key for circuit ${circuitName} was already present`);
     return outputPath;
   }
-  const size = await directorySize(outputPath, [bytecodeHashFilename]);
+  const stats = await fs.stat(outputPath);
   log(
     `Proving key for circuit ${circuitName} written to ${outputPath} in ${duration} ms, size: ${
-      size / (1024 * 1024)
+      stats.size / (1024 * 1024)
     } MB`,
   );
   return outputPath;
@@ -230,13 +231,16 @@ export async function generateProof(
 
   // For verification keys, the argument is the full file path
   const outputPath = `${circuitOutputDirectory}/proof`;
-  let args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile];
+  let args = ['-v', '-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile];
   if (provingKeyDirectory) {
     args = args.concat(...['-r', provingKeyDirectory!]);
   }
   const command = provingKeyDirectory ? 'prove_with_key' : 'prove';
   const timer = new Timer();
-  const result = await executeBB(pathToBB, command, args, log);
+  const logFunction = (message: string) => {
+    log(`${circuitName} BB out - ${message}`);
+  };
+  const result = await executeBB(pathToBB, command, args, logFunction);
   const duration = timer.ms();
   await fs.rm(bytecodePath, { force: true });
   return { result, duration, outputPath };
@@ -252,7 +256,8 @@ export async function verifyProof(pathToBB: string, proofFullPath: string, verif
     return { result: failed };
   }
 
-  const args = ['-p', proofFullPath, '-k', verificationKeyPath];
+  log(`Verifying proof at ${proofFullPath} with key at ${verificationKeyPath}`);
+  const args = ['-p', proofFullPath, '-k', verificationKeyPath, '-v'];
   const timer = new Timer();
   const result = await executeBB(pathToBB, 'verify', args, log, (code: number) => code === 1);
   const duration = timer.ms();

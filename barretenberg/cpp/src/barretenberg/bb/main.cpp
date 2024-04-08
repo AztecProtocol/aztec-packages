@@ -225,33 +225,24 @@ void prove(const std::string& bytecodePath,
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
+    Timer circuit_timer;
     acir_composer.create_circuit(constraint_system, witness);
     size_t circuit_size = acir_composer.get_dyadic_circuit_size();
     init_bn254_crs(circuit_size);
     if (pkPath == "") {
-        Timer pk_timer;
         acir_composer.init_proving_key();
-        std::cout << "Generated proving key for circuit size " << circuit_size << " in " << pk_timer.milliseconds()
-                  << "ms" << std::endl;
     } else {
-        std::cout << "Loading CRS for circuit size " << circuit_size + 1 << " from " << CRS_PATH << std::endl;
-        Timer crs_timer;
-        auto crs_factory =
-            std::make_shared<bb::srs::factories::FileCrsFactory<curve::BN254>>(CRS_PATH, circuit_size + 1);
-        auto prover_crs = crs_factory->get_prover_crs(circuit_size + 1);
-        std::cout << "CRS loaded in " << crs_timer.milliseconds() << "ms" << std::endl;
-
-        std::cout << "Loading proving key data from: " << pkPath << std::endl;
-        bb::plonk::proving_key_data key_data;
         Timer pk_timer;
-        read_from_file(pkPath, key_data);
-        acir_composer.init_proving_key(std::move(key_data), prover_crs);
-        std::cout << "Proving key loaded in " << pk_timer.milliseconds() << "ms" << std::endl;
+        bb::plonk::proving_key_data key_data;
+        auto pk_data = from_buffer<plonk::proving_key_data>(read_file(pkPath));
+        auto crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>(CRS_PATH);
+        auto proving_key =
+            std::make_shared<plonk::proving_key>(std::move(pk_data), crs->get_prover_crs(pk_data.circuit_size + 1));
+        acir_composer.init_proving_key(proving_key);
     }
 
     Timer proof_timer;
     auto proof = acir_composer.create_proof();
-    std::cout << "Generated proof in " << proof_timer.milliseconds() << "ms" << std::endl;
 
     if (outputPath == "-") {
         writeRawBytesToStdout(proof);
@@ -299,6 +290,7 @@ void gateCount(const std::string& bytecodePath)
  */
 bool verify(const std::string& proof_path, const std::string& vk_path)
 {
+    std::cout << "Verifying " << proof_path << " with key at " << vk_path << std::endl;
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
@@ -342,13 +334,14 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
     acir_composer.create_circuit(constraint_system);
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     auto pk = acir_composer.init_proving_key();
+    auto serialized_pk = to_buffer(*pk);
 
     if (outputPath == "-") {
-        auto serialized_pk = to_buffer(*pk);
         writeRawBytesToStdout(serialized_pk);
         vinfo("pk written to stdout");
     } else {
-        write_to_file(outputPath, *pk);
+        auto serialized_pk = to_buffer(*pk);
+        write_file(outputPath, serialized_pk);
         vinfo("pk written to: ", outputPath);
     }
 }

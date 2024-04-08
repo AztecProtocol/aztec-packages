@@ -120,5 +120,5 @@ pub fn serialise_witness(witness_map: JsWitnessMap) -> Result<Vec<u8>, JsAbiErro
     let converted_witness: WitnessMap = witness_map.into();
     let witness_stack: WitnessStack = converted_witness.into();
     let output = witness_stack.try_into();
-    output.map_err(|| JsAbiError::new("Failed to convert to Vec<u8>".to_string()))
+    output.map_err(|_| JsAbiError::new("Failed to convert to Vec<u8>".to_string()))
 }
