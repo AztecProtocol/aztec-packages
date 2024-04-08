@@ -1,7 +1,8 @@
 use acir::brillig::{BinaryFieldOp, BinaryIntOp};
 use acir::FieldElement;
 use num_bigint::BigUint;
-use num_traits::{One, ToPrimitive, Zero};
+use num_traits::ToPrimitive;
+use num_traits::{One, Zero};
 
 use crate::memory::MemoryValue;
 
@@ -11,6 +12,8 @@ pub(crate) enum BrilligArithmeticError {
     MismatchedLhsBitSize { lhs_bit_size: u32, op_bit_size: u32 },
     #[error("Bit size for rhs {rhs_bit_size} does not match op bit size {op_bit_size}")]
     MismatchedRhsBitSize { rhs_bit_size: u32, op_bit_size: u32 },
+    #[error("Integer operation BinaryIntOp::{op:?} is not supported on FieldElement")]
+    IntegerOperationOnField { op: BinaryIntOp },
     #[error("Shift with bit size {op_bit_size} is invalid")]
     InvalidShift { op_bit_size: u32 },
 }
@@ -21,21 +24,21 @@ pub(crate) fn evaluate_binary_field_op(
     lhs: MemoryValue,
     rhs: MemoryValue,
 ) -> Result<MemoryValue, BrilligArithmeticError> {
-    if lhs.bit_size != FieldElement::max_num_bits() {
+    if lhs.bit_size() != FieldElement::max_num_bits() {
         return Err(BrilligArithmeticError::MismatchedLhsBitSize {
-            lhs_bit_size: lhs.bit_size,
+            lhs_bit_size: lhs.bit_size(),
             op_bit_size: FieldElement::max_num_bits(),
         });
     }
-    if rhs.bit_size != FieldElement::max_num_bits() {
+    if rhs.bit_size() != FieldElement::max_num_bits() {
         return Err(BrilligArithmeticError::MismatchedRhsBitSize {
-            rhs_bit_size: rhs.bit_size,
+            rhs_bit_size: rhs.bit_size(),
             op_bit_size: FieldElement::max_num_bits(),
         });
     }
 
-    let a = lhs.value;
-    let b = rhs.value;
+    let a = *lhs.extract_field().unwrap();
+    let b = *rhs.extract_field().unwrap();
     Ok(match op {
         // Perform addition, subtraction, multiplication, and division based on the BinaryOp variant.
         BinaryFieldOp::Add => (a + b).into(),
@@ -62,21 +65,24 @@ pub(crate) fn evaluate_binary_int_op(
     rhs: MemoryValue,
     bit_size: u32,
 ) -> Result<MemoryValue, BrilligArithmeticError> {
-    if lhs.bit_size != bit_size {
+    if lhs.bit_size() != bit_size {
         return Err(BrilligArithmeticError::MismatchedLhsBitSize {
-            lhs_bit_size: lhs.bit_size,
+            lhs_bit_size: lhs.bit_size(),
             op_bit_size: bit_size,
         });
     }
-    if rhs.bit_size != bit_size {
+    if rhs.bit_size() != bit_size {
         return Err(BrilligArithmeticError::MismatchedRhsBitSize {
-            rhs_bit_size: rhs.bit_size,
+            rhs_bit_size: rhs.bit_size(),
             op_bit_size: bit_size,
         });
+    }
+    if bit_size == FieldElement::max_num_bits() {
+        return Err(BrilligArithmeticError::IntegerOperationOnField { op: *op });
     }
 
-    let lhs = BigUint::from_bytes_be(&lhs.value.to_be_bytes());
-    let rhs = BigUint::from_bytes_be(&rhs.value.to_be_bytes());
+    let lhs = lhs.extract_integer().unwrap();
+    let rhs = rhs.extract_integer().unwrap();
 
     let bit_modulo = &(BigUint::one() << bit_size);
     let result = match op {
@@ -136,13 +142,11 @@ pub(crate) fn evaluate_binary_int_op(
         }
     };
 
-    let result_as_field = FieldElement::from_be_bytes_reduce(&result.to_bytes_be());
-
     Ok(match op {
         BinaryIntOp::Equals | BinaryIntOp::LessThan | BinaryIntOp::LessThanEquals => {
-            MemoryValue::new(result_as_field, 1)
+            MemoryValue::new_integer(result, 1)
         }
-        _ => MemoryValue::new(result_as_field, bit_size),
+        _ => MemoryValue::new_integer(result, bit_size),
     })
 }
 
@@ -159,13 +163,13 @@ mod tests {
     fn evaluate_u128(op: &BinaryIntOp, a: u128, b: u128, bit_size: u32) -> u128 {
         let result_value = evaluate_binary_int_op(
             op,
-            MemoryValue::new(a.into(), bit_size),
-            MemoryValue::new(b.into(), bit_size),
+            MemoryValue::new_integer(a.into(), bit_size),
+            MemoryValue::new_integer(b.into(), bit_size),
             bit_size,
         )
         .unwrap();
         // Convert back to u128
-        result_value.value.to_u128()
+        result_value.to_field().to_u128()
     }
 
     fn to_negative(a: u128, bit_size: u32) -> u128 {

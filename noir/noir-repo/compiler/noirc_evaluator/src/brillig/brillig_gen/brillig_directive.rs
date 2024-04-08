@@ -67,61 +67,104 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
 ///    (a/b, a-a/b*b)
 /// }
 /// ```
-pub(crate) fn directive_quotient(mut bit_size: u32) -> GeneratedBrillig {
+pub(crate) fn directive_quotient(bit_size: u32) -> GeneratedBrillig {
     // `a` is (0) (i.e register index 0)
     // `b` is (1)
-    if bit_size > FieldElement::max_num_bits() {
-        bit_size = FieldElement::max_num_bits();
-    }
-    GeneratedBrillig {
-        byte_code: vec![
-            BrilligOpcode::CalldataCopy {
-                destination_address: MemoryAddress::from(0),
-                size: 2,
-                offset: 0,
-            },
-            BrilligOpcode::Cast {
-                destination: MemoryAddress(0),
-                source: MemoryAddress(0),
-                bit_size,
-            },
-            BrilligOpcode::Cast {
-                destination: MemoryAddress(1),
-                source: MemoryAddress(1),
-                bit_size,
-            },
-            //q = a/b is set into register (2)
-            BrilligOpcode::BinaryIntOp {
-                op: BinaryIntOp::Div,
-                lhs: MemoryAddress::from(0),
-                rhs: MemoryAddress::from(1),
-                destination: MemoryAddress::from(2),
-                bit_size,
-            },
-            //(1)= q*b
-            BrilligOpcode::BinaryIntOp {
-                op: BinaryIntOp::Mul,
-                lhs: MemoryAddress::from(2),
-                rhs: MemoryAddress::from(1),
-                destination: MemoryAddress::from(1),
-                bit_size,
-            },
-            //(1) = a-q*b
-            BrilligOpcode::BinaryIntOp {
-                op: BinaryIntOp::Sub,
-                lhs: MemoryAddress::from(0),
-                rhs: MemoryAddress::from(1),
-                destination: MemoryAddress::from(1),
-                bit_size,
-            },
-            //(0) = q
-            BrilligOpcode::Mov {
-                destination: MemoryAddress::from(0),
-                source: MemoryAddress::from(2),
-            },
-            BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
-        ],
-        assert_messages: Default::default(),
-        locations: Default::default(),
+    // For some reason bit_size can be > max_num_bits(). Probably a blind +1 somewhere?
+    if bit_size >= FieldElement::max_num_bits() {
+        // Field version
+        GeneratedBrillig {
+            byte_code: vec![
+                BrilligOpcode::CalldataCopy {
+                    destination_address: MemoryAddress::from(0),
+                    size: 2,
+                    offset: 0,
+                },
+                // No cast, since calldata is typed as field by default
+                //q = a/b is set into register (2)
+                BrilligOpcode::BinaryFieldOp {
+                    op: BinaryFieldOp::IntegerDiv, // We want integer division, not field division!
+                    lhs: MemoryAddress::from(0),
+                    rhs: MemoryAddress::from(1),
+                    destination: MemoryAddress::from(2),
+                },
+                //(1)= q*b
+                BrilligOpcode::BinaryFieldOp {
+                    op: BinaryFieldOp::Mul,
+                    lhs: MemoryAddress::from(2),
+                    rhs: MemoryAddress::from(1),
+                    destination: MemoryAddress::from(1),
+                },
+                //(1) = a-q*b
+                BrilligOpcode::BinaryFieldOp {
+                    op: BinaryFieldOp::Sub,
+                    lhs: MemoryAddress::from(0),
+                    rhs: MemoryAddress::from(1),
+                    destination: MemoryAddress::from(1),
+                },
+                //(0) = q
+                BrilligOpcode::Mov {
+                    destination: MemoryAddress::from(0),
+                    source: MemoryAddress::from(2),
+                },
+                BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
+            ],
+            assert_messages: Default::default(),
+            locations: Default::default(),
+        }
+    } else {
+        // TODO is an integer version necessary? the only difference with the field version is that this will truncate the input to the bit_size via cast.
+        // Integer version
+        GeneratedBrillig {
+            byte_code: vec![
+                BrilligOpcode::CalldataCopy {
+                    destination_address: MemoryAddress::from(0),
+                    size: 2,
+                    offset: 0,
+                },
+                BrilligOpcode::Cast {
+                    destination: MemoryAddress(0),
+                    source: MemoryAddress(0),
+                    bit_size,
+                },
+                BrilligOpcode::Cast {
+                    destination: MemoryAddress(1),
+                    source: MemoryAddress(1),
+                    bit_size,
+                },
+                //q = a/b is set into register (2)
+                BrilligOpcode::BinaryIntOp {
+                    op: BinaryIntOp::Div,
+                    lhs: MemoryAddress::from(0),
+                    rhs: MemoryAddress::from(1),
+                    destination: MemoryAddress::from(2),
+                    bit_size,
+                },
+                //(1)= q*b
+                BrilligOpcode::BinaryIntOp {
+                    op: BinaryIntOp::Mul,
+                    lhs: MemoryAddress::from(2),
+                    rhs: MemoryAddress::from(1),
+                    destination: MemoryAddress::from(1),
+                    bit_size,
+                },
+                //(1) = a-q*b
+                BrilligOpcode::BinaryIntOp {
+                    op: BinaryIntOp::Sub,
+                    lhs: MemoryAddress::from(0),
+                    rhs: MemoryAddress::from(1),
+                    destination: MemoryAddress::from(1),
+                    bit_size,
+                },
+                //(0) = q
+                BrilligOpcode::Mov {
+                    destination: MemoryAddress::from(0),
+                    source: MemoryAddress::from(2),
+                },
+                BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
+            ],
+            assert_messages: Default::default(),
+            locations: Default::default(),
+        }
     }
 }
