@@ -573,12 +573,11 @@ pub fn is_predicate_false(
     witness: &WitnessMap,
     predicate: &Option<Expression>,
 ) -> Result<bool, OpcodeResolutionError> {
-    // If the predicate is `None`, then we simply return the value 1
     let pred_value = match predicate {
-        Some(pred) => get_value(pred, witness)?,
-        None => FieldElement::one(),
-    };
-    Ok(pred_value.is_zero())
+        Some(pred) => get_value(pred, witness).map(|pred_value| pred_value.is_zero()),
+        // If the predicate is `None`, then we treat it as an unconditional `true`
+        None => Ok(false),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
