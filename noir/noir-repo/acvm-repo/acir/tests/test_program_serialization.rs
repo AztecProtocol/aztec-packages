@@ -119,8 +119,11 @@ fn schnorr_verify_circuit() {
         FunctionInput { witness: Witness(1), num_bits: FieldElement::max_num_bits() };
     let public_key_y =
         FunctionInput { witness: Witness(2), num_bits: FieldElement::max_num_bits() };
-    let signature =
-        (3..(3 + 64)).map(|i| FunctionInput { witness: Witness(i), num_bits: 8 }).collect();
+    let signature: [FunctionInput; 64] = (3..(3 + 64))
+        .map(|i| FunctionInput { witness: Witness(i), num_bits: 8 })
+        .collect::<Vec<_>>()
+        .try_into()
+        .unwrap();
     let message = ((3 + 64)..(3 + 64 + 10))
         .map(|i| FunctionInput { witness: Witness(i), num_bits: 8 })
         .collect();
@@ -130,7 +133,7 @@ fn schnorr_verify_circuit() {
     let schnorr = Opcode::BlackBoxFuncCall(BlackBoxFuncCall::SchnorrVerify {
         public_key_x,
         public_key_y,
-        signature,
+        signature: Box::new(signature),
         message,
         output,
     });

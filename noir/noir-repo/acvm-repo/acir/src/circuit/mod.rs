@@ -315,7 +315,7 @@ mod tests {
     }
     fn keccakf1600_opcode() -> Opcode {
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::Keccakf1600 {
-            inputs: vec![
+            inputs: Box::new([
                 FunctionInput { witness: Witness(1), num_bits: 64 },
                 FunctionInput { witness: Witness(2), num_bits: 64 },
                 FunctionInput { witness: Witness(3), num_bits: 64 },
@@ -341,8 +341,8 @@ mod tests {
                 FunctionInput { witness: Witness(23), num_bits: 64 },
                 FunctionInput { witness: Witness(24), num_bits: 64 },
                 FunctionInput { witness: Witness(25), num_bits: 64 },
-            ],
-            outputs: vec![
+            ]),
+            outputs: Box::new([
                 Witness(26),
                 Witness(27),
                 Witness(28),
@@ -368,7 +368,7 @@ mod tests {
                 Witness(48),
                 Witness(49),
                 Witness(50),
-            ],
+            ]),
         })
     }
 

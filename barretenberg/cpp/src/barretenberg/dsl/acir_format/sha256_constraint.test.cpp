@@ -17,13 +17,13 @@ class Sha256Tests : public ::testing::Test {
 TEST_F(Sha256Tests, TestSha256Compression)
 {
 
-    std::vector<Sha256Input> inputs;
+    std::array<Sha256Input, 16> inputs;
     for (uint32_t i = 1; i < 17; ++i) {
-        inputs.push_back({ .witness = i, .num_bits = 32 });
+        inputs[i] = { .witness = i, .num_bits = 32 };
     }
-    std::vector<Sha256Input> hash_values;
+    std::array<Sha256Input, 8> hash_values;
     for (uint32_t i = 17; i < 25; ++i) {
-        hash_values.push_back({ .witness = i, .num_bits = 32 });
+        hash_values[i] = { .witness = i, .num_bits = 32 };
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
