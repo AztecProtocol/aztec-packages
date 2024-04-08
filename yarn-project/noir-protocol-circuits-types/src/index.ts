@@ -2,11 +2,13 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  Fr,
+  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type ParityPublicInputs,
+  type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
-  type PrivateKernelInnerCircuitPublicInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicKernelCircuitPrivateInputs,
@@ -15,10 +17,14 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  acvmFieldMessageToString,
+  oracleDebugCallToFormattedStr,
 } from '@aztec/circuits.js';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import {
+  type ForeignCallInput,
   type WasmBlackBoxFunctionSolver,
   createBlackBoxSolver,
   executeCircuitWithBlackBoxSolver,
@@ -34,6 +40,8 @@ import PrivateKernelInnerJson from './target/private_kernel_inner.json' assert {
 import PrivateKernelInnerSimulatedJson from './target/private_kernel_inner_simulated.json' assert { type: 'json' };
 import PrivateKernelTailJson from './target/private_kernel_tail.json' assert { type: 'json' };
 import PrivateKernelTailSimulatedJson from './target/private_kernel_tail_simulated.json' assert { type: 'json' };
+import PrivateKernelTailToPublicJson from './target/private_kernel_tail_to_public.json' assert { type: 'json' };
+import PrivateKernelTailToPublicSimulatedJson from './target/private_kernel_tail_to_public_simulated.json' assert { type: 'json' };
 import PublicKernelAppLogicSimulatedJson from './target/public_kernel_app_logic_simulated.json' assert { type: 'json' };
 import PublicKernelSetupSimulatedJson from './target/public_kernel_setup_simulated.json' assert { type: 'json' };
 import PublicKernelTailSimulatedJson from './target/public_kernel_tail_simulated.json' assert { type: 'json' };
@@ -45,13 +53,16 @@ import {
   mapBaseOrMergeRollupPublicInputsFromNoir,
   mapBaseParityInputsToNoir,
   mapBaseRollupInputsToNoir,
+  mapKernelCircuitPublicInputsFromNoir,
   mapMergeRollupInputsToNoir,
   mapParityPublicInputsFromNoir,
+  mapPrivateKernelCircuitPublicInputsFromNoir,
   mapPrivateKernelInitCircuitPrivateInputsToNoir,
   mapPrivateKernelInnerCircuitPrivateInputsToNoir,
-  mapPrivateKernelInnerCircuitPublicInputsFromNoir,
   mapPrivateKernelTailCircuitPrivateInputsToNoir,
-  mapPrivateKernelTailCircuitPublicInputsFromNoir,
+  mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir,
+  mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir,
+  mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPrivateInputsToNoir,
   mapPublicKernelCircuitPublicInputsFromNoir,
   mapPublicKernelTailCircuitPrivateInputsToNoir,
@@ -69,6 +80,7 @@ import {
   type InputType as InnerInputType,
   type ReturnType as InnerReturnType,
 } from './types/private_kernel_inner_types.js';
+import { type InputType as TailToPublicInputType } from './types/private_kernel_tail_to_public_types.js';
 import {
   type InputType as TailInputType,
   type ReturnType as TailReturnType,
@@ -99,6 +111,8 @@ export const PrivateKernelInitArtifact = PrivateKernelInitJson as NoirCompiledCi
 export const PrivateKernelInnerArtifact = PrivateKernelInnerJson as NoirCompiledCircuit;
 
 export const PrivateKernelTailArtifact = PrivateKernelTailJson as NoirCompiledCircuit;
+
+export const PrivateKernelTailToPublicArtifact = PrivateKernelTailToPublicJson as NoirCompiledCircuit;
 
 export const PublicKernelSetupArtifact = PublicKernelSetupSimulatedJson as NoirCompiledCircuit;
 
@@ -134,14 +148,14 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
  */
 export async function executeInit(
   privateKernelInitCircuitPrivateInputs: PrivateKernelInitCircuitPrivateInputs,
-): Promise<PrivateKernelInnerCircuitPublicInputs> {
+): Promise<PrivateKernelCircuitPublicInputs> {
   const params: InitInputType = {
     input: mapPrivateKernelInitCircuitPrivateInputsToNoir(privateKernelInitCircuitPrivateInputs),
   };
 
   const returnType = await executePrivateKernelInitWithACVM(params);
 
-  return mapPrivateKernelInnerCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -151,13 +165,30 @@ export async function executeInit(
  */
 export async function executeInner(
   privateKernelInnerCircuitPrivateInputs: PrivateKernelInnerCircuitPrivateInputs,
-): Promise<PrivateKernelInnerCircuitPublicInputs> {
+): Promise<PrivateKernelCircuitPublicInputs> {
   const params: InnerInputType = {
     input: mapPrivateKernelInnerCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
   };
   const returnType = await executePrivateKernelInnerWithACVM(params);
 
-  return mapPrivateKernelInnerCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Executes the tail private kernel.
+ * @param privateKernelCircuitPrivateInputs - The private inputs to the tail private kernel.
+ * @returns The public inputs.
+ */
+export async function executeTail(
+  privateInputs: PrivateKernelTailCircuitPrivateInputs,
+): Promise<PrivateKernelTailCircuitPublicInputs> {
+  const params: TailInputType = {
+    input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateInputs),
+  };
+
+  const returnType = await executePrivateKernelTailWithACVM(params);
+
+  return mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(returnType);
 }
 
 /**
@@ -165,16 +196,16 @@ export async function executeInner(
  * @param privateKernelInnerCircuitPrivateInputs - The private inputs to the tail private kernel.
  * @returns The public inputs.
  */
-export async function executeTail(
-  privateKernelInnerCircuitPrivateInputs: PrivateKernelTailCircuitPrivateInputs,
+export async function executeTailForPublic(
+  privateInputs: PrivateKernelTailCircuitPrivateInputs,
 ): Promise<PrivateKernelTailCircuitPublicInputs> {
-  const params: TailInputType = {
-    input: mapPrivateKernelTailCircuitPrivateInputsToNoir(privateKernelInnerCircuitPrivateInputs),
+  const params: TailToPublicInputType = {
+    input: mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(privateInputs),
   };
 
-  const returnType = await executePrivateKernelTailWithACVM(params);
+  const returnType = await executePrivateKernelTailToPublicWithACVM(params);
 
-  return mapPrivateKernelTailCircuitPublicInputsFromNoir(returnType);
+  return mapPrivateKernelTailCircuitPublicInputsForPublicFromNoir(returnType);
 }
 
 /**
@@ -400,14 +431,14 @@ export function convertPublicTeardownRollupOutputFromWitnessMap(outputs: Witness
  * @param outputs - The public kernel outputs as a witness map.
  * @returns The public inputs.
  */
-export function convertPublicTailOutputFromWitnessMap(outputs: WitnessMap): PublicKernelCircuitPublicInputs {
+export function convertPublicTailOutputFromWitnessMap(outputs: WitnessMap): KernelCircuitPublicInputs {
   // Decode the witness map into two fields, the return values and the inputs
   const decodedInputs: DecodedInputs = abiDecode(PublicKernelTailSimulatedJson.abi as Abi, outputs);
 
   // Cast the inputs as the return type
-  const returnType = decodedInputs.return_value as PublicPublicPreviousReturnType;
+  const returnType = decodedInputs.return_value as TailReturnType;
 
-  return mapPublicKernelCircuitPublicInputsFromNoir(returnType);
+  return mapKernelCircuitPublicInputsFromNoir(returnType);
 }
 
 /**
@@ -427,9 +458,7 @@ async function executePrivateKernelInitWithACVM(input: InitInputType): Promise<I
     await getSolver(),
     decodedBytecode,
     initialWitnessMap,
-    () => {
-      throw Error('unexpected oracle during execution');
-    },
+    foreignCallHandler,
   );
 
   // Decode the witness map into two fields, the return values and the inputs
@@ -455,9 +484,7 @@ async function executePrivateKernelInnerWithACVM(input: InnerInputType): Promise
     await getSolver(),
     decodedBytecode,
     initialWitnessMap,
-    () => {
-      throw Error('unexpected oracle during execution');
-    },
+    foreignCallHandler,
   );
 
   // Decode the witness map into two fields, the return values and the inputs
@@ -483,9 +510,7 @@ async function executePrivateKernelTailWithACVM(input: TailInputType): Promise<T
     await getSolver(),
     decodedBytecode,
     initialWitnessMap,
-    () => {
-      throw Error('unexpected oracle during execution');
-    },
+    foreignCallHandler,
   );
 
   // Decode the witness map into two fields, the return values and the inputs
@@ -494,3 +519,42 @@ async function executePrivateKernelTailWithACVM(input: TailInputType): Promise<T
   // Cast the inputs as the return type
   return decodedInputs.return_value as TailReturnType;
 }
+
+async function executePrivateKernelTailToPublicWithACVM(
+  input: TailToPublicInputType,
+): Promise<PublicPublicPreviousReturnType> {
+  const initialWitnessMap = abiEncode(PrivateKernelTailToPublicSimulatedJson.abi as Abi, input as any);
+
+  // Execute the circuit on those initial witness values
+  //
+  // Decode the bytecode from base64 since the acvm does not know about base64 encoding
+  const decodedBytecode = Buffer.from(PrivateKernelTailToPublicSimulatedJson.bytecode, 'base64');
+  //
+  // Execute the circuit
+  const _witnessMap = await executeCircuitWithBlackBoxSolver(
+    await getSolver(),
+    decodedBytecode,
+    initialWitnessMap,
+    foreignCallHandler,
+  );
+
+  // Decode the witness map into two fields, the return values and the inputs
+  const decodedInputs: DecodedInputs = abiDecode(PrivateKernelTailToPublicSimulatedJson.abi as Abi, _witnessMap);
+
+  // Cast the inputs as the return type
+  return decodedInputs.return_value as PublicPublicPreviousReturnType;
+}
+
+const foreignCallHandler = (name: string, args: ForeignCallInput[]) => {
+  const log = createDebugLogger('aztec:noir-protocol-circuits:oracle');
+
+  if (name === 'debugLog') {
+    log(oracleDebugCallToFormattedStr(args));
+  } else if (name === 'debugLogWithPrefix') {
+    log(`${acvmFieldMessageToString(args[0])}: ${oracleDebugCallToFormattedStr(args.slice(1))}`);
+  } else {
+    throw Error(`unexpected oracle during execution: ${name}`);
+  }
+
+  return Promise.resolve([`0x${Buffer.alloc(Fr.SIZE_IN_BYTES).toString('hex')}`]);
+};

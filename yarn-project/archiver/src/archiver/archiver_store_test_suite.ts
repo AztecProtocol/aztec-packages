@@ -1,4 +1,4 @@
-import { InboxLeaf, L2Block, L2BlockContext, LogId, LogType, TxHash } from '@aztec/circuit-types';
+import { InboxLeaf, L2Block, LogId, LogType, TxHash } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import {
@@ -163,11 +163,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it.each([
-        () => blocks.retrievedData[0].getTx(0),
-        () => blocks.retrievedData[9].getTx(3),
-        () => blocks.retrievedData[3].getTx(1),
-        () => blocks.retrievedData[5].getTx(2),
-        () => blocks.retrievedData[1].getTx(0),
+        () => blocks.retrievedData[0].body.txEffects[0],
+        () => blocks.retrievedData[9].body.txEffects[3],
+        () => blocks.retrievedData[3].body.txEffects[1],
+        () => blocks.retrievedData[5].body.txEffects[2],
+        () => blocks.retrievedData[1].body.txEffects[0],
       ])('retrieves a previously stored transaction', async getExpectedTx => {
         const expectedTx = getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.txHash);
@@ -328,7 +328,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // get random tx
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetTxHash = new L2BlockContext(blocks.retrievedData[targetBlockIndex]).getTxHash(targetTxIndex);
+        const targetTxHash = blocks.retrievedData[targetBlockIndex].body.txEffects[targetTxIndex].txHash;
 
         const response = await store.getUnencryptedLogs({ txHash: targetTxHash });
         const logs = response.logs;

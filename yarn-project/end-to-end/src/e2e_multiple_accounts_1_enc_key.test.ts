@@ -63,16 +63,13 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
-    const storageSlot = new Fr(5);
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
     const note = new Note([new Fr(initialBalance), secretHash]);
     const extendedNote = new ExtendedNote(
       note,
       accounts[0].address,
       token.address,
-      storageSlot,
-      noteTypeId,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
     await pxe.addNote(extendedNote);
@@ -88,7 +85,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
-    const balance = await contractWithWallet.methods.balance_of_private(owner).view({ from: owner.address });
+    const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner.address });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };

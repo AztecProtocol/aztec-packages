@@ -169,7 +169,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
-    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, this.getInstance(options));
+    const instance = this.getInstance(options);
+    this.log(
+      `Sent deployment tx of ${this.artifact.name} contract with deployment address ${instance.address.toString()}`,
+    );
+    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, instance);
   }
 
   /**
@@ -193,12 +197,12 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Simulate the request.
+   * Prove the request.
    * @param options - Deployment options.
-   * @returns The simulated tx.
+   * @returns The proven tx.
    */
-  public simulate(options: DeployOptions): Promise<Tx> {
-    return super.simulate(options);
+  public prove(options: DeployOptions): Promise<Tx> {
+    return super.prove(options);
   }
 
   /** Return this deployment address. */

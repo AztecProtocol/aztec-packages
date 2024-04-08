@@ -1,10 +1,19 @@
 import { type Tx } from '@aztec/circuit-types';
 import {
+  type Fr,
   type GlobalVariables,
   type Header,
+  type KernelCircuitPublicInputs,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   type Proof,
   type PublicKernelCircuitPublicInputs,
+  PublicKernelTailCircuitPrivateInputs,
+  type SideEffect,
+  makeEmptyProof,
+  mergeAccumulatedData,
+  sortByCounter,
 } from '@aztec/circuits.js';
+import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -28,7 +37,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
   async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
     this.log(`Processing tx ${tx.getTxHash()}`);
-    const [publicKernelOutput, publicKernelProof] = await this.runKernelCircuit(
+    const [finalKernelOutput, publicKernelProof] = await this.runTailKernelCircuit(
       previousPublicKernelOutput,
       previousPublicKernelProof,
     ).catch(
@@ -42,6 +51,61 @@ export class TailPhaseManager extends AbstractPhaseManager {
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
-    return { publicKernelOutput, publicKernelProof, revertReason: undefined };
+    return {
+      publicKernelOutput: previousPublicKernelOutput,
+      finalKernelOutput,
+      publicKernelProof,
+      revertReason: undefined,
+      returnValues: undefined,
+    };
+  }
+
+  private async runTailKernelCircuit(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousProof: Proof,
+  ): Promise<[KernelCircuitPublicInputs, Proof]> {
+    const output = await this.simulate(previousOutput, previousProof);
+
+    // Temporary hack. Should sort them in the tail circuit.
+    const noteHashes = mergeAccumulatedData(
+      MAX_NEW_NOTE_HASHES_PER_TX,
+      previousOutput.endNonRevertibleData.newNoteHashes,
+      previousOutput.end.newNoteHashes,
+    );
+    output.end.newNoteHashes = this.sortNoteHashes<typeof MAX_NEW_NOTE_HASHES_PER_TX>(noteHashes);
+
+    return [output, makeEmptyProof()];
+  }
+
+  private async simulate(
+    previousOutput: PublicKernelCircuitPublicInputs,
+    previousProof: Proof,
+  ): Promise<KernelCircuitPublicInputs> {
+    const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
+
+    const { validationRequests, endNonRevertibleData, end } = previousOutput;
+    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
+      validationRequests.nullifierReadRequests,
+      endNonRevertibleData.newNullifiers,
+      end.newNullifiers,
+    );
+    const nullifierNonExistentReadRequestHints = await this.hintsBuilder.getNullifierNonExistentReadRequestHints(
+      validationRequests.nullifierNonExistentReadRequests,
+      endNonRevertibleData.newNullifiers,
+      end.newNullifiers,
+    );
+    const inputs = new PublicKernelTailCircuitPrivateInputs(
+      previousKernel,
+      nullifierReadRequestHints,
+      nullifierNonExistentReadRequestHints,
+    );
+    return this.publicKernel.publicKernelCircuitTail(inputs);
+  }
+
+  private sortNoteHashes<N extends number>(noteHashes: Tuple<SideEffect, N>): Tuple<Fr, N> {
+    return sortByCounter(noteHashes.map(n => ({ ...n, counter: n.counter.toNumber() }))).map(n => n.value) as Tuple<
+      Fr,
+      N
+    >;
   }
 }

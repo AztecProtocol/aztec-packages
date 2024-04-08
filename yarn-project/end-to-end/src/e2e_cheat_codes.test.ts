@@ -39,13 +39,12 @@ describe('e2e_cheat_codes', () => {
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    let accounts;
-    ({ teardown, wallet, accounts, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
     rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
-    admin = accounts[0];
+    admin = wallet.getCompleteAddress();
 
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
   }, 100_000);
@@ -224,21 +223,23 @@ describe('e2e_cheat_codes', () => {
 
       // docs:start:pxe_add_note
       const note = new Note([new Fr(mintAmount), secretHash]);
-      const pendingShieldStorageSlot = new Fr(5n);
-      const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
       const extendedNote = new ExtendedNote(
         note,
         admin.address,
         token.address,
-        pendingShieldStorageSlot,
-        noteTypeId,
+        TokenContract.storage.pending_shields.slot,
+        TokenContract.notes.TransparentNote.id,
         receipt.txHash,
       );
       await pxe.addNote(extendedNote);
       // docs:end:pxe_add_note
 
       // check if note was added to pending shield:
-      const notes = await cc.aztec.loadPrivate(admin.address, token.address, pendingShieldStorageSlot);
+      const notes = await cc.aztec.loadPrivate(
+        admin.address,
+        token.address,
+        TokenContract.storage.pending_shields.slot,
+      );
       const values = notes.map(note => note.items[0]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(mintAmount);
