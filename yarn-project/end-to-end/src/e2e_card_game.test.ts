@@ -186,7 +186,7 @@ describe('e2e_card_game', () => {
             points: 0n,
           },
           {
-            address: AztecAddress.default(),
+            address: AztecAddress.ZERO,
             deck_strength: 0n,
             points: 0n,
           },

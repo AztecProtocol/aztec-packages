@@ -23,11 +23,11 @@ export class CallerContext {
    * @returns A new instance of CallerContext with default values.
    */
   public static default(): CallerContext {
-    return new CallerContext(AztecAddress.default(), AztecAddress.default());
+    return new CallerContext(AztecAddress.ZERO, AztecAddress.ZERO);
   }
 
   isDefault() {
-    return this.msgSender.isDefault() && this.storageContractAddress.isDefault();
+    return this.msgSender.isZero() && this.storageContractAddress.isZero();
   }
 
   static from(fields: FieldsOf<CallerContext>): CallerContext {
@@ -120,7 +120,7 @@ export class CallRequest {
   isDefault() {
     return (
       this.hash.isZero() &&
-      this.callerContractAddress.isDefault() &&
+      this.callerContractAddress.isZero() &&
       this.callerContext.isDefault() &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero()
@@ -132,7 +132,7 @@ export class CallRequest {
    * @returns A new instance of CallRequest with zero hash, caller contract address and caller context.
    */
   public static default() {
-    return new CallRequest(Fr.ZERO, AztecAddress.default(), CallerContext.default(), Fr.ZERO, Fr.ZERO);
+    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.default(), Fr.ZERO, Fr.ZERO);
   }
 
   equals(callRequest: CallRequest) {

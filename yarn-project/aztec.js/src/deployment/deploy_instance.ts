@@ -12,7 +12,7 @@ import { getDeployerContract } from './protocol_contracts.js';
 export function deployInstance(wallet: Wallet, instance: ContractInstanceWithAddress): ContractFunctionInteraction {
   const deployerContract = getDeployerContract(wallet);
   const { salt, contractClassId, portalContractAddress, publicKeysHash, deployer } = instance;
-  const isUniversalDeploy = deployer.isDefault();
+  const isUniversalDeploy = deployer.isZero();
   if (!isUniversalDeploy && !wallet.getAddress().equals(deployer)) {
     throw new Error(
       `Expected deployer ${deployer.toString()} does not match sender wallet ${wallet.getAddress().toString()}`,

@@ -130,7 +130,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @returns The portal contract address.
    */
   public async getPortalContractAddress(contractAddress: AztecAddress) {
-    return (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.default();
+    return (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
   }
 
   /**
@@ -189,7 +189,7 @@ export class PublicExecutionContext extends TypedOracle {
     const args = this.packedArgsCache.unpack(argsHash);
     this.log(`Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`);
 
-    const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.default();
+    const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
 
     const acir = await this.contractsDb.getBytecode(targetContractAddress, functionSelector);
     if (!acir) {

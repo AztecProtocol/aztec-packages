@@ -26,9 +26,11 @@ This will change to become similar to the return values of the `unconstrained` f
 
 ### [Aztec.nr] [Aztec.js] IsEmpty / IsZero have been unified and renamed to IsDefault
 
+N.B: Fields and Addresses have not been changed
+
 ```diff
-- Fr.zero();
-+ Fr.default();
+- Point.ZERO;
++ Point.default();
 
 - Header::empty();
 + Header::default();

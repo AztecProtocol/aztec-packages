@@ -90,7 +90,7 @@ export class UnconstrainedFunctionBroadcastedEvent {
     // since a sibling with value zero can only occur on the tree leaves, so the sibling path will never end
     // in a zero. The only exception is a tree with depth 2 with one non-zero leaf, where the sibling path would
     // be a single zero element, but in that case the artifact tree should be just the single leaf.
-    const artifactTreeSiblingPath = removeArrayPaddingEnd(this.artifactFunctionTreeSiblingPath, Fr.isDefault);
+    const artifactTreeSiblingPath = removeArrayPaddingEnd(this.artifactFunctionTreeSiblingPath, Fr.isZero);
     return {
       ...this.unconstrainedFunction,
       bytecode: this.unconstrainedFunction.bytecode,

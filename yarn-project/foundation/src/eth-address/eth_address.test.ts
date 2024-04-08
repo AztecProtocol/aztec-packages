@@ -19,12 +19,12 @@ describe('address', () => {
   });
 
   it('should have correct zero address', () => {
-    expect(EthAddress.default().toString()).toBe('0x0000000000000000000000000000000000000000');
+    expect(EthAddress.ZERO.toString()).toBe('0x0000000000000000000000000000000000000000');
   });
 
   it('should check if is zero', () => {
     const zero = EthAddress.fromString('0x0000000000000000000000000000000000000000');
-    expect(zero.isDefault()).toBeTruthy();
+    expect(zero.isZero()).toBeTruthy();
   });
 
   it('should encode and decode as field', () => {

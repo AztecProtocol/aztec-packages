@@ -30,7 +30,7 @@ export class GlobalVariables {
   }
 
   static default(): GlobalVariables {
-    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.default(), AztecAddress.default());
+    return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
@@ -112,8 +112,8 @@ export class GlobalVariables {
       this.version.isZero() &&
       this.blockNumber.isZero() &&
       this.timestamp.isZero() &&
-      this.coinbase.isDefault() &&
-      this.feeRecipient.isDefault()
+      this.coinbase.isZero() &&
+      this.feeRecipient.isZero()
     );
   }
 }

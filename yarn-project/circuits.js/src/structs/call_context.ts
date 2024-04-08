@@ -50,9 +50,9 @@ export class CallContext {
    */
   public static default(): CallContext {
     return new CallContext(
-      AztecAddress.default(),
-      AztecAddress.default(),
-      EthAddress.default(),
+      AztecAddress.ZERO,
+      AztecAddress.ZERO,
+      EthAddress.ZERO,
       FunctionSelector.default(),
       false,
       false,
@@ -62,9 +62,9 @@ export class CallContext {
 
   isDefault() {
     return (
-      this.msgSender.isDefault() &&
-      this.storageContractAddress.isDefault() &&
-      this.portalContractAddress.isDefault() &&
+      this.msgSender.isZero() &&
+      this.storageContractAddress.isZero() &&
+      this.portalContractAddress.isZero() &&
       this.functionSelector.isDefault() &&
       Fr.ZERO
     );
@@ -136,14 +136,6 @@ export class CallContext {
   }
 
   equals(callContext: CallContext) {
-    return (
-      callContext.msgSender.equals(this.msgSender) &&
-      callContext.storageContractAddress.equals(this.storageContractAddress) &&
-      callContext.portalContractAddress.equals(this.portalContractAddress) &&
-      callContext.functionSelector.equals(this.functionSelector) &&
-      callContext.isDelegateCall === this.isDelegateCall &&
-      callContext.isStaticCall === this.isStaticCall &&
-      callContext.sideEffectCounter === this.sideEffectCounter
-    );
+    return callContext.toBuffer().equals(this.toBuffer());
   }
 }

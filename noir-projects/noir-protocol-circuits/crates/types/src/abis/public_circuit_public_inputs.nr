@@ -76,7 +76,7 @@ impl Default for PublicCircuitPublicInputs {
             unencrypted_logs_hash: 0,
             unencrypted_log_preimages_length: 0,
             historical_header: Header::default(),
-            prover_address: AztecAddress::default(),
+            prover_address: AztecAddress::zero(),
             revert_code: 0 as u8,
         }
     }

@@ -30,10 +30,10 @@ export async function addContract(
     salt,
     initializationHash,
     contractClassId: getContractClassFromArtifact(artifact).id,
-    portalContractAddress: portalContract ?? EthAddress.default(),
+    portalContractAddress: portalContract ?? EthAddress.ZERO,
     publicKeysHash: computePublicKeysHash(publicKey),
     address,
-    deployer: deployer ?? AztecAddress.default(),
+    deployer: deployer ?? AztecAddress.ZERO,
   };
   const computed = computeContractAddressFromInstance(instance);
   if (!computed.equals(address)) {

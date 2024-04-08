@@ -360,7 +360,7 @@ export abstract class AbstractPhaseManager {
 
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
-      proverAddress: AztecAddress.default(),
+      proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
       newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.default(), MAX_NEW_NOTE_HASHES_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.default(), MAX_NEW_NULLIFIERS_PER_CALL),

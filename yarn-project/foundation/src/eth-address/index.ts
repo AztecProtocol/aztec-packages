@@ -19,7 +19,7 @@ export class EthAddress {
   /**
    * Represents a zero Ethereum address with 20 bytes filled with zeros.
    */
-  public static ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
+  public static readonly ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
 
   constructor(private buffer: Buffer) {
     if (buffer.length !== EthAddress.SIZE_IN_BYTES) {
@@ -74,18 +74,18 @@ export class EthAddress {
     }
   }
 
-  public static default() {
+  public static zero() {
     return EthAddress.ZERO;
   }
 
   /**
-   * Checks if the EthAddress instance represents a default address (zero address).
+   * Checks if the EthAddress instance represents a zero address.
    * A zero address consists of 20 bytes filled with zeros and is considered an invalid address.
    *
    * @returns A boolean indicating whether the EthAddress instance is a zero address or not.
    */
-  public isDefault() {
-    return this.equals(EthAddress.default());
+  public isZero() {
+    return this.equals(EthAddress.ZERO);
   }
 
   /**

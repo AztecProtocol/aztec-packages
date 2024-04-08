@@ -1,5 +1,5 @@
 use dep::aztec::prelude::PrivateContext;
-use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize, is_default}};
+use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize, is_zero}};
 
 use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
@@ -56,7 +56,7 @@ impl AppPayload {
     // docs:start:entrypoint-execute-calls
     fn execute_calls(self, context: &mut PrivateContext) {
         for call in self.function_calls {
-            if !is_default(call.target_address) {
+            if !is_zero(call.target_address) {
                 if call.is_public {
                     context.call_public_function_with_packed_args(
                         call.target_address,

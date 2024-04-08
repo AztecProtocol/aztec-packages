@@ -9,7 +9,7 @@ contract Uniswap {
     use dep::aztec::{
         prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable},
         oracle::context::get_portal_address,
-        protocol_types::traits::is_default,
+        protocol_types::traits::is_zero,
     };
 
     use dep::authwit::auth::{
@@ -77,10 +77,10 @@ contract Uniswap {
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge);
         // ensure portal exists - else funds might be lost
         assert(
-            !is_default(input_asset_bridge_portal_address), "L1 portal address of input_asset's bridge is 0"
+            !is_zero(input_asset_bridge_portal_address), "L1 portal address of input_asset's bridge is 0"
         );
         assert(
-            !is_default(output_asset_bridge_portal_address), "L1 portal address of output_asset's bridge is 0"
+            !is_zero(output_asset_bridge_portal_address), "L1 portal address of output_asset's bridge is 0"
         );
 
         let content_hash = compute_swap_public_content_hash(
@@ -144,10 +144,10 @@ contract Uniswap {
         let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge);
         // ensure portal exists - else funds might be lost
         assert(
-            !is_default(input_asset_bridge_portal_address), "L1 portal address of input_asset's bridge is 0"
+            !is_zero(input_asset_bridge_portal_address), "L1 portal address of input_asset's bridge is 0"
         );
         assert(
-            !is_default(output_asset_bridge_portal_address), "L1 portal address of output_asset's bridge is 0"
+            !is_zero(output_asset_bridge_portal_address), "L1 portal address of output_asset's bridge is 0"
         );
 
         let content_hash = compute_swap_private_content_hash(

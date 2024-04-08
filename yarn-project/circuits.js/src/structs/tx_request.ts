@@ -75,10 +75,10 @@ export class TxRequest {
   }
 
   static default() {
-    return new TxRequest(AztecAddress.default(), FunctionData.default(), Fr.ZERO, TxContext.default());
+    return new TxRequest(AztecAddress.ZERO, FunctionData.default(), Fr.ZERO, TxContext.default());
   }
 
   isDefault() {
-    return this.origin.isDefault() && (this.functionData.isDefault(true) || this.functionData.isDefault(false)) && this.argsHash.isZero() && this.txContext.isDefault();
+    return this.origin.isZero() && (this.functionData.isDefault(true) || this.functionData.isDefault(false)) && this.argsHash.isZero() && this.txContext.isDefault();
   }
 }

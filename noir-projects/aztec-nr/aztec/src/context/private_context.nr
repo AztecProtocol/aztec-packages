@@ -29,7 +29,7 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::is_default
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::is_zero
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -145,7 +145,7 @@ impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
         let side_effect_counter = inputs.start_side_effect_counter;
         let mut min_revertible_side_effect_counter = 0;
-        if is_default(inputs.call_context.msg_sender) {
+        if is_zero(inputs.call_context.msg_sender) {
             min_revertible_side_effect_counter = side_effect_counter;
         }
         PrivateContext {
@@ -497,7 +497,7 @@ impl PrivateContext {
                 unencrypted_logs_hash: 0,
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::default(),
-                prover_address: AztecAddress::default(),
+                prover_address: AztecAddress::zero(),
                 revert_code: 0
             },
             is_execution_request: true

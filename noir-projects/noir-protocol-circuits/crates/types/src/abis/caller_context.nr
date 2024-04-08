@@ -16,8 +16,8 @@ impl Eq for CallerContext {
 impl Default for CallerContext {
     fn default() -> Self {
         CallerContext {
-            msg_sender: AztecAddress::default(),
-            storage_contract_address: AztecAddress::default(),
+            msg_sender: AztecAddress::zero(),
+            storage_contract_address: AztecAddress::zero(),
         }
     }
 }

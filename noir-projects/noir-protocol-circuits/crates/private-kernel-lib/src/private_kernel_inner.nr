@@ -123,13 +123,13 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with = "contract address cannot be default (zero)")]
+    #[test(should_fail_with = "Contract address cannot be zero")]
     fn private_function_zero_storage_contract_address_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // Set (storage) contract_address to 0
-        builder.private_call.contract_address = AztecAddress::default();
-        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::default();
+        builder.private_call.contract_address = AztecAddress::zero();
+        builder.private_call.public_inputs.call_context.storage_contract_address = AztecAddress::zero();
 
         builder.failed();
     }

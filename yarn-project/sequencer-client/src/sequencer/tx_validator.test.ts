@@ -292,7 +292,7 @@ describe('TxValidator', () => {
     const feeSetupFn = new PublicCallRequest(
       feePaymentContract,
       new FunctionData(feeSetupSelector, true),
-      new CallContext(feePaymentContract, feePaymentContract, EthAddress.default(), feeSetupSelector, false, false, 1),
+      new CallContext(feePaymentContract, feePaymentContract, EthAddress.ZERO, feeSetupSelector, false, false, 1),
       CallContext.default(),
       [],
     );
@@ -303,7 +303,7 @@ describe('TxValidator', () => {
     const feeExecutionFn = new PublicCallRequest(
       feePaymentContract,
       new FunctionData(feeExecutionSelector, true),
-      new CallContext(feePaymentContract, feePaymentContract, EthAddress.default(), feeExecutionSelector, false, false, 2),
+      new CallContext(feePaymentContract, feePaymentContract, EthAddress.ZERO, feeExecutionSelector, false, false, 2),
       CallContext.default(),
       [],
     );

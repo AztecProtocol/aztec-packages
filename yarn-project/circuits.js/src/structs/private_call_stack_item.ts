@@ -76,14 +76,14 @@ export class PrivateCallStackItem {
    */
   public static default(): PrivateCallStackItem {
     return new PrivateCallStackItem(
-      AztecAddress.default(),
+      AztecAddress.ZERO,
       FunctionData.default({ isPrivate: true }),
       PrivateCircuitPublicInputs.default(),
     );
   }
 
   isDefault() {
-    return this.contractAddress.isDefault() && this.functionData.isDefault(true) && this.publicInputs.isDefault();
+    return this.contractAddress.isZero() && this.functionData.isDefault(true) && this.publicInputs.isDefault();
   }
 
   /**

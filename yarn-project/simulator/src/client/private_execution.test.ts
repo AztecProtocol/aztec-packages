@@ -94,9 +94,9 @@ describe('Private Execution test suite', () => {
   const runSimulator = ({
     artifact,
     args = [],
-    msgSender = AztecAddress.default(),
+    msgSender = AztecAddress.ZERO,
     contractAddress = defaultContractAddress,
-    portalContractAddress = EthAddress.default(),
+    portalContractAddress = EthAddress.ZERO,
     txContext = {},
   }: {
     artifact: FunctionArtifact;
@@ -278,7 +278,7 @@ describe('Private Execution test suite', () => {
         Promise.resolve(getFunctionArtifact(StatefulTestContractArtifact, selector)),
       );
 
-      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.default());
+      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
@@ -442,7 +442,7 @@ describe('Private Execution test suite', () => {
       const childSelector = FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
 
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(childArtifact));
-      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.default()));
+      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
       logger(`Parent deployed at ${parentAddress.toShortString()}`);
       logger(`Calling child function ${childSelector.toString()} at ${childAddress.toShortString()}`);
@@ -495,7 +495,7 @@ describe('Private Execution test suite', () => {
       );
 
       oracle.getFunctionArtifact.mockResolvedValue(testCodeGenArtifact);
-      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.default());
+      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
 
       logger(`Calling importer main function`);
       const args = [testAddress];
@@ -809,7 +809,7 @@ describe('Private Execution test suite', () => {
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
           storageContractAddress: parentAddress,
-          portalContractAddress: EthAddress.default(),
+          portalContractAddress: EthAddress.ZERO,
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
@@ -922,7 +922,7 @@ describe('Private Execution test suite', () => {
         getThenNullifyArtifact.parameters,
       );
 
-      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.default()));
+      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
       const args = [amountToTransfer, owner, insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
       const result = await runSimulator({

@@ -62,7 +62,7 @@ describe('Kernel Prover', () => {
     const functionData = FunctionData.default();
     functionData.selector = new FunctionSelector(fnName.charCodeAt(0));
     return {
-      callStackItem: new PrivateCallStackItem(AztecAddress.default(), functionData, publicInputs),
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, functionData, publicInputs),
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       newNotes: newNoteIndices.map(idx => notesAndSlots[idx]),

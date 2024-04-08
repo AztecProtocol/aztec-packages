@@ -60,7 +60,7 @@ describe('Data generation for noir tests', () => {
     const initializationHash = computeInitializationHashFromEncodedArgs(constructorSelector, []);
     const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment } =
       computeContractClassIdPreimage(contractClass);
-    const deployer = AztecAddress.default();
+    const deployer = AztecAddress.ZERO;
     const instance: ContractInstance = { ...contract, version: 1, initializationHash, contractClassId, deployer };
     const address = computeContractAddressFromInstance(instance);
     const saltedInitializationHash = computeSaltedInitializationHash(instance);

@@ -294,7 +294,7 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
       seed + 0x200,
       SideEffectLinkedToNoteHash.default,
     ),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.default),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // encrypted logs hash
     fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
@@ -324,7 +324,7 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
       seed + 0x200,
       SideEffectLinkedToNoteHash.default,
     ),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.default),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // encrypted logs hash
     fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
@@ -355,7 +355,7 @@ export function makePrivateAccumulatedData(seed = 1, full = false) {
       seed + 0x200,
       SideEffectLinkedToNoteHash.default,
     ),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.default),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // encrypted logs hash
     fr(seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
@@ -413,7 +413,7 @@ export function makePublicCircuitPublicInputs(
   return new PublicCircuitPublicInputs(
     makeCallContext(seed, storageContractAddress),
     fr(seed + 0x100),
-    tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200, Fr.default),
+    tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.default),
     tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.default),
     tupleGenerator(
@@ -423,7 +423,7 @@ export function makePublicCircuitPublicInputs(
       ContractStorageUpdateRequest.default,
     ),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500, ContractStorageRead.default),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600, Fr.default),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600, Fr.zero),
     tupleGenerator(MAX_NEW_NOTE_HASHES_PER_CALL, makeNewSideEffect, seed + 0x700, SideEffect.default),
     tupleGenerator(
       MAX_NEW_NULLIFIERS_PER_CALL,
@@ -589,7 +589,7 @@ export function makeNoteHashReadRequestMembershipWitness(start: number): NoteHas
 export function makeDefaultNoteHashReadRequestMembershipWitness(): NoteHashReadRequestMembershipWitness {
   return new NoteHashReadRequestMembershipWitness(
     new Fr(0),
-    makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.default),
+    makeTuple(NOTE_HASH_TREE_HEIGHT, Fr.zero),
     false,
     new Fr(0),
   );

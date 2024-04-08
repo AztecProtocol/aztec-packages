@@ -68,12 +68,12 @@ export class PublicCallStackItem {
   }
 
   /**
-   * Returns a new instance of PublicCallStackItem with default contract address, function data and public inputs.
-   * @returns A new instance of PublicCallStackItem with default contract address, function data and public inputs.
+   * Returns a new instance of PublicCallStackItem with zero contract address, function data and public inputs.
+   * @returns A new instance of PublicCallStackItem with zero contract address, function data and public inputs.
    */
   public static default(): PublicCallStackItem {
     return new PublicCallStackItem(
-      AztecAddress.default(),
+      AztecAddress.ZERO,
       FunctionData.default({ isPrivate: false }),
       PublicCircuitPublicInputs.default(),
       false,
@@ -81,7 +81,7 @@ export class PublicCallStackItem {
   }
 
   isDefault() {
-    return this.contractAddress.isDefault() && this.functionData.isDefault(false) && this.publicInputs.isDefault();
+    return this.contractAddress.isZero() && this.functionData.isDefault(false) && this.publicInputs.isDefault();
   }
 
   /**

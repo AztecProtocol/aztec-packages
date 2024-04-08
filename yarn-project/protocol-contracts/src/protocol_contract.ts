@@ -26,7 +26,7 @@ export function getCanonicalProtocolContract(
   salt: Fr | number | bigint,
   constructorArgs: any[] = [],
   publicKey: Point = Point.default(),
-  portalAddress = EthAddress.default(),
+  portalAddress = EthAddress.ZERO,
 ): ProtocolContract {
   // TODO(@spalladino): This computes the contract class from the artifact twice.
   const contractClass = getContractClassFromArtifact(artifact);

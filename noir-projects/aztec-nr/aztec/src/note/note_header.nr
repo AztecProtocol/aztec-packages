@@ -13,7 +13,7 @@ struct NoteHeader {
 
 impl Default for NoteHeader {
     fn default() -> Self {
-        NoteHeader { contract_address: AztecAddress::default(), nonce: 0, storage_slot: 0, is_transient: false }
+        NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, is_transient: false }
     }
 }
 

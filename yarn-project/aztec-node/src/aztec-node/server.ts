@@ -644,8 +644,8 @@ export class AztecNodeService implements AztecNode {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
-    const coinbase = this.sequencer?.coinbase || EthAddress.default();
-    const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.default();
+    const coinbase = this.sequencer?.coinbase || EthAddress.ZERO;
+    const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
 
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
       new Fr(blockNumber),

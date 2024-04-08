@@ -58,11 +58,11 @@ export function initMockPersistableStateManager(): AvmPersistableStateManager {
  */
 export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
-    overrides?.address ?? AztecAddress.default(),
-    overrides?.storageAddress ?? AztecAddress.default(),
-    overrides?.origin ?? AztecAddress.default(),
-    overrides?.sender ?? AztecAddress.default(),
-    overrides?.portal ?? EthAddress.default(),
+    overrides?.address ?? AztecAddress.ZERO,
+    overrides?.storageAddress ?? AztecAddress.ZERO,
+    overrides?.origin ?? AztecAddress.ZERO,
+    overrides?.sender ?? AztecAddress.ZERO,
+    overrides?.portal ?? EthAddress.ZERO,
     overrides?.feePerL1Gas ?? Fr.ZERO,
     overrides?.feePerL2Gas ?? Fr.ZERO,
     overrides?.feePerDaGas ?? Fr.ZERO,
@@ -84,8 +84,8 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.version ?? Fr.ZERO,
     overrides?.blockNumber ?? Fr.ZERO,
     overrides?.timestamp ?? Fr.ZERO,
-    overrides?.coinbase ?? EthAddress.default(),
-    overrides?.feeRecipient ?? AztecAddress.default(),
+    overrides?.coinbase ?? EthAddress.ZERO,
+    overrides?.feeRecipient ?? AztecAddress.ZERO,
   );
 }
 

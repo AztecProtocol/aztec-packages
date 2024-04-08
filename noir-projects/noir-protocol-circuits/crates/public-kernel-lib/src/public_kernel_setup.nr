@@ -198,10 +198,10 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="contract address cannot be default (zero)")]
+    #[test(should_fail_with="Contract address cannot be zero")]
     fn contract_address_must_be_valid() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.contract_address = AztecAddress::default();
+        builder.public_call.contract_address = AztecAddress::zero();
 
         builder.failed();
     }

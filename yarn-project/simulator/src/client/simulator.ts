@@ -70,7 +70,7 @@ export class AcirSimulator {
     entryPointArtifact: FunctionArtifactWithDebugMetadata,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    msgSender = AztecAddress.default(),
+    msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as secret`);

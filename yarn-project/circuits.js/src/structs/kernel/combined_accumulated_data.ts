@@ -102,7 +102,7 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.default),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.default),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,

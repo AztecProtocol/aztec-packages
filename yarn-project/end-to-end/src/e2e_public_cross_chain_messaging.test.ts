@@ -184,7 +184,7 @@ describe('e2e_public_cross_chain_messaging', () => {
     await expect(
       l2Bridge
         .withWallet(user1Wallet)
-        .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.default(), nonce)
+        .methods.exit_to_l1_public(ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
         .prove(),
     ).rejects.toThrow('Assertion failed: Message not authorized by account');
   }, 60_000);

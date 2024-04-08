@@ -9,10 +9,10 @@ export class L2ToL1Message {
 
   /**
    * Creates a default L2ToL1Message with default values.
-   * @returns An instance of L2ToL1Message with default fields.
+   * @returns An instance of L2ToL1Message with default (zero) fields.
    */
   static default(): L2ToL1Message {
-    return new L2ToL1Message(EthAddress.default(), Fr.ZERO);
+    return new L2ToL1Message(EthAddress.ZERO, Fr.ZERO);
   }
 
   /**
@@ -68,9 +68,9 @@ export class L2ToL1Message {
 
   /**
    * Convenience method to check if the message is default.
-   * @returns True if recipient is default and content is zero.
+   * @returns True if both recipient and content are zero.
    */
   isDefault(): boolean {
-    return this.recipient.isDefault() && this.content.isDefault();
+    return this.recipient.isZero() && this.content.isZero();
   }
 }

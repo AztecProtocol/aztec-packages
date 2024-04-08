@@ -72,7 +72,7 @@ impl Default for NullifierKeyValidationRequestContext {
         NullifierKeyValidationRequestContext {
             public_key: GrumpkinPoint::default(),
             secret_key: GrumpkinPrivateKey::default(),
-            contract_address: AztecAddress::default(),
+            contract_address: AztecAddress::zero(),
         }
     }
 }

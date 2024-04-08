@@ -8,6 +8,14 @@ pub fn is_default_array<T, N>(array: [T; N]) -> bool where T: Default + Eq {
     array.all(|elem| is_default(elem))
 }
 
+trait Zero {
+    fn zero() -> Self;
+}
+
+pub fn is_zero<T>(item: T) -> bool where T: Zero + Eq {
+    item.eq(T::zero())
+}
+
 trait Hash {
     fn hash(self) -> Field;
 }

@@ -108,10 +108,10 @@ export class NullifierKeyValidationRequestContext {
   }
 
   isDefault() {
-    return this.publicKey.isDefault() && this.secretKey.isZero() && this.contractAddress.isDefault();
+    return this.publicKey.isDefault() && this.secretKey.isZero() && this.contractAddress.isZero();
   }
 
   static default() {
-    return new NullifierKeyValidationRequestContext(Point.default(), GrumpkinScalar.ZERO, AztecAddress.default());
+    return new NullifierKeyValidationRequestContext(Point.default(), GrumpkinScalar.ZERO, AztecAddress.ZERO);
   }
 }

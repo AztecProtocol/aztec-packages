@@ -70,8 +70,8 @@ struct FixtureBuilder {
 impl Default for FixtureBuilder {
     fn default() -> Self {
         FixtureBuilder {
-            contract_address: AztecAddress::default(),
-            storage_contract_address: AztecAddress::default(),
+            contract_address: AztecAddress::zero(),
+            storage_contract_address: AztecAddress::zero(),
             historical_header: Header::default(),
             tx_context: TxContext::default(),
             new_note_hashes: BoundedVec::new(),

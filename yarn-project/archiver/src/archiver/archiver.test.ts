@@ -20,10 +20,10 @@ import { type ArchiverDataStore } from './archiver_store.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
 describe('Archiver', () => {
-  const rollupAddress = EthAddress.default();
-  const inboxAddress = EthAddress.default();
-  const registryAddress = EthAddress.default();
-  const availabilityOracleAddress = EthAddress.default();
+  const rollupAddress = EthAddress.ZERO;
+  const inboxAddress = EthAddress.ZERO;
+  const registryAddress = EthAddress.ZERO;
+  const availabilityOracleAddress = EthAddress.ZERO;
   const blockNumbers = [1, 2, 3];
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let archiverStore: ArchiverDataStore;

@@ -1,6 +1,6 @@
 use crate::{
     constants::ETH_ADDRESS_LENGTH, hash::pedersen_hash,
-    traits::{ToField, Serialize, Deserialize}, utils
+    traits::{ToField, Serialize, Deserialize, Zero}, utils
 };
 
 struct EthAddress{
@@ -13,11 +13,19 @@ impl Eq for EthAddress {
     }
 }
 
-impl Default for EthAddress {
-    fn default() -> Self {
+impl Zero for EthAddress {
+    fn zero() -> Self {
         Self {
             inner : 0
         }
+    }
+}
+
+// This is implemented so we have one trait for everything "default", or otherwise known as the "undefined" value,
+// this helps with things such as the array helper
+impl Default for EthAddress {
+    fn default() -> Self {
+        EthAddress::zero()
     }
 }
 

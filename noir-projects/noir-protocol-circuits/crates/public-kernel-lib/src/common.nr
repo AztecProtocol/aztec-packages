@@ -15,7 +15,7 @@ use dep::types::{
     MAX_PUBLIC_DATA_READS_PER_CALL
 },
     hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
-    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::is_default
+    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_default,is_zero}
 };
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 
@@ -23,9 +23,7 @@ use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value
 pub fn validate_inputs(public_call: PublicCallData) {
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
-    assert(
-        !this_call_stack_item.contract_address.eq(AztecAddress::default()), "contract address cannot be default (zero)"
-    );
+    assert(!is_zero(this_call_stack_item.contract_address), "Contract address cannot be zero");
     assert(this_call_stack_item.function_data.selector.to_field() != 0, "Function signature cannot be zero");
     assert(
         this_call_stack_item.function_data.is_private == false, "Cannot execute a private function with the public kernel circuit"
@@ -111,6 +109,8 @@ pub fn initialize_end_values(
 fn perform_static_call_checks(public_call: PublicCallData) {
     let public_inputs = public_call.call_stack_item.public_inputs;
     if public_inputs.call_context.is_static_call {
+
+        // TODO: #5618
         // No state changes are allowed for static calls:
         let new_note_hashes_length = array_length(public_inputs.new_note_hashes);
         assert(new_note_hashes_length == 0, "new_note_hashes must be a default array (empty) for static calls");
