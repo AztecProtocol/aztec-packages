@@ -226,8 +226,12 @@ export class Sequencer {
         return;
       }
 
+      // Mark the block as completed. This will pad it with empty transactions enabling it to be fully proven.
       await this.prover.setBlockCompleted();
 
+      // Here we are now waiting for the block to be proven. 
+      // TODO(@PhilWindle) We should probably periodically check for things like another
+      // block being published before ours instead of just waiting on our block
       const result = await blockTicket.provingPromise;
       if (result.status === PROVING_STATUS.FAILURE) {
         throw new Error(`Block proving failed, reason: ${result.reason}`);
