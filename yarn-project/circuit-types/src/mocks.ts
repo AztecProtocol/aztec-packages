@@ -67,7 +67,7 @@ export const mockTx = (
         : CallRequest.empty(),
     );
   } else {
-    data.forRollup!.end.newNullifiers[0] = firstNullifier;
+    data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
   }
 
   const target = isForPublic ? data.forPublic! : data.forRollup!;
