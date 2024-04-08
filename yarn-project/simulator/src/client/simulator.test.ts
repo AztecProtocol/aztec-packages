@@ -1,15 +1,19 @@
-import { AztecNode, Note } from '@aztec/circuit-types';
+import { type AztecNode, Note } from '@aztec/circuit-types';
 import { CompleteAddress } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
-import { ABIParameterVisibility, FunctionArtifactWithDebugMetadata, getFunctionArtifact } from '@aztec/foundation/abi';
+import {
+  ABIParameterVisibility,
+  type FunctionArtifactWithDebugMetadata,
+  getFunctionArtifact,
+} from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { DBOracle } from './db_oracle.js';
+import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Simulator', () => {
@@ -22,8 +26,6 @@ describe('Simulator', () => {
   const owner = ownerCompleteAddress.address;
   const ownerNullifierSecretKey = GrumpkinScalar.random();
   const ownerNullifierPublicKey = Point.random();
-
-  const hashFields = (data: Fr[]) => pedersenHash(data.map(f => f.toBuffer()));
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
@@ -50,11 +52,11 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const tokenNoteHash = hashFields(note.items);
-      const innerNoteHash = hashFields([storageSlot, tokenNoteHash]);
+      const tokenNoteHash = pedersenHash(note.items);
+      const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      const innerNullifier = hashFields([
+      const innerNullifier = pedersenHash([
         uniqueSiloedNoteHash,
         ownerNullifierSecretKey.low,
         ownerNullifierSecretKey.high,

@@ -2,11 +2,11 @@ import { DefaultAccountContract } from '@aztec/accounts/defaults';
 import {
   AccountManager,
   AuthWitness,
-  AuthWitnessProvider,
-  CompleteAddress,
+  type AuthWitnessProvider,
+  type CompleteAddress,
   ExtendedNote,
   Fr,
-  GrumpkinPrivateKey,
+  type GrumpkinPrivateKey,
   GrumpkinScalar,
   Note,
   Schnorr,
@@ -34,10 +34,10 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {
     const privateKey = this.privateKey;
     return {
-      createAuthWit(message: Fr): Promise<AuthWitness> {
+      createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         const signer = new Schnorr();
-        const signature = signer.constructSignature(message.toBuffer(), privateKey);
-        return Promise.resolve(new AuthWitness(message, [...signature.toBuffer()]));
+        const signature = signer.constructSignature(messageHash.toBuffer(), privateKey);
+        return Promise.resolve(new AuthWitness(messageHash, [...signature.toBuffer()]));
       },
     };
   }
@@ -82,7 +82,7 @@ describe('guides/writing_an_account_contract', () => {
 
     await token.methods.redeem_shield({ address }, mintAmount, secret).send().wait();
 
-    const balance = await token.methods.balance_of_private({ address }).view();
+    const balance = await token.methods.balance_of_private({ address }).simulate();
     logger(`Balance of wallet is now ${balance}`);
     // docs:end:account-contract-works
     expect(balance).toEqual(50n);
@@ -95,7 +95,7 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint_private(200, secretHash).simulate();
+      await tokenWithWrongWallet.methods.mint_private(200, secretHash).prove();
     } catch (err) {
       logger(`Failed to send tx: ${err}`);
     }

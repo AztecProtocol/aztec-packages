@@ -11,6 +11,7 @@ contract PendingNoteHashes {
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::context::{PublicContext, Context};
 
+    #[aztec(storage)]
     struct Storage {
         balances: Map<AztecAddress, PrivateSet<ValueNote>>,
     }
@@ -80,7 +81,8 @@ contract PendingNoteHashes {
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
-        let options = NoteGetterOptions::new().set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
         let note = owner_balance.get_notes(options)[0].unwrap();
 
         assert(expected_value == note.value);
@@ -110,8 +112,7 @@ contract PendingNoteHashes {
         amount: Field,
         owner: AztecAddress,
         insert_fn_selector: FunctionSelector,
-        get_then_nullify_fn_selector: FunctionSelector,
-        get_note_zero_fn_selector: FunctionSelector
+        get_then_nullify_fn_selector: FunctionSelector
     ) {
         // nested call to create/insert note
         let _callStackItem1 = context.call_private_function(
@@ -124,12 +125,6 @@ contract PendingNoteHashes {
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
             [amount, owner.to_field()]
-        );
-        // nested call to confirm that balance is zero
-        let _callStackItem3 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
-            get_note_zero_fn_selector,
-            [owner.to_field()]
         );
     }
 
@@ -209,8 +204,7 @@ contract PendingNoteHashes {
         amount: Field,
         owner: AztecAddress,
         insert_fn_selector: FunctionSelector,
-        get_then_nullify_fn_selector: FunctionSelector,
-        get_note_zero_fn_selector: FunctionSelector
+        get_then_nullify_fn_selector: FunctionSelector
     ) {
         // args for nested calls
         let args = [amount, owner.to_field()];
@@ -231,12 +225,6 @@ contract PendingNoteHashes {
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
             args
-        );
-
-        let _callStackItem4 = context.call_private_function(
-            inputs.call_context.storage_contract_address,
-            get_note_zero_fn_selector,
-            [owner.to_field()]
         );
     }
     // Confirm cannot get/read a pending note hash in a nested call

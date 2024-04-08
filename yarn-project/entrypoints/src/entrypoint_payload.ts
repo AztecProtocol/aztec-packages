@@ -1,7 +1,7 @@
-import { FeeOptions } from '@aztec/aztec.js/account';
+import { type FeeOptions } from '@aztec/aztec.js/entrypoint';
 import { Fr } from '@aztec/aztec.js/fields';
-import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
-import { AztecAddress } from '@aztec/circuits.js';
+import { type FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
@@ -99,15 +99,12 @@ export async function buildFeePayload(feeOpts?: FeeOptions): Promise<PayloadWith
 // TODO (dogfooding) change all of these names app/dapp/fee/payload and generator indices for all of them
 /** Hashes a payload to a 32-byte buffer */
 export function hashPayload(payload: EntrypointPayload, generatorIndex: number) {
-  return pedersenHash(
-    flattenPayload(payload).map(fr => fr.toBuffer()),
-    generatorIndex,
-  );
+  return pedersenHash(flattenPayload(payload), generatorIndex);
 }
 
 /** Hash the payload for a dapp */
 export function hashDappPayload(payload: EntrypointPayload, userAddress: AztecAddress, generatorIndex: number) {
-  return pedersenHash([...flattenPayload(payload).map(fr => fr.toBuffer()), userAddress.toBuffer()], generatorIndex);
+  return pedersenHash([...flattenPayload(payload), userAddress], generatorIndex);
 }
 
 /** Flattens an payload */

@@ -5,6 +5,7 @@ pragma solidity >=0.8.18;
 import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {Constants} from "../src/core/libraries/ConstantsGen.sol";
 
 import {Registry} from "../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../src/core/messagebridge/Inbox.sol";
@@ -12,6 +13,10 @@ import {Outbox} from "../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {Rollup} from "../src/core/Rollup.sol";
 import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
+import {NaiveMerkle} from "./merkle/Naive.sol";
+import {MerkleTestUtil} from "./merkle/TestUtil.sol";
+
+import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
@@ -22,16 +27,22 @@ contract RollupTest is DecoderBase {
   Inbox internal inbox;
   Outbox internal outbox;
   Rollup internal rollup;
+  MerkleTestUtil internal merkleTestUtil;
+  TxsDecoderHelper internal txsHelper;
+
   AvailabilityOracle internal availabilityOracle;
 
   function setUp() public virtual {
     registry = new Registry();
-    outbox = new Outbox(address(registry));
     availabilityOracle = new AvailabilityOracle();
     rollup = new Rollup(registry, availabilityOracle);
     inbox = Inbox(address(rollup.INBOX()));
+    outbox = Outbox(address(rollup.OUTBOX()));
 
     registry.upgrade(address(rollup), address(inbox), address(outbox));
+
+    merkleTestUtil = new MerkleTestUtil();
+    txsHelper = new TxsDecoderHelper();
   }
 
   function testMixedBlock() public {
@@ -66,7 +77,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 0x420, 31337));
-    rollup.process(header, archive, body, bytes(""));
+    rollup.process(header, archive, bytes(""));
   }
 
   function testRevertInvalidVersion() public {
@@ -82,7 +93,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 0x420, 1));
-    rollup.process(header, archive, body, bytes(""));
+    rollup.process(header, archive, bytes(""));
   }
 
   function testRevertTimestampInFuture() public {
@@ -99,7 +110,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampInFuture.selector));
-    rollup.process(header, archive, body, bytes(""));
+    rollup.process(header, archive, bytes(""));
   }
 
   function testRevertTimestampTooOld() public {
@@ -114,7 +125,7 @@ contract RollupTest is DecoderBase {
     availabilityOracle.publish(body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__TimestampTooOld.selector));
-    rollup.process(header, archive, body, bytes(""));
+    rollup.process(header, archive, bytes(""));
   }
 
   function _testBlock(string memory name) public {
@@ -122,6 +133,7 @@ contract RollupTest is DecoderBase {
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
     bytes memory body = full.block.body;
+    uint32 numTxs = full.block.numTxs;
 
     // We jump to the time of the block.
     vm.warp(full.block.decodedHeader.globalVariables.timestamp);
@@ -133,23 +145,31 @@ contract RollupTest is DecoderBase {
     uint256 toConsume = inbox.toConsume();
 
     vm.record();
-    rollup.process(header, archive, body, bytes(""));
+    rollup.process(header, archive, bytes(""));
 
     assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
 
-    (, bytes32[] memory outboxWrites) = vm.accesses(address(outbox));
-
+    bytes32 l2ToL1MessageTreeRoot;
     {
-      uint256 count = 0;
-      for (uint256 i = 0; i < full.messages.l2ToL1Messages.length; i++) {
-        if (full.messages.l2ToL1Messages[i] == bytes32(0)) {
-          continue;
+      uint256 numTxsWithPadding = txsHelper.computeNumTxEffectsToPad(numTxs) + numTxs;
+      uint256 numMessagesWithPadding = numTxsWithPadding * Constants.MAX_NEW_L2_TO_L1_MSGS_PER_TX;
+
+      uint256 treeHeight = merkleTestUtil.calculateTreeHeightFromSize(numMessagesWithPadding);
+      NaiveMerkle tree = new NaiveMerkle(treeHeight);
+      for (uint256 i = 0; i < numMessagesWithPadding; i++) {
+        if (i < full.messages.l2ToL1Messages.length) {
+          tree.insertLeaf(full.messages.l2ToL1Messages[i]);
+        } else {
+          tree.insertLeaf(bytes32(0));
         }
-        assertTrue(outbox.contains(full.messages.l2ToL1Messages[i]), "msg not in outbox");
-        count++;
       }
-      assertEq(outboxWrites.length, count, "Invalid outbox writes");
+
+      l2ToL1MessageTreeRoot = tree.computeRoot();
     }
+
+    (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+
+    assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
 
     assertEq(rollup.archive(), archive, "Invalid archive");
   }

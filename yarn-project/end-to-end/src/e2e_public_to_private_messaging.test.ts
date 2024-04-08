@@ -1,4 +1,4 @@
-import { AztecAddress, DebugLogger, EthAddress } from '@aztec/aztec.js';
+import { type AztecAddress, type DebugLogger, type EthAddress } from '@aztec/aztec.js';
 
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
@@ -48,10 +48,10 @@ describe('e2e_public_to_private_messaging', () => {
     const [secret, secretHash] = crossChainTestHarness.generateClaimSecret();
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
-    const msgLeaf = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
+    const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
 
-    await crossChainTestHarness.makeMessageConsumable(msgLeaf);
+    await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);

@@ -1,16 +1,18 @@
 #pragma once
 
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
-#include "barretenberg/proof_system/library/grand_product_delta.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 namespace bb {
 
 template <IsUltraFlavor Flavor> struct OinkOutput {
     bb::RelationParameters<typename Flavor::FF> relation_parameters;
     typename Flavor::WitnessCommitments commitments;
+    std::vector<typename Flavor::FF> public_inputs;
+    typename Flavor::RelationSeparator alphas;
 };
 
 /**
@@ -28,6 +30,7 @@ template <IsUltraFlavor Flavor> class OinkVerifier {
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
+    using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
     std::shared_ptr<Transcript> transcript;
@@ -36,6 +39,7 @@ template <IsUltraFlavor Flavor> class OinkVerifier {
     typename Flavor::CommitmentLabels comm_labels;
     bb::RelationParameters<FF> relation_parameters;
     WitnessCommitments witness_comms;
+    std::vector<FF> public_inputs;
 
     OinkVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                  const std::shared_ptr<Transcript>& transcript,
@@ -56,5 +60,7 @@ template <IsUltraFlavor Flavor> class OinkVerifier {
     void execute_log_derivative_inverse_round();
 
     void execute_grand_product_computation_round();
+
+    RelationSeparator generate_alphas_round();
 };
 } // namespace bb

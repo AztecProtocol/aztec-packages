@@ -1,10 +1,9 @@
 import {
-  AccountWallet,
+  type AccountWallet,
   AztecAddress,
-  CompleteAddress,
   Fr,
   INITIAL_L2_BLOCK_NUM,
-  PXE,
+  type PXE,
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
@@ -27,7 +26,6 @@ describe('e2e_inclusion_proofs_contract', () => {
   let pxe: PXE;
   let teardown: () => Promise<void>;
   let wallets: AccountWallet[];
-  let accounts: CompleteAddress[];
 
   let contract: InclusionProofsContract;
   let deploymentBlockNumber: number;
@@ -35,7 +33,7 @@ describe('e2e_inclusion_proofs_contract', () => {
   const contractAddressSalt = Fr.random();
 
   beforeAll(async () => {
-    ({ pxe, teardown, wallets, accounts } = await setup(1));
+    ({ pxe, teardown, wallets } = await setup(1));
 
     const receipt = await InclusionProofsContract.deploy(wallets[0], publicValue).send({ contractAddressSalt }).wait();
     contract = receipt.contract;
@@ -48,7 +46,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     let owner: AztecAddress;
 
     beforeAll(() => {
-      owner = accounts[0].address;
+      owner = wallets[0].getAddress();
     });
 
     describe('proves note existence and its nullifier non-existence and nullifier non-existence failure case', () => {
@@ -148,7 +146,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
     it('proves note validity (note commitment inclusion and nullifier non-inclusion)', async () => {
       // Owner of a note
-      const owner = accounts[0].address;
+      const owner = wallets[0].getAddress();
       let noteCreationBlockNumber: number;
       {
         // Create a note
@@ -190,30 +188,25 @@ describe('e2e_inclusion_proofs_contract', () => {
     });
   });
 
-  describe('public value existence at a slot', () => {
-    it('proves an existence of a public value in private context', async () => {
+  describe('historical storage reads', () => {
+    it('reads a historical public value in private context', async () => {
       // Choose random block number between deployment and current block number to test archival node
       const blockNumber = await getRandomBlockNumberSinceDeployment();
 
-      await contract.methods.test_public_value_inclusion(publicValue, true, blockNumber).send().wait();
-      await contract.methods.test_public_value_inclusion(publicValue, false, 0n).send().wait();
+      await contract.methods.test_storage_historical_read(publicValue, true, blockNumber).send().wait();
+      await contract.methods.test_storage_historical_read(publicValue, false, 0n).send().wait();
     });
 
-    it('public value existence failure case', async () => {
-      // Choose random block number between first block and current block number to test archival node
-      const blockNumber = await getRandomBlockNumber();
-      const randomPublicValue = Fr.random();
-      await expect(
-        contract.methods.test_public_value_inclusion(randomPublicValue, true, blockNumber).send().wait(),
-      ).rejects.toThrow('Public value does not match the witness');
-      await expect(
-        contract.methods.test_public_value_inclusion(randomPublicValue, false, 0n).send().wait(),
-      ).rejects.toThrow('Public value does not match the witness');
+    it('reads an older (unset) public value', async () => {
+      const blockNumber = getRandomBlockNumberBeforeDeployment();
+      await contract.methods.test_storage_historical_read(0, true, blockNumber).send().wait();
     });
 
-    it('proves existence of uninitialized public value', async () => {
+    it('reads a historical unset public value in private context', async () => {
+      // This test scenario is interesting because the codepath for storage values that were never set is different
+      // (since they don't exist in the tree).
       const blockNumber = await getRandomBlockNumber();
-      await contract.methods.test_public_unused_value_inclusion(blockNumber).send().wait();
+      await contract.methods.test_storage_historical_read_unset_slot(blockNumber).send().wait();
     });
   });
 
@@ -266,13 +259,13 @@ describe('e2e_inclusion_proofs_contract', () => {
 
       // Or that the positive call fails when trying to prove in the older block
       await expect(
-        contract.methods.test_contract_inclusion(address, olderBlock, testDeploy, testInit).simulate(),
+        contract.methods.test_contract_inclusion(address, olderBlock, testDeploy, testInit).prove(),
       ).rejects.toThrow(/not found/);
     };
 
     it('proves public deployment of a contract', async () => {
       // Publicly deploy another contract (so we don't test on the same contract)
-      const initArgs = [accounts[0], 42n];
+      const initArgs = [wallets[0].getAddress(), 42n];
       const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
       await (await registerContractClass(wallets[0], StatefulTestContractArtifact)).send().wait();
       const receipt = await deployInstance(wallets[0], instance).send().wait();
@@ -282,7 +275,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
     it('proves initialization of a contract', async () => {
       // Initialize (but not deploy) a test contract
-      const receipt = await StatefulTestContract.deploy(wallets[0], accounts[0], 42n)
+      const receipt = await StatefulTestContract.deploy(wallets[0], wallets[0].getAddress(), 42n)
         .send({ skipClassRegistration: true, skipPublicDeployment: true })
         .wait();
 
@@ -296,5 +289,9 @@ describe('e2e_inclusion_proofs_contract', () => {
 
   const getRandomBlockNumber = async () => {
     return deploymentBlockNumber + randomInt((await pxe.getBlockNumber()) - INITIAL_L2_BLOCK_NUM);
+  };
+
+  const getRandomBlockNumberBeforeDeployment = () => {
+    return randomInt(deploymentBlockNumber - INITIAL_L2_BLOCK_NUM) + INITIAL_L2_BLOCK_NUM;
   };
 });

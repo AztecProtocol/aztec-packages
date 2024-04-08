@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/aztec.js';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type AztecAddress } from '@aztec/aztec.js';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 
@@ -26,7 +26,7 @@ export async function getContractData(
   });
 
   if (contractClass) {
-    log(`Bytecode: 0x${contractClass.packedBytecode.toString('hex')}`);
+    log(`Bytecode: ${contractClass.packedBytecode.toString('base64')}`);
   }
   log('\n');
 }

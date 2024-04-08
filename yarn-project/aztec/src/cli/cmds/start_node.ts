@@ -1,8 +1,12 @@
-import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
+import {
+  type AztecNodeConfig,
+  createAztecNodeRpcServer,
+  getConfigEnvVars as getNodeConfigEnvVars,
+} from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { ServerList } from '@aztec/foundation/json-rpc/server';
-import { LogFn } from '@aztec/foundation/log';
-import { PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
+import { type ServerList } from '@aztec/foundation/json-rpc/server';
+import { type LogFn } from '@aztec/foundation/log';
+import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -57,6 +61,10 @@ export const startNode = async (
     const hdAccount = mnemonicToAccount(MNEMONIC);
     const privKey = hdAccount.getHdKey().privateKey;
     nodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+  }
+
+  if (!options.prover) {
+    nodeConfig.disableProver = true;
   }
 
   // Create and start Aztec Node.

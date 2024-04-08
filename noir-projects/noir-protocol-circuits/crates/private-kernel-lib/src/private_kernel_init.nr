@@ -3,7 +3,7 @@ use dep::std::unsafe;
 use dep::types::{
     abis::{
     combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
-    kernel_circuit_public_inputs::{PrivateKernelInnerCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
+    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
@@ -76,9 +76,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // https://github.com/AztecProtocol/aztec-packages/issues/660
     }
 
-    pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelInnerCircuitPublicInputs {
+    pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
         let mut public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
-        public_inputs.is_private = true;
 
         self.initialize_end_values(&mut public_inputs);
 
@@ -107,7 +106,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         public_inputs.aggregation_object = updated_aggregation_object;
 
-        public_inputs.to_inner()
+        public_inputs.finish()
     }
 }
 
@@ -115,7 +114,7 @@ mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -142,7 +141,7 @@ mod tests {
             PrivateKernelInitInputsBuilder { tx_request, private_call }
         }
 
-        pub fn execute(self) -> PrivateKernelInnerCircuitPublicInputs {
+        pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let kernel = PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call: self.private_call.finish() };
 
             kernel.native_private_kernel_circuit_initial()
@@ -158,9 +157,9 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
         // Logs for the private call.
-        let encrypted_logs_hash = [16, 69];
+        let encrypted_logs_hash = 16;
         let encrypted_log_preimages_length = 100;
-        let unencrypted_logs_hash = [26, 47];
+        let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
         builder.private_call.set_encrypted_logs(encrypted_logs_hash, encrypted_log_preimages_length);
         builder.private_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
@@ -176,10 +175,10 @@ mod tests {
         assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length);
 
         // Logs hashes should be a sha256 hash of a 0 value (the previous log hash) and the `(un)encrypted_logs_hash` from private input
-        let expected_encrypted_logs_hash = compute_logs_hash([0, 0], encrypted_logs_hash);
+        let expected_encrypted_logs_hash = compute_logs_hash(0, encrypted_logs_hash);
         assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
 
-        let expected_unencrypted_logs_hash = compute_logs_hash([0, 0], unencrypted_logs_hash);
+        let expected_unencrypted_logs_hash = compute_logs_hash(0, unencrypted_logs_hash);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
@@ -388,6 +387,23 @@ mod tests {
         builder.private_call.note_hash_read_request_membership_witnesses.push(read_request_membership_witness);
 
         builder.failed();
+    }
+
+    #[test]
+    fn default_max_block_number() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+        let public_inputs = builder.execute();
+
+        assert(public_inputs.validation_requests.for_rollup.max_block_number.is_none());
+    }
+
+    #[test]
+    fn propagate_max_block_number_request() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+        builder.private_call.request_max_block_number(42);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
     }
 
     #[test]

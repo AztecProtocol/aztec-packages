@@ -1,17 +1,17 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import {
-  AztecAddress,
+  type AztecAddress,
   CompleteAddress,
-  DebugLogger,
+  type DebugLogger,
   Fr,
   Grumpkin,
   GrumpkinScalar,
-  SentTx,
+  type SentTx,
   TxStatus,
 } from '@aztec/aztec.js';
-import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
-import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
+import { BootstrapNode, type P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
+import { ConstantKeyPair, type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -130,7 +130,7 @@ describe('e2e_p2p_network', () => {
           error: '',
         }),
       );
-      logger(`Receipt received and expecting contract deployment at ${origin}`);
+      logger(`Receipt received`);
       txs.push(tx);
     }
     return txs;

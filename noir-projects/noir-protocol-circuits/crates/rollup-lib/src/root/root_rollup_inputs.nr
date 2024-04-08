@@ -1,6 +1,6 @@
 use crate::{
     abis::{previous_rollup_data::PreviousRollupData, constant_rollup_data::ConstantRollupData},
-    components, root::{compute_messages_hash, root_rollup_public_inputs::RootRollupPublicInputs}
+    components, root::{root_rollup_public_inputs::RootRollupPublicInputs}
 };
 use dep::{
     parity_lib::RootParityInput,
@@ -84,10 +84,6 @@ impl RootRollupInputs {
             0
         );
 
-        RootRollupPublicInputs {
-            aggregation_object,
-            archive,
-            header
-        }
+        RootRollupPublicInputs { aggregation_object, archive, header }
     }
 }

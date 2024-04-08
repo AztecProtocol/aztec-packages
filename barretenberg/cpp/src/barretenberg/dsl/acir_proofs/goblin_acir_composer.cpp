@@ -17,27 +17,8 @@ void GoblinAcirComposer::create_circuit(acir_format::AcirFormat& constraint_syst
     acir_format::build_constraints(builder_, constraint_system, true);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): Add some arbitrary op gates to ensure the
-    // associated polynomials are non-zero and to give ECCVM and Translator some ECC ops to process.
+    //  to give ECCVM and Translator some ECC ops to process.
     MockCircuits::construct_goblin_ecc_op_circuit(builder_);
-}
-
-std::vector<bb::fr> GoblinAcirComposer::accumulate()
-{
-    // // Construct a GUH proof for the circuit via the accumulate mechanism
-    // return goblin.accumulate_for_acir(builder_);
-
-    // Construct one final GUH proof via the accumulate mechanism
-    std::vector<bb::fr> ultra_proof = goblin.accumulate_for_acir(builder_);
-
-    // Construct a Goblin proof (ECCVM, Translator, Merge); result stored internally
-    goblin.prove_for_acir();
-
-    return ultra_proof;
-}
-
-bool GoblinAcirComposer::verify_accumulator(std::vector<bb::fr> const& proof)
-{
-    return goblin.verify_accumulator_for_acir(proof);
 }
 
 std::vector<bb::fr> GoblinAcirComposer::accumulate_and_prove()

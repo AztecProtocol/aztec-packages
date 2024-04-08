@@ -1,4 +1,13 @@
-import { DebugLogger, ExtendedNote, Fr, Note, PXE, SignerlessWallet, Wallet, toBigInt } from '@aztec/aztec.js';
+import {
+  type DebugLogger,
+  ExtendedNote,
+  Fr,
+  Note,
+  type PXE,
+  SignerlessWallet,
+  type Wallet,
+  toBigInt,
+} from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -84,6 +93,6 @@ describe('e2e_non_contract_account', () => {
     );
     await wallet.addNote(extendedNote);
 
-    expect(await contract.methods.get_constant().view()).toEqual(value);
+    expect(await contract.methods.get_constant().simulate()).toEqual(value);
   });
 });

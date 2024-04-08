@@ -1,12 +1,12 @@
 import { SiblingPath } from '@aztec/circuit-types';
 import { randomBigInt, randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { Hasher } from '@aztec/types/interfaces';
+import { type Hasher } from '@aztec/types/interfaces';
 
 import { INITIAL_LEAF, newTree } from '../index.js';
-import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import { type UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { loadTree } from '../load_tree.js';
 import { Pedersen } from '../pedersen.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
@@ -15,12 +15,28 @@ import { SparseTree } from './sparse_tree.js';
 
 const log = createDebugLogger('aztec:sparse_tree_test');
 
-const createDb = async (db: AztecKVStore, hasher: Hasher, name: string, depth: number): Promise<UpdateOnlyTree> => {
-  return await newTree(SparseTree, db, hasher, name, depth);
+const createDb = async (
+  db: AztecKVStore,
+  hasher: Hasher,
+  name: string,
+  depth: number,
+): Promise<UpdateOnlyTree<Buffer>> => {
+  return await newTree(
+    SparseTree,
+    db,
+    hasher,
+    name,
+    {
+      fromBuffer: (buffer: Buffer): Buffer => buffer,
+    },
+    depth,
+  );
 };
 
-const createFromName = async (db: AztecKVStore, hasher: Hasher, name: string): Promise<UpdateOnlyTree> => {
-  return await loadTree(SparseTree, db, hasher, name);
+const createFromName = async (db: AztecKVStore, hasher: Hasher, name: string): Promise<UpdateOnlyTree<Buffer>> => {
+  return await loadTree(SparseTree, db, hasher, name, {
+    fromBuffer: (buffer: Buffer): Buffer => buffer,
+  });
 };
 
 const TEST_TREE_DEPTH = 3;

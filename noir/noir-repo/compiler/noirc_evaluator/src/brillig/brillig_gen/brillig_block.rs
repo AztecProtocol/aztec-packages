@@ -514,7 +514,7 @@ impl<'block> BrilligBlock<'block> {
                         .extract_vector();
 
                     // Update the user-facing slice length
-                    self.brillig_context.mov_instruction(target_len.address, limb_count.address);
+                    self.brillig_context.cast_instruction(target_len, limb_count);
 
                     self.brillig_context.codegen_to_radix(
                         source,
@@ -522,6 +522,7 @@ impl<'block> BrilligBlock<'block> {
                         radix,
                         limb_count,
                         matches!(endianness, Endian::Big),
+                        8,
                     );
                 }
                 Value::Intrinsic(Intrinsic::ToBits(endianness)) => {
@@ -554,7 +555,7 @@ impl<'block> BrilligBlock<'block> {
                     let radix = self.brillig_context.make_constant_instruction(2_usize.into(), 32);
 
                     // Update the user-facing slice length
-                    self.brillig_context.mov_instruction(target_len.address, limb_count.address);
+                    self.brillig_context.cast_instruction(target_len, limb_count);
 
                     self.brillig_context.codegen_to_radix(
                         source,
@@ -562,6 +563,7 @@ impl<'block> BrilligBlock<'block> {
                         radix,
                         limb_count,
                         matches!(endianness, Endian::Big),
+                        1,
                     );
 
                     self.brillig_context.deallocate_single_addr(radix);
@@ -654,7 +656,7 @@ impl<'block> BrilligBlock<'block> {
                     // Create a field constant with the max
                     let max = BigUint::from(2_u128).pow(*max_bit_size) - BigUint::from(1_u128);
                     let right = self.brillig_context.make_constant_instruction(
-                        FieldElement::from_be_bytes_reduce(&max.to_bytes_be()).into(),
+                        FieldElement::from_be_bytes_reduce(&max.to_bytes_be()),
                         FieldElement::max_num_bits(),
                     );
 
@@ -1306,7 +1308,14 @@ impl<'block> BrilligBlock<'block> {
             BinaryOp::Sub => BrilligBinaryOp::Sub,
             BinaryOp::Mul => BrilligBinaryOp::Mul,
             BinaryOp::Eq => BrilligBinaryOp::Equals,
-            BinaryOp::Lt => BrilligBinaryOp::LessThan,
+            BinaryOp::Lt => {
+                if is_signed {
+                    self.convert_signed_less_than(left, right, result_variable);
+                    return;
+                } else {
+                    BrilligBinaryOp::LessThan
+                }
+            }
             BinaryOp::And => BrilligBinaryOp::And,
             BinaryOp::Or => BrilligBinaryOp::Or,
             BinaryOp::Xor => BrilligBinaryOp::Xor,
@@ -1339,18 +1348,23 @@ impl<'block> BrilligBlock<'block> {
             BrilligBinaryOp::LessThan,
         );
 
-        self.brillig_context.codegen_branch(result_is_negative.address, |ctx, is_negative| {
-            if is_negative {
-                // Two's complement of num
-                let zero = ctx.make_constant_instruction(0_usize.into(), num.bit_size);
-                ctx.binary_instruction(zero, num, absolute_value, BrilligBinaryOp::Sub);
-                ctx.deallocate_single_addr(zero);
-            } else {
-                // Simply move the original num
-                ctx.mov_instruction(absolute_value.address, num.address);
-            }
-        });
+        // Two's complement of num
+        let zero = self.brillig_context.make_constant_instruction(0_usize.into(), num.bit_size);
+        let twos_complement =
+            SingleAddrVariable::new(self.brillig_context.allocate_register(), num.bit_size);
+        self.brillig_context.binary_instruction(zero, num, twos_complement, BrilligBinaryOp::Sub);
+
+        // absolute_value = result_is_negative ? twos_complement : num
+        self.brillig_context.conditional_mov_instruction(
+            absolute_value.address,
+            result_is_negative.address,
+            twos_complement.address,
+            num.address,
+        );
+
+        self.brillig_context.deallocate_single_addr(zero);
         self.brillig_context.deallocate_single_addr(max_positive);
+        self.brillig_context.deallocate_single_addr(twos_complement);
     }
 
     fn convert_signed_division(
@@ -1432,6 +1446,36 @@ impl<'block> BrilligBlock<'block> {
         // Free scratch registers
         self.brillig_context.deallocate_single_addr(scratch_var_i);
         self.brillig_context.deallocate_single_addr(scratch_var_j);
+    }
+
+    fn convert_signed_less_than(
+        &mut self,
+        left: SingleAddrVariable,
+        right: SingleAddrVariable,
+        result: SingleAddrVariable,
+    ) {
+        let biased_left =
+            SingleAddrVariable::new(self.brillig_context.allocate_register(), left.bit_size);
+        let biased_right =
+            SingleAddrVariable::new(self.brillig_context.allocate_register(), right.bit_size);
+
+        let bias = self
+            .brillig_context
+            .make_constant_instruction((1_u128 << (left.bit_size - 1)).into(), left.bit_size);
+
+        self.brillig_context.binary_instruction(left, bias, biased_left, BrilligBinaryOp::Add);
+        self.brillig_context.binary_instruction(right, bias, biased_right, BrilligBinaryOp::Add);
+
+        self.brillig_context.binary_instruction(
+            biased_left,
+            biased_right,
+            result,
+            BrilligBinaryOp::LessThan,
+        );
+
+        self.brillig_context.deallocate_single_addr(biased_left);
+        self.brillig_context.deallocate_single_addr(biased_right);
+        self.brillig_context.deallocate_single_addr(bias);
     }
 
     fn add_overflow_check(
@@ -1542,7 +1586,7 @@ impl<'block> BrilligBlock<'block> {
                         self.variables.allocate_constant(self.brillig_context, value_id, dfg);
 
                     self.brillig_context
-                        .const_instruction(new_variable.extract_single_addr(), (*constant).into());
+                        .const_instruction(new_variable.extract_single_addr(), *constant);
                     new_variable
                 }
             }

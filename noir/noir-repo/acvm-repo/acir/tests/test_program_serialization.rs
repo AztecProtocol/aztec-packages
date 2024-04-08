@@ -190,9 +190,9 @@ fn simple_brillig_foreign_call() {
             brillig::Opcode::ForeignCall {
                 function: "invert".into(),
                 destinations: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
-                destination_value_types: vec![HeapValueType::Simple],
+                destination_value_types: vec![HeapValueType::field()],
                 inputs: vec![ValueOrArray::MemoryAddress(MemoryAddress::from(0))],
-                input_value_types: vec![HeapValueType::Simple],
+                input_value_types: vec![HeapValueType::field()],
             },
             brillig::Opcode::Stop { return_data_offset: 0, return_data_size: 1 },
         ],
@@ -211,11 +211,11 @@ fn simple_brillig_foreign_call() {
     let bytes = Program::serialize_program(&program);
 
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 173, 143, 65, 10, 192, 32, 12, 4, 77, 10, 165, 244, 212,
-        167, 216, 31, 244, 51, 61, 120, 241, 32, 226, 251, 85, 140, 176, 136, 122, 209, 129, 144,
-        176, 9, 97, 151, 84, 225, 74, 69, 50, 31, 48, 35, 85, 251, 164, 235, 53, 94, 218, 247, 75,
-        163, 95, 150, 12, 153, 179, 227, 191, 114, 195, 222, 216, 240, 59, 63, 75, 221, 251, 208,
-        106, 207, 232, 150, 65, 100, 53, 33, 2, 9, 69, 91, 82, 144, 1, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 173, 144, 61, 10, 192, 48, 8, 133, 53, 133, 82, 186,
+        245, 38, 233, 13, 122, 153, 14, 93, 58, 132, 144, 227, 135, 252, 41, 56, 36, 46, 201, 7,
+        162, 168, 200, 123, 34, 52, 142, 28, 72, 245, 38, 106, 9, 247, 30, 202, 118, 142, 27, 215,
+        221, 178, 82, 175, 33, 15, 133, 189, 163, 159, 57, 197, 252, 251, 195, 235, 188, 230, 186,
+        16, 65, 255, 12, 239, 92, 131, 89, 149, 198, 77, 3, 10, 9, 119, 8, 198, 242, 152, 1, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)
@@ -264,8 +264,8 @@ fn complex_brillig_foreign_call() {
             },
             brillig::Opcode::Const {
                 destination: MemoryAddress(0),
-                value: brillig::Value::from(32_usize),
-                bit_size: 32,
+                value: FieldElement::from(32_usize),
+                bit_size: 64,
             },
             brillig::Opcode::CalldataCopy {
                 destination_address: MemoryAddress(1),
@@ -280,8 +280,8 @@ fn complex_brillig_foreign_call() {
                     ValueOrArray::MemoryAddress(MemoryAddress::from(1)),
                 ],
                 input_value_types: vec![
-                    HeapValueType::Array { size: 3, value_types: vec![HeapValueType::Simple] },
-                    HeapValueType::Simple,
+                    HeapValueType::Array { size: 3, value_types: vec![HeapValueType::field()] },
+                    HeapValueType::field(),
                 ],
                 destinations: vec![
                     ValueOrArray::HeapArray(HeapArray { pointer: 0.into(), size: 3 }),
@@ -289,9 +289,9 @@ fn complex_brillig_foreign_call() {
                     ValueOrArray::MemoryAddress(MemoryAddress::from(36)),
                 ],
                 destination_value_types: vec![
-                    HeapValueType::Array { size: 3, value_types: vec![HeapValueType::Simple] },
-                    HeapValueType::Simple,
-                    HeapValueType::Simple,
+                    HeapValueType::Array { size: 3, value_types: vec![HeapValueType::field()] },
+                    HeapValueType::field(),
+                    HeapValueType::field(),
                 ],
             },
             brillig::Opcode::Stop { return_data_offset: 32, return_data_size: 5 },
@@ -311,15 +311,15 @@ fn complex_brillig_foreign_call() {
     let bytes = Program::serialize_program(&program);
 
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 213, 84, 65, 14, 132, 32, 12, 108, 101, 117, 205, 158,
-        246, 9, 38, 187, 15, 96, 247, 5, 254, 197, 120, 211, 232, 209, 231, 139, 113, 136, 181, 65,
-        47, 98, 162, 147, 52, 20, 24, 202, 164, 45, 48, 205, 200, 157, 49, 124, 227, 44, 129, 207,
-        152, 75, 120, 94, 137, 209, 30, 195, 143, 227, 197, 178, 103, 105, 76, 110, 160, 209, 156,
-        160, 209, 247, 195, 69, 235, 29, 179, 46, 81, 243, 103, 2, 239, 231, 225, 44, 117, 150, 97,
-        254, 196, 152, 99, 157, 176, 87, 168, 188, 147, 224, 121, 20, 209, 180, 254, 109, 70, 75,
-        47, 178, 186, 251, 37, 116, 86, 93, 219, 55, 245, 96, 20, 85, 75, 253, 8, 255, 171, 246,
-        121, 231, 220, 4, 249, 237, 132, 56, 28, 224, 109, 113, 223, 180, 164, 50, 165, 0, 137, 17,
-        72, 139, 88, 97, 4, 198, 90, 226, 196, 33, 5, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 213, 84, 93, 10, 131, 48, 12, 78, 218, 233, 100, 111,
+        187, 193, 96, 59, 64, 231, 9, 188, 139, 248, 166, 232, 163, 167, 23, 11, 126, 197, 24, 250,
+        34, 86, 208, 64, 72, 218, 252, 125, 36, 105, 153, 22, 42, 60, 51, 116, 235, 217, 64, 103,
+        156, 37, 5, 191, 10, 210, 29, 163, 63, 167, 203, 229, 206, 194, 104, 110, 128, 209, 158,
+        128, 49, 236, 195, 69, 231, 157, 114, 46, 73, 251, 103, 35, 239, 231, 225, 57, 243, 156,
+        227, 252, 132, 44, 112, 79, 176, 125, 84, 223, 73, 248, 145, 152, 69, 149, 4, 107, 233,
+        114, 90, 119, 145, 85, 237, 151, 192, 89, 247, 221, 208, 54, 163, 85, 174, 26, 234, 87,
+        232, 63, 101, 103, 21, 55, 169, 216, 73, 72, 249, 5, 197, 234, 132, 123, 179, 35, 247, 155,
+        214, 246, 102, 20, 73, 204, 72, 168, 123, 191, 161, 25, 66, 136, 159, 187, 53, 5, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)
@@ -361,4 +361,97 @@ fn memory_op_circuit() {
     ];
 
     assert_eq!(bytes, expected_serialization)
+}
+
+#[test]
+fn nested_acir_call_circuit() {
+    // Circuit for the following program:
+    // fn main(x: Field, y: pub Field) {
+    //     let z = nested_call(x, y);
+    //     let z2 = nested_call(x, y);
+    //     assert(z == z2);
+    // }
+    // #[fold]
+    // fn nested_call(x: Field, y: Field) -> Field {
+    //     inner_call(x + 2, y)
+    // }
+    // #[fold]
+    // fn inner_call(x: Field, y: Field) -> Field {
+    //     assert(x == y);
+    //     x
+    // }
+    let nested_call =
+        Opcode::Call { id: 1, inputs: vec![Witness(0), Witness(1)], outputs: vec![Witness(2)] };
+    let nested_call_two =
+        Opcode::Call { id: 1, inputs: vec![Witness(0), Witness(1)], outputs: vec![Witness(3)] };
+
+    let assert_nested_call_results = Opcode::AssertZero(Expression {
+        mul_terms: Vec::new(),
+        linear_combinations: vec![
+            (FieldElement::one(), Witness(2)),
+            (-FieldElement::one(), Witness(3)),
+        ],
+        q_c: FieldElement::zero(),
+    });
+
+    let main = Circuit {
+        current_witness_index: 3,
+        private_parameters: BTreeSet::from([Witness(0)]),
+        public_parameters: PublicInputs([Witness(1)].into()),
+        opcodes: vec![nested_call, nested_call_two, assert_nested_call_results],
+        ..Circuit::default()
+    };
+
+    let call_parameter_addition = Opcode::AssertZero(Expression {
+        mul_terms: Vec::new(),
+        linear_combinations: vec![
+            (FieldElement::one(), Witness(0)),
+            (-FieldElement::one(), Witness(2)),
+        ],
+        q_c: FieldElement::one() + FieldElement::one(),
+    });
+    let call =
+        Opcode::Call { id: 2, inputs: vec![Witness(2), Witness(1)], outputs: vec![Witness(3)] };
+
+    let nested_call = Circuit {
+        current_witness_index: 3,
+        private_parameters: BTreeSet::from([Witness(0), Witness(1)]),
+        return_values: PublicInputs([Witness(3)].into()),
+        opcodes: vec![call_parameter_addition, call],
+        ..Circuit::default()
+    };
+
+    let assert_param_equality = Opcode::AssertZero(Expression {
+        mul_terms: Vec::new(),
+        linear_combinations: vec![
+            (FieldElement::one(), Witness(0)),
+            (-FieldElement::one(), Witness(1)),
+        ],
+        q_c: FieldElement::zero(),
+    });
+
+    let inner_call = Circuit {
+        current_witness_index: 1,
+        private_parameters: BTreeSet::from([Witness(0), Witness(1)]),
+        return_values: PublicInputs([Witness(0)].into()),
+        opcodes: vec![assert_param_equality],
+        ..Circuit::default()
+    };
+
+    let program = Program { functions: vec![main, nested_call, inner_call] };
+
+    let bytes = Program::serialize_program(&program);
+
+    let expected_serialization: Vec<u8> = vec![
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 205, 146, 97, 10, 195, 32, 12, 133, 163, 66, 207, 147,
+        24, 109, 227, 191, 93, 101, 50, 123, 255, 35, 172, 99, 25, 83, 17, 250, 99, 14, 250, 224,
+        97, 144, 16, 146, 143, 231, 224, 45, 167, 126, 105, 57, 108, 14, 91, 248, 202, 168, 65,
+        255, 207, 122, 28, 180, 250, 244, 221, 244, 197, 223, 68, 182, 154, 197, 184, 134, 80, 54,
+        95, 136, 233, 142, 62, 101, 137, 24, 98, 94, 133, 132, 162, 196, 135, 23, 230, 34, 65, 182,
+        148, 211, 134, 137, 2, 23, 218, 99, 226, 93, 135, 185, 121, 123, 33, 84, 12, 234, 218, 192,
+        64, 174, 3, 248, 47, 88, 48, 17, 150, 157, 183, 151, 95, 244, 86, 91, 221, 61, 10, 81, 31,
+        178, 190, 110, 194, 102, 96, 76, 251, 202, 80, 13, 204, 77, 224, 25, 176, 70, 79, 197, 128,
+        18, 64, 3, 4, 0, 0,
+    ];
+    assert_eq!(bytes, expected_serialization);
 }

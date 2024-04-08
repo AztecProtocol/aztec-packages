@@ -14,8 +14,8 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
+#include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/relations/lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
@@ -56,7 +56,7 @@ struct InputElements {
     FF& q_4 = std::get<4>(_data);
     FF& q_m = std::get<5>(_data);
     FF& q_arith = std::get<6>(_data);
-    FF& q_sort = std::get<7>(_data);
+    FF& q_delta_range = std::get<7>(_data);
     FF& q_elliptic = std::get<8>(_data);
     FF& q_aux = std::get<9>(_data);
     FF& q_lookup = std::get<10>(_data);
@@ -248,6 +248,8 @@ TEST_F(UltraRelationConsistency, LookupRelation)
         const auto parameters = RelationParameters<FF>::get_random();
 
         const auto eta = parameters.eta;
+        const auto eta_two = parameters.eta_two;
+        const auto eta_three = parameters.eta_three;
         const auto beta = parameters.beta;
         const auto gamma = parameters.gamma;
         auto grand_product_delta = parameters.lookup_grand_product_delta;
@@ -255,15 +257,13 @@ TEST_F(UltraRelationConsistency, LookupRelation)
         // Extract the extended edges for manual computation of relation contribution
         auto one_plus_beta = FF::one() + beta;
         auto gamma_by_one_plus_beta = gamma * one_plus_beta;
-        auto eta_sqr = eta * eta;
-        auto eta_cube = eta_sqr * eta;
 
         auto wire_accum = (w_1 + column_1_step_size * w_1_shift) + (w_2 + column_2_step_size * w_2_shift) * eta +
-                          (w_3 + column_3_step_size * w_3_shift) * eta_sqr + table_index * eta_cube;
+                          (w_3 + column_3_step_size * w_3_shift) * eta_two + table_index * eta_three;
 
-        auto table_accum = table_1 + table_2 * eta + table_3 * eta_sqr + table_4 * eta_cube;
+        auto table_accum = table_1 + table_2 * eta + table_3 * eta_two + table_4 * eta_three;
         auto table_accum_shift =
-            table_1_shift + table_2_shift * eta + table_3_shift * eta_sqr + table_4_shift * eta_cube;
+            table_1_shift + table_2_shift * eta + table_3_shift * eta_two + table_4_shift * eta_three;
 
         // Contribution 1
         auto contribution_1 = (z_lookup + lagrange_first) * (q_lookup * wire_accum + gamma) *
@@ -282,10 +282,10 @@ TEST_F(UltraRelationConsistency, LookupRelation)
     run_test(/*random_inputs=*/true);
 };
 
-TEST_F(UltraRelationConsistency, GenPermSortRelation)
+TEST_F(UltraRelationConsistency, DeltaRangeConstraintRelation)
 {
     const auto run_test = [](bool random_inputs) {
-        using Relation = GenPermSortRelation<FF>;
+        using Relation = DeltaRangeConstraintRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
@@ -294,7 +294,7 @@ TEST_F(UltraRelationConsistency, GenPermSortRelation)
         const auto& w_3 = input_elements.w_o;
         const auto& w_4 = input_elements.w_4;
         const auto& w_1_shift = input_elements.w_l_shift;
-        const auto& q_sort = input_elements.q_sort;
+        const auto& q_delta_range = input_elements.q_delta_range;
 
         auto delta_1 = w_2 - w_1;
         auto delta_2 = w_3 - w_2;
@@ -308,10 +308,10 @@ TEST_F(UltraRelationConsistency, GenPermSortRelation)
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
-        expected_values[0] = contribution_1 * q_sort;
-        expected_values[1] = contribution_2 * q_sort;
-        expected_values[2] = contribution_3 * q_sort;
-        expected_values[3] = contribution_4 * q_sort;
+        expected_values[0] = contribution_1 * q_delta_range;
+        expected_values[1] = contribution_2 * q_delta_range;
+        expected_values[2] = contribution_3 * q_delta_range;
+        expected_values[3] = contribution_4 * q_delta_range;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
@@ -417,6 +417,8 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
 
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& eta = parameters.eta;
+        const auto& eta_two = parameters.eta_two;
+        const auto& eta_three = parameters.eta_three;
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
         /**
@@ -463,12 +465,9 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
         /**
          * Memory Record Check
          */
-        auto memory_record_check = w_3;
-        memory_record_check *= eta;
-        memory_record_check += w_2;
-        memory_record_check *= eta;
-        memory_record_check += w_1;
-        memory_record_check *= eta;
+        auto memory_record_check = w_3 * eta_three;
+        memory_record_check += w_2 * eta_two;
+        memory_record_check += w_1 * eta;
         memory_record_check += q_c;
         auto partial_record_check = memory_record_check; // used in RAM consistency check
         memory_record_check = memory_record_check - w_4;
@@ -494,12 +493,9 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
         auto access_type = (w_4 - partial_record_check);             // will be 0 or 1 for honest Prover
         auto access_check = access_type * access_type - access_type; // check value is 0 or 1
 
-        auto next_gate_access_type = w_3_shift;
-        next_gate_access_type *= eta;
-        next_gate_access_type += w_2_shift;
-        next_gate_access_type *= eta;
-        next_gate_access_type += w_1_shift;
-        next_gate_access_type *= eta;
+        auto next_gate_access_type = w_3_shift * eta_three;
+        next_gate_access_type += w_2_shift * eta_two;
+        next_gate_access_type += w_1_shift * eta;
         next_gate_access_type = w_4_shift - next_gate_access_type;
 
         auto value_delta = w_3_shift - w_3;

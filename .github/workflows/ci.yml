@@ -1,48 +1,201 @@
-name: Run CI with Earthly
+name: Earthly CI
 on:
   push:
-    branches:
-      - master
+    branches: [master]
   pull_request: {}
   workflow_dispatch: {}
 
 jobs:
-  ci:
+  # there's a lot of x86 tasks - let's split out the build step
+  build-x86:
     runs-on: ubuntu-latest
-    # run ci for both x86_64 and arm64
-    # strategy: {matrix: {environment: [x86, arm]}}
-    # TODO figure out why arm64 doesn't exit properly
-    strategy: {matrix: {environment: [x86]}}
+    outputs:
+      e2e_list: ${{ steps.e2e_list.outputs.list }}
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
     # cancel if reran on same PR if exists, otherwise if on same commit
     concurrency:
-      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ matrix.environment }}
+      group: build-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
       cancel-in-progress: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # we check out submodules in ci-setup-action
           ref: ${{ github.event.pull_request.head.sha }}
-          submodules: recursive
 
       - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }} 
+
+      - name: Build
+        working-directory: ./yarn-project
         run: |
-          mkdir -p ~/.ssh
-          echo DOCKER_HOST=ssh://build-instance-${{ matrix.environment }}.aztecprotocol.com >> $GITHUB_ENV
-          echo ${{ secrets.DOCKERHUB_PASSWORD}} | docker login -u aztecprotocolci --password-stdin
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 -d > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          cat > ~/.ssh/config <<EOF
-          IdentityFile ~/.ssh/build_instance_key
-          StrictHostKeyChecking no
-          User ubuntu
-          EOF
+          earthly-cloud build x86 --push +build-end-to-end
 
-      # Turn on if updating our custom built WASM-enabled clang (wasi-sdk), foundry or other base images
-      #- name: Ensure Base Images
-      #  run: |
-          # scripts/earthly --push ./foundry/+build
-          # Uncomment the following line if needed for the arm environment
-          # scripts/earthly --push ./barretenberg/cpp/+build-wasi-sdk
+      # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
+      # (Note ARM uses just 2 tests as a smoketest)
+      - id: e2e_list
+        working-directory: ./yarn-project/end-to-end
+        run: |
+          echo "list=$(earthly ls | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
 
-      - name: CI
-        run: scripts/earthly +build-ci-small
+  # all the end-to-end integration tests for aztec
+  e2e-arm:
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - e2e-card-game
+          - e2e-crowdfunding-and-claim
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      group: ${{ matrix.test }}-${{ github.ref_name == 'master' && github.run_id|| github.ref_name }}-arm
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }}
+
+      - name: Build
+        working-directory: ./yarn-project/end-to-end/
+        # We don't do much on arm, just run it on their builder
+        run:
+          # Flags:
+          # - e2e_mode=build to get images from a local build, not a dockerhub registry strategy
+          earthly-cloud build arm --no-output +${{ matrix.test }} --e2e_mode=build
+
+  # all the end-to-end integration tests for aztec
+  e2e-x86:
+    needs: build-x86
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson( needs.build-x86.outputs.e2e_list )}}
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      group: ${{ matrix.test }}-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }} 
+
+      - name: Pull E2E Images
+        working-directory: ./barretenberg/cpp/
+        run: |
+          docker pull aztecprotocol/aztec-cache:$(git rev-parse HEAD)
+          docker pull aztecprotocol/end-to-end-cache:$(git rev-parse HEAD)
+          docker pull aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991-amd64:latest
+          docker tag aztecprotocol/aztec-cache:$(git rev-parse HEAD) aztecprotocol/aztec:latest
+          docker tag aztecprotocol/end-to-end-cache:$(git rev-parse HEAD) aztecprotocol/end-to-end:latest
+          docker tag aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991-amd64:latest aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991-amd64:latest
+      - name: Test
+        working-directory: ./yarn-project/end-to-end/
+        run: |
+          earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
+
+  # barretenberg (prover) native tests
+  bb-native-tests:
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [x86]
+        # pending fix for intermittent test
+        # environment: [x86, arm]
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      group: bb-native-tests-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-${{ matrix.environment }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }} 
+
+      - name: Test
+        working-directory: ./barretenberg/cpp/
+        run: |
+          earthly-cloud test ${{ matrix.environment }} --no-output +test
+
+  # All benchmarks, purposefully ran sequential on a machine
+  # they should use parallelism within the benchmark, but only one thing should run at a time
+  # for accurate results
+  # We don't depend on 'build' as we use a different runner and will build components on the fist step that uses them.
+  bench:
+    runs-on: ubuntu-latest
+    env:
+      EARTHLY_TOKEN: ${{ secrets.EARTHLY_TOKEN }}
+    # cancel if reran on same PR if exists, otherwise if on same commit
+    concurrency:
+      # We use a looser concurrency limit here, but we place a lock 
+      # in the actual step action so that only one bench takes place
+      group: bench-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # we check out submodules in ci-setup-action
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          github_actor: ${{ github.actor }} 
+
+      - name: Build and Push Binaries
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud build x86 --push +bench-base
+
+      # Only allow one person to use this runner
+      # The reason is that as detailed in https://github.com/ben-z/gh-action-mutex
+      # things do not become 'pending' in github actions, and instead just cancel one another
+      - name: Set up mutex
+        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+        with:
+          branch: gh-action-mutex-bench
+
+      # Use bench_mode=cache to read the pushed build above
+      - name: Client IVC Bench
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud bench x86 --no-output +bench-client-ivc --bench_mode=cache
+
+      - name: Ultrahonk Bench
+        working-directory: ./barretenberg/cpp/
+        run: earthly-cloud bench x86 --no-output +bench-ultra-honk --bench_mode=cache

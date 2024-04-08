@@ -1,47 +1,47 @@
 VERSION 0.8
 
 FROM node:18.19.0
-WORKDIR /build
+WORKDIR /usr/src/barretenberg/ts-build
 
 # minimum files to download yarn packages
 # keep timestamps for incremental builds
-COPY --keep-ts --dir .yarn package.json yarn.lock .yarnrc.yml .
+COPY --dir .yarn package.json yarn.lock .yarnrc.yml .
+RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 RUN yarn --immutable
 
 # other source files
-COPY --keep-ts --dir src *.json *.js *.cjs .
+COPY --dir src *.json *.js *.cjs .
 
 # copy over wasm build from cpp folder
-COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
-# TODO for now there is no real single-threaded WASM. See if anyone hits problems.
+COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
 COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
-COPY ../cpp/+preset-wasm/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
+COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
 COPY ../cpp/+preset-wasm/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
 
 esm:
     RUN yarn build:esm
-    SAVE ARTIFACT /build
+    SAVE ARTIFACT /usr/src/barretenberg/ts-build build
 
 cjs:
-    COPY --keep-ts scripts/cjs_postprocess.sh scripts/
+    COPY scripts/cjs_postprocess.sh scripts/
     RUN yarn build:cjs
-    SAVE ARTIFACT /build
+    SAVE ARTIFACT /usr/src/barretenberg/ts-build build
 
 browser:
     RUN yarn build:browser
-    SAVE ARTIFACT /build
+    SAVE ARTIFACT /usr/src/barretenberg/ts-build build
 
 test-prettier-format:
     RUN yarn formatting
 
 build:
     # collect all our build types
-    COPY +esm/build /build
-    COPY +cjs/build /build
-    COPY +browser/build /build
+    COPY +esm/build /usr/src/barretenberg/ts-build
+    COPY +cjs/build /usr/src/barretenberg/ts-build
+    COPY +browser/build /usr/src/barretenberg/ts-build
     # We want to create a pure package, as would be published to npm, for consuming projects.
     RUN yarn pack && tar zxf package.tgz && rm package.tgz && mv package ../ts
-    SAVE ARTIFACT /build
+    SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 test:
     BUILD +test-prettier-format

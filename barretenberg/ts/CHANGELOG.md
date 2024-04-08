@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.32.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.32.0...barretenberg.js-v0.32.1) (2024-04-02)
+
+
+### Features
+
+* Earthly split runners, structure reverts ([#5524](https://github.com/AztecProtocol/aztec-packages/issues/5524)) ([fcb8787](https://github.com/AztecProtocol/aztec-packages/commit/fcb8787f4623eccbc6189f9399d444a4cb863684))
+
+
+### Bug Fixes
+
+* **ci:** Turn on earthly for everyone ([#5423](https://github.com/AztecProtocol/aztec-packages/issues/5423)) ([bea3fcb](https://github.com/AztecProtocol/aztec-packages/commit/bea3fcbde91d08f13cb7c2ceeff8be33b3edcdfd))
+
+## [0.32.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.31.0...barretenberg.js-v0.32.0) (2024-03-27)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.31.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.30.1...barretenberg.js-v0.31.0) (2024-03-26)
+
+
+### Features
+
+* Earthly bb tests + arm + satellites ([#5268](https://github.com/AztecProtocol/aztec-packages/issues/5268)) ([eca12b3](https://github.com/AztecProtocol/aztec-packages/commit/eca12b3a173f9ef1880e3b703ab778beb036a23b))
+* Less earthly runners + e2e GA runners, bb bench ([#5356](https://github.com/AztecProtocol/aztec-packages/issues/5356)) ([2136a66](https://github.com/AztecProtocol/aztec-packages/commit/2136a66cc1fa2249b3ef47b787cfa1de9576dc38))
+* Simplified bb Honk interface ([#5319](https://github.com/AztecProtocol/aztec-packages/issues/5319)) ([a2d138f](https://github.com/AztecProtocol/aztec-packages/commit/a2d138fa8c0ecf90bea843d38d2d693d6a38b2cc))
+
+## [0.30.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.30.0...barretenberg.js-v0.30.1) (2024-03-20)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
 ## [0.30.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.29.0...barretenberg.js-v0.30.0) (2024-03-19)
 
 

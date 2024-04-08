@@ -3,8 +3,8 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/plonk/composer/standard_composer.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
-#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "serialize.hpp"
 
 #ifndef __wasm__
@@ -17,6 +17,7 @@ using namespace bb::plonk;
 // Test proving key serialization/deserialization to/from buffer
 TEST(proving_key, proving_key_from_serialized_key)
 {
+    bb::srs::init_crs_factory("../srs_db/ignition");
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
     fr a = fr::one();
@@ -25,7 +26,7 @@ TEST(proving_key, proving_key_from_serialized_key)
     plonk::proving_key& p_key = *composer.compute_proving_key(builder);
     auto pk_buf = to_buffer(p_key);
     auto pk_data = from_buffer<plonk::proving_key_data>(pk_buf);
-    auto crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto crs = bb::srs::get_bn254_crs_factory();
     auto proving_key =
         std::make_shared<plonk::proving_key>(std::move(pk_data), crs->get_prover_crs(pk_data.circuit_size + 1));
 
@@ -54,6 +55,7 @@ TEST(proving_key, proving_key_from_serialized_key)
 // Test proving key serialization/deserialization to/from buffer using UltraPlonkComposer
 TEST(proving_key, proving_key_from_serialized_key_ultra)
 {
+    bb::srs::init_crs_factory("../srs_db/ignition");
     auto builder = UltraCircuitBuilder();
     auto composer = UltraComposer();
     fr a = fr::one();
@@ -62,7 +64,7 @@ TEST(proving_key, proving_key_from_serialized_key_ultra)
     plonk::proving_key& p_key = *composer.compute_proving_key(builder);
     auto pk_buf = to_buffer(p_key);
     auto pk_data = from_buffer<plonk::proving_key_data>(pk_buf);
-    auto crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto crs = bb::srs::get_bn254_crs_factory();
     auto proving_key =
         std::make_shared<plonk::proving_key>(std::move(pk_data), crs->get_prover_crs(pk_data.circuit_size + 1));
 
@@ -98,7 +100,7 @@ StandardComposer(); fr a = fr::one(); builder.add_public_variable(a);
 
     // Write each precomputed polynomial in the proving key to
     // its own file using write_mmap
-    std::string pk_dir = "../src/barretenberg/proof_system/proving_key/fixtures";
+    std::string pk_dir = "../src/barretenberg/plonk_honk_shared/proving_key/fixtures";
     std::filesystem::create_directories(pk_dir);
     std::string pk_path = pk_dir + "/proving_key";
     std::ofstream os(pk_path);

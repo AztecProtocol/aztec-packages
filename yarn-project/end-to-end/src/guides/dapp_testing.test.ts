@@ -1,11 +1,12 @@
 import { createAccount, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
-  AccountWallet,
+  type AccountWallet,
   CheatCodes,
   ExtendedNote,
   Fr,
   Note,
-  PXE,
+  type PXE,
+  TxStatus,
   computeMessageSecretHash,
   createPXEClient,
   waitForPXE,
@@ -42,7 +43,7 @@ describe('guides/dapp/testing', () => {
 
       it('increases recipient funds on mint', async () => {
         const recipientAddress = recipient.getAddress();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(0n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(0n);
 
         const mintAmount = 20n;
         const secret = Fr.random();
@@ -64,7 +65,7 @@ describe('guides/dapp/testing', () => {
         await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       }, 30_000);
     });
     // docs:end:sandbox-example
@@ -86,7 +87,7 @@ describe('guides/dapp/testing', () => {
       }, 30_000);
 
       it('increases recipient funds on mint', async () => {
-        expect(await token.methods.balance_of_private(recipient.getAddress()).view()).toEqual(0n);
+        expect(await token.methods.balance_of_private(recipient.getAddress()).simulate()).toEqual(0n);
         const recipientAddress = recipient.getAddress();
         const mintAmount = 20n;
         const secret = Fr.random();
@@ -108,7 +109,7 @@ describe('guides/dapp/testing', () => {
         await pxe.addNote(extendedNote);
 
         await token.methods.redeem_shield(recipientAddress, mintAmount, secret).send().wait();
-        expect(await token.methods.balance_of_private(recipientAddress).view()).toEqual(20n);
+        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
       }, 30_000);
     });
 
@@ -219,7 +220,7 @@ describe('guides/dapp/testing', () => {
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
         const call = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 200n, 0);
-        await expect(call.simulate()).rejects.toThrow(/Balance too low/);
+        await expect(call.prove()).rejects.toThrow(/Balance too low/);
         // docs:end:local-tx-fails
       }, 30_000);
 
@@ -235,8 +236,8 @@ describe('guides/dapp/testing', () => {
         const call1 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 80n, 0);
         const call2 = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 50n, 0);
 
-        await call1.simulate();
-        await call2.simulate();
+        await call1.prove();
+        await call2.prove();
 
         await call1.send().wait();
         await expect(call2.send().wait()).rejects.toThrow(/dropped/);
@@ -246,15 +247,15 @@ describe('guides/dapp/testing', () => {
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await expect(call.simulate()).rejects.toThrow(U128_UNDERFLOW_ERROR);
+        await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
         // docs:end:local-pub-fails
       }, 30_000);
 
-      // TODO(#4972) update to show the transaction is included but reverted
       it('asserts a transaction with a failing public call is included (with no state changes)', async () => {
         // docs:start:pub-reverted
         const call = token.methods.transfer_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
-        await call.send({ skipPublicSimulation: true }).wait();
+        const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
+        expect(receipt.status).toEqual(TxStatus.REVERTED);
         const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
         const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);

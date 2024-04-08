@@ -1,23 +1,23 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AccountWalletWithPrivateKey,
-  AztecAddress,
-  AztecNode,
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
+  type AztecNode,
   BatchCall,
   CheatCodes,
-  CompleteAddress,
-  ContractMethod,
-  DebugLogger,
-  DeployL1Contracts,
+  type ContractMethod,
+  type DebugLogger,
+  type DeployL1Contracts,
+  EncryptedL2BlockL2Logs,
   EthCheatCodes,
-  L1ContractArtifactsForDeployment,
-  L2BlockL2Logs,
+  type L1ContractArtifactsForDeployment,
   LogType,
-  PXE,
-  SentTx,
-  Wallet,
+  type PXE,
+  type SentTx,
+  SignerlessWallet,
+  type Wallet,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
@@ -27,6 +27,8 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
+import { randomBytes } from '@aztec/foundation/crypto';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -44,17 +46,19 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
-import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { SequencerClient } from '@aztec/sequencer-client';
+import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type SequencerClient } from '@aztec/sequencer-client';
 
+import { type Anvil, createAnvil } from '@viem/anvil';
 import * as fs from 'fs/promises';
+import getPort from 'get-port';
 import * as path from 'path';
 import {
-  Account,
-  Chain,
-  HDAccount,
-  HttpTransport,
-  PrivateKeyAccount,
+  type Account,
+  type Chain,
+  type HDAccount,
+  type HttpTransport,
+  type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
   getContract,
@@ -88,10 +92,15 @@ const getACVMConfig = async (logger: DebugLogger) => {
       ? ACVM_BINARY_PATH
       : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
-    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${TEMP_DIR}/acvm`;
+    const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
     logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
-    return { acvmWorkingDirectory, expectedAcvmPath };
+    return {
+      acvmWorkingDirectory,
+      expectedAcvmPath,
+      directoryToCleanup: ACVM_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+    };
   } catch (err) {
     logger(`Native ACVM not available, error: ${err}`);
     return undefined;
@@ -179,10 +188,6 @@ export async function setupPXEService(
    */
   pxe: PXE;
   /**
-   * The accounts created by the PXE.
-   */
-  accounts: CompleteAddress[];
-  /**
    * The wallets to be used.
    */
   wallets: AccountWalletWithPrivateKey[];
@@ -198,7 +203,6 @@ export async function setupPXEService(
 
   return {
     pxe,
-    accounts: await pxe.getRegisteredAccounts(),
     wallets,
     logger,
   };
@@ -258,7 +262,7 @@ async function setupWithRemoteEnvironment(
   if (['1', 'true'].includes(ENABLE_GAS)) {
     // this contract might already have been deployed
     // the following function is idempotent
-    await deployCanonicalGasToken(wallets[0]);
+    await deployCanonicalGasToken(new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint()));
   }
 
   return {
@@ -294,8 +298,6 @@ export type EndToEndContext = {
   pxe: PXE;
   /** Return values from deployL1Contracts function. */
   deployL1ContractsValues: DeployL1Contracts;
-  /** The accounts created by the PXE. */
-  accounts: CompleteAddress[];
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
   /** The first wallet to be used. */
@@ -322,6 +324,17 @@ export async function setup(
   pxeOpts: Partial<PXEServiceConfig> = {},
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
+
+  let anvil: Anvil | undefined;
+
+  if (!config.rpcUrl) {
+    // Start anvil.
+    // We go via a wrapper script to ensure if the parent dies, anvil dies.
+    const ethereumHostPort = await getPort();
+    config.rpcUrl = `http://localhost:${ethereumHostPort}`;
+    const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+    await anvil.start();
+  }
 
   // Enable logging metrics to a local file named after the test suite
   if (isMetricsLoggingRequested()) {
@@ -361,12 +374,10 @@ export async function setup(
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
-  const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
+  const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
   if (['1', 'true'].includes(ENABLE_GAS)) {
-    // this should be a neutral wallet, but the SignerlessWallet only accepts a single function call
-    // and this needs two: one to register the class and another to deploy the instance
-    await deployCanonicalGasToken(wallets[0]);
+    await deployCanonicalGasToken(new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()));
   }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
@@ -378,13 +389,20 @@ export async function setup(
     if (pxe instanceof PXEService) {
       await pxe?.stop();
     }
+
+    if (acvmConfig?.directoryToCleanup) {
+      // remove the temp directory created for the acvm
+      logger(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
+      await fs.rm(acvmConfig.directoryToCleanup, { recursive: true, force: true });
+    }
+
+    await anvil?.stop();
   };
 
   return {
     aztecNode,
     pxe,
     deployL1ContractsValues,
-    accounts,
     config,
     wallet: wallets[0],
     wallets,
@@ -401,8 +419,8 @@ export async function setup(
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
  */
-export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: (CompleteAddress | AztecAddress)[]) {
-  const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
+export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[]) {
+  const accountAddressesToDeploy = accountsToDeploy.map(a => a.getAddress());
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
   const batch = new BatchCall(sender, [
     (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
@@ -459,7 +477,7 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
   }
   const l2BlockNum = await aztecNode.getBlockNumber();
   const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
-  const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
+  const unrolledLogs = EncryptedL2BlockL2Logs.unrollLogs(encryptedLogs);
   expect(unrolledLogs.length).toBe(numEncryptedLogs);
 };
 
@@ -502,7 +520,7 @@ export function getBalancesFn(
   logger: any,
 ): (...addresses: AztecAddress[]) => Promise<bigint[]> {
   const balances = async (...addresses: AztecAddress[]) => {
-    const b = await Promise.all(addresses.map(address => method(address).view()));
+    const b = await Promise.all(addresses.map(address => method(address).simulate()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
     logger(debugString);
     return b;
