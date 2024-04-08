@@ -107,7 +107,7 @@ export async function buildBaseRollupInput(
     sortedNewLeavesIndexes,
   } = await db.batchInsert(
     MerkleTreeId.NULLIFIER_TREE,
-    tx.data.end.newNullifiers.map(sideEffectLinkedToNoteHash => sideEffectLinkedToNoteHash.toBuffer()),
+    tx.data.end.newNullifiers.map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
   if (nullifierWitnessLeaves === undefined) {
