@@ -377,7 +377,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         };
 
         let witness = &mut self.witness_map;
-        if BrilligSolver::<B>::should_skip(witness, brillig)? {
+        if is_predicate_false(witness, &brillig.predicate)? {
             return BrilligSolver::<B>::zero_out_brillig_outputs(witness, brillig).map(|_| None);
         }
 
