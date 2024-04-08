@@ -86,10 +86,6 @@ pub enum BlackBoxFuncCall {
         input2_y: FunctionInput,
         outputs: (Witness, Witness),
     },
-    Keccak256 {
-        inputs: Vec<FunctionInput>,
-        outputs: Vec<Witness>,
-    },
     Keccak256VariableLength {
         inputs: Vec<FunctionInput>,
         /// This is the number of bytes to take
@@ -188,7 +184,6 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::EcdsaSecp256r1 { .. } => BlackBoxFunc::EcdsaSecp256r1,
             BlackBoxFuncCall::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
             BlackBoxFuncCall::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
-            BlackBoxFuncCall::Keccak256 { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::Keccak256VariableLength { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::Keccakf1600 { .. } => BlackBoxFunc::Keccakf1600,
             BlackBoxFuncCall::RecursiveAggregation { .. } => BlackBoxFunc::RecursiveAggregation,
@@ -212,7 +207,6 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::SHA256 { inputs, .. }
             | BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Blake3 { inputs, .. }
-            | BlackBoxFuncCall::Keccak256 { inputs, .. }
             | BlackBoxFuncCall::Keccakf1600 { inputs, .. }
             | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
             | BlackBoxFuncCall::PedersenHash { inputs, .. }
@@ -312,7 +306,6 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::SHA256 { outputs, .. }
             | BlackBoxFuncCall::Blake2s { outputs, .. }
             | BlackBoxFuncCall::Blake3 { outputs, .. }
-            | BlackBoxFuncCall::Keccak256 { outputs, .. }
             | BlackBoxFuncCall::Keccakf1600 { outputs, .. }
             | BlackBoxFuncCall::Keccak256VariableLength { outputs, .. }
             | BlackBoxFuncCall::Poseidon2Permutation { outputs, .. }

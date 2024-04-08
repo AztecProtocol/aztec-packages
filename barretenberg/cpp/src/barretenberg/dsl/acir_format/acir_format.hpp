@@ -42,7 +42,6 @@ struct AcirFormat {
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
-    std::vector<KeccakConstraint> keccak_constraints;
     std::vector<KeccakVarConstraint> keccak_var_constraints;
     std::vector<Keccakf1600> keccak_permutations;
     std::vector<PedersenConstraint> pedersen_constraints;
@@ -75,7 +74,6 @@ struct AcirFormat {
                    ecdsa_r1_constraints,
                    blake2s_constraints,
                    blake3_constraints,
-                   keccak_constraints,
                    keccak_var_constraints,
                    keccak_permutations,
                    pedersen_constraints,

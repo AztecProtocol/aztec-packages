@@ -62,9 +62,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     }
 
     // Add keccak constraints
-    for (const auto& constraint : constraint_system.keccak_constraints) {
-        create_keccak_constraints(builder, constraint);
-    }
     for (const auto& constraint : constraint_system.keccak_var_constraints) {
         create_keccak_var_constraints(builder, constraint);
     }
