@@ -448,7 +448,9 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
     }
 
     pub fn solve_call_opcode(&mut self) -> Result<Option<AcirCallWaitInfo>, OpcodeResolutionError> {
-        let Opcode::Call { id, inputs, outputs } = &self.opcodes[self.instruction_pointer] else {
+        let Opcode::Call { id, inputs, outputs, predicate } =
+            &self.opcodes[self.instruction_pointer]
+        else {
             unreachable!("Not executing a Call opcode");
         };
         if *id == 0 {
@@ -457,6 +459,14 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                     self.instruction_pointer(),
                 )),
             });
+        }
+
+        if is_predicate_false(&self.witness_map, predicate)? {
+            // Zero out the outputs if we have a false predicate
+            for output in outputs {
+                insert_value(output, FieldElement::zero(), &mut self.witness_map)?;
+            }
+            return Ok(None);
         }
 
         if self.acir_call_counter >= self.acir_call_results.len() {
@@ -554,6 +564,21 @@ fn any_witness_from_expression(expr: &Expression) -> Option<Witness> {
     } else {
         Some(expr.linear_combinations[0].1)
     }
+}
+
+/// Returns `true` if the predicate is zero
+/// A predicate is used to indicate whether we should skip a certain operation.
+/// If we have a zero predicate it means the operation should be skipped.
+pub fn is_predicate_false(
+    witness: &WitnessMap,
+    predicate: &Option<Expression>,
+) -> Result<bool, OpcodeResolutionError> {
+    // If the predicate is `None`, then we simply return the value 1
+    let pred_value = match predicate {
+        Some(pred) => get_value(pred, witness)?,
+        None => FieldElement::one(),
+    };
+    Ok(pred_value.is_zero())
 }
 
 #[derive(Debug, Clone, PartialEq)]

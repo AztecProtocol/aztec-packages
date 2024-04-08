@@ -381,9 +381,9 @@ fn nested_acir_call_circuit() {
     //     x
     // }
     let nested_call =
-        Opcode::Call { id: 1, inputs: vec![Witness(0), Witness(1)], outputs: vec![Witness(2)] };
+        Opcode::Call { id: 1, inputs: vec![Witness(0), Witness(1)], outputs: vec![Witness(2)], predicate: Some(Expression::one()) };
     let nested_call_two =
-        Opcode::Call { id: 1, inputs: vec![Witness(0), Witness(1)], outputs: vec![Witness(3)] };
+        Opcode::Call { id: 1, inputs: vec![Witness(0), Witness(1)], outputs: vec![Witness(3)], predicate: Some(Expression::one()) };
 
     let assert_nested_call_results = Opcode::AssertZero(Expression {
         mul_terms: Vec::new(),
@@ -411,7 +411,7 @@ fn nested_acir_call_circuit() {
         q_c: FieldElement::one() + FieldElement::one(),
     });
     let call =
-        Opcode::Call { id: 2, inputs: vec![Witness(2), Witness(1)], outputs: vec![Witness(3)] };
+        Opcode::Call { id: 2, inputs: vec![Witness(2), Witness(1)], outputs: vec![Witness(3)], predicate: Some(Expression::one()) };
 
     let nested_call = Circuit {
         current_witness_index: 3,
