@@ -1,25 +1,25 @@
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import {
-  AztecNode,
+  type AztecNode,
   BatchCall,
-  GrumpkinScalar,
+  type GrumpkinScalar,
   INITIAL_L2_BLOCK_NUM,
-  PXE,
-  PartialAddress,
-  SentTx,
+  type PXE,
+  type PartialAddress,
+  type SentTx,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
 import { join } from 'path';
 
-import { EndToEndContext, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 /**
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
@@ -88,7 +88,7 @@ export async function sendTxs(
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
-  await Promise.all(calls.map(call => call.simulate({ skipPublicSimulation: true })));
+  await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   const sentTxs = calls.map(call => call.send());
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool

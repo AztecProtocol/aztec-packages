@@ -1,71 +1,77 @@
-import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
+import { type ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
-  AztecNode,
-  FromLogType,
-  GetUnencryptedLogsResponse,
-  L1ToL2MessageSource,
-  L2Block,
-  L2BlockL2Logs,
-  L2BlockNumber,
-  L2BlockSource,
-  L2LogsSource,
-  LogFilter,
+  type AztecNode,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type L1ToL2MessageSource,
+  type L2Block,
+  type L2BlockL2Logs,
+  type L2BlockNumber,
+  type L2BlockSource,
+  type L2LogsSource,
+  type LogFilter,
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
-  ProverClient,
+  type ProverClient,
   PublicDataWitness,
-  SequencerConfig,
-  SiblingPath,
-  Tx,
-  TxEffect,
-  TxHash,
+  type SequencerConfig,
+  type SiblingPath,
+  type Tx,
+  type TxEffect,
+  type TxHash,
   TxReceipt,
   TxStatus,
   partitionReverts,
 } from '@aztec/circuit-types';
 import {
-  ARCHIVE_HEIGHT,
+  type ARCHIVE_HEIGHT,
   EthAddress,
   Fr,
-  Header,
+  type Header,
   INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_TREE_HEIGHT,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   L2_TO_L1_MESSAGE_LENGTH,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NullifierLeafPreimage,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PublicDataTreeLeafPreimage,
+  type NullifierLeafPreimage,
+  type PUBLIC_DATA_TREE_HEIGHT,
+  type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
+import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { DummyProver, TxProver } from '@aztec/prover-client';
 import {
-  GlobalVariableBuilder,
+  type GlobalVariableBuilder,
   PublicProcessorFactory,
   SequencerClient,
   getGlobalVariableBuilder,
 } from '@aztec/sequencer-client';
 import { WASMSimulator } from '@aztec/simulator';
-import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+} from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
-  WorldStateConfig,
-  WorldStateSynchronizer,
+  type WorldStateConfig,
+  type WorldStateSynchronizer,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
-import { AztecNodeConfig } from './config.js';
+import { type AztecNodeConfig } from './config.js';
 import { getSimulationProvider } from './simulator-factory.js';
 
 /**
@@ -447,11 +453,11 @@ export class AztecNodeService implements AztecNode {
       throw new Error('Block is not defined');
     }
 
-    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
-
-    if (l2ToL1Messages.length !== L2_TO_L1_MESSAGE_LENGTH * block.body.txEffects.length) {
-      throw new Error('L2 to L1 Messages are not padded');
-    }
+    // We multiply the number of messages per block by the length of each message because each message occupies
+    // 2 leaves in the tree!
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect =>
+      padArrayEnd(txEffect.l2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX * L2_TO_L1_MESSAGE_LENGTH),
+    );
 
     const indexOfL2ToL1Message = BigInt(
       l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message)),
@@ -659,7 +665,7 @@ export class AztecNodeService implements AztecNode {
       new WASMSimulator(),
     );
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
-    const [processedTxs, failedTxs] = await processor.process([tx]);
+    const [processedTxs, failedTxs, returns] = await processor.process([tx]);
     if (failedTxs.length) {
       this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
       throw failedTxs[0].error;
@@ -670,6 +676,7 @@ export class AztecNodeService implements AztecNode {
       throw reverted[0].revertReason;
     }
     this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
+    return returns;
   }
 
   public setConfig(config: Partial<SequencerConfig>): Promise<void> {

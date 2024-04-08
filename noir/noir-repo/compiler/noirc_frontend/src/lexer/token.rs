@@ -427,6 +427,10 @@ impl Attributes {
         }
         None
     }
+
+    pub fn is_foldable(&self) -> bool {
+        self.function.as_ref().map_or(false, |func_attribute| func_attribute.is_foldable())
+    }
 }
 
 /// An Attribute can be either a Primary Attribute or a Secondary Attribute
@@ -486,6 +490,7 @@ impl Attribute {
             }
             ["test"] => Attribute::Function(FunctionAttribute::Test(TestScope::None)),
             ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
+            ["fold"] => Attribute::Function(FunctionAttribute::Fold),
             ["test", name] => {
                 validate(name)?;
                 let malformed_scope =
@@ -505,6 +510,7 @@ impl Attribute {
                 Attribute::Secondary(SecondaryAttribute::ContractLibraryMethod)
             }
             ["event"] => Attribute::Secondary(SecondaryAttribute::Event),
+            ["abi", tag] => Attribute::Secondary(SecondaryAttribute::Abi(tag.to_string())),
             ["export"] => Attribute::Secondary(SecondaryAttribute::Export),
             ["deprecated", name] => {
                 if !name.starts_with('"') && !name.ends_with('"') {
@@ -537,6 +543,7 @@ pub enum FunctionAttribute {
     Oracle(String),
     Test(TestScope),
     Recursive,
+    Fold,
 }
 
 impl FunctionAttribute {
@@ -565,6 +572,10 @@ impl FunctionAttribute {
     pub fn is_low_level(&self) -> bool {
         matches!(self, FunctionAttribute::Foreign(_) | FunctionAttribute::Builtin(_))
     }
+
+    pub fn is_foldable(&self) -> bool {
+        matches!(self, FunctionAttribute::Fold)
+    }
 }
 
 impl fmt::Display for FunctionAttribute {
@@ -575,6 +586,7 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Builtin(ref k) => write!(f, "#[builtin({k})]"),
             FunctionAttribute::Oracle(ref k) => write!(f, "#[oracle({k})]"),
             FunctionAttribute::Recursive => write!(f, "#[recursive]"),
+            FunctionAttribute::Fold => write!(f, "#[fold]"),
         }
     }
 }
@@ -593,6 +605,7 @@ pub enum SecondaryAttribute {
     Export,
     Field(String),
     Custom(String),
+    Abi(String),
 }
 
 impl fmt::Display for SecondaryAttribute {
@@ -607,6 +620,7 @@ impl fmt::Display for SecondaryAttribute {
             SecondaryAttribute::Event => write!(f, "#[event]"),
             SecondaryAttribute::Export => write!(f, "#[export]"),
             SecondaryAttribute::Field(ref k) => write!(f, "#[field({k})]"),
+            SecondaryAttribute::Abi(ref k) => write!(f, "#[abi({k})]"),
         }
     }
 }
@@ -619,6 +633,7 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Oracle(string) => string,
             FunctionAttribute::Test { .. } => "",
             FunctionAttribute::Recursive => "",
+            FunctionAttribute::Fold => "",
         }
     }
 }
@@ -628,7 +643,9 @@ impl AsRef<str> for SecondaryAttribute {
         match self {
             SecondaryAttribute::Deprecated(Some(string)) => string,
             SecondaryAttribute::Deprecated(None) => "",
-            SecondaryAttribute::Custom(string) | SecondaryAttribute::Field(string) => string,
+            SecondaryAttribute::Custom(string)
+            | SecondaryAttribute::Field(string)
+            | SecondaryAttribute::Abi(string) => string,
             SecondaryAttribute::ContractLibraryMethod => "",
             SecondaryAttribute::Event | SecondaryAttribute::Export => "",
         }

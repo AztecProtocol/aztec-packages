@@ -1,13 +1,20 @@
-import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, MerkleTreeId, TxHash } from '@aztec/circuit-types';
-import { NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, PublicKey } from '@aztec/circuits.js';
-import { SerialQueue } from '@aztec/foundation/fifo';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import {
+  type AztecNode,
+  type KeyStore,
+  type L2Block,
+  L2BlockL2Logs,
+  MerkleTreeId,
+  type TxHash,
+} from '@aztec/circuit-types';
+import { type NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
+import { type AztecAddress, type Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
+import { type SerialQueue } from '@aztec/foundation/fifo';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import { DeferredNoteDao } from '../database/deferred_note_dao.js';
-import { PxeDatabase } from '../database/index.js';
-import { NoteDao } from '../database/note_dao.js';
+import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
+import { type PxeDatabase } from '../database/index.js';
+import { type NoteDao } from '../database/note_dao.js';
 import { NoteProcessor } from '../note_processor/index.js';
 
 /**
@@ -100,17 +107,14 @@ export class Synchronizer {
 
       const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
-      // Wrap blocks in block contexts & only keep those that match our query
-      const blockContexts = blocks.filter(block => block.number >= from).map(block => new L2BlockContext(block));
-
       // Update latest tree roots from the most recent block
-      const latestBlock = blockContexts[blockContexts.length - 1];
+      const latestBlock = blocks[blocks.length - 1];
       await this.setHeaderFromBlock(latestBlock);
 
       const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
       this.log(`Forwarding ${logCount} encrypted logs and blocks to ${this.noteProcessors.length} note processors`);
       for (const noteProcessor of this.noteProcessors) {
-        await noteProcessor.process(blockContexts, encryptedLogs);
+        await noteProcessor.process(blocks, encryptedLogs);
       }
       return true;
     } catch (err) {
@@ -178,14 +182,12 @@ export class Synchronizer {
 
       const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
-      const blockContexts = blocks.map(block => new L2BlockContext(block));
-
       const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
       this.log(`Forwarding ${logCount} encrypted logs and blocks to note processors in catch up mode`);
 
       for (const noteProcessor of catchUpGroup) {
         // find the index of the first block that the note processor is not yet synced to
-        const index = blockContexts.findIndex(block => block.block.number > noteProcessor.status.syncedToBlock);
+        const index = blocks.findIndex(block => block.number > noteProcessor.status.syncedToBlock);
         if (index === -1) {
           // Due to the limit, we might not have fetched a new enough block for the note processor.
           // And since the group is sorted, we break as soon as we find a note processor
@@ -195,10 +197,10 @@ export class Synchronizer {
 
         this.log.debug(
           `Catching up note processor ${noteProcessor.publicKey.toString()} by processing ${
-            blockContexts.length - index
+            blocks.length - index
           } blocks`,
         );
-        await noteProcessor.process(blockContexts.slice(index), encryptedLogs.slice(index));
+        await noteProcessor.process(blocks.slice(index), encryptedLogs.slice(index));
 
         if (noteProcessor.status.syncedToBlock === toBlockNumber) {
           // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
@@ -224,13 +226,12 @@ export class Synchronizer {
     }
   }
 
-  private async setHeaderFromBlock(latestBlock: L2BlockContext) {
-    const { block } = latestBlock;
-    if (block.number < this.initialSyncBlockNumber) {
+  private async setHeaderFromBlock(latestBlock: L2Block) {
+    if (latestBlock.number < this.initialSyncBlockNumber) {
       return;
     }
 
-    await this.db.setHeader(block.header);
+    await this.db.setHeader(latestBlock.header);
   }
 
   /**

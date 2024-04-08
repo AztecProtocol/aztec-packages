@@ -42,7 +42,7 @@ template <class Flavor> class ExecutionTrace_ {
      *
      * @param builder
      */
-    static void populate(Builder& builder, const std::shared_ptr<ProvingKey>&);
+    static void populate(Builder& builder, ProvingKey&);
 
   private:
     /**
@@ -54,7 +54,7 @@ template <class Flavor> class ExecutionTrace_ {
      */
     static void add_wires_and_selectors_to_proving_key(TraceData& trace_data,
                                                        Builder& builder,
-                                                       const std::shared_ptr<typename Flavor::ProvingKey>& proving_key);
+                                                       typename Flavor::ProvingKey& proving_key);
 
     /**
      * @brief Add the memory records indicating which rows correspond to RAM/ROM reads/writes
@@ -70,8 +70,8 @@ template <class Flavor> class ExecutionTrace_ {
      */
     static void add_memory_records_to_proving_key(TraceData& trace_data,
                                                   Builder& builder,
-                                                  const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
-        requires IsUltraPlonkOrHonk<Flavor>;
+                                                  typename Flavor::ProvingKey& proving_key) requires
+        IsUltraPlonkOrHonk<Flavor>;
 
     /**
      * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data
@@ -98,9 +98,8 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @param proving_key
      */
-    static void add_ecc_op_wires_to_proving_key(Builder& builder,
-                                                const std::shared_ptr<typename Flavor::ProvingKey>& proving_key)
-        requires IsGoblinFlavor<Flavor>;
+    static void add_ecc_op_wires_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key) requires
+        IsGoblinFlavor<Flavor>;
 };
 
 } // namespace bb

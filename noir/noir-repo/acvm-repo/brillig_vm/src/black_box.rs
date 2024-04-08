@@ -245,13 +245,3 @@ fn black_box_function_from_op(op: &BlackBoxOp) -> BlackBoxFunc {
         BlackBoxOp::Sha256Compression { .. } => BlackBoxFunc::Sha256Compression,
     }
 }
-
-#[cfg(test)]
-mod test {
-    use acir::brillig::{BlackBoxOp, MemoryAddress};
-
-    use crate::{
-        black_box::{evaluate_black_box, to_u8_vec, to_value_vec},
-        DummyBlackBoxSolver, HeapArray, HeapVector, Memory,
-    };
-}

@@ -1,15 +1,16 @@
 import {
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BaseRollupInputs,
-  MergeRollupInputs,
-  ParityPublicInputs,
-  Proof,
-  PublicCircuitPublicInputs,
-  PublicKernelCircuitPublicInputs,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BaseRollupInputs,
+  type KernelCircuitPublicInputs,
+  type MergeRollupInputs,
+  type ParityPublicInputs,
+  type Proof,
+  type PublicCircuitPublicInputs,
+  type PublicKernelCircuitPublicInputs,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
 /**
@@ -67,4 +68,10 @@ export interface PublicProver {
    * @param publicInputs - Public inputs obtained via simulation.
    */
   getPublicKernelCircuitProof(publicInputs: PublicKernelCircuitPublicInputs): Promise<Proof>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param publicInputs - Public inputs obtained via simulation.
+   */
+  getPublicTailKernelCircuitProof(publicInputs: KernelCircuitPublicInputs): Promise<Proof>;
 }
