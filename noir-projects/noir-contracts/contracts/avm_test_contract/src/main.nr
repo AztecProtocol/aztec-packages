@@ -344,7 +344,7 @@ contract AvmTest {
 
         // Nested call
         let results = context.call_public_function_raw(
-            GasOpts::empty(),
+            GasOpts::default(),
             context.this_address(),
             selector,
             [arg_a, arg_b]
@@ -397,7 +397,7 @@ contract AvmTest {
             context.this_address(),
             selector,
             [arg_a, arg_b],
-            GasOpts::empty()
+            GasOpts::default()
         );
         // this explicit size in the return variable is necessary to ensure that ret_size is compile-time
         // (ensure the data_to_return is in a HeapArray not a HeapVector)
@@ -412,7 +412,7 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
 
         let (result_data, success): ([Field; 1], u8) = context.static_call_public_function_raw(
-            GasOpts::empty(),
+            GasOpts::default(),
             context.this_address(),
             selector,
             [arg_a, arg_b]
@@ -427,7 +427,7 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)").to_field();
         let calldata: [Field; 1] = [20];
 
-        let (_data_to_return, success): ([Field; 0], u8) = context.static_call_public_function_raw(GasOpts::empty(), context.this_address(), selector, calldata);
+        let (_data_to_return, success): ([Field; 0], u8) = context.static_call_public_function_raw(GasOpts::default(), context.this_address(), selector, calldata);
 
         success
     }
@@ -441,7 +441,7 @@ contract AvmTest {
             context.this_address(),
             selector,
             [arg_a, arg_b],
-            GasOpts::empty()
+            GasOpts::default()
         );
 
         result_data[0]
@@ -453,6 +453,6 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)");
         let calldata: [Field; 1] = [20];
 
-        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::empty());
+        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default());
     }
 }

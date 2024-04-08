@@ -96,7 +96,7 @@ contract Child {
             context.this_address(),
             pub_set_value_selector,
             [10],
-            GasOpts::empty()
+            GasOpts::default()
         );
 
         storage.current_value.write(20);
@@ -113,7 +113,7 @@ contract Child {
             context.this_address(),
             pub_set_value_selector,
             [10],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 }

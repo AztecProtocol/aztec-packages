@@ -23,7 +23,7 @@ impl SlowMap {
             self.address,
             FunctionSelector::from_signature("read_at_pub(Field)"),
             [index],
-            GasOpts::empty()
+            GasOpts::default()
         );
         _return_values[0]
     }

@@ -67,7 +67,7 @@ contract Uniswap {
             context.this_address(),
             FunctionSelector::from_signature("_approve_bridge_and_exit_input_asset_to_L1((Field),(Field),Field)"),
             [input_asset.to_field(), input_asset_bridge.to_field(), input_amount],
-            GasOpts::empty()
+            GasOpts::default()
         );
 
         // Create swap message and send to Outbox for Uniswap Portal

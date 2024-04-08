@@ -29,7 +29,7 @@ contract StatefulTest {
             context.this_address(),
             selector,
             [owner.to_field(), value],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 

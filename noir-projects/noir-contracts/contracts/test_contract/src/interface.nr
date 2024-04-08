@@ -602,7 +602,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0x9e88565a),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -620,7 +620,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0x9749ca06),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -638,7 +638,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0x2fb25188),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -650,7 +650,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0xb5bb17fa),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -670,7 +670,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0xa0f84219),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -690,7 +690,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0x42ca6d60),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -706,7 +706,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0x817a64cb),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -724,7 +724,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0xdf02db8d),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 
@@ -740,7 +740,7 @@ impl TestPublicContextInterface {
             self.address,
             FunctionSelector::from_field(0x86e38c61),
             serialized_args,
-            GasOpts::empty()
+            GasOpts::default()
         )
     }
 }

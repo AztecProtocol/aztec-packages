@@ -37,7 +37,7 @@ function generateCallStatement(
     'self.address',
     `FunctionSelector::from_field(${selector.toString()})`,
     'serialized_args',
-    ...(callingContext === 'private' ? [] : ['GasOpts::empty()']),
+    ...(callingContext === 'private' ? [] : ['GasOpts::default()']),
   ];
   return `
     context.${callMethod}(${args.join(', ')})`;

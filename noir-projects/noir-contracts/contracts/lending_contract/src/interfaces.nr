@@ -19,7 +19,7 @@ impl PriceFeed {
             self.address,
             FunctionSelector::from_signature("get_price(Field)"),
             [0],
-            GasOpts::empty()
+            GasOpts::default()
         );
 
         U128::from_integer(return_values[0])
@@ -47,7 +47,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 
@@ -56,7 +56,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("mint_public((Field),Field)"),
             [to.to_field(), amount],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 
@@ -71,7 +71,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("burn_public((Field),Field,Field)"),
             [from.to_field(), amount, nonce],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 

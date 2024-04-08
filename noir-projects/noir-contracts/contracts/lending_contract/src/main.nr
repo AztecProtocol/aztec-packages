@@ -127,7 +127,7 @@ contract Lending {
             context.this_address(),
             selector,
             [on_behalf_of, amount, collateral_asset.to_field()],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 
@@ -162,7 +162,7 @@ contract Lending {
             context.this_address(),
             selector,
             [context.msg_sender().to_field(), to.to_field(), amount],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 
@@ -221,7 +221,7 @@ contract Lending {
             context.this_address(),
             selector,
             [context.msg_sender().to_field(), to.to_field(), amount],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 
@@ -285,7 +285,7 @@ contract Lending {
             context.this_address(),
             selector,
             [owner.to_field(), amount, stable_coin.to_field()],
-            GasOpts::empty()
+            GasOpts::default()
         );
     }
 

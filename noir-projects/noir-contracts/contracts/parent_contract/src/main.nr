@@ -24,7 +24,7 @@ contract Parent {
             target_contract,
             target_selector,
             [init_value],
-            GasOpts::empty()
+            GasOpts::default()
         );
 
         return_values[0]
@@ -41,13 +41,13 @@ contract Parent {
             target_contract,
             target_selector,
             [init_value],
-            GasOpts::empty()
+            GasOpts::default()
         )[0];
         let return_values = context.call_public_function(
             target_contract,
             target_selector,
             [return_value],
-            GasOpts::empty()
+            GasOpts::default()
         );
 
         return_values[0]
@@ -202,7 +202,7 @@ contract Parent {
         target_selector: FunctionSelector,
         args: [Field; 1]
     ) -> Field {
-        let return_values = context.static_call_public_function(target_contract, target_selector, args, GasOpts::empty());
+        let return_values = context.static_call_public_function(target_contract, target_selector, args, GasOpts::default());
 
         return_values[0]
     }
@@ -221,7 +221,7 @@ contract Parent {
             this_address,
             pub_entry_point_selector,
             [target_contract.to_field(), target_selector.to_field(), args[0]],
-            GasOpts::empty()
+            GasOpts::default()
         );
         return_values[0]
     }
