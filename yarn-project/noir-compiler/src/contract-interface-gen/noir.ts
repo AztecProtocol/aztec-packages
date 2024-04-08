@@ -30,7 +30,7 @@ function isPrivateCall(functionType: FunctionType) {
 function generateCallStatement(selector: FunctionSelector, functionType: FunctionType) {
   const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
   return `
-    context.${callMethod}(self.address, FunctionSelector::from_field(0x${selector.toString()}), serialized_args)`;
+    context.${callMethod}(self.address, FunctionSelector::from_field(${selector.toString()}), serialized_args)`;
 }
 
 /**
