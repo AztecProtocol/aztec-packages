@@ -67,12 +67,9 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
 ///    (a/b, a-a/b*b)
 /// }
 /// ```
-pub(crate) fn directive_quotient(mut bit_size: u32) -> GeneratedBrillig {
+pub(crate) fn directive_quotient(bit_size: u32) -> GeneratedBrillig {
     // `a` is (0) (i.e register index 0)
     // `b` is (1)
-    if bit_size > FieldElement::max_num_bits() {
-        bit_size = FieldElement::max_num_bits();
-    }
     GeneratedBrillig {
         byte_code: vec![
             BrilligOpcode::CalldataCopy {
@@ -80,39 +77,36 @@ pub(crate) fn directive_quotient(mut bit_size: u32) -> GeneratedBrillig {
                 size: 2,
                 offset: 0,
             },
-            BrilligOpcode::Cast {
-                destination: MemoryAddress(0),
-                source: MemoryAddress(0),
-                bit_size,
-            },
-            BrilligOpcode::Cast {
-                destination: MemoryAddress(1),
-                source: MemoryAddress(1),
-                bit_size,
-            },
+            // BrilligOpcode::Cast {
+            //     destination: MemoryAddress(0),
+            //     source: MemoryAddress(0),
+            //     bit_size,
+            // },
+            // BrilligOpcode::Cast {
+            //     destination: MemoryAddress(1),
+            //     source: MemoryAddress(1),
+            //     bit_size,
+            // },
             //q = a/b is set into register (2)
-            BrilligOpcode::BinaryIntOp {
-                op: BinaryIntOp::Div,
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::IntegerDiv,
                 lhs: MemoryAddress::from(0),
                 rhs: MemoryAddress::from(1),
                 destination: MemoryAddress::from(2),
-                bit_size,
             },
             //(1)= q*b
-            BrilligOpcode::BinaryIntOp {
-                op: BinaryIntOp::Mul,
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::Mul,
                 lhs: MemoryAddress::from(2),
                 rhs: MemoryAddress::from(1),
                 destination: MemoryAddress::from(1),
-                bit_size,
             },
             //(1) = a-q*b
-            BrilligOpcode::BinaryIntOp {
-                op: BinaryIntOp::Sub,
+            BrilligOpcode::BinaryFieldOp {
+                op: BinaryFieldOp::Sub,
                 lhs: MemoryAddress::from(0),
                 rhs: MemoryAddress::from(1),
                 destination: MemoryAddress::from(1),
-                bit_size,
             },
             //(0) = q
             BrilligOpcode::Mov {
