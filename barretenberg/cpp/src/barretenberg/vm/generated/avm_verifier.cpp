@@ -246,8 +246,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_mem_val = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_val);
     commitments.avm_mem_w_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_w_in_tag);
-
-    // Lookup counts
     commitments.lookup_byte_lengths_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths_counts);
     commitments.lookup_byte_operations_counts =
@@ -257,12 +255,11 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.incl_mem_tag_err_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.incl_mem_tag_err_counts);
 
-    // Calculate the alpha and beta challenges - log derivative inverse round
     auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamm;
 
-    // Permutations
+    // Get commitments to inverses
     commitments.perm_main_alu = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_alu);
     commitments.perm_main_bin = transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_bin);
     commitments.perm_main_mem_a =
@@ -277,8 +274,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_b);
     commitments.perm_main_mem_ind_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_c);
-
-    // Lookups
     commitments.lookup_byte_lengths =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =
@@ -304,7 +299,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
 
     // If Sumcheck did not verify, return false
     if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("Sumcheck did not verify");
         return false;
     }
 

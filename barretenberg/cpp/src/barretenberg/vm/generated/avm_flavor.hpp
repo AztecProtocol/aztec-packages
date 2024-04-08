@@ -64,10 +64,10 @@ class AvmFlavor {
                                              perm_main_mem_ind_a_relation<FF>,
                                              perm_main_mem_ind_b_relation<FF>,
                                              perm_main_mem_ind_c_relation<FF>,
-                                             incl_main_tag_err_relation<FF>,
-                                             incl_mem_tag_err_relation<FF>,
                                              lookup_byte_lengths_relation<FF>,
-                                             lookup_byte_operations_relation<FF>>;
+                                             lookup_byte_operations_relation<FF>,
+                                             incl_main_tag_err_relation<FF>,
+                                             incl_mem_tag_err_relation<FF>>;
 
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
@@ -81,10 +81,10 @@ class AvmFlavor {
                                  perm_main_mem_ind_a_relation<FF>,
                                  perm_main_mem_ind_b_relation<FF>,
                                  perm_main_mem_ind_c_relation<FF>,
-                                 incl_main_tag_err_relation<FF>,
-                                 incl_mem_tag_err_relation<FF>,
                                  lookup_byte_lengths_relation<FF>,
-                                 lookup_byte_operations_relation<FF>>;
+                                 lookup_byte_operations_relation<FF>,
+                                 incl_main_tag_err_relation<FF>,
+                                 incl_mem_tag_err_relation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -917,9 +917,6 @@ class AvmFlavor {
                      avm_mem_val };
         };
 
-        // The plookup wires that store plookup read data.
-        std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
-
         void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
         {
             ProverPolynomials prover_polynomials = ProverPolynomials(*this);
@@ -940,35 +937,18 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_c_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
-                prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
         }
     };
 
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
-      public:
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(ProvingKey& proving_key)
-        {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key.circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-
-            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
-            }
-        }
-    };
+    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
 
     using FoldedPolynomials = AllEntities<std::vector<FF>>;
 
@@ -991,7 +971,6 @@ class AvmFlavor {
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
 
-        // NOTE: copied from goblin ultra
         ProverPolynomials(ProvingKey& proving_key)
         {
             for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
@@ -1339,8 +1318,6 @@ class AvmFlavor {
         Commitment avm_mem_tag_err;
         Commitment avm_mem_val;
         Commitment avm_mem_w_in_tag;
-
-        // Perm inverses
         Commitment perm_main_alu;
         Commitment perm_main_bin;
         Commitment perm_main_mem_a;
@@ -1349,13 +1326,10 @@ class AvmFlavor {
         Commitment perm_main_mem_ind_a;
         Commitment perm_main_mem_ind_b;
         Commitment perm_main_mem_ind_c;
-        // Lookup inverses
         Commitment lookup_byte_lengths;
         Commitment lookup_byte_operations;
         Commitment incl_main_tag_err;
         Commitment incl_mem_tag_err;
-
-        // Lookup counts
         Commitment lookup_byte_lengths_counts;
         Commitment lookup_byte_operations_counts;
         Commitment incl_main_tag_err_counts;

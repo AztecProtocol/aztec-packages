@@ -344,8 +344,6 @@ class AvmCircuitBuilder {
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
-            polys.perm_main_alu[i] = rows[i].perm_main_alu;
-
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
