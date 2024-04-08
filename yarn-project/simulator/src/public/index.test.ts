@@ -1,10 +1,10 @@
-import { L1ToL2Message, NullifierMembershipWitness, SiblingPath } from '@aztec/circuit-types';
+import { type L1ToL2Message, NullifierMembershipWitness, SiblingPath } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
   FunctionData,
   GlobalVariables,
-  Header,
+  type Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
   NULLIFIER_TREE_HEIGHT,
@@ -13,7 +13,7 @@ import {
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
-import { FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { type FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -25,15 +25,15 @@ import { ParentContractArtifact } from '@aztec/noir-contracts.js/Parent';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 import { toFunctionSelector } from 'viem';
 
 import { MessageLoadOracleInputs } from '../index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
-import { PublicExecution } from './execution.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
+import { type PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -347,9 +347,9 @@ describe('ACIR public execution simulator', () => {
       // Assert the note hash was created
       expect(result.newNoteHashes.length).toEqual(1);
 
-      const expectedNoteHash = pedersenHash([amount.toBuffer(), secretHash.toBuffer()]);
+      const expectedNoteHash = pedersenHash([amount, secretHash]);
       const storageSlot = new Fr(5); // for pending_shields
-      const expectedInnerNoteHash = pedersenHash([storageSlot, expectedNoteHash].map(f => f.toBuffer()));
+      const expectedInnerNoteHash = pedersenHash([storageSlot, expectedNoteHash]);
       expect(result.newNoteHashes[0].value).toEqual(expectedInnerNoteHash);
     });
 
@@ -379,7 +379,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
 
-      const expectedNewMessage = new L2ToL1Message(portalContractAddress, pedersenHash(params.map(a => a.toBuffer())));
+      const expectedNewMessage = new L2ToL1Message(portalContractAddress, pedersenHash(params));
 
       expect(result.newL2ToL1Messages[0]).toEqual(expectedNewMessage);
     });
@@ -409,7 +409,7 @@ describe('ACIR public execution simulator', () => {
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
 
-      const expectedNewMessageValue = pedersenHash(params.map(a => a.toBuffer()));
+      const expectedNewMessageValue = pedersenHash(params);
       expect(result.newNullifiers[0].value).toEqual(expectedNewMessageValue);
     });
 
@@ -479,7 +479,7 @@ describe('ACIR public execution simulator', () => {
 
         let root = preimage.hash();
         for (const sibling of siblingPathBuffers) {
-          root = pedersenHash([root.toBuffer(), sibling]);
+          root = pedersenHash([root, sibling]);
         }
         commitmentsDb.getL1ToL2MembershipWitness.mockImplementation(() => {
           return Promise.resolve(new MessageLoadOracleInputs(0n, siblingPath));

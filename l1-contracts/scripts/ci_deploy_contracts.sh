@@ -29,9 +29,15 @@ retry docker pull $CLI_IMAGE
 
 # remove 0x prefix from private key
 PRIVATE_KEY=${CONTRACT_PUBLISHER_PRIVATE_KEY#0x}
-docker run \
-  $CLI_IMAGE \
-  deploy-l1-contracts -u $ETHEREUM_HOST -p $PRIVATE_KEY | tee ./serve/contract_addresses.json
+
+# Retries up to 3 times with 10 second intervals
+ATTEMPTS=3
+for i in $(seq 1 $ATTEMPTS); do
+  docker run \
+    $CLI_IMAGE \
+    deploy-l1-contracts -u $ETHEREUM_HOST -p $PRIVATE_KEY | tee $FILE_PATH && break
+  [ "$i" != "$ATTEMPTS" ] && sleep 10
+done
 
 ## Result format is:
 # Rollup Address: 0xe33d37702bb94e83ca09e7dc804c9f4c4ab8ee4a
@@ -40,6 +46,8 @@ docker run \
 # L2 -> L1 Outbox address: 0xf6b1b3c2c393fe55fe577a1f528bd72a76589ab0
 # Contract Deployment Emitter Address: 0xf3ecc6e9428482a74687ee5f7b96f4dff8781454
 # Availability Oracle Address: 0x610178da211fef7d417bc0e6fed39f05609ad788
+# Gas Token Address: 0x9e4b815648c4a98a9bce6a899cecbaf3758cf23c
+# Gas Portal Address: 0xda5dea39534f67f33deb38ec3b1e438fa893bf2c
 
 # Read the file line by line
 while IFS= read -r line; do
@@ -62,6 +70,14 @@ while IFS= read -r line; do
   elif [[ $line == *"Oracle"* ]]; then
     export TF_VAR_AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$address
     echo "TF_VAR_AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$TF_VAR_AVAILABILITY_ORACLE_CONTRACT_ADDRESS"
+  elif [[ $line == *"Gas Token"* ]]; then
+    export TF_VAR_GAS_TOKEN_CONTRACT_ADDRESS=$address
+    echo "TF_VAR_GAS_TOKEN_CONTRACT_ADDRESS=$TF_VAR_GAS_TOKEN_CONTRACT_ADDRESS"
+  elif [[ $line == *"Gas Portal"* ]]; then
+    export TF_VAR_GAS_PORTAL_CONTRACT_ADDRESS=$address
+    echo "TF_VAR_GAS_PORTAL_CONTRACT_ADDRESS=$TF_VAR_GAS_PORTAL_CONTRACT_ADDRESS"
+  else
+    echo "Unknown contract address: $line"
   fi
 done <"$FILE_PATH"
 

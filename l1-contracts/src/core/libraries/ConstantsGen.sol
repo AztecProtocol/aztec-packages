@@ -28,18 +28,10 @@ library Constants {
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 2;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL = 1;
   uint256 internal constant MAX_NEW_NOTE_HASHES_PER_TX = 64;
-  uint256 internal constant MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX = 8;
-  uint256 internal constant MAX_REVERTIBLE_NOTE_HASHES_PER_TX = 56;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;
-  uint256 internal constant MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX = 8;
-  uint256 internal constant MAX_REVERTIBLE_NULLIFIERS_PER_TX = 56;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 8;
-  uint256 internal constant MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX = 3;
-  uint256 internal constant MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX = 5;
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 32;
-  uint256 internal constant MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 16;
-  uint256 internal constant MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 16;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_TX = 32;
   uint256 internal constant MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
   uint256 internal constant MAX_NOTE_HASH_READ_REQUESTS_PER_TX = 128;
@@ -91,7 +83,7 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x2496dd9fa6701d5be6537860bcf258c778c678201d6e481ccc7e827dc62356ac;
+    0x12bcd3e09e8d8559c75d59552db47471f63c72fbbc9decb59c517b4e58634a72;
   uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 17;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
   uint256 internal constant GET_NOTE_ORACLE_RETURN_LENGTH = 23;

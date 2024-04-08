@@ -1,11 +1,11 @@
-import { FunctionCall } from '@aztec/circuit-types';
-import { AztecAddress, FunctionData } from '@aztec/circuits.js';
+import { type FunctionCall } from '@aztec/circuit-types';
+import { type AztecAddress, FunctionData } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { Wallet } from '../account/wallet.js';
-import { FeePaymentMethod } from './fee_payment_method.js';
+import { type Wallet } from '../account/wallet.js';
+import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Pay fee directly in the native gas token.
@@ -53,11 +53,6 @@ export class NativeFeePaymentMethod implements FeePaymentMethod {
    */
   getFunctionCalls(feeLimit: Fr): Promise<FunctionCall[]> {
     return Promise.resolve([
-      {
-        to: this.#gasTokenAddress,
-        functionData: new FunctionData(FunctionSelector.fromSignature('check_balance(Field)'), false),
-        args: [feeLimit],
-      },
       {
         to: this.#gasTokenAddress,
         functionData: new FunctionData(FunctionSelector.fromSignature('pay_fee(Field)'), false),

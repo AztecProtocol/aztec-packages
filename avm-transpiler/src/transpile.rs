@@ -2,8 +2,9 @@ use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::brillig::Brillig;
 
 use acvm::brillig_vm::brillig::{
-    BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, MemoryAddress, Value, ValueOrArray,
+    BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, MemoryAddress, ValueOrArray,
 };
+use acvm::FieldElement;
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
@@ -240,6 +241,20 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
         }
     }
 
+    // TEMPORARY: Add a "magic number" instruction to the end of the program.
+    // This makes it possible to know that the bytecode corresponds to the AVM.
+    // We are adding a MOV instruction that moves a value to itself.
+    // This should therefore not affect the program's execution.
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::MOV,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 { value: 0x18ca },
+            AvmOperand::U32 { value: 0x18ca },
+        ],
+        ..Default::default()
+    });
+
     dbg_print_avm_program(&avm_instrs);
 
     // Constructing bytecode from instructions
@@ -285,6 +300,9 @@ fn handle_foreign_call(
         }
         "avmOpcodePoseidon" => {
             handle_single_field_hash_instruction(avm_instrs, function, destinations, inputs)
+        }
+        "avmOpcodeGetContractInstance" => {
+            handle_get_contract_instance(avm_instrs, destinations, inputs)
         }
         "storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
@@ -642,8 +660,8 @@ fn handle_2_field_hash_instruction(
     inputs: &[ValueOrArray],
 ) {
     // handle field returns differently
-    let hash_offset_maybe = inputs[0];
-    let (hash_offset, hash_size) = match hash_offset_maybe {
+    let message_offset_maybe = inputs[0];
+    let (message_offset, message_size) = match message_offset_maybe {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
         _ => panic!("Keccak | Sha256 address inputs destination should be a single value"),
     };
@@ -669,16 +687,16 @@ fn handle_2_field_hash_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode,
-        indirect: Some(3), // 11 - addressing mode, indirect for input and output
+        indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
         operands: vec![
             AvmOperand::U32 {
                 value: dest_offset as u32,
             },
             AvmOperand::U32 {
-                value: hash_offset as u32,
+                value: message_offset as u32,
             },
             AvmOperand::U32 {
-                value: hash_size as u32,
+                value: message_size as u32,
             },
         ],
         ..Default::default()
@@ -701,8 +719,8 @@ fn handle_single_field_hash_instruction(
     inputs: &[ValueOrArray],
 ) {
     // handle field returns differently
-    let hash_offset_maybe = inputs[0];
-    let (hash_offset, hash_size) = match hash_offset_maybe {
+    let message_offset_maybe = inputs[0];
+    let (message_offset, message_size) = match message_offset_maybe {
         ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
         _ => panic!("Poseidon address inputs destination should be a single value"),
     };
@@ -724,16 +742,16 @@ fn handle_single_field_hash_instruction(
 
     avm_instrs.push(AvmInstruction {
         opcode,
-        indirect: Some(1),
+        indirect: Some(FIRST_OPERAND_INDIRECT),
         operands: vec![
             AvmOperand::U32 {
                 value: dest_offset as u32,
             },
             AvmOperand::U32 {
-                value: hash_offset as u32,
+                value: message_offset as u32,
             },
             AvmOperand::U32 {
-                value: hash_size as u32,
+                value: message_size as u32,
             },
         ],
         ..Default::default()
@@ -798,7 +816,7 @@ fn handle_getter_instruction(
 fn handle_const(
     avm_instrs: &mut Vec<AvmInstruction>,
     destination: &MemoryAddress,
-    value: &Value,
+    value: &FieldElement,
     bit_size: &u32,
 ) {
     let tag = tag_from_bit_size(*bit_size);
@@ -808,7 +826,7 @@ fn handle_const(
         avm_instrs.push(generate_set_instruction(tag, dest, value.to_u128()));
     } else {
         // We can't fit a field in an instruction. This should've been handled in Brillig.
-        let field = value.to_field();
+        let field = value;
         if !field.fits_in_u128() {
             panic!("SET: Field value doesn't fit in 128 bits, that's not supported!");
         }
@@ -879,26 +897,30 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
     match operation {
         BlackBoxOp::PedersenHash {
             inputs,
-            domain_separator: _,
+            domain_separator,
             output,
         } => {
-            let hash_offset = inputs.pointer.0;
-            let hash_size = inputs.size.0;
+            let message_offset = inputs.pointer.0;
+            let message_size_offset = inputs.size.0;
 
+            let index_offset = domain_separator.0;
             let dest_offset = output.0;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::PEDERSEN,
-                indirect: Some(1),
+                indirect: Some(SECOND_OPERAND_INDIRECT),
                 operands: vec![
+                    AvmOperand::U32 {
+                        value: index_offset as u32,
+                    },
                     AvmOperand::U32 {
                         value: dest_offset as u32,
                     },
                     AvmOperand::U32 {
-                        value: hash_offset as u32,
+                        value: message_offset as u32,
                     },
                     AvmOperand::U32 {
-                        value: hash_size as u32,
+                        value: message_size_offset as u32,
                     },
                 ],
                 ..Default::default()
@@ -944,6 +966,42 @@ fn handle_storage_write(
             },
             AvmOperand::U32 {
                 value: slot_offset as u32,
+            },
+        ],
+        ..Default::default()
+    })
+}
+
+/// Emit a GETCONTRACTINSTANCE opcode
+fn handle_get_contract_instance(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 1);
+    assert!(destinations.len() == 1);
+
+    let address_offset_maybe = inputs[0];
+    let address_offset = match address_offset_maybe {
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
+        _ => panic!("GETCONTRACTINSTANCE address should be a single value"),
+    };
+
+    let dest_offset_maybe = destinations[0];
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer.0,
+        _ => panic!("GETCONTRACTINSTANCE destination should be an array"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::GETCONTRACTINSTANCE,
+        indirect: Some(FIRST_OPERAND_INDIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: address_offset as u32,
+            },
+            AvmOperand::U32 {
+                value: dest_offset as u32,
             },
         ],
         ..Default::default()

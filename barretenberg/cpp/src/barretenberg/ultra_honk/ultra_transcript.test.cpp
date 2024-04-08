@@ -55,7 +55,7 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_L", frs_per_G);
         manifest_expected.add_entry(round, "W_R", frs_per_G);
         manifest_expected.add_entry(round, "W_O", frs_per_G);
-        manifest_expected.add_challenge(round, "eta");
+        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
 
         round++;
         manifest_expected.add_entry(round, "SORTED_ACCUM", frs_per_G);
@@ -67,7 +67,7 @@ class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_LOOKUP", frs_per_G);
 
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "Sumcheck:alpha_" + std::to_string(i);
+            std::string label = "alpha_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
         }
@@ -140,7 +140,7 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = construct_ultra_honk_manifest(instance->proving_key->circuit_size);
+    auto manifest_expected = construct_ultra_honk_manifest(instance->proving_key.circuit_size);
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {

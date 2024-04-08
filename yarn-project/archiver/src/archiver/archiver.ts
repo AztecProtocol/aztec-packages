@@ -1,18 +1,19 @@
 import {
-  GetUnencryptedLogsResponse,
-  L1ToL2MessageSource,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type L1ToL2MessageSource,
   L2Block,
-  L2BlockL2Logs,
-  L2BlockSource,
-  L2LogsSource,
-  LogFilter,
-  LogType,
-  TxEffect,
-  TxHash,
-  TxReceipt,
-  UnencryptedL2Log,
+  type L2BlockL2Logs,
+  type L2BlockSource,
+  type L2LogsSource,
+  type LogFilter,
+  type LogType,
+  type TxEffect,
+  type TxHash,
+  type TxReceipt,
+  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import { ContractClassRegisteredEvent, FunctionSelector } from '@aztec/circuits.js';
+import { ContractClassRegisteredEvent, type FunctionSelector } from '@aztec/circuits.js';
 import {
   ContractInstanceDeployedEvent,
   PrivateFunctionBroadcastedEvent,
@@ -21,28 +22,28 @@ import {
   isValidUnconstrainedFunctionMembershipProof,
 } from '@aztec/circuits.js/contract';
 import { createEthereumChain } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import {
-  ContractClassPublic,
-  ContractDataSource,
-  ContractInstanceWithAddress,
-  ExecutablePrivateFunctionWithMembershipProof,
-  PublicFunction,
-  UnconstrainedFunctionWithMembershipProof,
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+  type ExecutablePrivateFunctionWithMembershipProof,
+  type PublicFunction,
+  type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
-import { Chain, HttpTransport, PublicClient, createPublicClient, http } from 'viem';
+import { type Chain, type HttpTransport, type PublicClient, createPublicClient, http } from 'viem';
 
-import { ArchiverDataStore } from './archiver_store.js';
-import { ArchiverConfig } from './config.js';
+import { type ArchiverDataStore } from './archiver_store.js';
+import { type ArchiverConfig } from './config.js';
 import {
-  DataRetrieval,
+  type DataRetrieval,
   retrieveBlockBodiesFromAvailabilityOracle,
   retrieveBlockMetadataFromRollup,
   retrieveL1ToL2Messages,
@@ -136,7 +137,7 @@ export class Archiver implements ArchiveSource {
   }
 
   /**
-   * Fetches `L2BlockProcessed` and `ContractDeployment` logs from `nextL2BlockFromBlock` and processes them.
+   * Fetches logs from L1 contracts and processes them.
    * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
    */
   private async sync(blockUntilSynced: boolean) {
@@ -276,8 +277,7 @@ export class Archiver implements ArchiveSource {
       retrievedBlocks.retrievedData.map(async block => {
         const blockLogs = block.body.txEffects
           .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
-          .flatMap(txLog => txLog.unrollLogs())
-          .map(log => UnencryptedL2Log.fromBuffer(log));
+          .flatMap(txLog => txLog.unrollLogs());
         await this.storeRegisteredContractClasses(blockLogs, block.number);
         await this.storeDeployedContractInstances(blockLogs, block.number);
         await this.storeBroadcastedIndividualFunctions(blockLogs, block.number);
@@ -437,7 +437,11 @@ export class Archiver implements ArchiveSource {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  public getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     return this.store.getLogs(from, limit, logType);
   }
 
@@ -476,12 +480,13 @@ export class Archiver implements ArchiveSource {
   }
 
   /**
-   * Gets the L1 to L2 message index in the L1 to L2 message tree.
+   * Gets the first L1 to L2 message index in the L1 to L2 message tree which is greater than or equal to `startIndex`.
    * @param l1ToL2Message - The L1 to L2 message.
+   * @param startIndex - The index to start searching from.
    * @returns The index of the L1 to L2 message in the L1 to L2 message tree (undefined if not found).
    */
-  getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
-    return this.store.getL1ToL2MessageIndex(l1ToL2Message);
+  getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined> {
+    return this.store.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
   }
 
   getContractClassIds(): Promise<Fr[]> {

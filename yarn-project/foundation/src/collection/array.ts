@@ -1,4 +1,4 @@
-import { Tuple } from '../serialize/types.js';
+import { type Tuple } from '../serialize/types.js';
 
 /**
  * Pads an array to the target length by appending an element to its end. Throws if target length exceeds the input array length. Does not modify the input array.
@@ -13,6 +13,12 @@ export function padArrayEnd<T, N extends number>(arr: T[], elem: T, length: N): 
   }
   // Since typescript cannot always deduce that something is a tuple, we cast
   return [...arr, ...Array(length - arr.length).fill(elem)] as Tuple<T, N>;
+}
+
+/** Removes the right-padding for an array. Does not modify original array. */
+export function removeArrayPaddingEnd<T>(arr: T[], isEmpty: (item: T) => boolean): T[] {
+  const lastNonEmptyIndex = arr.reduce((last, item, i) => (isEmpty(item) ? last : i), -1);
+  return lastNonEmptyIndex === -1 ? [] : arr.slice(0, lastNonEmptyIndex + 1);
 }
 
 /**

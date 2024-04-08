@@ -8,6 +8,7 @@ contract Child {
     };
     use dep::value_note::value_note::ValueNote;
 
+    #[aztec(storage)]
     struct Storage {
         current_value: PublicMutable<Field>,
         a_private_value: PrivateSet<ValueNote>,
@@ -33,7 +34,7 @@ contract Child {
             + context.chain_id()
             + context.version()
             + context.block_number()
-            + context.timestamp();
+            + context.timestamp() as Field;
 
         return_value
     }
@@ -56,7 +57,8 @@ contract Child {
 
     #[aztec(private)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let options = NoteGetterOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(ValueNote::properties().value, amount, Option::none()).select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()

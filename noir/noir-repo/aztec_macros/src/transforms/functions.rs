@@ -35,89 +35,80 @@ pub fn transform_function(
     let context_name = format!("{}Context", ty);
     let inputs_name = format!("{}ContextInputs", ty);
     let return_type_name = format!("{}CircuitPublicInputs", ty);
+    let is_avm = ty == "Avm";
 
     // Add check that msg sender equals this address and flag function as internal
     if is_internal {
         let is_internal_check = create_internal_check(func.name());
-        func.def.body.0.insert(0, is_internal_check);
+        func.def.body.statements.insert(0, is_internal_check);
     }
 
     // Add initialization check
     if insert_init_check {
-        let init_check = create_init_check();
-        func.def.body.0.insert(0, init_check);
+        let init_check = create_init_check(ty);
+        func.def.body.statements.insert(0, init_check);
     }
 
     // Add assertion for initialization arguments and sender
     if is_initializer {
-        func.def.body.0.insert(0, create_assert_initializer());
+        func.def.body.statements.insert(0, create_assert_initializer(ty));
     }
 
     // Add access to the storage struct
     if storage_defined {
         let storage_def = abstract_storage(&ty.to_lowercase(), false);
-        func.def.body.0.insert(0, storage_def);
+        func.def.body.statements.insert(0, storage_def);
     }
 
     // Insert the context creation as the first action
-    let create_context = create_context(&context_name, &func.def.parameters)?;
-    func.def.body.0.splice(0..0, (create_context).iter().cloned());
+    let create_context = if !is_avm {
+        create_context(&context_name, &func.def.parameters)?
+    } else {
+        create_context_avm()?
+    };
+    func.def.body.statements.splice(0..0, (create_context).iter().cloned());
 
     // Add the inputs to the params
     let input = create_inputs(&inputs_name);
     func.def.parameters.insert(0, input);
 
     // Abstract return types such that they get added to the kernel's return_values
-    if let Some(return_values) = abstract_return_values(func) {
-        // In case we are pushing return values to the context, we remove the statement that originated it
-        // This avoids running duplicate code, since blocks like if/else can be value returning statements
-        func.def.body.0.pop();
-        // Add the new return statement
-        func.def.body.0.push(return_values);
+    if !is_avm {
+        if let Some(return_values) = abstract_return_values(func) {
+            // In case we are pushing return values to the context, we remove the statement that originated it
+            // This avoids running duplicate code, since blocks like if/else can be value returning statements
+            func.def.body.statements.pop();
+            // Add the new return statement
+            func.def.body.statements.push(return_values);
+        }
     }
 
     // Before returning mark the contract as initialized
     if is_initializer {
-        let mark_initialized = create_mark_as_initialized();
-        func.def.body.0.push(mark_initialized);
+        let mark_initialized = create_mark_as_initialized(ty);
+        func.def.body.statements.push(mark_initialized);
     }
 
     // Push the finish method call to the end of the function
-    let finish_def = create_context_finish();
-    func.def.body.0.push(finish_def);
+    if !is_avm {
+        let finish_def = create_context_finish();
+        func.def.body.statements.push(finish_def);
+    }
 
-    let return_type = create_return_type(&return_type_name);
-    func.def.return_type = return_type;
-    func.def.return_visibility = Visibility::Public;
+    // The AVM doesn't need a return type yet.
+    if !is_avm {
+        let return_type = create_return_type(&return_type_name);
+        func.def.return_type = return_type;
+        func.def.return_visibility = Visibility::Public;
+    }
 
     // Distinct return types are only required for private functions
     // Public functions should have unconstrained auto-inferred
     match ty {
         "Private" => func.def.return_distinctness = Distinctness::Distinct,
-        "Public" => func.def.is_unconstrained = true,
+        "Public" | "Avm" => func.def.is_unconstrained = true,
         _ => (),
     }
-
-    Ok(())
-}
-
-/// Transform a function to work with AVM bytecode
-pub fn transform_vm_function(
-    func: &mut NoirFunction,
-    storage_defined: bool,
-) -> Result<(), AztecMacroError> {
-    // Create access to storage
-    if storage_defined {
-        let storage = abstract_storage("public_vm", true);
-        func.def.body.0.insert(0, storage);
-    }
-
-    // Push Avm context creation to the beginning of the function
-    let create_context = create_avm_context()?;
-    func.def.body.0.insert(0, create_context);
-
-    // We want the function to be seen as a public function
-    func.def.is_unconstrained = true;
 
     Ok(())
 }
@@ -131,7 +122,7 @@ pub fn transform_vm_function(
 ///
 /// This will allow developers to access their contract' storage struct in unconstrained functions
 pub fn transform_unconstrained(func: &mut NoirFunction) {
-    func.def.body.0.insert(0, abstract_storage("Unconstrained", true));
+    func.def.body.statements.insert(0, abstract_storage("Unconstrained", true));
 }
 
 /// Helper function that returns what the private context would look like in the ast
@@ -168,9 +159,10 @@ fn create_inputs(ty: &str) -> Param {
 /// ```noir
 /// assert_is_initialized(&mut context);
 /// ```
-fn create_init_check() -> Statement {
+fn create_init_check(ty: &str) -> Statement {
+    let fname = format!("assert_is_initialized_{}", ty.to_case(Case::Snake));
     make_statement(StatementKind::Expression(call(
-        variable_path(chained_dep!("aztec", "initializer", "assert_is_initialized")),
+        variable_path(chained_dep!("aztec", "initializer", &fname)),
         vec![mutable_reference("context")],
     )))
 }
@@ -181,9 +173,10 @@ fn create_init_check() -> Statement {
 /// ```noir
 /// mark_as_initialized(&mut context);
 /// ```
-fn create_mark_as_initialized() -> Statement {
+fn create_mark_as_initialized(ty: &str) -> Statement {
+    let fname = format!("mark_as_initialized_{}", ty.to_case(Case::Snake));
     make_statement(StatementKind::Expression(call(
-        variable_path(chained_dep!("aztec", "initializer", "mark_as_initialized")),
+        variable_path(chained_dep!("aztec", "initializer", &fname)),
         vec![mutable_reference("context")],
     )))
 }
@@ -214,13 +207,11 @@ fn create_internal_check(fname: &str) -> Statement {
 /// ```noir
 /// assert_initialization_matches_address_preimage(context);
 /// ```
-fn create_assert_initializer() -> Statement {
+fn create_assert_initializer(ty: &str) -> Statement {
+    let fname =
+        format!("assert_initialization_matches_address_preimage_{}", ty.to_case(Case::Snake));
     make_statement(StatementKind::Expression(call(
-        variable_path(chained_dep!(
-            "aztec",
-            "initializer",
-            "assert_initialization_matches_address_preimage"
-        )),
+        variable_path(chained_dep!("aztec", "initializer", &fname)),
         vec![variable("context")],
     )))
 }
@@ -232,62 +223,66 @@ fn create_assert_initializer() -> Statement {
 /// ```noir
 /// #[aztec(private)]
 /// fn foo(structInput: SomeStruct, arrayInput: [u8; 10], fieldInput: Field) -> Field {
-///     // Create the bounded vec object
-///     let mut serialized_args = BoundedVec::new();
+///     // Create the hasher object
+///     let mut hasher = Hasher::new();
 ///
 ///     // struct inputs call serialize on them to add an array of fields
-///     serialized_args.extend_from_array(structInput.serialize());
+///     hasher.add_multiple(structInput.serialize());
 ///
-///     // Array inputs are iterated over and each element is added to the bounded vec (as a field)
+///     // Array inputs are iterated over and each element is added to the hasher (as a field)
 ///     for i in 0..arrayInput.len() {
-///         serialized_args.push(arrayInput[i] as Field);
+///         hasher.add(arrayInput[i] as Field);
 ///     }
-///     // Field inputs are added to the bounded vec
-///     serialized_args.push({ident});
+///     // Field inputs are added to the hasher
+///     hasher.add({ident});
 ///
 ///     // Create the context
 ///     // The inputs (injected by this `create_inputs`) and completed hash object are passed to the context
-///     let mut context = PrivateContext::new(inputs, hash_args(serialized_args));
+///     let mut context = PrivateContext::new(inputs, hasher.hash());
 /// }
 /// ```
 fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMacroError> {
     let mut injected_expressions: Vec<Statement> = vec![];
 
-    // `let mut serialized_args = BoundedVec::new();`
-    let let_serialized_args = mutable_assignment(
-        "serialized_args", // Assigned to
+    let hasher_name = "args_hasher";
+
+    // `let mut args_hasher = Hasher::new();`
+    let let_hasher = mutable_assignment(
+        hasher_name, // Assigned to
         call(
-            variable_path(chained_dep!("std", "collections", "bounded_vec", "BoundedVec", "new")), // Path
-            vec![], // args
+            variable_path(chained_dep!("aztec", "hash", "ArgsHasher", "new")), // Path
+            vec![],                                                            // args
         ),
     );
 
-    // Completes: `let mut serialized_args = BoundedVec::new();`
-    injected_expressions.push(let_serialized_args);
+    // Completes: `let mut args_hasher = Hasher::new();`
+    injected_expressions.push(let_hasher);
 
-    // Iterate over each of the function parameters, adding to them to the bounded vec
+    // Iterate over each of the function parameters, adding to them to the hasher
     for Param { pattern, typ, span, .. } in params {
         match pattern {
             Pattern::Identifier(identifier) => {
                 // Match the type to determine the padding to do
                 let unresolved_type = &typ.typ;
                 let expression = match unresolved_type {
-                    // `serialized_args.extend_from_array({ident}.serialize())`
-                    UnresolvedTypeData::Named(..) => add_struct_to_serialized_args(identifier),
+                    // `hasher.add_multiple({ident}.serialize())`
+                    UnresolvedTypeData::Named(..) => add_struct_to_hasher(identifier, hasher_name),
                     UnresolvedTypeData::Array(_, arr_type) => {
-                        add_array_to_serialized_args(identifier, arr_type)
+                        add_array_to_hasher(identifier, arr_type, hasher_name)
                     }
-                    // `serialized_args.push({ident})`
-                    UnresolvedTypeData::FieldElement => add_field_to_serialized_args(identifier),
-                    // Add the integer to the serialized args, casted to a field
-                    // `serialized_args.push({ident} as Field)`
+                    // `hasher.add({ident})`
+                    UnresolvedTypeData::FieldElement => {
+                        add_field_to_hasher(identifier, hasher_name)
+                    }
+                    // Add the integer to the hasher, casted to a field
+                    // `hasher.add({ident} as Field)`
                     UnresolvedTypeData::Integer(..) | UnresolvedTypeData::Bool => {
-                        add_cast_to_serialized_args(identifier)
+                        add_cast_to_hasher(identifier, hasher_name)
                     }
                     UnresolvedTypeData::String(..) => {
                         let (var_bytes, id) = str_to_bytes(identifier);
                         injected_expressions.push(var_bytes);
-                        add_array_to_serialized_args(
+                        add_array_to_hasher(
                             &id,
                             &UnresolvedType {
                                 typ: UnresolvedTypeData::Integer(
@@ -296,6 +291,7 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
                                 ),
                                 span: None,
                             },
+                            hasher_name,
                         )
                     }
                     _ => {
@@ -313,10 +309,11 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
 
     // Create the inputs to the context
     let inputs_expression = variable("inputs");
-    // `hash_args(serialized_args)`
-    let hash_call = call(
-        variable_path(chained_dep!("aztec", "hash", "hash_args")), // variable
-        vec![variable("serialized_args")],                         // args
+    // `args_hasher.hash()`
+    let hash_call = method_call(
+        variable(hasher_name), // variable
+        "hash",                // method name
+        vec![],                // args
     );
 
     let path_snippet = ty.to_case(Case::Snake); // e.g. private_context
@@ -335,33 +332,36 @@ fn create_context(ty: &str, params: &[Param]) -> Result<Vec<Statement>, AztecMac
     Ok(injected_expressions)
 }
 
-/// Creates an mutable avm context
+/// Creates the private context object to be accessed within the function, the parameters need to be extracted to be
+/// appended into the args hash object.
 ///
+/// The replaced code:
 /// ```noir
-/// /// Before
 /// #[aztec(public-vm)]
-/// fn foo() -> Field {
-///   let mut context = aztec::context::AVMContext::new();
-///   let timestamp = context.timestamp();
-///   // ...
+/// fn foo(inputs: AvmContextInputs, ...) -> Field {
+///     let mut context = AvmContext::new(inputs);
 /// }
-///
-/// /// After
-/// #[aztec(private)]
-/// fn foo() -> Field {
-///     let mut timestamp = context.timestamp();
-///     // ...
-/// }
-fn create_avm_context() -> Result<Statement, AztecMacroError> {
+/// ```
+fn create_context_avm() -> Result<Vec<Statement>, AztecMacroError> {
+    let mut injected_expressions: Vec<Statement> = vec![];
+
+    // Create the inputs to the context
+    let ty = "AvmContext";
+    let inputs_expression = variable("inputs");
+    let path_snippet = ty.to_case(Case::Snake); // e.g. private_context
+
+    // let mut context = {ty}::new(inputs, hash);
     let let_context = mutable_assignment(
         "context", // Assigned to
         call(
-            variable_path(chained_dep!("aztec", "context", "AVMContext", "new")), // Path
-            vec![],                                                               // args
+            variable_path(chained_dep!("aztec", "context", &path_snippet, ty, "new")), // Path
+            vec![inputs_expression],                                                   // args
         ),
     );
+    injected_expressions.push(let_context);
 
-    Ok(let_context)
+    // Return all expressions that will be injected by the hasher
+    Ok(injected_expressions)
 }
 
 /// Abstract Return Type
@@ -392,7 +392,7 @@ fn create_avm_context() -> Result<Statement, AztecMacroError> {
 /// Any primitive type that can be cast will be casted to a field and pushed to the context.
 fn abstract_return_values(func: &NoirFunction) -> Option<Statement> {
     let current_return_type = func.return_type().typ;
-    let last_statement = func.def.body.0.last()?;
+    let last_statement = func.def.body.statements.last()?;
 
     // TODO: (length, type) => We can limit the size of the array returned to be limited by kernel size
     // Doesn't need done until we have settled on a kernel size
@@ -597,11 +597,11 @@ fn create_context_finish() -> Statement {
 }
 
 //
-//                 Methods to create hash_args inputs
+//                 Methods to create hasher inputs
 //
 
-fn add_struct_to_serialized_args(identifier: &Ident) -> Statement {
-    // If this is a struct, we call serialize and add the array to the serialized args
+fn add_struct_to_hasher(identifier: &Ident, hasher_name: &str) -> Statement {
+    // If this is a struct, we call serialize and add the array to the hasher
     let serialized_call = method_call(
         variable_path(path(identifier.clone())), // variable
         "serialize",                             // method name
@@ -609,9 +609,9 @@ fn add_struct_to_serialized_args(identifier: &Ident) -> Statement {
     );
 
     make_statement(StatementKind::Semi(method_call(
-        variable("serialized_args"), // variable
-        "extend_from_array",         // method name
-        vec![serialized_call],       // args
+        variable(hasher_name), // variable
+        "add_multiple",        // method name
+        vec![serialized_call], // args
     )))
 }
 
@@ -631,7 +631,7 @@ fn str_to_bytes(identifier: &Ident) -> (Statement, Ident) {
 }
 
 fn create_loop_over(var: Expression, loop_body: Vec<Statement>) -> Statement {
-    // If this is an array of primitive types (integers / fields) we can add them each to the serialized args
+    // If this is an array of primitive types (integers / fields) we can add them each to the hasher
     // casted to a field
     let span = var.span;
 
@@ -643,8 +643,10 @@ fn create_loop_over(var: Expression, loop_body: Vec<Statement>) -> Statement {
     );
 
     // What will be looped over
-    // - `serialized_args.push({ident}[i] as Field)`
-    let for_loop_block = expression(ExpressionKind::Block(BlockExpression(loop_body)));
+
+    // - `hasher.add({ident}[i] as Field)`
+    let for_loop_block =
+        expression(ExpressionKind::Block(BlockExpression { statements: loop_body }));
 
     // `for i in 0..{ident}.len()`
     make_statement(StatementKind::For(ForLoopStatement {
@@ -661,66 +663,70 @@ fn create_loop_over(var: Expression, loop_body: Vec<Statement>) -> Statement {
     }))
 }
 
-fn add_array_to_serialized_args(identifier: &Ident, arr_type: &UnresolvedType) -> Statement {
-    // If this is an array of primitive types (integers / fields) we can add them each to the serialized_args
+fn add_array_to_hasher(
+    identifier: &Ident,
+    arr_type: &UnresolvedType,
+    hasher_name: &str,
+) -> Statement {
+    // If this is an array of primitive types (integers / fields) we can add them each to the hasher
     // casted to a field
 
     // Wrap in the semi thing - does that mean ended with semi colon?
-    // `serialized_args.push({ident}[i] as Field)`
+    // `hasher.add({ident}[i] as Field)`
 
     let arr_index = index_array(identifier.clone(), "i");
-    let (add_expression, vec_method_name) = match arr_type.typ {
+    let (add_expression, hasher_method_name) = match arr_type.typ {
         UnresolvedTypeData::Named(..) => {
-            let vec_method_name = "extend_from_array".to_owned();
+            let hasher_method_name = "add_multiple".to_owned();
             let call = method_call(
                 // All serialize on each element
                 arr_index,   // variable
                 "serialize", // method name
                 vec![],      // args
             );
-            (call, vec_method_name)
+            (call, hasher_method_name)
         }
         _ => {
-            let vec_method_name = "push".to_owned();
+            let hasher_method_name = "add".to_owned();
             let call = cast(
                 arr_index,                        // lhs - `ident[i]`
                 UnresolvedTypeData::FieldElement, // cast to - `as Field`
             );
-            (call, vec_method_name)
+            (call, hasher_method_name)
         }
     };
 
     let block_statement = make_statement(StatementKind::Semi(method_call(
-        variable("serialized_args"), // variable
-        &vec_method_name,            // method name
+        variable(hasher_name), // variable
+        &hasher_method_name,   // method name
         vec![add_expression],
     )));
 
     create_loop_over(variable_ident(identifier.clone()), vec![block_statement])
 }
 
-fn add_field_to_serialized_args(identifier: &Ident) -> Statement {
-    // `serialized_args.push({ident})`
+fn add_field_to_hasher(identifier: &Ident, hasher_name: &str) -> Statement {
+    // `hasher.add({ident})`
     let ident = variable_path(path(identifier.clone()));
     make_statement(StatementKind::Semi(method_call(
-        variable("serialized_args"), // variable
-        "push",                      // method name
-        vec![ident],                 // args
+        variable(hasher_name), // variable
+        "add",                 // method name
+        vec![ident],           // args
     )))
 }
 
-fn add_cast_to_serialized_args(identifier: &Ident) -> Statement {
-    // `serialized_args.push({ident} as Field)`
+fn add_cast_to_hasher(identifier: &Ident, hasher_name: &str) -> Statement {
+    // `hasher.add({ident} as Field)`
     // `{ident} as Field`
     let cast_operation = cast(
         variable_path(path(identifier.clone())), // lhs
         UnresolvedTypeData::FieldElement,        // rhs
     );
 
-    // `serialized_args.push({ident} as Field)`
+    // `hasher.add({ident} as Field)`
     make_statement(StatementKind::Semi(method_call(
-        variable("serialized_args"), // variable
-        "push",                      // method name
-        vec![cast_operation],        // args
+        variable(hasher_name), // variable
+        "add",                 // method name
+        vec![cast_operation],  // args
     )))
 }

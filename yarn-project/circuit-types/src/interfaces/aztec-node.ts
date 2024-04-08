@@ -1,26 +1,33 @@
 import {
-  ARCHIVE_HEIGHT,
-  Header,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
-  PUBLIC_DATA_TREE_HEIGHT,
+  type ARCHIVE_HEIGHT,
+  type Header,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { L1ContractAddresses } from '@aztec/ethereum';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type L1ContractAddresses } from '@aztec/ethereum';
+import { type ProcessReturnValues } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/foundation/fields';
+import { type ContractClassPublic, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { L2Block } from '../l2_block.js';
-import { GetUnencryptedLogsResponse, L2BlockL2Logs, LogFilter, LogType } from '../logs/index.js';
-import { MerkleTreeId } from '../merkle_tree_id.js';
-import { SiblingPath } from '../sibling_path/index.js';
-import { Tx, TxHash, TxReceipt } from '../tx/index.js';
-import { TxEffect } from '../tx_effect.js';
-import { SequencerConfig } from './configs.js';
-import { L2BlockNumber } from './l2_block_number.js';
-import { NullifierMembershipWitness } from './nullifier_tree.js';
-import { PublicDataWitness } from './public_data_tree.js';
+import { type L2Block } from '../l2_block.js';
+import {
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type L2BlockL2Logs,
+  type LogFilter,
+  type LogType,
+} from '../logs/index.js';
+import { type MerkleTreeId } from '../merkle_tree_id.js';
+import { type SiblingPath } from '../sibling_path/index.js';
+import { type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
+import { type TxEffect } from '../tx_effect.js';
+import { type SequencerConfig } from './configs.js';
+import { type L2BlockNumber } from './l2_block_number.js';
+import { type NullifierMembershipWitness } from './nullifier_tree.js';
+import { type PublicDataWitness } from './public_data_tree.js';
 
 /**
  * The aztec node.
@@ -62,19 +69,25 @@ export interface AztecNode {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @returns A tuple of the index and the sibling path of the message  (undefined if not found).
+   * @param startIndex - The index to start searching from.
+   * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
+    startIndex: bigint,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
+   * @param startL2BlockNumber - The block number after which we are interested in checking if the message was
+   * included.
+   * @remarks We pass in the minL2BlockNumber because there can be duplicate messages and the block number allow us
+   * to skip the duplicates (we know after which block a given message is to be included).
    * @returns Whether the message is synced and ready to be included in a block.
    */
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+  isL1ToL2MessageSynced(l1ToL2Message: Fr, startL2BlockNumber: number): Promise<boolean>;
 
   /**
    * Returns a membership witness of an l2ToL1Message in an ephemeral l2 to l1 message tree.
@@ -197,7 +210,11 @@ export interface AztecNode {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+  getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: TLogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
 
   /**
    * Gets unencrypted logs based on the provided filter.
@@ -266,7 +283,7 @@ export interface AztecNode {
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicCalls(tx: Tx): Promise<void>;
+  simulatePublicCalls(tx: Tx): Promise<ProcessReturnValues[]>;
 
   /**
    * Updates the configuration of this node.

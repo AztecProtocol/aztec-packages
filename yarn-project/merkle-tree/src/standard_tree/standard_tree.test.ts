@@ -1,7 +1,8 @@
 import { randomBytes } from '@aztec/foundation/crypto';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type FromBuffer } from '@aztec/foundation/serialize';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { Hasher } from '@aztec/types/interfaces';
+import { type Hasher } from '@aztec/types/interfaces';
 
 import { loadTree } from '../load_tree.js';
 import { newTree } from '../new_tree.js';
@@ -11,12 +12,16 @@ import { PedersenWithCounter } from '../test/utils/pedersen_with_counter.js';
 import { INITIAL_LEAF } from '../tree_base.js';
 import { StandardTree } from './standard_tree.js';
 
+const noopDeserializer: FromBuffer<Buffer> = {
+  fromBuffer: (buffer: Buffer) => buffer,
+};
+
 const createDb = async (store: AztecKVStore, hasher: Hasher, name: string, depth: number) => {
-  return await newTree(StandardTree, store, hasher, name, depth);
+  return await newTree(StandardTree, store, hasher, name, noopDeserializer, depth);
 };
 
 const createFromName = async (store: AztecKVStore, hasher: Hasher, name: string) => {
-  return await loadTree(StandardTree, store, hasher, name);
+  return await loadTree(StandardTree, store, hasher, name, noopDeserializer);
 };
 
 treeTestSuite('StandardTree', createDb, createFromName);

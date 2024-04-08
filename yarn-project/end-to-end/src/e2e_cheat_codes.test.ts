@@ -1,18 +1,27 @@
 import {
-  CheatCodes,
-  CompleteAddress,
+  type CheatCodes,
+  type CompleteAddress,
   EthAddress,
   ExtendedNote,
   Fr,
   Note,
-  PXE,
-  Wallet,
+  type PXE,
+  type Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
+import {
+  type Account,
+  type Chain,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  getAddress,
+  getContract,
+  parseEther,
+} from 'viem';
 
 import { setup } from './fixtures/utils.js';
 
@@ -30,13 +39,12 @@ describe('e2e_cheat_codes', () => {
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    let accounts;
-    ({ teardown, wallet, accounts, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
     rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
-    admin = accounts[0];
+    admin = wallet.getCompleteAddress();
 
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
   }, 100_000);
@@ -110,24 +118,25 @@ describe('e2e_cheat_codes', () => {
       // without impersonation we wouldn't be able to send funds.
       const myAddress = (await walletClient.getAddresses())[0];
       const randomAddress = EthAddress.random().toString();
-      await walletClient.sendTransaction({
+      const tx1Hash = await walletClient.sendTransaction({
         account: myAddress,
         to: randomAddress,
         value: parseEther('1'),
       });
+      await publicClient.waitForTransactionReceipt({ hash: tx1Hash });
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
       await cc.eth.startImpersonating(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
-      const txHash = await walletClient.sendTransaction({
+      const tx2Hash = await walletClient.sendTransaction({
         account: randomAddress,
         to: myAddress,
         value: amountToSend,
       });
-      const tx = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      const feePaid = tx.gasUsed * tx.effectiveGasPrice;
+      const txReceipt = await publicClient.waitForTransactionReceipt({ hash: tx2Hash });
+      const feePaid = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
       expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating

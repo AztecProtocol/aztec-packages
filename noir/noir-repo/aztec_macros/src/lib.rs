@@ -4,7 +4,7 @@ mod utils;
 use transforms::{
     compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
     events::{generate_selector_impl, transform_events},
-    functions::{transform_function, transform_unconstrained, transform_vm_function},
+    functions::{transform_function, transform_unconstrained},
     note_interface::generate_note_interface_impl,
     storage::{
         assign_storage_slots, check_for_storage_definition, check_for_storage_implementation,
@@ -14,10 +14,7 @@ use transforms::{
 
 use noirc_frontend::{
     hir::def_collector::dc_crate::{UnresolvedFunctions, UnresolvedTraitImpl},
-    macros_api::{
-        CrateId, FileId, HirContext, MacroError, MacroProcessor, SecondaryAttribute, SortedModule,
-        Span,
-    },
+    macros_api::{CrateId, FileId, HirContext, MacroError, MacroProcessor, SortedModule, Span},
 };
 
 use utils::{
@@ -90,15 +87,18 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
     let mut has_transformed_module = false;
 
     // Check for a user defined storage struct
-    let storage_defined = check_for_storage_definition(module);
-    let storage_implemented = check_for_storage_implementation(module);
 
-    if storage_defined && !storage_implemented {
-        generate_storage_implementation(module)?;
+    let maybe_storage_struct_name = check_for_storage_definition(module)?;
+    let storage_defined = maybe_storage_struct_name.is_some();
+
+    if let Some(storage_struct_name) = maybe_storage_struct_name {
+        if !check_for_storage_implementation(module, &storage_struct_name) {
+            generate_storage_implementation(module, &storage_struct_name)?;
+        }
     }
 
-    for structure in module.types.iter() {
-        if structure.attributes.iter().any(|attr| matches!(attr, SecondaryAttribute::Event)) {
+    for structure in module.types.iter_mut() {
+        if structure.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(event)")) {
             module.impls.push(generate_selector_impl(structure));
             has_transformed_module = true;
         }
@@ -138,18 +138,21 @@ fn transform_module(module: &mut SortedModule) -> Result<bool, AztecMacroError> 
         }
 
         // Apply transformations to the function based on collected attributes
-        if is_private || is_public {
+        if is_private || is_public || is_public_vm {
             transform_function(
-                if is_private { "Private" } else { "Public" },
+                if is_private {
+                    "Private"
+                } else if is_public_vm {
+                    "Avm"
+                } else {
+                    "Public"
+                },
                 func,
                 storage_defined,
                 is_initializer,
                 insert_init_check,
                 is_internal,
             )?;
-            has_transformed_module = true;
-        } else if is_public_vm {
-            transform_vm_function(func, storage_defined)?;
             has_transformed_module = true;
         } else if storage_defined && func.def.is_unconstrained {
             transform_unconstrained(func);

@@ -1,23 +1,23 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger } from '@aztec/foundation/log';
 
 import type { Abi, Narrow } from 'abitype';
 import {
-  Account,
-  Chain,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type Account,
+  type Chain,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   createPublicClient,
   createWalletClient,
   getAddress,
   getContract,
   http,
 } from 'viem';
-import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
+import { type HDAccount, type PrivateKeyAccount } from 'viem/accounts';
 
-import { L1ContractAddresses } from './l1_contract_addresses.js';
+import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
  * Return type of the deployL1Contract function.
@@ -232,7 +232,7 @@ export async function deployL1Contract(
     args,
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
     throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);

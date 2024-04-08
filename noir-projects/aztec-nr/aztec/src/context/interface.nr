@@ -17,11 +17,11 @@ trait ContextInterface {
 }
 
 // TEMPORARY: This trait is to promote sharing of the current public context
-// and the upcoming AVMContext. This will be removed once the AVMContext is the default.
-// If you are adding something here, then you should also implement it in the AVMContext.
+// and the upcoming AvmContext. This will be removed once the AvmContext is the default.
+// If you are adding something here, then you should also implement it in the AvmContext.
 trait PublicContextInterface {
     fn block_number(self) -> Field;
-    fn timestamp(self) -> Field;
+    fn timestamp(self) -> u64;
     fn coinbase(self) -> EthAddress;
     fn fee_recipient(self) -> AztecAddress;
     fn push_nullifier_read_request(&mut self, nullifier: Field);

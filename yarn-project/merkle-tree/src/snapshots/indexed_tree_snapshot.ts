@@ -1,20 +1,20 @@
-import { IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
-import { IndexedTree, PreimageFactory } from '../interfaces/indexed_tree.js';
-import { TreeBase } from '../tree_base.js';
+import { type IndexedTree, type PreimageFactory } from '../interfaces/indexed_tree.js';
+import { type TreeBase } from '../tree_base.js';
 import { BaseFullTreeSnapshot, BaseFullTreeSnapshotBuilder } from './base_full_snapshot.js';
-import { IndexedTreeSnapshot, TreeSnapshotBuilder } from './snapshot_builder.js';
+import { type IndexedTreeSnapshot, type TreeSnapshotBuilder } from './snapshot_builder.js';
 
 const snapshotLeafValue = (node: Buffer, index: bigint) => 'snapshot:leaf:' + node.toString('hex') + ':' + index;
 
 /** a */
 export class IndexedTreeSnapshotBuilder
-  extends BaseFullTreeSnapshotBuilder<IndexedTree & TreeBase, IndexedTreeSnapshot>
+  extends BaseFullTreeSnapshotBuilder<IndexedTree & TreeBase<Buffer>, IndexedTreeSnapshot>
   implements TreeSnapshotBuilder<IndexedTreeSnapshot>
 {
   leaves: AztecMap<string, Buffer>;
-  constructor(store: AztecKVStore, tree: IndexedTree & TreeBase, private leafPreimageBuilder: PreimageFactory) {
+  constructor(store: AztecKVStore, tree: IndexedTree & TreeBase<Buffer>, private leafPreimageBuilder: PreimageFactory) {
     super(store, tree);
     this.leaves = store.openMap('indexed_tree_snapshot:' + tree.getName());
   }
@@ -32,16 +32,16 @@ export class IndexedTreeSnapshotBuilder
 }
 
 /** A snapshot of an indexed tree at a particular point in time */
-class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot implements IndexedTreeSnapshot {
+class IndexedTreeSnapshotImpl extends BaseFullTreeSnapshot<Buffer> implements IndexedTreeSnapshot {
   constructor(
     db: AztecMap<string, [Buffer, Buffer]>,
     private leaves: AztecMap<string, Buffer>,
     historicRoot: Buffer,
     numLeaves: bigint,
-    tree: IndexedTree & TreeBase,
+    tree: IndexedTree & TreeBase<Buffer>,
     private leafPreimageBuilder: PreimageFactory,
   ) {
-    super(db, historicRoot, numLeaves, tree);
+    super(db, historicRoot, numLeaves, tree, { fromBuffer: buf => buf });
   }
 
   getLeafValue(index: bigint): Buffer | undefined {

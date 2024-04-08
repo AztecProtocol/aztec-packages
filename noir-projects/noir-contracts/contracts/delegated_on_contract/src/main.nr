@@ -6,6 +6,7 @@ contract DelegatedOn {
     };
     use dep::value_note::value_note::ValueNote;
 
+    #[aztec(storage)]
     struct Storage {
         current_value: PublicMutable<Field>,
         a_private_value: PrivateSet<ValueNote>,
@@ -25,7 +26,8 @@ contract DelegatedOn {
     }
 
     unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {
-        let options = NoteViewerOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(
+        let mut options = NoteViewerOptions::new();
+        options = options.select(ValueNote::properties().value, amount, Option::none()).select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()

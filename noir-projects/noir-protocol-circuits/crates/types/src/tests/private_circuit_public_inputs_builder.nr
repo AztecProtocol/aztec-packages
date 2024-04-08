@@ -5,15 +5,14 @@ use crate::{
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
-    address::{AztecAddress, compute_initialization_hash}, hash::hash_args_array, header::Header,
+    address::{AztecAddress, compute_initialization_hash}, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
 };
 use crate::constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    RETURN_VALUES_LENGTH
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, RETURN_VALUES_LENGTH
 };
 
 struct PrivateCircuitPublicInputsBuilder {
@@ -53,7 +52,7 @@ impl PrivateCircuitPublicInputsBuilder {
     pub fn new() -> Self {
         let mut public_inputs: PrivateCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
 
-        let args_hash = hash_args_array([]);
+        let args_hash = 0;
 
         let contract_data = fixtures::contracts::default_contract;
         let portal_contract_address = contract_data.portal_contract_address;

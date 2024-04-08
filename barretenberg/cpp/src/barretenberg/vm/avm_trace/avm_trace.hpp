@@ -3,6 +3,7 @@
 #include <stack>
 
 #include "avm_alu_trace.hpp"
+#include "avm_binary_trace.hpp"
 #include "avm_common.hpp"
 #include "avm_instructions.hpp"
 #include "avm_mem_trace.hpp"
@@ -46,8 +47,17 @@ class AvmTraceBuilder {
     // Equality with direct or indirect memory access.
     void op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Set a constant from bytecode with direct memory access.
-    void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Bitwise and with direct or indirect memory access.
+    void op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Bitwise or with direct or indirect memory access.
+    void op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Bitwise xor with direct or indirect memory access.
+    void op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Set a constant from bytecode with direct or indirect memory access.
+    void op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Move (copy) the value and tag of a memory cell to another one.
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
@@ -95,6 +105,9 @@ class AvmTraceBuilder {
     std::vector<Row> main_trace;
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
+    AvmBinaryTraceBuilder bin_trace_builder;
+
+    bool range_checked_required = false;
 
     void finalise_mem_trace_lookup_counts();
 

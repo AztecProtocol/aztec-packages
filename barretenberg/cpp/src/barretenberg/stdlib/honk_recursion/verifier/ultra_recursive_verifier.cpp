@@ -68,11 +68,16 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
         commitments.calldata = transcript->template receive_from_prover<Commitment>(commitment_labels.calldata);
         commitments.calldata_read_counts =
             transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_read_counts);
+        commitments.return_data = transcript->template receive_from_prover<Commitment>(commitment_labels.return_data);
+        commitments.return_data_read_counts =
+            transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_read_counts);
     }
 
     // Get challenge for sorted list batching and wire four memory records
-    auto eta = transcript->template get_challenge<FF>("eta");
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>("eta", "eta_two", "eta_three");
     relation_parameters.eta = eta;
+    relation_parameters.eta_two = eta_two;
+    relation_parameters.eta_three = eta_three;
 
     // Get commitments to sorted list accumulator and fourth wire
     commitments.sorted_accum = transcript->template receive_from_prover<Commitment>(commitment_labels.sorted_accum);
@@ -83,8 +88,10 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
     if constexpr (IsGoblinFlavor<Flavor>) {
-        commitments.lookup_inverses =
-            transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_inverses);
+        commitments.calldata_inverses =
+            transcript->template receive_from_prover<Commitment>(commitment_labels.calldata_inverses);
+        commitments.return_data_inverses =
+            transcript->template receive_from_prover<Commitment>(commitment_labels.return_data_inverses);
     }
 
     const FF public_input_delta = compute_public_input_delta<Flavor>(
@@ -106,7 +113,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
     RelationSeparator alpha;
     for (size_t idx = 0; idx < alpha.size(); idx++) {
-        alpha[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
+        alpha[idx] = transcript->template get_challenge<FF>("alpha_" + std::to_string(idx));
     }
 
     auto gate_challenges = std::vector<FF>(log_circuit_size);

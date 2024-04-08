@@ -1,5 +1,5 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
@@ -94,9 +94,6 @@ export class Header {
   }
 
   hash(): Fr {
-    return pedersenHash(
-      this.toFields().map(f => f.toBuffer()),
-      GeneratorIndex.BLOCK_HASH,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.BLOCK_HASH);
   }
 }

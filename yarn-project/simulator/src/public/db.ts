@@ -1,10 +1,10 @@
-import { NullifierMembershipWitness } from '@aztec/circuit-types';
-import { EthAddress, FunctionSelector, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
-import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type NullifierMembershipWitness } from '@aztec/circuit-types';
+import { type EthAddress, type FunctionSelector, type L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/foundation/fields';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { MessageLoadOracleInputs } from '../acvm/index.js';
+import { type MessageLoadOracleInputs } from '../acvm/index.js';
 
 /**
  * Database interface for providing access to public state.
@@ -79,12 +79,18 @@ export interface PublicContractsDB {
 /** Database interface for providing access to commitment tree, l1 to l2 message tree, and nullifier tree. */
 export interface CommitmentsDB {
   /**
-   * Gets a confirmed L1 to L2 message for the given message hash.
-   * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
+   * Fetches a message from the db, given its key.
+   * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier.
+   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  getL1ToL2MembershipWitness(messageHash: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
+  getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
 
   /**
    * Gets the index of a commitment in the note hash tree.

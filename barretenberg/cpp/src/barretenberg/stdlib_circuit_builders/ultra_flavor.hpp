@@ -43,6 +43,8 @@ class UltraFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 7;
+    // Total number of folded polynomials, which is just all polynomials except the shifts
+    static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
     using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -56,7 +58,7 @@ class UltraFlavor {
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 12);
+    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
@@ -285,6 +287,15 @@ class UltraFlavor {
         // The plookup wires that store plookup read data.
         auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
 
+        void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
+        {
+            // Compute sorted witness-table accumulator
+            compute_sorted_list_accumulator(eta, eta_two, eta_three);
+
+            // Finalize fourth wire polynomial by adding lookup memory records
+            add_plookup_memory_records_to_wire_4(eta, eta_two, eta_three);
+        }
+
         /**
          * @brief Construct sorted list accumulator polynomial 's'.
          *
@@ -296,33 +307,19 @@ class UltraFlavor {
          * @param eta random challenge
          * @return Polynomial
          */
-        void compute_sorted_list_accumulator(const FF& eta)
+        void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
-            const size_t circuit_size = this->circuit_size;
-
-            auto sorted_list_accumulator = Polynomial{ circuit_size };
+            auto sorted_list_accumulator = Polynomial{ this->circuit_size };
 
             // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
-            for (size_t i = 0; i < circuit_size; ++i) {
-                FF T0 = this->sorted_polynomials[3][i];
-                T0 *= eta;
-                T0 += this->sorted_polynomials[2][i];
-                T0 *= eta;
-                T0 += this->sorted_polynomials[1][i];
-                T0 *= eta;
-                T0 += this->sorted_polynomials[0][i];
+            for (size_t i = 0; i < this->circuit_size; ++i) {
+                FF T0 = sorted_polynomials[3][i] * eta_three;
+                T0 += sorted_polynomials[2][i] * eta_two;
+                T0 += sorted_polynomials[1][i] * eta;
+                T0 += sorted_polynomials[0][i];
                 sorted_list_accumulator[i] = T0;
             }
-            this->sorted_accum = sorted_list_accumulator.share();
-        }
-
-        void compute_sorted_accumulator_polynomials(const FF& eta)
-        {
-            // Compute sorted witness-table accumulator
-            this->compute_sorted_list_accumulator(eta);
-
-            // Finalize fourth wire polynomial by adding lookup memory records
-            add_plookup_memory_records_to_wire_4(eta);
+            sorted_accum = sorted_list_accumulator.share();
         }
 
         /**
@@ -334,31 +331,25 @@ class UltraFlavor {
          * @tparam Flavor
          * @param eta challenge produced after commitment to first three wire polynomials
          */
-        void add_plookup_memory_records_to_wire_4(const FF& eta)
+        void add_plookup_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
             // (See plookup_auxiliary_widget.hpp for details)
-            auto wires = this->get_wires();
+            auto wires = get_wires();
 
             // Compute read record values
-            for (const auto& gate_idx : this->memory_read_records) {
-                wires[3][gate_idx] += wires[2][gate_idx];
-                wires[3][gate_idx] *= eta;
-                wires[3][gate_idx] += wires[1][gate_idx];
-                wires[3][gate_idx] *= eta;
-                wires[3][gate_idx] += wires[0][gate_idx];
-                wires[3][gate_idx] *= eta;
+            for (const auto& gate_idx : memory_read_records) {
+                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
+                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
+                wires[3][gate_idx] += wires[0][gate_idx] * eta;
             }
 
             // Compute write record values
-            for (const auto& gate_idx : this->memory_write_records) {
-                wires[3][gate_idx] += wires[2][gate_idx];
-                wires[3][gate_idx] *= eta;
-                wires[3][gate_idx] += wires[1][gate_idx];
-                wires[3][gate_idx] *= eta;
-                wires[3][gate_idx] += wires[0][gate_idx];
-                wires[3][gate_idx] *= eta;
+            for (const auto& gate_idx : memory_write_records) {
+                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
+                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
+                wires[3][gate_idx] += wires[0][gate_idx] * eta;
                 wires[3][gate_idx] += 1;
             }
         }
@@ -396,8 +387,26 @@ class UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
+    // using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+      public:
+        VerificationKey() = default;
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+            : VerificationKey_(circuit_size, num_public_inputs)
+        {}
+        VerificationKey(ProvingKey& proving_key)
+        {
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+            this->circuit_size = proving_key.circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = proving_key.num_public_inputs;
+            this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
+            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
+                commitment = proving_key.commitment_key->commit(polynomial);
+            }
+        }
+    };
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
      * evaluated at one point.
@@ -421,17 +430,6 @@ class UltraFlavor {
             }
             for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
                 ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
-                prover_poly = key_poly.shifted();
-            }
-        }
-        ProverPolynomials(std::shared_ptr<ProvingKey>& proving_key)
-        {
-            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key->get_all())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(*proving_key, key_poly));
-                prover_poly = key_poly.share();
-            }
-            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key->get_to_be_shifted())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(*proving_key, key_poly) + "_shift"));
                 prover_poly = key_poly.shifted();
             }
         }

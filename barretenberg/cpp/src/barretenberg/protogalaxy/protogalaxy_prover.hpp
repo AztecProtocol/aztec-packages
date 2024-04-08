@@ -34,6 +34,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Instance = typename ProverInstances::Instance;
     using Utils = bb::RelationUtils<Flavor>;
     using RowEvaluations = typename Flavor::AllValues;
+    using ProvingKey = typename Flavor::ProvingKey;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using Relations = typename Flavor::Relations;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -70,7 +71,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
         : instances(ProverInstances(insts))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
-        , commitment_key(instances[1]->proving_key->commitment_key){};
+        , commitment_key(instances[1]->proving_key.commitment_key){};
     ~ProtoGalaxyProver_() = default;
 
     /**
@@ -306,7 +307,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances, PowPolynomial<FF>& pow_betas)
     {
         BB_OP_COUNT_TIME();
-        size_t common_instance_size = instances[0]->proving_key->circuit_size;
+        size_t common_instance_size = instances[0]->proving_key.circuit_size;
         pow_betas.compute_values();
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based

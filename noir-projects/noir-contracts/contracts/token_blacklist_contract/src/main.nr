@@ -30,6 +30,7 @@ contract TokenBlacklist {
     use crate::interfaces::SlowMap;
     // docs:end:interface
 
+    #[aztec(storage)]
     struct Storage {
         admin: PublicMutable<AztecAddress>,
         balances: BalancesMap<TokenNote>,
@@ -200,7 +201,8 @@ contract TokenBlacklist {
         let secret_hash = compute_secret_hash(secret);
         // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
         // stored in field with index 1 (select(1, secret_hash)).
-        let options = NoteGetterOptions::new().select(TransparentNote::properties().amount, amount, Option::none()).select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
             TransparentNote::properties().secret_hash,
             secret_hash,
             Option::none()

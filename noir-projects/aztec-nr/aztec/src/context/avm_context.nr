@@ -3,15 +3,17 @@ use dep::protocol_types::traits::Serialize;
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
 use dep::protocol_types::constants::RETURN_VALUES_LENGTH;
-use crate::context::inputs::PublicContextInputs;
+use crate::context::inputs::avm_context_inputs::AvmContextInputs;
 use crate::context::interface::ContextInterface;
 use crate::context::interface::PublicContextInterface;
 
-struct AVMContext {}
+struct AvmContext {
+    inputs: AvmContextInputs,
+}
 
-impl AVMContext {
-    pub fn new() -> Self {
-        AVMContext {}
+impl AvmContext {
+    pub fn new(inputs: AvmContextInputs) -> Self {
+        AvmContext { inputs }
     }
 
     pub fn origin(self) -> AztecAddress {
@@ -71,12 +73,12 @@ impl AVMContext {
     }
 }
 
-impl PublicContextInterface for AVMContext {
+impl PublicContextInterface for AvmContext {
     fn block_number(self) -> Field {
         block_number()
     }
 
-    fn timestamp(self) -> Field {
+    fn timestamp(self) -> u64 {
         timestamp()
     }
 
@@ -121,7 +123,7 @@ impl PublicContextInterface for AVMContext {
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
+        let gas = [/*l1_gas*/10000, /*l2_gas*/10000, /*da_gas*/10000];
 
         let results = call(
             gas,
@@ -142,7 +144,7 @@ impl PublicContextInterface for AVMContext {
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
+        let gas = [/*l1_gas*/10000, /*l2_gas*/10000, /*da_gas*/10000];
 
         let (data_to_return, success): ([Field; RETURN_VALUES_LENGTH], u8) = call_static(
             gas,
@@ -166,7 +168,7 @@ impl PublicContextInterface for AVMContext {
     }
 }
 
-impl ContextInterface for AVMContext {
+impl ContextInterface for AvmContext {
     fn push_new_note_hash(&mut self, note_hash: Field) {
         emit_note_hash(note_hash);
     }
@@ -190,16 +192,14 @@ impl ContextInterface for AVMContext {
         version()
     }
     fn selector(self) -> FunctionSelector {
-        assert(false, "'selector' not implemented!");
-        FunctionSelector::zero()
+        FunctionSelector::from_field(self.inputs.selector)
     }
     fn get_header(self) -> Header {
         assert(false, "'get_header' not implemented!");
         Header::empty()
     }
     fn get_args_hash(self) -> Field {
-        assert(false, "'get_args_hash' not implemented!");
-        0
+        self.inputs.args_hash
     }
 }
 
@@ -238,7 +238,7 @@ fn version() -> Field {}
 fn block_number() -> Field {}
 
 #[oracle(avmOpcodeTimestamp)]
-fn timestamp() -> Field {}
+fn timestamp() -> u64 {}
 
 #[oracle(avmOpcodeNoteHashExists)]
 fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {}

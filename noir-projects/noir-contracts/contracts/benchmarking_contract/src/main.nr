@@ -10,8 +10,9 @@ contract Benchmarking {
     };
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{context::{Context}};
+    use dep::aztec::{context::Context};
 
+    #[aztec(storage)]
     struct Storage {
         notes: Map<AztecAddress, PrivateSet<ValueNote>>,
         balances: Map<AztecAddress, PublicMutable<Field>>,
@@ -31,8 +32,8 @@ contract Benchmarking {
     #[aztec(private)]
     fn recreate_note(owner: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
-        let getter_options = NoteGetterOptions::new().set_limit(1).set_offset(index);
-        let notes = owner_notes.get_notes(getter_options);
+        let mut getter_options = NoteGetterOptions::new();
+        let notes = owner_notes.get_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes[0].unwrap_unchecked();
         owner_notes.remove(note);
         increment(owner_notes, note.value, owner);

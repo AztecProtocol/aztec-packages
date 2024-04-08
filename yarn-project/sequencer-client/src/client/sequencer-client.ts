@@ -1,15 +1,16 @@
-import { L1ToL2MessageSource, L2BlockSource } from '@aztec/circuit-types';
-import { BlockProver } from '@aztec/circuit-types/interfaces';
-import { P2P } from '@aztec/p2p';
-import { SimulationProvider } from '@aztec/simulator';
-import { ContractDataSource } from '@aztec/types/contracts';
-import { WorldStateSynchronizer } from '@aztec/world-state';
+import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type BlockProver } from '@aztec/circuit-types/interfaces';
+import { type P2P } from '@aztec/p2p';
+import { type SimulationProvider } from '@aztec/simulator';
+import { type ContractDataSource } from '@aztec/types/contracts';
+import { type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { SequencerClientConfig } from '../config.js';
+import { type SequencerClientConfig } from '../config.js';
 import { getGlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { getL1Publisher } from '../publisher/index.js';
-import { Sequencer, SequencerConfig } from '../sequencer/index.js';
+import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 import { PublicProcessorFactory } from '../sequencer/public_processor.js';
+import { TxValidatorFactory } from '../sequencer/tx_validator_factory.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -43,12 +44,7 @@ export class SequencerClient {
     const globalsBuilder = getGlobalVariableBuilder(config);
     const merkleTreeDb = worldStateSynchronizer.getLatest();
 
-    const publicProcessorFactory = new PublicProcessorFactory(
-      merkleTreeDb,
-      contractDataSource,
-      l1ToL2MessageSource,
-      simulationProvider,
-    );
+    const publicProcessorFactory = new PublicProcessorFactory(merkleTreeDb, contractDataSource, simulationProvider);
 
     const sequencer = new Sequencer(
       publisher,
@@ -59,8 +55,8 @@ export class SequencerClient {
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
+      new TxValidatorFactory(merkleTreeDb, contractDataSource, config.l1Contracts.gasPortalAddress),
       config,
-      config.l1Contracts.gasPortalAddress,
     );
 
     await sequencer.start();

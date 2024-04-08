@@ -1,19 +1,27 @@
-import { L1ToL2MessageSource, L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/circuit-types';
-import { L2BlockHandledStats } from '@aztec/circuit-types/stats';
+import { type L1ToL2MessageSource, type L2Block, L2BlockDownloader, type L2BlockSource } from '@aztec/circuit-types';
+import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import { AztecKVStore, AztecSingleton } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
-import { HandleL2BlockAndMessagesResult, MerkleTreeOperations, MerkleTrees } from '../world-state-db/index.js';
+import {
+  type HandleL2BlockAndMessagesResult,
+  type MerkleTreeOperations,
+  type MerkleTrees,
+} from '../world-state-db/index.js';
 import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
-import { WorldStateConfig } from './config.js';
-import { WorldStateRunningState, WorldStateStatus, WorldStateSynchronizer } from './world_state_synchronizer.js';
+import { type WorldStateConfig } from './config.js';
+import {
+  WorldStateRunningState,
+  type WorldStateStatus,
+  type WorldStateSynchronizer,
+} from './world_state_synchronizer.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource.
@@ -245,8 +253,10 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
       new SHA256Trunc(),
       'temp_in_hash_check',
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
+      0n,
+      Fr,
     );
-    await tree.appendLeaves(l1ToL2Messages.map(msg => msg.toBuffer()));
+    await tree.appendLeaves(l1ToL2Messages);
 
     if (!tree.getRoot(true).equals(inHash)) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
