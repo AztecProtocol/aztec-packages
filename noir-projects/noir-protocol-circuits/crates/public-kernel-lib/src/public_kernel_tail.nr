@@ -1,16 +1,11 @@
 use crate::common;
-use dep::reset_kernel_lib::{
-    NullifierReadRequestHints, NullifierNonExistentReadRequestHints, reset_non_existent_read_requests,
-    reset_read_requests
-};
+use dep::reset_kernel_lib::{NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicValidationRequestProcessor};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
     kernel_data::PublicKernelData, side_effect::SideEffectLinkedToNoteHash
 },
-    constants::MAX_NEW_NULLIFIERS_PER_TX,
-    utils::{arrays::{array_length, array_merge, array_to_bounded_vec, assert_sorted_array}},
-    hash::silo_nullifier, traits::is_empty
+    constants::MAX_NEW_NULLIFIERS_PER_TX, utils::{arrays::array_length}
 };
 use dep::std::unsafe;
 
@@ -38,80 +33,25 @@ impl PublicKernelTailCircuitPrivateInputs {
         );
     }
 
-    fn validate_nullifier_read_requests(self, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
-        let end_non_revertible = self.previous_kernel.public_inputs.end_non_revertible;
-        let end = self.previous_kernel.public_inputs.end;
-
-        let requests = self.previous_kernel.public_inputs.validation_requests.nullifier_read_requests;
-
-        let pending_nullifiers = array_merge(end_non_revertible.new_nullifiers, end.new_nullifiers);
-
-        let hints = self.nullifier_read_request_hints;
-
-        let nullifier_tree_root = public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
-
-        let unverified_nullifier_read_requests = reset_read_requests(
-            requests,
-            pending_nullifiers,
-            hints.read_request_statuses,
-            hints.pending_read_hints,
-            hints.settled_read_hints,
-            nullifier_tree_root
-        );
-
-        assert(
-            unverified_nullifier_read_requests.len() == 0, "All nullifier read requests must be verified"
-        );
-    }
-
-    fn validate_nullifier_non_existent_read_requests(self, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
-        let end_non_revertible = self.previous_kernel.public_inputs.end_non_revertible;
-        let end = self.previous_kernel.public_inputs.end;
-
-        // The values of the read requests here need to be siloed.
-        // Notice that it's not the case for regular read requests, which can be run between two kernel iterations, and will to be verified against unsiloed pending values.
-        let mut read_requests = self.previous_kernel.public_inputs.validation_requests.nullifier_non_existent_read_requests;
-        for i in 0..read_requests.len() {
-            let read_request = read_requests[i];
-            if !is_empty(read_request) {
-                read_requests[i].value = silo_nullifier(read_request.contract_address, read_request.value);
-            }
-        }
-
-        let nullifier_tree_root = public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
-
-        let hints = self.nullifier_non_existent_read_request_hints;
-
-        let pending_nullifiers = array_merge(end_non_revertible.new_nullifiers, end.new_nullifiers);
-        assert_sorted_array(
-            pending_nullifiers,
-            hints.sorted_pending_values,
-            hints.sorted_pending_value_index_hints,
-            |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.value.lt(b.value)
-        );
-        let sorted_pending_nullifiers = array_to_bounded_vec(hints.sorted_pending_values);
-
-        reset_non_existent_read_requests(
-            read_requests,
-            hints.non_membership_hints,
-            nullifier_tree_root,
-            sorted_pending_nullifiers,
-            hints.next_pending_value_indices
-        );
-    }
-
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let previous_public_inputs = self.previous_kernel.public_inputs;
+        let nullifier_tree_root = previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
+        let request_processor = PublicValidationRequestProcessor {
+            public_inputs: previous_public_inputs,
+            validation_requests: previous_public_inputs.validation_requests,
+            nullifier_read_request_hints: self.nullifier_read_request_hints,
+            nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints,
+            nullifier_tree_root
+        };
+        request_processor.validate();
 
         self.validate_inputs();
+
+        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
         self.propagate_revert_code(&mut public_inputs);
 
         common::initialize_emitted_end_values(self.previous_kernel, &mut public_inputs);
-
-        self.validate_nullifier_read_requests(&mut public_inputs);
-
-        self.validate_nullifier_non_existent_read_requests(&mut public_inputs);
 
         public_inputs.finish_tail()
     }
