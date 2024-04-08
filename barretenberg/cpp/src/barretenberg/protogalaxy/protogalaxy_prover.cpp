@@ -66,6 +66,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
                       challenge * (challenge - FF(1)) * (FF(3) - challenge) * inverse_two,
                       challenge * (challenge - FF(1)) * (challenge - FF(2)) * inverse_six };
     }
+    static_assert(ProverInstances::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::move(instances[0]);

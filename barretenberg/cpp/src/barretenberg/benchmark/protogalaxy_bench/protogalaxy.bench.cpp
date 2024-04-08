@@ -30,6 +30,7 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
         return std::make_shared<ProverInstance>(builder);
     };
     std::vector<std::shared_ptr<Instance>> instances;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
         instances.emplace_back(construct_instance());
     }

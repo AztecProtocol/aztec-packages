@@ -63,6 +63,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     static TupleOfInstances construct_instances(size_t num_insts)
     {
         TupleOfInstances instances;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
         for (size_t idx = 0; idx < num_insts; idx++) {
             auto builder = typename Flavor::CircuitBuilder();
             construct_circuit(builder);

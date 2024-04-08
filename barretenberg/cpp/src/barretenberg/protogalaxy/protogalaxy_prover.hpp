@@ -409,6 +409,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 lagrange_0 = (FF(1) - FF(point)) * (FF(2) - FF(point)) * (FF(3) - FF(point)) * inverse_six;
                 vanishing_polynomial = FF(point) * (FF(point) - 1) * (FF(point) - 2) * (FF(point) - 3);
             }
+            static_assert(ProverInstances::NUM < 5);
+
             combiner_quotient_evals[idx] =
                 (combiner.value_at(point) - compressed_perturbator * lagrange_0) * vanishing_polynomial.invert();
         }
