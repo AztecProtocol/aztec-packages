@@ -248,7 +248,6 @@ uint32_t GoblinUltraCircuitBuilder_<FF>::read_bus_vector(BusId bus_idx, const ui
     FF value = this->get_variable(bus_vector[read_idx]);
     uint32_t value_witness_idx = this->add_variable(value);
 
-    // WORKTODO: make bus idx first input?
     create_databus_read_gate({ read_idx_witness_idx, value_witness_idx }, bus_idx);
     bus_vector.increment_read_count(read_idx);
 

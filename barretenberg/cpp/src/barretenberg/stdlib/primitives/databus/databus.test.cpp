@@ -48,11 +48,17 @@ TEST(Databus, CallDataAndReturnData)
     }
     databus.return_data.set_values(return_data_values);
 
+    // Establish that the first two outputs are simply copied over from the inputs
+    field_ct idx_0(witness_ct(&builder, 0));
+    field_ct idx_1(witness_ct(&builder, 1));
+    databus.calldata[idx_0].assert_equal(databus.return_data[idx_0]);
+    databus.calldata[idx_1].assert_equal(databus.return_data[idx_1]);
+
     // Get the last two entries in calldata and compute their sum
-    field_ct idx_1(witness_ct(&builder, 2));
-    field_ct idx_2(witness_ct(&builder, 3));
+    field_ct idx_2(witness_ct(&builder, 2));
+    field_ct idx_3(witness_ct(&builder, 3));
     // This line creates an arithmetic gate and two calldata read gates (via operator[]).
-    field_ct sum = databus.calldata[idx_1] + databus.calldata[idx_2];
+    field_ct sum = databus.calldata[idx_2] + databus.calldata[idx_3];
 
     // Read the last index of the return data. (Creates a return data read gate via operator[]).
     field_ct idx(witness_ct(&builder, 2));
@@ -85,7 +91,8 @@ TEST(Databus, BadReadFailure)
     databus.return_data.set_values({ witness_ct(&builder, actual_value) });
 
     // Read the value from the return data
-    field_ct idx(witness_ct(&builder, 0)); // read at 0th index
+    size_t raw_idx = 0; // read at 0th index
+    field_ct idx(witness_ct(&builder, raw_idx));
     field_ct read_result = databus.return_data[idx];
 
     // The result of the read should be as expected
@@ -100,5 +107,31 @@ TEST(Databus, BadReadFailure)
     erroneous_value.assert_equal(read_result);
 
     // Since the read gate is no longer valid, the circuit checker will fail
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
+/**
+ * @brief A failure test demonstrating that a bad input-output 'copy' will lead to an invalid witness
+ *
+ */
+TEST(Databus, BadCopyFailure)
+{
+    Builder builder;
+    databus_ct databus;
+
+    // Populate calldata with a single input
+    bb::fr input = 13;
+    databus.calldata.set_values({ witness_ct(&builder, input) });
+
+    // Populate return data with an output different from the input
+    bb::fr output = input - 1;
+    databus.return_data.set_values({ witness_ct(&builder, output) });
+
+    // Attempt to attest that the calldata has been copied into the return data
+    size_t raw_idx = 0; // read at 0th index
+    field_ct idx(witness_ct(&builder, raw_idx));
+    databus.calldata[idx].assert_equal(databus.return_data[idx]);
+
+    // Since the output data is not a copy of the input, the checker should fail
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

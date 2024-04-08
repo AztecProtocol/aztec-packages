@@ -13,14 +13,15 @@ template <typename Builder> void databus<Builder>::bus_vector::initialize() cons
 {
     ASSERT(!initialized);
     ASSERT(context != nullptr);
-    // Populate the bus vector entries from raw entries; Must be normalized and cannot be constants
+    // Populate the bus vector entries from raw entries
     for (const auto& entry : raw_entries) {
-        if (entry.is_constant()) {
-            entries.emplace_back(
-                field_pt::from_witness_index(context, context->put_constant_variable(entry.get_value())));
-        } else {
+        if (entry.is_constant()) { // create a non-constant witness from the constant witness
+            auto const_var_idx = context->put_constant_variable(entry.get_value());
+            entries.emplace_back(field_pt::from_witness_index(context, const_var_idx));
+        } else { // normalize the raw entry
             entries.emplace_back(entry.normalize());
         }
+        // Add the entry to the bus vector data
         context->append_to_bus_vector(bus_idx, entries.back().get_witness_index());
     }
 
@@ -39,7 +40,7 @@ template <typename Builder> field_t<Builder> databus<Builder>::bus_vector::opera
 template <typename Builder> field_t<Builder> databus<Builder>::bus_vector::operator[](const field_pt& index) const
 {
     auto raw_index = static_cast<size_t>(uint256_t(index.get_value()).data[0]);
-    if (index.is_constant()) { // WORKTODO: is this constant path viable for the bus?
+    if (index.is_constant()) {
         return operator[](raw_index);
     }
     if (context == nullptr) {
