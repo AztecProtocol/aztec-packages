@@ -1,7 +1,7 @@
-import { Key as BaseKey, Database } from 'lmdb';
+import { type Key as BaseKey, type Database } from 'lmdb';
 
-import { Key, Range } from '../interfaces/common.js';
-import { AztecCounter } from '../interfaces/counter.js';
+import { type Key, type Range } from '../interfaces/common.js';
+import { type AztecCounter } from '../interfaces/counter.js';
 import { LmdbAztecMap } from './map.js';
 
 /**
@@ -18,11 +18,11 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
     this.#map = new LmdbAztecMap(db, name);
   }
 
-  set(key: K, value: number): Promise<boolean> {
-    return this.#map.set(key, value);
+  async set(key: K, value: number): Promise<void> {
+    await this.#map.set(key, value);
   }
 
-  update(key: K, delta = 1): Promise<boolean> {
+  update(key: K, delta = 1): Promise<void> {
     return this.#db.childTransaction(() => {
       const current = this.#map.get(key) ?? 0;
       const next = current + delta;
@@ -38,8 +38,6 @@ export class LmdbAztecCounter<K extends Key> implements AztecCounter<K> {
         // of the key when iterating over the database
         void this.#map.set(key, next);
       }
-
-      return true;
     });
   }
 

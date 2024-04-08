@@ -1,12 +1,13 @@
 #!/usr/bin/env -S node --no-warnings
-import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, SignerlessWallet, Wallet } from '@aztec/aztec.js';
+import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecAddress, BatchCall, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { AztecNode } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
 import {
-  DeployL1Contracts,
-  L1ContractAddresses,
-  L1ContractArtifactsForDeployment,
+  type DeployL1Contracts,
+  type L1ContractAddresses,
+  type L1ContractArtifactsForDeployment,
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
@@ -30,9 +31,15 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
-import { PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
-import { HDAccount, PrivateKeyAccount, createPublicClient, getContract, http as httpViemTransport } from 'viem';
+import {
+  type HDAccount,
+  type PrivateKeyAccount,
+  createPublicClient,
+  getContract,
+  http as httpViemTransport,
+} from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -165,8 +172,12 @@ async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: 
     return;
   }
 
-  await (await registerContractClass(deployer, canonicalGasToken.artifact)).send().wait();
-  await deployInstance(deployer, canonicalGasToken.instance).send().wait();
+  const batch = new BatchCall(deployer, [
+    (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
+    deployInstance(deployer, canonicalGasToken.instance).request(),
+  ]);
+
+  await batch.send().wait();
 
   logger(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
 }
@@ -200,8 +211,10 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const pxe = await createAztecPXE(node);
 
   if (config.enableGas) {
-    const deployer = new SignerlessWallet(pxe);
-    await deployCanonicalL2GasToken(deployer, aztecNodeConfig.l1Contracts);
+    await deployCanonicalL2GasToken(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()),
+      aztecNodeConfig.l1Contracts,
+    );
   }
 
   const stop = async () => {

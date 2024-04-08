@@ -1,6 +1,7 @@
 use crate::{
     context::{inputs::PublicContextInputs, interface::ContextInterface, interface::PublicContextInterface},
-    messaging::process_l1_to_l2_message, oracle::{arguments, public_call::call_public_function_internal}
+    messaging::process_l1_to_l2_message,
+    oracle::{arguments, public_call::call_public_function_internal}, hash::hash_args_array
 };
 use dep::protocol_types::{
     abis::{
@@ -16,10 +17,10 @@ use dep::protocol_types::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
-    NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH
+    RETURN_VALUES_LENGTH
 },
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    hash::hash_args, header::Header, messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
 };
 
 struct PublicContext {
@@ -40,7 +41,7 @@ struct PublicContext {
 
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
+    unencrypted_logs_hash: Field,
     unencrypted_logs_preimages_length: Field,
 
     // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
@@ -64,7 +65,7 @@ impl PublicContext {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            unencrypted_logs_hash: BoundedVec::new(),
+            unencrypted_logs_hash: 0,
             unencrypted_logs_preimages_length: 0,
             historical_header: inputs.historical_header,
             prover_address: AztecAddress::zero() // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -121,7 +122,7 @@ impl PublicContext {
 
     pub fn finish(self) -> PublicCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
+        let unencrypted_logs_hash = 0;
         let unencrypted_log_preimages_length = 0;
 
         // Compute the public call stack hashes
@@ -143,7 +144,7 @@ impl PublicContext {
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
             prover_address: self.prover_address,
-            reverted: false
+            revert_code: 0
         };
         pub_circuit_pub_inputs
     }
@@ -204,7 +205,7 @@ impl PublicContextInterface for PublicContext {
         self.inputs.public_global_variables.block_number
     }
 
-    fn timestamp(self) -> Field {
+    fn timestamp(self) -> u64 {
         self.inputs.public_global_variables.timestamp
     }
 
@@ -233,6 +234,8 @@ impl PublicContextInterface for PublicContext {
         self.new_l2_to_l1_msgs.push(message);
     }
 
+    // We can consume message with a secret in public context because the message cannot be modified and therefore
+    // there is no front-running risk (e.g. somebody could front run you to claim your tokens to your address).
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
         let this = (*self).this_address();
         let nullifier = process_l1_to_l2_message(
@@ -267,7 +270,7 @@ impl PublicContextInterface for PublicContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
+        let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
@@ -278,7 +281,7 @@ impl PublicContextInterface for PublicContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
+        let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
@@ -289,7 +292,7 @@ impl PublicContextInterface for PublicContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH] {
-        let args_hash = hash_args(args);
+        let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }

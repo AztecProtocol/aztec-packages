@@ -4,8 +4,8 @@
 #include "barretenberg/plonk/proof_system/types/program_settings.hpp"
 #include "barretenberg/plonk/proof_system/types/prover_settings.hpp"
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -166,7 +166,7 @@ std::shared_ptr<proving_key> UltraComposer::compute_proving_key(CircuitBuilder& 
         std::make_shared<plonk::proving_key>(subgroup_size, circuit.public_inputs.size(), crs, CircuitType::ULTRA);
 
     // Construct and add to proving key the wire, selector and copy constraint polynomials
-    Trace::populate(circuit, circuit_proving_key);
+    Trace::populate(circuit, *circuit_proving_key);
 
     enforce_nonzero_selector_polynomials(circuit, circuit_proving_key.get());
 

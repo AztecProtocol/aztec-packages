@@ -1,13 +1,13 @@
-import { FunctionCall } from '@aztec/circuit-types';
+import { type FunctionCall } from '@aztec/circuit-types';
 import { FunctionData } from '@aztec/circuits.js';
 import { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { Wallet } from '../account/wallet.js';
+import { type Wallet } from '../account/wallet.js';
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
-import { FeePaymentMethod } from './fee_payment_method.js';
+import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -58,11 +58,16 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    */
   async getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'), true),
-      to: this.asset,
-    });
+    const messageHash = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'), true),
+        to: this.asset,
+      },
+    );
     await this.wallet.createAuthWit(messageHash);
 
     const secretHashForRebate = computeMessageSecretHash(this.rebateSecret);

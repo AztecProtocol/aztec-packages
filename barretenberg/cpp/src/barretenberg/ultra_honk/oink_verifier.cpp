@@ -16,11 +16,12 @@ template <IsUltraFlavor Flavor> OinkOutput<Flavor> OinkVerifier<Flavor>::verify(
     execute_sorted_list_accumulator_round();
     execute_log_derivative_inverse_round();
     execute_grand_product_computation_round();
+    RelationSeparator alphas = generate_alphas_round();
 
-    return OinkOutput<Flavor>{
-        .relation_parameters = relation_parameters,
-        .commitments = witness_comms,
-    };
+    return OinkOutput<Flavor>{ .relation_parameters = relation_parameters,
+                               .commitments = std::move(witness_comms),
+                               .public_inputs = public_inputs,
+                               .alphas = alphas };
 }
 
 /**
@@ -40,11 +41,10 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
     ASSERT(public_input_size == key->num_public_inputs);
     ASSERT(pub_inputs_offset == key->pub_inputs_offset);
 
-    key->public_inputs.clear();
     for (size_t i = 0; i < public_input_size; ++i) {
         auto public_input_i =
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i));
-        key->public_inputs.emplace_back(public_input_i);
+        public_inputs.emplace_back(public_input_i);
     }
 }
 
@@ -74,6 +74,10 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
             transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata);
         witness_comms.calldata_read_counts =
             transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata_read_counts);
+        witness_comms.return_data =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.return_data);
+        witness_comms.return_data_read_counts = transcript->template receive_from_prover<Commitment>(
+            domain_separator + comm_labels.return_data_read_counts);
     }
 }
 
@@ -84,9 +88,11 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
     // Get challenge for sorted list batching and wire four memory records
-    FF eta = transcript->template get_challenge<FF>(domain_separator + "eta");
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
+        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
     relation_parameters.eta = eta;
-
+    relation_parameters.eta_two = eta_two;
+    relation_parameters.eta_three = eta_three;
     // Get commitments to sorted list accumulator and fourth wire
     witness_comms.sorted_accum =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.sorted_accum);
@@ -103,10 +109,12 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
+    // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
-        witness_comms.lookup_inverses =
-            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
+        witness_comms.calldata_inverses =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.calldata_inverses);
+        witness_comms.return_data_inverses =
+            transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.return_data_inverses);
     }
 }
 
@@ -116,11 +124,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
  */
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product_computation_round()
 {
-    const FF public_input_delta = compute_public_input_delta<Flavor>(key->public_inputs,
-                                                                     relation_parameters.beta,
-                                                                     relation_parameters.gamma,
-                                                                     key->circuit_size,
-                                                                     key->pub_inputs_offset);
+    const FF public_input_delta = compute_public_input_delta<Flavor>(
+        public_inputs, relation_parameters.beta, relation_parameters.gamma, key->circuit_size, key->pub_inputs_offset);
     const FF lookup_grand_product_delta =
         compute_lookup_grand_product_delta<FF>(relation_parameters.beta, relation_parameters.gamma, key->circuit_size);
 
@@ -131,6 +136,16 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
     witness_comms.z_lookup =
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_lookup);
+}
+
+template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
+{
+    // Get the relation separation challenges for sumcheck/combiner computation
+    RelationSeparator alphas;
+    for (size_t idx = 0; idx < alphas.size(); idx++) {
+        alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));
+    }
+    return alphas;
 }
 
 template class OinkVerifier<UltraFlavor>;

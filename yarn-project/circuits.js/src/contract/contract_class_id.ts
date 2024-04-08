@@ -1,6 +1,6 @@
 import { pedersenHash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractClass } from '@aztec/types/contracts';
+import { type ContractClass } from '@aztec/types/contracts';
 
 import { GeneratorIndex } from '../constants.gen.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
@@ -36,7 +36,7 @@ export function computeContractClassIdWithPreimage(
       ? contractClass.publicBytecodeCommitment
       : computePublicBytecodeCommitment(contractClass.packedBytecode);
   const id = pedersenHash(
-    [artifactHash.toBuffer(), privateFunctionsRoot.toBuffer(), publicBytecodeCommitment.toBuffer()],
+    [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
     GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
   );
   return { id, artifactHash, privateFunctionsRoot, publicBytecodeCommitment };

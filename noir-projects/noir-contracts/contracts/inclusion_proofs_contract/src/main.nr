@@ -20,12 +20,13 @@ contract InclusionProofs {
         prove_note_is_nullified_at
     },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
-        public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
+        public_storage::{public_storage_historical_read, public_storage_historical_read_at}
     };
     // docs:end:imports
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
+    #[aztec(storage)]
     struct Storage {
         private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
         public_value: PublicMutable<Field>,
@@ -58,7 +59,8 @@ contract InclusionProofs {
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -108,7 +110,8 @@ contract InclusionProofs {
     ) {
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -138,7 +141,8 @@ contract InclusionProofs {
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -163,7 +167,8 @@ contract InclusionProofs {
     #[aztec(private)]
     fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner);
-        let options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -200,39 +205,40 @@ contract InclusionProofs {
     }
 
     #[aztec(private)]
-    fn test_public_unused_value_inclusion(block_number: u32 // The block at which we'll prove that the public value exists
+    fn test_storage_historical_read_unset_slot(block_number: u32 // The block at which we'll read the public storage value
     ) {
-        prove_public_value_inclusion_at(
-            0,
-            storage.public_unused_value.storage_slot,
-            context.this_address(),
-            block_number,
-            context
+        assert_eq(
+            public_storage_historical_read_at(
+                context,
+                storage.public_unused_value.storage_slot,
+                context.this_address(),
+                block_number
+            ), 0
         );
     }
 
     #[aztec(private)]
-    fn test_public_value_inclusion(
-        public_value: Field,
+    fn test_storage_historical_read(
+        expected: Field,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the public value exists
+        block_number: u32 // The block at which we'll read the public storage value
     ) {
-        if (use_block_number) {
-            prove_public_value_inclusion_at(
-                public_value,
+        let actual = if (use_block_number) {
+            public_storage_historical_read_at(
+                context,
                 storage.public_value.storage_slot,
                 context.this_address(),
-                block_number,
-                context
-            );
+                block_number
+            )
         } else {
-            prove_public_value_inclusion(
-                public_value,
+            public_storage_historical_read(
+                context,
                 storage.public_value.storage_slot,
-                context.this_address(),
-                context
-            );
-        }
+                context.this_address()
+            )
+        };
+
+        assert_eq(actual, expected, "Actual public value does not match expected");
     }
 
     // Proves that a contract was publicly deployed and/or initialized at block `block_number`.

@@ -1,5 +1,12 @@
 import { getSingleKeyAccount } from '@aztec/accounts/single_key';
-import { AccountWallet, Fr, GrumpkinScalar, Note, computeMessageSecretHash, createPXEClient } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  Fr,
+  GrumpkinScalar,
+  Note,
+  computeMessageSecretHash,
+  createPXEClient,
+} from '@aztec/aztec.js';
 import { ExtendedNote } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -68,7 +75,7 @@ async function main() {
   await tokenAlice.methods.redeem_shield(alice, ALICE_MINT_BALANCE, aliceSecret).send().wait();
   logger(`${ALICE_MINT_BALANCE} tokens were successfully minted and redeemed by Alice`);
 
-  const balanceAfterMint = await tokenAlice.methods.balance_of_private(alice).view();
+  const balanceAfterMint = await tokenAlice.methods.balance_of_private(alice).simulate();
   logger(`Tokens successfully minted. New Alice's balance: ${balanceAfterMint}`);
 
   // We will now transfer tokens from Alice to Bob
@@ -76,10 +83,10 @@ async function main() {
   await tokenAlice.methods.transfer(alice, bob, TRANSFER_AMOUNT, 0).send().wait();
 
   // Check the new balances
-  const aliceBalance = await tokenAlice.methods.balance_of_private(alice).view();
+  const aliceBalance = await tokenAlice.methods.balance_of_private(alice).simulate();
   logger(`Alice's balance ${aliceBalance}`);
 
-  const bobBalance = await tokenBob.methods.balance_of_private(bob).view();
+  const bobBalance = await tokenBob.methods.balance_of_private(bob).simulate();
   logger(`Bob's balance ${bobBalance}`);
 }
 

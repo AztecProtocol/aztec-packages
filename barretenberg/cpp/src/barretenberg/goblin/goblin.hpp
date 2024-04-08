@@ -1,13 +1,13 @@
 #pragma once
 
+#include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_composer.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_translator_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/instance_inspector.hpp"
+#include "barretenberg/plonk_honk_shared/instance_inspector.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/translator_vm/goblin_translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/goblin_translator_prover.hpp"
 #include "barretenberg/translator_vm/goblin_translator_verifier.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
@@ -29,7 +29,7 @@ class Goblin {
     using GoblinUltraProverInstance = ProverInstance_<GoblinUltraFlavor>;
     using OpQueue = bb::ECCOpQueue;
     using ECCVMFlavor = bb::ECCVMFlavor;
-    using ECCVMBuilder = bb::ECCVMCircuitBuilder<ECCVMFlavor>;
+    using ECCVMBuilder = bb::ECCVMCircuitBuilder;
     using ECCVMComposer = bb::ECCVMComposer;
     using ECCVMProver = bb::ECCVMProver_<ECCVMFlavor>;
     using TranslatorBuilder = bb::GoblinTranslatorCircuitBuilder;

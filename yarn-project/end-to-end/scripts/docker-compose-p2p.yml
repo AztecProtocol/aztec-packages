@@ -1,16 +1,16 @@
 version: '3'
 services:
   fork:
-    image: ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916
-    entrypoint: 'anvil -p 8545 --host 0.0.0.0 --chain-id 31337'
-    ports:
-      - '8545:8545'
+    image: aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
+    entrypoint: 'anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337'
+    expose:
+      - '8545'
 
   p2p-bootstrap:
     image: aztecprotocol/aztec:latest
     command: 'start --p2p-bootstrap'
-    ports:
-      - '40400:40400'
+    expose:
+      - '40400'
     environment:
       DEBUG: 'aztec:*'
       DEBUG_COLORS: 1
@@ -37,6 +37,10 @@ services:
       P2P_NAT_ENABLED: 'false'
       P2P_ENABLED: 'true'
       BOOTSTRAP_NODES: '/ip4/p2p-bootstrap/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
-    command: ${TEST:-./src/e2e_p2p_network.test.ts}
+    entrypoint: >
+      sh -c '
+        while ! nc -z sandbox 8080; do sleep 1; done;
+        yarn test ${TEST:-./src/e2e_deploy_contract.test.ts}
+      '
     volumes:
       - ../log:/usr/src/yarn-project/end-to-end/log:rw

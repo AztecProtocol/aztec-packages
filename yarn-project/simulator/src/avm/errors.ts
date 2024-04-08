@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/circuits.js';
 
 /**
  * Avm-specific errors should derive from this
@@ -53,5 +53,13 @@ export class TagCheckError extends AvmExecutionError {
   constructor(message: string) {
     super(message);
     this.name = 'TagCheckError';
+  }
+}
+
+/** Error thrown when out of gas. */
+export class OutOfGasError extends AvmExecutionError {
+  constructor(dimensions: string[]) {
+    super(`Not enough ${dimensions.map(d => d.toUpperCase()).join(', ')} gas left`);
+    this.name = 'OutOfGasError';
   }
 }

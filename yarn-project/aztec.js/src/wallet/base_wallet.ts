@@ -1,27 +1,34 @@
 import {
-  AuthWitness,
-  ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  L2Block,
-  LogFilter,
-  NoteFilter,
-  PXE,
-  SyncStatus,
-  Tx,
-  TxEffect,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
+  type AuthWitness,
+  type ExtendedNote,
+  type FunctionCall,
+  type GetUnencryptedLogsResponse,
+  type L2Block,
+  type LogFilter,
+  type NoteFilter,
+  type PXE,
+  type SimulatedTx,
+  type SyncStatus,
+  type Tx,
+  type TxEffect,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxReceipt,
 } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { NodeInfo } from '@aztec/types/interfaces';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fr,
+  type GrumpkinPrivateKey,
+  type PartialAddress,
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { FeeOptions } from '../account/interface.js';
-import { Wallet } from '../account/wallet.js';
-import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { type Wallet } from '../account/wallet.js';
+import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { type FeeOptions } from '../entrypoint/entrypoint.js';
 
 /**
  * A base class for Wallet implementations
@@ -30,6 +37,10 @@ export abstract class BaseWallet implements Wallet {
   constructor(protected readonly pxe: PXE) {}
 
   abstract getCompleteAddress(): CompleteAddress;
+
+  abstract getChainId(): Fr;
+
+  abstract getVersion(): Fr;
 
   abstract createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest>;
 
@@ -42,6 +53,10 @@ export abstract class BaseWallet implements Wallet {
           caller: AztecAddress;
           /** The action to approve */
           action: ContractFunctionInteraction | FunctionCall;
+          /** The chain id to approve */
+          chainId?: Fr;
+          /** The version to approve  */
+          version?: Fr;
         },
   ): Promise<AuthWitness>;
 
@@ -87,8 +102,11 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.simulateTx(txRequest, simulatePublic);
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.pxe.proveTx(txRequest, simulatePublic);
+  }
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -138,6 +156,9 @@ export abstract class BaseWallet implements Wallet {
   }
   addAuthWitness(authWitness: AuthWitness) {
     return this.pxe.addAuthWitness(authWitness);
+  }
+  getAuthWitness(messageHash: Fr) {
+    return this.pxe.getAuthWitness(messageHash);
   }
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
     return this.pxe.isContractClassPubliclyRegistered(id);

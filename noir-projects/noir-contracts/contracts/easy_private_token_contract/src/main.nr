@@ -4,6 +4,7 @@ contract EasyPrivateToken {
     use dep::value_note::{balance_utils, value_note::ValueNote};
     use dep::easy_private_state::EasyPrivateUint;
 
+    #[aztec(storage)]
     struct Storage {
         balances: Map<AztecAddress, EasyPrivateUint>,
     }
@@ -37,7 +38,7 @@ contract EasyPrivateToken {
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
-    unconstrained fn getBalance(owner: AztecAddress) -> pub Field {
+    unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.

@@ -3,21 +3,16 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 
 import { AggregationObject } from '../aggregation_object.js';
+import { RevertCode } from '../revert_code.js';
 import { ValidationRequests } from '../validation_requests.js';
-import {
-  CombinedAccumulatedData,
-  PublicAccumulatedNonRevertibleData,
-  PublicAccumulatedRevertibleData,
-} from './combined_accumulated_data.js';
 import { CombinedConstantData } from './combined_constant_data.js';
+import { PublicAccumulatedData } from './public_accumulated_data.js';
 
 /**
  * Outputs from the public kernel circuits.
  * All Public kernels use this shape for outputs.
  */
 export class PublicKernelCircuitPublicInputs {
-  private combined: CombinedAccumulatedData | undefined = undefined;
-
   constructor(
     /**
      * Aggregated proof of all the previous kernel iterations.
@@ -30,31 +25,19 @@ export class PublicKernelCircuitPublicInputs {
     /**
      * Accumulated side effects and enqueued calls that are not revertible.
      */
-    public endNonRevertibleData: PublicAccumulatedNonRevertibleData,
+    public endNonRevertibleData: PublicAccumulatedData,
     /**
      * Data accumulated from both public and private circuits.
      */
-    public end: PublicAccumulatedRevertibleData,
+    public end: PublicAccumulatedData,
     /**
      * Data which is not modified by the circuits.
      */
     public constants: CombinedConstantData,
     /**
-     * Indicates whether the setup kernel is needed.
-     */
-    public needsSetup: boolean,
-    /**
-     * Indicates whether the app logic kernel is needed.
-     */
-    public needsAppLogic: boolean,
-    /**
-     * Indicates whether the teardown kernel is needed.
-     */
-    public needsTeardown: boolean,
-    /**
      * Indicates whether execution of the public circuit reverted.
      */
-    public reverted: boolean,
+    public revertCode: RevertCode,
   ) {}
 
   toBuffer() {
@@ -64,22 +47,20 @@ export class PublicKernelCircuitPublicInputs {
       this.endNonRevertibleData,
       this.end,
       this.constants,
-      this.needsSetup,
-      this.needsAppLogic,
-      this.needsTeardown,
-      this.reverted,
+      this.revertCode,
     );
   }
 
-  get combinedData() {
-    if (this.needsSetup || this.needsAppLogic || this.needsTeardown) {
-      throw new Error('Cannot combine data when the circuit is not finished');
-    }
+  get needsSetup() {
+    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+  }
 
-    if (!this.combined) {
-      this.combined = CombinedAccumulatedData.recombine(this.endNonRevertibleData, this.end, this.reverted);
-    }
-    return this.combined;
+  get needsAppLogic() {
+    return !this.end.publicCallStack[0].isEmpty();
+  }
+
+  get needsTeardown() {
+    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
   }
 
   /**
@@ -92,13 +73,10 @@ export class PublicKernelCircuitPublicInputs {
     return new PublicKernelCircuitPublicInputs(
       reader.readObject(AggregationObject),
       reader.readObject(ValidationRequests),
-      reader.readObject(PublicAccumulatedNonRevertibleData),
-      reader.readObject(PublicAccumulatedRevertibleData),
+      reader.readObject(PublicAccumulatedData),
+      reader.readObject(PublicAccumulatedData),
       reader.readObject(CombinedConstantData),
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readBoolean(),
-      reader.readBoolean(),
+      reader.readObject(RevertCode),
     );
   }
 
@@ -106,13 +84,10 @@ export class PublicKernelCircuitPublicInputs {
     return new PublicKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
       ValidationRequests.empty(),
-      PublicAccumulatedNonRevertibleData.empty(),
-      PublicAccumulatedRevertibleData.empty(),
+      PublicAccumulatedData.empty(),
+      PublicAccumulatedData.empty(),
       CombinedConstantData.empty(),
-      false,
-      false,
-      false,
-      false,
+      RevertCode.OK,
     );
   }
 
@@ -123,10 +98,7 @@ export class PublicKernelCircuitPublicInputs {
       endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
       end: ${inspect(this.end)},
       constants: ${this.constants},
-      needsSetup: ${this.needsSetup},
-      needsAppLogic: ${this.needsAppLogic},
-      needsTeardown: ${this.needsTeardown},
-      reverted: ${this.reverted}
+      revertCode: ${this.revertCode}
       }`;
   }
 }

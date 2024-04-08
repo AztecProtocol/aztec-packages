@@ -1,11 +1,15 @@
-import { Tx } from '@aztec/circuit-types';
-import { GlobalVariables, Header, Proof, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
-import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type Tx } from '@aztec/circuit-types';
+import {
+  type GlobalVariables,
+  type Header,
+  type Proof,
+  type PublicKernelCircuitPublicInputs,
+} from '@aztec/circuits.js';
+import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicProver } from '../prover/index.js';
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 
 /**
@@ -16,14 +20,13 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     protected db: MerkleTreeOperations,
     protected publicExecutor: PublicExecutor,
     protected publicKernel: PublicKernelCircuitSimulator,
-    protected publicProver: PublicProver,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
     public phase: PublicKernelPhase = PublicKernelPhase.SETUP,
   ) {
-    super(db, publicExecutor, publicKernel, publicProver, globalVariables, historicalHeader, phase);
+    super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
 
   override async handle(
@@ -42,6 +45,6 @@ export class SetupPhaseManager extends AbstractPhaseManager {
       );
     tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
     await this.publicStateDB.checkpoint();
-    return { publicKernelOutput, publicKernelProof, revertReason };
+    return { publicKernelOutput, publicKernelProof, revertReason, returnValues: undefined };
   }
 }

@@ -1,11 +1,11 @@
 import {
-  ABIParameter,
-  ABIVariable,
-  ContractArtifact,
-  FunctionArtifact,
+  type ABIParameter,
+  type ABIVariable,
+  type ContractArtifact,
+  type FunctionArtifact,
   FunctionSelector,
   FunctionType,
-  StructType,
+  type StructType,
 } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 
@@ -279,10 +279,8 @@ ${contractImpl}
  * @returns The corresponding ts code.
  */
 export function generateNoirContractInterface(artifact: ContractArtifact) {
-  // We don't allow calling a constructor, internal fns, or unconstrained fns from other contracts
-  const methods = artifact.functions.filter(
-    f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
-  );
+  // We don't allow calling internal fns or unconstrained fns from other contracts
+  const methods = artifact.functions.filter(f => !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED);
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
   const privateContractStruct = generateContractStruct(artifact.name, 'private', methods);
   const publicContractStruct = generateContractStruct(artifact.name, 'public', methods);

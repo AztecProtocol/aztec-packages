@@ -1,12 +1,11 @@
-import { Tx } from '@aztec/circuit-types';
-import { GlobalVariables, Header, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
-import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type Tx } from '@aztec/circuit-types';
+import { type GlobalVariables, type Header, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicProver } from '../prover/index.js';
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
-import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
+import { type AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { AppLogicPhaseManager } from './app_logic_phase_manager.js';
 import { SetupPhaseManager } from './setup_phase_manager.js';
 import { TailPhaseManager } from './tail_phase_manager.js';
@@ -30,40 +29,37 @@ export class PhaseManagerFactory {
     db: MerkleTreeOperations,
     publicExecutor: PublicExecutor,
     publicKernel: PublicKernelCircuitSimulator,
-    publicProver: PublicProver,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
     publicContractsDB: ContractsDataSourcePublicDB,
     publicStateDB: PublicStateDB,
   ): AbstractPhaseManager | undefined {
-    if (tx.data.needsSetup) {
+    const data = tx.data.forPublic!;
+    if (data.needsSetup) {
       return new SetupPhaseManager(
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         globalVariables,
         historicalHeader,
         publicContractsDB,
         publicStateDB,
       );
-    } else if (tx.data.needsAppLogic) {
+    } else if (data.needsAppLogic) {
       return new AppLogicPhaseManager(
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         globalVariables,
         historicalHeader,
         publicContractsDB,
         publicStateDB,
       );
-    } else if (tx.data.needsTeardown) {
+    } else if (data.needsTeardown) {
       return new TeardownPhaseManager(
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         globalVariables,
         historicalHeader,
         publicContractsDB,
@@ -80,7 +76,6 @@ export class PhaseManagerFactory {
     db: MerkleTreeOperations,
     publicExecutor: PublicExecutor,
     publicKernel: PublicKernelCircuitSimulator,
-    publicProver: PublicProver,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
     publicContractsDB: ContractsDataSourcePublicDB,
@@ -96,7 +91,6 @@ export class PhaseManagerFactory {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         globalVariables,
         historicalHeader,
         publicContractsDB,
@@ -110,7 +104,6 @@ export class PhaseManagerFactory {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         globalVariables,
         historicalHeader,
         publicContractsDB,
@@ -121,7 +114,6 @@ export class PhaseManagerFactory {
         db,
         publicExecutor,
         publicKernel,
-        publicProver,
         globalVariables,
         historicalHeader,
         publicContractsDB,

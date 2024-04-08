@@ -1,23 +1,20 @@
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/circuit-types';
-import { L2BlockBuiltStats } from '@aztec/circuit-types/stats';
-import { AztecAddress, EthAddress, GlobalVariables } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
+import { type L1ToL2MessageSource, type L2Block, type L2BlockSource, type ProcessedTx, Tx } from '@aztec/circuit-types';
+import { type BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
+import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
+import { AztecAddress, EthAddress, type GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer, elapsed } from '@aztec/foundation/timer';
-import { P2P } from '@aztec/p2p';
-import { WorldStateStatus, WorldStateSynchronizer } from '@aztec/world-state';
+import { type P2P } from '@aztec/p2p';
+import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { BlockBuilder } from '../block_builder/index.js';
-import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { L1Publisher } from '../publisher/l1-publisher.js';
-import { WorldStatePublicDB } from '../simulator/public_executor.js';
-import { ceilPowerOfTwo } from '../utils.js';
-import { SequencerConfig } from './config.js';
-import { ProcessedTx } from './processed_tx.js';
-import { PublicProcessorFactory } from './public_processor.js';
-import { TxValidator } from './tx_validator.js';
+import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type SequencerConfig } from './config.js';
+import { type PublicProcessorFactory } from './public_processor.js';
+import { type TxValidator } from './tx_validator.js';
+import { type TxValidatorFactory } from './tx_validator_factory.js';
 
 /**
  * Sequencer client
@@ -38,18 +35,20 @@ export class Sequencer {
   private _feeRecipient = AztecAddress.ZERO;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
+  private allowedFeePaymentContractClasses: Fr[] = [];
+  private allowedFeePaymentContractInstances: AztecAddress[] = [];
 
   constructor(
     private publisher: L1Publisher,
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
-    private blockBuilder: BlockBuilder,
+    private prover: BlockProver,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
+    private txValidatorFactory: TxValidatorFactory,
     config: SequencerConfig = {},
-    private gasPortalAddress = EthAddress.ZERO,
     private log = createDebugLogger('aztec:sequencer'),
   ) {
     this.updateConfig(config);
@@ -75,6 +74,12 @@ export class Sequencer {
     }
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
+    }
+    if (config.allowedFeePaymentContractClasses) {
+      this.allowedFeePaymentContractClasses = config.allowedFeePaymentContractClasses;
+    }
+    if (config.allowedFeePaymentContractInstances) {
+      this.allowedFeePaymentContractInstances = config.allowedFeePaymentContractInstances;
     }
   }
 
@@ -173,17 +178,10 @@ export class Sequencer {
         this._feeRecipient,
       );
 
-      // Filter out invalid txs
-      const trees = this.worldState.getLatest();
-      const txValidator = new TxValidator(
-        {
-          getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
-            return trees.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
-          },
-        },
-        new WorldStatePublicDB(trees),
-        this.gasPortalAddress,
+      const txValidator = this.txValidatorFactory.buildTxValidator(
         newGlobalVariables,
+        this.allowedFeePaymentContractClasses,
+        this.allowedFeePaymentContractInstances,
       );
 
       // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
@@ -305,15 +303,17 @@ export class Sequencer {
     emptyTx: ProcessedTx,
     globalVariables: GlobalVariables,
   ) {
-    // Pad the txs array with empty txs to be a power of two, at least 2
-    const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 2);
-    const emptyTxCount = txsTargetSize - txs.length;
+    const blockTicket = await this.prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages, emptyTx);
 
-    const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    this.log(`Building block ${globalVariables.blockNumber.toBigInt()}`);
+    for (const tx of txs) {
+      await this.prover.addNewTx(tx);
+    }
 
-    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, l1ToL2Messages);
-    return block;
+    const result = await blockTicket.provingPromise;
+    if (result.status === PROVING_STATUS.FAILURE) {
+      throw new Error(`Block proving failed, reason: ${result.reason}`);
+    }
+    return result.block;
   }
 
   get coinbase(): EthAddress {

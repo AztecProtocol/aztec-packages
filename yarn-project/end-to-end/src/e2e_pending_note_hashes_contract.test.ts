@@ -1,4 +1,4 @@
-import { AztecAddress, AztecNode, CompleteAddress, DebugLogger, Fr, Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, type DebugLogger, Fr, type Wallet } from '@aztec/aztec.js';
 import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
@@ -12,9 +12,8 @@ describe('e2e_pending_note_hashes_contract', () => {
   let contract: PendingNoteHashesContract;
 
   beforeEach(async () => {
-    let accounts: CompleteAddress[];
-    ({ teardown, aztecNode, accounts, wallet, logger } = await setup(2));
-    owner = accounts[0].address;
+    ({ teardown, aztecNode, wallet, logger } = await setup(2));
+    owner = wallet.getAddress();
   }, 100_000);
 
   afterEach(() => teardown());
@@ -79,10 +78,12 @@ describe('e2e_pending_note_hashes_contract', () => {
         owner,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
-        deployedContract.methods.get_note_zero_balance.selector,
       )
       .send()
       .wait();
+    await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
+      `Assertion failed: Cannot return zero notes`,
+    );
 
     await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
@@ -154,10 +155,12 @@ describe('e2e_pending_note_hashes_contract', () => {
         owner,
         deployedContract.methods.insert_note.selector,
         deployedContract.methods.get_then_nullify_note.selector,
-        deployedContract.methods.get_note_zero_balance.selector,
       )
       .send()
       .wait();
+    await expect(deployedContract.methods.get_note_zero_balance(owner).send().wait()).rejects.toThrow(
+      `Assertion failed: Cannot return zero notes`,
+    );
 
     // second TX creates 1 note, but it is squashed!
     await expectNoteHashesSquashedExcept(0);
@@ -186,7 +189,6 @@ describe('e2e_pending_note_hashes_contract', () => {
         owner,
         deployedContract.methods.dummy.selector,
         deployedContract.methods.get_then_nullify_note.selector,
-        deployedContract.methods.get_note_zero_balance.selector,
       )
       .send()
       .wait();

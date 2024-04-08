@@ -1,10 +1,10 @@
-import { L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { L2Block, type TxEffect, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap, AztecSingleton, Range } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
 
-import { DataRetrieval } from '../data_retrieval.js';
-import { BlockBodyStore } from './block_body_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
+import { type BlockBodyStore } from './block_body_store.js';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -54,7 +54,7 @@ export class BlockStore {
           archive: block.archive.toBuffer(),
         });
 
-        block.getTxs().forEach((tx, i) => {
+        block.body.txEffects.forEach((tx, i) => {
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         });
       }
@@ -119,7 +119,7 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber);
-    return block?.getTx(txIndex);
+    return block?.body.txEffects[txIndex];
   }
 
   /**
@@ -134,7 +134,15 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber)!;
-    return new TxReceipt(txHash, TxStatus.MINED, '', block.hash().toBuffer(), block.number);
+    const tx = block.body.txEffects[txIndex];
+
+    return new TxReceipt(
+      txHash,
+      tx.revertCode.isOK() ? TxStatus.MINED : TxStatus.REVERTED,
+      '',
+      block.hash().toBuffer(),
+      block.number,
+    );
   }
 
   /**

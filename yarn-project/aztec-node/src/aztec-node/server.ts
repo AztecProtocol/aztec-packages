@@ -1,67 +1,78 @@
-import { ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
+import { type ArchiveSource, Archiver, KVArchiverDataStore, createArchiverClient } from '@aztec/archiver';
 import {
-  AztecNode,
-  GetUnencryptedLogsResponse,
-  L1ToL2MessageSource,
-  L2Block,
-  L2BlockL2Logs,
-  L2BlockNumber,
-  L2BlockSource,
-  L2LogsSource,
-  LogFilter,
+  type AztecNode,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type L1ToL2MessageSource,
+  type L2Block,
+  type L2BlockL2Logs,
+  type L2BlockNumber,
+  type L2BlockSource,
+  type L2LogsSource,
+  type LogFilter,
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
+  type ProverClient,
   PublicDataWitness,
-  SequencerConfig,
-  SiblingPath,
-  Tx,
-  TxEffect,
-  TxHash,
+  type SequencerConfig,
+  type SiblingPath,
+  type Tx,
+  type TxEffect,
+  type TxHash,
   TxReceipt,
   TxStatus,
+  partitionReverts,
 } from '@aztec/circuit-types';
 import {
-  ARCHIVE_HEIGHT,
+  type ARCHIVE_HEIGHT,
   EthAddress,
   Fr,
-  Header,
+  type Header,
   INITIAL_L2_BLOCK_NUM,
-  L1_TO_L2_MSG_TREE_HEIGHT,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   L2_TO_L1_MESSAGE_LENGTH,
-  NOTE_HASH_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
-  NullifierLeafPreimage,
-  PUBLIC_DATA_TREE_HEIGHT,
-  PublicDataTreeLeafPreimage,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  type NOTE_HASH_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type NullifierLeafPreimage,
+  type PUBLIC_DATA_TREE_HEIGHT,
+  type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import { L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
-import { SHA256, StandardTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, P2P, createP2PClient } from '@aztec/p2p';
+import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
+import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
+import { DummyProver, TxProver } from '@aztec/prover-client';
 import {
-  GlobalVariableBuilder,
+  type GlobalVariableBuilder,
   PublicProcessorFactory,
   SequencerClient,
-  WASMSimulator,
   getGlobalVariableBuilder,
-  partitionReverts,
 } from '@aztec/sequencer-client';
-import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { WASMSimulator } from '@aztec/simulator';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+} from '@aztec/types/contracts';
 import {
   MerkleTrees,
   ServerWorldStateSynchronizer,
-  WorldStateConfig,
-  WorldStateSynchronizer,
+  type WorldStateConfig,
+  type WorldStateSynchronizer,
   getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
-import { AztecNodeConfig } from './config.js';
+import { type AztecNodeConfig } from './config.js';
+import { getSimulationProvider } from './simulator-factory.js';
 
 /**
  * The aztec node.
@@ -81,6 +92,7 @@ export class AztecNodeService implements AztecNode {
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     protected readonly merkleTreesDb: AztecKVStore,
+    private readonly prover: ProverClient,
     private log = createDebugLogger('aztec:node'),
   ) {
     const message =
@@ -139,10 +151,25 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
 
+    // start the prover if we have been told to
+    const simulationProvider = await getSimulationProvider(config, log);
+    const prover = config.disableProver
+      ? await DummyProver.new()
+      : await TxProver.new(config, worldStateSynchronizer, simulationProvider);
+
     // now create the sequencer
     const sequencer = config.disableSequencer
       ? undefined
-      : await SequencerClient.new(config, p2pClient, worldStateSynchronizer, archiver, archiver, archiver);
+      : await SequencerClient.new(
+          config,
+          p2pClient,
+          worldStateSynchronizer,
+          archiver,
+          archiver,
+          archiver,
+          prover,
+          simulationProvider,
+        );
 
     return new AztecNodeService(
       config,
@@ -158,6 +185,7 @@ export class AztecNodeService implements AztecNode {
       config.version,
       getGlobalVariableBuilder(config),
       store,
+      prover,
       log,
     );
   }
@@ -244,9 +272,13 @@ export class AztecNodeService implements AztecNode {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  public getLogs<TLogType extends LogType>(
+    from: number,
+    limit: number,
+    logType: LogType,
+  ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
-    return logSource.getLogs(from, limit, logType);
+    return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
   }
 
   /**
@@ -299,6 +331,7 @@ export class AztecNodeService implements AztecNode {
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
     await this.blockSource.stop();
+    await this.prover.stop();
     this.log.info(`Stopped`);
   }
 
@@ -367,13 +400,15 @@ export class AztecNodeService implements AztecNode {
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
    * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
+   * @param startIndex - The index to start searching from (used when skipping nullified messages)
    * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
    */
   public async getL1ToL2MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
+    startIndex = 0n,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
     if (index === undefined) {
       return undefined;
     }
@@ -388,10 +423,15 @@ export class AztecNodeService implements AztecNode {
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
+   * @param startL2BlockNumber - The block number after which we are interested in checking if the message was
+   * included.
+   * @remarks We pass in the minL2BlockNumber because there can be duplicate messages and the block number allow us
+   * to skip the duplicates (we know after which block a given message is to be included).
    * @returns Whether the message is synced and ready to be included in a block.
    */
-  public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message)) !== undefined;
+  public async isL1ToL2MessageSynced(l1ToL2Message: Fr, startL2BlockNumber = INITIAL_L2_BLOCK_NUM): Promise<boolean> {
+    const startIndex = BigInt(startL2BlockNumber - INITIAL_L2_BLOCK_NUM) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex)) !== undefined;
   }
 
   /**
@@ -403,36 +443,43 @@ export class AztecNodeService implements AztecNode {
    * @param l2ToL1Message - The l2ToL1Message get the index / sibling path for.
    * @returns A tuple of the index and the sibling path of the L2ToL1Message.
    */
-  public async getL2ToL1MessageIndexAndSiblingPath(
+  public async getL2ToL1MessageMembershipWitness(
     blockNumber: L2BlockNumber,
     l2ToL1Message: Fr,
-  ): Promise<[number, SiblingPath<number>]> {
+  ): Promise<[bigint, SiblingPath<number>]> {
     const block = await this.blockSource.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
 
     if (block === undefined) {
       throw new Error('Block is not defined');
     }
 
-    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
-
-    if (l2ToL1Messages.length !== L2_TO_L1_MESSAGE_LENGTH * block.body.txEffects.length) {
-      throw new Error('L2 to L1 Messages are not padded');
-    }
-
-    const indexOfL2ToL1Message = l2ToL1Messages.findIndex(l2ToL1MessageInBlock =>
-      l2ToL1MessageInBlock.equals(l2ToL1Message),
+    // We multiply the number of messages per block by the length of each message because each message occupies
+    // 2 leaves in the tree!
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect =>
+      padArrayEnd(txEffect.l2ToL1Msgs, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_TX * L2_TO_L1_MESSAGE_LENGTH),
     );
 
-    if (indexOfL2ToL1Message === -1) {
+    const indexOfL2ToL1Message = BigInt(
+      l2ToL1Messages.findIndex(l2ToL1MessageInBlock => l2ToL1MessageInBlock.equals(l2ToL1Message)),
+    );
+
+    if (indexOfL2ToL1Message === -1n) {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
 
     const treeHeight = Math.ceil(Math.log2(l2ToL1Messages.length));
+    // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
+    const tree = new StandardTree(
+      openTmpStore(true),
+      new SHA256Trunc(),
+      'temp_outhash_sibling_path',
+      treeHeight,
+      0n,
+      Fr,
+    );
+    await tree.appendLeaves(l2ToL1Messages);
 
-    const tree = new StandardTree(openTmpStore(true), new SHA256(), 'temp_outhash_sibling_path', treeHeight);
-    await tree.appendLeaves(l2ToL1Messages.map(l2ToL1Msg => l2ToL1Msg.toBuffer()));
-
-    return [indexOfL2ToL1Message, await tree.getSiblingPath(BigInt(indexOfL2ToL1Message), true)];
+    return [indexOfL2ToL1Message, await tree.getSiblingPath(indexOfL2ToL1Message, true)];
   }
 
   /**
@@ -615,11 +662,10 @@ export class AztecNodeService implements AztecNode {
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTrees.asLatest(),
       this.contractDataSource,
-      this.l1ToL2MessageSource,
       new WASMSimulator(),
     );
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
-    const [processedTxs, failedTxs] = await processor.process([tx]);
+    const [processedTxs, failedTxs, returns] = await processor.process([tx]);
     if (failedTxs.length) {
       this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
       throw failedTxs[0].error;
@@ -630,6 +676,7 @@ export class AztecNodeService implements AztecNode {
       throw reverted[0].revertReason;
     }
     this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
+    return returns;
   }
 
   public setConfig(config: Partial<SequencerConfig>): Promise<void> {
