@@ -232,7 +232,7 @@ export class Sequencer {
       // All real transactions have been added, set the block as full and complete the proving.
       await this.prover.setBlockCompleted();
 
-      // Here we are now waiting for the block to be proven. 
+      // Here we are now waiting for the block to be proven.
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
       const result = await blockTicket.provingPromise;
