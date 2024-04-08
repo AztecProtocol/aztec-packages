@@ -134,7 +134,6 @@ pub fn assert_sorted_array<T, N, Env>(
 
 #[test]
 fn smoke_validate_array() {
-    // unnecessary type dec needed to mitigate 'No matching impl found for `PoseidonHasher: Eq`'
     let valid_array: [Field; 0] = [];
     validate_array(valid_array);
 
@@ -164,8 +163,7 @@ fn smoke_validate_array_invalid_case2() {
 }
 
 #[test]
-fn test_default_array_length() {
-    // unnecessary type dec needed to mitigate 'No matching impl found for `PoseidonHasher: Eq`'
+fn test_empty_array_length() {
     let empty_array: [Field; 0] = [];
     assert_eq(array_length(empty_array), 0);
     assert_eq(array_length([0]), 0);

@@ -142,7 +142,7 @@ export class Tx {
     if (!firstNullifier || firstNullifier.isDefault()) {
       throw new Error(`Cannot get tx hash since first nullifier is missing`);
     }
-    return new TxHash(firstNullifier.value.toBuffer());
+    return new TxHash(firstNullifier.toBuffer());
   }
 
   /** Returns stats about this tx. */
