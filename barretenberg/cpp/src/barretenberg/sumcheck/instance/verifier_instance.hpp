@@ -10,7 +10,7 @@ namespace bb {
  *
  * @details This is ϕ in the paper.
  */
-template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
+template <class Flavor> class VerifierInstance_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;

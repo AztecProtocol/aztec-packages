@@ -11,7 +11,8 @@ namespace bb {
 void ClientIVC::initialize(ClientCircuit& circuit)
 {
     goblin.merge(circuit); // Construct new merge proof
-    prover_fold_output.accumulator = std::make_shared<ProverInstance>(circuit);
+    prover_fold_output.accumulator =
+        std::dynamic_pointer_cast<ProverAccumulator>(std::make_shared<ProverInstance>(circuit));
 }
 
 /**
@@ -46,7 +47,7 @@ ClientIVC::Proof ClientIVC::prove()
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(Proof& proof, const std::vector<VerifierAccumulator>& verifier_instances)
+bool ClientIVC::verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
 {
     // Goblin verification (merge, eccvm, translator)
     bool goblin_verified = goblin.verify(proof.goblin_proof);

@@ -14,6 +14,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Prover
 {
     using Builder = typename Flavor::CircuitBuilder;
     using ProverInstance = ProverInstance_<Flavor>;
+    using Accumulator = ProverAccumulator_<Flavor>;
     using Instances = ProverInstances_<Flavor, 2>;
     using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
 
@@ -32,7 +33,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Prover
     ProtoGalaxyProver folding_prover({ prover_instance_1, prover_instance_2 });
 
     // prepare the prover state
-    folding_prover.state.accumulator = prover_instance_1;
+    folding_prover.state.accumulator = std::dynamic_pointer_cast<Accumulator>(prover_instance_1);
     folding_prover.state.deltas.resize(log2_num_gates);
     std::fill_n(folding_prover.state.deltas.begin(), log2_num_gates, 0);
     folding_prover.state.perturbator = Flavor::Polynomial::random(1 << log2_num_gates);

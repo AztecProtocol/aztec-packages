@@ -19,12 +19,12 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
-    using Instance = ProverInstance_<Flavor>;
+    using Accumulator = ProverAccumulator_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
   public:
-    explicit DeciderProver_(const std::shared_ptr<Instance>&,
+    explicit DeciderProver_(const std::shared_ptr<Accumulator>&,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_relation_check_rounds();
@@ -33,7 +33,7 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
     HonkProof& export_proof();
     HonkProof& construct_proof();
 
-    std::shared_ptr<Instance> accumulator;
+    std::shared_ptr<Accumulator> accumulator;
 
     std::shared_ptr<Transcript> transcript;
 

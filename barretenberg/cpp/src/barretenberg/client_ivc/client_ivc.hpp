@@ -23,8 +23,7 @@ class ClientIVC {
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
-    using ProverAccumulator = std::shared_ptr<ProverInstance_<Flavor>>;
-    using VerifierAccumulator = std::shared_ptr<VerifierInstance_<Flavor>>;
+    using ProverAccumulator = ProverAccumulator_<Flavor>;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using ClientCircuit = GoblinUltraCircuitBuilder; // can only be GoblinUltra
@@ -69,11 +68,11 @@ class ClientIVC {
 
     Proof prove();
 
-    bool verify(Proof& proof, const std::vector<VerifierAccumulator>& verifier_instances);
+    bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances);
 
     HonkProof decider_prove() const;
 
-    void decider_prove_and_verify(const VerifierAccumulator&) const;
+    void decider_prove_and_verify(const std::shared_ptr<VerifierInstance>&) const;
 
     void precompute_folding_verification_keys();
 };

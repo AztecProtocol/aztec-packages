@@ -22,6 +22,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
     using Prover = UltraProver_<NativeFlavor>;
     using Verifier = UltraVerifier_<NativeFlavor>;
     using ProverInstance = ::bb::ProverInstance_<NativeFlavor>;
+    using ProverAccumulator = ::bb::ProverAccumulator_<NativeFlavor>;
     using VerifierInstance = ::bb::VerifierInstance_<NativeFlavor>;
     using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
     using Curve = bn254<Builder>;
@@ -106,7 +107,7 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         }
     };
 
-    static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify_native()
+    static std::tuple<std::shared_ptr<ProverAccumulator>, std::shared_ptr<VerifierInstance>> fold_and_verify_native()
     {
         Builder builder1;
         create_function_circuit(builder1);

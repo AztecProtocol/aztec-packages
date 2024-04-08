@@ -13,11 +13,11 @@ namespace bb {
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraFlavor Flavor>
-DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
+DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Accumulator>& accum,
                                        const std::shared_ptr<Transcript>& transcript)
-    : accumulator(std::move(inst))
+    : accumulator(std::move(accum))
     , transcript(transcript)
-    , commitment_key(inst->proving_key.commitment_key)
+    , commitment_key(accum->proving_key.commitment_key)
 {}
 
 /**

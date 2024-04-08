@@ -18,25 +18,23 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
 {
     auto idx = 0;
-    auto instance = instances[0];
+    auto base_instance = instances[0];
     auto domain_separator = std::to_string(idx);
-    if (!instance->is_accumulator) {
-        finalise_and_send_instance(instance, domain_separator);
-        instance->target_sum = 0;
-        instance->gate_challenges = std::vector<FF>(instance->proving_key.log_circuit_size, 0);
+    if (auto inst_ptr = std::dynamic_pointer_cast<Instance>(base_instance)) {
+        finalise_and_send_instance(inst_ptr, domain_separator);
     }
 
     idx++;
 
     for (auto it = instances.begin() + 1; it != instances.end(); it++, idx++) {
-        auto instance = *it;
+        auto instance = std::dynamic_pointer_cast<Instance>(*it);
         auto domain_separator = std::to_string(idx);
         finalise_and_send_instance(instance, domain_separator);
     }
 }
 
 template <class ProverInstances>
-std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
+std::shared_ptr<typename ProverInstances::Accumulator> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
     ProverInstances& instances,
     Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
     FF& challenge,
@@ -51,7 +49,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     std::vector<FF> lagranges{ FF(1) - challenge, challenge };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
-    auto next_accumulator = std::move(instances[0]);
+    auto next_accumulator = std::dynamic_pointer_cast<Accumulator>(instances[0]);
     next_accumulator->is_accumulator = true;
 
     // Compute the next target sum and send the next folding parameters to the verifier
@@ -144,8 +142,8 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
     state.deltas = compute_round_challenge_pows(state.accumulator->proving_key.log_circuit_size, delta);
     state.perturbator = Polynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
     // compute perturbator only if this is not the first round and has an accumulator
-    if (state.accumulator->is_accumulator) {
-        state.perturbator = compute_perturbator(state.accumulator, state.deltas);
+    if (auto accum = std::dynamic_pointer_cast<Accumulator>(state.accumulator)) {
+        state.perturbator = compute_perturbator(accum, state.deltas);
         // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
         // the accumulator which the folding verifier has from the previous iteration.
         for (size_t idx = 1; idx <= state.accumulator->proving_key.log_circuit_size; idx++) {
@@ -177,7 +175,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accum
 {
     BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::accumulator_update_round");
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    std::shared_ptr<Instance> next_accumulator =
+    std::shared_ptr<Accumulator> next_accumulator =
         compute_next_accumulator(instances, state.combiner_quotient, combiner_challenge, state.compressed_perturbator);
     state.result.folding_data = transcript->proof_data;
     state.result.accumulator = next_accumulator;

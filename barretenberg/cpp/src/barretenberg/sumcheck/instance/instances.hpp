@@ -11,9 +11,12 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
+    using BaseInstance = ProverInstance_<Flavor>;
     using Instance = ProverInstance_<Flavor>;
+    using Accumulator = ProverAccumulator_<Flavor>;
 
-    using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
+    using ArrayType = std::array<std::shared_ptr<BaseInstance>,
+                                 NUM_>; // Needs to be a ProverInstance because we want polymorphism
     // The extended length here is the length of a composition of polynomials.
     static constexpr size_t EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (NUM - 1) + 1;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
@@ -24,11 +27,11 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
     RelationSeparator alphas;
     std::vector<FF> next_gate_challenges;
 
-    std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
+    std::shared_ptr<BaseInstance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
     ProverInstances_() = default;
-    ProverInstances_(std::vector<std::shared_ptr<Instance>> data)
+    ProverInstances_(std::vector<std::shared_ptr<BaseInstance>> data)
     {
         ASSERT(data.size() == NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {

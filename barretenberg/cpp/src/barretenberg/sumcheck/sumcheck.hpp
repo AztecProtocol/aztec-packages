@@ -16,6 +16,7 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
     using Transcript = typename Flavor::Transcript;
     using Instance = ProverInstance_<Flavor>;
+    using Accumulator = ProverAccumulator_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     const size_t multivariate_n;
@@ -69,10 +70,17 @@ template <typename Flavor> class SumcheckProver {
      * @brief Compute univariate restriction place in transcript, generate challenge, partially evaluate,... repeat
      * until final round, then compute multivariate evaluations and place in transcript.
      */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
+    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance, std::vector<FF> gate_challenges)
     {
-        return prove(
-            instance->prover_polynomials, instance->relation_parameters, instance->alphas, instance->gate_challenges);
+        return prove(instance->prover_polynomials, instance->relation_parameters, instance->alphas, gate_challenges);
+    };
+
+    SumcheckOutput<Flavor> prove(std::shared_ptr<Accumulator> accumulator)
+    {
+        return prove(accumulator->prover_polynomials,
+                     accumulator->relation_parameters,
+                     accumulator->alphas,
+                     accumulator->gate_challenges);
     };
 
     /**

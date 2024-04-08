@@ -27,7 +27,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
  * */
 template <IsUltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit)
-    : instance(std::make_shared<ProverInstance>(circuit))
+    : instance(std::make_shared<Instance>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key.commitment_key)
 {}
@@ -46,8 +46,7 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_chec
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    instance->gate_challenges = gate_challenges;
-    sumcheck_output = sumcheck.prove(instance);
+    sumcheck_output = sumcheck.prove(instance, gate_challenges);
 }
 
 /**

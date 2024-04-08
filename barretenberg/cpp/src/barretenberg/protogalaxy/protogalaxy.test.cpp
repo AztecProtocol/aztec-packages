@@ -16,6 +16,7 @@ auto& engine = numeric::get_debug_randomness();
 template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
   public:
     using VerificationKey = typename Flavor::VerificationKey;
+    using ProverAccumulator = ProverAccumulator_<Flavor>;
     using ProverInstance = ProverInstance_<Flavor>;
     using ProverInstances = ProverInstances_<Flavor, 2>;
     using VerifierInstance = VerifierInstance_<Flavor>;
@@ -65,7 +66,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         return full_polynomials;
     }
 
-    static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
+    static std::tuple<std::shared_ptr<ProverAccumulator>, std::shared_ptr<VerifierInstance>> fold_and_verify(
         const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
         const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
     {
@@ -77,7 +78,8 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         return { prover_accumulator, verifier_accumulator };
     }
 
-    static void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumulator, bool expected_result)
+    static void check_accumulator_target_sum_manual(std::shared_ptr<ProverAccumulator>& accumulator,
+                                                    bool expected_result)
     {
         auto instance_size = accumulator->proving_key.circuit_size;
         auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
@@ -94,7 +96,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
     }
 
-    static void decide_and_verify(std::shared_ptr<ProverInstance>& prover_accumulator,
+    static void decide_and_verify(std::shared_ptr<ProverAccumulator>& prover_accumulator,
                                   std::shared_ptr<VerifierInstance>& verifier_accumulator,
                                   bool expected_result)
     {
@@ -201,7 +203,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             target_sum += full_honk_evals[i] * pow_beta[i];
         }
 
-        auto accumulator = std::make_shared<ProverInstance>();
+        auto accumulator = std::make_shared<ProverAccumulator>();
         accumulator->prover_polynomials = std::move(full_polynomials);
         accumulator->gate_challenges = betas;
         accumulator->target_sum = target_sum;

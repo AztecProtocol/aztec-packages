@@ -179,8 +179,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         prover_gate_challenges[idx] =
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    instance->gate_challenges = prover_gate_challenges;
-    auto prover_output = sumcheck_prover.prove(instance);
+    auto prover_output = sumcheck_prover.prove(instance, prover_gate_challenges);
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 

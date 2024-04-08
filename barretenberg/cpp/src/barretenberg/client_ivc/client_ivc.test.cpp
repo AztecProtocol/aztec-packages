@@ -18,8 +18,8 @@ class ClientIVCTests : public ::testing::Test {
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
     using Builder = ClientIVC::ClientCircuit;
-    using ProverAccumulator = ClientIVC::ProverAccumulator;
-    using VerifierAccumulator = ClientIVC::VerifierAccumulator;
+    using ProverAccumulatorPtr = std::shared_ptr<ClientIVC::ProverAccumulator>;
+    using VerifierAccumulatorPtr = std::shared_ptr<ClientIVC::VerifierInstance>;
     using VerifierInstance = ClientIVC::VerifierInstance;
     using FoldProof = ClientIVC::FoldProof;
     using VerifierFoldData = GoblinMockCircuits::VerifierFoldData;
@@ -67,10 +67,10 @@ class ClientIVCTests : public ::testing::Test {
      * instance
      * @returns the updated verifier accumulator
      */
-    static VerifierAccumulator construct_mock_folding_kernel(Builder& builder,
-                                                             VerifierFoldData& func_accum,
-                                                             VerifierFoldData& kernel_accum,
-                                                             VerifierAccumulator& prev_kernel_accum)
+    static VerifierAccumulatorPtr construct_mock_folding_kernel(Builder& builder,
+                                                                VerifierFoldData& func_accum,
+                                                                VerifierFoldData& kernel_accum,
+                                                                VerifierAccumulatorPtr& prev_kernel_accum)
     {
 
         FoldingRecursiveVerifier verifier_1{ &builder, prev_kernel_accum, { func_accum.inst_vk } };
@@ -85,10 +85,10 @@ class ClientIVCTests : public ::testing::Test {
      * @brief Perform native fold verification and run decider prover/verifier
      *
      */
-    static VerifierAccumulator update_accumulator_and_decide_native(
-        const ProverAccumulator& prover_accumulator,
+    static VerifierAccumulatorPtr update_accumulator_and_decide_native(
+        const ProverAccumulatorPtr& prover_accumulator,
         const FoldProof& fold_proof,
-        const VerifierAccumulator& prev_verifier_accumulator,
+        const VerifierAccumulatorPtr& prev_verifier_accumulator,
         const std::shared_ptr<Flavor::VerificationKey>& verifier_inst_vk)
     {
         // Verify fold proof

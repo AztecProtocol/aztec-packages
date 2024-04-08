@@ -15,9 +15,9 @@
 namespace bb {
 template <class ProverInstances_> struct ProtogalaxyProofConstructionState {
     using FF = typename ProverInstances_::FF;
-    using ProverInstance = typename ProverInstances_::Instance;
+    using Accumulator = typename ProverInstances_::Accumulator;
 
-    std::shared_ptr<ProverInstance> accumulator;
+    std::shared_ptr<Accumulator> accumulator;
     Polynomial<FF> perturbator;
     std::vector<FF> deltas;
     Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, ProverInstances_::NUM> combiner_quotient;
@@ -31,6 +31,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     using Flavor = typename ProverInstances::Flavor;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
+    using BaseInstance = typename ProverInstances::BaseInstance;
+    using Accumulator = typename ProverInstances::Accumulator;
     using Instance = typename ProverInstances::Instance;
     using Utils = bb::RelationUtils<Flavor>;
     using RowEvaluations = typename Flavor::AllValues;
@@ -68,10 +70,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     ProtogalaxyProofConstructionState<ProverInstances> state;
 
     ProtoGalaxyProver_() = default;
-    ProtoGalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
-        : instances(ProverInstances(insts))
+
+    ProtoGalaxyProver_(const std::vector<std::shared_ptr<BaseInstance>>& insts)
+        : instances(insts)
+        ,
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
-        , commitment_key(instances[1]->proving_key.commitment_key){};
+        commitment_key(instances[1]->proving_key.commitment_key){};
     ~ProtoGalaxyProver_() = default;
 
     /**
@@ -129,7 +133,12 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
     // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
-    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
+    std::shared_ptr<Accumulator> get_accumulator()
+    {
+        auto ptr = instances[0];
+        auto ret = std::dynamic_pointer_cast<Accumulator>(ptr);
+        return ret;
+    }
 
     /**
      * @brief Compute the values of the full Honk relation at each row in the execution trace, representing f_i(ω) in
@@ -251,7 +260,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      *
      */
-    static Polynomial<FF> compute_perturbator(const std::shared_ptr<Instance> accumulator,
+    static Polynomial<FF> compute_perturbator(const std::shared_ptr<Accumulator> accumulator,
                                               const std::vector<FF>& deltas)
     {
         BB_OP_COUNT_TIME();
@@ -465,7 +474,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      *
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/796): optimise the construction of the new accumulator
      */
-    std::shared_ptr<Instance> compute_next_accumulator(
+    std::shared_ptr<Accumulator> compute_next_accumulator(
         ProverInstances& instances,
         Univariate<FF, ProverInstances::BATCHED_EXTENDED_LENGTH, ProverInstances::NUM>& combiner_quotient,
         FF& challenge,
