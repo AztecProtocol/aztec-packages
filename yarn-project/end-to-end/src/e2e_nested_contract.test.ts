@@ -1,4 +1,4 @@
-import { AztecAddress, BatchCall, DebugLogger, Fr, PXE, Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { type AztecAddress, BatchCall, type DebugLogger, Fr, type PXE, type Wallet, toBigIntBE } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { ChildContract, ImportTestContract, ParentContract, TestContract } from '@aztec/noir-contracts.js';
 
@@ -69,7 +69,7 @@ describe('e2e_nested_contract', () => {
       await expect(
         parentContract.methods
           .entry_point(childContract.address, (childContract.methods as any).value_internal.selector)
-          .simulate(),
+          .prove(),
       ).rejects.toThrow(/Assertion failed: Function value_internal can only be called internally/);
     }, 100_000);
 
@@ -96,7 +96,7 @@ describe('e2e_nested_contract', () => {
             (childContract.methods as any).pub_inc_value_internal.selector,
             42n,
           )
-          .simulate(),
+          .prove(),
       ).rejects.toThrow(/Assertion failed: Function pub_inc_value_internal can only be called internally/);
     }, 100_000);
 

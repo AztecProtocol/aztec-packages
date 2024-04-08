@@ -128,7 +128,7 @@ global TX_EFFECTS_HASH_INPUT_FIELDS = 197;
 
 // Computes the tx effects hash for a base rollup (a single transaction)
 // TODO(Alvaro): This is too slow for brillig without the array optimization
-pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> Field {
+pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData, revert_code: u8) -> Field {
     // Compute tx effect hash
     // Consist of
     // MAX_NEW_NOTE_HASHES_PER_TX fields for note hashes
@@ -140,7 +140,6 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> Field {
     // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!
     let mut txs_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
 
-    let revert_code = combined.revert_code;
     let new_note_hashes = combined.new_note_hashes;
     let new_nullifiers = combined.new_nullifiers;
     let new_l2_to_l1_msgs = combined.new_l2_to_l1_msgs;
@@ -155,12 +154,12 @@ pub fn compute_tx_effects_hash(combined: CombinedAccumulatedData) -> Field {
     offset += 1;
 
     for j in 0..MAX_NEW_NOTE_HASHES_PER_TX {
-        txs_effects_hash_input[offset + j] = new_note_hashes[j].value;
+        txs_effects_hash_input[offset + j] = new_note_hashes[j];
     }
     offset += MAX_NEW_NOTE_HASHES_PER_TX ;
 
     for j in 0..MAX_NEW_NULLIFIERS_PER_TX {
-        txs_effects_hash_input[offset + j] = new_nullifiers[j].value;
+        txs_effects_hash_input[offset + j] = new_nullifiers[j];
     }
     offset += MAX_NEW_NULLIFIERS_PER_TX ;
 

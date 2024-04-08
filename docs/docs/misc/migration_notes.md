@@ -8,6 +8,49 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Storage struct annotation
+
+The storage struct now identified by the annotation `#[aztec(storage)]`, instead of having to rely on it being called `Storage`.
+
+```diff
+- struct Storage {
+-    ...
+- }
++ #[aztec(storage)]
++ struct MyStorageStruct {
++    ...
++ }
+```
+
+### [Aztec.js] Storage layout and note info
+
+Storage layout and note information are now exposed in the TS contract artifact
+
+```diff
+- const note = new Note([new Fr(mintAmount), secretHash]);
+- const pendingShieldStorageSlot = new Fr(5n); // storage slot for pending_shields
+- const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // note type id for TransparentNote
+- const extendedNote = new ExtendedNote(
+-   note,
+-   admin.address,
+-   token.address,
+-   pendingShieldStorageSlot,
+-   noteTypeId,
+-   receipt.txHash,
+- );
+- await pxe.addNote(extendedNote);
++ const note = new Note([new Fr(mintAmount), secretHash]);
++ const extendedNote = new ExtendedNote(
++   note,
++   admin.address,
++   token.address,
++   TokenContract.storage.pending_shields.slot,
++   TokenContract.notes.TransparentNote.id,
++   receipt.txHash,
++ );
++ await pxe.addNote(extendedNote);
+```
+
 ### [Aztec.nr] rand oracle is now called unsafe_rand
 `oracle::rand::rand` has been renamed to `oracle::unsafe_rand::unsafe_rand`.
 This change was made to communicate that we do not constrain the value in circuit and instead we just trust our PXE.
@@ -15,6 +58,32 @@ This change was made to communicate that we do not constrain the value in circui
 ```diff
 - let random_value = rand();
 + let random_value = unsafe_rand();
+```
+
+### [AztecJS] Simulate and get return values for ANY call
+Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
+This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`. 
+It is not possible to call `simulate` on any call to get the return values! 
+However, beware that it currently always returns a Field array of size 4 for private and public.  
+This will change to become similar to the return values of the `unconstrained` functions with proper return types.
+
+```diff
+-    #[aztec(private)]
+-    fn get_shared_immutable_constrained_private() -> pub Leader {
+-        storage.shared_immutable.read_private()
+-    }
+-
+-    unconstrained fn get_shared_immutable() -> pub Leader {
+-        storage.shared_immutable.read_public()
+-    }
+
++    #[aztec(private)]
++    fn get_shared_immutable_private() -> pub Leader {
++        storage.shared_immutable.read_private()
++    }
+
+- const returnValues = await contract.methods.get_shared_immutable().view();
++ const returnValues = await contract.methods.get_shared_immutable_private().simulate();
 ```
 
 ## 0.31.0
@@ -935,13 +1004,13 @@ To parse a `AztecAddress` to BigInt, use `.inner`
 Before:
 
 ```js
-const tokenBigInt = await bridge.methods.token().view();
+const tokenBigInt = await bridge.methods.token().simulate();
 ```
 
 Now:
 
 ```js
-const tokenBigInt = (await bridge.methods.token().view()).inner;
+const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ```
 
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml

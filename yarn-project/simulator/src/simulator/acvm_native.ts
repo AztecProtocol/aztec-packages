@@ -1,12 +1,12 @@
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { NoirCompiledCircuit } from '@aztec/types/noir';
+import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
-import { WitnessMap } from '@noir-lang/types';
+import { type WitnessMap } from '@noir-lang/types';
 import * as proc from 'child_process';
 import fs from 'fs/promises';
 
-import { SimulationProvider } from './simulation_provider.js';
+import { type SimulationProvider } from './simulation_provider.js';
 
 const logger = createDebugLogger('aztec:acvm_native');
 

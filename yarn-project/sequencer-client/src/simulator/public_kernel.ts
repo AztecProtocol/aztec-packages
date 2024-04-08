@@ -1,8 +1,9 @@
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
-  PublicKernelCircuitPrivateInputs,
-  PublicKernelCircuitPublicInputs,
-  PublicKernelTailCircuitPrivateInputs,
+  type KernelCircuitPublicInputs,
+  type PublicKernelCircuitPrivateInputs,
+  type PublicKernelCircuitPublicInputs,
+  type PublicKernelTailCircuitPrivateInputs,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
@@ -20,9 +21,9 @@ import {
   convertPublicTeardownRollupInputsToWitnessMap,
   convertPublicTeardownRollupOutputFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import { PublicKernelCircuitSimulator } from './index.js';
+import { type PublicKernelCircuitSimulator } from './index.js';
 
 /**
  * Implements the PublicKernelCircuitSimulator.
@@ -120,7 +121,7 @@ export class RealPublicKernelCircuitSimulator implements PublicKernelCircuitSimu
    */
   public async publicKernelCircuitTail(
     input: PublicKernelTailCircuitPrivateInputs,
-  ): Promise<PublicKernelCircuitPublicInputs> {
+  ): Promise<KernelCircuitPublicInputs> {
     const inputWitness = convertPublicTailInputsToWitnessMap(input);
     const [duration, witness] = await elapsed(() =>
       this.wasmSimulator.simulateCircuit(inputWitness, PublicKernelTailArtifact),
