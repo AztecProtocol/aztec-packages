@@ -6,7 +6,7 @@ use root_rollup_inputs::RootRollupInputs;
 use root_rollup_public_inputs::RootRollupPublicInputs;
 
 // TODO: Move all the following code to different files
-use dep::types::{constants::{NUM_FIELDS_PER_SHA256, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP}, utils::uint256::U256};
+use dep::types::{constants::NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, utils::uint256::U256, hash::sha256_to_field};
 
 // See `test_message_input_flattened_length` on keeping this in sync,
 // why its here and how this constant was computed.
@@ -14,8 +14,9 @@ global NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES: u64 = 512;
 
 // Computes the messages hash from the leaves array
 //
-// Returns the hash split into two field elements
-fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -> [Field; NUM_FIELDS_PER_SHA256] {
+// TODO(Miranda): remove? This appears to be unused
+// Returns the hash truncated to one field element
+fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -> Field {
     // Slice variation
     // let mut hash_input_flattened = [];
     // for leaf in leaves {
@@ -35,12 +36,7 @@ fn compute_messages_hash(leaves: [Field; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP]) -
         }
     }
 
-    // Hash bytes and convert to 2 128 bit limbs
-    let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-    // TODO(Kev): The CPP implementation is returning [high, low]
-    // and so is `to_u128_limbs`, so this matches.
-    // We should say why we are doing this vs [low, high]
-    U256::from_bytes32(sha_digest).to_u128_limbs()
+    sha256_to_field(hash_input_flattened)
 }
 
 #[test]
@@ -59,29 +55,18 @@ mod tests {
         root::{root_rollup_inputs::RootRollupInputs, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES},
         tests::root_rollup_inputs::default_root_rollup_inputs
     };
-    use dep::types::utils::uint256::U256;
+    use dep::types::utils::{uint256::U256, field::field_from_bytes_32_trunc};
     use dep::types::hash::accumulate_sha256;
 
     #[test]
     fn check_block_hashes_empty_blocks() {
-        let expected_messages_hash = U256::from_bytes32(dep::std::hash::sha256([0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES])).to_u128_limbs();
-
-        let expected_txs_effects_hash = accumulate_sha256(
-            [
-            U128::from_integer(0),
-            U128::from_integer(1),
-            U128::from_integer(2),
-            U128::from_integer(3)
-        ]
-        );
+        let expected_txs_effects_hash = accumulate_sha256([1, 2]);
 
         let inputs = default_root_rollup_inputs();
         let outputs = inputs.root_rollup_circuit();
 
         // check txs effects hash
         assert_eq(outputs.header.content_commitment.txs_effects_hash, expected_txs_effects_hash);
-        // Check messages hash
-        assert_eq(outputs.l1_to_l2_messages_hash, expected_messages_hash);
     }
 
     #[test]

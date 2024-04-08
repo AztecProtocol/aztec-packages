@@ -44,6 +44,7 @@ const sidebars = {
           link: { type: "doc", id: "cryptography/hashing/hashing" },
           items: [
             "cryptography/hashing/hashing",
+            "cryptography/hashing/poseidon2",
             "cryptography/hashing/pedersen",
           ],
         },
@@ -58,6 +59,16 @@ const sidebars = {
         "addresses-and-keys/address",
         "addresses-and-keys/keys-requirements",
         "addresses-and-keys/keys",
+        {
+          label: "Example Usage of Keys",
+          type: "category",
+          items: [
+            "addresses-and-keys/example-usage/nullifier",
+            "addresses-and-keys/example-usage/diversified-and-stealth-keys",
+            "addresses-and-keys/example-usage/tag-sequence-derivation",
+            "addresses-and-keys/example-usage/encrypt-and-tag",
+          ],
+        },
         "addresses-and-keys/precompiles",
         "addresses-and-keys/diversified-and-stealth",
       ],
@@ -115,14 +126,16 @@ const sidebars = {
       label: "L1 smart contracts",
       type: "category",
       link: { type: "doc", id: "l1-smart-contracts/index" },
-      items: [
-        "l1-smart-contracts/frontier",
-      ],
+      items: ["l1-smart-contracts/frontier"],
     },
     {
-      label: "Data publication and availability",
-      type: "doc",
-      id: "data-publication-and-availability/index",
+      label: "Data availability",
+      type: "category",
+      link: { type: "doc", id: "data-publication-and-availability/index" },
+      items: [
+        "data-publication-and-availability/overview",
+        "data-publication-and-availability/published-data",
+      ],
     },
     {
       label: "Logs",
@@ -134,9 +147,7 @@ const sidebars = {
       label: "Pre-compiled Contracts",
       type: "category",
       link: { type: "doc", id: "pre-compiled-contracts/index" },
-      items: [
-        "pre-compiled-contracts/registry",
-      ],
+      items: ["pre-compiled-contracts/registry"],
     },
     {
       label: "Private Message Delivery",
@@ -167,7 +178,6 @@ const sidebars = {
         "decentralization/p2p-network",
       ],
     },
-    // Protocol Statements?
     {
       label: "Circuits",
       type: "category",

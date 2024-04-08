@@ -5,11 +5,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 
-import { AztecNode } from '../../interfaces/aztec-node.js';
+import { type AztecNode } from '../../interfaces/aztec-node.js';
 import { NullifierMembershipWitness } from '../../interfaces/nullifier_tree.js';
-import { L1ToL2MessageAndIndex } from '../../l1_to_l2_message.js';
 import { L2Block } from '../../l2_block.js';
-import { ExtendedUnencryptedL2Log, L2BlockL2Logs, LogId } from '../../logs/index.js';
+import { EncryptedL2BlockL2Logs, ExtendedUnencryptedL2Log, LogId, UnencryptedL2BlockL2Logs } from '../../logs/index.js';
 import { SiblingPath } from '../../sibling_path/index.js';
 import { Tx, TxHash, TxReceipt } from '../../tx/index.js';
 import { TxEffect } from '../../tx_effect.js';
@@ -36,11 +35,10 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       LogId,
       TxHash,
       SiblingPath,
-      L1ToL2MessageAndIndex,
     },
-    { Tx, TxReceipt, L2BlockL2Logs, NullifierMembershipWitness },
+    { Tx, TxReceipt, EncryptedL2BlockL2Logs, UnencryptedL2BlockL2Logs, NullifierMembershipWitness },
     false,
     'node',
     fetch,
-  );
+  ) as AztecNode;
 }

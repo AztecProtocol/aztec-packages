@@ -1,4 +1,5 @@
 use super::expr::HirIdent;
+use crate::macros_api::SecondaryAttribute;
 use crate::node_interner::ExprId;
 use crate::{Ident, Type};
 use fm::FileId;
@@ -14,6 +15,8 @@ pub enum HirStatement {
     Constrain(HirConstrainStatement),
     Assign(HirAssignStatement),
     For(HirForStatement),
+    Break,
+    Continue,
     Expression(ExprId),
     Semi(ExprId),
     Error,
@@ -24,6 +27,7 @@ pub struct HirLetStatement {
     pub pattern: HirPattern,
     pub r#type: Type,
     pub expression: ExprId,
+    pub attributes: Vec<SecondaryAttribute>,
 }
 
 impl HirLetStatement {
@@ -97,6 +101,15 @@ impl HirPattern {
             | HirPattern::Struct(_, _, location) => location.span,
         }
     }
+
+    pub(crate) fn location(&self) -> Location {
+        match self {
+            HirPattern::Identifier(ident) => ident.location,
+            HirPattern::Mutable(_, location)
+            | HirPattern::Tuple(_, location)
+            | HirPattern::Struct(_, _, location) => *location,
+        }
+    }
 }
 
 /// Represents an Ast form that can be assigned to. These
@@ -109,14 +122,17 @@ pub enum HirLValue {
         field_name: Ident,
         field_index: Option<usize>,
         typ: Type,
+        location: Location,
     },
     Index {
         array: Box<HirLValue>,
         index: ExprId,
         typ: Type,
+        location: Location,
     },
     Dereference {
         lvalue: Box<HirLValue>,
         element_type: Type,
+        location: Location,
     },
 }

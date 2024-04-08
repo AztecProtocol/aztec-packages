@@ -155,7 +155,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
   {
     "name": "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}",
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}",
-    "command": ["start", "--node", "--archiver", "--sequencer"],
+    "command": ["start", "--node", "--archiver", "--sequencer", "--prover"],
     "essential": true,
     "memoryReservation": 3776,
     "portMappings": [
@@ -235,6 +235,14 @@ resource "aws_ecs_task_definition" "aztec-node" {
       {
         "name": "AVAILABILITY_ORACLE_CONTRACT_ADDRESS",
         "value": "${data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address}"
+      },
+      {
+        "name": "GAS_TOKEN_CONTRACT_ADDRESS",
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.gas_token_contract_address}"
+      },
+      {
+        "name": "GAS_PORTAL_CONTRACT_ADDRESS",
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.gas_portal_contract_address}"
       },
       {
         "name": "API_KEY",

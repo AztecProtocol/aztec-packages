@@ -1,16 +1,15 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  AztecAddress,
-  AztecNode,
-  CompleteAddress,
-  DebugLogger,
+  type AztecAddress,
+  type AztecNode,
+  type CompleteAddress,
+  type DebugLogger,
   ExtendedNote,
   Fr,
   GrumpkinScalar,
   Note,
-  PXE,
-  TxStatus,
-  Wallet,
+  type PXE,
+  type Wallet,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -63,7 +62,6 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     const secretHash = computeMessageSecretHash(secret);
 
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
-    expect(receipt.status).toEqual(TxStatus.MINED);
 
     const storageSlot = new Fr(5);
     const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
@@ -79,9 +77,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     );
     await pxe.addNote(extendedNote);
 
-    expect((await token.methods.redeem_shield(accounts[0], initialBalance, secret).send().wait()).status).toEqual(
-      TxStatus.MINED,
-    );
+    await token.methods.redeem_shield(accounts[0], initialBalance, secret).send().wait();
   }, 100_000);
 
   afterEach(() => teardown());
@@ -92,7 +88,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
-    const balance = await contractWithWallet.methods.balance_of_private(owner).view({ from: owner.address });
+    const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner.address });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -110,8 +106,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     const contractWithWallet = await TokenContract.at(tokenAddress, wallets[senderIndex]);
 
-    const receipt = await contractWithWallet.methods.transfer(sender, receiver, transferAmount, 0).send().wait();
-    expect(receipt.status).toBe(TxStatus.MINED);
+    await contractWithWallet.methods.transfer(sender, receiver, transferAmount, 0).send().wait();
 
     for (let i = 0; i < expectedBalances.length; i++) {
       await expectBalance(i, expectedBalances[i]);

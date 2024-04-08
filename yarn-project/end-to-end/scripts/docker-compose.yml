@@ -1,18 +1,16 @@
 version: '3'
 services:
   fork:
-    image: ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916
+    image: aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
     entrypoint: >
       sh -c '
       if [ -n "$FORK_BLOCK_NUMBER" ] && [ -n "$FORK_URL" ]; then
-        { anvil -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER" ; echo $$? > .status ; } | grep -v eth_getLogs
+        exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337 --fork-url "$FORK_URL" --fork-block-number "$FORK_BLOCK_NUMBER"
       else
-        { anvil -p 8545 --host 0.0.0.0 --chain-id 31337 ; echo $$? > .status ; } | grep -v eth_getLogs
-      fi
-      # final status
-      grep -q '^0$$' .status'
-    ports:
-      - '8545:8545'
+        exec anvil --silent -p 8545 --host 0.0.0.0 --chain-id 31337
+      fi'
+    expose:
+      - '8545'
 
   sandbox:
     image: aztecprotocol/aztec:latest
@@ -27,9 +25,9 @@ services:
       WS_BLOCK_CHECK_INTERVAL_MS: 50
       PXE_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
-      AVM_ENABLED: ${AVM_ENABLED:-}
-    ports:
-      - '8080:8080'
+      ENABLE_GAS: ${ENABLE_GAS:-}
+    expose:
+      - '8080'
 
   end-to-end:
     image: aztecprotocol/end-to-end:latest
@@ -40,7 +38,11 @@ services:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       PXE_URL: http://sandbox:8080
-    command: ${TEST:-./src/e2e_deploy_contract.test.ts}
+    entrypoint: >
+      sh -c '
+        while ! nc -z sandbox 8080; do sleep 1; done;
+        yarn test ${TEST:-./src/e2e_deploy_contract.test.ts}
+      '
     volumes:
       # TODO(AD) currently earthly uses /build instead of /usr/src
       - ../log:/usr/src/yarn-project/end-to-end/log:rw

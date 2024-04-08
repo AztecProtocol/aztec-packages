@@ -1,6 +1,6 @@
 #include "eccvm_composer.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 
 namespace bb {
 
@@ -8,7 +8,8 @@ namespace bb {
  * @brief Compute witness polynomials
  *
  */
-template <IsECCVMFlavor Flavor> void ECCVMComposer_<Flavor>::compute_witness(CircuitConstructor& circuit_constructor)
+template <IsECCVMFlavor Flavor>
+void ECCVMComposer_<Flavor>::compute_witness([[maybe_unused]] CircuitConstructor& circuit_constructor)
 {
     BB_OP_COUNT_TIME_NAME("ECCVMComposer::compute_witness");
 
@@ -16,7 +17,7 @@ template <IsECCVMFlavor Flavor> void ECCVMComposer_<Flavor>::compute_witness(Cir
         return;
     }
 
-    auto polynomials = circuit_constructor.compute_polynomials();
+    ProverPolynomials polynomials(circuit_constructor);
 
     auto key_wires = proving_key->get_wires();
     auto poly_wires = polynomials.get_wires();
@@ -85,7 +86,11 @@ std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposer_<Flavor>::compute_pro
     // Fix once we have a stable base to work off of
     // enforce_nonzero_polynomial_selectors(circuit_constructor, proving_key.get());
 
-    compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
+    // First and last lagrange polynomials (in the full circuit size)
+    const auto [lagrange_first, lagrange_last] =
+        compute_first_and_last_lagrange_polynomials<FF>(proving_key->circuit_size);
+    proving_key->lagrange_first = lagrange_first;
+    proving_key->lagrange_last = lagrange_last;
     {
         const size_t n = proving_key->circuit_size;
         typename Flavor::Polynomial lagrange_polynomial_second(n);

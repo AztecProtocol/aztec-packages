@@ -1,14 +1,14 @@
-import { L2Block, TxEffect, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { L2Block, type TxEffect, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, type AztecAddress, Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap, Range } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap, type AztecSingleton, type Range } from '@aztec/kv-store';
 
-import { BlockBodyStore } from './block_body_store.js';
+import { type DataRetrieval } from '../data_retrieval.js';
+import { type BlockBodyStore } from './block_body_store.js';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
 type BlockStorage = {
-  l1BlockNumber: bigint;
   header: Buffer;
   archive: Buffer;
 };
@@ -19,6 +19,8 @@ type BlockStorage = {
 export class BlockStore {
   /** Map block number to block data */
   #blocks: AztecMap<number, BlockStorage>;
+  /** Stores L1 block number in which the last processed L2 block was included */
+  #lastSynchedL1Block: AztecSingleton<bigint>;
 
   /** Index mapping transaction hash (as a string) to its location in a block */
   #txIndex: AztecMap<string, BlockIndexValue>;
@@ -36,26 +38,28 @@ export class BlockStore {
     this.#blocks = db.openMap('archiver_blocks');
     this.#txIndex = db.openMap('archiver_tx_index');
     this.#contractIndex = db.openMap('archiver_contract_index');
+    this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
   }
 
   /**
    * Append new blocks to the store's list.
-   * @param blocks - The L2 blocks to be added to the store.
+   * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: L2Block[]): Promise<boolean> {
+  addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean> {
     return this.db.transaction(() => {
-      for (const block of blocks) {
+      for (const block of blocks.retrievedData) {
         void this.#blocks.set(block.number, {
           header: block.header.toBuffer(),
           archive: block.archive.toBuffer(),
-          l1BlockNumber: block.getL1BlockNumber(),
         });
 
-        block.getTxs().forEach((tx, i) => {
+        block.body.txEffects.forEach((tx, i) => {
           void this.#txIndex.set(tx.txHash.toString(), [block.number, i]);
         });
       }
+
+      void this.#lastSynchedL1Block.set(blocks.lastProcessedL1BlockNumber);
 
       return true;
     });
@@ -115,7 +119,7 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber);
-    return block?.getTx(txIndex);
+    return block?.body.txEffects[txIndex];
   }
 
   /**
@@ -130,7 +134,15 @@ export class BlockStore {
     }
 
     const block = this.getBlock(blockNumber)!;
-    return new TxReceipt(txHash, TxStatus.MINED, '', block.hash().toBuffer(), block.number);
+    const tx = block.body.txEffects[txIndex];
+
+    return new TxReceipt(
+      txHash,
+      tx.revertCode.isOK() ? TxStatus.MINED : TxStatus.REVERTED,
+      '',
+      block.hash().toBuffer(),
+      block.number,
+    );
   }
 
   /**
@@ -155,7 +167,7 @@ export class BlockStore {
    * Gets the number of the latest L2 block processed.
    * @returns The number of the latest L2 block processed.
    */
-  getBlockNumber(): number {
+  getSynchedL2BlockNumber(): number {
     const [lastBlockNumber] = this.#blocks.keys({ reverse: true, limit: 1 });
     return typeof lastBlockNumber === 'number' ? lastBlockNumber : INITIAL_L2_BLOCK_NUM - 1;
   }
@@ -164,13 +176,8 @@ export class BlockStore {
    * Gets the most recent L1 block processed.
    * @returns The L1 block that published the latest L2 block
    */
-  getL1BlockNumber(): bigint {
-    const [lastBlock] = this.#blocks.values({ reverse: true, limit: 1 });
-    if (!lastBlock) {
-      return 0n;
-    } else {
-      return lastBlock.l1BlockNumber;
-    }
+  getSynchedL1BlockNumber(): bigint {
+    return this.#lastSynchedL1Block.get() ?? 0n;
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {

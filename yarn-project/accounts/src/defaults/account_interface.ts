@@ -1,8 +1,9 @@
-import { AccountInterface, AuthWitnessProvider, EntrypointInterface, FeeOptions } from '@aztec/aztec.js/account';
-import { AuthWitness, FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, Fr } from '@aztec/circuits.js';
+import { type AccountInterface, type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { type EntrypointInterface, type FeeOptions } from '@aztec/aztec.js/entrypoint';
+import { type AuthWitness, type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, type CompleteAddress, Fr } from '@aztec/circuits.js';
 import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
-import { NodeInfo } from '@aztec/types/interfaces';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
 /**
  * Default implementation for an account interface. Requires that the account uses the default
@@ -10,6 +11,8 @@ import { NodeInfo } from '@aztec/types/interfaces';
  */
 export class DefaultAccountInterface implements AccountInterface {
   private entrypoint: EntrypointInterface;
+  private chainId: Fr;
+  private version: Fr;
 
   constructor(
     private authWitnessProvider: AuthWitnessProvider,
@@ -22,14 +25,16 @@ export class DefaultAccountInterface implements AccountInterface {
       nodeInfo.chainId,
       nodeInfo.protocolVersion,
     );
+    this.chainId = new Fr(nodeInfo.chainId);
+    this.version = new Fr(nodeInfo.protocolVersion);
   }
 
   createTxExecutionRequest(executions: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest> {
     return this.entrypoint.createTxExecutionRequest(executions, fee);
   }
 
-  createAuthWitness(message: Fr): Promise<AuthWitness> {
-    return this.authWitnessProvider.createAuthWitness(message);
+  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
+    return this.authWitnessProvider.createAuthWit(messageHash);
   }
 
   getCompleteAddress(): CompleteAddress {
@@ -38,5 +43,13 @@ export class DefaultAccountInterface implements AccountInterface {
 
   getAddress(): AztecAddress {
     return this.address.address;
+  }
+
+  getChainId(): Fr {
+    return this.chainId;
+  }
+
+  getVersion(): Fr {
+    return this.version;
   }
 }

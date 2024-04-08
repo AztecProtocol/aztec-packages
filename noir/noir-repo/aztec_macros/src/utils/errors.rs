@@ -10,7 +10,8 @@ pub enum AztecMacroError {
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
-    CouldNotImplementNoteSerialization { span: Option<Span>, typ: UnresolvedTypeData },
+    CouldNotImplementNoteInterface { span: Option<Span>, secondary_message: Option<String> },
+    MultipleStorageDefinitions { span: Option<Span> },
     EventError { span: Span, message: String },
     UnsupportedAttributes { span: Span, secondary_message: Option<String> },
 }
@@ -43,8 +44,13 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message,
                 span: None,
             },
-            AztecMacroError::CouldNotImplementNoteSerialization { span, typ } => MacroError {
-                primary_message: format!("Could not implement serialization methods for note `{typ:?}`, please provide a serialize_content and deserialize_content methods"),
+            AztecMacroError::CouldNotImplementNoteInterface { span, secondary_message } => MacroError {
+                primary_message: "Could not implement automatic methods for note, please provide an implementation of the NoteInterface trait".to_string(),
+                secondary_message,
+                span
+            },
+            AztecMacroError::MultipleStorageDefinitions { span } => MacroError {
+                primary_message: "Only one struct can be tagged as #[aztec(storage)]".to_string(),
                 secondary_message: None,
                 span,
             },
@@ -53,7 +59,7 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message: None,
                 span: Some(span),
             },
-AztecMacroError::UnsupportedAttributes { span, secondary_message } => MacroError {
+            AztecMacroError::UnsupportedAttributes { span, secondary_message } => MacroError {
                 primary_message: "Unsupported attributes in contract function".to_string(),
                 secondary_message,
                 span: Some(span),

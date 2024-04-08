@@ -17,6 +17,7 @@ contract Uniswap {
     use crate::interfaces::{Token, TokenBridge};
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
 
+    #[aztec(storage)]
     struct Storage {
         // like with account contracts, stores the approval message on a slot and tracks if they are active
         approved_action: Map<Field, PublicMutable<bool>>,
@@ -41,8 +42,6 @@ contract Uniswap {
         // params for the depositing output_asset back to Aztec
         recipient: AztecAddress,
         secret_hash_for_L1_to_l2_message: Field,
-        deadline_for_L1_to_l2_message: Field,
-        canceller_for_L1_to_L2_message: EthAddress,
         caller_on_L1: EthAddress,
         // nonce for someone to call swap on sender's behalf
         nonce_for_swap_approval: Field
@@ -89,8 +88,6 @@ contract Uniswap {
             minimum_output_amount,
             recipient,
             secret_hash_for_L1_to_l2_message,
-            deadline_for_L1_to_l2_message,
-            canceller_for_L1_to_L2_message,
             caller_on_L1
         );
         context.message_portal(context.this_portal_address(), content_hash);
@@ -112,8 +109,6 @@ contract Uniswap {
         // params for the depositing output_asset back to Aztec
         secret_hash_for_redeeming_minted_notes: Field,// secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
         secret_hash_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
-        deadline_for_L1_to_l2_message: Field, // for when l1 uniswap portal inserts the message to consume output assets on L2
-        canceller_for_L1_to_L2_message: EthAddress, // L1 address of who can cancel the message to consume assets on L2.
         caller_on_L1: EthAddress // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
         // Assert that user provided token address is same as expected by token bridge.
@@ -160,8 +155,6 @@ contract Uniswap {
             minimum_output_amount,
             secret_hash_for_redeeming_minted_notes,
             secret_hash_for_L1_to_l2_message,
-            deadline_for_L1_to_l2_message,
-            canceller_for_L1_to_L2_message,
             caller_on_L1
         );
         context.message_portal(context.this_portal_address(), content_hash);
@@ -174,7 +167,12 @@ contract Uniswap {
     // if valid, it returns the IS_VALID selector which is expected by token contract
     #[aztec(public)]
     fn spend_public_authwit(inner_hash: Field) -> Field {
-        let message_hash = compute_outer_authwit_hash(context.msg_sender(), inner_hash);
+        let message_hash = compute_outer_authwit_hash(
+            context.msg_sender(),
+            context.chain_id(),
+            context.version(),
+            inner_hash
+        );
         let value = storage.approved_action.at(message_hash).read();
         if (value) {
             context.push_new_nullifier(message_hash, 0);
@@ -200,6 +198,8 @@ contract Uniswap {
         let message_hash = compute_call_authwit_hash(
             token_bridge,
             token,
+            context.chain_id(),
+            context.version(),
             selector,
             [context.this_address().to_field(), amount, nonce_for_burn_approval]
         );

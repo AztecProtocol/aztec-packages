@@ -1,25 +1,25 @@
-import { L2BlockL2Logs, TxEffect } from '@aztec/circuit-types';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { makeTuple } from '@aztec/foundation/array';
+import { EncryptedL2BlockL2Logs, TxEffect, UnencryptedL2BlockL2Logs } from '@aztec/circuit-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, truncateAndPad } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
 export class Body {
-  constructor(
-    public l1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-    public txEffects: TxEffect[],
-  ) {}
+  constructor(public txEffects: TxEffect[]) {
+    txEffects.forEach(txEffect => {
+      if (txEffect.isEmpty()) {
+        throw new Error('Empty tx effect not allowed in Body');
+      }
+    });
+  }
 
   /**
    * Serializes a block body
    * @returns A serialized L2 block body.
    */
   toBuffer() {
-    return serializeToBuffer(this.l1ToL2Messages.length, this.l1ToL2Messages, this.txEffects.length, this.txEffects);
+    return serializeToBuffer(this.txEffects.length, this.txEffects);
   }
 
   /**
@@ -28,20 +28,12 @@ export class Body {
    */
   static fromBuffer(buf: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buf);
-    const l1ToL2Messages = reader.readVector(Fr);
 
-    return new this(
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
-      reader.readVector(TxEffect),
-    );
+    return new this(reader.readVector(TxEffect));
   }
 
   [inspect.custom]() {
-    // print non empty l2ToL1Messages and txEffects
-    const l1ToL2Messages = this.l1ToL2Messages.filter(h => !h.isZero());
-
     return `Body {
-  l1ToL2Messages: ${inspect(l1ToL2Messages)},
   txEffects: ${inspect(this.txEffects)},
 }`;
   }
@@ -52,8 +44,8 @@ export class Body {
    * @returns The txs effects hash.
    */
   getTxsEffectsHash() {
-    const computeRoot = (leafs: Buffer[]): Buffer => {
-      const layers: Buffer[][] = [leafs];
+    const computeRoot = (leaves: Buffer[]): Buffer => {
+      const layers: Buffer[][] = [leaves];
       let activeLayer = 0;
 
       while (layers[activeLayer].length > 1) {
@@ -64,7 +56,7 @@ export class Body {
           const left = layers[activeLayer][i];
           const right = layers[activeLayer][i + 1];
 
-          layer.push(sha256(Buffer.concat([left, right])));
+          layer.push(truncateAndPad(sha256(Buffer.concat([left, right]))));
         }
 
         layers.push(layer);
@@ -74,26 +66,54 @@ export class Body {
       return layers[layers.length - 1][0];
     };
 
-    const leafs: Buffer[] = this.txEffects.map(txEffect => txEffect.hash());
+    const emptyTxEffectHash = TxEffect.empty().hash();
+    const leaves: Buffer[] = padArrayEnd(
+      this.txEffects.map(txEffect => txEffect.hash()),
+      emptyTxEffectHash,
+      this.numberOfTxsIncludingPadded,
+    );
 
-    return computeRoot(leafs);
+    return computeRoot(leaves);
   }
 
-  get encryptedLogs(): L2BlockL2Logs {
+  get encryptedLogs(): EncryptedL2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.encryptedLogs);
 
-    return new L2BlockL2Logs(logs);
+    return new EncryptedL2BlockL2Logs(logs);
   }
 
-  get unencryptedLogs(): L2BlockL2Logs {
+  get unencryptedLogs(): UnencryptedL2BlockL2Logs {
     const logs = this.txEffects.map(txEffect => txEffect.unencryptedLogs);
 
-    return new L2BlockL2Logs(logs);
+    return new UnencryptedL2BlockL2Logs(logs);
   }
 
-  get numberOfTxs() {
-    // We gather all the txEffects that are not empty (the ones that have been padded by checking the first newNullifier of the txEffect);
-    return this.txEffects.reduce((acc, txEffect) => (!txEffect.nullifiers[0].equals(Fr.ZERO) ? acc + 1 : acc), 0);
+  /**
+   * Computes the number of transactions in the block including padding transactions.
+   * @dev Modified code from TxsDecoder.computeNumTxEffectsToPad
+   */
+  get numberOfTxsIncludingPadded() {
+    const numTxEffects = this.txEffects.length;
+
+    // 2 is the minimum number of tx effects
+    if (numTxEffects <= 2) {
+      return 2;
+    }
+
+    // Note that the following could be implemented in a more simple way as "2 ** Math.ceil(Math.log2(numTxEffects));"
+    // but we want to keep the same logic as in Solidity and there we don't have the math functions.
+    let v = numTxEffects;
+
+    // The following rounds numTxEffects up to the next power of 2 (works only for 4 bytes value!)
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+
+    return v;
   }
 
   static random(
@@ -102,13 +122,15 @@ export class Body {
     numPublicCallsPerTx = 3,
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
-    numL1ToL2MessagesPerCall = 2,
   ) {
-    const newL1ToL2Messages = makeTuple(numL1ToL2MessagesPerCall, Fr.random);
     const txEffects = [...new Array(txsPerBlock)].map(_ =>
       TxEffect.random(numPrivateCallsPerTx, numPublicCallsPerTx, numEncryptedLogsPerCall, numUnencryptedLogsPerCall),
     );
 
-    return new Body(padArrayEnd(newL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), txEffects);
+    return new Body(txEffects);
+  }
+
+  static empty() {
+    return new Body([]);
   }
 }

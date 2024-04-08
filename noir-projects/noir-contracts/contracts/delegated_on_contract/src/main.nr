@@ -4,10 +4,9 @@ contract DelegatedOn {
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         emit_unencrypted_log, PublicMutable, PrivateSet, PrivateContext
     };
+    use dep::value_note::value_note::ValueNote;
 
-    use dep::aztec::{context::{PublicContext, Context}, protocol_types::abis::call_context::CallContext};
-    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
-
+    #[aztec(storage)]
     struct Storage {
         current_value: PublicMutable<Field>,
         a_private_value: PrivateSet<ValueNote>,
@@ -27,7 +26,12 @@ contract DelegatedOn {
     }
 
     unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {
-        let options = NoteViewerOptions::new().select(0, amount, Option::none()).select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteViewerOptions::new();
+        options = options.select(ValueNote::properties().value, amount, Option::none()).select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
         let notes = storage.a_private_value.view_notes(options);
         notes[0].unwrap_unchecked().value
     }
@@ -36,3 +40,4 @@ contract DelegatedOn {
         storage.current_value.read()
     }
 }
+

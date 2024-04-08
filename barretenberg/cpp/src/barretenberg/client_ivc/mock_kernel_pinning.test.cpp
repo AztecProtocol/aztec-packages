@@ -1,6 +1,6 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
 
 #include <gtest/gtest.h>
 
@@ -37,7 +37,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
         kernel_circuit, { func_fold_proof, ivc.vks.func_vk }, {}, kernel_acc);
 
     auto kernel_fold_proof = ivc.accumulate(kernel_circuit);
-    EXPECT_EQ(ivc.prover_instance->proving_key->log_circuit_size, 17);
+    EXPECT_EQ(ivc.prover_instance->proving_key.log_circuit_size, 17);
 
     GoblinUltraCircuitBuilder circuit_3{ ivc.goblin.op_queue };
     GoblinMockCircuits::construct_mock_function_circuit(circuit_3);
@@ -49,5 +49,5 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
                                                                    { func_fold_proof, ivc.vks.func_vk },
                                                                    kernel_acc);
     auto instance = std::make_shared<ClientIVC::ProverInstance>(kernel_circuit);
-    EXPECT_EQ(instance->proving_key->log_circuit_size, 17);
+    EXPECT_EQ(instance->proving_key.log_circuit_size, 17);
 }

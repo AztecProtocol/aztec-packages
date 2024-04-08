@@ -2,8 +2,9 @@ use noirc_errors::{Span, Spanned};
 use noirc_frontend::{
     token::SecondaryAttribute, BinaryOpKind, CallExpression, CastExpression, Expression,
     ExpressionKind, FunctionReturnType, Ident, IndexExpression, InfixExpression, Lambda,
-    LetStatement, MemberAccessExpression, MethodCallExpression, Path, Pattern, PrefixExpression,
-    Statement, StatementKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
+    LetStatement, MemberAccessExpression, MethodCallExpression, NoirTraitImpl, Path, Pattern,
+    PrefixExpression, Statement, StatementKind, TraitImplItem, UnaryOp, UnresolvedType,
+    UnresolvedTypeData,
 };
 
 //
@@ -66,6 +67,7 @@ pub fn mutable_assignment(name: &str, assigned_to: Expression) -> Statement {
         pattern: mutable(name),
         r#type: make_type(UnresolvedTypeData::Unspecified),
         expression: assigned_to,
+        attributes: vec![],
     }))
 }
 
@@ -81,6 +83,7 @@ pub fn assignment(name: &str, assigned_to: Expression) -> Statement {
         pattern: pattern(name),
         r#type: make_type(UnresolvedTypeData::Unspecified),
         expression: assigned_to,
+        attributes: vec![],
     }))
 }
 
@@ -171,6 +174,13 @@ pub fn index_array_variable(array: Expression, index: &str) -> Expression {
         collection: array,
         index: variable(index),
     })))
+}
+
+pub fn check_trait_method_implemented(trait_impl: &NoirTraitImpl, method_name: &str) -> bool {
+    trait_impl.items.iter().any(|item| match item {
+        TraitImplItem::Function(func) => func.def.name.0.contents == method_name,
+        _ => false,
+    })
 }
 
 /// Checks if an attribute is a custom attribute with a specific name

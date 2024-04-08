@@ -1,13 +1,13 @@
 import {
   AztecAddress,
-  ContractInstanceWithAddress,
+  type ContractInstanceWithAddress,
   EthAddress,
-  Fr,
-  Point,
+  type Fr,
+  type Point,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { computeContractAddressFromInstance, computePublicKeysHash } from '@aztec/circuits.js/contract';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { getContractArtifact } from '../utils.js';
@@ -42,6 +42,6 @@ export async function addContract(
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
 
-  await client.addContracts([{ artifact, instance }]);
+  await client.registerContract({ artifact, instance });
   log(`\nContract added to PXE at ${address.toString()} with class ${instance.contractClassId.toString()}\n`);
 }

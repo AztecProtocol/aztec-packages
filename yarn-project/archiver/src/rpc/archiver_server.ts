@@ -1,16 +1,16 @@
 import {
+  EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
-  L1ToL2Message,
   L2Block,
-  L2BlockL2Logs,
   NullifierMembershipWitness,
   TxEffect,
   TxReceipt,
+  UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { EthAddress, Fr } from '@aztec/circuits.js';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
-import { Archiver } from '../archiver/archiver.js';
+import { type Archiver } from '../archiver/archiver.js';
 
 /**
  * Wrap an Archiver instance with a JSON RPC HTTP server.
@@ -24,9 +24,9 @@ export function createArchiverRpcServer(archiverService: Archiver): JsonRpcServe
       EthAddress,
       ExtendedUnencryptedL2Log,
       Fr,
-      L1ToL2Message,
       L2Block,
-      L2BlockL2Logs,
+      EncryptedL2BlockL2Logs,
+      UnencryptedL2BlockL2Logs,
       TxEffect,
     },
     { TxReceipt, NullifierMembershipWitness },

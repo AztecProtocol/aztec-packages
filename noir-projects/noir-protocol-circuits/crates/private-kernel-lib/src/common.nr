@@ -1,11 +1,11 @@
 use dep::std;
 use dep::types::{
     abis::{
-    call_request::CallRequest, accumulated_data::CombinedAccumulatedData,
+    call_request::CallRequest, accumulated_data::PrivateAccumulatedData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
-    membership_witness::NoteHashReadRequestMembershipWitness,
+    max_block_number::MaxBlockNumber, membership_witness::NoteHashReadRequestMembershipWitness,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData, kernel_data::{PrivateKernelInnerData},
+    private_kernel::private_call_data::PrivateCallData, kernel_data::PrivateKernelData,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
@@ -15,10 +15,9 @@ use dep::types::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL
 },
-    grumpkin_private_key::GrumpkinPrivateKey,
     hash::{
-    compute_l2_to_l1_hash, compute_logs_hash, pedersen_hash, private_functions_root_from_siblings,
-    silo_note_hash, silo_nullifier, stdlib_recursion_verification_key_compress_native_vk
+    compute_l2_to_l1_hash, compute_logs_hash, private_functions_root_from_siblings, silo_note_hash,
+    silo_nullifier, stdlib_recursion_verification_key_compress_native_vk
 },
     merkle_tree::check_membership,
     utils::{arrays::{array_length, array_to_bounded_vec, validate_array}},
@@ -85,13 +84,14 @@ pub fn validate_note_hash_read_requests(
 }
 
 pub fn initialize_end_values(
-    previous_kernel: PrivateKernelInnerData,
+    previous_kernel: PrivateKernelData,
     public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
 ) {
     public_inputs.constants = previous_kernel.public_inputs.constants;
     public_inputs.min_revertible_side_effect_counter = previous_kernel.public_inputs.min_revertible_side_effect_counter;
 
     let start = previous_kernel.public_inputs.validation_requests;
+    public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
     public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
     public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
     public_inputs.validation_requests.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
@@ -179,6 +179,9 @@ pub fn update_end_values(
     let private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
+
+    // Update the max block number if the private call requested a lower one.
+    public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(public_inputs.validation_requests.max_block_number, private_call_public_inputs.max_block_number);
 
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
@@ -341,7 +344,7 @@ pub fn contract_logic(private_call: PrivateCallData) {
     assert(computed_address.eq(contract_address), "computed contract address does not match expected one");
 }
 
-pub fn validate_previous_kernel_values(end: CombinedAccumulatedData) {
+pub fn validate_previous_kernel_values(end: PrivateAccumulatedData) {
     assert(end.new_nullifiers[0].value != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 }
 
@@ -374,29 +377,4 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
             call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address"
         );
     }
-}
-
-fn field_to_grumpkin_private_key(val: Field) -> GrumpkinPrivateKey {
-    let bytes = val.to_be_bytes(32);
-    let mut v = 1;
-    let mut high = 0;
-    let mut low = 0;
-
-    for i in 0..16 {
-        high = high + (bytes[15 - i] as Field) * v;
-        low = low + (bytes[16 + 15 - i] as Field) * v;
-        v = v * 256;
-    }
-
-    GrumpkinPrivateKey { high, low }
-}
-
-pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, contract_address: AztecAddress) -> GrumpkinPrivateKey {
-    // TODO: Temporary hack. Should replace it with a secure way to derive the secret key.
-    // Match the way keys are derived in circuits.js/src/keys/index.ts
-    let hash = pedersen_hash(
-        [secret_key.high, secret_key.low, contract_address.to_field()],
-        0
-    );
-    field_to_grumpkin_private_key(hash)
 }

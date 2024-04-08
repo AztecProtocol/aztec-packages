@@ -8,7 +8,7 @@ use crate::{
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256, RETURN_VALUES_LENGTH,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, RETURN_VALUES_LENGTH,
     GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -36,7 +36,7 @@ struct PublicCircuitPublicInputs{
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
 
-    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash: Field,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -48,7 +48,7 @@ struct PublicCircuitPublicInputs{
 
     prover_address: AztecAddress,
 
-    reverted: bool,
+    revert_code: u8,
 }
 
 impl Eq for PublicCircuitPublicInputs {
@@ -90,11 +90,11 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
 
-        fields.extend_from_array(self.unencrypted_logs_hash);
+        fields.push(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
         fields.push(self.prover_address.to_field());
-        fields.push(self.reverted as Field);
+        fields.push(self.revert_code as Field);
         fields.storage
     }
 }
@@ -117,11 +117,11 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
-            unencrypted_logs_hash: reader.read_array([0; NUM_FIELDS_PER_SHA256]),
+            unencrypted_logs_hash: reader.read() as Field,
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
             prover_address: reader.read_struct(AztecAddress::deserialize),
-            reverted: reader.read() as bool,
+            revert_code: reader.read() as u8,
         };
 
         reader.finish();
@@ -149,6 +149,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x083ac560a513d670a7f50f0a3052d42cb9816b7b643e62025b8278652ad637ab;
+    let test_data_empty_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
     assert_eq(hash, test_data_empty_hash);
 }

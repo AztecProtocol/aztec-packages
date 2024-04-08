@@ -26,6 +26,8 @@ The structure of a contract instance is defined as:
 | `portal_contract_address` | `EthereumAddress` | Optional address of the L1 portal contract. |
 | `public_keys_hash` | `Field` | Optional hash of the struct of public keys used for encryption and nullifying by this contract. |
 
+<!-- TODO: define the `initialization_hash` derivation more explicitly. -->
+
 <!-- Note: Always ensure the spec above matches the one described in Addresses and Keys. -->
 
 ### Versioning
@@ -81,9 +83,9 @@ Removing constructors from the protocol itself simplifies the kernel circuit, an
 
 ## Public Deployment
 
-A Contract Instance is considered to be Publicly Deployed when it has been broadcasted to the network via a canonical `ContractInstanceDeployer` contract, which also emits a Deployment Nullifier associated to the deployed instance. 
+A Contract Instance is considered to be Publicly Deployed when it has been broadcasted to the network via a canonical `ContractInstanceDeployer` contract, which also emits a Deployment Nullifier associated to the deployed instance.
 
-All public function calls to an Undeployed address _must_ fail, since the Contract Class for it is not known to the network. If the Class is not known to the network, then an Aztec Node, whether it is the elected sequencer or a full node following the chain, may not be able to execute the bytecode for a public function call, which is undesirable. 
+All public function calls to an Undeployed address _must_ fail, since the Contract Class for it is not known to the network. If the Class is not known to the network, then an Aztec Node, whether it is the elected sequencer or a full node following the chain, may not be able to execute the bytecode for a public function call, which is undesirable.
 
 The failing of public function calls to Undeployed addresses is enforced by having the Public Kernel Circuit check that the Deployment Nullifier for the instance has been emitted. Note that makes Public Deployment a protocol-level concern, whereas Initialization is purely an application-level concern. Also, note that this requires hardcoding the address of the `ContractInstanceDeployer` contract in a protocol circuit.
 
@@ -101,8 +103,10 @@ A new contract instance can be _Publicly Deployed_ by calling a `deploy` functio
 
 The pseudocode for the process described above is the following:
 
-```
-function deploy (
+<!-- Is `version` needed? If so, please update the address.md to include it -->
+
+```rust
+fn deploy (
   salt: Field,
   contract_class_id: Field,
   initialization_hash: Field,
@@ -110,17 +114,31 @@ function deploy (
   public_keys_hash: Field,
   universal_deploy?: boolean,
 )
-  assert nullifier_exists silo(contract_class_id, ContractClassRegisterer)
-  assert is_valid_eth_address(portal_contract_address)
+  let contract_class_registerer: Contract = ContractClassRegisterer::at(CONTRACT_CLASS_REGISTERER_ADDRESS);
 
-  deployer = if universal_deploy then zero else msg_sender
-  version = 1
-  address = compute_address(version, salt, deployer, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+  assert(nullifier_exists(silo(contract_class_id, contract_class_registerer.address)));
 
-  emit_nullifier(address)
+  assert(is_valid_eth_address(portal_contract_address));
 
-  emit_unencrypted_event ContractInstanceDeployed(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash)
+  let deployer: Address = if universal_deploy { 0 } else { msg_sender };
+  let version: Field = 1;
+
+  let address = address_crh(
+    version,
+    salt,
+    deployer,
+    contract_class_id,
+    initialization_hash,
+    portal_contract_address,
+    public_keys_hash
+  );
+
+  emit_nullifier(address);
+
+  emit_unencrypted_event(ContractInstanceDeployed::new(address, version, salt, contract_class_id, initialization_hash, portal_contract_address, public_keys_hash));
 ```
+
+> See [address](../addresses-and-keys/address.md) for `address_crh`.
 
 Upon seeing a `ContractInstanceDeployed` event from the canonical `ContractInstanceDeployer` contract, nodes are expected to store the address and preimage, so they can verify executed code during public code execution as described in the next section.
 
@@ -141,7 +159,9 @@ The Kernel Circuit, both private and public, is responsible for verifying that t
 
 Specific to private functions:
 
-- The hash of the `verification_key` matches the `vk_hash` defined in the corresponding [Private Function](./classes.md#private-function) for the Contract Class.
+- The hash of the `verification_key` matches the `vk_hash` defined in the corresponding [Private Function](./classes.md#private-function) for the Contract Class. Note that the `verification_key` must include an identifier of the proving system used to compute it.
+
+<!-- TODO: Define a format for encoding the proving system into the verification key or the vk_hash preimage. -->
 
 Specific to public functions:
 

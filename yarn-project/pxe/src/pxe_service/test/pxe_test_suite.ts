@@ -1,4 +1,10 @@
-import { DeployedContract, PXE, TxExecutionRequest, randomDeployedContract } from '@aztec/circuit-types';
+import {
+  type PXE,
+  TxExecutionRequest,
+  randomContractArtifact,
+  randomContractInstanceWithAddress,
+  randomDeployedContract,
+} from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -7,6 +13,7 @@ import {
   INITIAL_L2_BLOCK_NUM,
   Point,
   TxContext,
+  getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
@@ -82,14 +89,38 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
     });
 
     it('successfully adds a contract', async () => {
-      const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
-      await pxe.addContracts(contracts);
+      const contracts = [randomDeployedContract(), randomDeployedContract()];
+      for (const contract of contracts) {
+        await pxe.registerContract(contract);
+      }
 
       const expectedContractAddresses = contracts.map(contract => contract.instance.address);
       const contractAddresses = await pxe.getContracts();
-
-      // check if all the contracts were returned
       expect(contractAddresses).toEqual(expect.arrayContaining(expectedContractAddresses));
+    });
+
+    it('registers a class and adds a contract for it', async () => {
+      const artifact = randomContractArtifact();
+      const contractClass = getContractClassFromArtifact(artifact);
+      const contractClassId = contractClass.id;
+      const instance = randomContractInstanceWithAddress({ contractClassId });
+
+      await pxe.registerContractClass(artifact);
+      expect(await pxe.getContractClass(contractClassId)).toEqual(contractClass);
+
+      await pxe.registerContract({ instance });
+      expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
+    });
+
+    it('refuses to register a contract with a class that has not been registered', async () => {
+      const instance = randomContractInstanceWithAddress();
+      await expect(pxe.registerContract({ instance })).rejects.toThrow(/Missing contract artifact/i);
+    });
+
+    it('refuses to register a contract with an artifact with mismatching class id', async () => {
+      const artifact = randomContractArtifact();
+      const instance = randomContractInstanceWithAddress();
+      await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
     });
 
     it('throws when simulating a tx targeting public entrypoint', async () => {
@@ -104,12 +135,12 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
         authWitnesses: [],
       });
 
-      await expect(async () => await pxe.simulateTx(txExecutionRequest, false)).rejects.toThrow(
+      await expect(async () => await pxe.proveTx(txExecutionRequest, false)).rejects.toThrow(
         'Public entrypoints are not allowed',
       );
     });
 
-    // Note: Not testing a successful run of `simulateTx`, `sendTx`, `getTxReceipt` and `viewTx` here as it requires
+    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `viewTx` here as it requires
     //       a larger setup and it's sufficiently tested in the e2e tests.
 
     it('throws when getting public storage for non-existent contract', async () => {

@@ -1,4 +1,4 @@
-import { Tuple } from './types.js';
+import { type Tuple } from './types.js';
 
 /**
  * The BufferReader class provides a utility for reading various data types from a buffer.
@@ -41,6 +41,11 @@ export class BufferReader {
       : Buffer.from(bufferOrReader.buffer, bufferOrReader.byteOffset, bufferOrReader.byteLength);
 
     return new BufferReader(buf);
+  }
+
+  /** Returns true if the underlying buffer has been consumed completely. */
+  public isEmpty(): boolean {
+    return this.index === this.buffer.length;
   }
 
   /**
@@ -306,4 +311,15 @@ export class BufferReader {
   public getLength(): number {
     return this.buffer.length;
   }
+}
+
+/**
+ * A deserializer
+ */
+export interface FromBuffer<T> {
+  /**
+   * Deserializes an object from a buffer
+   * @param buffer - The buffer to deserialize.
+   */
+  fromBuffer(buffer: Buffer): T;
 }

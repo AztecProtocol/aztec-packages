@@ -4,8 +4,9 @@ contract Escrow {
 
     use dep::aztec::{context::{PublicContext, Context}, oracle::get_public_key::get_public_key};
 
-    use dep::address_note::address_note::{AddressNote, ADDRESS_NOTE_LEN};
+    use dep::address_note::address_note::AddressNote;
 
+    #[aztec(storage)]
     struct Storage {
         owner: PrivateImmutable<AddressNote>,
     }

@@ -1,8 +1,8 @@
-import { AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, CompleteAddress } from '@aztec/circuit-types';
+import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { AuthWitness, type CompleteAddress } from '@aztec/circuit-types';
 import { Ecdsa } from '@aztec/circuits.js/barretenberg';
-import { ContractArtifact } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type Fr } from '@aztec/foundation/fields';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
 import { EcdsaAccountContractArtifact } from './artifact.js';
@@ -30,9 +30,9 @@ export class EcdsaAccountContract extends DefaultAccountContract {
 class EcdsaAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private signingPrivateKey: Buffer) {}
 
-  createAuthWitness(message: Fr): Promise<AuthWitness> {
+  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const ecdsa = new Ecdsa();
-    const signature = ecdsa.constructSignature(message.toBuffer(), this.signingPrivateKey);
-    return Promise.resolve(new AuthWitness(message, [...signature.r, ...signature.s]));
+    const signature = ecdsa.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
+    return Promise.resolve(new AuthWitness(messageHash, [...signature.r, ...signature.s]));
   }
 }

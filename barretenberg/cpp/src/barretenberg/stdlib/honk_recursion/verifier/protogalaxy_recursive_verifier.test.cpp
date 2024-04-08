@@ -1,7 +1,6 @@
 #include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
-#include "barretenberg/flavor/ultra_recursive.hpp"
 #include "barretenberg/protogalaxy/decider_prover.hpp"
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
@@ -10,6 +9,7 @@
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_recursion/verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -210,7 +210,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
+                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
         // Check for a failure flag in the recursive verifier circuit
@@ -276,7 +277,8 @@ template <typename RecursiveFlavor> class ProtoGalaxyRecursiveTests : public tes
         auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
         for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i]);
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
+                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
         DeciderProver decider_prover(folding_proof.accumulator);

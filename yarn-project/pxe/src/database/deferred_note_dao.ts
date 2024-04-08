@@ -1,5 +1,5 @@
 import { Note, TxHash } from '@aztec/circuit-types';
-import { AztecAddress, Fr, Point, PublicKey, Vector } from '@aztec/circuits.js';
+import { AztecAddress, Fr, Point, type PublicKey, Vector } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
@@ -29,12 +29,12 @@ export class DeferredNoteDao {
 
   toBuffer(): Buffer {
     return serializeToBuffer(
-      this.publicKey.toBuffer(),
-      this.note.toBuffer(),
-      this.contractAddress.toBuffer(),
-      this.storageSlot.toBuffer(),
-      this.noteTypeId.toBuffer(),
-      this.txHash.toBuffer(),
+      this.publicKey,
+      this.note,
+      this.contractAddress,
+      this.storageSlot,
+      this.noteTypeId,
+      this.txHash,
       new Vector(this.newNoteHashes),
       this.dataStartIndexForTx,
     );

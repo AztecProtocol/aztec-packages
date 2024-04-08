@@ -3,11 +3,11 @@
 #include <gtest/gtest.h>
 #include <vector>
 
+#include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_composer.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/proof_system/circuit_builder/eccvm/eccvm_circuit_builder.hpp"
-#include "barretenberg/proof_system/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
@@ -33,7 +33,7 @@ TYPED_TEST_SUITE(ECCVMComposerTests, FlavorTypes);
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-template <typename Flavor> ECCVMCircuitBuilder<Flavor> generate_circuit(numeric::RNG* engine = nullptr)
+template <typename Flavor> ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
 {
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
     using G1 = typename Flavor::CycleGroup;
@@ -61,7 +61,7 @@ template <typename Flavor> ECCVMCircuitBuilder<Flavor> generate_circuit(numeric:
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
     op_queue->mul_accumulate(c, x);
-    ECCVMCircuitBuilder<Flavor> builder{ op_queue };
+    ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
 
@@ -96,6 +96,7 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
                                                            .z1 = 0,
                                                            .z2 = 0,
                                                            .mul_scalar_full = 0 });
+    builder.op_queue->num_transcript_rows++;
     auto composer = ECCVMComposer_<Flavor>();
     auto prover = composer.create_prover(builder);
 

@@ -1,12 +1,16 @@
 import {
-  AccountWalletWithPrivateKey,
-  AztecAddress,
-  FeePaymentMethod,
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
+  type DeployL1Contracts,
+  type FeePaymentMethod,
   Fr,
+  type PXE,
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   SentTx,
-  computeAuthWitMessageHash,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
@@ -16,26 +20,22 @@ import {
   FPCContract,
   GasTokenContract,
 } from '@aztec/noir-contracts.js';
-import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
 import { jest } from '@jest/globals';
 
-import {
-  BalancesFn,
-  EndToEndContext,
-  expectMapping,
-  getBalancesFn,
-  publicDeployAccounts,
-  setup,
-} from './fixtures/utils.js';
+import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts, setup } from './fixtures/utils.js';
 
-jest.setTimeout(1_000_000);
+jest.setTimeout(100_000);
 
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';
 const TOKEN_DECIMALS = 18n;
 
 describe('e2e_dapp_subscription', () => {
+  let pxe: PXE;
+  let logger: DebugLogger;
+
   let aliceWallet: AccountWalletWithPrivateKey;
   let bobWallet: AccountWalletWithPrivateKey;
   let aliceAddress: AztecAddress; // Dapp subscriber.
@@ -47,7 +47,6 @@ describe('e2e_dapp_subscription', () => {
   let subscriptionContract: AppSubscriptionContract;
   let gasTokenContract: GasTokenContract;
   let bananaFPC: FPCContract;
-  let e2eContext: EndToEndContext;
   let gasBalances: BalancesFn;
   let bananasPublicBalances: BalancesFn;
   let bananasPrivateBalances: BalancesFn;
@@ -63,17 +62,27 @@ describe('e2e_dapp_subscription', () => {
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
-    e2eContext = await setup(3, { deployProtocolContracts: true });
-    await publicDeployAccounts(e2eContext.wallet, e2eContext.accounts);
 
-    const { wallets, accounts, aztecNode } = e2eContext;
+    let wallets: AccountWalletWithPrivateKey[];
+    let aztecNode: AztecNode;
+    let deployL1ContractsValues: DeployL1Contracts;
+    ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3));
+
+    await publicDeployAccounts(wallets[0], wallets);
+
+    await aztecNode.setConfig({
+      allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
+    });
 
     // this should be a SignerlessWallet but that can't call public functions directly
-    gasTokenContract = await GasTokenContract.at(GasTokenAddress, wallets[0]);
+    gasTokenContract = await GasTokenContract.at(
+      getCanonicalGasTokenAddress(deployL1ContractsValues.l1ContractAddresses.gasPortalAddress),
+      wallets[0],
+    );
 
-    aliceAddress = accounts.at(0)!.address;
-    bobAddress = accounts.at(1)!.address;
-    sequencerAddress = accounts.at(2)!.address;
+    aliceAddress = wallets[0].getAddress();
+    bobAddress = wallets[1].getAddress();
+    sequencerAddress = wallets[2].getAddress();
 
     await aztecNode.setConfig({
       feeRecipient: sequencerAddress,
@@ -107,9 +116,9 @@ describe('e2e_dapp_subscription', () => {
     await gasTokenContract.methods.mint_public(subscriptionContract.address, INITIAL_GAS_BALANCE).send().wait();
     await gasTokenContract.methods.mint_public(bananaFPC.address, INITIAL_GAS_BALANCE).send().wait();
 
-    gasBalances = getBalancesFn('⛽', gasTokenContract.methods.balance_of_public, e2eContext.logger);
-    bananasPublicBalances = getBalancesFn('Public 🍌', bananaCoin.methods.balance_of_public, e2eContext.logger);
-    bananasPrivateBalances = getBalancesFn('Private 🍌', bananaCoin.methods.balance_of_private, e2eContext.logger);
+    gasBalances = getBalancesFn('⛽', gasTokenContract.methods.balance_of_public, logger);
+    bananasPublicBalances = getBalancesFn('Public 🍌', bananaCoin.methods.balance_of_public, logger);
+    bananasPrivateBalances = getBalancesFn('Private 🍌', bananaCoin.methods.balance_of_private, logger);
 
     await expectMapping(
       gasBalances,
@@ -198,15 +207,14 @@ describe('e2e_dapp_subscription', () => {
   });
 
   it('should call dapp subscription entrypoint', async () => {
-    const { pxe } = e2eContext;
     const dappPayload = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
     const action = counterContract.methods.increment(bobAddress).request();
     const txExReq = await dappPayload.createTxExecutionRequest([action]);
-    const tx = await pxe.simulateTx(txExReq, true);
+    const tx = await pxe.proveTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     await sentTx.wait();
 
-    expect(await counterContract.methods.get_counter(bobAddress).view()).toBe(1n);
+    expect(await counterContract.methods.get_counter(bobAddress).simulate()).toBe(1n);
 
     await expectMapping(
       gasBalances,
@@ -238,12 +246,11 @@ describe('e2e_dapp_subscription', () => {
   ) {
     const nonce = Fr.random();
     const action = bananaCoin.methods.transfer(aliceAddress, bobAddress, SUBSCRIPTION_AMOUNT, nonce);
-    const messageHash = computeAuthWitMessageHash(subscriptionContract.address, action.request());
-    await aliceWallet.createAuthWitness(messageHash);
+    await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)
-      .methods.subscribe(aliceAddress, nonce, (await e2eContext.pxe.getBlockNumber()) + blockDelta, txCount)
+      .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
       .send({
         fee: {
           maxFee,
@@ -254,11 +261,10 @@ describe('e2e_dapp_subscription', () => {
   }
 
   async function dappIncrement() {
-    const { pxe } = e2eContext;
     const dappEntrypoint = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
     const action = counterContract.methods.increment(bobAddress).request();
     const txExReq = await dappEntrypoint.createTxExecutionRequest([action]);
-    const tx = await pxe.simulateTx(txExReq, true);
+    const tx = await pxe.proveTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();
   }

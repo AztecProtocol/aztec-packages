@@ -1,23 +1,23 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger } from '@aztec/foundation/log';
 
 import type { Abi, Narrow } from 'abitype';
 import {
-  Account,
-  Chain,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type Account,
+  type Chain,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   createPublicClient,
   createWalletClient,
   getAddress,
   getContract,
   http,
 } from 'viem';
-import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
+import { type HDAccount, type PrivateKeyAccount } from 'viem/accounts';
 
-import { L1ContractAddresses } from './l1_contract_addresses.js';
+import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
  * Return type of the deployL1Contract function.
@@ -31,7 +31,6 @@ export type DeployL1Contracts = {
    * Public Client Type.
    */
   publicClient: PublicClient<HttpTransport, Chain>;
-
   /**
    * The currently deployed l1 contract addresses
    */
@@ -76,6 +75,14 @@ export interface L1ContractArtifactsForDeployment {
    * Rollup contract artifacts
    */
   rollup: ContractArtifacts;
+  /**
+   * The token to pay for gas. This will be bridged to L2 via the gasPortal below
+   */
+  gasToken: ContractArtifacts;
+  /**
+   * Gas portal contract artifacts. Optional for now as gas is not strictly enforced
+   */
+  gasPortal: ContractArtifacts;
 }
 
 /**
@@ -114,24 +121,6 @@ export const deployL1Contracts = async (
   );
   logger(`Deployed Registry at ${registryAddress}`);
 
-  const inboxAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.inbox.contractAbi,
-    contractsToDeploy.inbox.contractBytecode,
-    [getAddress(registryAddress.toString())],
-  );
-  logger(`Deployed Inbox at ${inboxAddress}`);
-
-  const outboxAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.outbox.contractAbi,
-    contractsToDeploy.outbox.contractBytecode,
-    [getAddress(registryAddress.toString())],
-  );
-  logger(`Deployed Outbox at ${outboxAddress}`);
-
   const availabilityOracleAddress = await deployL1Contract(
     walletClient,
     publicClient,
@@ -149,6 +138,29 @@ export const deployL1Contracts = async (
   );
   logger(`Deployed Rollup at ${rollupAddress}`);
 
+  // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
+  let inboxAddress!: EthAddress;
+  {
+    const rollup = getContract({
+      address: getAddress(rollupAddress.toString()),
+      abi: contractsToDeploy.rollup.contractAbi,
+      client: publicClient,
+    });
+    inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
+  }
+  logger(`Inbox available at ${inboxAddress}`);
+
+  let outboxAddress!: EthAddress;
+  {
+    const rollup = getContract({
+      address: getAddress(rollupAddress.toString()),
+      abi: contractsToDeploy.rollup.contractAbi,
+      client: publicClient,
+    });
+    outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
+  }
+  logger(`Outbox available at ${outboxAddress}`);
+
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
     address: getAddress(registryAddress.toString()),
@@ -160,12 +172,34 @@ export const deployL1Contracts = async (
     { account },
   );
 
+  // this contract remains uninitialized because at this point we don't know the address of the gas token on L2
+  const gasTokenAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    contractsToDeploy.gasToken.contractAbi,
+    contractsToDeploy.gasToken.contractBytecode,
+  );
+
+  logger(`Deployed Gas Token at ${gasTokenAddress}`);
+
+  // this contract remains uninitialized because at this point we don't know the address of the gas token on L2
+  const gasPortalAddress = await deployL1Contract(
+    walletClient,
+    publicClient,
+    contractsToDeploy.gasPortal.contractAbi,
+    contractsToDeploy.gasPortal.contractBytecode,
+  );
+
+  logger(`Deployed Gas Portal at ${gasPortalAddress}`);
+
   const l1Contracts: L1ContractAddresses = {
     availabilityOracleAddress,
     rollupAddress,
     registryAddress,
     inboxAddress,
     outboxAddress,
+    gasTokenAddress,
+    gasPortalAddress,
   };
 
   return {
@@ -198,7 +232,7 @@ export async function deployL1Contract(
     args,
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
     throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);

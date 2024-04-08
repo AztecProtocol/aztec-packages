@@ -1,7 +1,8 @@
-import { AuthWitnessProvider, EntrypointInterface, FeeOptions } from '@aztec/aztec.js/account';
-import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, FunctionData, GeneratorIndex, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
+import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { type EntrypointInterface, type FeeOptions } from '@aztec/aztec.js/entrypoint';
+import { type FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecAddress, FunctionData, GeneratorIndex, TxContext } from '@aztec/circuits.js';
+import { type FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from './constants.js';
 import { buildAppPayload, buildFeePayload, hashPayload } from './entrypoint_payload.js';
@@ -25,8 +26,8 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
     const abi = this.getEntrypointAbi();
     const entrypointPackedArgs = PackedArguments.fromArgs(encodeArguments(abi, [appPayload, feePayload]));
 
-    const appAuthWitness = await this.auth.createAuthWitness(hashPayload(appPayload, GeneratorIndex.SIGNATURE_PAYLOAD));
-    const feeAuthWitness = await this.auth.createAuthWitness(hashPayload(feePayload, GeneratorIndex.FEE_PAYLOAD));
+    const appAuthWitness = await this.auth.createAuthWit(hashPayload(appPayload, GeneratorIndex.SIGNATURE_PAYLOAD));
+    const feeAuthWitness = await this.auth.createAuthWit(hashPayload(feePayload, GeneratorIndex.FEE_PAYLOAD));
 
     const txRequest = TxExecutionRequest.from({
       argsHash: entrypointPackedArgs.hash,

@@ -4,8 +4,8 @@ import { EventSelector } from '@aztec/foundation/abi';
 
 import { mock } from 'jest-mock-extended';
 
-import { CommitmentsDB } from '../../index.js';
-import { AvmContext } from '../avm_context.js';
+import { type CommitmentsDB } from '../../index.js';
+import { type AvmContext } from '../avm_context.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import {
@@ -252,7 +252,7 @@ describe('Accrued Substate', () => {
       context.machineState.memory.set(0, value);
 
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
-      await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context)).rejects.toThrowError(
+      await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
           `Attempted to emit duplicate nullifier ${value.toFr()} (storage address: ${
             context.environment.storageAddress
@@ -272,7 +272,7 @@ describe('Accrued Substate', () => {
       context = initContext({ persistableState: new AvmPersistableStateManager(hostStorage) });
 
       context.machineState.memory.set(0, value);
-      await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context)).rejects.toThrowError(
+      await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
           `Attempted to emit duplicate nullifier ${value.toFr()} (storage address: ${
             context.environment.storageAddress

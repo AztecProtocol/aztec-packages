@@ -8,11 +8,9 @@ import {Hash} from "../../src/core/libraries/Hash.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 
 import {HeaderLibHelper} from "./helpers/HeaderLibHelper.sol";
-import {MessagesDecoderHelper} from "./helpers/MessagesDecoderHelper.sol";
 import {TxsDecoderHelper} from "./helpers/TxsDecoderHelper.sol";
 import {HeaderLib} from "../../src/core/libraries/HeaderLib.sol";
 
-import {MessagesDecoder} from "../../src/core/libraries/decoders/MessagesDecoder.sol";
 import {TxsDecoder} from "../../src/core/libraries/decoders/TxsDecoder.sol";
 
 import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
@@ -25,12 +23,10 @@ import {AvailabilityOracle} from "../../src/core/availability_oracle/Availabilit
  */
 contract DecodersTest is DecoderBase {
   HeaderLibHelper internal headerHelper;
-  MessagesDecoderHelper internal messagesHelper;
   TxsDecoderHelper internal txsHelper;
 
   function setUp() public virtual {
     headerHelper = new HeaderLibHelper();
-    messagesHelper = new MessagesDecoderHelper();
     txsHelper = new TxsDecoderHelper();
   }
 
@@ -152,36 +148,6 @@ contract DecodersTest is DecoderBase {
       );
     }
 
-    // Messages
-    {
-      (
-        bytes32 msgsInHash,
-        bytes32 msgsL2ToL1MsgsHash,
-        bytes32[] memory msgsL1ToL2Msgs,
-        bytes32[] memory msgsL2ToL1Msgs
-      ) = messagesHelper.decode(data.block.body);
-
-      assertEq(msgsInHash, data.block.l1ToL2MessagesHash, "Invalid l1ToL2MsgsHash msgs");
-
-      // assertEq(msgsL2ToL1MsgsHash, b.l2ToL1MessagesHash, "Invalid l2ToL1MsgsHash");
-
-      // L1 -> L2 messages
-      assertEq(
-        msgsL1ToL2Msgs.length, data.messages.l1ToL2Messages.length, "Invalid l1ToL2Msgs length"
-      );
-      for (uint256 i = 0; i < msgsL1ToL2Msgs.length; i++) {
-        assertEq(msgsL1ToL2Msgs[i], data.messages.l1ToL2Messages[i], "Invalid l1ToL2Msgs messages");
-      }
-
-      // L2 -> L1 messages
-      assertEq(
-        msgsL2ToL1Msgs.length, data.messages.l2ToL1Messages.length, "Invalid l2ToL1Msgs length"
-      );
-      for (uint256 i = 0; i < msgsL2ToL1Msgs.length; i++) {
-        assertEq(msgsL2ToL1Msgs[i], data.messages.l2ToL1Messages[i], "Invalid l2ToL1Msgs messages");
-      }
-    }
-
     // Txs
     {
       bytes32 txsEffectsHash = txsHelper.decode(data.block.body);
@@ -204,10 +170,11 @@ contract DecodersTest is DecoderBase {
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
     bytes32 kernelPublicInputsLogsHash = bytes32(0);
-    bytes32 privateCircuitPublicInputsLogsHash = sha256(new bytes(0));
+    bytes32 privateCircuitPublicInputsLogsHash = Hash.sha256ToField(new bytes(0));
 
-    bytes32 referenceLogsHash =
-      sha256(abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
+    bytes32 referenceLogsHash = Hash.sha256ToField(
+      abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash)
+    );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
@@ -225,9 +192,9 @@ contract DecodersTest is DecoderBase {
 
     // Zero because this is the first iteration
     bytes32 previousKernelPublicInputsLogsHash = bytes32(0);
-    bytes32 privateCircuitPublicInputsLogsHashFirstCall = sha256(firstFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashFirstCall = Hash.sha256ToField(firstFunctionCallLogs);
 
-    bytes32 referenceLogsHash = sha256(
+    bytes32 referenceLogsHash = Hash.sha256ToField(
       abi.encodePacked(
         previousKernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHashFirstCall
       )
@@ -252,11 +219,12 @@ contract DecodersTest is DecoderBase {
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
     bytes32 referenceLogsHashFromIteration1 =
-      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+      Hash.sha256ToField(abi.encodePacked(bytes32(0), Hash.sha256ToField(firstFunctionCallLogs)));
 
-    bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashSecondCall =
+      Hash.sha256ToField(secondFunctionCallLogs);
 
-    bytes32 referenceLogsHashFromIteration2 = sha256(
+    bytes32 referenceLogsHashFromIteration2 = Hash.sha256ToField(
       abi.encodePacked(
         referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
       )
@@ -289,23 +257,59 @@ contract DecodersTest is DecoderBase {
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
     bytes32 referenceLogsHashFromIteration1 =
-      sha256(abi.encodePacked(bytes32(0), sha256(firstFunctionCallLogs)));
+      Hash.sha256ToField(abi.encodePacked(bytes32(0), Hash.sha256ToField(firstFunctionCallLogs)));
 
-    bytes32 privateCircuitPublicInputsLogsHashSecondCall = sha256(secondFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashSecondCall =
+      Hash.sha256ToField(secondFunctionCallLogs);
 
-    bytes32 referenceLogsHashFromIteration2 = sha256(
+    bytes32 referenceLogsHashFromIteration2 = Hash.sha256ToField(
       abi.encodePacked(
         referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
       )
     );
 
-    bytes32 privateCircuitPublicInputsLogsHashThirdCall = sha256(thirdFunctionCallLogs);
+    bytes32 privateCircuitPublicInputsLogsHashThirdCall = Hash.sha256ToField(thirdFunctionCallLogs);
 
-    bytes32 referenceLogsHashFromIteration3 = sha256(
+    bytes32 referenceLogsHashFromIteration3 = Hash.sha256ToField(
       abi.encodePacked(referenceLogsHashFromIteration2, privateCircuitPublicInputsLogsHashThirdCall)
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, referenceLogsHashFromIteration3, "Incorrect logs hash");
+  }
+
+  function testTxsDecoderCorrectlyComputesNumTxEffectsToPad() public {
+    // Minimum num txs is 2 so when there are no real txs we need to pad to 2
+    uint32 numTxEffects = 0;
+    uint32 paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 1;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 1 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 3;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 2 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 5;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 8;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 10;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 16;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 17;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 5 - numTxEffects, "Incorrect number of tx effects to pad");
   }
 }

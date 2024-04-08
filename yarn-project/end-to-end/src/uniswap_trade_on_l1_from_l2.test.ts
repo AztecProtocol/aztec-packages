@@ -1,5 +1,5 @@
 import { setup as e2eSetup } from './fixtures/utils.js';
-import { UniswapSetupContext, uniswapL1L2TestSuite } from './shared/uniswap_l1_l2.js';
+import { type UniswapSetupContext, uniswapL1L2TestSuite } from './shared/uniswap_l1_l2.js';
 
 // This tests works on forked mainnet. There is a dump of the data in `dumpedState` such that we
 // don't need to burn through RPC requests.
@@ -12,6 +12,7 @@ let teardown: () => Promise<void>;
 // docs:start:uniswap_setup
 const testSetup = async (): Promise<UniswapSetupContext> => {
   const {
+    aztecNode,
     teardown: teardown_,
     pxe,
     deployL1ContractsValues,
@@ -27,7 +28,7 @@ const testSetup = async (): Promise<UniswapSetupContext> => {
 
   teardown = teardown_;
 
-  return { pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet };
+  return { aztecNode, pxe, logger, publicClient, walletClient, ownerWallet, sponsorWallet };
 };
 // docs:end:uniswap_setup
 

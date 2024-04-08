@@ -21,13 +21,11 @@ describe('BoxReact Contract Tests', () => {
 
   test('Can set a number', async () => {
     logger(`${await wallet.getRegisteredAccounts()}`);
-    const callTxReceipt = await contract.methods.setNumber(numberToSet, wallet.getCompleteAddress()).send().wait();
-
-    expect(callTxReceipt.status).toBe(TxStatus.MINED);
+    await contract.methods.setNumber(numberToSet, wallet.getCompleteAddress()).send().wait();
   }, 40000);
 
   test('Can read a number', async () => {
-    const viewTxReceipt = await contract.methods.getNumber(wallet.getCompleteAddress()).view();
+    const viewTxReceipt = await contract.methods.getNumber(wallet.getCompleteAddress()).simulate();
     expect(numberToSet.toBigInt()).toEqual(viewTxReceipt.value);
   }, 40000);
 });

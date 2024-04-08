@@ -1,7 +1,7 @@
 import { AztecAddress } from '../aztec-address/index.js';
 import { Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
-import { ABIParameterVisibility, FunctionAbi, FunctionType } from './abi.js';
+import { ABIParameterVisibility, type FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
 describe('abi/encoder', () => {
@@ -161,7 +161,7 @@ describe('abi/encoder', () => {
     };
     const args = ['garbage'];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError('Invalid argument "garbage" of type field');
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Invalid argument "garbage" of type field');
   });
 
   it('throws when passing string argument as integer', () => {
@@ -184,7 +184,7 @@ describe('abi/encoder', () => {
       returnTypes: [],
     };
     const args = ['garbage'];
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError(
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow(
       `Type 'string' with value 'garbage' passed to BaseField ctor.`,
     );
   });
@@ -212,8 +212,6 @@ describe('abi/encoder', () => {
       },
     ];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError(
-      'Argument for owner cannot be serialized to a field',
-    );
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrow('Argument for owner cannot be serialized to a field');
   });
 });

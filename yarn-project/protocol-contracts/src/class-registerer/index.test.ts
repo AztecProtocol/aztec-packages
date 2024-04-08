@@ -1,14 +1,12 @@
-import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js';
 
-import omit from 'lodash.omit';
-
-import { ClassRegistererAddress, getCanonicalClassRegisterer } from './index.js';
+import { getCanonicalClassRegisterer, getCanonicalClassRegistererAddress } from './index.js';
 
 describe('ClassRegisterer', () => {
-  setupCustomSnapshotSerializers(expect);
   it('returns canonical protocol contract', () => {
     const contract = getCanonicalClassRegisterer();
-    expect(omit(contract, 'artifact')).toMatchSnapshot();
-    expect(contract.address.toString()).toEqual(ClassRegistererAddress.toString());
+    expect(computeContractAddressFromInstance(contract.instance)).toEqual(contract.address);
+    expect(getContractClassFromArtifact(contract.artifact).id).toEqual(contract.contractClass.id);
+    expect(contract.address.toString()).toEqual(getCanonicalClassRegistererAddress().toString());
   });
 });

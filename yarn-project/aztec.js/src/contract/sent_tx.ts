@@ -1,6 +1,13 @@
-import { ExtendedNote, GetUnencryptedLogsResponse, PXE, TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
+import {
+  type ExtendedNote,
+  type GetUnencryptedLogsResponse,
+  type PXE,
+  type TxHash,
+  type TxReceipt,
+  TxStatus,
+} from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
@@ -15,6 +22,8 @@ export type WaitOpts = {
   waitForNotesSync?: boolean;
   /** Whether to include information useful for debugging/testing in the receipt. */
   debug?: boolean;
+  /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
+  dontThrowOnRevert?: boolean;
 };
 
 export const DefaultWaitOpts: WaitOpts = {
@@ -60,10 +69,10 @@ export class SentTx {
    */
   public async wait(opts?: WaitOpts): Promise<FieldsOf<TxReceipt>> {
     if (opts?.debug && opts.waitForNotesSync === false) {
-      throw new Error('Cannot set getNotes to true if waitForNotesSync is false');
+      throw new Error('Cannot set debug to true if waitForNotesSync is false');
     }
     const receipt = await this.waitForReceipt(opts);
-    if (receipt.status !== TxStatus.MINED) {
+    if (!(receipt.status === TxStatus.MINED || (receipt.status === TxStatus.REVERTED && opts?.dontThrowOnRevert))) {
       throw new Error(
         `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
       );
@@ -73,10 +82,10 @@ export class SentTx {
       const tx = (await this.pxe.getTxEffect(txHash))!;
       const visibleNotes = await this.pxe.getNotes({ txHash });
       receipt.debugInfo = {
-        noteHashes: tx.noteHashes.filter(n => !n.isZero()),
-        nullifiers: tx.nullifiers.filter(n => !n.isZero()),
-        publicDataWrites: tx.publicDataWrites.filter(p => !p.isEmpty()),
-        l2ToL1Msgs: tx.l2ToL1Msgs.filter(l => !l.isZero()),
+        noteHashes: tx.noteHashes,
+        nullifiers: tx.nullifiers,
+        publicDataWrites: tx.publicDataWrites,
+        l2ToL1Msgs: tx.l2ToL1Msgs,
         visibleNotes,
       };
     }

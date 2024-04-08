@@ -44,7 +44,7 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`M[dstOffset] = M[aOffset] + M[bOffset] mod 2^k`",
         "Summary": "Addition (a + b)",
-        "Details": "",
+        "Details": "Wraps on overflow",
         "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
         "Tag updates": "`T[dstOffset] = inTag`",
     },
@@ -63,7 +63,7 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`M[dstOffset] = M[aOffset] - M[bOffset] mod 2^k`",
         "Summary": "Subtraction (a - b)",
-        "Details": "",
+        "Details": "Wraps on undeflow",
         "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
         "Tag updates": "`T[dstOffset] = inTag`",
     },
@@ -82,7 +82,7 @@ const INSTRUCTION_SET_RAW = [
         ],
         "Expression": "`M[dstOffset] = M[aOffset] * M[bOffset] mod 2^k`",
         "Summary": "Multiplication (a * b)",
-        "Details": "",
+        "Details": "Wraps on overflow",
         "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
         "Tag updates": "`T[dstOffset] = inTag`",
     },
@@ -140,7 +140,7 @@ const INSTRUCTION_SET_RAW = [
         "Summary": "Equality check (a == b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-        "Tag updates": "`T[dstOffset] = inTag`",
+        "Tag updates": "`T[dstOffset] = u8`",
     },
     {
         "id": "lt",
@@ -159,7 +159,7 @@ const INSTRUCTION_SET_RAW = [
         "Summary": "Less-than check (a < b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-        "Tag updates": "`T[dstOffset] = inTag`",
+        "Tag updates": "`T[dstOffset] = u8`",
     },
     {
         "id": "lte",
@@ -178,7 +178,7 @@ const INSTRUCTION_SET_RAW = [
         "Summary": "Less-than-or-equals check (a <= b)",
         "Details": "",
         "Tag checks": "`T[aOffset] == T[bOffset] == inTag`",
-        "Tag updates": "`T[dstOffset] = inTag`",
+        "Tag updates": "`T[dstOffset] = u8`",
     },
     {
         "id": "and",
@@ -1037,6 +1037,34 @@ context.worldStateAccessTrace.archiveChecks.append(
 T[existsOffset] = u8
 T[dstOffset] = field
 `,
+    },
+    {
+        "id": "getcontractinstance",
+        "Name": "`GETCONTRACTINSTANCE`",
+        "Category": "Other",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "addressOffset", "description": "memory offset of the contract instance address"},
+            {"name": "dstOffset", "description": "location to write the contract instance information to"},
+        ],
+        "Expression": `
+M[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE+1] = [
+    instance_found_in_address,
+    instance.salt ?? 0,
+    instance.deployer ?? 0,
+    instance.contractClassId ?? 0,
+    instance.initializationHash ?? 0,
+    instance.portalContractAddress ?? 0,
+    instance.publicKeysHash ?? 0,
+]
+`,
+        "Summary": "Copies contract instance data to memory",
+        "Tag checks": "",
+        "Tag updates": "T[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE+1] = field",
+        "Additional AVM circuit checks": "TO-DO",
+        "Triggers downstream circuit operations": "TO-DO",
     },
     {
         "id": "emitunencryptedlog",
