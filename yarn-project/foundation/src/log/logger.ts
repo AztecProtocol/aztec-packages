@@ -4,8 +4,7 @@ import { isatty } from 'tty';
 
 import { type LogData, type LogFn } from './log_fn.js';
 
-// Matches a subset of Winston log levels
-const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
+const LogLevels = ['silent', 'error', 'warn', 'info', 'verbose', 'debug'] as const;
 const DefaultLogLevel = process.env.NODE_ENV === 'test' ? ('silent' as const) : ('info' as const);
 
 /**
@@ -50,7 +49,6 @@ export function createDebugLogger(name: string): DebugLogger {
     info: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'info', msg, data),
     verbose: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'verbose', msg, data),
     debug: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data),
-    trace: (msg: string, data?: LogData) => logWithDebug(debugLogger, 'trace', msg, data),
   };
   return Object.assign((msg: string, data?: LogData) => logWithDebug(debugLogger, 'debug', msg, data), logger);
 }
