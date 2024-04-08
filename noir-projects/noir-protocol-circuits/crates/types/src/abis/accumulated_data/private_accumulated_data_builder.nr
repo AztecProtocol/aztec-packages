@@ -1,4 +1,5 @@
 use crate::{
+    hash::compute_tx_logs_hash,
     abis::{
     accumulated_data::{
     combined_accumulated_data::CombinedAccumulatedData,
@@ -11,7 +12,7 @@ use crate::{
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 }
 };
 use dep::std::unsafe;
@@ -21,8 +22,8 @@ struct PrivateAccumulatedDataBuilder {
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
-    encrypted_logs_hash: Field,
-    unencrypted_logs_hash: Field,
+    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -39,8 +40,8 @@ impl PrivateAccumulatedDataBuilder {
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             private_call_stack: self.private_call_stack.storage,
@@ -49,12 +50,16 @@ impl PrivateAccumulatedDataBuilder {
     }
 
     pub fn to_combined(self) -> CombinedAccumulatedData {
+        // TODO(Miranda): Hash here or elsewhere?
+        let encrypted_logs_hash = compute_tx_logs_hash(self.encrypted_logs_hashes.storage);
+        let unencrypted_logs_hash = compute_tx_logs_hash(self.unencrypted_logs_hashes.storage);
+
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_logs_hash: encrypted_logs_hash,
+            unencrypted_logs_hash: unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: unsafe::zeroed()
@@ -95,8 +100,8 @@ impl PrivateAccumulatedDataBuilder {
         }
 
         revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
-        revertible_builder.encrypted_logs_hash = self.encrypted_logs_hash;
-        revertible_builder.unencrypted_logs_hash = self.unencrypted_logs_hash;
+        revertible_builder.encrypted_logs_hashes = self.encrypted_logs_hashes;
+        revertible_builder.unencrypted_logs_hashes = self.unencrypted_logs_hashes;
         revertible_builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
         revertible_builder.unencrypted_log_preimages_length= self.unencrypted_log_preimages_length;
 

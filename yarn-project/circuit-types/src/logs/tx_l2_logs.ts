@@ -86,7 +86,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log> {
     const logsHashes: [Buffer, Buffer] = [Buffer.alloc(32), Buffer.alloc(32)];
     let kernelPublicInputsLogsHash = Buffer.alloc(32);
 
-    for (const logsFromSingleFunctionCall of this.functionLogs) {
+    for (const logsFromSingleFunctionCall of this.unrollLogs()) {
       logsHashes[0] = kernelPublicInputsLogsHash;
       logsHashes[1] = logsFromSingleFunctionCall.hash(); // privateCircuitPublicInputsLogsHash
 

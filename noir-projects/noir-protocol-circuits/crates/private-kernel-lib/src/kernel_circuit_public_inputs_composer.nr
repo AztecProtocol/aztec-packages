@@ -138,8 +138,9 @@ impl KernelCircuitPublicInputsComposer {
 
         // TODO: Sort all the side effects below.
         self.public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(accumulated_data.new_l2_to_l1_msgs);
-        self.public_inputs.end.encrypted_logs_hash = accumulated_data.encrypted_logs_hash;
-        self.public_inputs.end.unencrypted_logs_hash = accumulated_data.unencrypted_logs_hash;
+        // TODO(Miranda): Once we use actual logs, sort by counter here
+        self.public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(accumulated_data.encrypted_logs_hashes);
+        self.public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(accumulated_data.unencrypted_logs_hashes);
         self.public_inputs.end.encrypted_log_preimages_length = accumulated_data.encrypted_log_preimages_length;
         self.public_inputs.end.unencrypted_log_preimages_length = accumulated_data.unencrypted_log_preimages_length;
     }

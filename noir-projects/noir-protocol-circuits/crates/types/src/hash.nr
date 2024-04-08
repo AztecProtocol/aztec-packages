@@ -4,6 +4,7 @@ use crate::abis::function_selector::FunctionSelector;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
 use crate::abis::side_effect::SideEffect;
+use crate::traits::is_empty;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
     ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH, FUNCTION_TREE_HEIGHT,
@@ -22,6 +23,14 @@ pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
 
     hash_in_a_field
 }
+
+// TODO: below slowed compilation
+// pub fn slice_sha256_to_field<N>(bytes_to_hash: [u8]) -> Field {
+//     let sha256_hashed = sha256_slice(bytes_to_hash);
+//     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
+
+//     hash_in_a_field
+// }
 
 pub fn hash_args_array<N>(args: [Field; N]) -> Field {
     let mut args_vec = BoundedVec::new();
@@ -149,13 +158,60 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
-pub fn compute_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> Field {
+pub fn compute_accumulated_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> Field {
     accumulate_sha256(
         [
         previous_log_hash,
         current_log_hash
     ]
     )
+}
+// TODO(Miranda): Remove - this is for testing
+pub fn compute_call_logs_hash<MAX_ENCRYPTED_LOGS_PER_CALL>(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_CALL]) -> Field {
+    // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
+    // Ideally we would define a new global here but for now we assert in case MAX_LOGS changes
+    assert(MAX_ENCRYPTED_LOGS_PER_CALL * 32 == 64);
+    let mut hash_input_flattened = [0; 64];
+    for offset in 0..MAX_ENCRYPTED_LOGS_PER_CALL {
+        let input_as_bytes = logs[offset].value.to_be_bytes(32);
+        for byte_index in 0..32 {
+            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+        }
+    }
+    // This differs from accumulate_sha256 as we could increase MAX_LOGS and
+    // ideally we would push to a slice then hash, but in practice compilation was very slow
+    // Hardcode to 64 bytes for now
+    sha256_to_field(hash_input_flattened)
+}
+
+pub fn compute_tx_logs_hash<MAX_ENCRYPTED_LOGS_PER_TX>(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+    // TODO(Miranda): Below is flat hashing which would reduce constraints (we now only hash once in tail) - convert to this?
+
+    // // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
+    // // Ideally we would define a new global here but for now we assert in case MAX_LOGS changes
+    // assert(MAX_ENCRYPTED_LOGS_PER_TX * 32 == 256);
+    // let mut hash_input_flattened = [0; 256];
+    // for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+    //     let input_as_bytes = logs[offset].value.to_be_bytes(32);
+    //     for byte_index in 0..32 {
+    //         hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+    //     }
+    // }
+    // // This differs from accumulate_sha256 as we could increase MAX_LOGS and
+    // // ideally we would push to a slice then hash, but in practice compilation was very slow
+    // // Hardcode to 256 bytes for now
+    // sha256_to_field(hash_input_flattened)
+
+    // Assuming logs are pre-sorted and end padded
+
+    let mut accumulated_logs_hash = 0;
+    for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+        if !is_empty(logs[i]) {
+            accumulated_logs_hash = accumulate_sha256([accumulated_logs_hash, logs[i].value]);
+        }
+    }
+
+    accumulated_logs_hash
 }
 
 pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u64) -> Field {

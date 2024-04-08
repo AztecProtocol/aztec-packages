@@ -39,6 +39,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
@@ -230,7 +231,9 @@ export abstract class AbstractPhaseManager {
           throw result.revertReason;
         }
 
+        // TODO(Miranda): This avoids pushing empty logs for each call to the tx => incorrect hash
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
+        // if (result.unencryptedLogs.logs[0]) 
 
         this.log.debug(
           `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,
@@ -328,6 +331,8 @@ export abstract class AbstractPhaseManager {
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     const unencryptedLogsHash = Fr.fromBuffer(result.unencryptedLogs.hash());
+    // TODO(Miranda): test and check
+    const unencryptedLogsHashes = result.unencryptedLogs.logs.map(log => new SideEffect(Fr.fromBuffer(log.hash()), Fr.zero()))
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
     return PublicCircuitPublicInputs.from({
@@ -361,7 +366,7 @@ export abstract class AbstractPhaseManager {
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStackHashes,
-      unencryptedLogsHash,
+      unencryptedLogsHashes: padArrayEnd(unencryptedLogsHashes, SideEffect.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
       // TODO(@just-mitch): need better mapping from simulator to revert code.

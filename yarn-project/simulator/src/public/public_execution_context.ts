@@ -121,6 +121,7 @@ export class PublicExecutionContext extends TypedOracle {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
     this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
+    return Fr.fromBuffer(log.hash());
   }
 
   /**

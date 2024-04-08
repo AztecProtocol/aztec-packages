@@ -271,6 +271,12 @@ export class ProvingOrchestrator {
     treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
     stateIdentifier: string,
   ) {
+    if (!inputs.kernelData.publicInputs.end.encryptedLogsHash.toBuffer().equals(tx.encryptedLogs.hash())) {
+      throw new Error(`Encrypted logs hash mismatch: ${inputs.kernelData.publicInputs.end.encryptedLogsHash} === ${Fr.fromBuffer(tx.encryptedLogs.hash())}`);
+    }
+    if (!inputs.kernelData.publicInputs.end.unencryptedLogsHash.toBuffer().equals(tx.unencryptedLogs.hash())) {
+      throw new Error(`Unencrypted logs hash mismatch: ${inputs.kernelData.publicInputs.end.encryptedLogsHash} === ${Fr.fromBuffer(tx.encryptedLogs.hash())}`);
+    }
     const [duration, baseRollupOutputs] = await elapsed(() =>
       executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.simulator, this.prover, logger),
     );

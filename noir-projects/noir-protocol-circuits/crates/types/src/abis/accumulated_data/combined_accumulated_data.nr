@@ -1,4 +1,5 @@
 use crate::{
+    hash::compute_tx_logs_hash,
     abis::{
     accumulated_data::public_accumulated_data::PublicAccumulatedData,
     public_data_update_request::PublicDataUpdateRequest,
@@ -29,12 +30,15 @@ struct CombinedAccumulatedData {
 
 impl CombinedAccumulatedData {
     pub fn recombine(non_revertible: PublicAccumulatedData, revertible: PublicAccumulatedData) -> Self {
+        // TODO(Miranda): Hash here or elsewhere?
+        let encrypted_logs_hash = compute_tx_logs_hash(revertible.encrypted_logs_hashes);
+        let unencrypted_logs_hash = compute_tx_logs_hash(revertible.unencrypted_logs_hashes);
         CombinedAccumulatedData {
             new_note_hashes: array_merge(non_revertible.new_note_hashes, revertible.new_note_hashes),
             new_nullifiers: array_merge(non_revertible.new_nullifiers, revertible.new_nullifiers),
             new_l2_to_l1_msgs: revertible.new_l2_to_l1_msgs,
-            encrypted_logs_hash: revertible.encrypted_logs_hash,
-            unencrypted_logs_hash: revertible.unencrypted_logs_hash,
+            encrypted_logs_hash: encrypted_logs_hash,
+            unencrypted_logs_hash: unencrypted_logs_hash,
             encrypted_log_preimages_length: revertible.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: revertible.unencrypted_log_preimages_length,
             public_data_update_requests: array_merge(

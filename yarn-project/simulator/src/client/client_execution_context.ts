@@ -306,7 +306,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
     const taggedNote = new TaggedNote(l1NotePayload);
     const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
-    this.encryptedLogs.push(new EncryptedL2Log(encryptedNote));
+    const encryptedLog = (new EncryptedL2Log(encryptedNote));
+    this.encryptedLogs.push(encryptedLog);
+    return Fr.fromBuffer(encryptedLog.hash());
   }
 
   /**
@@ -317,6 +319,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     this.unencryptedLogs.push(log);
     const text = log.toHumanReadable();
     this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
+    return Fr.fromBuffer(log.hash());
   }
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
@@ -382,6 +385,9 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.node,
       sideEffectCounter,
     );
+
+    console.log("in client context");
+    console.log(targetContractAddress);
 
     const childExecutionResult = await executePrivateFunction(
       context,

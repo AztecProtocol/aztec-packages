@@ -12,7 +12,7 @@ use dep::types::{
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-    MAX_PUBLIC_DATA_READS_PER_CALL
+    MAX_PUBLIC_DATA_READS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
     hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
     utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
@@ -63,9 +63,9 @@ pub fn initialize_emitted_end_values(
         circuit_outputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
         circuit_outputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
         circuit_outputs.end.public_data_update_requests = array_to_bounded_vec(start.public_data_update_requests);
-        circuit_outputs.end.unencrypted_logs_hash = start.unencrypted_logs_hash;
+        circuit_outputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
         circuit_outputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
-        circuit_outputs.end.encrypted_logs_hash = start.encrypted_logs_hash;
+        circuit_outputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
         circuit_outputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
     }
 
@@ -74,9 +74,9 @@ pub fn initialize_emitted_end_values(
     circuit_outputs.end_non_revertible.new_nullifiers = array_to_bounded_vec(start_non_revertible.new_nullifiers);
     circuit_outputs.end_non_revertible.new_l2_to_l1_msgs = array_to_bounded_vec(start_non_revertible.new_l2_to_l1_msgs);
     circuit_outputs.end_non_revertible.public_data_update_requests = array_to_bounded_vec(start_non_revertible.public_data_update_requests);
-    circuit_outputs.end_non_revertible.unencrypted_logs_hash = start_non_revertible.unencrypted_logs_hash;
+    circuit_outputs.end_non_revertible.unencrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.unencrypted_logs_hashes);
     circuit_outputs.end_non_revertible.unencrypted_log_preimages_length = start_non_revertible.unencrypted_log_preimages_length;
-    circuit_outputs.end_non_revertible.encrypted_logs_hash = start_non_revertible.encrypted_logs_hash;
+    circuit_outputs.end_non_revertible.encrypted_logs_hashes = array_to_bounded_vec(start_non_revertible.encrypted_logs_hashes);
     circuit_outputs.end_non_revertible.encrypted_log_preimages_length = start_non_revertible.encrypted_log_preimages_length;
 
     // TODO - should be propagated only in initialize_end_values() and clear them in the tail circuit. The 
@@ -420,6 +420,21 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
     }
     public_inputs.end.new_l2_to_l1_msgs.extend_from_bounded_vec(new_l2_to_l1_msgs_to_insert);
 }
+    // TODO(Miranda): Add desc and remove acc fn once tested
+pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
+    // let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
+    // TODO(Miranda): silo logs here
+    let mut new_logs_to_insert : BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
+    for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
+        let new_log = new_logs[i];
+        if new_log.value != 0 {
+            // let siloed_new_log = something;
+            new_logs_to_insert.push(new_log)
+        }
+    }
+    public_inputs.end.encrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
+}
 
 /**
  * @brief Accumulates unencrypted logs hashes and lengths.
@@ -430,25 +445,25 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
  *       https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426
  * @note Used by public kernels which had previous iterations.
  */
-pub fn accumulate_unencrypted_logs(
-    public_call: PublicCallData,
-    previous_unencrypted_logs_hash: Field,
-    previous_unencrypted_log_preimages_length: Field,
-    public_inputs: &mut PublicKernelCircuitPublicInputsBuilder
-) {
-    let public_call_public_inputs = public_call.call_stack_item.public_inputs;
+// pub fn accumulate_unencrypted_logs(
+//     public_call: PublicCallData,
+//     previous_unencrypted_logs_hash: Field,
+//     previous_unencrypted_log_preimages_length: Field,
+//     public_inputs: &mut PublicKernelCircuitPublicInputsBuilder
+// ) {
+//     let public_call_public_inputs = public_call.call_stack_item.public_inputs;
 
-    let current_unencrypted_logs_hash = public_call_public_inputs.unencrypted_logs_hash;
-    public_inputs.end.unencrypted_logs_hash = accumulate_sha256([
-        previous_unencrypted_logs_hash,
-        current_unencrypted_logs_hash,
-    ]);
+//     let current_unencrypted_logs_hash = public_call_public_inputs.unencrypted_logs_hash;
+//     public_inputs.end.unencrypted_logs_hash = accumulate_sha256([
+//         previous_unencrypted_logs_hash,
+//         current_unencrypted_logs_hash,
+//     ]);
 
-    // Add log preimages lengths from current iteration to accumulated lengths
-    let current_unencrypted_log_preimages_length = public_call_public_inputs.unencrypted_log_preimages_length;
-    public_inputs.end.unencrypted_log_preimages_length =
-        previous_unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
-}
+//     // Add log preimages lengths from current iteration to accumulated lengths
+//     let current_unencrypted_log_preimages_length = public_call_public_inputs.unencrypted_log_preimages_length;
+//     public_inputs.end.unencrypted_log_preimages_length =
+//         previous_unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
+// }
 
 /**
  * @brief Validates that the call stack item for this circuit iteration is at the top of the call stack

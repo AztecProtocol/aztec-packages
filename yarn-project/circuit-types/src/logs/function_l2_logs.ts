@@ -1,4 +1,4 @@
-import { sha256 } from '@aztec/foundation/crypto';
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength, truncateAndPad } from '@aztec/foundation/serialize';
 
 import { EncryptedL2Log } from './encrypted_l2_log.js';
@@ -38,12 +38,14 @@ export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2
 
   /**
    * Calculates hash of serialized logs.
-   * @returns 2 fields containing all 256 bits of information of sha256 hash.
+   * @returns Buffer containing 248 bits of information of sha256 hash.
    */
   public hash(): Buffer {
+    // TODO(Miranda): docs
     // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
-    const preimage = this.toBuffer().subarray(4);
-    return truncateAndPad(sha256(preimage));
+    // const preimage = this.toBuffer().subarray(4);
+    const preimage = Buffer.concat(this.logs.map(l => l.hash()));
+    return sha256Trunc(preimage);
   }
 
   /**

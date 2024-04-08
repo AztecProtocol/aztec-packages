@@ -30,6 +30,9 @@ import {
   type PublicCallRequest,
   PublicDataUpdateRequest,
   makeEmptyProof,
+  MAX_ENCRYPTED_LOGS_PER_TX,
+  SideEffect,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import {
@@ -557,8 +560,8 @@ describe('public_processor', () => {
       callRequests[2].callContext.sideEffectCounter = 4;
 
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.forPublic!.end.encryptedLogsHash = Fr.ZERO;
-      kernelOutput.forPublic!.end.unencryptedLogsHash = Fr.ZERO;
+      kernelOutput.forPublic!.end.encryptedLogsHashes = makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty);
+      kernelOutput.forPublic!.end.unencryptedLogsHashes = makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty);
       kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         PublicDataUpdateRequest.empty,

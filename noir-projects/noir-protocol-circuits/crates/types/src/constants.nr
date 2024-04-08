@@ -34,6 +34,8 @@ global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u64 = 32;
 global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u64 = 2; // Change it to a larger value when there's a seperate reset circuit.
 global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u64 = 2;
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: u64 = 1;
+global MAX_ENCRYPTED_LOGS_PER_CALL: u64 = 2;
+global MAX_UNENCRYPTED_LOGS_PER_CALL: u64 = 2;
 
 // "PER TRANSACTION" CONSTANTS
 global MAX_NEW_NOTE_HASHES_PER_TX: u64 = 64;
@@ -47,6 +49,8 @@ global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u64 = 128;
 global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u64 = 8; // Change it to a larger value when there's a seperate reset circuit.
 global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX: u64 = 8;
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX: u64 = 4;
+global MAX_ENCRYPTED_LOGS_PER_TX: u64 = 8;
+global MAX_UNENCRYPTED_LOGS_PER_TX: u64 = 8;
 global NUM_ENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
 global NUM_UNENCRYPTED_LOGS_HASHES_PER_TX: u64 = 1;
 // docs:end:constants
@@ -151,13 +155,13 @@ global MAX_BLOCK_NUMBER_LENGTH: u64 = 2; // 1 for the option flag, 1 for the val
 global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
 global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 211;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 217;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 207;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 213;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 198;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 201;
 global STATE_REFERENCE_LENGTH: u64 = 8; // 2 for snap + 8 for partial
 global TX_CONTEXT_DATA_LENGTH: u64 = 4;
 global TX_REQUEST_LENGTH: u64 = 9; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH

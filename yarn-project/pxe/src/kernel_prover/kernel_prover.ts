@@ -166,7 +166,9 @@ export class KernelProver {
       mapTuple(sortedNullifiers, n => n.noteHash),
       sortedNoteHashes,
     );
-
+    
+    //TODO(Miranda): get logs hint and sort here
+    
     this.log.debug(
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
