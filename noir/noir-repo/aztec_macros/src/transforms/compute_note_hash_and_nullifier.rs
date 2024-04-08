@@ -59,7 +59,8 @@ pub fn inject_compute_note_hash_and_nullifier(
 
         // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
         // contract might use. These are the types that are marked as #[aztec(note)].
-        let note_types = fetch_notes(context).iter().map(|(path, _)| path.to_string()).collect();
+        let note_types =
+            fetch_notes(context).iter().map(|(path, _)| path.to_string()).collect::<Vec<_>>();
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
         let func = generate_compute_note_hash_and_nullifier(&note_types);
@@ -82,7 +83,7 @@ pub fn inject_compute_note_hash_and_nullifier(
     Ok(())
 }
 
-fn generate_compute_note_hash_and_nullifier(note_types: &Vec<String>) -> NoirFunction {
+fn generate_compute_note_hash_and_nullifier(note_types: &[String]) -> NoirFunction {
     let function_source = generate_compute_note_hash_and_nullifier_source(note_types);
 
     let (function_ast, errors) = parse_program(&function_source);
@@ -95,7 +96,7 @@ fn generate_compute_note_hash_and_nullifier(note_types: &Vec<String>) -> NoirFun
     function_ast.functions.remove(0)
 }
 
-fn generate_compute_note_hash_and_nullifier_source(note_types: &Vec<String>) -> String {
+fn generate_compute_note_hash_and_nullifier_source(note_types: &[String]) -> String {
     // TODO(#4649): The serialized_note parameter is a fixed-size array, but we don't know what length it should have.
     // For now we hardcode it to 20, which is the same as MAX_NOTE_FIELDS_LENGTH.
 
