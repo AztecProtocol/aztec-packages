@@ -5,7 +5,7 @@
 
 namespace acir_format {
 
-template <typename Builder> void create_keccak_var_constraints(Builder& builder, const KeccakVarConstraint& constraint)
+template <typename Builder> void create_keccak_constraints(Builder& builder, const KeccakConstraint& constraint)
 {
     using byte_array_ct = bb::stdlib::byte_array<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
@@ -62,15 +62,11 @@ template <typename Builder> void create_keccak_permutations(Builder& builder, co
 }
 template void create_keccak_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                              const KeccakConstraint& constraint);
-template void create_keccak_var_constraints<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
-                                                                 const KeccakVarConstraint& constraint);
 template void create_keccak_permutations<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
                                                               const Keccakf1600& constraint);
 
 template void create_keccak_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
                                                                    const KeccakConstraint& constraint);
-template void create_keccak_var_constraints<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
-                                                                       const KeccakVarConstraint& constraint);
 
 template void create_keccak_permutations<GoblinUltraCircuitBuilder>(GoblinUltraCircuitBuilder& builder,
                                                                     const Keccakf1600& constraint);

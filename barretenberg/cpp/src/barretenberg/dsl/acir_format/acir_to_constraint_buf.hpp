@@ -234,8 +234,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
                 });
-            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256VariableLength>) {
-                af.keccak_var_constraints.push_back(KeccakVarConstraint{
+            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256>) {
+                af.keccak_constraints.push_back(KeccakConstraint{
                     .inputs = map(arg.inputs,
                                   [](auto& e) {
                                       return HashInput{
