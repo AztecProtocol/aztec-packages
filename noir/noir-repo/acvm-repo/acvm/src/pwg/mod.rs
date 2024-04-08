@@ -569,7 +569,7 @@ fn any_witness_from_expression(expr: &Expression) -> Option<Witness> {
 /// Returns `true` if the predicate is zero
 /// A predicate is used to indicate whether we should skip a certain operation.
 /// If we have a zero predicate it means the operation should be skipped.
-pub fn is_predicate_false(
+pub(crate) fn is_predicate_false(
     witness: &WitnessMap,
     predicate: &Option<Expression>,
 ) -> Result<bool, OpcodeResolutionError> {
