@@ -8,15 +8,12 @@ To learn more about how storage works in Aztec, read [the concepts](../../../../
 
 [See the storage reference](../../references/storage/main.md).
 
-:::info
-The struct **must** be called `Storage` for the Aztec.nr library to properly handle it (this will be relaxed in the future).
-:::
-
 ```rust
+#[aztec(storage)]
 struct Storage {
   // public state variables
   // private state variables
 }
 ```
 
-If you have defined a `Storage` struct following this naming scheme, then it will be made available to you through the reserved `storage` keyword within your contract functions.
+If you have defined a struct and annotated it as `#[aztec(storage)]`, then it will be made available to you through the reserved `storage` keyword within your contract functions.

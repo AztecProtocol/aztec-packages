@@ -26,6 +26,7 @@ contract InclusionProofs {
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
+    #[aztec(storage)]
     struct Storage {
         private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
         public_value: PublicMutable<Field>,
@@ -58,7 +59,8 @@ contract InclusionProofs {
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -108,7 +110,8 @@ contract InclusionProofs {
     ) {
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -138,7 +141,8 @@ contract InclusionProofs {
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -163,7 +167,8 @@ contract InclusionProofs {
     #[aztec(private)]
     fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner);
-        let options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()

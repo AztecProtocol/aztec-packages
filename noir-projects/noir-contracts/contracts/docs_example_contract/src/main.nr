@@ -23,6 +23,7 @@ contract DocsExample {
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
 
+    #[aztec(storage)]
     struct Storage {
         // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
@@ -194,12 +195,14 @@ contract DocsExample {
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     unconstrained fn read_note(amount: Field, comparator: u8) -> pub [Option<CardNote>; 10] {
-        let options = NoteViewerOptions::new().select(
-            CardNote::properties().points,
-            amount,
-            Option::some(comparator)
+        let mut options = NoteViewerOptions::new();
+        let notes = storage.set.view_notes(
+            options.select(
+                CardNote::properties().points,
+                amount,
+                Option::some(comparator)
+            )
         );
-        let notes = storage.set.view_notes(options);
 
         notes
     }

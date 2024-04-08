@@ -2,7 +2,6 @@ import {
   type AccountWallet,
   type AztecAddress,
   BatchCall,
-  type CompleteAddress,
   type DebugLogger,
   ExtendedNote,
   Fr,
@@ -21,13 +20,10 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
-  const pendingShieldsStorageSlot = new Fr(5);
-  const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
   let pxe: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
-  let accounts: CompleteAddress[];
+
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
@@ -44,12 +40,11 @@ describe('e2e_escrow_contract', () => {
     ({
       teardown,
       pxe,
-      accounts,
       wallets: [wallet, recipientWallet],
       logger,
     } = await setup(2));
-    owner = accounts[0].address;
-    recipient = accounts[1].address;
+    owner = wallet.getAddress();
+    recipient = recipientWallet.getAddress();
 
     // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
@@ -76,8 +71,8 @@ describe('e2e_escrow_contract', () => {
       note,
       owner,
       token.address,
-      pendingShieldsStorageSlot,
-      noteTypeId,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
     await pxe.addNote(extendedNote);
@@ -127,8 +122,8 @@ describe('e2e_escrow_contract', () => {
       note,
       owner,
       token.address,
-      pendingShieldsStorageSlot,
-      noteTypeId,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
     await pxe.addNote(extendedNote);
