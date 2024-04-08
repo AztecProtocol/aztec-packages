@@ -6,7 +6,9 @@ use acir::{
     FieldElement,
 };
 
-use super::{arithmetic::ExpressionSolver, get_value, insert_value, is_predicate_false, witness_to_value};
+use super::{
+    arithmetic::ExpressionSolver, get_value, insert_value, is_predicate_false, witness_to_value,
+};
 use super::{ErrorLocation, OpcodeResolutionError};
 
 type MemoryIndex = u32;
