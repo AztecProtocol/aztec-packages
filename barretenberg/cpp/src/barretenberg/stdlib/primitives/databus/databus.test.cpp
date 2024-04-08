@@ -48,7 +48,7 @@ TEST(Databus, CallDataAndReturnData)
     }
     databus.return_data.set_values(return_data_values);
 
-    // Establish that the first two outputs are simply copied over from the inputs
+    // Establish that the first two outputs are simply copied over from the inputs. Each 'copy' requires two read gates.
     field_ct idx_0(witness_ct(&builder, 0));
     field_ct idx_1(witness_ct(&builder, 1));
     databus.calldata[idx_0].assert_equal(databus.return_data[idx_0]);
