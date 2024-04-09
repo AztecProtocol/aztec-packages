@@ -413,6 +413,16 @@ export class ClientExecutionContext extends ViewDataOracle {
 
     this.nestedExecutions.push(childExecutionResult);
 
+    const ci = childExecutionResult.callStackItem;
+    this.log(`Called private function and got back call stack item with hashes:
+      Contract address=${ci.contractAddress.toString()}
+      Function data=${ci.functionData.hash().toString()}
+      Public inputs=${ci.publicInputs.hash().toString()}
+      Count of note hash read requests=${ci.publicInputs.noteHashReadRequests.filter(x => !x.isEmpty()).length}
+    `);
+
+    // this.log(`Called private function public inputs: ${ci.publicInputs.toFields().map(f => f.toString())}`);
+
     return childExecutionResult.callStackItem;
   }
 
