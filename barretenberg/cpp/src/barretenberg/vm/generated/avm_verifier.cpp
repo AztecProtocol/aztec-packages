@@ -339,6 +339,21 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
 =======
     commitments.lookup_u8_0 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u8_0);
     commitments.lookup_u8_1 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u8_1);
+    commitments.lookup_u16_0 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_0);
+    commitments.lookup_u16_1 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_1);
+    commitments.lookup_u16_2 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_2);
+    commitments.lookup_u16_3 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_3);
+    commitments.lookup_u16_4 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_4);
+    commitments.lookup_u16_5 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_5);
+    commitments.lookup_u16_6 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_6);
+    commitments.lookup_u16_7 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_7);
+    commitments.lookup_u16_8 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_8);
+    commitments.lookup_u16_9 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_9);
+    commitments.lookup_u16_10 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_10);
+    commitments.lookup_u16_11 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_11);
+    commitments.lookup_u16_12 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_12);
+    commitments.lookup_u16_13 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_13);
+    commitments.lookup_u16_14 = transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_14);
     commitments.lookup_byte_lengths_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths_counts);
     commitments.lookup_byte_operations_counts =
@@ -351,7 +366,40 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u8_0_counts);
     commitments.lookup_u8_1_counts =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u8_1_counts);
+<<<<<<< HEAD
 >>>>>>> 8d38899c9 (feat: some wip)
+=======
+    commitments.lookup_u16_0_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_0_counts);
+    commitments.lookup_u16_1_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_1_counts);
+    commitments.lookup_u16_2_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_2_counts);
+    commitments.lookup_u16_3_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_3_counts);
+    commitments.lookup_u16_4_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_4_counts);
+    commitments.lookup_u16_5_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_5_counts);
+    commitments.lookup_u16_6_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_6_counts);
+    commitments.lookup_u16_7_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_7_counts);
+    commitments.lookup_u16_8_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_8_counts);
+    commitments.lookup_u16_9_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_9_counts);
+    commitments.lookup_u16_10_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_10_counts);
+    commitments.lookup_u16_11_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_11_counts);
+    commitments.lookup_u16_12_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_12_counts);
+    commitments.lookup_u16_13_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_13_counts);
+    commitments.lookup_u16_14_counts =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_u16_14_counts);
+>>>>>>> 760ed7310 (fix: 16_bit range checks)
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);

@@ -50,11 +50,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 163;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 193;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 194;
+    static constexpr size_t NUM_ALL_ENTITIES = 224;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -275,12 +275,42 @@ class AvmFlavor {
                               incl_mem_tag_err,
                               lookup_u8_0,
                               lookup_u8_1,
+                              lookup_u16_0,
+                              lookup_u16_1,
+                              lookup_u16_2,
+                              lookup_u16_3,
+                              lookup_u16_4,
+                              lookup_u16_5,
+                              lookup_u16_6,
+                              lookup_u16_7,
+                              lookup_u16_8,
+                              lookup_u16_9,
+                              lookup_u16_10,
+                              lookup_u16_11,
+                              lookup_u16_12,
+                              lookup_u16_13,
+                              lookup_u16_14,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
                               lookup_u8_0_counts,
-                              lookup_u8_1_counts)
+                              lookup_u8_1_counts,
+                              lookup_u16_0_counts,
+                              lookup_u16_1_counts,
+                              lookup_u16_2_counts,
+                              lookup_u16_3_counts,
+                              lookup_u16_4_counts,
+                              lookup_u16_5_counts,
+                              lookup_u16_6_counts,
+                              lookup_u16_7_counts,
+                              lookup_u16_8_counts,
+                              lookup_u16_9_counts,
+                              lookup_u16_10_counts,
+                              lookup_u16_11_counts,
+                              lookup_u16_12_counts,
+                              lookup_u16_13_counts,
+                              lookup_u16_14_counts)
 
         RefVector<DataType> get_wires()
         {
@@ -441,12 +471,42 @@ class AvmFlavor {
                      incl_mem_tag_err,
                      lookup_u8_0,
                      lookup_u8_1,
+                     lookup_u16_0,
+                     lookup_u16_1,
+                     lookup_u16_2,
+                     lookup_u16_3,
+                     lookup_u16_4,
+                     lookup_u16_5,
+                     lookup_u16_6,
+                     lookup_u16_7,
+                     lookup_u16_8,
+                     lookup_u16_9,
+                     lookup_u16_10,
+                     lookup_u16_11,
+                     lookup_u16_12,
+                     lookup_u16_13,
+                     lookup_u16_14,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_u8_0_counts,
-                     lookup_u8_1_counts };
+                     lookup_u8_1_counts,
+                     lookup_u16_0_counts,
+                     lookup_u16_1_counts,
+                     lookup_u16_2_counts,
+                     lookup_u16_3_counts,
+                     lookup_u16_4_counts,
+                     lookup_u16_5_counts,
+                     lookup_u16_6_counts,
+                     lookup_u16_7_counts,
+                     lookup_u16_8_counts,
+                     lookup_u16_9_counts,
+                     lookup_u16_10_counts,
+                     lookup_u16_11_counts,
+                     lookup_u16_12_counts,
+                     lookup_u16_13_counts,
+                     lookup_u16_14_counts };
         };
     };
 
@@ -612,12 +672,42 @@ class AvmFlavor {
                               incl_mem_tag_err,
                               lookup_u8_0,
                               lookup_u8_1,
+                              lookup_u16_0,
+                              lookup_u16_1,
+                              lookup_u16_2,
+                              lookup_u16_3,
+                              lookup_u16_4,
+                              lookup_u16_5,
+                              lookup_u16_6,
+                              lookup_u16_7,
+                              lookup_u16_8,
+                              lookup_u16_9,
+                              lookup_u16_10,
+                              lookup_u16_11,
+                              lookup_u16_12,
+                              lookup_u16_13,
+                              lookup_u16_14,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
                               lookup_u8_0_counts,
                               lookup_u8_1_counts,
+                              lookup_u16_0_counts,
+                              lookup_u16_1_counts,
+                              lookup_u16_2_counts,
+                              lookup_u16_3_counts,
+                              lookup_u16_4_counts,
+                              lookup_u16_5_counts,
+                              lookup_u16_6_counts,
+                              lookup_u16_7_counts,
+                              lookup_u16_8_counts,
+                              lookup_u16_9_counts,
+                              lookup_u16_10_counts,
+                              lookup_u16_11_counts,
+                              lookup_u16_12_counts,
+                              lookup_u16_13_counts,
+                              lookup_u16_14_counts,
                               avm_alu_a_hi_shift,
                               avm_alu_a_lo_shift,
                               avm_alu_b_hi_shift,
@@ -809,12 +899,42 @@ class AvmFlavor {
                      incl_mem_tag_err,
                      lookup_u8_0,
                      lookup_u8_1,
+                     lookup_u16_0,
+                     lookup_u16_1,
+                     lookup_u16_2,
+                     lookup_u16_3,
+                     lookup_u16_4,
+                     lookup_u16_5,
+                     lookup_u16_6,
+                     lookup_u16_7,
+                     lookup_u16_8,
+                     lookup_u16_9,
+                     lookup_u16_10,
+                     lookup_u16_11,
+                     lookup_u16_12,
+                     lookup_u16_13,
+                     lookup_u16_14,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_u8_0_counts,
                      lookup_u8_1_counts,
+                     lookup_u16_0_counts,
+                     lookup_u16_1_counts,
+                     lookup_u16_2_counts,
+                     lookup_u16_3_counts,
+                     lookup_u16_4_counts,
+                     lookup_u16_5_counts,
+                     lookup_u16_6_counts,
+                     lookup_u16_7_counts,
+                     lookup_u16_8_counts,
+                     lookup_u16_9_counts,
+                     lookup_u16_10_counts,
+                     lookup_u16_11_counts,
+                     lookup_u16_12_counts,
+                     lookup_u16_13_counts,
+                     lookup_u16_14_counts,
                      avm_alu_a_hi_shift,
                      avm_alu_a_lo_shift,
                      avm_alu_b_hi_shift,
@@ -1006,12 +1126,42 @@ class AvmFlavor {
                      incl_mem_tag_err,
                      lookup_u8_0,
                      lookup_u8_1,
+                     lookup_u16_0,
+                     lookup_u16_1,
+                     lookup_u16_2,
+                     lookup_u16_3,
+                     lookup_u16_4,
+                     lookup_u16_5,
+                     lookup_u16_6,
+                     lookup_u16_7,
+                     lookup_u16_8,
+                     lookup_u16_9,
+                     lookup_u16_10,
+                     lookup_u16_11,
+                     lookup_u16_12,
+                     lookup_u16_13,
+                     lookup_u16_14,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_u8_0_counts,
-                     lookup_u8_1_counts };
+                     lookup_u8_1_counts,
+                     lookup_u16_0_counts,
+                     lookup_u16_1_counts,
+                     lookup_u16_2_counts,
+                     lookup_u16_3_counts,
+                     lookup_u16_4_counts,
+                     lookup_u16_5_counts,
+                     lookup_u16_6_counts,
+                     lookup_u16_7_counts,
+                     lookup_u16_8_counts,
+                     lookup_u16_9_counts,
+                     lookup_u16_10_counts,
+                     lookup_u16_11_counts,
+                     lookup_u16_12_counts,
+                     lookup_u16_13_counts,
+                     lookup_u16_14_counts };
         };
         RefVector<DataType> get_to_be_shifted()
         {
@@ -1371,12 +1521,42 @@ class AvmFlavor {
             Base::incl_mem_tag_err = "INCL_MEM_TAG_ERR";
             Base::lookup_u8_0 = "LOOKUP_U8_0";
             Base::lookup_u8_1 = "LOOKUP_U8_1";
+            Base::lookup_u16_0 = "LOOKUP_U16_0";
+            Base::lookup_u16_1 = "LOOKUP_U16_1";
+            Base::lookup_u16_2 = "LOOKUP_U16_2";
+            Base::lookup_u16_3 = "LOOKUP_U16_3";
+            Base::lookup_u16_4 = "LOOKUP_U16_4";
+            Base::lookup_u16_5 = "LOOKUP_U16_5";
+            Base::lookup_u16_6 = "LOOKUP_U16_6";
+            Base::lookup_u16_7 = "LOOKUP_U16_7";
+            Base::lookup_u16_8 = "LOOKUP_U16_8";
+            Base::lookup_u16_9 = "LOOKUP_U16_9";
+            Base::lookup_u16_10 = "LOOKUP_U16_10";
+            Base::lookup_u16_11 = "LOOKUP_U16_11";
+            Base::lookup_u16_12 = "LOOKUP_U16_12";
+            Base::lookup_u16_13 = "LOOKUP_U16_13";
+            Base::lookup_u16_14 = "LOOKUP_U16_14";
             Base::lookup_byte_lengths_counts = "LOOKUP_BYTE_LENGTHS_COUNTS";
             Base::lookup_byte_operations_counts = "LOOKUP_BYTE_OPERATIONS_COUNTS";
             Base::incl_main_tag_err_counts = "INCL_MAIN_TAG_ERR_COUNTS";
             Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
             Base::lookup_u8_0_counts = "LOOKUP_U8_0_COUNTS";
             Base::lookup_u8_1_counts = "LOOKUP_U8_1_COUNTS";
+            Base::lookup_u16_0_counts = "LOOKUP_U16_0_COUNTS";
+            Base::lookup_u16_1_counts = "LOOKUP_U16_1_COUNTS";
+            Base::lookup_u16_2_counts = "LOOKUP_U16_2_COUNTS";
+            Base::lookup_u16_3_counts = "LOOKUP_U16_3_COUNTS";
+            Base::lookup_u16_4_counts = "LOOKUP_U16_4_COUNTS";
+            Base::lookup_u16_5_counts = "LOOKUP_U16_5_COUNTS";
+            Base::lookup_u16_6_counts = "LOOKUP_U16_6_COUNTS";
+            Base::lookup_u16_7_counts = "LOOKUP_U16_7_COUNTS";
+            Base::lookup_u16_8_counts = "LOOKUP_U16_8_COUNTS";
+            Base::lookup_u16_9_counts = "LOOKUP_U16_9_COUNTS";
+            Base::lookup_u16_10_counts = "LOOKUP_U16_10_COUNTS";
+            Base::lookup_u16_11_counts = "LOOKUP_U16_11_COUNTS";
+            Base::lookup_u16_12_counts = "LOOKUP_U16_12_COUNTS";
+            Base::lookup_u16_13_counts = "LOOKUP_U16_13_COUNTS";
+            Base::lookup_u16_14_counts = "LOOKUP_U16_14_COUNTS";
         };
     };
 
@@ -1574,13 +1754,46 @@ class AvmFlavor {
 =======
         Commitment lookup_u8_0;
         Commitment lookup_u8_1;
+<<<<<<< HEAD
 >>>>>>> 8d38899c9 (feat: some wip)
+=======
+        Commitment lookup_u16_0;
+        Commitment lookup_u16_1;
+        Commitment lookup_u16_2;
+        Commitment lookup_u16_3;
+        Commitment lookup_u16_4;
+        Commitment lookup_u16_5;
+        Commitment lookup_u16_6;
+        Commitment lookup_u16_7;
+        Commitment lookup_u16_8;
+        Commitment lookup_u16_9;
+        Commitment lookup_u16_10;
+        Commitment lookup_u16_11;
+        Commitment lookup_u16_12;
+        Commitment lookup_u16_13;
+        Commitment lookup_u16_14;
+>>>>>>> 760ed7310 (fix: 16_bit range checks)
         Commitment lookup_byte_lengths_counts;
         Commitment lookup_byte_operations_counts;
         Commitment incl_main_tag_err_counts;
         Commitment incl_mem_tag_err_counts;
         Commitment lookup_u8_0_counts;
         Commitment lookup_u8_1_counts;
+        Commitment lookup_u16_0_counts;
+        Commitment lookup_u16_1_counts;
+        Commitment lookup_u16_2_counts;
+        Commitment lookup_u16_3_counts;
+        Commitment lookup_u16_4_counts;
+        Commitment lookup_u16_5_counts;
+        Commitment lookup_u16_6_counts;
+        Commitment lookup_u16_7_counts;
+        Commitment lookup_u16_8_counts;
+        Commitment lookup_u16_9_counts;
+        Commitment lookup_u16_10_counts;
+        Commitment lookup_u16_11_counts;
+        Commitment lookup_u16_12_counts;
+        Commitment lookup_u16_13_counts;
+        Commitment lookup_u16_14_counts;
 
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
         std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
@@ -1758,12 +1971,42 @@ class AvmFlavor {
             incl_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_2 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_3 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_4 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_5 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_6 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_7 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_8 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_9 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_10 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_11 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_12 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_13 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_lengths_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_2_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_3_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_4_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_5_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_6_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_7_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_8_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_9_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_10_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_11_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_12_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_13_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_u16_14_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
 
             for (size_t i = 0; i < log_n; ++i) {
                 sumcheck_univariates.emplace_back(
@@ -1944,12 +2187,42 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(incl_mem_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_0, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_0, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_1, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_2, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_3, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_4, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_5, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_6, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_7, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_8, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_9, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_10, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_11, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_12, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_13, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_14, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_lengths_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_0_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_1_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_0_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_1_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_2_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_3_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_4_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_5_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_6_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_7_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_8_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_9_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_10_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_11_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_12_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_13_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_u16_14_counts, Transcript::proof_data);
 
             for (size_t i = 0; i < log_n; ++i) {
                 serialize_to_buffer(sumcheck_univariates[i], Transcript::proof_data);

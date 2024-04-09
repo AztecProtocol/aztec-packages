@@ -311,8 +311,55 @@ namespace avm_main(256);
     #[PERM_MAIN_MEM_IND_C]
     ind_op_c {clk, ind_c, mem_idx_c} is avm_mem.ind_op_c {avm_mem.clk, avm_mem.addr, avm_mem.val};
 
+    //====== Inter-table Constraints (Range Checks) ============================================
     #[LOOKUP_U8_0]
     avm_alu.rng_chk_lookup_selector { avm_alu.u8_r0 } in sel_rng_8 { clk };
 
     #[LOOKUP_U8_1]
     avm_alu.rng_chk_lookup_selector { avm_alu.u8_r1 } in sel_rng_8 { clk };
+
+    #[LOOKUP_U16_0]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r0 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_1]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r1 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_2]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r2 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_3]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r3 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_4]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r4 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_5]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r5 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_6]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r6 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_7]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r7 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_8]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r8 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_9]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r9 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_10]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r10 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_11]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r11 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_12]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r12 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_13]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r13 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_14]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r14 } in sel_rng_16 { clk };
+

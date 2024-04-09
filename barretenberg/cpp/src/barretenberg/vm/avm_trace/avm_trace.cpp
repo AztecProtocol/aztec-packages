@@ -1238,7 +1238,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // If the bin_trace_size has entries, we need the main_trace to be as big as our byte lookup table (3 * 2**16
     // long)
     size_t const lookup_table_size = bin_trace_size > 0 ? 3 * (1 << 16) : 0;
-    size_t const range_check_size = range_checked_required ? UINT8_MAX + 1 : 0;
+    size_t const range_check_size = range_checked_required ? UINT16_MAX + 1 : 0;
     std::vector<size_t> trace_sizes = {
         mem_trace_size, main_trace_size, alu_trace_size, lookup_table_size, range_check_size
     };
@@ -1403,12 +1403,29 @@ std::vector<Row> AvmTraceBuilder::finalize()
             r.lookup_u8_0_counts = alu_trace_builder.u8_range_chk_counters[0][static_cast<uint8_t>(i)];
             r.lookup_u8_1_counts = alu_trace_builder.u8_range_chk_counters[1][static_cast<uint8_t>(i)];
             r.avm_main_sel_rng_8 = FF(1);
-            r.avm_main_clk = FF(static_cast<uint32_t>(i));
         }
 
         if (i <= UINT16_MAX) {
-            r.avm_main_sel_rng_16 = FF(1);
+            // We add to the clk here in case our trace is smaller than our range checks
+            // There might be a cleaner way to do this in the future as this only applies
+            // when our trace (excluding range checks) is < 2**16
+            r.lookup_u16_0_counts = alu_trace_builder.u16_range_chk_counters[0][static_cast<uint16_t>(i)];
+            r.lookup_u16_1_counts = alu_trace_builder.u16_range_chk_counters[1][static_cast<uint16_t>(i)];
+            r.lookup_u16_2_counts = alu_trace_builder.u16_range_chk_counters[2][static_cast<uint16_t>(i)];
+            r.lookup_u16_3_counts = alu_trace_builder.u16_range_chk_counters[3][static_cast<uint16_t>(i)];
+            r.lookup_u16_4_counts = alu_trace_builder.u16_range_chk_counters[4][static_cast<uint16_t>(i)];
+            r.lookup_u16_5_counts = alu_trace_builder.u16_range_chk_counters[5][static_cast<uint16_t>(i)];
+            r.lookup_u16_6_counts = alu_trace_builder.u16_range_chk_counters[6][static_cast<uint16_t>(i)];
+            r.lookup_u16_7_counts = alu_trace_builder.u16_range_chk_counters[7][static_cast<uint16_t>(i)];
+            r.lookup_u16_8_counts = alu_trace_builder.u16_range_chk_counters[8][static_cast<uint16_t>(i)];
+            r.lookup_u16_9_counts = alu_trace_builder.u16_range_chk_counters[9][static_cast<uint16_t>(i)];
+            r.lookup_u16_10_counts = alu_trace_builder.u16_range_chk_counters[10][static_cast<uint16_t>(i)];
+            r.lookup_u16_11_counts = alu_trace_builder.u16_range_chk_counters[11][static_cast<uint16_t>(i)];
+            r.lookup_u16_12_counts = alu_trace_builder.u16_range_chk_counters[12][static_cast<uint16_t>(i)];
+            r.lookup_u16_13_counts = alu_trace_builder.u16_range_chk_counters[13][static_cast<uint16_t>(i)];
+            r.lookup_u16_14_counts = alu_trace_builder.u16_range_chk_counters[14][static_cast<uint16_t>(i)];
             r.avm_main_clk = FF(static_cast<uint32_t>(i));
+            r.avm_main_sel_rng_16 = FF(1);
         }
     }
 
