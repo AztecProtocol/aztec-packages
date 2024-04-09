@@ -43,3 +43,14 @@ runs:
     - name: Setup Env
       shell: bash
       run: ./scripts/setup_env.sh ${{ inputs.dockerhub_password }}
+
+    - name: Setup Docker
+      shell: bash
+      run: |
+        if ! [ -f /etc/docker/daemon.json ] ; then
+          echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > /etc/docker/daemon.json
+          sudo service docker restart
+          echo "Configured docker daemon for making many networks."
+        else
+          echo "Docker daemon already configured."
+        fi
