@@ -38,7 +38,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.runner_action || 'start' }}
+          subaction: ${{ github.event.inputs.runner_action || (contains(github.event.head_commit.message, '[ci restart-spot]') && 'restart' || 'start') }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
@@ -65,7 +65,7 @@ jobs:
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # Attach our 128gb cache disk
       - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-arm 128
-      - run: '"global: {cache_size_mb: 110000, buildkit_max_parallelism: 50}" > ~/.earthly/config.yml'
+      - run: 'echo "global: {cache_size_mb: 110000, buildkit_max_parallelism: 50}" > ~/.earthly/config.yml'
       - run: earthly bootstrap
 
   build-arm:
@@ -111,7 +111,7 @@ jobs:
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # Attach our 128gb cache disk
       - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-x86 128
-      - run: '"global: {cache_size_mb: 110000, buildkit_max_parallelism: 50, buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]}" > ~/.earthly/config.yml'
+      - run: 'echo "global: {cache_size_mb: 110000, buildkit_max_parallelism: 50, buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]}" > ~/.earthly/config.yml'
       - run: earthly bootstrap
 
   build-x86:
@@ -226,7 +226,7 @@ jobs:
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # Attach our 328gb cache disk
       - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-bench-x86 32
-      - run: '"global: {cache_size_mb: 110000, buildkit_max_parallelism: 50, buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]}" > ~/.earthly/config.yml'
+      - run: 'echo "global: {cache_size_mb: 110000, buildkit_max_parallelism: 50, buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]}" > ~/.earthly/config.yml'
       - run: earthly bootstrap
 
   bb-bench:
