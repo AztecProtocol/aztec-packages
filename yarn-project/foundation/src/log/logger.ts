@@ -110,7 +110,8 @@ function getPrefix(debugLogger: debug.Debugger, level: LogLevel) {
  * @param msg - What to log.
  */
 function printLog(msg: string) {
-  process.stderr.write(msg + '\n');
+  // eslint-disable-next-line no-console
+  isNode ? process.stderr.write(msg + '\n') : console.error(msg);
 }
 
 /**
