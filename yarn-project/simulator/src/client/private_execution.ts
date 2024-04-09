@@ -4,7 +4,7 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { returnWitnessToFields } from '../acvm/deserialize.js';
+import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
@@ -43,7 +43,7 @@ export async function executePrivateFunction(
     );
   });
   const partialWitness = partialAndReturnWitness[0];
-  const returnWitness = returnWitnessToFields(partialAndReturnWitness[1]);
+  const returnWitness = witnessMapToFields(partialAndReturnWitness[1]);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
   const encryptedLogs = context.getEncryptedLogs();

@@ -66,7 +66,7 @@ pub async fn execute_circuit(
 /// @param {Uint8Array} circuit - A serialized representation of an ACIR circuit
 /// @param {WitnessMap} initial_witness - The initial witness map defining all of the inputs to `circuit`..
 /// @param {ForeignCallHandler} foreign_call_handler - A callback to process any foreign calls from the circuit.
-/// @returns {PartialAndReturnWitness} The solved witness calculated by executing the circuit on the provided inputs, as well as the return witness indices as specified by the circuit.
+/// @returns {SolvedAndReturnWitness} The solved witness calculated by executing the circuit on the provided inputs, as well as the return witness indices as specified by the circuit.
 #[wasm_bindgen(js_name = executeCircuitWithReturnWitness, skip_jsdoc)]
 pub async fn execute_circuit_with_return_witness(
     solver: &WasmBlackBoxFunctionSolver,

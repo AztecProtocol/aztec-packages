@@ -4,7 +4,7 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { returnWitnessToFields } from '../acvm/deserialize.js';
+import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack, toACVMWitness } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { AcirSimulator } from './simulator.js';
@@ -44,7 +44,7 @@ export async function executeUnconstrainedFunction(
     );
   });
 
-  const returnWitness = returnWitnessToFields(partialAndReturnWitness[1]);
+  const returnWitness = witnessMapToFields(partialAndReturnWitness[1]);
   return decodeReturnValues(artifact, returnWitness);
 }
 // docs:end:execute_unconstrained_function

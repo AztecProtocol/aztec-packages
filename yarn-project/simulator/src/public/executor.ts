@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 
-import { Oracle, acvm, extractCallStack, returnWitnessToFields } from '../acvm/index.js';
+import { Oracle, acvm, extractCallStack, witnessMapToFields } from '../acvm/index.js';
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
@@ -103,7 +103,7 @@ export async function executePublicFunction(
     throw new Error('No partial witness returned from ACVM');
   }
 
-  const returnWitness = returnWitnessToFields(partialAndReturnWitness[1]);
+  const returnWitness = witnessMapToFields(partialAndReturnWitness[1]);
   const {
     returnValues,
     nullifierReadRequests: nullifierReadRequestsPadded,
