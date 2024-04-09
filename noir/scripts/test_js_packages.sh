@@ -14,7 +14,6 @@ cargo build --release
 export PATH="${PATH}:/usr/src/noir/noir-repo/target/release/"
 
 yarn --immutable
-yarn version::stables
 yarn build
 ./.github/scripts/playwright-install.sh
 
