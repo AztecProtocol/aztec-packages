@@ -27,7 +27,7 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  * Logger that supports multiple severity levels and can be called directly to issue a debug statement.
  * Intended as a drop-in replacement for the debug module.
  */
-export type DebugLogger = LogFn & Logger;
+export type DebugLogger = Logger;
 
 /**
  * Creates a new DebugLogger for the current module, defaulting to the LOG_LEVEL env var.
