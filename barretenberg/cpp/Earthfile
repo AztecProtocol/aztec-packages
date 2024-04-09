@@ -210,8 +210,20 @@ test-clang-format:
     COPY format.sh .
     RUN ./format.sh check
 
+test-base:
+    ARG EARTHLY_GIT_HASH
+    ARG TARGETARCH
+    ARG test_mode=build
+    LOCALLY
+    IF [ $test_mode = cache ]
+        FROM aztecprotocol/test-base:$TARGETARCH-$EARTHLY_GIT_HASH
+    ELSE
+        FROM +preset-release-assert-test
+        SAVE IMAGE --push aztecprotocol/test-base:$TARGETARCH-$EARTHLY_GIT_HASH
+    END
+
 test:
     BUILD +test-clang-format
-    FROM +preset-release-assert-test
+    FROM test-base
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
