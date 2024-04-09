@@ -208,7 +208,7 @@ mod tests {
     #[test(should_fail_with="Function signature cannot be zero")]
     fn function_selector_must_be_valid() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-        builder.public_call.function_data.selector = FunctionSelector::zero();
+        builder.public_call.function_data.selector = FunctionSelector::default();
 
         builder.failed();
     }

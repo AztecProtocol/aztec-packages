@@ -26,7 +26,7 @@ impl Default for CallContext {
             msg_sender: AztecAddress::default(),
             storage_contract_address: AztecAddress::default(),
             portal_contract_address: EthAddress::default(),
-            function_selector: FunctionSelector::zero(),
+            function_selector: FunctionSelector::default(),
             is_delegate_call: false,
             is_static_call: false,
             side_effect_counter: 0,
