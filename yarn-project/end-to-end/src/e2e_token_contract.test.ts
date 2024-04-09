@@ -145,7 +145,7 @@ describe('e2e_token_contract', () => {
         await reader.methods.check_decimals_private(asset.address, TOKEN_DECIMALS).send().wait();
 
         await expect(reader.methods.check_decimals_private(asset.address, 99).prove()).rejects.toThrow(
-          "Cannot satisfy constraint 'ret[0] as u8 == what'",
+          "Cannot satisfy constraint 'result == what'",
         );
       });
 
@@ -156,7 +156,7 @@ describe('e2e_token_contract', () => {
         await reader.methods.check_decimals_public(asset.address, TOKEN_DECIMALS).send().wait();
 
         await expect(reader.methods.check_decimals_public(asset.address, 99).prove()).rejects.toThrow(
-          "Failed to solve brillig function, reason: explicit trap hit in brillig 'ret[0] as u8 == what'",
+          "Failed to solve brillig function, reason: explicit trap hit in brillig 'result == what'",
         );
       });
     });
