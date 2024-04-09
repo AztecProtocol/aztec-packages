@@ -62,7 +62,7 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
-      - run: ./scripts/attach_ebs_cache.sh
+      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}
       - run: earthly bootstrap
 
   build-arm:
@@ -103,7 +103,7 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
-      - run: ./scripts/attach_ebs_cache.sh
+      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}
       - run: earthly bootstrap
 
   build-x86:
