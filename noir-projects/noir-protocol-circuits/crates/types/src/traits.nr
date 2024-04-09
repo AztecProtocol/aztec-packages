@@ -1,4 +1,4 @@
-use dep::std::cmp::Eq;
+use dep::std::{default::Default,cmp::Eq};
 
 // Trait: is_empty
 //
@@ -29,6 +29,22 @@ pub fn is_empty<T>(item: T) -> bool where T: Empty + Eq {
 
 pub fn is_empty_array<T, N>(array: [T; N]) -> bool where T: Empty + Eq {
     array.all(|elem| is_empty(elem))
+}
+
+pub fn is_default<T>(item: T) -> bool where T: Default + Eq {
+    item.eq(T::default())
+}
+
+pub fn is_default_array<T, N>(array: [T; N]) -> bool where T: Default + Eq {
+    array.all(|elem| is_default(elem))
+}
+
+trait Zero {
+    fn zero() -> Self;
+}
+
+pub fn is_zero<T>(item: T) -> bool where T: Zero + Eq {
+    item.eq(T::zero())
 }
 
 trait Hash {

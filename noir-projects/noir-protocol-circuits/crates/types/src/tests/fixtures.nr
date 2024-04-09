@@ -26,7 +26,7 @@ fn empty_eth_address() -> EthAddress {
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
 fn empty_aztec_address() -> AztecAddress {
-    AztecAddress::empty()
+    AztecAddress::zero()
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440

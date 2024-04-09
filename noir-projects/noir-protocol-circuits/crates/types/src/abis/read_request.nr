@@ -98,7 +98,7 @@ impl Empty for ReadRequestContext {
         ReadRequestContext {
             value: 0,
             counter: 0,
-            contract_address: AztecAddress::empty(),
+            contract_address: AztecAddress::zero(),
         }
     }
 }

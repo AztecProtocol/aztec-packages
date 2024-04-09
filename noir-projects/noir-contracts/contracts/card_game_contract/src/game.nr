@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
+use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize, is_zero}};
 use crate::cards::Card;
 
 global NUMBER_OF_PLAYERS: u64 = 2;
@@ -12,7 +12,7 @@ struct PlayerEntry {
 
 impl PlayerEntry {
     pub fn is_initialized(self) -> bool {
-        !self.address.is_zero()
+        !is_zero(self.address)
     }
 }
 

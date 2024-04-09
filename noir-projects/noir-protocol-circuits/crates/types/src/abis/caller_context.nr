@@ -1,6 +1,6 @@
 use crate::address::AztecAddress;
 use dep::std::cmp::Eq;
-use crate::traits::Empty;
+use crate::traits::{Empty, is_zero};
 
 struct CallerContext {
     msg_sender: AztecAddress,
@@ -25,6 +25,6 @@ impl Empty for CallerContext {
 
 impl CallerContext {
     pub fn is_empty(self) -> bool {
-        self.msg_sender.is_zero() & self.storage_contract_address.is_zero()
+        is_zero(self.msg_sender) & is_zero(self.storage_contract_address)
     }
 }

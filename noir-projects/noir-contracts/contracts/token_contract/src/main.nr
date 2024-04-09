@@ -18,7 +18,7 @@ contract Token {
         NoteGetterOptions, NoteHeader, Map, PublicMutable, SharedImmutable, PrivateSet,
         FunctionSelector, AztecAddress
     };
-    use dep::aztec::hash::compute_secret_hash;
+    use dep::aztec::{hash::compute_secret_hash, protocol_types::traits::is_zero};
 
     // docs:start:import_authwit
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
@@ -56,7 +56,7 @@ contract Token {
     #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
-        assert(!admin.is_zero(), "invalid admin");
+        assert(!is_zero(admin), "invalid admin");
         storage.admin.write(admin);
         storage.minters.at(admin).write(true);
         storage.name.initialize(FieldCompressedString::from_string(name));
