@@ -29,7 +29,7 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::{is_empty, is_zero}
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::is_zero
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -68,6 +68,29 @@ struct PrivateContext {
     // unencrypted_logs_preimages: Vec<Field>,
 
     nullifier_key: Option<NullifierKeyPair>,
+}
+
+impl Default for PrivateContext {
+    fn default() -> Self {
+        PrivateContext {
+            inputs: PrivateContextInputs::default(),
+            side_effect_counter: 0 as u32,
+            min_revertible_side_effect_counter: 0 as u32,
+            args_hash : 0,
+            return_values : BoundedVec::new(),
+            max_block_number: MaxBlockNumber::default(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            private_call_stack_hashes : BoundedVec::new(),
+            public_call_stack_hashes : BoundedVec::new(),
+            new_l2_to_l1_msgs : BoundedVec::new(),
+            historical_header: Header::default(),
+            nullifier_key: Option::none(),
+        }
+    }
 }
 
 impl ContextInterface for PrivateContext {
