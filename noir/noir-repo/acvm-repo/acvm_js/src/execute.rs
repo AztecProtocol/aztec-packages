@@ -61,12 +61,13 @@ pub async fn execute_circuit(
 }
 
 /// Executes an ACIR circuit to generate the solved witness from the initial witness.
+/// This method also extracts the public return values from the solved witness into its own return witness.
 ///
 /// @param {&WasmBlackBoxFunctionSolver} solver - A black box solver.
 /// @param {Uint8Array} circuit - A serialized representation of an ACIR circuit
 /// @param {WitnessMap} initial_witness - The initial witness map defining all of the inputs to `circuit`..
 /// @param {ForeignCallHandler} foreign_call_handler - A callback to process any foreign calls from the circuit.
-/// @returns {(WitnessMap, WitnessMap} The solved witness calculated by executing the circuit on the provided inputs. As well as the return witness indices as specified by the circuit.
+/// @returns {PartialAndReturnWitness} The solved witness calculated by executing the circuit on the provided inputs, as well as the return witness indices as specified by the circuit.
 #[wasm_bindgen(js_name = executeCircuitWithReturnWitness, skip_jsdoc)]
 pub async fn execute_circuit_with_return_witness(
     solver: &WasmBlackBoxFunctionSolver,
@@ -76,48 +77,25 @@ pub async fn execute_circuit_with_return_witness(
 ) -> Result<JsPartialAndReturnWitness, Error> {
     console_error_panic_hook::set_once();
 
-    let (solved_witness, return_witness) = execute_program_with_native_return_witness(
-        solver,
-        program,
-        initial_witness,
-        &foreign_call_handler,
-    )
-    .await?;
-
-    Ok(vec![solved_witness, return_witness].into())
-}
-
-async fn execute_program_with_native_return_witness(
-    solver: &WasmBlackBoxFunctionSolver,
-    program: Vec<u8>,
-    initial_witness: JsWitnessMap,
-    foreign_call_executor: &ForeignCallHandler,
-) -> Result<(WitnessMap, WitnessMap), Error> {
     let program: Program = Program::deserialize_program(&program)
     .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None))?;
-
-    // let executor = ProgramExecutor::new(&program.functions, &solver.0, foreign_call_executor);
-    // let mut witness_stack = executor.execute(initial_witness.into()).await?;
-
-    // let witness_map =
-    //     witness_stack.pop().expect("Should have at least one witness on the stack").witness;
 
     let mut witness_stack = execute_program_with_native_program_and_return(
         solver,
         &program,
         initial_witness,
-        foreign_call_executor,
+        &foreign_call_handler,
     )
     .await?;
-    let witness_map =
+    let solved_witness =
         witness_stack.pop().expect("Should have at least one witness on the stack").witness;
 
     let main_circuit = &program.functions[0];
     let return_witness =
-        extract_indices(&witness_map, main_circuit.return_values.0.iter().copied().collect())
+        extract_indices(&solved_witness, main_circuit.return_values.0.iter().copied().collect())
             .map_err(|err| JsExecutionError::new(err, None))?;
 
-    Ok((witness_map, return_witness))
+    Ok(vec![solved_witness, return_witness].into())
 }
 
 /// Executes an ACIR circuit to generate the solved witness from the initial witness.
