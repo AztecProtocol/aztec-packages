@@ -67,9 +67,9 @@ impl MemoryValue {
     }
 
     /// Extracts the integer from the memory value, if it is typed as integer.
-    pub fn extract_integer(&self) -> Option<&BigUint> {
+    pub fn extract_integer(&self) -> Option<(&BigUint, u32)> {
         match self {
-            MemoryValue::Integer(value, _) => Some(value),
+            MemoryValue::Integer(value, bit_size) => Some((value, *bit_size)),
             _ => None,
         }
     }
@@ -85,10 +85,10 @@ impl MemoryValue {
     }
 
     /// Converts the memory value to an integer, independent of its type.
-    pub fn to_integer(&self) -> BigUint {
+    pub fn to_integer(self) -> BigUint {
         match self {
             MemoryValue::Field(value) => BigUint::from_bytes_be(&value.to_be_bytes()),
-            MemoryValue::Integer(value, _) => value.clone(),
+            MemoryValue::Integer(value, _) => value,
         }
     }
 
@@ -104,17 +104,38 @@ impl MemoryValue {
             self.bit_size() == MEMORY_ADDRESSING_BIT_SIZE,
             "value is not typed as brillig usize"
         );
-        self.extract_integer().unwrap().try_into().unwrap()
+        self.extract_integer().unwrap().0.try_into().unwrap()
     }
 
-    pub fn expect_bit_size(&self, expected_bit_size: u32) -> Result<(), MemoryTypeError> {
-        if self.bit_size() != expected_bit_size {
-            return Err(MemoryTypeError::MismatchedBitSize {
-                value_bit_size: self.bit_size(),
-                expected_bit_size,
-            });
+    pub fn expect_field(&self) -> Result<&FieldElement, MemoryTypeError> {
+        match self {
+            MemoryValue::Integer(_, bit_size) => Err(MemoryTypeError::MismatchedBitSize {
+                value_bit_size: *bit_size,
+                expected_bit_size: FieldElement::max_num_bits(),
+            }),
+            MemoryValue::Field(field) => Ok(field),
         }
-        Ok(())
+    }
+
+    pub fn expect_integer_with_bit_size(
+        &self,
+        expected_bit_size: u32,
+    ) -> Result<&BigUint, MemoryTypeError> {
+        match self {
+            MemoryValue::Integer(value, bit_size) => {
+                if *bit_size != expected_bit_size {
+                    return Err(MemoryTypeError::MismatchedBitSize {
+                        value_bit_size: *bit_size,
+                        expected_bit_size,
+                    });
+                }
+                Ok(value)
+            }
+            MemoryValue::Field(_) => Err(MemoryTypeError::MismatchedBitSize {
+                value_bit_size: FieldElement::max_num_bits(),
+                expected_bit_size,
+            }),
+        }
     }
 }
 
@@ -172,11 +193,8 @@ impl From<u8> for MemoryValue {
 
 impl From<bool> for MemoryValue {
     fn from(value: bool) -> Self {
-        if value {
-            MemoryValue::new_integer(BigUint::one(), 1)
-        } else {
-            MemoryValue::new_integer(BigUint::zero(), 1)
-        }
+        let value = if value { BigUint::one() } else { BigUint::zero() };
+        MemoryValue::new_integer(value, 1)
     }
 }
 
@@ -184,8 +202,7 @@ impl TryFrom<MemoryValue> for FieldElement {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(FieldElement::max_num_bits())?;
-        Ok(memory_value.extract_field().cloned().expect("Field memory cell is not a field"))
+        memory_value.expect_field().copied()
     }
 }
 
@@ -193,12 +210,7 @@ impl TryFrom<MemoryValue> for u64 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(64)?;
-        Ok(memory_value
-            .extract_integer()
-            .expect("Integer memory cell is not an integer")
-            .try_into()
-            .unwrap())
+        memory_value.expect_integer_with_bit_size(64).map(|value| value.try_into().unwrap())
     }
 }
 
@@ -206,12 +218,7 @@ impl TryFrom<MemoryValue> for u32 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(32)?;
-        Ok(memory_value
-            .extract_integer()
-            .expect("Integer memory cell is not an integer")
-            .try_into()
-            .unwrap())
+        memory_value.expect_integer_with_bit_size(32).map(|value| value.try_into().unwrap())
     }
 }
 
@@ -219,13 +226,7 @@ impl TryFrom<MemoryValue> for u8 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(8)?;
-
-        Ok(memory_value
-            .extract_integer()
-            .expect("Integer memory cell is not an integer")
-            .try_into()
-            .unwrap())
+        memory_value.expect_integer_with_bit_size(8).map(|value| value.try_into().unwrap())
     }
 }
 
@@ -233,8 +234,7 @@ impl TryFrom<MemoryValue> for bool {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(1)?;
-        let as_integer = memory_value.extract_integer().unwrap();
+        let as_integer = memory_value.expect_integer_with_bit_size(1)?;
 
         if as_integer.is_zero() {
             Ok(false)
@@ -250,8 +250,7 @@ impl TryFrom<&MemoryValue> for FieldElement {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(FieldElement::max_num_bits())?;
-        Ok(memory_value.extract_field().cloned().expect("Field memory cell is not a field"))
+        memory_value.expect_field().copied()
     }
 }
 
@@ -259,12 +258,7 @@ impl TryFrom<&MemoryValue> for u64 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(64)?;
-        Ok(memory_value
-            .extract_integer()
-            .expect("Integer memory cell is not an integer")
-            .try_into()
-            .unwrap())
+        memory_value.expect_integer_with_bit_size(64).map(|value| value.try_into().unwrap())
     }
 }
 
@@ -272,12 +266,7 @@ impl TryFrom<&MemoryValue> for u32 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(32)?;
-        Ok(memory_value
-            .extract_integer()
-            .expect("Integer memory cell is not an integer")
-            .try_into()
-            .unwrap())
+        memory_value.expect_integer_with_bit_size(32).map(|value| value.try_into().unwrap())
     }
 }
 
@@ -285,13 +274,7 @@ impl TryFrom<&MemoryValue> for u8 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(8)?;
-
-        Ok(memory_value
-            .extract_integer()
-            .expect("Integer memory cell is not an integer")
-            .try_into()
-            .unwrap())
+        memory_value.expect_integer_with_bit_size(8).map(|value| value.try_into().unwrap())
     }
 }
 
@@ -299,8 +282,7 @@ impl TryFrom<&MemoryValue> for bool {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_bit_size(1)?;
-        let as_integer = memory_value.extract_integer().unwrap();
+        let as_integer = memory_value.expect_integer_with_bit_size(1)?;
 
         if as_integer.is_zero() {
             Ok(false)

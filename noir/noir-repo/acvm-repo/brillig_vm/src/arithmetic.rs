@@ -4,7 +4,7 @@ use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 use num_traits::{One, Zero};
 
-use crate::memory::MemoryValue;
+use crate::memory::{MemoryTypeError, MemoryValue};
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum BrilligArithmeticError {
@@ -24,21 +24,19 @@ pub(crate) fn evaluate_binary_field_op(
     lhs: MemoryValue,
     rhs: MemoryValue,
 ) -> Result<MemoryValue, BrilligArithmeticError> {
-    if lhs.bit_size() != FieldElement::max_num_bits() {
+    let MemoryValue::Field(a) = lhs else {
         return Err(BrilligArithmeticError::MismatchedLhsBitSize {
             lhs_bit_size: lhs.bit_size(),
             op_bit_size: FieldElement::max_num_bits(),
         });
-    }
-    if rhs.bit_size() != FieldElement::max_num_bits() {
-        return Err(BrilligArithmeticError::MismatchedRhsBitSize {
-            rhs_bit_size: rhs.bit_size(),
+    };
+    let MemoryValue::Field(b) = rhs else {
+        return Err(BrilligArithmeticError::MismatchedLhsBitSize {
+            lhs_bit_size: rhs.bit_size(),
             op_bit_size: FieldElement::max_num_bits(),
         });
-    }
+    };
 
-    let a = *lhs.extract_field().unwrap();
-    let b = *rhs.extract_field().unwrap();
     Ok(match op {
         // Perform addition, subtraction, multiplication, and division based on the BinaryOp variant.
         BinaryFieldOp::Add => (a + b).into(),
@@ -65,24 +63,26 @@ pub(crate) fn evaluate_binary_int_op(
     rhs: MemoryValue,
     bit_size: u32,
 ) -> Result<MemoryValue, BrilligArithmeticError> {
-    if lhs.bit_size() != bit_size {
-        return Err(BrilligArithmeticError::MismatchedLhsBitSize {
-            lhs_bit_size: lhs.bit_size(),
-            op_bit_size: bit_size,
-        });
-    }
-    if rhs.bit_size() != bit_size {
-        return Err(BrilligArithmeticError::MismatchedRhsBitSize {
-            rhs_bit_size: rhs.bit_size(),
-            op_bit_size: bit_size,
-        });
-    }
+    let lhs = lhs.expect_integer_with_bit_size(bit_size).map_err(|err| match err {
+        MemoryTypeError::MismatchedBitSize { value_bit_size, expected_bit_size } => {
+            BrilligArithmeticError::MismatchedLhsBitSize {
+                lhs_bit_size: value_bit_size,
+                op_bit_size: expected_bit_size,
+            }
+        }
+    })?;
+    let rhs = rhs.expect_integer_with_bit_size(bit_size).map_err(|err| match err {
+        MemoryTypeError::MismatchedBitSize { value_bit_size, expected_bit_size } => {
+            BrilligArithmeticError::MismatchedRhsBitSize {
+                rhs_bit_size: value_bit_size,
+                op_bit_size: expected_bit_size,
+            }
+        }
+    })?;
+
     if bit_size == FieldElement::max_num_bits() {
         return Err(BrilligArithmeticError::IntegerOperationOnField { op: *op });
     }
-
-    let lhs = lhs.extract_integer().unwrap();
-    let rhs = rhs.extract_integer().unwrap();
 
     let bit_modulo = &(BigUint::one() << bit_size);
     let result = match op {
