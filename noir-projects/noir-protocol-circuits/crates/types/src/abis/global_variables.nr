@@ -60,7 +60,7 @@ impl Empty for GlobalVariables {
             version: 0,
             block_number: 0,
             timestamp: 0,
-            coinbase: EthAddress::empty(),
+            coinbase: EthAddress::zero(),
             fee_recipient: AztecAddress::zero(),
         }
     }

@@ -21,7 +21,7 @@ fn empty_append_only_tree() -> AppendOnlyTreeSnapshot {
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
 fn empty_eth_address() -> EthAddress {
-    EthAddress::empty()
+    EthAddress::zero()
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440

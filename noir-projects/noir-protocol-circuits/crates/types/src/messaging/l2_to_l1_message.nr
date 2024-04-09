@@ -9,7 +9,7 @@ struct L2ToL1Message {
 impl Empty for L2ToL1Message {
     fn empty() -> Self {
         Self {
-            recipient: EthAddress::empty(),
+            recipient: EthAddress::zero(),
             content: 0,
         }
     }
