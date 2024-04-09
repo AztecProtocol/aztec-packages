@@ -9,7 +9,7 @@ on:
         description: "The action to take with the self-hosted runner (start, stop, restart)."
         required: false
 concurrency:
-  # force parallelism 
+  # force parallelism
   group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 jobs:
@@ -38,7 +38,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.runner_action || 'start' }}
+          subaction: ${{ github.event.inputs.runner_action || 'restart' }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
@@ -190,7 +190,7 @@ jobs:
     steps:
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: AztecProtocol/ec2-action-builder@v37
+        uses: AztecProtocol/ec2-action-builder@v0.1
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
