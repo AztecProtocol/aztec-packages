@@ -90,10 +90,10 @@ describe('e2e_fees', () => {
       .send()
       .deployed();
 
-    logger(`BananaCoin deployed at ${bananaCoin.address}`);
+    logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
 
     bananaFPC = await FPCContract.deploy(wallets[0], bananaCoin.address, gasTokenContract.address).send().deployed();
-    logger(`bananaPay deployed at ${bananaFPC.address}`);
+    logger.info(`BananaPay deployed at ${bananaFPC.address}`);
     await publicDeployAccounts(wallets[0], wallets);
 
     await gasBridgeTestHarness.bridgeFromL1ToL2(BRIDGED_FPC_GAS, BRIDGED_FPC_GAS, bananaFPC.address);
@@ -643,7 +643,7 @@ describe('e2e_fees', () => {
   function logFunctionSignatures(artifact: ContractArtifact, logger: DebugLogger) {
     artifact.functions.forEach(fn => {
       const sig = decodeFunctionSignature(fn.name, fn.parameters);
-      logger(`${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)} => ${artifact.name}.${sig} `);
+      logger.verbose(`${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)} => ${artifact.name}.${sig} `);
     });
   }
 
@@ -662,16 +662,13 @@ describe('e2e_fees', () => {
   };
 
   const addPendingShieldNoteToPXE = async (accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) => {
-    const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
     const note = new Note([new Fr(amount), secretHash]);
     const extendedNote = new ExtendedNote(
       note,
       wallets[accountIndex].getAddress(),
       bananaCoin.address,
-      storageSlot,
-      noteTypeId,
+      BananaCoin.storage.pending_shields.slot,
+      BananaCoin.notes.TransparentNote.id,
       txHash,
     );
     await wallets[accountIndex].addNote(extendedNote);

@@ -69,6 +69,7 @@ library Constants {
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000_000_000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
+  uint256 internal constant NESTED_CALL_L2_GAS_BUFFER = 20000;
   uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 15000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS = 3000;
@@ -83,7 +84,7 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x0ccb2a7150ed29533f211e223f98450cf4769ff8938e9d4ad303f71c5e302600;
+    0x1b628eeb6349f2a4c000b703942eb8a625bfe5e6ee34ccc210748cf9ae05af98;
   uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 17;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
   uint256 internal constant GET_NOTE_ORACLE_RETURN_LENGTH = 23;

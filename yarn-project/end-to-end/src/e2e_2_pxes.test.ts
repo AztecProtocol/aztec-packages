@@ -75,19 +75,19 @@ describe('e2e_2_pxes', () => {
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
     const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
-    logger(`Account ${owner} balance: ${balance}`);
+    logger.info(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
   const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress, pxe: PXE) => {
-    logger(`Deploying Token contract...`);
+    logger.info(`Deploying Token contract...`);
     const contract = await TokenContract.deploy(walletA, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
     if (initialAdminBalance > 0n) {
       await mintTokens(contract, admin, initialAdminBalance, pxe);
     }
 
-    logger('L2 contract deployed');
+    logger.info('L2 contract deployed');
 
     return contract.instance;
   };
@@ -98,11 +98,15 @@ describe('e2e_2_pxes', () => {
 
     const receipt = await contract.methods.mint_private(balance, secretHash).send().wait();
 
-    const storageSlot = new Fr(5);
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
     const note = new Note([new Fr(balance), secretHash]);
-    const extendedNote = new ExtendedNote(note, recipient, contract.address, storageSlot, noteTypeId, receipt.txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      recipient,
+      contract.address,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
+      receipt.txHash,
+    );
     await pxe.addNote(extendedNote);
 
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
@@ -163,9 +167,9 @@ describe('e2e_2_pxes', () => {
   }, 120_000);
 
   const deployChildContractViaServerA = async () => {
-    logger(`Deploying Child contract...`);
+    logger.info(`Deploying Child contract...`);
     const contract = await ChildContract.deploy(walletA).send().deployed();
-    logger('Child contract deployed');
+    logger.info('Child contract deployed');
 
     return contract.instance;
   };
