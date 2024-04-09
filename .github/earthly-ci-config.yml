@@ -1,5 +1,4 @@
 global:
-    cache_size_mb: 100000
     buildkit_max_parallelism: 50
     container_frontend: docker-shell
-    buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]
+buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]
