@@ -289,8 +289,8 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 // Convert our source_pointer to an address
                 let source = self.memory.read_ref(*source_pointer);
                 // Use our usize source index to lookup the value in memory
-                let value = &self.memory.read(source);
-                self.memory.write(*destination_address, value.clone());
+                let value = self.memory.read(source);
+                self.memory.write(*destination_address, value);
                 self.increment_program_counter()
             }
             Opcode::Store { destination_pointer, source: source_address } => {
