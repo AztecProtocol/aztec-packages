@@ -10,6 +10,7 @@ contract Uniswap {
         prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable},
         oracle::context::get_portal_address,
         protocol_types::traits::is_zero,
+        context::gas::GasOpts,
     };
 
     use dep::authwit::auth::{
@@ -68,7 +69,8 @@ contract Uniswap {
         let _void = context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("_approve_bridge_and_exit_input_asset_to_L1((Field),(Field),Field)"),
-            [input_asset.to_field(), input_asset_bridge.to_field(), input_amount]
+            [input_asset.to_field(), input_asset_bridge.to_field(), input_amount],
+            GasOpts::default()
         );
 
         // Create swap message and send to Outbox for Uniswap Portal
