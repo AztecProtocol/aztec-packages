@@ -1,61 +1,61 @@
 import {
-  AuthWitness,
-  AztecNode,
+  type AuthWitness,
+  type AztecNode,
   EncryptedTxL2Logs,
   ExtendedNote,
-  FunctionCall,
-  GetUnencryptedLogsResponse,
-  KeyStore,
-  L2Block,
-  LogFilter,
+  type FunctionCall,
+  type GetUnencryptedLogsResponse,
+  type KeyStore,
+  type L2Block,
+  type LogFilter,
   MerkleTreeId,
-  NoteFilter,
-  PXE,
+  type NoteFilter,
+  type PXE,
+  SimulatedTx,
   SimulationError,
   Tx,
-  TxEffect,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
+  type TxEffect,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxReceipt,
   UnencryptedTxL2Logs,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
-import { TxPXEProcessingStats } from '@aztec/circuit-types/stats';
+import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   CallRequest,
   CompleteAddress,
   FunctionData,
-  GrumpkinPrivateKey,
-  MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  PartialAddress,
-  PrivateKernelTailCircuitPublicInputs,
-  PublicCallRequest,
+  type GrumpkinPrivateKey,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  type PartialAddress,
+  type PrivateKernelTailCircuitPublicInputs,
+  type PublicCallRequest,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
-import { ContractArtifact, DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  AcirSimulator,
-  ExecutionResult,
+  type AcirSimulator,
+  type ExecutionResult,
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { NodeInfo } from '@aztec/types/interfaces';
+import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { PXEServiceConfig, getPackageInfo } from '../config/index.js';
+import { type PXEServiceConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { PxeDatabase } from '../database/index.js';
+import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
@@ -71,7 +71,7 @@ export class PXEService implements PXE {
   private simulator: AcirSimulator;
   private log: DebugLogger;
   private nodeVersion: string;
-  // serialize synchronizer and calls to simulateTx.
+  // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
 
@@ -388,26 +388,43 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public async simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
+  public async proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
+    return (await this.simulateTx(txRequest, simulatePublic)).tx;
+  }
+
+  public async simulateTx(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender: AztecAddress | undefined = undefined,
+  ) {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
-
-    // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       const timer = new Timer();
-      const tx = await this.#simulateAndProve(txRequest);
-      this.log(`Processed private part of ${tx.getTxHash()}`, {
-        eventName: 'tx-pxe-processing',
-        duration: timer.ms(),
-        ...tx.getStats(),
-      } satisfies TxPXEProcessingStats);
-      if (simulatePublic) {
-        await this.#simulatePublicCalls(tx);
-      }
-      this.log.info(`Executed local simulation for ${tx.getTxHash()}`);
+      const simulatedTx = await this.#simulateAndProve(txRequest, msgSender);
+      // We log only if the msgSender is undefined, as simulating with a different msgSender
+      // is unlikely to be a real transaction, and likely to be only used to read data.
+      // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
+      // If we log, the `getTxHash` function will throw.
 
-      return tx;
+      if (!msgSender) {
+        this.log(`Processed private part of ${simulatedTx.tx.getTxHash()}`, {
+          eventName: 'tx-pxe-processing',
+          duration: timer.ms(),
+          ...simulatedTx.tx.getStats(),
+        } satisfies TxPXEProcessingStats);
+      }
+
+      if (simulatePublic) {
+        // Only one transaction, so we can take index 0.
+        simulatedTx.publicReturnValues = (await this.#simulatePublicCalls(simulatedTx.tx))[0];
+      }
+
+      if (!msgSender) {
+        this.log.info(`Executed local simulation for ${simulatedTx.tx.getTxHash()}`);
+      }
+      return simulatedTx;
     });
   }
 
@@ -524,14 +541,14 @@ export class PXEService implements PXE {
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest): Promise<ExecutionResult> {
+  async #simulate(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
     const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
 
     this.log('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract);
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract, msgSender);
       this.log('Simulation completed!');
       return result;
     } catch (err) {
@@ -575,7 +592,7 @@ export class PXEService implements PXE {
    */
   async #simulatePublicCalls(tx: Tx) {
     try {
-      await this.node.simulatePublicCalls(tx);
+      return await this.node.simulatePublicCalls(tx);
     } catch (err) {
       // Try to fill in the noir call stack since the PXE may have access to the debug metadata
       if (err instanceof SimulationError) {
@@ -599,28 +616,26 @@ export class PXEService implements PXE {
 
   /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
-   * The function takes in a transaction request and an ECDSA signature. It simulates the transaction,
-   * then generates a kernel proof using the simulation result. Finally, it creates a private
+   * The function takes in a transaction request, simulates it, and then generates a kernel proof
+   * using the simulation result. Finally, it creates a private
    * transaction object with the generated proof and public inputs. If a new contract address is provided,
    * the function will also include the new contract's public functions in the transaction object.
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
-   * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @returns An object tract contains:
+   * A private transaction object containing the proof, public inputs, and encrypted logs.
+   * The return values of the private execution
    */
-  async #simulateAndProve(txExecutionRequest: TxExecutionRequest) {
-    // TODO - Pause syncing while simulating.
-
+  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, msgSender?: AztecAddress) {
     // Get values that allow us to reconstruct the block hash
-    const executionResult = await this.#simulate(txExecutionRequest);
+    const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
-    this.log(
-      `Needs setup: ${publicInputs.needsSetup}, needs app logic: ${publicInputs.needsAppLogic}, needs teardown: ${publicInputs.needsTeardown}`,
-    );
 
     const encryptedLogs = new EncryptedTxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new UnencryptedTxL2Logs(collectUnencryptedLogs(executionResult));
@@ -630,7 +645,8 @@ export class PXEService implements PXE {
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+    const tx = new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions);
+    return new SimulatedTx(tx, [executionResult.returnValues]);
   }
 
   /**
@@ -681,55 +697,62 @@ export class PXEService implements PXE {
     publicInputs: PrivateKernelTailCircuitPublicInputs,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
+    if (!publicInputs.forPublic) {
+      return;
+    }
+
     const enqueuedPublicCallStackItems = await Promise.all(enqueuedPublicCalls.map(c => c.toCallRequest()));
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const enqueuedRevertiblePublicCallStackItems = enqueuedPublicCallStackItems.filter(enqueued =>
-      publicInputs.end.publicCallStack.find(item => item.equals(enqueued)),
+      publicInputs.forPublic!.end.publicCallStack.find(item => item.equals(enqueued)),
     );
 
-    const revertibleStackSize = arrayNonEmptyLength(publicInputs.end.publicCallStack, item => item.isEmpty());
+    const revertibleStackSize = arrayNonEmptyLength(publicInputs.forPublic.end.publicCallStack, item => item.isEmpty());
 
     if (enqueuedRevertiblePublicCallStackItems.length !== revertibleStackSize) {
       throw new Error(
         `Enqueued revertible public function calls and revertible public call stack do not match.\nEnqueued calls: ${enqueuedRevertiblePublicCallStackItems
           .map(h => h.hash.toString())
-          .join(', ')}\nPublic call stack: ${publicInputs.end.publicCallStack.map(i => i.toString()).join(', ')}`,
-      );
-    }
-
-    // Override kernel output
-    publicInputs.end.publicCallStack = padArrayEnd(
-      enqueuedRevertiblePublicCallStackItems,
-      CallRequest.empty(),
-      MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-    );
-
-    // Do the same for non-revertible
-
-    const enqueuedNonRevertiblePublicCallStackItems = enqueuedPublicCallStackItems.filter(enqueued =>
-      publicInputs.endNonRevertibleData.publicCallStack.find(item => item.equals(enqueued)),
-    );
-
-    const nonRevertibleStackSize = arrayNonEmptyLength(publicInputs.endNonRevertibleData.publicCallStack, item =>
-      item.isEmpty(),
-    );
-
-    if (enqueuedNonRevertiblePublicCallStackItems.length !== nonRevertibleStackSize) {
-      throw new Error(
-        `Enqueued non-revertible public function calls and non-revertible public call stack do not match.\nEnqueued calls: ${enqueuedNonRevertiblePublicCallStackItems
-          .map(h => h.hash.toString())
-          .join(', ')}\nPublic call stack: ${publicInputs.endNonRevertibleData.publicCallStack
+          .join(', ')}\nPublic call stack: ${publicInputs.forPublic.end.publicCallStack
           .map(i => i.toString())
           .join(', ')}`,
       );
     }
 
     // Override kernel output
-    publicInputs.endNonRevertibleData.publicCallStack = padArrayEnd(
+    publicInputs.forPublic.end.publicCallStack = padArrayEnd(
+      enqueuedRevertiblePublicCallStackItems,
+      CallRequest.empty(),
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    );
+
+    // Do the same for non-revertible
+
+    const enqueuedNonRevertiblePublicCallStackItems = enqueuedPublicCallStackItems.filter(enqueued =>
+      publicInputs.forPublic!.endNonRevertibleData.publicCallStack.find(item => item.equals(enqueued)),
+    );
+
+    const nonRevertibleStackSize = arrayNonEmptyLength(
+      publicInputs.forPublic.endNonRevertibleData.publicCallStack,
+      item => item.isEmpty(),
+    );
+
+    if (enqueuedNonRevertiblePublicCallStackItems.length !== nonRevertibleStackSize) {
+      throw new Error(
+        `Enqueued non-revertible public function calls and non-revertible public call stack do not match.\nEnqueued calls: ${enqueuedNonRevertiblePublicCallStackItems
+          .map(h => h.hash.toString())
+          .join(', ')}\nPublic call stack: ${publicInputs.forPublic.endNonRevertibleData.publicCallStack
+          .map(i => i.toString())
+          .join(', ')}`,
+      );
+    }
+
+    // Override kernel output
+    publicInputs.forPublic.endNonRevertibleData.publicCallStack = padArrayEnd(
       enqueuedNonRevertiblePublicCallStackItems,
       CallRequest.empty(),
-      MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }
 

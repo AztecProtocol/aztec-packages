@@ -25,8 +25,12 @@ contract AvmTest {
 
     // Libs
     use dep::aztec::prelude::Map;
-    use dep::aztec::state_vars::{PublicImmutable, PublicMutable};
-    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
+    use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::protocol_types::{
+        address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH,
+        contract_instance::ContractInstance
+    };
+    use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::traits::ToField;
     use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
@@ -35,27 +39,16 @@ contract AvmTest {
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
 
+    #[aztec(storage)]
     struct Storage {
         single: PublicMutable<Field>,
         list: PublicMutable<Note>,
         map: Map<AztecAddress, PublicMutable<u32>>,
-        immutable: PublicImmutable<Field>,
     }
 
     /************************************************************************
      * Storage
      ************************************************************************/
-    // FIX: calls unsupported getNullifierMembershipWitness.
-    // #[aztec(public-vm)]
-    // #[aztec(initializer)]
-    // fn constructor() {
-    //     storage.immutable.initialize(42);
-    // }
-
-    unconstrained fn view_storage_immutable() -> pub Field {
-        storage.immutable.read()
-    }
-
     unconstrained fn view_storage_single() -> pub Field {
         storage.single.read()
     }
@@ -176,6 +169,33 @@ contract AvmTest {
         dep::std::hash::pedersen_hash(data)
     }
 
+    #[aztec(public-vm)]
+    fn pedersen_hash_with_index(data: [Field; 3]) -> pub Field {
+        dep::std::hash::pedersen_hash_with_separator(data, 20)
+    }
+
+    /************************************************************************
+     * Contract instance
+     ************************************************************************/
+    #[aztec(public-vm)]
+    fn test_get_contract_instance_raw() {
+        let fields = get_contract_instance_internal_avm(context.this_address());
+        assert(fields.len() == 7);
+        assert(fields[0] == 0x1);
+        assert(fields[1] == 0x123);
+        assert(fields[2] == 0x456);
+        assert(fields[3] == 0x789);
+        assert(fields[4] == 0x101112);
+        assert(fields[5] == 0x131415);
+        assert(fields[6] == 0x161718);
+    }
+
+    #[aztec(public-vm)]
+    fn test_get_contract_instance() {
+        let ci = get_contract_instance_avm(context.this_address());
+        assert(ci.is_some());
+    }
+
     /************************************************************************
      * AvmContext functions
      ************************************************************************/
@@ -285,6 +305,11 @@ contract AvmTest {
         context.nullifier_exists(nullifier)
     }
 
+    #[aztec(public-vm)]
+    fn assert_nullifier_exists(nullifier: Field) {
+        assert(context.nullifier_exists(nullifier));
+    }
+
     // Use the standard context interface to emit a new nullifier
     #[aztec(public-vm)]
     fn emit_nullifier_and_check(nullifier: Field) {
@@ -315,7 +340,7 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn raw_nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
+        let gas = [/*l1_gas*/10000, /*l2_gas*/10000, /*da_gas*/10000];
 
         // Nested call
         let results = context.call_public_function_raw(gas, context.this_address(), selector, [arg_a, arg_b]);
@@ -348,7 +373,7 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn raw_nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub (Field, u8) {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
+        let gas = [/*l1_gas*/10000, /*l2_gas*/10000, /*da_gas*/10000];
 
         let (result_data, success): ([Field; 1], u8) = context.static_call_public_function_raw(gas, context.this_address(), selector, [arg_a, arg_b]);
 
@@ -359,7 +384,7 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn raw_nested_static_call_to_set_storage() -> pub u8 {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)").to_field();
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
+        let gas = [/*l1_gas*/10000, /*l2_gas*/10000, /*da_gas*/10000];
         let calldata: [Field; 1] = [20];
 
         let (_data_to_return, success): ([Field; 0], u8) = context.static_call_public_function_raw(gas, context.this_address(), selector, calldata);

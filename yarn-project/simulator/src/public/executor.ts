@@ -1,5 +1,5 @@
 import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
-import { Fr, GlobalVariables, Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { Fr, type GlobalVariables, type Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
@@ -13,6 +13,7 @@ import { AvmSimulator } from '../avm/avm_simulator.js';
 import { HostStorage } from '../avm/journal/host_storage.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
 import {
+  isAvmBytecode,
   temporaryConvertAvmResults,
   temporaryCreateAvmExecutionEnvironment,
 } from '../avm/temporary_executor_migration.js';
@@ -20,8 +21,8 @@ import { AcirSimulator } from '../client/simulator.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
-import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
+import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
 
 /**
@@ -166,6 +167,7 @@ export class PublicExecutor {
     private readonly header: Header,
   ) {}
 
+  private readonly log = createDebugLogger('aztec:simulator:public_executor');
   /**
    * Executes a public execution request.
    * @param execution - The execution to run.
@@ -173,6 +175,30 @@ export class PublicExecutor {
    * @returns The result of the run plus all nested runs.
    */
   public async simulate(
+    execution: PublicExecution,
+    globalVariables: GlobalVariables,
+    sideEffectCounter: number = 0,
+  ): Promise<PublicExecutionResult> {
+    const selector = execution.functionData.selector;
+    const bytecode = await this.contractsDb.getBytecode(execution.contractAddress, selector);
+    if (!bytecode) {
+      throw new Error(`Bytecode not found for ${execution.contractAddress}:${selector}`);
+    }
+
+    if (isAvmBytecode(bytecode)) {
+      return await this.simulateAvm(execution, globalVariables, sideEffectCounter);
+    } else {
+      return await this.simulateAcvm(execution, globalVariables, sideEffectCounter);
+    }
+  }
+
+  /**
+   * Executes a public execution request with the ACVM.
+   * @param execution - The execution to run.
+   * @param globalVariables - The global variables to use.
+   * @returns The result of the run plus all nested runs.
+   */
+  private async simulateAcvm(
     execution: PublicExecution,
     globalVariables: GlobalVariables,
     sideEffectCounter: number = 0,
@@ -214,12 +240,12 @@ export class PublicExecutor {
   }
 
   /**
-   * Executes a public execution request in the avm.
+   * Executes a public execution request in the AVM.
    * @param execution - The execution to run.
    * @param globalVariables - The global variables to use.
    * @returns The result of the run plus all nested runs.
    */
-  public async simulateAvm(
+  private async simulateAvm(
     execution: PublicExecution,
     globalVariables: GlobalVariables,
     _sideEffectCounter = 0,
@@ -230,13 +256,14 @@ export class PublicExecutor {
     const worldStateJournal = new AvmPersistableStateManager(hostStorage);
     const executionEnv = temporaryCreateAvmExecutionEnvironment(execution, globalVariables);
     // TODO(@spalladino) Load initial gas from the public execution request
-    const machineState = new AvmMachineState(100_000, 100_000, 100_000);
+    const machineState = new AvmMachineState(1e10, 1e10, 1e10);
 
     const context = new AvmContext(worldStateJournal, executionEnv, machineState);
     const simulator = new AvmSimulator(context);
 
     const result = await simulator.execute();
     const newWorldState = context.persistableState.flush();
+
     // TODO(@spalladino) Read gas left from machineState and return it
     return temporaryConvertAvmResults(execution, newWorldState, result);
   }
@@ -260,6 +287,7 @@ export class PublicExecutor {
     const artifactsPath = path.resolve('target');
 
     // Create the directory if it does not exist
+    await fs.rm(artifactsPath, { recursive: true, force: true });
     await fs.mkdir(artifactsPath, { recursive: true });
 
     const calldataPath = path.join(artifactsPath, 'calldata.bin');
@@ -269,34 +297,54 @@ export class PublicExecutor {
     const { args, functionData, contractAddress } = avmExecution;
     const bytecode = await this.contractsDb.getBytecode(contractAddress, functionData.selector);
     // Write call data and bytecode to files.
-    await Promise.all([
-      fs.writeFile(
-        calldataPath,
-        args.map(c => c.toBuffer()),
-      ),
-      fs.writeFile(bytecodePath, bytecode!),
-    ]);
-
-    const bbBinary = spawn(path.join(bbPath, 'build', 'bin', 'bb'), [
-      'avm_prove',
-      '-b',
-      bytecodePath,
-      '-d',
+    await fs.writeFile(
       calldataPath,
-      '-o',
-      proofPath,
-    ]);
+      args.map(c => c.toBuffer()),
+    );
+    await fs.writeFile(bytecodePath, bytecode!);
+
+    const bbExec = path.join(bbPath, 'build', 'bin', 'bb');
+    const bbArgs = ['avm_prove', '-b', bytecodePath, '-d', calldataPath, '-o', proofPath];
+    this.log(`calling '${bbExec} ${bbArgs.join(' ')}'`);
+    const bbBinary = spawn(bbExec, bbArgs);
+
     // The binary writes the proof and the verification key to the write path.
     return new Promise((resolve, reject) => {
+      let stdout: string = '';
+      let stderr: string = '';
+
       bbBinary.on('close', () => {
-        resolve(Promise.all([fs.readFile(proofPath), fs.readFile(path.join(artifactsPath, 'vk'))]));
+        this.log(`Proof generation complete. Reading proof and vk from ${proofPath}.`);
+        return resolve(Promise.all([fs.readFile(proofPath), fs.readFile(path.join(artifactsPath, 'vk'))]));
       });
+
+      // Catch stdout.
+      bbBinary.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+      bbBinary.stdout.on('end', () => {
+        if (stdout.length > 0) {
+          this.log(`stdout: ${stdout}`);
+        }
+      });
+
+      // Catch stderr.
+      bbBinary.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+      bbBinary.stderr.on('end', () => {
+        if (stderr.length > 0) {
+          this.log(`stderr: ${stderr}`);
+        }
+      });
+
       // Catch and propagate errors from spawning
       bbBinary.on('error', err => {
         reject(err);
       });
     });
   }
+
   /**
    * Verifies an AVM proof. This function is currently only used for testing purposes, as verification
    * is not fully complete in the AVM yet.
@@ -313,9 +361,14 @@ export class PublicExecutor {
     const proofPath = path.join(artifactsPath, 'proof');
 
     // Write the verification key and the proof to files.
-    await Promise.all([fs.writeFile(vkPath, vk), fs.writeFile(proofPath, proof)]);
+    await fs.writeFile(vkPath, vk);
+    await fs.writeFile(proofPath, proof);
 
-    const bbBinary = spawn(path.join(bbPath, 'build', 'bin', 'bb'), ['avm_verify', '-p', proofPath]);
+    const bbExec = path.join(bbPath, 'build', 'bin', 'bb');
+    const bbArgs = ['avm_verify', '-p', proofPath];
+    this.log(`calling '${bbPath} ${bbArgs.join(' ')}'`);
+    const bbBinary = spawn(bbExec, bbArgs);
+
     // The binary prints to stdout 1 if the proof is valid and 0 if it is not.
     return new Promise((resolve, reject) => {
       let result = Buffer.alloc(0);

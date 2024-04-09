@@ -1,6 +1,5 @@
-import { Oracle } from './oracle.js';
+import { type Oracle } from './oracle.js';
 
-export * from './debug.js';
 export * from './oracle.js';
 export * from './typed_oracle.js';
 
