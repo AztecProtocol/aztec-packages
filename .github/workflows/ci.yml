@@ -130,8 +130,8 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
-      - name: Upload logs
-        run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
+      # - name: Upload logs
+      #   run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
 
   # barretenberg (prover) native tests
   bb-native-tests:
