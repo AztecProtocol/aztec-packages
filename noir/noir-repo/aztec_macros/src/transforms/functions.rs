@@ -113,6 +113,8 @@ pub fn transform_function(
     Ok(())
 }
 
+// Generates a global struct containing the original (before transform_function gets executed) function abi that gets exported
+// in the contract artifact after compilation. The abi will be later used to decode the function return values in the simulator.
 pub fn export_fn_abi(
     types: &mut Vec<NoirStruct>,
     func: &NoirFunction,
