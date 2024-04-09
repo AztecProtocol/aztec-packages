@@ -6,8 +6,7 @@ import {
   type ExecutionError,
   type ForeignCallInput,
   type ForeignCallOutput,
-  type WasmBlackBoxFunctionSolver,
-  // executeCircuitWithBlackBoxSolver,
+  type WasmBlackBoxFunctionSolver, // executeCircuitWithBlackBoxSolver,
   executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
 
@@ -30,7 +29,7 @@ export interface ACIRExecutionResult {
   /**
    * An execution result contains two witnesses.
    * 1. The partial witness of the execution.
-   * 2. The return witness with the 
+   * 2. The return witness with the
    */
   partialAndReturnWitness: Array<ACVMWitness>;
 }
