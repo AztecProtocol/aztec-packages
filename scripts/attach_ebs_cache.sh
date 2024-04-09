@@ -9,8 +9,8 @@ VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 
 # Check for existing mount, assume we can continue if existing
-if mount | grep -q /var/lib/docker/volumes; then
-  echo "Detected mount existing on /var/lib/docker/volumes already"
+if mount | grep -q /var/lib/docker; then
+  echo "Detected mount existing on /var/lib/docker already"
   echo "Continuing..."
   exit 0
 fi
@@ -98,5 +98,5 @@ if ! file -s $BLKDEVICE | grep -q ext4; then
 fi
 
 # Create a mount point and mount the volume
-mkdir -p /var/lib/docker/volumes
-mount $BLKDEVICE /var/lib/docker/volumes
+mkdir -p /var/lib/docker
+mount $BLKDEVICE /var/lib/docker

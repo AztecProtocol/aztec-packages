@@ -1,6 +1,6 @@
 VERSION 0.8
 
-# requires first saving the images locally with ../+build-end-to-end
+# requires first saving the images locally with ../+push-end-to-end
 
 # run locally and build 
 E2E_TEST_LOCAL:
@@ -12,8 +12,7 @@ E2E_TEST_LOCAL:
   LOCALLY
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
-  ENV DEBUG="$debug"
-  ENV AZTEC_DOCKER_TAG=
+  ENV DEBUG=$debug
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
     --load aztecprotocol/end-to-end:latest=../+end-to-end \
@@ -33,7 +32,7 @@ E2E_TEST_FROM_CACHE:
   LOCALLY
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
-  ENV DEBUG="$debug"
+  ENV DEBUG=$debug
   ENV AZTEC_DOCKER_TAG=$aztec_docker_tag
   # need a different project name for each to run in parallel
   LET project_name=$(echo $test | sed 's/\./_/g')

@@ -79,7 +79,7 @@ all:
     BUILD +cli
     BUILD +end-to-end
 
-build-end-to-end:
+push-end-to-end:
     ARG EARTHLY_GIT_HASH
     # pushes the foundry image
     BUILD ../foundry/+build
