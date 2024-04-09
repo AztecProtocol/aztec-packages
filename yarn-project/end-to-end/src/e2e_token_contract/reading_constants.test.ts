@@ -25,14 +25,14 @@ describe('e2e_token_contract reading constants', () => {
     await t.snapshot(
       'reading_constants',
       async () => {
-        logger('Deploying ReaderContract...');
+        logger.verbose('Deploying ReaderContract...');
         const reader = await ReaderContract.deploy(t.wallets[0]).send().deployed();
-        logger(`Deployed ReaderContract to ${reader.address}.`);
+        logger.verbose(`Deployed ReaderContract to ${reader.address}.`);
         return { readerAddress: reader.address };
       },
       async ({ readerAddress }) => {
         reader = await ReaderContract.at(readerAddress, t.wallets[0]);
-        logger(`Reader contract restored to ${readerAddress}.`);
+        logger.verbose(`Reader contract restored to ${readerAddress}.`);
       },
     );
 

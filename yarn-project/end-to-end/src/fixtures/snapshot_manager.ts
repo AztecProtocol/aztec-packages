@@ -59,11 +59,11 @@ export class SnapshotManager {
   ) {
     if (!this.dataPath) {
       // We are running in disabled mode. Just apply the state.
-      this.logger(`No data path given, will not persist any snapshots.`);
+      this.logger.verbose(`No data path given, will not persist any snapshots.`);
       this.context = await this.setupFromFresh();
-      this.logger(`Applying state transition for ${name}...`);
+      this.logger.verbose(`Applying state transition for ${name}...`);
       const snapshotData = await apply(this.context);
-      this.logger(`State transition for ${name} complete.`);
+      this.logger.verbose(`State transition for ${name} complete.`);
       // Execute the restoration function.
       await restore(snapshotData, this.context);
       return;
@@ -74,7 +74,7 @@ export class SnapshotManager {
     if (existsSync(snapshotPath)) {
       // Snapshot exists. Record entry on stack but do nothing else as we're probably still descending the tree.
       // It's the tests responsibility to call setup() before a test to ensure subsystems get created.
-      this.logger(`Snapshot exists at ${snapshotPath}. Continuing...`);
+      this.logger.verbose(`Snapshot exists at ${snapshotPath}. Continuing...`);
       this.snapshotStack.push({ name, apply, restore, snapshotPath });
       return;
     }
@@ -89,9 +89,9 @@ export class SnapshotManager {
     this.snapshotStack.push({ name, apply, restore, snapshotPath });
 
     // Apply current state transition.
-    this.logger(`Applying state transition for ${name}...`);
+    this.logger.verbose(`Applying state transition for ${name}...`);
     const snapshotData = await apply(this.context);
-    this.logger(`State transition for ${name} complete.`);
+    this.logger.verbose(`State transition for ${name} complete.`);
 
     // Execute the restoration function.
     await restore(snapshotData, this.context);
@@ -104,12 +104,12 @@ export class SnapshotManager {
 
     // Copy everything to snapshot path.
     // We want it to be atomic, in case multiple processes are racing to create the snapshot.
-    this.logger(`Saving snapshot to ${snapshotPath}...`);
+    this.logger.verbose(`Saving snapshot to ${snapshotPath}...`);
     if (mkdirSync(snapshotPath, { recursive: true })) {
       copySync(this.livePath, snapshotPath);
-      this.logger(`Snapshot copied to ${snapshotPath}.`);
+      this.logger.verbose(`Snapshot copied to ${snapshotPath}.`);
     } else {
-      this.logger(`Snapshot already exists at ${snapshotPath}. Discarding our version.`);
+      this.logger.verbose(`Snapshot already exists at ${snapshotPath}. Discarding our version.`);
       await this.teardown();
     }
   }
@@ -128,15 +128,15 @@ export class SnapshotManager {
       mkdirSync(this.livePath, { recursive: true });
       const previousSnapshotPath = this.snapshotStack[this.snapshotStack.length - 1]?.snapshotPath;
       if (previousSnapshotPath) {
-        this.logger(`Copying snapshot from ${previousSnapshotPath} to ${this.livePath}...`);
+        this.logger.verbose(`Copying snapshot from ${previousSnapshotPath} to ${this.livePath}...`);
         copySync(previousSnapshotPath, this.livePath);
         this.context = await this.setupFromState(this.livePath);
         // Execute each of the previous snapshots restoration functions in turn.
         await asyncMap(this.snapshotStack, async e => {
           const snapshotData = JSON.parse(readFileSync(`${e.snapshotPath}/${e.name}.json`, 'utf-8'), reviver);
-          this.logger(`Executing restoration function for ${e.name}...`);
+          this.logger.verbose(`Executing restoration function for ${e.name}...`);
           await e.restore(snapshotData, this.context!);
-          this.logger(`Restoration of ${e.name} complete.`);
+          this.logger.verbose(`Restoration of ${e.name} complete.`);
         });
       } else {
         this.context = await this.setupFromFresh(this.livePath);
@@ -166,7 +166,7 @@ export class SnapshotManager {
    * If there is no statePath, in-memory and temporary state locations will be used.
    */
   private async setupFromFresh(statePath?: string): Promise<SubsystemsContext> {
-    this.logger(`Initializing state...`);
+    this.logger.verbose(`Initializing state...`);
 
     // Fetch the AztecNode config.
     // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
@@ -174,14 +174,14 @@ export class SnapshotManager {
     aztecNodeConfig.dataDirectory = statePath;
 
     // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
-    this.logger('Starting anvil...');
+    this.logger.verbose('Starting anvil...');
     const ethereumHostPort = await getPort();
     aztecNodeConfig.rpcUrl = `http://localhost:${ethereumHostPort}`;
     const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
     await anvil.start();
 
     // Deploy our L1 contracts.
-    this.logger('Deploying L1 contracts...');
+    this.logger.verbose('Deploying L1 contracts...');
     const hdAccount = mnemonicToAccount(MNEMONIC);
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
@@ -196,10 +196,10 @@ export class SnapshotManager {
       aztecNodeConfig.acvmBinaryPath = acvmConfig.expectedAcvmPath;
     }
 
-    this.logger('Creating and synching an aztec node...');
+    this.logger.verbose('Creating and synching an aztec node...');
     const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
 
-    this.logger('Creating pxe...');
+    this.logger.verbose('Creating pxe...');
     const pxeConfig = getPXEServiceConfig();
     pxeConfig.dataDirectory = statePath;
     const pxe = await createPXEService(aztecNode, pxeConfig);
@@ -221,7 +221,7 @@ export class SnapshotManager {
    * Given a statePath, setup the system starting from that state.
    */
   private async setupFromState(statePath: string): Promise<SubsystemsContext> {
-    this.logger(`Initializing with saved state at ${statePath}...`);
+    this.logger.verbose(`Initializing with saved state at ${statePath}...`);
 
     // Load config.
     // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
@@ -248,10 +248,10 @@ export class SnapshotManager {
       aztecNodeConfig.acvmBinaryPath = acvmConfig.expectedAcvmPath;
     }
 
-    this.logger('Creating aztec node...');
+    this.logger.verbose('Creating aztec node...');
     const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
 
-    this.logger('Creating pxe...');
+    this.logger.verbose('Creating pxe...');
     const pxeConfig = getPXEServiceConfig();
     pxeConfig.dataDirectory = statePath;
     const pxe = await createPXEService(aztecNode, pxeConfig);
@@ -279,7 +279,7 @@ export const addAccounts =
       GrumpkinPrivateKey.random(),
     ]);
 
-    logger('Simulating account deployment...');
+    logger.verbose('Simulating account deployment...');
     const accountManagers = await asyncMap(accountKeys, async ([encPk, signPk]) => {
       const account = getSchnorrAccount(pxe, encPk, signPk, 1);
       // Unfortunately the function below is not stateless and we call it here because it takes a long time to run and
@@ -296,7 +296,7 @@ export const addAccounts =
       return account;
     });
 
-    logger('Deploying accounts...');
+    logger.verbose('Deploying accounts...');
     const txs = await Promise.all(accountManagers.map(account => account.deploy()));
     await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
 

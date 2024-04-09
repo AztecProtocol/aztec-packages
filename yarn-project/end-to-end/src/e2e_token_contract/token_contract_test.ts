@@ -49,7 +49,7 @@ export class TokenContractTest {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
       this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger(`Wallet ${i} address: ${w.getAddress()}`));
+      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
     });
 
     await this.snapshotManager.snapshot(
@@ -57,10 +57,10 @@ export class TokenContractTest {
       async () => {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
-        this.logger(`Public deploy accounts...`);
+        this.logger.verbose(`Public deploy accounts...`);
         await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
 
-        this.logger(`Deploying TokenContract...`);
+        this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
           this.wallets[0],
           this.accounts[0],
@@ -70,18 +70,18 @@ export class TokenContractTest {
         )
           .send()
           .deployed();
-        this.logger(`Token deployed to ${asset.address}`);
+        this.logger.verbose(`Token deployed to ${asset.address}`);
 
-        this.logger(`Deploying bad account...`);
+        this.logger.verbose(`Deploying bad account...`);
         this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
-        this.logger(`Deployed to ${this.badAccount.address}.`);
+        this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
       },
       async ({ tokenContractAddress, badAccountAddress }) => {
         // Restore the token contract state.
         this.asset = await TokenContract.at(tokenContractAddress, this.wallets[0]);
-        this.logger(`Token contract address: ${this.asset.address}`);
+        this.logger.verbose(`Token contract address: ${this.asset.address}`);
 
         this.tokenSim = new TokenSimulator(
           this.asset,
@@ -90,7 +90,7 @@ export class TokenContractTest {
         );
 
         this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
-        this.logger(`Bad account address: ${this.badAccount.address}`);
+        this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
@@ -98,7 +98,7 @@ export class TokenContractTest {
 
     // TokenContract.artifact.functions.forEach(fn => {
     //   const sig = decodeFunctionSignature(fn.name, fn.parameters);
-    //   logger(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
+    //   logger.verbose(`Function ${sig} and the selector: ${FunctionSelector.fromNameAndParameters(fn.name, fn.parameters)}`);
     // });
   }
 
@@ -136,10 +136,10 @@ export class TokenContractTest {
         const { asset, accounts } = this;
         const amount = 10000n;
 
-        this.logger(`Minting ${amount} publicly...`);
+        this.logger.verbose(`Minting ${amount} publicly...`);
         await asset.methods.mint_public(accounts[0].address, amount).send().wait();
 
-        this.logger(`Minting ${amount} privately...`);
+        this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
         const secretHash = computeMessageSecretHash(secret);
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
@@ -147,7 +147,7 @@ export class TokenContractTest {
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
         const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
         await txClaim.wait({ debug: true });
-        this.logger(`Minting complete.`);
+        this.logger.verbose(`Minting complete.`);
 
         return { amount };
       },
@@ -160,17 +160,17 @@ export class TokenContractTest {
         tokenSim.mintPublic(address, amount);
 
         const publicBalance = await asset.methods.balance_of_public(address).simulate();
-        this.logger(`Public balance of wallet 0: ${publicBalance}`);
+        this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
         expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
         tokenSim.mintPrivate(amount);
         tokenSim.redeemShield(address, amount);
         const privateBalance = await asset.methods.balance_of_private(address).simulate();
-        this.logger(`Private balance of wallet 0: ${privateBalance}`);
+        this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
         expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
         const totalSupply = await asset.methods.total_supply().simulate();
-        this.logger(`Total supply: ${totalSupply}`);
+        this.logger.verbose(`Total supply: ${totalSupply}`);
         expect(totalSupply).toEqual(tokenSim.totalSupply);
 
         return Promise.resolve();
