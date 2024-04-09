@@ -11,6 +11,7 @@ contract PendingNoteHashes {
     use dep::value_note::{balance_utils, filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::context::{PublicContext, Context};
 
+    #[aztec(storage)]
     struct Storage {
         balances: Map<AztecAddress, PrivateSet<ValueNote>>,
     }
@@ -80,7 +81,8 @@ contract PendingNoteHashes {
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
-        let options = NoteGetterOptions::new().set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
         let note = owner_balance.get_notes(options)[0].unwrap();
 
         assert(expected_value == note.value);

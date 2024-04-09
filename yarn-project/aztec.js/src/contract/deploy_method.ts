@@ -140,11 +140,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // Register the contract class if it hasn't been published already.
     if (!options.skipClassRegistration) {
       if (await this.pxe.isContractClassPubliclyRegistered(contractClass.id)) {
-        this.log(
+        this.log.debug(
           `Skipping registration of already registered contract class ${contractClass.id.toString()} for ${instance.address.toString()}`,
         );
       } else {
-        this.log(
+        this.log.info(
           `Creating request for registering contract class ${contractClass.id.toString()} as part of deployment for ${instance.address.toString()}`,
         );
         calls.push((await registerContractClass(this.wallet, this.artifact)).request());
@@ -169,7 +169,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
-    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, this.getInstance(options));
+    const instance = this.getInstance(options);
+    this.log.debug(
+      `Sent deployment tx of ${this.artifact.name} contract with deployment address ${instance.address.toString()}`,
+    );
+    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, instance);
   }
 
   /**

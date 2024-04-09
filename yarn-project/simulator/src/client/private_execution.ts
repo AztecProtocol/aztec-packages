@@ -1,5 +1,5 @@
 import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type ABIType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
+import { type AbiType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -22,7 +22,7 @@ export async function executePrivateFunction(
   log = createDebugLogger('aztec:simulator:secret_execution'),
 ): Promise<ExecutionResult> {
   const functionSelector = functionData.selector;
-  log(`Executing external function ${contractAddress}:${functionSelector}(${artifact.name})`);
+  log.verbose(`Executing external function ${contractAddress}:${functionSelector}(${artifact.name})`);
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
@@ -55,7 +55,7 @@ export async function executePrivateFunction(
 
   // Mocking the return type to be an array of 4 fields
   // TODO: @LHerskind must be updated as we are progressing with the macros to get the information
-  const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
+  const returnTypes: AbiType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
   const mockArtifact = { ...artifact, returnTypes };
   const returnValues = decodeReturnValues(mockArtifact, publicInputs.returnValues);
 
@@ -66,7 +66,7 @@ export async function executePrivateFunction(
   const nestedExecutions = context.getNestedExecutions();
   const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
 
-  log(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
+  log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return {
     acir,
