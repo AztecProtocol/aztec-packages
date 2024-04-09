@@ -57,14 +57,19 @@ jobs:
   setup-arm:
     needs: start-builder
     runs-on: ${{ github.actor }}-arm
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
+      - run: ./scripts/attach_ebs_cache.sh
       - run: earthly bootstrap
 
   build-arm:
     needs: setup-arm
     runs-on: ${{ github.actor }}-arm
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
@@ -98,6 +103,7 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
+      - run: ./scripts/attach_ebs_cache.sh
       - run: earthly bootstrap
 
   build-x86:
@@ -130,8 +136,9 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
-      - name: Upload logs
-        run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
+      # TODO
+      # - name: Upload logs
+      #   run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
 
   # barretenberg (prover) native tests
   bb-native-tests:
