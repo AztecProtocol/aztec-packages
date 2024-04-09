@@ -3,7 +3,7 @@ set -eu
 
 GITHUB_ACTOR=$1
 REGION="us-east-2"
-AVAILABILITY_ZONE="us-east-2c"
+AVAILABILITY_ZONE="us-east-2a"
 SIZE=128
 VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
