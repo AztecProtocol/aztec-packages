@@ -1017,7 +1017,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value, 0n, 0n]);
+      expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
     });
   });
 
@@ -1046,7 +1046,7 @@ describe('Private Execution test suite', () => {
       // Overwrite the oracle return value
       oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
       const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual([portalContractAddress.toField().value, 0n, 0n, 0n]);
+      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
     });
 
     it('this_address should return the current context address', async () => {
@@ -1058,7 +1058,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], contractAddress });
-      expect(result.returnValues).toEqual([contractAddress.toField().value, 0n, 0n, 0n]);
+      expect(result.returnValues).toEqual([contractAddress.toField().value]);
     });
 
     it("this_portal_address should return the current context's portal address", async () => {
@@ -1070,7 +1070,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], portalContractAddress });
-      expect(result.returnValues).toEqual([portalContractAddress.toField().value, 0n, 0n, 0n]);
+      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
     });
   });
 
