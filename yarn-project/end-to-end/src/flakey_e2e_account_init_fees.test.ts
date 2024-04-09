@@ -4,6 +4,7 @@ import {
   type DebugLogger,
   ExtendedNote,
   Fr,
+  type FunctionCall,
   NativeFeePaymentMethod,
   Note,
   PrivateFeePaymentMethod,
@@ -12,10 +13,19 @@ import {
   type TxHash,
   TxStatus,
   type Wallet,
+  computeAuthWitMessageHash,
   computeMessageSecretHash,
   generatePublicKey,
 } from '@aztec/aztec.js';
-import { type AztecAddress, CompleteAddress, DimensionGasSettings, Fq, GasSettings } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  CompleteAddress,
+  DimensionGasSettings,
+  Fq,
+  FunctionData,
+  FunctionSelector,
+  GasSettings,
+} from '@aztec/circuits.js';
 import {
   TokenContract as BananaCoin,
   FPCContract,
@@ -234,7 +244,7 @@ describe('e2e_fees_account_init', () => {
       });
     });
 
-    describe('public through an FPC', () => {
+    describe('publicly through an FPC', () => {
       let mintedPublicBananas: bigint;
 
       beforeEach(async () => {
@@ -272,8 +282,33 @@ describe('e2e_fees_account_init', () => {
           sequencersInitialGas + actualFee,
         ]);
       });
+
+      it('failing to pay the fee drops the transaction', async () => {
+        await expect(
+          bobsAccountManager
+            .deploy({
+              skipPublicSimulation: true,
+              skipPublicDeployment: false,
+              fee: {
+                maxFee,
+                paymentMethod: new BuggedSetupFeePaymentMethod(
+                  bananaCoin.address,
+                  bananaFPC.address,
+                  await bobsAccountManager.getWallet(),
+                ),
+              },
+            })
+            .wait(),
+        ).rejects.toThrow('Tx dropped by P2P node');
+
+        await expect(
+          ctx.aztecNode.getContract(bobsAccountManager.getCompleteAddress().address),
+        ).resolves.toBeUndefined();
+      });
     });
   });
+
+  // TODO (alexg) add test to validate bugged account contracts can't grief the sequencer. Requires #5649
 
   describe('another account pays the fee', () => {
     describe('in the gas token', () => {
@@ -337,3 +372,37 @@ describe('e2e_fees_account_init', () => {
     await ctx.pxe.addNote(extendedNote);
   }
 });
+
+class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
+  override getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
+    const maxFee = gasSettings.getFeeLimit();
+    const nonce = Fr.random();
+    const messageHash = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+          false,
+        ),
+        to: this.asset,
+      },
+    );
+
+    const tooMuchFee = new Fr(maxFee.toBigInt() * 2n);
+
+    return Promise.resolve([
+      this.wallet.setPublicAuthWit(messageHash, true).request(),
+      {
+        to: this.getPaymentContract(),
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
+          true,
+        ),
+        args: [tooMuchFee, this.asset, nonce],
+      },
+    ]);
+  }
+}

@@ -6,6 +6,7 @@ mod public_context;
 mod avm_context;
 mod interface;
 mod gas;
+mod utils;
 
 use interface::{
     ContextInterface, PrivateCallInterface, PublicCallInterface, PrivateVoidCallInterface,

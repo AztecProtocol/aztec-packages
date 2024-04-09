@@ -354,18 +354,7 @@ impl PrivateContext {
         assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
 
-        // TODO (fees) figure out why this crashes the prover and enable it
-        // we need this in order to pay fees inside child call contexts
-        // assert(
-        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
-        //     | (item.public_inputs.min_revertible_side_effect_counter
-        //         > self.min_revertible_side_effect_counter)
-        // );
-
-        // if item.public_inputs.min_revertible_side_effect_counter
-        //     > self.min_revertible_side_effect_counter {
-        //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
-        // }
+        self.min_revertible_side_effect_counter = crate::context::utils::max(item.public_inputs.min_revertible_side_effect_counter, self.min_revertible_side_effect_counter);
 
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));

@@ -18,7 +18,10 @@ import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 /**
  * Options to deploy an account contract.
  */
-export type DeployAccountOptions = Pick<DeployOptions, 'fee' | 'skipClassRegistration' | 'skipPublicDeployment'>;
+export type DeployAccountOptions = Pick<
+  DeployOptions,
+  'fee' | 'skipClassRegistration' | 'skipPublicDeployment' | 'skipPublicSimulation'
+>;
 
 /**
  * Manages a user account. Provides methods for calculating the account's address, deploying the account contract,
@@ -167,6 +170,7 @@ export class AccountManager {
       .then(deployMethod =>
         deployMethod.send({
           contractAddressSalt: this.salt,
+          skipPublicSimulation: opts?.skipPublicSimulation ?? false,
           skipClassRegistration: opts?.skipClassRegistration ?? true,
           skipPublicDeployment: opts?.skipPublicDeployment ?? true,
           skipInitialization: false,

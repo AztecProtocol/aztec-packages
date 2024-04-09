@@ -35,10 +35,12 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     previousPublicKernelProof: Proof,
   ) {
     this.log.verbose(`Processing tx ${tx.getTxHash()}`);
+    await this.publicContractsDB.addNewContracts(tx);
     const [kernelInputs, publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs, revertReason] =
       await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousPublicKernelProof).catch(
         // the abstract phase manager throws if simulation gives error in a non-revertible phase
         async err => {
+          await this.publicContractsDB.removeNewContracts(tx);
           await this.publicStateDB.rollbackToCommit();
           throw err;
         },
