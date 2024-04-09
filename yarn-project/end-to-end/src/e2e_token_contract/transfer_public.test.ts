@@ -8,19 +8,15 @@ describe('e2e_token_contract transfer public', () => {
   let { asset, accounts, tokenSim, wallets, badAccount } = t;
 
   beforeAll(async () => {
-    await t.pushBaseSnapshots();
-    await t.pushMintSnapshot();
+    await t.applyBaseSnapshots();
+    await t.applyMintSnapshot();
+    await t.setup();
+    // Have to destructure again to ensure we have latest refs.
+    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
   });
 
   afterAll(async () => {
-    await t.snapshotManager.pop(); // mint
-    await t.popBaseSnapshots();
-  });
-
-  beforeEach(async () => {
-    await t.snapshotManager.setup();
-    // Have to destructure again to ensure we have latest refs.
-    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
+    await t.teardown();
   });
 
   afterEach(async () => {

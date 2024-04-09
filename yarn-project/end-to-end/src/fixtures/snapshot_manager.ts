@@ -11,8 +11,8 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { resolver, reviver } from '@aztec/foundation/serialize';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { resolver, reviver } from '@aztec/foundation/serialize';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -26,7 +26,7 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
 
-type SubsystemsContext = {
+export type SubsystemsContext = {
   anvil: Anvil;
   acvmConfig: any;
   aztecNode: AztecNodeService;
@@ -47,17 +47,28 @@ export class SnapshotManager {
   private livePath: string;
   private logger: DebugLogger;
 
-  constructor(testName: string, private dataPath: string) {
-    this.livePath = join(this.dataPath, 'live', testName);
+  constructor(testName: string, private dataPath?: string) {
+    this.livePath = this.dataPath ? join(this.dataPath, 'live', testName) : '';
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
   }
 
   public async snapshot<T>(
     name: string,
     apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () =>
-      Promise.resolve(),
+    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
   ) {
+    if (!this.dataPath) {
+      // We are running in disabled mode. Just apply the state.
+      this.logger(`No data path given, will not persist any snapshots.`);
+      this.context = await this.setupFromFresh();
+      this.logger(`Applying state transition for ${name}...`);
+      const snapshotData = await apply(this.context);
+      this.logger(`State transition for ${name} complete.`);
+      // Execute the restoration function.
+      await restore(snapshotData, this.context);
+      return;
+    }
+
     const snapshotPath = join(this.dataPath, 'snapshots', ...this.snapshotStack.map(e => e.name), name, 'snapshot');
 
     if (existsSync(snapshotPath)) {
@@ -135,14 +146,6 @@ export class SnapshotManager {
   }
 
   /**
-   * Destroy the current subsystem context and pop off the top of the snapshot stack.
-   */
-  public async pop() {
-    this.snapshotStack.pop();
-    await this.teardown();
-  }
-
-  /**
    * Destroys the current subsystem context.
    */
   public async teardown() {
@@ -201,7 +204,9 @@ export class SnapshotManager {
     pxeConfig.dataDirectory = statePath;
     const pxe = await createPXEService(aztecNode, pxeConfig);
 
-    writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
+    if (statePath) {
+      writeFileSync(`${statePath}/aztec_node_config.json`, JSON.stringify(aztecNodeConfig));
+    }
 
     return {
       aztecNodeConfig,

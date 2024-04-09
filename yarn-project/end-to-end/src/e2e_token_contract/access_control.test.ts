@@ -4,15 +4,12 @@ describe('e2e_token_contract access control', () => {
   const t = new TokenContractTest('access_control');
 
   beforeAll(async () => {
-    await t.pushBaseSnapshots();
+    await t.applyBaseSnapshots();
+    await t.setup();
   });
 
   afterAll(async () => {
-    await t.popBaseSnapshots();
-  });
-
-  beforeEach(async () => {
-    await t.snapshotManager.setup();
+    await t.teardown();
   });
 
   afterEach(async () => {

@@ -20,9 +20,9 @@ describe('e2e_token_contract reading constants', () => {
   let reader: ReaderContract;
 
   beforeAll(async () => {
-    await t.pushBaseSnapshots();
+    await t.applyBaseSnapshots();
 
-    await t.snapshotManager.snapshot(
+    await t.snapshot(
       'reading_constants',
       async () => {
         logger('Deploying ReaderContract...');
@@ -35,16 +35,15 @@ describe('e2e_token_contract reading constants', () => {
         logger(`Reader contract restored to ${readerAddress}.`);
       },
     );
+
+    await t.setup();
   });
 
   afterAll(async () => {
-    await t.snapshotManager.pop(); // reading_constants
-    await t.popBaseSnapshots();
+    await t.teardown();
   });
 
-  beforeEach(async () => {
-    await t.snapshotManager.setup();
-  });
+  beforeEach(async () => {});
 
   afterEach(async () => {
     await t.tokenSim.check();

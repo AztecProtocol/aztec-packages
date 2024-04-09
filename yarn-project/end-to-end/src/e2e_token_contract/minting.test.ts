@@ -8,16 +8,13 @@ describe('e2e_token_contract minting', () => {
   let { asset, accounts, tokenSim, wallets } = t;
 
   beforeAll(async () => {
-    await t.pushBaseSnapshots();
+    await t.applyBaseSnapshots();
+    await t.setup();
+    ({ asset, accounts, tokenSim, wallets } = t);
   });
 
   afterAll(async () => {
-    await t.popBaseSnapshots();
-  });
-
-  beforeEach(async () => {
-    await t.snapshotManager.setup();
-    ({ asset, accounts, tokenSim, wallets } = t);
+    await t.teardown();
   });
 
   afterEach(async () => {
