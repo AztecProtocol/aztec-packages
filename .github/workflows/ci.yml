@@ -31,14 +31,14 @@ jobs:
     steps:
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: AztecProtocol/ec2-action-builder@v0.2
+        uses: AztecProtocol/ec2-action-builder@v0.3
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.runner_action || 'restart' }}
+          subaction: ${{ github.event.inputs.runner_action || 'start' }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
@@ -193,7 +193,7 @@ jobs:
     steps:
       - name: Start EC2 runner
         id: start-ec2-runner
-        uses: AztecProtocol/ec2-action-builder@v0.2
+        uses: AztecProtocol/ec2-action-builder@v0.3
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}

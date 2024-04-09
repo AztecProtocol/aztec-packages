@@ -34,30 +34,32 @@ if [ "$EXISTING_VOLUME" == "None" ]; then
     --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$EBS_CACHE_TAG}]" \
     --query "VolumeId" \
     --output text)
-  MAX_WAIT_TIME=300 # Maximum wait time in seconds
-  WAIT_INTERVAL=10  # Interval between checks in seconds
-  elapsed_time=0
-  # Wait for the volume to become available
-  echo "Waiting for volume $VOLUME_ID to become available..."
-  while [ "$(aws ec2 describe-volumes \
-    --region $REGION \
-    --volume-ids $VOLUME_ID \
-    --query "Volumes[0].State" \
-    --output text)" != "available" ]; do
-    sleep 1
-    if [ $elapsed_time -ge $MAX_WAIT_TIME ]; then
-      echo "Volume $VOLUME_ID did not become available within $MAX_WAIT_TIME seconds."
-      exit 1
-    fi
-
-    sleep $WAIT_INTERVAL
-    elapsed_time=$((elapsed_time + WAIT_INTERVAL))
-  done
 else
   VOLUME_ID=$EXISTING_VOLUME
 fi
 
+MAX_WAIT_TIME=300 # Maximum wait time in seconds
+WAIT_INTERVAL=10  # Interval between checks in seconds
+elapsed_time=0
+# Wait for the volume to become available
+echo "Waiting for volume $VOLUME_ID to become available..."
+while [ "$(aws ec2 describe-volumes \
+  --region $REGION \
+  --volume-ids $VOLUME_ID \
+  --query "Volumes[0].State" \
+  --output text)" != "available" ]; do
+  sleep 1
+  if [ $elapsed_time -ge $MAX_WAIT_TIME ]; then
+    echo "Volume $VOLUME_ID did not become available within $MAX_WAIT_TIME seconds."
+    exit 1
+  fi
+
+  sleep $WAIT_INTERVAL
+  elapsed_time=$((elapsed_time + WAIT_INTERVAL))
+done
+
 # Attach volume to the instance
+
 aws ec2 attach-volume \
   --region $REGION \
   --volume-id $VOLUME_ID \
