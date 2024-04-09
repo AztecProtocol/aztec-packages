@@ -1,20 +1,21 @@
-import { AztecAddress, Fr, TxStatus, type Wallet } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, Fr, FunctionSelector, TxStatus } from '@aztec/aztec.js';
 import { AvmInitializerTestContract, AvmTestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
-import { setup } from './fixtures/utils.js';
+import { publicDeployAccounts, setup } from './fixtures/utils.js';
 
 const TIMEOUT = 100_000;
 
 describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
 
-  let wallet: Wallet;
+  let wallet: AccountWallet;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
     ({ teardown, wallet } = await setup());
+    await publicDeployAccounts(wallet, [wallet]);
   }, 100_000);
 
   afterAll(() => teardown());
@@ -64,18 +65,80 @@ describe('e2e_avm_simulator', () => {
         expect(tx.status).toEqual(TxStatus.MINED);
       });
     });
-  });
 
-  describe('AvmInitializerTestContract', () => {
-    let avmContract: AvmInitializerTestContract;
+    describe('ACVM interoperability', () => {
+      it('Can execute ACVM function among AVM functions', async () => {
+        expect(await avmContract.methods.constant_field_acvm().simulate()).toEqual([123456n, 0n, 0n, 0n]);
+      });
 
-    beforeEach(async () => {
-      avmContract = await AvmInitializerTestContract.deploy(wallet).send().deployed();
-    }, 50_000);
+      it('Can call AVM function from ACVM', async () => {
+        expect(await avmContract.methods.call_avm_from_acvm().simulate()).toEqual([123456n, 0n, 0n, 0n]);
+      });
 
-    describe('Storage', () => {
-      it('Read immutable (initialized) storage (Field)', async () => {
-        expect(await avmContract.methods.view_storage_immutable().simulate()).toEqual(42n);
+      it('Can call ACVM function from AVM', async () => {
+        expect(await avmContract.methods.call_acvm_from_avm().simulate()).toEqual([123456n, 0n, 0n, 0n]);
+      });
+
+      it('AVM sees settled nullifiers by ACVM', async () => {
+        const nullifier = new Fr(123456);
+        await avmContract.methods.new_nullifier(nullifier).send().wait();
+        await avmContract.methods.assert_unsiloed_nullifier_acvm(nullifier).send().wait();
+      });
+
+      it('AVM nested call to ACVM sees settled nullifiers', async () => {
+        const nullifier = new Fr(123456);
+        await avmContract.methods.new_nullifier(nullifier).send().wait();
+        await avmContract.methods
+          .avm_to_acvm_call(FunctionSelector.fromSignature('assert_unsiloed_nullifier_acvm(Field)'), nullifier)
+          .send()
+          .wait();
+        // });
+      });
+
+      describe('Authwit', () => {
+        it('Works if authwit provided', async () => {
+          const recipient = AztecAddress.random();
+          const action = avmContract.methods.test_authwit_send_money(
+            /*from=*/ wallet.getCompleteAddress(),
+            recipient,
+            100,
+          );
+          let tx = await wallet
+            .setPublicAuthWit({ caller: wallet.getCompleteAddress().address, action }, /*authorized=*/ true)
+            .send()
+            .wait();
+          expect(tx.status).toEqual(TxStatus.MINED);
+
+          tx = await avmContract.methods
+            .test_authwit_send_money(/*from=*/ wallet.getCompleteAddress(), recipient, 100)
+            .send()
+            .wait();
+          expect(tx.status).toEqual(TxStatus.MINED);
+        });
+
+        it('Fails if authwit not provided', async () => {
+          await expect(
+            async () =>
+              await avmContract.methods
+                .test_authwit_send_money(/*from=*/ wallet.getCompleteAddress(), /*to=*/ AztecAddress.random(), 100)
+                .send()
+                .wait(),
+          ).rejects.toThrow(/Message not authorized by account/);
+        });
+      });
+
+      describe('AvmInitializerTestContract', () => {
+        let avmContract: AvmInitializerTestContract;
+
+        beforeEach(async () => {
+          avmContract = await AvmInitializerTestContract.deploy(wallet).send().deployed();
+        }, 50_000);
+
+        describe('Storage', () => {
+          it('Read immutable (initialized) storage (Field)', async () => {
+            expect(await avmContract.methods.read_storage_immutable().simulate()).toEqual([42n, 0n, 0n, 0n]);
+          });
+        });
       });
     });
   });
