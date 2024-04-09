@@ -5,9 +5,8 @@ use dep::types::{
     public_data_update_request::PublicDataUpdateRequest
 },
     address::AztecAddress,
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest, traits::is_default},
     utils::arrays::array_eq,
-    traits::is_default,
 };
 
 pub fn compute_public_data_reads<N>(

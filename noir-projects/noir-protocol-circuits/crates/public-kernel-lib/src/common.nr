@@ -7,7 +7,7 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::AztecAddress,
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest, traits::{array_length as storage_request_array_length, is_default as storage_request_is_default}},
     constants::{
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
@@ -118,7 +118,7 @@ fn perform_static_call_checks(public_call: PublicCallData) {
         let new_nullifiers_length = array_length(public_inputs.new_nullifiers);
         assert(new_nullifiers_length == 0, "new_nullifiers must be a default array (empty) for static calls");
 
-        let update_requests_length = array_length(public_inputs.contract_storage_update_requests);
+        let update_requests_length = storage_request_array_length(public_inputs.contract_storage_update_requests);
         assert(
             update_requests_length == 0, "No contract storage update requests are allowed for static calls"
         );
@@ -253,7 +253,7 @@ fn propagate_valid_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!is_default(update_request)) {
+        if (!storage_request_is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -276,7 +276,7 @@ fn propagate_valid_non_revertible_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (is_default(update_request)) {
+        if (storage_request_is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -296,7 +296,7 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
 
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
-        if !is_default(read_request) {
+        if !storage_request_is_default(read_request) {
             let public_data_read = PublicDataRead {
                 leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
                 value: compute_public_data_tree_value(read_request.current_value)

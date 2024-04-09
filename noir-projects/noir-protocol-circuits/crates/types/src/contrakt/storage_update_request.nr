@@ -1,6 +1,7 @@
 use crate::{
     constants::{CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST},
-    hash::pedersen_hash, traits::{Deserialize, Hash, Serialize}
+    hash::pedersen_hash, traits::{Deserialize, Hash, Serialize},
+    contrakt::traits::StorageRequest
 };
 use dep::std::{cmp::Eq,default::Default};
 
@@ -16,14 +17,14 @@ impl Eq for StorageUpdateRequest {
     }
 }
 
-impl Default for StorageUpdateRequest {
-    fn default() -> Self {
-        StorageUpdateRequest {
-            storage_slot: 0,
-            new_value: 0,
-        }
-    }
-}
+// impl Default for StorageUpdateRequest {
+//     fn default() -> Self {
+//         StorageUpdateRequest {
+//             storage_slot: 0,
+//             new_value: 0,
+//         }
+//     }
+// }
 
 impl Hash for StorageUpdateRequest {
     fn hash(self) -> Field {
@@ -43,5 +44,20 @@ impl Deserialize<CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH> for StorageUpdateReques
             storage_slot: serialized[0],
             new_value: serialized[1],
         }
+    }
+}
+
+impl StorageRequest for StorageUpdateRequest {
+    fn is_default(self) -> bool {
+        self.storage_slot == 0
+    }
+}
+
+impl StorageUpdateRequest {
+    fn default() -> Self {
+        StorageUpdateRequest {
+            storage_slot: 0,
+            new_value: 0,
+        }    
     }
 }

@@ -1,6 +1,7 @@
 use crate::{
     constants::{CONTRACT_STORAGE_READ_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_READ}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize}
+    traits::{Deserialize, Hash, Serialize},
+    contrakt::traits::StorageRequest
 };
 use dep::std::{cmp::Eq,default::Default};
 
@@ -15,14 +16,14 @@ impl Eq for StorageRead {
     }
 }
 
-impl Default for StorageRead {   
-    fn default() -> Self {
-        Self {
-            storage_slot: 0,
-            current_value: 0,
-        }
-    }
-}
+// impl Default for StorageRead {   
+//     fn default() -> Self {
+//         Self {
+//             storage_slot: 0,
+//             current_value: 0,
+//         }
+//     }
+// }
 
 impl Hash for StorageRead {
     fn hash(self) -> Field {
@@ -45,3 +46,17 @@ impl Deserialize<CONTRACT_STORAGE_READ_LENGTH> for StorageRead {
     }
 }
 
+impl StorageRequest for StorageRead {
+    fn is_default(self) -> bool {
+        self.storage_slot == 0
+    }
+}
+
+impl StorageRead {
+    fn default() -> Self {
+        StorageRead {
+            storage_slot: 0,
+            current_value: 0,
+        }    
+    }
+}
