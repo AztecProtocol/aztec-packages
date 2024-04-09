@@ -6,7 +6,7 @@ mod public_context;
 mod avm_context;
 mod interface;
 
-use interface::ContextInterface;
+use interface::{ContextInterface, PrivateCallInterface, PublicCallInterface};
 use private_context::PrivateContext;
 use public_context::PublicContext;
 use avm_context::AvmContext;

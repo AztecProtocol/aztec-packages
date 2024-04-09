@@ -3,6 +3,9 @@ use dep::protocol_types::{
     constants::RETURN_VALUES_LENGTH
 };
 
+use crate::context::private_context::PrivateContext;
+use crate::context::public_context::PublicContext;
+
 trait ContextInterface {
     fn push_new_note_hash(&mut self, note_hash: Field);
     fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field);
@@ -48,4 +51,76 @@ trait PublicContextInterface {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> [Field; RETURN_VALUES_LENGTH];
+}
+
+struct PrivateCallInterface {
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    args_hash: Field
+}
+
+impl PrivateCallInterface {
+
+    pub fn call(self, context: &mut PrivateContext) -> [Field; 4] {
+        context.call_private_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            false,
+            false
+        )
+    }
+
+    pub fn static_call(self, context: &mut PrivateContext) -> [Field; 4] {
+        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
+    }
+
+    pub fn delegate_call(self, context: &mut PrivateContext) -> [Field; 4] {
+        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true)
+    }
+}
+
+struct PublicCallInterface {
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    args_hash: Field
+}
+
+impl PublicCallInterface {
+
+    pub fn call(self, context: &mut PublicContext) -> [Field; 4] {
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            false,
+            false
+        )
+    }
+
+    pub fn static_call(self, context: &mut PublicContext) -> [Field; 4] {
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
+    }
+
+    pub fn delegate_call(self, context: &mut PublicContext) -> [Field; 4] {
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true)
+    }
+
+    pub fn enqueue(self, context: &mut PrivateContext) {
+        context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            false,
+            false
+        )
+    }
+
+    pub fn static_enqueue(self, context: &mut PrivateContext) {
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
+    }
+
+    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true)
+    }
 }

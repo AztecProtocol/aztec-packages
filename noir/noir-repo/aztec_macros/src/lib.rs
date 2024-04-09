@@ -3,7 +3,9 @@ mod utils;
 
 use transforms::{
     compute_note_hash_and_nullifier::inject_compute_note_hash_and_nullifier,
-    contract_interface::{generate_contract_interface, stub_function},
+    contract_interface::{
+        generate_contract_interface, stub_function, update_fn_signatures_in_contract_interface,
+    },
     events::{generate_selector_impl, transform_events},
     functions::{export_fn_abi, transform_function, transform_unconstrained},
     note_interface::{generate_note_interface_impl, inject_note_exports},
@@ -105,7 +107,7 @@ fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool
             .any(|attr| is_custom_attribute(attr, "aztec(initializer)"))
     });
 
-    let mut stubs = vec![];
+    let mut stubs: Vec<_> = vec![];
 
     for func in module.functions.iter_mut() {
         let mut is_private = false;
@@ -141,8 +143,9 @@ fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool
             } else {
                 "Public"
             };
-            let stub = stub_function(&module.types, fn_type, func);
-            stubs.push(stub);
+            stubs
+                .push(stub_function(if fn_type == "Private" { "Private" } else { "Public" }, func));
+
             export_fn_abi(&mut module.types, func)?;
             transform_function(
                 fn_type,
@@ -199,7 +202,8 @@ fn transform_hir(
         transform_events(crate_id, context)?;
         inject_compute_note_hash_and_nullifier(crate_id, context)?;
         assign_storage_slots(crate_id, context)?;
-        inject_note_exports(crate_id, context)
+        inject_note_exports(crate_id, context)?;
+        update_fn_signatures_in_contract_interface(crate_id, context)
     } else {
         Ok(())
     }

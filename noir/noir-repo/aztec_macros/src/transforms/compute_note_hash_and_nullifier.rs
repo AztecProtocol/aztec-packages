@@ -49,7 +49,7 @@ pub fn inject_compute_note_hash_and_nullifier(
     crate_id: &CrateId,
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
-    if let Some((module_id, file_id)) = get_contract_module_data(context, crate_id) {
+    if let Some((_, module_id, file_id)) = get_contract_module_data(context, crate_id) {
         // If compute_note_hash_and_nullifier is already defined by the user, we skip auto-generation in order to provide an
         // escape hatch for this mechanism.
         // TODO(#4647): improve this diagnosis and error messaging.

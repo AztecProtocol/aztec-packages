@@ -15,6 +15,7 @@ pub enum AztecMacroError {
     MultipleStorageDefinitions { span: Option<Span> },
     CouldNotExportStorageLayout { span: Option<Span>, secondary_message: Option<String> },
     CouldNotExportFunctionAbi { span: Option<Span>, secondary_message: Option<String> },
+    CouldNotGenerateContractInterface { secondary_message: Option<String> },
     EventError { span: Span, message: String },
     UnsupportedAttributes { span: Span, secondary_message: Option<String> },
 }
@@ -71,6 +72,11 @@ impl From<AztecMacroError> for MacroError {
                 primary_message: "Could not generate and export function abi".to_string(),
                 secondary_message,
                 span,
+            },
+            AztecMacroError::CouldNotGenerateContractInterface { secondary_message } => MacroError {
+                primary_message: "Could not generate contract interface".to_string(),
+                secondary_message,
+                span: None
             },
             AztecMacroError::EventError { span, message } => MacroError {
                 primary_message: message,

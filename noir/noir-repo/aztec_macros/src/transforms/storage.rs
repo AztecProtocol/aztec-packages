@@ -265,7 +265,7 @@ pub fn assign_storage_slots(
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
     let traits: Vec<_> = collect_traits(context);
-    if let Some((_, file_id)) = get_contract_module_data(context, crate_id) {
+    if let Some((_, _, file_id)) = get_contract_module_data(context, crate_id) {
         let maybe_storage_struct =
             collect_crate_structs(crate_id, context).iter().find_map(|&(_, struct_id)| {
                 let r#struct = context.def_interner.get_struct(struct_id);

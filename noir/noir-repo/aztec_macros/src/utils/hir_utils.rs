@@ -130,15 +130,16 @@ pub fn fetch_notes(context: &HirContext) -> Vec<(String, Shared<StructType>)> {
 pub fn get_contract_module_data(
     context: &mut HirContext,
     crate_id: &CrateId,
-) -> Option<(LocalModuleId, FileId)> {
+) -> Option<(String, LocalModuleId, FileId)> {
+    let def_map = context.def_map(crate_id).expect("ICE: Missing crate in def_map");
     // We first fetch modules in this crate which correspond to contracts, along with their file id.
-    let contract_module_file_ids: Vec<(LocalModuleId, FileId)> = context
-        .def_map(crate_id)
-        .expect("ICE: Missing crate in def_map")
+    let contract_module_file_ids: Vec<(String, LocalModuleId, FileId)> = def_map
         .modules()
         .iter()
         .filter(|(_, module)| module.is_contract)
-        .map(|(idx, module)| (LocalModuleId(idx), module.location.file))
+        .map(|(idx, module)| {
+            (def_map.get_module_path(idx, module.parent), LocalModuleId(idx), module.location.file)
+        })
         .collect();
 
     // If the current crate does not contain a contract module we simply skip it. More than 1 contract in a crate is forbidden by the compiler
@@ -146,7 +147,7 @@ pub fn get_contract_module_data(
         return None;
     }
 
-    Some(contract_module_file_ids[0])
+    Some(contract_module_file_ids[0].clone())
 }
 
 pub fn inject_fn(

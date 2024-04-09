@@ -623,7 +623,7 @@ pub fn inject_note_exports(
     crate_id: &CrateId,
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
-    if let Some((module_id, file_id)) = get_contract_module_data(context, crate_id) {
+    if let Some((_, module_id, file_id)) = get_contract_module_data(context, crate_id) {
         let notes = fetch_notes(context);
 
         for (_, note) in notes {
