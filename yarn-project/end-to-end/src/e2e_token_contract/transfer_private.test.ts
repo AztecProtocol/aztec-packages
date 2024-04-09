@@ -7,18 +7,14 @@ describe('e2e_token_contract transfer private', () => {
   let { asset, accounts, tokenSim, wallets, badAccount } = t;
 
   beforeAll(async () => {
-    await t.pushBaseSnapshots();
-    await t.pushMintSnapshot();
+    await t.applyBaseSnapshots();
+    await t.applyMintSnapshot();
+    await t.setup();
+    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
   });
 
   afterAll(async () => {
-    await t.snapshotManager.pop(); // mint
-    await t.popBaseSnapshots();
-  });
-
-  beforeEach(async () => {
-    await t.snapshotManager.setup();
-    ({ asset, accounts, tokenSim, wallets, badAccount } = t);
+    await t.teardown();
   });
 
   afterEach(async () => {

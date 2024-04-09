@@ -12,17 +12,22 @@ import {
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import { SnapshotManager, addAccounts, publicDeployAccounts } from '../fixtures/snapshot_manager.js';
+import {
+  SnapshotManager,
+  type SubsystemsContext,
+  addAccounts,
+  publicDeployAccounts,
+} from '../fixtures/snapshot_manager.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
-const { E2E_DATA_PATH: dataPath = './data' } = process.env;
+const { E2E_DATA_PATH: dataPath } = process.env;
 
 export class TokenContractTest {
   static TOKEN_NAME = 'Aztec Token';
   static TOKEN_SYMBOL = 'AZT';
   static TOKEN_DECIMALS = 18n;
+  private snapshotManager: SnapshotManager;
   logger: DebugLogger;
-  snapshotManager: SnapshotManager;
   wallets: AccountWallet[] = [];
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
@@ -39,7 +44,7 @@ export class TokenContractTest {
    * 1. Add 3 accounts.
    * 2. Publicly deploy accounts, deploy token contract and a "bad account".
    */
-  async pushBaseSnapshots() {
+  async applyBaseSnapshots() {
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -97,28 +102,34 @@ export class TokenContractTest {
     // });
   }
 
-  async popBaseSnapshots() {
-    await this.snapshotManager.pop(); // e2e_token_contract
-    await this.snapshotManager.pop(); // 3_accounts
+  async setup() {
+    await this.snapshotManager.setup();
+  }
+
+  snapshot = <T>(
+    name: string,
+    apply: (context: SubsystemsContext) => Promise<T>,
+    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
+  ): Promise<void> => this.snapshotManager.snapshot(name, apply, restore);
+
+  async teardown() {
+    await this.snapshotManager.teardown();
   }
 
   async addPendingShieldNoteToPXE(accountIndex: number, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
     const note = new Note([new Fr(amount), secretHash]);
     const extendedNote = new ExtendedNote(
       note,
       this.accounts[accountIndex].address,
       this.asset.address,
-      storageSlot,
-      noteTypeId,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
       txHash,
     );
     await this.wallets[accountIndex].addNote(extendedNote);
   }
 
-  async pushMintSnapshot() {
+  async applyMintSnapshot() {
     await this.snapshotManager.snapshot(
       'mint',
       async () => {
