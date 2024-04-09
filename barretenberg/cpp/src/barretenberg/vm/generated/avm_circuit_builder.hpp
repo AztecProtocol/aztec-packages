@@ -496,8 +496,6 @@ class AvmCircuitBuilder {
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
-<<<<<<< HEAD
-=======
             polys.perm_main_alu[i] = rows[i].perm_main_alu;
 <<<<<<< HEAD
 
@@ -516,7 +514,6 @@ class AvmCircuitBuilder {
             polys.incl_main_tag_err[i] = rows[i].incl_main_tag_err;
             polys.incl_mem_tag_err[i] = rows[i].incl_mem_tag_err;
 >>>>>>> 7c841655b (5557: Add an additional intermediate register id)
->>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
