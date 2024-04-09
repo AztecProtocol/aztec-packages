@@ -9,6 +9,15 @@ struct PrivateGlobalVariables {
 }
 // docs:end:private-global-variables
 
+impl Default for PrivateGlobalVariables {
+    fn default() -> Self {
+        PrivateGlobalVariables {
+            chain_id: 0,
+            version: 0,
+        }
+    }
+}
+
 // Note: public global vars are equal to the private ones 
 impl Serialize<PRIVATE_GLOBAL_VARIABLES_LENGTH> for PrivateGlobalVariables {
     fn serialize(self) -> [Field; PRIVATE_GLOBAL_VARIABLES_LENGTH] {

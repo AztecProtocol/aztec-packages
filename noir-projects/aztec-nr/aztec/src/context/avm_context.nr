@@ -208,7 +208,7 @@ impl ContextInterface for AvmContext {
     }
     fn get_header(self) -> Header {
         assert(false, "'get_header' not implemented!");
-        Header::empty()
+        Header::default()
     }
     fn get_args_hash(self) -> Field {
         self.inputs.args_hash

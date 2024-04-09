@@ -473,7 +473,7 @@ impl PrivateContext {
                 end_side_effect_counter: 0,
                 unencrypted_logs_hash: 0,
                 unencrypted_log_preimages_length: 0,
-                historical_header: Header::empty(),
+                historical_header: Header::default(),
                 prover_address: AztecAddress::zero(),
                 revert_code: 0
             },
