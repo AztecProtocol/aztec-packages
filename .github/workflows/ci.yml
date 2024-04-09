@@ -76,7 +76,7 @@ jobs:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # prepare images locally, tagged by commit hash
-      - run: earthly ./yarn-project+push-end-to-end
+      - run: earthly ./yarn-project+export-end-to-end
 
   # all the end-to-end integration tests for aztec
   e2e-arm:
@@ -121,7 +121,7 @@ jobs:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # prepare images locally, tagged by commit hash
-      - run: earthly ./yarn-project+push-end-to-end
+      - run: earthly ./yarn-project+export-end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of end-to-end jobs

@@ -1,6 +1,6 @@
 VERSION 0.8
 
-# requires first saving the images locally with ../+push-end-to-end
+# requires first saving the images locally with ../+export-end-to-end
 
 # run locally and build 
 E2E_TEST_LOCAL:
