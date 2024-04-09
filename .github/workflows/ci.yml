@@ -63,7 +63,7 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
-      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}
+      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-arm 128
       - run: earthly bootstrap
 
   build-arm:
@@ -107,7 +107,7 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
-      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}
+      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-x86
       - run: earthly bootstrap
 
   build-x86:
@@ -211,9 +211,18 @@ jobs:
           # try if spot variance too high, uses on-demand:
           # ec2_spot_instance_strategy: none
 
-  bb-bench:
+  setup-bb-bench:
     runs-on: ${{ github.actor }}-bench-x86
     needs: start-bb-bench-runner
+    steps:
+      - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
+      - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
+      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-bench-x86 32
+      - run: earthly bootstrap
+
+  bb-bench:
+    runs-on: ${{ github.actor }}-bench-x86
+    needs: setup-bb-bench
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}

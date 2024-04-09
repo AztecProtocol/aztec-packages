@@ -1,10 +1,9 @@
 #!/bin/bash
 set -eu
 
-GITHUB_ACTOR=$1
-REGION="us-east-2"
+EBS_CACHE_TAG=$1
+SIZE=$2
 AVAILABILITY_ZONE="us-east-2a"
-SIZE=128
 VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 
@@ -20,7 +19,7 @@ fi
 # this means we are in a weird state (two spot instances running etc)
 EXISTING_VOLUME=$(aws ec2 describe-volumes \
   --region $REGION \
-  --filters "Name=tag:username,Values=$GITHUB_ACTOR" \
+  --filters "Name=tag:username,Values=$EBS_CACHE_TAG" \
   --query "Volumes[0].VolumeId" \
   --output text)
 
@@ -31,7 +30,7 @@ if [ "$EXISTING_VOLUME" == "None" ]; then
     --availability-zone $AVAILABILITY_ZONE \
     --size $SIZE \
     --volume-type $VOLUME_TYPE \
-    --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$GITHUB_ACTOR}]" \
+    --tag-specifications "ResourceType=volume,Tags=[{Key=username,Value=$EBS_CACHE_TAG}]" \
     --query "VolumeId" \
     --output text)
   MAX_WAIT_TIME=300 # Maximum wait time in seconds
