@@ -6,10 +6,11 @@ using namespace bb;
 TEST(ECCOpQueueTest, Basic)
 {
     ECCOpQueue op_queue;
+    const auto& raw_ops = op_queue.get_raw_ops();
     op_queue.add_accumulate(bb::g1::affine_one);
-    EXPECT_EQ(op_queue.raw_ops[0].base_point, bb::g1::affine_one);
+    EXPECT_EQ(raw_ops[0].base_point, bb::g1::affine_one);
     op_queue.empty_row();
-    EXPECT_EQ(op_queue.raw_ops[1].add, false);
+    EXPECT_EQ(raw_ops[1].add, false);
 }
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
@@ -65,12 +66,16 @@ TEST(ECCOpQueueTest, PrependAndSwapTests)
     op_queue_c.mul_accumulate(P2, z + z);
     op_queue_c.reset();
 
+    const auto& raw_ops_a = op_queue_a.get_raw_ops();
+    const auto& raw_ops_b = op_queue_b.get_raw_ops();
+    const auto& raw_ops_c = op_queue_c.get_raw_ops();
+
     // Swap b with a
     std::swap(op_queue_b, op_queue_a);
 
     // Check b==c
-    for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
-        EXPECT_EQ(op_queue_b.raw_ops[i], op_queue_c.raw_ops[i]);
+    for (size_t i = 0; i < raw_ops_c.size(); i++) {
+        EXPECT_EQ(raw_ops_b[i], raw_ops_c[i]);
     }
 
     // Prepend b to a
@@ -82,7 +87,7 @@ TEST(ECCOpQueueTest, PrependAndSwapTests)
     op_queue_c.reset();
 
     // Check a==c
-    for (size_t i = 0; i < op_queue_c.raw_ops.size(); i++) {
-        EXPECT_EQ(op_queue_a.raw_ops[i], op_queue_c.raw_ops[i]);
+    for (size_t i = 0; i < raw_ops_c.size(); i++) {
+        EXPECT_EQ(raw_ops_a[i], raw_ops_c[i]);
     }
 }

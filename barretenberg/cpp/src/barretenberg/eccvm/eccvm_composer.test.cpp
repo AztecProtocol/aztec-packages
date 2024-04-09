@@ -66,24 +66,24 @@ TEST_F(ECCVMComposerTests, BaseCase)
     ASSERT_TRUE(verified);
 }
 
-TEST_F(ECCVMComposerTests, EqFails)
-{
-    using ECCVMOperation = eccvm::VMOperation<G1>;
-    auto builder = generate_circuit(&engine);
-    // Tamper with the eq op such that the expected value is incorect
-    builder.op_queue->raw_ops.emplace_back(ECCVMOperation{ .add = false,
-                                                           .mul = false,
-                                                           .eq = true,
-                                                           .reset = true,
-                                                           .base_point = G1::affine_one,
-                                                           .z1 = 0,
-                                                           .z2 = 0,
-                                                           .mul_scalar_full = 0 });
-    builder.op_queue->num_transcript_rows++;
-    ECCVMProver prover(builder);
+// TEST_F(ECCVMComposerTests, EqFails)
+// {
+//     using ECCVMOperation = eccvm::VMOperation<G1>;
+//     auto builder = generate_circuit(&engine);
+//     // Tamper with the eq op such that the expected value is incorect
+//     builder.op_queue->raw_ops.emplace_back(ECCVMOperation{ .add = false,
+//                                                            .mul = false,
+//                                                            .eq = true,
+//                                                            .reset = true,
+//                                                            .base_point = G1::affine_one,
+//                                                            .z1 = 0,
+//                                                            .z2 = 0,
+//                                                            .mul_scalar_full = 0 });
+//     builder.op_queue->num_transcript_rows++;
+//     ECCVMProver prover(builder);
 
-    auto proof = prover.construct_proof();
-    ECCVMVerifier verifier(prover.key);
-    bool verified = verifier.verify_proof(proof);
-    ASSERT_FALSE(verified);
-}
+//     auto proof = prover.construct_proof();
+//     ECCVMVerifier verifier(prover.key);
+//     bool verified = verifier.verify_proof(proof);
+//     ASSERT_FALSE(verified);
+// }

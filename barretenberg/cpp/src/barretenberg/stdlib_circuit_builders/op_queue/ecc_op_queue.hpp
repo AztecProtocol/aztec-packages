@@ -38,8 +38,13 @@ class ECCOpQueue {
 
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
+
+  private:
     std::vector<ECCVMOperation> raw_ops;
     std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
+  public:
+    const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
+    size_t raw_ops_size() { return raw_ops.size(); }
 
     size_t current_ultra_ops_size = 0;  // M_i
     size_t previous_ultra_ops_size = 0; // M_{i-1}
@@ -67,6 +72,8 @@ class ECCOpQueue {
         mul_accumulate(padding_element, padding_scalar);
         eq();
     }
+
+    // void add_bad_eq_op_for_testing
 
     Point get_accumulator() { return accumulator; }
 
@@ -360,7 +367,7 @@ class ECCOpQueue {
     Point eq()
     {
         auto expected = accumulator;
-        accumulator.self_set_infinity(); // TODO(luke): is this always desired?
+        accumulator.self_set_infinity();
 
         raw_ops.emplace_back(ECCVMOperation{
             .add = false,
