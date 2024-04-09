@@ -65,7 +65,6 @@ jobs:
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # Attach our 128gb cache disk
       - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-arm 128
-      - run: 'mkdir -p ~/.earthly && echo "global: {cache_size_pct: 90, buildkit_max_parallelism: 50, buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]}" > ~/.earthly/config.yml'
       - run: earthly bootstrap
 
   build-arm:
@@ -111,7 +110,6 @@ jobs:
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # Attach our 128gb cache disk
       - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-x86 128
-      - run: 'mkdir -p ~/.earthly && echo "global: {cache_size_pct: 90, buildkit_max_parallelism: 50, buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]}" > ~/.earthly/config.yml'
       - run: earthly bootstrap
 
   build-x86:
@@ -226,7 +224,6 @@ jobs:
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       # Attach our 328gb cache disk
       - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-bench-x86 32
-      - run: 'mkdir -p ~/.earthly && echo "global: {cache_size_pct: 90, buildkit_max_parallelism: 1, buildkit_additional_args: ["-e", "BUILDKIT_STEP_LOG_MAX_SIZE=-1"]}" > ~/.earthly/config.yml'
       - run: earthly bootstrap
 
   bb-bench:
