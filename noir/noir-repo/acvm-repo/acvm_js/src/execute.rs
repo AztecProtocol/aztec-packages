@@ -76,7 +76,13 @@ pub async fn execute_circuit_with_return_witness(
 ) -> Result<JsPartialAndReturnWitness, Error> {
     console_error_panic_hook::set_once();
 
-    let (solved_witness, return_witness) = execute_program_with_native_return_witness(solver, program, initial_witness, &foreign_call_handler).await?;
+    let (solved_witness, return_witness) = execute_program_with_native_return_witness(
+        solver,
+        program,
+        initial_witness,
+        &foreign_call_handler,
+    )
+    .await?;
 
     Ok(vec![solved_witness, return_witness].into())
 }
@@ -96,17 +102,23 @@ async fn execute_program_with_native_return_witness(
     // let witness_map =
     //     witness_stack.pop().expect("Should have at least one witness on the stack").witness;
 
-    let mut witness_stack = execute_program_with_native_program_and_return(solver, &program, initial_witness, foreign_call_executor).await?;
+    let mut witness_stack = execute_program_with_native_program_and_return(
+        solver,
+        &program,
+        initial_witness,
+        foreign_call_executor,
+    )
+    .await?;
     let witness_map =
         witness_stack.pop().expect("Should have at least one witness on the stack").witness;
 
     let main_circuit = &program.functions[0];
     let return_witness =
-        extract_indices(&witness_map, main_circuit.return_values.0.iter().copied().collect()).map_err(|err| JsExecutionError::new(err, None))?;
+        extract_indices(&witness_map, main_circuit.return_values.0.iter().copied().collect())
+            .map_err(|err| JsExecutionError::new(err, None))?;
 
     Ok((witness_map, return_witness))
 }
-
 
 /// Executes an ACIR circuit to generate the solved witness from the initial witness.
 ///
@@ -181,7 +193,13 @@ async fn execute_program_with_native_type_return(
     // let witness_stack = executor.execute(initial_witness.into()).await?;
 
     // Ok(witness_stack)
-    execute_program_with_native_program_and_return(solver, &program, initial_witness, foreign_call_executor).await
+    execute_program_with_native_program_and_return(
+        solver,
+        &program,
+        initial_witness,
+        foreign_call_executor,
+    )
+    .await
 }
 
 async fn execute_program_with_native_program_and_return(
