@@ -92,7 +92,7 @@ contract Child {
     #[aztec(public)]
     fn set_value_twice_with_nested_first() {
         let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _ret = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             context.this_address(),
             pub_set_value_selector,
             [10],
@@ -109,7 +109,7 @@ contract Child {
         emit_unencrypted_log(&mut context, 20);
 
         let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _ret = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             context.this_address(),
             pub_set_value_selector,
             [10],

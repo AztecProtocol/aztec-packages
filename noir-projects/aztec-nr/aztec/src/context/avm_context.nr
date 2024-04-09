@@ -131,34 +131,34 @@ impl PublicContextInterface for AvmContext {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    fn call_public_function<ARGS_COUNT>(
+    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> [Field; RETURNS_COUNT] {        
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
         );
-        let data_to_return: [Field; RETURN_VALUES_LENGTH] = results.0;
+        let data_to_return: [Field; RETURNS_COUNT] = results.0;
         let success: u8 = results.1;
         assert(success == 1, "Nested call failed!");
 
         data_to_return
     }
 
-    fn static_call_public_function<ARGS_COUNT>(
+    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let (data_to_return, success): ([Field; RETURN_VALUES_LENGTH], u8) = call_static(
+    ) -> [Field; RETURNS_COUNT] {
+        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
             args,
@@ -169,14 +169,14 @@ impl PublicContextInterface for AvmContext {
         data_to_return
     }
 
-    fn delegate_call_public_function<ARGS_COUNT>(
+    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> [Field; RETURNS_COUNT] {
         assert(false, "'delegate_call_public_function' not implemented!");
-        [0; RETURN_VALUES_LENGTH]
+        [0; RETURNS_COUNT]
     }
 }
 

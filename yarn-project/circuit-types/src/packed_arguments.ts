@@ -4,38 +4,38 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 /**
- * Packs a set of arguments into a hash.
+ * Packs a set of values into a hash.
  */
-export class PackedArguments {
+export class PackedValues {
   constructor(
     /**
-     *  Function arguments.
+     *  Raw values.
      */
-    public args: Fr[],
+    public values: Fr[],
     /**
-     * The hash of the args
+     * The hash of the raw values
      */
     public hash: Fr,
   ) {}
 
-  static getFields(fields: FieldsOf<PackedArguments>) {
-    return [fields.args, fields.hash] as const;
+  static getFields(fields: FieldsOf<PackedValues>) {
+    return [fields.values, fields.hash] as const;
   }
 
-  static from(fields: FieldsOf<PackedArguments>): PackedArguments {
-    return new PackedArguments(...PackedArguments.getFields(fields));
+  static from(fields: FieldsOf<PackedValues>): PackedValues {
+    return new PackedValues(...PackedValues.getFields(fields));
   }
 
-  static fromArgs(args: Fr[]) {
-    return new PackedArguments(args, computeVarArgsHash(args));
+  static fromValues(values: Fr[]) {
+    return new PackedValues(values, computeVarArgsHash(values));
   }
 
   toBuffer() {
-    return serializeToBuffer(new Vector(this.args), this.hash);
+    return serializeToBuffer(new Vector(this.values), this.hash);
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader): PackedArguments {
+  static fromBuffer(buffer: Buffer | BufferReader): PackedValues {
     const reader = BufferReader.asReader(buffer);
-    return new PackedArguments(reader.readVector(Fr), Fr.fromBuffer(reader));
+    return new PackedValues(reader.readVector(Fr), Fr.fromBuffer(reader));
   }
 }

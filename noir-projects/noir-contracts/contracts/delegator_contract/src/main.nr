@@ -2,7 +2,7 @@
 contract Delegator {
     use dep::aztec::prelude::{
         AztecAddress, FunctionSelector, NoteHeader, NoteViewerOptions, emit_unencrypted_log,
-        PublicMutable, PrivateSet
+        PublicMutable, PrivateSet, Deserialize
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -19,9 +19,9 @@ contract Delegator {
         args: [Field; 2]
     ) {
         // Call the target private function
-        let return_values = context.delegate_call_private_function(target_contract, target_selector, args);
+        let return_value: Field = context.delegate_call_private_function(target_contract, target_selector, args).unpack_into();
         // Copy the return value from the call to this function's return values
-        return_values[0]
+        return_value
     }
 
     #[aztec(private)]
@@ -39,7 +39,7 @@ contract Delegator {
         target_selector: FunctionSelector,
         args: [Field; 1]
     ) {
-        let _ = context.delegate_call_public_function(target_contract, target_selector, args);
+        let _void: [Field; 0] = context.delegate_call_public_function(target_contract, target_selector, args);
     }
 
     unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {

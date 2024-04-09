@@ -9,6 +9,7 @@ mod gas;
 
 use interface::ContextInterface;
 use private_context::PrivateContext;
+use private_context::PackedReturns;
 use public_context::PublicContext;
 use avm_context::AvmContext;
 

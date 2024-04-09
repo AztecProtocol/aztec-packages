@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext};
+use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext, Deserialize};
 
 use dep::aztec::context::{PublicContext, gas::GasOpts};
 use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
@@ -15,14 +15,16 @@ impl PriceFeed {
     }
 
     pub fn get_price(self: Self, context: &mut PublicContext) -> U128 {
-        let return_values = context.call_public_function(
-            self.address,
-            FunctionSelector::from_signature("get_price(Field)"),
-            [0],
-            GasOpts::default()
+        let price_field: Field = Deserialize::deserialize(
+            context.call_public_function(
+                self.address,
+                FunctionSelector::from_signature("get_price(Field)"),
+                [0],
+                GasOpts::default()
+            )
         );
 
-        U128::from_integer(return_values[0])
+        U128::from_integer(price_field)
     }
 }
 
@@ -43,7 +45,7 @@ impl Token {
         amount: Field,
         nonce: Field
     ) {
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
@@ -52,7 +54,7 @@ impl Token {
     }
 
     pub fn mint_public(self: Self, context: &mut PublicContext, to: AztecAddress, amount: Field) {
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             self.address,
             FunctionSelector::from_signature("mint_public((Field),Field)"),
             [to.to_field(), amount],
@@ -67,7 +69,7 @@ impl Token {
         amount: Field,
         nonce: Field
     ) {
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             self.address,
             FunctionSelector::from_signature("burn_public((Field),Field,Field)"),
             [from.to_field(), amount, nonce],
@@ -83,26 +85,20 @@ impl Token {
         to: AztecAddress,
         amount: Field,
         nonce: Field
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) {
         context.call_private_function(
             self.address,
             FunctionSelector::from_signature("unshield((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce]
-        )
+        );
     }
 
-    pub fn burn(
-        self: Self,
-        context: &mut PrivateContext,
-        from: AztecAddress,
-        amount: Field,
-        nonce: Field
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    pub fn burn(self: Self, context: &mut PrivateContext, from: AztecAddress, amount: Field, nonce: Field) {
         context.call_private_function(
             self.address,
             FunctionSelector::from_signature("burn((Field),Field,Field)"),
             [from.to_field(), amount, nonce]
-        )
+        );
     }
 }
 

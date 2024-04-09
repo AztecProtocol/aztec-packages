@@ -1,55 +1,55 @@
-import { PackedArguments } from '@aztec/circuit-types';
+import { PackedValues } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 
 /**
- * A cache for packed arguments during transaction execution.
+ * A cache for packed values (arguments, returns) during transaction execution.
  */
-export class PackedArgsCache {
+export class PackedValuesCache {
   private cache: Map<bigint, Fr[]>;
 
-  constructor(initialArguments: PackedArguments[] = []) {
+  constructor(initialArguments: PackedValues[] = []) {
     this.cache = new Map();
     for (const initialArg of initialArguments) {
-      this.cache.set(initialArg.hash.toBigInt(), initialArg.args);
+      this.cache.set(initialArg.hash.toBigInt(), initialArg.values);
     }
   }
 
   /**
-   * Creates a new packed arguments cache.
+   * Creates a new packed values cache.
    * @param initialArguments - The initial arguments to add to the cache.
-   * @returns The new packed arguments cache.
+   * @returns The new packed values cache.
    */
-  public static create(initialArguments: PackedArguments[] = []) {
-    return new PackedArgsCache(initialArguments);
+  public static create(initialArguments: PackedValues[] = []) {
+    return new PackedValuesCache(initialArguments);
   }
 
   /**
-   * Unpacks packed arguments.
-   * @param hash - The hash of the packed arguments.
-   * @returns The unpacked arguments.
+   * Unpacks packed values.
+   * @param hash - The hash of the packed values.
+   * @returns The unpacked values.
    */
   public unpack(hash: Fr): Fr[] {
     if (hash.equals(Fr.ZERO)) {
       return [];
     }
-    const packedArgs = this.cache.get(hash.value);
-    if (!packedArgs) {
-      throw new Error(`Packed arguments for hash ${hash.toString()} not found in cache`);
+    const packedValues = this.cache.get(hash.value);
+    if (!packedValues) {
+      throw new Error(`Packed values for hash ${hash.toString()} not found in cache`);
     }
-    return packedArgs;
+    return packedValues;
   }
 
   /**
-   * Packs arguments.
-   * @param args - The arguments to pack.
-   * @returns The hash of the packed arguments.
+   * Packs values.
+   * @param values - The values to pack.
+   * @returns The hash of the packed values.
    */
-  public pack(args: Fr[]) {
-    if (args.length === 0) {
+  public pack(values: Fr[]) {
+    if (values.length === 0) {
       return Fr.ZERO;
     }
-    const packedArguments = PackedArguments.fromArgs(args);
-    this.cache.set(packedArguments.hash.value, packedArguments.args);
-    return packedArguments.hash;
+    const packedValues = PackedValues.fromValues(values);
+    this.cache.set(packedValues.hash.value, packedValues.values);
+    return packedValues.hash;
   }
 }

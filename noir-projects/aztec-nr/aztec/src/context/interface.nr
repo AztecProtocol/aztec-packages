@@ -32,24 +32,24 @@ trait PublicContextInterface {
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress);
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]);
     fn accumulate_unencrypted_logs<T>(&mut self, log: T);
-    fn call_public_function<ARGS_COUNT>(
+    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURN_VALUES_LENGTH];
-    fn static_call_public_function<ARGS_COUNT>(
+    ) -> [Field; RETURNS_COUNT];
+    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURN_VALUES_LENGTH];
-    fn delegate_call_public_function<ARGS_COUNT>(
+    ) -> [Field; RETURNS_COUNT];
+    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH];
+    ) -> [Field; RETURNS_COUNT];
 }

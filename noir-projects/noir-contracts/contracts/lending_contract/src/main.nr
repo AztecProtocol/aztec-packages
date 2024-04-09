@@ -123,7 +123,7 @@ contract Lending {
             nonce
         );
         let selector = FunctionSelector::from_signature("_deposit((Field),Field,(Field))");
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             context.this_address(),
             selector,
             [on_behalf_of, amount, collateral_asset.to_field()],
@@ -158,7 +158,7 @@ contract Lending {
     #[aztec(public)]
     fn withdraw_public(to: AztecAddress, amount: Field) {
         let selector = FunctionSelector::from_signature("_withdraw((Field),(Field),Field)");
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             context.this_address(),
             selector,
             [context.msg_sender().to_field(), to.to_field(), amount],
@@ -217,7 +217,7 @@ contract Lending {
     #[aztec(public)]
     fn borrow_public(to: AztecAddress, amount: Field) {
         let selector = FunctionSelector::from_signature("_borrow((Field),(Field),Field)");
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             context.this_address(),
             selector,
             [context.msg_sender().to_field(), to.to_field(), amount],
@@ -281,7 +281,7 @@ contract Lending {
     fn repay_public(amount: Field, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
         Token::at(stable_coin).burn_public(&mut context, context.msg_sender(), amount, nonce);
         let selector = FunctionSelector::from_signature("_repay((Field),Field,(Field))");
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             context.this_address(),
             selector,
             [owner.to_field(), amount, stable_coin.to_field()],

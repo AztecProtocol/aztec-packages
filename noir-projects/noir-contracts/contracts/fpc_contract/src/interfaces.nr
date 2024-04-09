@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PrivateContext};
+use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PrivateContext, Deserialize};
 use dep::aztec::context::{PublicContext, gas::GasOpts};
 
 use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
@@ -20,7 +20,7 @@ impl Token {
         amount: Field,
         nonce: Field
     ) {
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
@@ -36,7 +36,7 @@ impl Token {
         secret_hash: Field,
         nonce: Field
     ) {
-        let _ = context.call_public_function(
+        let _void: [Field; 0] = context.call_public_function(
             self.address,
             FunctionSelector::from_signature("shield((Field),Field,Field,Field)"),
             [from.to_field(), amount, secret_hash, nonce],
@@ -52,11 +52,11 @@ impl Token {
         to: AztecAddress,
         amount: Field,
         nonce: Field
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) {
         context.call_private_function(
             self.address,
             FunctionSelector::from_signature("unshield((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce]
-        )
+        );
     }
 }

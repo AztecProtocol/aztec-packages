@@ -1,6 +1,6 @@
 import { type FeeOptions } from '@aztec/aztec.js/entrypoint';
 import { Fr } from '@aztec/aztec.js/fields';
-import { type FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/circuit-types';
+import { type FunctionCall, PackedValues, emptyFunctionCall } from '@aztec/circuit-types';
 import { type AztecAddress } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -41,7 +41,7 @@ export type PayloadWithArguments = {
   /** The payload to be run */
   payload: EntrypointPayload;
   /** The packed arguments for the function calls */
-  packedArguments: PackedArguments[];
+  packedArguments: PackedValues[];
 };
 
 /**
@@ -54,9 +54,9 @@ function buildPayload(calls: FunctionCall[], maxCalls: number): PayloadWithArgum
   const nonce = Fr.random();
 
   const paddedCalls = padArrayEnd(calls, emptyFunctionCall(), maxCalls);
-  const packedArguments: PackedArguments[] = [];
+  const packedArguments: PackedValues[] = [];
   for (const call of paddedCalls) {
-    packedArguments.push(PackedArguments.fromArgs(call.args));
+    packedArguments.push(PackedValues.fromValues(call.args));
   }
 
   const formattedCalls: EntrypointFunctionCall[] = paddedCalls.map((call, index) => ({
