@@ -3,6 +3,7 @@ set -eu
 
 EBS_CACHE_TAG=$1
 SIZE=$2
+REGION="us-east-2"
 AVAILABILITY_ZONE="us-east-2a"
 VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
