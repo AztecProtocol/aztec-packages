@@ -28,7 +28,9 @@ export class Oracle {
   }
 
   async getNullifierKeyPair([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { publicKey, secretKey } = await this.typedOracle.getNullifierKeyPair(AztecAddress.fromField(fromACVMField(accountAddress)));
+    const { publicKey, secretKey } = await this.typedOracle.getNullifierKeyPair(
+      AztecAddress.fromField(fromACVMField(accountAddress)),
+    );
     return [
       toACVMField(publicKey.x),
       toACVMField(publicKey.y),

@@ -79,6 +79,11 @@ export class TxRequest {
   }
 
   isDefault() {
-    return this.origin.isZero() && (this.functionData.isDefault(true) || this.functionData.isDefault(false)) && this.argsHash.isZero() && this.txContext.isDefault();
+    return (
+      this.origin.isZero() &&
+      (this.functionData.isDefault(true) || this.functionData.isDefault(false)) &&
+      this.argsHash.isZero() &&
+      this.txContext.isDefault()
+    );
   }
 }

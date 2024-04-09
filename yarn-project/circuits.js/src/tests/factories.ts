@@ -410,7 +410,12 @@ export function makePublicCircuitPublicInputs(
     fr(seed + 0x100),
     tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.default),
-    tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.default),
+    tupleGenerator(
+      MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
+      makeReadRequest,
+      seed + 0x420,
+      ReadRequest.default,
+    ),
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       makeContractStorageUpdateRequest,

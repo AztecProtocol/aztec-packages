@@ -363,7 +363,11 @@ export abstract class AbstractPhaseManager {
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
       newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.default(), MAX_NEW_NOTE_HASHES_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.default(), MAX_NEW_NULLIFIERS_PER_CALL),
+      newNullifiers: padArrayEnd(
+        result.newNullifiers,
+        SideEffectLinkedToNoteHash.default(),
+        MAX_NEW_NULLIFIERS_PER_CALL,
+      ),
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.default(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
@@ -438,7 +442,11 @@ export abstract class AbstractPhaseManager {
     const publicCallRequests = (await this.getPublicCallStackPreimages(result)).map(c =>
       c.toCallRequest(callStackItem.publicInputs.callContext),
     );
-    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.default(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    const publicCallStack = padArrayEnd(
+      publicCallRequests,
+      CallRequest.default(),
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    );
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), portalContractAddress, bytecodeHash);
   }

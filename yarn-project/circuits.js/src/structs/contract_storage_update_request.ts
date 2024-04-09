@@ -58,7 +58,11 @@ export class ContractStorageUpdateRequest {
   }
 
   isDefault() {
-    return this.storageSlot.isZero() && this.newValue.isZero() && (this.sideEffectCounter == 0 || this.sideEffectCounter == undefined);
+    return (
+      this.storageSlot.isZero() &&
+      this.newValue.isZero() &&
+      (this.sideEffectCounter == 0 || this.sideEffectCounter == undefined)
+    );
   }
 
   toFriendlyJSON() {

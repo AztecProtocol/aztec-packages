@@ -708,7 +708,9 @@ export class PXEService implements PXE {
       publicInputs.forPublic!.end.publicCallStack.find(item => item.equals(enqueued)),
     );
 
-    const revertibleStackSize = arrayNonDefaultLength(publicInputs.forPublic.end.publicCallStack, item => item.isDefault());
+    const revertibleStackSize = arrayNonDefaultLength(publicInputs.forPublic.end.publicCallStack, item =>
+      item.isDefault(),
+    );
 
     if (enqueuedRevertiblePublicCallStackItems.length !== revertibleStackSize) {
       throw new Error(

@@ -1,6 +1,5 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { isArrayEmpty } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import {

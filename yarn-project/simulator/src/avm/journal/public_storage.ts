@@ -1,7 +1,7 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { PublicStateDB } from '../../index.js';
-import { AztecAddress } from '@aztec/circuits.js';
 
 /**
  * A class to manage public storage reads and writes during a contract call's AVM simulation.

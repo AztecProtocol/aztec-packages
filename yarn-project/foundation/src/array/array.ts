@@ -40,7 +40,10 @@ export function makeHalfFullTuple<T, N extends number>(
   offset = 0,
   makeDefault: () => T,
 ) {
-  return Array.from({ length }, (v: any, i: number) => (i < length / 2 ? fn(i + offset) : makeDefault())) as Tuple<T, N>;
+  return Array.from({ length }, (v: any, i: number) => (i < length / 2 ? fn(i + offset) : makeDefault())) as Tuple<
+    T,
+    N
+  >;
 }
 
 /**

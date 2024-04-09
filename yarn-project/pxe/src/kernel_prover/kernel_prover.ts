@@ -201,7 +201,11 @@ export class KernelProver {
       CallRequest.default(),
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
     );
-    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.default(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    const publicCallStack = padArrayEnd(
+      publicCallRequests,
+      CallRequest.default(),
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    );
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,

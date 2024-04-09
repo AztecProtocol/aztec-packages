@@ -68,7 +68,12 @@ export class TxContext {
   }
 
   isDefault(chainId: number = 0, version: number = 0): boolean {
-    return !this.isFeePaymentTx && !this.isRebatePaymentTx && this.chainId.equals(new Fr(chainId)) && this.version.equals(new Fr(version));
+    return (
+      !this.isFeePaymentTx &&
+      !this.isRebatePaymentTx &&
+      this.chainId.equals(new Fr(chainId)) &&
+      this.version.equals(new Fr(version))
+    );
   }
 
   /**
