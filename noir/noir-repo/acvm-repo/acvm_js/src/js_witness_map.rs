@@ -2,13 +2,15 @@ use acvm::{
     acir::native_types::{Witness, WitnessMap},
     FieldElement,
 };
-use js_sys::{JsString, Map};
+use js_sys::{Array, JsString, Map};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
 #[wasm_bindgen(typescript_custom_section)]
 const WITNESS_MAP: &'static str = r#"
 // Map from witness index to hex string value of witness.
 export type WitnessMap = Map<number, string>;
+
+export type PartialAndReturnWitness = Array<WitnessMap>;
 "#;
 
 // WitnessMap
@@ -21,9 +23,21 @@ extern "C" {
     #[wasm_bindgen(constructor, js_class = "Map")]
     pub fn new() -> JsWitnessMap;
 
+    #[wasm_bindgen(extends = Array, js_name = "PartialAndReturnWitness", typescript_type = "PartialAndReturnWitness")]
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub type JsPartialAndReturnWitness;
+
+    #[wasm_bindgen(constructor, js_class = "Array")]
+    pub fn new() -> JsPartialAndReturnWitness;
 }
 
 impl Default for JsWitnessMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for JsPartialAndReturnWitness {
     fn default() -> Self {
         Self::new()
     }
@@ -51,6 +65,17 @@ impl From<JsWitnessMap> for WitnessMap {
             witness_map.insert(witness_index, witness_value);
         });
         witness_map
+    }
+}
+
+impl From<Vec<WitnessMap>> for JsPartialAndReturnWitness {
+    fn from(witness_maps: Vec<WitnessMap>) -> Self {
+        let js_witness_maps = JsPartialAndReturnWitness::new();
+        for witness_map in witness_maps {
+            let js_witness_map = JsWitnessMap::from(witness_map);
+            js_witness_maps.push(&js_witness_map);
+        }
+        js_witness_maps
     }
 }
 

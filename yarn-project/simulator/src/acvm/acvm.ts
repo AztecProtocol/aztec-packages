@@ -7,7 +7,8 @@ import {
   type ForeignCallInput,
   type ForeignCallOutput,
   type WasmBlackBoxFunctionSolver,
-  executeCircuitWithBlackBoxSolver,
+  // executeCircuitWithBlackBoxSolver,
+  executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
 
 import { traverseCauseChain } from '../common/errors.js';
@@ -27,9 +28,11 @@ type ACIRCallback = Record<
  */
 export interface ACIRExecutionResult {
   /**
-   * The partial witness of the execution.
+   * An execution result contains two witnesses.
+   * 1. The partial witness of the execution.
+   * 2. The return witness with the 
    */
-  partialWitness: ACVMWitness;
+  partialAndReturnWitness: Array<ACVMWitness>;
 }
 
 /**
@@ -89,7 +92,7 @@ export async function acvm(
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
 
-  const partialWitness = await executeCircuitWithBlackBoxSolver(
+  const partialAndReturnWitness = await executeCircuitWithReturnWitness(
     solver,
     acir,
     initialWitness,
@@ -127,7 +130,7 @@ export async function acvm(
     throw err;
   });
 
-  return { partialWitness };
+  return { partialAndReturnWitness };
 }
 
 /**

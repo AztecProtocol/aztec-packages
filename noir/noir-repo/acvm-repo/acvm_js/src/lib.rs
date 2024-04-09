@@ -22,10 +22,11 @@ pub use compression::{
 };
 pub use execute::{
     create_black_box_solver, execute_circuit, execute_circuit_with_black_box_solver,
-    execute_program, execute_program_with_black_box_solver,
+    execute_program, execute_program_with_black_box_solver, execute_circuit_with_return_witness,
 };
 pub use js_execution_error::JsExecutionError;
 pub use js_witness_map::JsWitnessMap;
+pub use js_witness_map::JsPartialAndReturnWitness;
 pub use js_witness_stack::JsWitnessStack;
 pub use logging::init_log_level;
 pub use public_witness::{get_public_parameters_witness, get_public_witness, get_return_witness};

@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 
-import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/index.js';
+import { Oracle, acvm, extractCallStack, returnWitnessToFields } from '../acvm/index.js';
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
@@ -41,14 +41,14 @@ export async function executePublicFunction(
 
   const initialWitness = context.getInitialWitness();
   const acvmCallback = new Oracle(context);
-  const { partialWitness, reverted, revertReason } = await acvm(
+  const { partialAndReturnWitness, reverted, revertReason } = await acvm(
     await AcirSimulator.getSolver(),
     acir,
     initialWitness,
     acvmCallback,
   )
     .then(result => ({
-      partialWitness: result.partialWitness,
+      partialAndReturnWitness: result.partialAndReturnWitness,
       reverted: false,
       revertReason: undefined,
     }))
@@ -68,7 +68,7 @@ export async function executePublicFunction(
         throw ee;
       } else {
         return {
-          partialWitness: undefined,
+          partialAndReturnWitness: undefined,
           reverted: true,
           revertReason: createSimulationError(ee),
         };
@@ -99,11 +99,11 @@ export async function executePublicFunction(
     };
   }
 
-  if (!partialWitness) {
+  if (!partialAndReturnWitness) {
     throw new Error('No partial witness returned from ACVM');
   }
 
-  const returnWitness = extractReturnWitness(acir, partialWitness);
+  const returnWitness = returnWitnessToFields(partialAndReturnWitness[1]);
   const {
     returnValues,
     nullifierReadRequests: nullifierReadRequestsPadded,

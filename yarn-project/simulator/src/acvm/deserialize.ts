@@ -39,6 +39,10 @@ export function frToBoolean(fr: Fr): boolean {
  */
 export function extractReturnWitness(acir: Buffer, partialWitness: ACVMWitness): Fr[] {
   const returnWitness = getReturnWitness(acir, partialWitness);
+  return returnWitnessToFields(returnWitness);
+}
+
+export function returnWitnessToFields(returnWitness: ACVMWitness): Fr[] {
   const sortedKeys = [...returnWitness.keys()].sort((a, b) => a - b);
   return sortedKeys.map(key => returnWitness.get(key)!).map(fromACVMField);
 }
