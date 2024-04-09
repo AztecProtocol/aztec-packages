@@ -1,11 +1,11 @@
 use noirc_frontend::{
-    parse_program, parser::SortedModule, NoirFunction, Signedness, UnresolvedType,
+    parse_program, parser::SortedModule, NoirFunction, NoirStruct, Signedness, UnresolvedType,
     UnresolvedTypeData, UnresolvedTypeExpression,
 };
 
 use crate::utils::errors::AztecMacroError;
 
-fn get_parameter_type(typ: UnresolvedType) -> String {
+fn get_parameter_type(module_types: &Vec<NoirStruct>, typ: UnresolvedType) -> String {
     match typ.typ {
         UnresolvedTypeData::FieldElement => "Field".to_string(),
         UnresolvedTypeData::Integer(signed, width) => {
@@ -21,7 +21,7 @@ fn get_parameter_type(typ: UnresolvedType) -> String {
                 UnresolvedTypeExpression::Constant(value, _) => value.to_string(),
                 _ => panic!("Only constant array lengths are supported"),
             };
-            format!("[{}; {}]", get_parameter_type(*typ), len)
+            format!("[{}; {}]", get_parameter_type(module_types, *typ), len)
         }
         UnresolvedTypeData::String(len_typ) => {
             let len = if let Some(UnresolvedTypeExpression::Constant(value, _)) = len_typ {
@@ -31,31 +31,49 @@ fn get_parameter_type(typ: UnresolvedType) -> String {
             };
             format!("str<{}>", len)
         }
-        UnresolvedTypeData::Named(_, fields, _) => format!(
-            "({})",
-            fields
+        UnresolvedTypeData::Named(path, _, _) => {
+            let fields = module_types
                 .iter()
-                .map(|field| get_parameter_type(field.clone()))
+                .find_map(|r#struct| {
+                    if r#struct.name.0.contents == path.last_segment().0.contents {
+                        Some(r#struct.fields.clone())
+                    } else {
+                        None
+                    }
+                })
+                .unwrap();
+
+            let fields = fields
+                .iter()
+                .map(|(_, typ)| get_parameter_type(module_types, typ.clone()))
                 .collect::<Vec<_>>()
-                .join(", ")
-        ),
+                .join(", ");
+
+            println!("fields are {:?}", fields);
+
+            format!("({})", fields)
+        }
         _ => panic!("Unsupported type"),
     }
 }
 
-fn compute_fn_signature(func: &NoirFunction) -> String {
+fn compute_fn_signature(module_types: &Vec<NoirStruct>, func: &NoirFunction) -> String {
     format!(
         "{}({})",
         func.name(),
         func.parameters()
             .iter()
-            .map(|param| get_parameter_type(param.typ.clone()))
+            .map(|param| get_parameter_type(module_types, param.typ.clone()))
             .collect::<Vec<_>>()
             .join(", ")
     )
 }
 
-pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
+pub fn stub_function(
+    module_types: &Vec<NoirStruct>,
+    aztec_visibility: &str,
+    func: &NoirFunction,
+) -> String {
     let fn_name = func.name().to_string();
     let fn_parameters = func
         .parameters()
@@ -72,19 +90,8 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
 
     let return_type = "[Field; 4]"; // func.return_type()
 
-    let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", compute_fn_signature(func));
-    // let fn_parameters = func
-    //     .parameters()
-    //     .iter()
-    //     .map(|param| {
-    //         format!(
-    //             "{}: {}",
-    //             param.pattern.name_ident().0.contents,
-    //             param.typ.to_string().replace("plain::", "")
-    //         )
-    //     })
-    //     .collect::<Vec<_>>()
-    //     .join(", ");
+    let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", compute_fn_signature(    module_types,        func));
+
     let call_args = func
         .parameters()
         .iter()

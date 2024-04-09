@@ -141,7 +141,7 @@ fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool
             } else {
                 "Public"
             };
-            let stub = stub_function(fn_type, func);
+            let stub = stub_function(&module.types, fn_type, func);
             stubs.push(stub);
             export_fn_abi(&mut module.types, func)?;
             transform_function(
