@@ -11,6 +11,7 @@ In our `token-bridge` Aztec project in `aztec-contracts`, under `src` there is a
 #include_code token_bridge_imports /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 #include_code token_bridge_storage_and_constructor /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code _initialize /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 This imports Aztec-related dependencies and our helper file `token_interface.nr`.
 (The code above will give errors right now - this is because we haven't implemented util and token_interface yet.)

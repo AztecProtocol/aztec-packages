@@ -136,13 +136,15 @@ contract TokenBridge {
         storage.token.read()
     }
     // docs:end:read_token
-
+ 
+    // docs:start:_initialize
     #[aztec(public)]
     #[aztec(internal)]
     #[aztec(noinitcheck)]
     fn _initialize(token: AztecAddress) {
         storage.token.write(token);
     }
+    // docs:end:_initialize
 
     // docs:start:call_mint_on_token
     // This is a public call as we need to read from public storage.
