@@ -115,6 +115,7 @@ namespace avm_mem(256);
     lastAccess * (1 - rw') * val' = 0;
 
     // Skip check tag
+     #[SKIP_CHECK_TAG]
     skip_check_tag = sel_cmov * (op_d + op_a * (1-sel_mov_a) + op_b * (1-sel_mov_b));
 
     // Memory tag consistency check for load operations, i.e., rw == 0.

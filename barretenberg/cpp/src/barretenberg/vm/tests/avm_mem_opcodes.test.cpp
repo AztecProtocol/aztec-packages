@@ -50,6 +50,19 @@ class AvmMemOpcodeTests : public ::testing::Test {
         trace = trace_builder.finalize();
     }
 
+    void build_cmov_trace_neg_test(bool mov_a)
+    {
+        trace_builder.op_set(0, 1979, 10, AvmMemoryTag::U16);             // a
+        trace_builder.op_set(0, 1980, 11, AvmMemoryTag::U16);             // b
+        trace_builder.op_set(0, mov_a ? 9871 : 0, 20, AvmMemoryTag::U64); // Non-zero/zero condition value (we move a/b)
+
+        trace_builder.op_cmov(0, 10, 11, 20, 12);
+        trace_builder.return_op(0, 0, 0);
+        trace = trace_builder.finalize();
+
+        compute_cmov_indices(0);
+    }
+
     static std::function<bool(Row)> gen_matcher(FF clk, uint32_t sub_clk)
     {
         return [clk, sub_clk](Row r) { return r.avm_mem_clk == clk && r.avm_mem_sub_clk == sub_clk; };
@@ -597,6 +610,10 @@ TEST_F(AvmMemOpcodeTests, indirectSetWrongTag)
  *
  ******************************************************************************/
 
+/******************************************************************************
+ * MOV Opcode
+ ******************************************************************************/
+
 TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputErrorTag)
 {
     build_mov_trace(false, 234, 0, 1, AvmMemoryTag::U8);
@@ -706,6 +723,65 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputTagMainTraceRead)
     trace.at(mem_c_idx).avm_mem_w_in_tag = tag_u64;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_C");
+}
+
+/******************************************************************************
+ * CMOV Opcode
+ ******************************************************************************/
+TEST_F(AvmMemOpcodeNegativeTests, cmovBInsteadA)
+{
+    build_cmov_trace_neg_test(true);
+
+    trace.at(main_idx).avm_main_ic = 1980;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
+}
+
+TEST_F(AvmMemOpcodeNegativeTests, cmovAInsteadB)
+{
+    build_cmov_trace_neg_test(false);
+
+    trace.at(main_idx).avm_main_ic = 1979;
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_B");
+}
+
+TEST_F(AvmMemOpcodeNegativeTests, cmovAChangeTag)
+{
+    build_cmov_trace_neg_test(true);
+
+    trace.at(mem_c_idx).avm_mem_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
+    trace.at(mem_c_idx).avm_mem_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
+    trace.at(main_idx).avm_main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U32);
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_MAIN_SAME_TAG");
+}
+
+TEST_F(AvmMemOpcodeNegativeTests, cmovASkipCheckAbuse)
+{
+    build_cmov_trace_neg_test(true);
+
+    trace.at(mem_a_idx).avm_mem_skip_check_tag = 1;
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SKIP_CHECK_TAG");
+}
+
+TEST_F(AvmMemOpcodeNegativeTests, cmovASkipCheckAbuseDisableSelMovA)
+{
+    build_cmov_trace_neg_test(true);
+
+    trace.at(mem_a_idx).avm_mem_skip_check_tag = 1;
+    trace.at(mem_a_idx).avm_mem_sel_mov_a = 0;
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
+}
+
+TEST_F(AvmMemOpcodeNegativeTests, cmovBSkipCheckAbuseDisableSelMovB)
+{
+    build_cmov_trace_neg_test(false);
+
+    trace.at(mem_b_idx).avm_mem_skip_check_tag = 1;
+    trace.at(mem_b_idx).avm_mem_sel_mov_b = 0;
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
 }
 
 } // namespace tests_avm

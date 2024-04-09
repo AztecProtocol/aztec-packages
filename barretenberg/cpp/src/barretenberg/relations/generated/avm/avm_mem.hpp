@@ -51,6 +51,9 @@ inline std::string get_relation_label_avm_mem(int index)
     case 17:
         return "MEM_ZERO_INIT";
 
+    case 18:
+        return "SKIP_CHECK_TAG";
+
     case 19:
         return "MEM_IN_TAG_CONSISTENCY_1";
 
