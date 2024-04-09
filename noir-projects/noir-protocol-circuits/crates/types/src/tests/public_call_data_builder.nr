@@ -75,7 +75,7 @@ impl PublicCallDataBuilder {
 
     pub fn append_public_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
         let value_offset = self.public_inputs.public_call_stack_hashes.len();
-        let mut caller_context = CallerContext::empty();
+        let mut caller_context = CallerContext::default();
         if is_delegate_call {
             let call_context = self.public_inputs.call_context;
             caller_context.msg_sender = call_context.msg_sender;

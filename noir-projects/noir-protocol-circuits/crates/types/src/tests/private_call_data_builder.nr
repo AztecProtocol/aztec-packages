@@ -110,7 +110,7 @@ impl PrivateCallDataBuilder {
         is_delegate_call: bool
     ) -> (BoundedVec<Field, N>, BoundedVec<CallRequest, N>) {
         let value_offset = requests.len();
-        let mut caller_context = CallerContext::empty();
+        let mut caller_context = CallerContext::default();
         if is_delegate_call {
             let call_context = self.public_inputs.call_context;
             caller_context.msg_sender = call_context.msg_sender;

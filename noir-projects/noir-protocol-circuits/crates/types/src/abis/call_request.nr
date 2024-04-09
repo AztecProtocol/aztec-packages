@@ -26,7 +26,7 @@ impl Empty for CallRequest {
         CallRequest {
             hash: 0,
             caller_contract_address: AztecAddress::zero(),
-            caller_context: CallerContext::empty(),
+            caller_context: CallerContext::default(),
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
         }

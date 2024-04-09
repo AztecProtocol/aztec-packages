@@ -344,7 +344,7 @@ impl FixtureBuilder {
     }
 
     fn generate_call_request(&mut self, hash: Field, is_delegate_call: bool) -> CallRequest {
-        let mut caller_context = CallerContext::empty();
+        let mut caller_context = CallerContext::default();
         if is_delegate_call {
             caller_context.msg_sender = fixtures::MSG_SENDER;
             caller_context.storage_contract_address = self.contract_address;

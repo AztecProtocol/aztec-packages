@@ -134,14 +134,14 @@ mod tests {
             CallRequest {
                 hash: 1,
                 caller_contract_address: AztecAddress::from_field(1),
-                caller_context: CallerContext::empty(),
+                caller_context: CallerContext::default(),
                 start_side_effect_counter: 5,
                 end_side_effect_counter: 0
             },
             CallRequest {
                 hash: 2,
                 caller_contract_address: AztecAddress::from_field(1),
-                caller_context: CallerContext::empty(),
+                caller_context: CallerContext::default(),
                 start_side_effect_counter: 6,
                 end_side_effect_counter: 0
             }
@@ -161,7 +161,7 @@ mod tests {
             CallRequest {
                 hash: 3,
                 caller_contract_address: AztecAddress::from_field(3),
-                caller_context: CallerContext::empty(),
+                caller_context: CallerContext::default(),
                 start_side_effect_counter: 9,
                 end_side_effect_counter: 0
             }

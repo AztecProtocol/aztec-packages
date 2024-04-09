@@ -15,7 +15,7 @@ use dep::types::{
     MAX_PUBLIC_DATA_READS_PER_CALL
 },
     hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
-    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
+    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array, is_default}
 };
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 
@@ -141,7 +141,7 @@ fn is_valid_caller(request: CallRequest, public_call: PublicCallData) -> bool {
         & request.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
 
     request.caller_contract_address.eq(public_call.call_stack_item.contract_address)
-        & (request.caller_context.is_empty() | valid_caller_context)
+        & (is_default(request.caller_context) | valid_caller_context)
 }
 
 fn validate_call_requests<N>(
@@ -468,7 +468,7 @@ pub fn validate_call_against_request(public_call: PublicCallData, request: CallR
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;
-        assert(!caller_context.is_empty(), "caller context cannot be empty for delegate calls");
+        assert(!is_default(caller_context), "caller context cannot be default for delegate calls");
         assert(
             call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls"
         );

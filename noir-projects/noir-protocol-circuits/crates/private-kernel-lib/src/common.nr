@@ -21,7 +21,7 @@ use dep::types::{
 },
     merkle_tree::check_membership,
     utils::{arrays::{array_length, array_to_bounded_vec, validate_array}},
-    traits::{is_empty, is_empty_array, is_zero}
+    traits::{is_empty, is_empty_array, is_zero, is_default}
 };
 
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
@@ -148,7 +148,7 @@ fn is_valid_caller(request_from_stack: CallRequest, fn_being_verified: PrivateCa
         & request_from_stack.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
 
     request_from_stack.caller_contract_address.eq(fn_being_verified.call_stack_item.contract_address)
-        & (request_from_stack.caller_context.is_empty() | valid_caller_context)
+        & (is_default(request_from_stack.caller_context) | valid_caller_context)
 }
 
 fn validate_call_requests<N>(
@@ -358,7 +358,7 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;
-        assert(!caller_context.is_empty(), "caller context cannot be empty for delegate calls");
+        assert(!is_default(caller_context), "caller context cannot be default for delegate calls");
         assert(
             call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls"
         );

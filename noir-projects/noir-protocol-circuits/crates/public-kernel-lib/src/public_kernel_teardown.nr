@@ -212,7 +212,7 @@ mod tests {
         builder.succeeded();
     }
 
-    #[test(should_fail_with="caller context cannot be empty for delegate calls")]
+    #[test(should_fail_with="caller context cannot be default for delegate calls")]
     fn empty_caller_context_for_delegate_calls_fails() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
         let public_call = builder.public_call.finish();
