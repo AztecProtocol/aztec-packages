@@ -25,7 +25,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
 
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::default();
         // since this phase is non-revertible, we must assert the public call did not revert
         common::validate_public_call_non_revert(self.public_call);
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
@@ -213,12 +213,12 @@ mod tests {
     }
 
     #[test(should_fail_with="caller context cannot be default for delegate calls")]
-    fn empty_caller_context_for_delegate_calls_fails() {
+    fn default_caller_context_for_delegate_calls_fails() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
         let public_call = builder.public_call.finish();
 
         let hash = public_call.call_stack_item.hash();
-        // Caller context is empty for regular calls.
+        // Caller context is default for regular calls.
         let is_delegate_call = false;
         builder.previous_kernel.push_public_call_request(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.to_public_kernel_data(false);
