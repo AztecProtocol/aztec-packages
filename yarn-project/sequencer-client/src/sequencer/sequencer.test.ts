@@ -77,7 +77,7 @@ describe('sequencer', () => {
         [],
         [],
       ],
-      makeEmptyProcessedTx: () => makeEmptyProcessedTx(Header.empty(), chainId, version),
+      makeEmptyProcessedTx: () => makeEmptyProcessedTx(Header.default(), chainId, version),
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({

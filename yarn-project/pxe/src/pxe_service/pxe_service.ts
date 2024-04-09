@@ -37,7 +37,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
-import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
+import { arrayNonDefaultLength, padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -708,7 +708,9 @@ export class PXEService implements PXE {
       publicInputs.forPublic!.end.publicCallStack.find(item => item.equals(enqueued)),
     );
 
-    const revertibleStackSize = arrayNonEmptyLength(publicInputs.forPublic.end.publicCallStack, item => item.isEmpty());
+    const revertibleStackSize = arrayNonDefaultLength(publicInputs.forPublic.end.publicCallStack, item =>
+      item.isDefault(),
+    );
 
     if (enqueuedRevertiblePublicCallStackItems.length !== revertibleStackSize) {
       throw new Error(
@@ -723,7 +725,7 @@ export class PXEService implements PXE {
     // Override kernel output
     publicInputs.forPublic.end.publicCallStack = padArrayEnd(
       enqueuedRevertiblePublicCallStackItems,
-      CallRequest.empty(),
+      CallRequest.default(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
 
@@ -733,9 +735,9 @@ export class PXEService implements PXE {
       publicInputs.forPublic!.endNonRevertibleData.publicCallStack.find(item => item.equals(enqueued)),
     );
 
-    const nonRevertibleStackSize = arrayNonEmptyLength(
+    const nonRevertibleStackSize = arrayNonDefaultLength(
       publicInputs.forPublic.endNonRevertibleData.publicCallStack,
-      item => item.isEmpty(),
+      item => item.isDefault(),
     );
 
     if (enqueuedNonRevertiblePublicCallStackItems.length !== nonRevertibleStackSize) {
@@ -751,7 +753,7 @@ export class PXEService implements PXE {
     // Override kernel output
     publicInputs.forPublic.endNonRevertibleData.publicCallStack = padArrayEnd(
       enqueuedNonRevertiblePublicCallStackItems,
-      CallRequest.empty(),
+      CallRequest.default(),
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }

@@ -25,9 +25,9 @@ describe('PrivateCircuitPublicInputs', () => {
     expect(result).toEqual(inputs);
   });
 
-  it(`initializes an empty PrivateCircuitPublicInputs`, () => {
-    const target = PrivateCircuitPublicInputs.empty();
-    expect(target.isEmpty()).toBe(true);
+  it(`initializes a default PrivateCircuitPublicInputs`, () => {
+    const target = PrivateCircuitPublicInputs.default();
+    expect(target.isDefault()).toBe(true);
   });
 
   it('number of fields matches constant', () => {
@@ -41,8 +41,8 @@ describe('PrivateCircuitPublicInputs', () => {
     expect(hash).toMatchSnapshot();
   });
 
-  it('computes empty inputs hash', () => {
-    const inputs = PrivateCircuitPublicInputs.empty();
+  it('computes default inputs hash', () => {
+    const inputs = PrivateCircuitPublicInputs.default();
     const hash = inputs.hash();
     expect(hash).toMatchSnapshot();
 

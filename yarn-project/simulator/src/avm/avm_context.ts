@@ -43,7 +43,7 @@ export class AvmContext {
     calldata: Fr[],
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
-    temporaryFunctionSelector: FunctionSelector = FunctionSelector.empty(),
+    temporaryFunctionSelector: FunctionSelector = FunctionSelector.default(),
   ): AvmContext {
     const deriveFn =
       callType === 'CALL'

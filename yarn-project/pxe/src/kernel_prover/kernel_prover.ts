@@ -61,7 +61,7 @@ export class KernelProver {
     let previousVerificationKey = VerificationKey.makeFake();
 
     let output: ProofOutput = {
-      publicInputs: PrivateKernelCircuitPublicInputs.empty(),
+      publicInputs: PrivateKernelCircuitPublicInputs.default(),
       proof: makeEmptyProof(),
     };
 
@@ -94,11 +94,11 @@ export class KernelProver {
         }
       }
 
-      // fill in witnesses for remaining/empty read requests
+      // fill in witnesses for remaining/default read requests
       noteHashReadRequestMembershipWitnesses.push(
         ...Array(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL - noteHashReadRequestMembershipWitnesses.length)
           .fill(0)
-          .map(() => NoteHashReadRequestMembershipWitness.empty(BigInt(0))),
+          .map(() => NoteHashReadRequestMembershipWitness.default(BigInt(0))),
       );
 
       const privateCallData = await this.createPrivateCallData(
@@ -195,13 +195,17 @@ export class KernelProver {
     const { contractAddress, functionData, publicInputs } = callStackItem;
     const { portalContractAddress } = publicInputs.callContext;
 
-    // Pad with empty items to reach max/const length expected by circuit.
+    // Pad with default items to reach max/const length expected by circuit.
     const privateCallStack = padArrayEnd(
       privateCallRequests,
-      CallRequest.empty(),
+      CallRequest.default(),
       MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
     );
-    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    const publicCallStack = padArrayEnd(
+      publicCallRequests,
+      CallRequest.default(),
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    );
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,

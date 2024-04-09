@@ -125,12 +125,12 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public getNoteHashReadRequestPartialWitnesses(noteHashReadRequests: SideEffect[]) {
     return noteHashReadRequests
-      .filter(r => !r.isEmpty())
+      .filter(r => !r.isDefault())
       .map(r => {
         const index = this.gotNotes.get(r.value.toBigInt());
         return index !== undefined
-          ? NoteHashReadRequestMembershipWitness.empty(index)
-          : NoteHashReadRequestMembershipWitness.emptyTransient();
+          ? NoteHashReadRequestMembershipWitness.default(index)
+          : NoteHashReadRequestMembershipWitness.defaultTransient();
       });
   }
 
@@ -321,9 +321,9 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
     if (
-      childExecutionResult.callStackItem.publicInputs.newNoteHashes.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isEmpty()) ||
-      childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isEmpty()) ||
+      childExecutionResult.callStackItem.publicInputs.newNoteHashes.some(item => !item.isDefault()) ||
+      childExecutionResult.callStackItem.publicInputs.newNullifiers.some(item => !item.isDefault()) ||
+      childExecutionResult.callStackItem.publicInputs.newL2ToL1Msgs.some(item => !item.isDefault()) ||
       !childExecutionResult.callStackItem.publicInputs.encryptedLogPreimagesLength.equals(new Fr(4)) ||
       !childExecutionResult.callStackItem.publicInputs.unencryptedLogPreimagesLength.equals(new Fr(4))
     ) {

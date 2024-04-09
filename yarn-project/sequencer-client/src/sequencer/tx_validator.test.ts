@@ -273,7 +273,7 @@ describe('TxValidator', () => {
       gasTokenAddress,
       new FunctionData(signature, false),
       new CallContext(feePayer, gasTokenAddress, gasPortalAddress, signature, false, false, 1),
-      CallContext.empty(),
+      CallContext.default(),
       [],
     );
 
@@ -293,7 +293,7 @@ describe('TxValidator', () => {
       feePaymentContract,
       new FunctionData(feeSetupSelector, true),
       new CallContext(feePaymentContract, feePaymentContract, EthAddress.ZERO, feeSetupSelector, false, false, 1),
-      CallContext.empty(),
+      CallContext.default(),
       [],
     );
     tx.data.forPublic!.endNonRevertibleData.publicCallStack[0] = feeSetupFn.toCallRequest();
@@ -304,7 +304,7 @@ describe('TxValidator', () => {
       feePaymentContract,
       new FunctionData(feeExecutionSelector, true),
       new CallContext(feePaymentContract, feePaymentContract, EthAddress.ZERO, feeExecutionSelector, false, false, 2),
-      CallContext.empty(),
+      CallContext.default(),
       [],
     );
     tx.data.forPublic!.endNonRevertibleData.publicCallStack[1] = feeExecutionFn.toCallRequest();

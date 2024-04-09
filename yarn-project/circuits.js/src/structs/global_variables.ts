@@ -29,7 +29,7 @@ export class GlobalVariables {
     return new GlobalVariables(...GlobalVariables.getFields(fields));
   }
 
-  static empty(): GlobalVariables {
+  static default(): GlobalVariables {
     return new GlobalVariables(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, EthAddress.ZERO, AztecAddress.ZERO);
   }
 
@@ -110,7 +110,7 @@ export class GlobalVariables {
     return GlobalVariables.fromBuffer(this.toBuffer());
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return (
       this.chainId.isZero() &&
       this.version.isZero() &&

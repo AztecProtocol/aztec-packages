@@ -38,7 +38,7 @@ export class PublicDataRead {
     return serializeToBuffer(this.leafSlot, this.value);
   }
 
-  isEmpty() {
+  isDefault() {
     return this.leafSlot.isZero() && this.value.isZero();
   }
 
@@ -47,7 +47,7 @@ export class PublicDataRead {
     return new PublicDataRead(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
-  static empty() {
+  static default() {
     return new PublicDataRead(Fr.ZERO, Fr.ZERO);
   }
 

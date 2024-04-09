@@ -54,9 +54,9 @@ export class PrivateKernelData {
     );
   }
 
-  static empty(): PrivateKernelData {
+  static default(): PrivateKernelData {
     return new PrivateKernelData(
-      PrivateKernelCircuitPublicInputs.empty(),
+      PrivateKernelCircuitPublicInputs.default(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,

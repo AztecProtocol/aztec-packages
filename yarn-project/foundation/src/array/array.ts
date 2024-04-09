@@ -28,7 +28,7 @@ export function makeTuple<T, N extends number>(length: N, fn: (i: number) => T, 
 }
 
 /**
- * Create an array over an integer range, filled with a function 'fn'. However, the latter half of the array are set to zeros.
+ * Create an array over an integer range, filled with a function 'fn'. However, the latter half of the array are set to default.
  * see `makeTuple` above.
  * @param n - The number of integers.
  * @param fn - The generator function.
@@ -38,9 +38,12 @@ export function makeHalfFullTuple<T, N extends number>(
   length: N,
   fn: (i: number) => T,
   offset = 0,
-  makeEmpty: () => T,
+  makeDefault: () => T,
 ) {
-  return Array.from({ length }, (v: any, i: number) => (i < length / 2 ? fn(i + offset) : makeEmpty())) as Tuple<T, N>;
+  return Array.from({ length }, (v: any, i: number) => (i < length / 2 ? fn(i + offset) : makeDefault())) as Tuple<
+    T,
+    N
+  >;
 }
 
 /**
@@ -123,10 +126,10 @@ export function assertPermutation<T>(
   }
 }
 
-export function assertRightPadded<T>(arr: T[], isEmpty: (item: T) => boolean) {
+export function assertRightPadded<T>(arr: T[], isDefault: (item: T) => boolean) {
   let seenEmpty = false;
   for (let i = 0; i < arr.length; i++) {
-    if (isEmpty(arr[i])) {
+    if (isDefault(arr[i])) {
       seenEmpty = true;
     } else if (seenEmpty) {
       throw new Error(`Non-empty element at index [${i}] after empty element`);

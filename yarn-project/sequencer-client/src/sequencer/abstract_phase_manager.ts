@@ -48,7 +48,7 @@ import {
   type ProcessReturnValues,
   decodeReturnValues,
 } from '@aztec/foundation/abi';
-import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
+import { arrayNonDefaultLength, padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import {
@@ -129,9 +129,9 @@ export abstract class AbstractPhaseManager {
   ): Record<PublicKernelPhase, PublicCallRequest[]> {
     const publicCallsStack = enqueuedPublicFunctionCalls.slice().reverse();
     const nonRevertibleCallStack = publicInputs.forPublic!.endNonRevertibleData.publicCallStack.filter(
-      i => !i.isEmpty(),
+      i => !i.isDefault(),
     );
-    const revertibleCallStack = publicInputs.forPublic!.end.publicCallStack.filter(i => !i.isEmpty());
+    const revertibleCallStack = publicInputs.forPublic!.end.publicCallStack.filter(i => !i.isDefault());
 
     const callRequestsStack = publicCallsStack
       .map(call => call.toCallRequest())
@@ -362,30 +362,34 @@ export abstract class AbstractPhaseManager {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: computeVarArgsHash(result.execution.args),
-      newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.empty(), MAX_NEW_NOTE_HASHES_PER_CALL),
-      newNullifiers: padArrayEnd(result.newNullifiers, SideEffectLinkedToNoteHash.empty(), MAX_NEW_NULLIFIERS_PER_CALL),
-      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
+      newNoteHashes: padArrayEnd(result.newNoteHashes, SideEffect.default(), MAX_NEW_NOTE_HASHES_PER_CALL),
+      newNullifiers: padArrayEnd(
+        result.newNullifiers,
+        SideEffectLinkedToNoteHash.default(),
+        MAX_NEW_NULLIFIERS_PER_CALL,
+      ),
+      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.default(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
-        ReadRequest.empty(),
+        ReadRequest.default(),
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
       ),
       nullifierNonExistentReadRequests: padArrayEnd(
         result.nullifierNonExistentReadRequests,
-        ReadRequest.empty(),
+        ReadRequest.default(),
         MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
       ),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
-        ContractStorageRead.empty(),
+        ContractStorageRead.default(),
         MAX_PUBLIC_DATA_READS_PER_CALL,
       ),
       contractStorageUpdateRequests: padArrayEnd(
         result.contractStorageUpdateRequests,
-        ContractStorageUpdateRequest.empty(),
+        ContractStorageUpdateRequest.default(),
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStackHashes,
@@ -438,7 +442,11 @@ export abstract class AbstractPhaseManager {
     const publicCallRequests = (await this.getPublicCallStackPreimages(result)).map(c =>
       c.toCallRequest(callStackItem.publicInputs.callContext),
     );
-    const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    const publicCallStack = padArrayEnd(
+      publicCallRequests,
+      CallRequest.default(),
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    );
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), portalContractAddress, bytecodeHash);
   }
@@ -460,13 +468,13 @@ function removeRedundantPublicDataWrites(publicInputs: PublicKernelCircuitPublic
 
   curr.publicDataUpdateRequests = padArrayEnd(
     patch(curr.publicDataUpdateRequests.reverse()).reverse(),
-    PublicDataUpdateRequest.empty(),
+    PublicDataUpdateRequest.default(),
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 
   prev.publicDataUpdateRequests = padArrayEnd(
     patch(prev.publicDataUpdateRequests.reverse()),
-    PublicDataUpdateRequest.empty(),
+    PublicDataUpdateRequest.default(),
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 }
@@ -524,7 +532,7 @@ function patchPublicStorageActionOrdering(
 
   const effectSet = PhaseIsRevertible[phase] ? 'end' : 'endNonRevertibleData';
 
-  const numReadsInKernel = arrayNonEmptyLength(publicDataReads, f => f.isEmpty());
+  const numReadsInKernel = arrayNonDefaultLength(publicDataReads, f => f.isDefault());
   const numReadsBeforeThisEnqueuedCall = numReadsInKernel - simPublicDataReads.length;
   publicInputs.validationRequests.publicDataReads = padArrayEnd(
     [
@@ -532,18 +540,18 @@ function patchPublicStorageActionOrdering(
       ...publicInputs.validationRequests.publicDataReads.slice(0, numReadsBeforeThisEnqueuedCall),
       ...simPublicDataReads,
     ],
-    PublicDataRead.empty(),
+    PublicDataRead.default(),
     MAX_PUBLIC_DATA_READS_PER_TX,
   );
 
-  const numUpdatesInKernel = arrayNonEmptyLength(publicDataUpdateRequests, f => f.isEmpty());
+  const numUpdatesInKernel = arrayNonDefaultLength(publicDataUpdateRequests, f => f.isDefault());
   const numUpdatesBeforeThisEnqueuedCall = numUpdatesInKernel - simPublicDataUpdateRequests.length;
   publicInputs[effectSet].publicDataUpdateRequests = padArrayEnd(
     [
       ...publicInputs[effectSet].publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
       ...simPublicDataUpdateRequests,
     ],
-    PublicDataUpdateRequest.empty(),
+    PublicDataUpdateRequest.default(),
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   );
 }

@@ -91,10 +91,10 @@ export class HintsBuilder {
     const newPublicDataReadsWitnesses: Tuple<
       MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
       typeof MAX_PUBLIC_DATA_READS_PER_TX
-    > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0n));
+    > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => MembershipWitness.default(PUBLIC_DATA_TREE_HEIGHT, 0n));
 
     const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> =
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.empty());
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PublicDataTreeLeafPreimage.default());
 
     for (const i in publicDataReads) {
       const leafSlot = publicDataReads[i].leafSlot.value;

@@ -1,5 +1,5 @@
-export interface IsEmpty {
-  isEmpty: () => boolean;
+export interface IsDefault {
+  isDefault: () => boolean;
 }
 
 export interface Ordered {

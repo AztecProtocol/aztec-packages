@@ -227,7 +227,7 @@ describe('prover/tx-prover', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       seed *= MAX_NEW_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
       const tx = mockTx(seed);
-      const kernelOutput = KernelCircuitPublicInputs.empty();
+      const kernelOutput = KernelCircuitPublicInputs.default();
       kernelOutput.constants.historicalHeader = await builderDb.buildInitialHeader();
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

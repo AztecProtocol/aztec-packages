@@ -48,24 +48,24 @@ export class CallContext {
    * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    * @returns A new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    */
-  public static empty(): CallContext {
+  public static default(): CallContext {
     return new CallContext(
       AztecAddress.ZERO,
       AztecAddress.ZERO,
       EthAddress.ZERO,
-      FunctionSelector.empty(),
+      FunctionSelector.default(),
       false,
       false,
       0,
     );
   }
 
-  isEmpty() {
+  isDefault() {
     return (
       this.msgSender.isZero() &&
       this.storageContractAddress.isZero() &&
       this.portalContractAddress.isZero() &&
-      this.functionSelector.isEmpty() &&
+      this.functionSelector.isDefault() &&
       Fr.ZERO
     );
   }
@@ -136,14 +136,6 @@ export class CallContext {
   }
 
   equals(callContext: CallContext) {
-    return (
-      callContext.msgSender.equals(this.msgSender) &&
-      callContext.storageContractAddress.equals(this.storageContractAddress) &&
-      callContext.portalContractAddress.equals(this.portalContractAddress) &&
-      callContext.functionSelector.equals(this.functionSelector) &&
-      callContext.isDelegateCall === this.isDelegateCall &&
-      callContext.isStaticCall === this.isStaticCall &&
-      callContext.sideEffectCounter === this.sideEffectCounter
-    );
+    return callContext.toBuffer().equals(this.toBuffer());
   }
 }

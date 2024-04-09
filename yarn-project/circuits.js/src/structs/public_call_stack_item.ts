@@ -71,17 +71,17 @@ export class PublicCallStackItem {
    * Returns a new instance of PublicCallStackItem with zero contract address, function data and public inputs.
    * @returns A new instance of PublicCallStackItem with zero contract address, function data and public inputs.
    */
-  public static empty(): PublicCallStackItem {
+  public static default(): PublicCallStackItem {
     return new PublicCallStackItem(
       AztecAddress.ZERO,
-      FunctionData.empty({ isPrivate: false }),
-      PublicCircuitPublicInputs.empty(),
+      FunctionData.default({ isPrivate: false }),
+      PublicCircuitPublicInputs.default(),
       false,
     );
   }
 
-  isEmpty() {
-    return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
+  isDefault() {
+    return this.contractAddress.isZero() && this.functionData.isDefault(false) && this.publicInputs.isDefault();
   }
 
   /**
@@ -91,7 +91,7 @@ export class PublicCallStackItem {
   public hash() {
     if (this.isExecutionRequest) {
       const { callContext, argsHash } = this.publicInputs;
-      this.publicInputs = PublicCircuitPublicInputs.empty();
+      this.publicInputs = PublicCircuitPublicInputs.default();
       this.publicInputs.callContext = callContext;
       this.publicInputs.argsHash = argsHash;
     }
@@ -107,14 +107,14 @@ export class PublicCallStackItem {
    * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
    */
   public toCallRequest(parentCallContext: CallContext) {
-    if (this.isEmpty()) {
-      return CallRequest.empty();
+    if (this.isDefault()) {
+      return CallRequest.default();
     }
 
     const currentCallContext = this.publicInputs.callContext;
     const callerContext = currentCallContext.isDelegateCall
       ? new CallerContext(parentCallContext.msgSender, parentCallContext.storageContractAddress)
-      : CallerContext.empty();
+      : CallerContext.default();
     // todo: populate side effect counters correctly
     return new CallRequest(this.hash(), parentCallContext.storageContractAddress, callerContext, Fr.ZERO, Fr.ZERO);
   }

@@ -81,7 +81,7 @@ export class TxEffect {
       );
     }
     publicDataWrites.forEach(h => {
-      if (h.isEmpty()) {
+      if (h.isDefault()) {
         throw new Error('Public data write is empty');
       }
     });
@@ -176,11 +176,11 @@ export class TxEffect {
     );
   }
 
-  static empty(): TxEffect {
-    return new TxEffect(RevertCode.OK, [], [], [], [], EncryptedTxL2Logs.empty(), UnencryptedTxL2Logs.empty());
+  static default(): TxEffect {
+    return new TxEffect(RevertCode.OK, [], [], [], [], EncryptedTxL2Logs.default(), UnencryptedTxL2Logs.default());
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return this.nullifiers.length === 0;
   }
 

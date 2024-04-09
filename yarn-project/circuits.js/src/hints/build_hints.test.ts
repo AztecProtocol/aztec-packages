@@ -77,9 +77,9 @@ describe('buildNullifierReadRequestHints', () => {
   const buildHints = () => buildNullifierReadRequestHints(oracle, nullifierReadRequests, nullifiers);
 
   beforeEach(() => {
-    nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty);
+    nullifierReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.default);
     nullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i => makeNullifier(innerNullifier(i)));
-    expectedHints = NullifierReadRequestHintsBuilder.empty();
+    expectedHints = NullifierReadRequestHintsBuilder.default();
     numReadRequests = 0;
     numPendingReads = 0;
     numSettledReads = 0;
@@ -125,8 +125,8 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
   const oracle = {
     getLowNullifierMembershipWitness: () => ({ membershipWitness: {}, leafPreimage: {} } as any),
   };
-  const nonExistentReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.empty);
-  let nullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty);
+  const nonExistentReadRequests = makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestContext.default);
+  let nullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default);
 
   const innerNullifier = (index: number) => index + 1;
 
@@ -145,7 +145,7 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
 
   const populateNullifiers = (numNullifiers = MAX_NEW_NULLIFIERS_PER_TX) => {
     nullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, i =>
-      i < numNullifiers ? makeNullifier(innerNullifier(i)) : SideEffectLinkedToNoteHash.empty(),
+      i < numNullifiers ? makeNullifier(innerNullifier(i)) : SideEffectLinkedToNoteHash.default(),
     );
   };
 
@@ -163,10 +163,10 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
 
   const buildHints = () => buildNullifierNonExistentReadRequestHints(oracle, nonExistentReadRequests, nullifiers);
 
-  it('builds empty hints', async () => {
+  it('builds default hints', async () => {
     const hints = await buildHints();
-    const emptyHints = NullifierNonExistentReadRequestHintsBuilder.empty();
-    expect(hints).toEqual(emptyHints);
+    const defaultHints = NullifierNonExistentReadRequestHintsBuilder.default();
+    expect(hints).toEqual(defaultHints);
   });
 
   it('builds hints for full sorted nullifiers', async () => {
@@ -192,7 +192,7 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
 
     // The first half contains sorted values.
     for (let i = 0; i < numNonEmptyNullifiers - 1; ++i) {
-      expect(sortedPendingValues[i]).not.toEqual(SideEffectLinkedToNoteHash.empty());
+      expect(sortedPendingValues[i]).not.toEqual(SideEffectLinkedToNoteHash.default());
       expect(sortedPendingValues[i].value.lt(sortedPendingValues[i + 1].value)).toBe(true);
     }
     for (let i = 0; i < numNonEmptyNullifiers; ++i) {
@@ -200,9 +200,9 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
       expect(nullifiers[i].value.equals(sortedPendingValues[index].value)).toBe(true);
     }
 
-    // The second half is empty.
+    // The second half is default (empty).
     for (let i = numNonEmptyNullifiers; i < sortedPendingValues.length; ++i) {
-      expect(sortedPendingValues[i]).toEqual(SideEffectLinkedToNoteHash.empty());
+      expect(sortedPendingValues[i]).toEqual(SideEffectLinkedToNoteHash.default());
     }
     for (let i = numNonEmptyNullifiers; i < sortedPendingValueHints.length; ++i) {
       expect(sortedPendingValueHints[i]).toBe(0);
@@ -224,7 +224,7 @@ describe('buildNullifierNonExistentReadRequestHints', () => {
     nonExistentReadRequests[2] = makeReadRequest(minNullifier.value);
     nullifiers = padArrayEnd(
       sortedNullifiers.map(n => makeNullifier(n.value)),
-      SideEffectLinkedToNoteHash.empty(),
+      SideEffectLinkedToNoteHash.default(),
       MAX_NEW_NULLIFIERS_PER_TX,
     );
 

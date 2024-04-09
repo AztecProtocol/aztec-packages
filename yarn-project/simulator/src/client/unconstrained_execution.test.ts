@@ -47,7 +47,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const notes: Note[] = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      oracle.getHeader.mockResolvedValue(Header.empty());
+      oracle.getHeader.mockResolvedValue(Header.default());
       oracle.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
           contractAddress,
@@ -63,7 +63,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const execRequest: FunctionCall = {
         to: contractAddress,
-        functionData: new FunctionData(FunctionSelector.empty(), true),
+        functionData: new FunctionData(FunctionSelector.default(), true),
         args: encodeArguments(artifact, [owner]),
       };
 

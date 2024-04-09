@@ -1,15 +1,15 @@
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import { type IsEmpty, type Ordered } from '../interfaces/index.js';
+import { type IsDefault, type Ordered } from '../interfaces/index.js';
 
 // Define these utils here as their design is very specific to kernel's accumulated data and not general enough to be put in foundation.
 
-// Returns number of non-empty items in an array.
-export function countAccumulatedItems<T extends IsEmpty>(arr: T[]) {
+// Returns number of non-default items in an array.
+export function countAccumulatedItems<T extends IsDefault>(arr: T[]) {
   return arr.reduce((num, item, i) => {
-    if (!item.isEmpty()) {
+    if (!item.isDefault()) {
       if (num !== i) {
-        throw new Error('Non-empty items must be placed continuously from index 0.');
+        throw new Error('Non-default items must be placed continuously from index 0.');
       }
       return num + 1;
     }
@@ -18,19 +18,19 @@ export function countAccumulatedItems<T extends IsEmpty>(arr: T[]) {
 }
 
 // Merges two arrays of length N into an array of length N.
-export function mergeAccumulatedData<T extends IsEmpty, N extends number>(
+export function mergeAccumulatedData<T extends IsDefault, N extends number>(
   _length: N,
   arr0: Tuple<T, N>,
   arr1: Tuple<T, N>,
 ): Tuple<T, N> {
-  const numNonEmptyItems0 = countAccumulatedItems(arr0);
-  const numNonEmptyItems1 = countAccumulatedItems(arr1);
-  if (numNonEmptyItems0 + numNonEmptyItems1 > arr0.length) {
-    throw new Error('Combined non-empty items exceeded the maximum allowed.');
+  const numNonDefaultItems0 = countAccumulatedItems(arr0);
+  const numNonDefaultItems1 = countAccumulatedItems(arr1);
+  if (numNonDefaultItems0 + numNonDefaultItems1 > arr0.length) {
+    throw new Error('Combined non-default items exceeded the maximum allowed.');
   }
 
   const arr = [...arr0] as Tuple<T, N>;
-  arr1.slice(0, numNonEmptyItems1).forEach((item, i) => (arr[i + numNonEmptyItems0] = item));
+  arr1.slice(0, numNonDefaultItems1).forEach((item, i) => (arr[i + numNonDefaultItems0] = item));
   return arr;
 }
 

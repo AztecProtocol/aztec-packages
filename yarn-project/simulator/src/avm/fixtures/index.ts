@@ -58,20 +58,20 @@ export function initMockPersistableStateManager(): AvmPersistableStateManager {
  */
 export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
-    overrides?.address ?? AztecAddress.zero(),
-    overrides?.storageAddress ?? AztecAddress.zero(),
-    overrides?.origin ?? AztecAddress.zero(),
-    overrides?.sender ?? AztecAddress.zero(),
+    overrides?.address ?? AztecAddress.ZERO,
+    overrides?.storageAddress ?? AztecAddress.ZERO,
+    overrides?.origin ?? AztecAddress.ZERO,
+    overrides?.sender ?? AztecAddress.ZERO,
     overrides?.portal ?? EthAddress.ZERO,
-    overrides?.feePerL1Gas ?? Fr.zero(),
-    overrides?.feePerL2Gas ?? Fr.zero(),
-    overrides?.feePerDaGas ?? Fr.zero(),
-    overrides?.contractCallDepth ?? Fr.zero(),
-    overrides?.globals ?? GlobalVariables.empty(),
+    overrides?.feePerL1Gas ?? Fr.ZERO,
+    overrides?.feePerL2Gas ?? Fr.ZERO,
+    overrides?.feePerDaGas ?? Fr.ZERO,
+    overrides?.contractCallDepth ?? Fr.ZERO,
+    overrides?.globals ?? GlobalVariables.default(),
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
-    overrides?.temporaryFunctionSelector ?? FunctionSelector.empty(),
+    overrides?.temporaryFunctionSelector ?? FunctionSelector.default(),
   );
 }
 
@@ -80,12 +80,12 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
  */
 export function initGlobalVariables(overrides?: Partial<GlobalVariables>): GlobalVariables {
   return new GlobalVariables(
-    overrides?.chainId ?? Fr.zero(),
-    overrides?.version ?? Fr.zero(),
-    overrides?.blockNumber ?? Fr.zero(),
-    overrides?.timestamp ?? Fr.zero(),
+    overrides?.chainId ?? Fr.ZERO,
+    overrides?.version ?? Fr.ZERO,
+    overrides?.blockNumber ?? Fr.ZERO,
+    overrides?.timestamp ?? Fr.ZERO,
     overrides?.coinbase ?? EthAddress.ZERO,
-    overrides?.feeRecipient ?? AztecAddress.zero(),
+    overrides?.feeRecipient ?? AztecAddress.ZERO,
   );
 }
 

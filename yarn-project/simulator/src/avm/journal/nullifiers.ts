@@ -1,3 +1,4 @@
+import { AztecAddress } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -50,7 +51,9 @@ export class Nullifiers {
     let leafIndex: bigint | undefined = undefined;
     if (!existsAsPending) {
       // silo the nullifier before checking for its existence in the host
-      leafIndex = await this.hostNullifiers.getNullifierIndex(siloNullifier(storageAddress, nullifier));
+      leafIndex = await this.hostNullifiers.getNullifierIndex(
+        siloNullifier(AztecAddress.fromField(storageAddress), nullifier),
+      );
     }
     const exists = existsAsPending || leafIndex !== undefined;
     leafIndex = leafIndex === undefined ? BigInt(0) : leafIndex;

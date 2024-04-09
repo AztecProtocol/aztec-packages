@@ -59,13 +59,13 @@ export class PrivateKernelCircuitPublicInputs {
     );
   }
 
-  static empty() {
+  static default() {
     return new PrivateKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      Fr.zero(),
-      ValidationRequests.empty(),
-      PrivateAccumulatedData.empty(),
-      CombinedConstantData.empty(),
+      Fr.ZERO,
+      ValidationRequests.default(),
+      PrivateAccumulatedData.default(),
+      CombinedConstantData.default(),
     );
   }
 }

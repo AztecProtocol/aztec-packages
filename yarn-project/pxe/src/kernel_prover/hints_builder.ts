@@ -29,8 +29,8 @@ export class HintsBuilder {
     const sorted = sideEffects
       .map((sideEffect, index) => ({ sideEffect, index }))
       .sort((a, b) => {
-        // Empty ones go to the right
-        if (a.sideEffect.isEmpty()) {
+        // Default ones go to the right
+        if (a.sideEffect.isDefault()) {
           return 1;
         }
         return Number(a.sideEffect.counter.toBigInt() - b.sideEffect.counter.toBigInt());
@@ -60,7 +60,7 @@ export class HintsBuilder {
     noteHashes: Tuple<SideEffect, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX> {
     const hints = makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, Fr.zero);
-    for (let i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_TX && !noteHashReadRequests[i].isEmpty(); i++) {
+    for (let i = 0; i < MAX_NOTE_HASH_READ_REQUESTS_PER_TX && !noteHashReadRequests[i].isDefault(); i++) {
       const equalToRR = (cmt: SideEffect) => cmt.value.equals(noteHashReadRequests[i].value);
       const result = noteHashes.findIndex(equalToRR);
       if (result == -1) {
@@ -145,7 +145,7 @@ export class HintsBuilder {
     const keys = makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GrumpkinScalar.zero);
     for (let i = 0; i < nullifierKeyValidationRequests.length; ++i) {
       const request = nullifierKeyValidationRequests[i];
-      if (request.isEmpty()) {
+      if (request.isDefault()) {
         break;
       }
       keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);

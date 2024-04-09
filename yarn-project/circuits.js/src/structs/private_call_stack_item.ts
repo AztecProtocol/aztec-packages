@@ -74,16 +74,16 @@ export class PrivateCallStackItem {
    * Returns a new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
    * @returns A new instance of PrivateCallStackItem with zero contract address, function data and public inputs.
    */
-  public static empty(): PrivateCallStackItem {
+  public static default(): PrivateCallStackItem {
     return new PrivateCallStackItem(
       AztecAddress.ZERO,
-      FunctionData.empty({ isPrivate: true }),
-      PrivateCircuitPublicInputs.empty(),
+      FunctionData.default({ isPrivate: true }),
+      PrivateCircuitPublicInputs.default(),
     );
   }
 
-  isEmpty() {
-    return this.contractAddress.isZero() && this.functionData.isEmpty() && this.publicInputs.isEmpty();
+  isDefault() {
+    return this.contractAddress.isZero() && this.functionData.isDefault(true) && this.publicInputs.isDefault();
   }
 
   /**
@@ -99,14 +99,14 @@ export class PrivateCallStackItem {
    * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
    */
   public toCallRequest(parentCallContext: CallContext) {
-    if (this.isEmpty()) {
-      return CallRequest.empty();
+    if (this.isDefault()) {
+      return CallRequest.default();
     }
 
     const currentCallContext = this.publicInputs.callContext;
     const callerContext = currentCallContext.isDelegateCall
       ? new CallerContext(parentCallContext.msgSender, parentCallContext.storageContractAddress)
-      : CallerContext.empty();
+      : CallerContext.default();
     return new CallRequest(
       this.hash(),
       parentCallContext.storageContractAddress,

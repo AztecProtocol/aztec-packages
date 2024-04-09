@@ -115,14 +115,14 @@ export class L2Block {
   }
 
   /**
-   * Creates an L2 block containing empty data.
+   * Creates an L2 block containing default (empty) data.
    * @returns The L2 block.
    */
-  static empty(): L2Block {
+  static default(): L2Block {
     return L2Block.fromFields({
-      archive: AppendOnlyTreeSnapshot.zero(),
-      header: Header.empty(),
-      body: Body.empty(),
+      archive: AppendOnlyTreeSnapshot.default(),
+      header: Header.default(),
+      body: Body.default(),
     });
   }
 
@@ -147,10 +147,10 @@ export class L2Block {
   getPublicInputsHash(): Fr {
     const preimage = [
       this.header.globalVariables,
-      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / commitments,
-      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
+      AppendOnlyTreeSnapshot.default(), // this.startNoteHashTreeSnapshot / commitments,
+      AppendOnlyTreeSnapshot.default(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.default(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.default(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
       this.header.state.partial.noteHashTree,
       this.header.state.partial.nullifierTree,
@@ -171,10 +171,10 @@ export class L2Block {
   getStartStateHash() {
     const inputValue = serializeToBuffer(
       new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
-      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
+      AppendOnlyTreeSnapshot.default(), // this.startNoteHashTreeSnapshot,
+      AppendOnlyTreeSnapshot.default(), // this.startNullifierTreeSnapshot,
+      AppendOnlyTreeSnapshot.default(), // this.startPublicDataTreeSnapshot,
+      AppendOnlyTreeSnapshot.default(), // this.startL1ToL2MessageTreeSnapshot,
       this.header.lastArchive,
     );
     return sha256(inputValue);

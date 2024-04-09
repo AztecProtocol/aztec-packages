@@ -95,7 +95,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
         argsHash: packedArgs.hash,
         origin: this.contractAddress,
         functionData: FunctionData.fromAbi(this.functionDao),
-        txContext: TxContext.empty(nodeInfo.chainId, nodeInfo.protocolVersion),
+        txContext: TxContext.default(nodeInfo.chainId, nodeInfo.protocolVersion),
         packedArguments: [packedArgs],
         authWitnesses: [],
       });

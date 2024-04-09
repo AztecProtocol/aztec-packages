@@ -34,7 +34,7 @@ export class KernelCircuitPublicInputs {
     public revertCode: RevertCode,
   ) {}
 
-  getNonEmptyNullifiers() {
+  getNonZeroNullifiers() {
     return this.end.newNullifiers.filter(n => !n.isZero());
   }
 
@@ -64,12 +64,12 @@ export class KernelCircuitPublicInputs {
     );
   }
 
-  static empty() {
+  static default() {
     return new KernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      RollupValidationRequests.empty(),
-      CombinedAccumulatedData.empty(),
-      CombinedConstantData.empty(),
+      RollupValidationRequests.default(),
+      CombinedAccumulatedData.default(),
+      CombinedConstantData.default(),
       RevertCode.OK,
     );
   }

@@ -16,8 +16,8 @@ export function padArrayEnd<T, N extends number>(arr: T[], elem: T, length: N): 
 }
 
 /** Removes the right-padding for an array. Does not modify original array. */
-export function removeArrayPaddingEnd<T>(arr: T[], isEmpty: (item: T) => boolean): T[] {
-  const lastNonEmptyIndex = arr.reduce((last, item, i) => (isEmpty(item) ? last : i), -1);
+export function removeArrayPaddingEnd<T>(arr: T[], isDefault: (item: T) => boolean): T[] {
+  const lastNonEmptyIndex = arr.reduce((last, item, i) => (isDefault(item) ? last : i), -1);
   return lastNonEmptyIndex === -1 ? [] : arr.slice(0, lastNonEmptyIndex + 1);
 }
 
@@ -39,11 +39,11 @@ export function padArrayStart<T, N extends number>(arr: T[], elem: T, length: N)
 /**
  * Returns if an array is composed of empty items.
  * @param arr - Array to check.
- * @returns True if every item in the array isEmpty.
+ * @returns True if every item in the array isDefault.
  */
-export function isArrayEmpty<T>(arr: T[], isEmpty: (item: T) => boolean): boolean {
+export function isArrayEmpty<T>(arr: T[], isDefault: (item: T) => boolean): boolean {
   for (const item of arr) {
-    if (!isEmpty(item)) {
+    if (!isDefault(item)) {
       return false;
     }
   }
@@ -51,12 +51,12 @@ export function isArrayEmpty<T>(arr: T[], isEmpty: (item: T) => boolean): boolea
 }
 
 /**
- * Returns the number of non-empty items in an array.
+ * Returns the number of non-default items in an array.
  * @param arr - Array to check.
- * @returns Number of non-empty items in an array.
+ * @returns Number of non-default items in an array.
  */
-export function arrayNonEmptyLength<T>(arr: T[], isEmpty: (item: T) => boolean): number {
-  return arr.reduce((sum, item) => (isEmpty(item) ? sum : sum + 1), 0);
+export function arrayNonDefaultLength<T>(arr: T[], isDefault: (item: T) => boolean): number {
+  return arr.reduce((sum, item) => (isDefault(item) ? sum : sum + 1), 0);
 }
 
 /**

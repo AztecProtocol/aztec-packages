@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/circuits.js';
+import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 
 import type { AvmContext } from '../avm_context.js';
@@ -62,7 +62,7 @@ abstract class ExternalCall extends Instruction {
     context.machineState.consumeGas(totalGas);
 
     const nestedContext = context.createNestedContractCallContext(
-      callAddress.toFr(),
+      AztecAddress.fromField(callAddress.toFr()),
       calldata,
       allocatedGas,
       this.type,

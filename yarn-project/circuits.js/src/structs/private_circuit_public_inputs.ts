@@ -1,5 +1,4 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { isArrayEmpty } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import {
@@ -210,63 +209,38 @@ export class PrivateCircuitPublicInputs {
   }
 
   /**
-   * Create an empty PrivateCircuitPublicInputs.
-   * @returns An empty PrivateCircuitPublicInputs object.
+   * Create a default PrivateCircuitPublicInputs.
+   * @returns A default PrivateCircuitPublicInputs object.
    */
-  public static empty(): PrivateCircuitPublicInputs {
+  public static default(): PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
-      CallContext.empty(),
+      CallContext.default(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       Fr.ZERO,
-      MaxBlockNumber.empty(),
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.empty),
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
+      MaxBlockNumber.default(),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect.default),
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.default),
+      makeTuple(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, NullifierKeyValidationRequest.default),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.default),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.default),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.default),
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
-      Header.empty(),
+      Header.default(),
       Fr.ZERO,
       Fr.ZERO,
     );
   }
 
-  isEmpty() {
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    const isEmptyArray = (arr: { isEmpty: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isEmpty());
-    // eslint-disable-next-line jsdoc/require-jsdoc
-    const isZeroArray = (arr: { isZero: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isZero());
-    return (
-      this.callContext.isEmpty() &&
-      this.argsHash.isZero() &&
-      isZeroArray(this.returnValues) &&
-      this.minRevertibleSideEffectCounter.isZero() &&
-      this.maxBlockNumber.isEmpty() &&
-      isEmptyArray(this.noteHashReadRequests) &&
-      isEmptyArray(this.nullifierReadRequests) &&
-      isEmptyArray(this.nullifierKeyValidationRequests) &&
-      isEmptyArray(this.newNoteHashes) &&
-      isEmptyArray(this.newNullifiers) &&
-      isZeroArray(this.privateCallStackHashes) &&
-      isZeroArray(this.publicCallStackHashes) &&
-      isEmptyArray(this.newL2ToL1Msgs) &&
-      this.encryptedLogsHash.isZero() &&
-      this.unencryptedLogsHash.isZero() &&
-      this.encryptedLogPreimagesLength.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicalHeader.isEmpty() &&
-      this.chainId.isZero() &&
-      this.version.isZero()
-    );
+  isDefault() {
+    return this.toBuffer().equals(PrivateCircuitPublicInputs.default().toBuffer());
   }
 
   /**

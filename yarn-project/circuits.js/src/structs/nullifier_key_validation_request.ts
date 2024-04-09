@@ -47,12 +47,12 @@ export class NullifierKeyValidationRequest {
     return new NullifierKeyValidationRequest(Point.fromFields(reader), reader.readFq());
   }
 
-  isEmpty() {
-    return this.publicKey.isZero() && this.secretKey.isZero();
+  isDefault() {
+    return this.publicKey.isDefault() && this.secretKey.isZero();
   }
 
-  static empty() {
-    return new NullifierKeyValidationRequest(Point.ZERO, GrumpkinScalar.ZERO);
+  static default() {
+    return new NullifierKeyValidationRequest(Point.default(), GrumpkinScalar.ZERO);
   }
 }
 
@@ -107,11 +107,11 @@ export class NullifierKeyValidationRequestContext {
     );
   }
 
-  isEmpty() {
-    return this.publicKey.isZero() && this.secretKey.isZero() && this.contractAddress.isZero();
+  isDefault() {
+    return this.publicKey.isDefault() && this.secretKey.isZero() && this.contractAddress.isZero();
   }
 
-  static empty() {
-    return new NullifierKeyValidationRequestContext(Point.ZERO, GrumpkinScalar.ZERO, AztecAddress.ZERO);
+  static default() {
+    return new NullifierKeyValidationRequestContext(Point.default(), GrumpkinScalar.ZERO, AztecAddress.ZERO);
   }
 }

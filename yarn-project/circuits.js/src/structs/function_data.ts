@@ -41,11 +41,11 @@ export class FunctionData {
   }
 
   /**
-   * Returns whether this instance is empty.
+   * Returns whether this instance is default.
    * @returns True if the function selector is zero.
    */
-  isEmpty() {
-    return this.selector.isEmpty();
+  isDefault(_private: boolean) {
+    return this.selector.isDefault() && _private == this.isPrivate;
   }
 
   /**
@@ -53,11 +53,11 @@ export class FunctionData {
    * @param args - Arguments to pass to the constructor.
    * @returns A new instance of FunctionData with zero function selector.
    */
-  public static empty(args?: {
+  public static default(args?: {
     /** Indicates whether the function is private or public. */
     isPrivate?: boolean;
   }): FunctionData {
-    return new FunctionData(FunctionSelector.empty(), args?.isPrivate ?? false);
+    return new FunctionData(FunctionSelector.default(), args?.isPrivate ?? false);
   }
 
   /**

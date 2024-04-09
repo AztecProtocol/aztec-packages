@@ -53,12 +53,16 @@ export class ContractStorageUpdateRequest {
     return [fields.storageSlot, fields.newValue, fields.sideEffectCounter] as const;
   }
 
-  static empty() {
+  static default() {
     return new ContractStorageUpdateRequest(Fr.ZERO, Fr.ZERO);
   }
 
-  isEmpty() {
-    return this.storageSlot.isZero() && this.newValue.isZero();
+  isDefault() {
+    return (
+      this.storageSlot.isZero() &&
+      this.newValue.isZero() &&
+      (this.sideEffectCounter == 0 || this.sideEffectCounter == undefined)
+    );
   }
 
   toFriendlyJSON() {

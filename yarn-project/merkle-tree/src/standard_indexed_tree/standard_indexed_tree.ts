@@ -51,7 +51,7 @@ function getEmptyLowLeafWitness<N extends number>(
   leafPreimageFactory: PreimageFactory,
 ): LowLeafWitnessData<N> {
   return {
-    leafPreimage: leafPreimageFactory.empty(),
+    leafPreimage: leafPreimageFactory.default(),
     index: 0n,
     siblingPath: new SiblingPath(treeHeight, Array(treeHeight).fill(toBufferBE(0n, 32))),
   };
@@ -479,7 +479,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight, this.leafPreimageFactory);
     // Accumulators
     const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
-    const pendingInsertionSubtree: IndexedTreeLeafPreimage[] = leaves.map(() => this.leafPreimageFactory.empty());
+    const pendingInsertionSubtree: IndexedTreeLeafPreimage[] = leaves.map(() => this.leafPreimageFactory.default());
 
     // Start info
     const startInsertionIndex = this.getNumLeaves(true);
@@ -495,7 +495,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
       const newLeaf = sortedDescendingLeaves[i];
       const originalIndex = leavesToInsert.indexOf(newLeaf);
 
-      if (newLeaf.isEmpty()) {
+      if (newLeaf.isDefault()) {
         continue;
       }
 
@@ -541,7 +541,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
 
         this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
 
-        pendingInsertionSubtree[originalIndex] = this.leafPreimageFactory.empty();
+        pendingInsertionSubtree[originalIndex] = this.leafPreimageFactory.default();
       } else {
         const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
           lowLeafPreimage.asLeaf(),

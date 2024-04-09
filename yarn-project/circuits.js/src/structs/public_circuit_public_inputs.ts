@@ -1,6 +1,5 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { isArrayEmpty } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import {
@@ -132,57 +131,34 @@ export class PublicCircuitPublicInputs {
   }
 
   /**
-   * Returns an empty instance.
-   * @returns An empty instance.
+   * Returns a default instance (zeroed).
+   * @returns A default instance (zeroed).
    */
-  public static empty() {
+  public static default() {
     return new PublicCircuitPublicInputs(
-      CallContext.empty(),
+      CallContext.default(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.default),
+      makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest.default),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.default),
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.default),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, SideEffect.default),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.default),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.default),
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
-      Header.empty(),
+      Header.default(),
       AztecAddress.ZERO,
       RevertCode.OK,
     );
   }
 
-  isEmpty() {
-    const isSideEffectArrayEmpty = (arr: SideEffect[]) => isArrayEmpty(arr, item => item.isEmpty());
-    const isSideEffectLinkedArrayEmpty = (arr: SideEffectLinkedToNoteHash[]) =>
-      isArrayEmpty(arr, item => item.isEmpty());
-    const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
-    return (
-      this.callContext.isEmpty() &&
-      this.argsHash.isZero() &&
-      isFrArrayEmpty(this.returnValues) &&
-      isArrayEmpty(this.nullifierReadRequests, item => item.isEmpty()) &&
-      isArrayEmpty(this.nullifierNonExistentReadRequests, item => item.isEmpty()) &&
-      isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
-      isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
-      isFrArrayEmpty(this.publicCallStackHashes) &&
-      isSideEffectArrayEmpty(this.newNoteHashes) &&
-      isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
-      isArrayEmpty(this.newL2ToL1Msgs, item => item.isEmpty()) &&
-      this.startSideEffectCounter.isZero() &&
-      this.endSideEffectCounter.isZero() &&
-      this.unencryptedLogsHash.isZero() &&
-      this.unencryptedLogPreimagesLength.isZero() &&
-      this.historicalHeader.isEmpty() &&
-      this.proverAddress.isZero() &&
-      this.revertCode.isOK()
-    );
+  isDefault() {
+    return PublicCircuitPublicInputs.default().toBuffer().equals(this.toBuffer());
   }
 
   /**

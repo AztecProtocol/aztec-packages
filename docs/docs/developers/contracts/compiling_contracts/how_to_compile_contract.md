@@ -52,7 +52,7 @@ export class TokenContract extends ContractBase {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(pxe: PXE, admin: AztecAddressLike) {
-    return new DeployMethod<TokenContract>(Point.ZERO, pxe, TokenContractArtifact, Array.from(arguments).slice(1));
+    return new DeployMethod<TokenContract>(Point.default(), pxe, TokenContractArtifact, Array.from(arguments).slice(1));
   }
 
   /**

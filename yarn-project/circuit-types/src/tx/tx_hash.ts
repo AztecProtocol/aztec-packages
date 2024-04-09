@@ -56,7 +56,7 @@ export class TxHash {
    * Returns true if this hash is zero.
    * @returns True if this hash is zero.
    */
-  public isZero(): boolean {
+  public isDefault(): boolean {
     return this.buffer.equals(Buffer.alloc(32, 0));
   }
 

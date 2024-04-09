@@ -26,7 +26,7 @@ import { SimulatedTx, Tx, TxHash } from './tx/index.js';
  * Testing utility to create empty logs composed from a single empty log.
  */
 export function makeEmptyLogs(): EncryptedTxL2Logs {
-  const functionLogs = [new EncryptedFunctionL2Logs([EncryptedL2Log.empty()])];
+  const functionLogs = [new EncryptedFunctionL2Logs([EncryptedL2Log.default()])];
   return new EncryptedTxL2Logs(functionLogs);
 }
 
@@ -48,23 +48,23 @@ export const mockTx = (
   const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x100 + i));
 
   const isForPublic = totalPublicCallRequests > 0;
-  const data = PrivateKernelTailCircuitPublicInputs.empty();
+  const data = PrivateKernelTailCircuitPublicInputs.default();
   const firstNullifier = new SideEffectLinkedToNoteHash(new Fr(seed + 1), new Fr(seed + 2), Fr.ZERO);
 
   if (isForPublic) {
     data.forRollup = undefined;
-    data.forPublic = PartialPrivateTailPublicInputsForPublic.empty();
+    data.forPublic = PartialPrivateTailPublicInputsForPublic.default();
 
     data.forPublic.endNonRevertibleData.newNullifiers[0] = firstNullifier;
 
     data.forPublic.endNonRevertibleData.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, i =>
-      i < numberOfNonRevertiblePublicCallRequests ? publicCallRequests[i].toCallRequest() : CallRequest.empty(),
+      i < numberOfNonRevertiblePublicCallRequests ? publicCallRequests[i].toCallRequest() : CallRequest.default(),
     );
 
     data.forPublic.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, i =>
       i < numberOfRevertiblePublicCallRequests
         ? publicCallRequests[i + numberOfNonRevertiblePublicCallRequests].toCallRequest()
-        : CallRequest.empty(),
+        : CallRequest.default(),
     );
   } else {
     data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
@@ -72,8 +72,8 @@ export const mockTx = (
 
   const target = isForPublic ? data.forPublic! : data.forRollup!;
 
-  const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(8, 3) : EncryptedTxL2Logs.empty(); // 8 priv function invocations creating 3 encrypted logs each
-  const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(11, 2) : UnencryptedTxL2Logs.empty(); // 8 priv function invocations creating 3 encrypted logs each
+  const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(8, 3) : EncryptedTxL2Logs.default(); // 8 priv function invocations creating 3 encrypted logs each
+  const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(11, 2) : UnencryptedTxL2Logs.default(); // 8 priv function invocations creating 3 encrypted logs each
   if (!hasLogs) {
     target.end.encryptedLogsHash = Fr.ZERO;
     target.end.unencryptedLogsHash = Fr.ZERO;

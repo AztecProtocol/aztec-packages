@@ -30,9 +30,9 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'
    */
   hash: TxHash;
   /**
-   * Flag indicating the tx is 'empty' meaning it's a padding tx to take us to a power of 2.
+   * Flag indicating the tx is 'default' (empty) meaning it's a padding tx to take us to a power of 2.
    */
-  isEmpty: boolean;
+  isDefault: boolean;
 
   /**
    * Reason the tx was reverted.
@@ -96,9 +96,9 @@ export function makeProcessedTx(
     hash: tx.getTxHash(),
     data: kernelOutput,
     proof,
-    encryptedLogs: revertReason ? EncryptedTxL2Logs.empty() : tx.encryptedLogs,
-    unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
-    isEmpty: false,
+    encryptedLogs: revertReason ? EncryptedTxL2Logs.default() : tx.encryptedLogs,
+    unencryptedLogs: revertReason ? UnencryptedTxL2Logs.default() : tx.unencryptedLogs,
+    isDefault: false,
     revertReason,
   };
 }
@@ -108,7 +108,7 @@ export function makeProcessedTx(
  * @returns A processed empty tx.
  */
 export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): ProcessedTx {
-  const emptyKernelOutput = KernelCircuitPublicInputs.empty();
+  const emptyKernelOutput = KernelCircuitPublicInputs.default();
   emptyKernelOutput.constants.historicalHeader = header;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
@@ -117,11 +117,11 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
   const hash = new TxHash(Fr.ZERO.toBuffer());
   return {
     hash,
-    encryptedLogs: EncryptedTxL2Logs.empty(),
-    unencryptedLogs: UnencryptedTxL2Logs.empty(),
+    encryptedLogs: EncryptedTxL2Logs.default(),
+    unencryptedLogs: UnencryptedTxL2Logs.default(),
     data: emptyKernelOutput,
     proof: emptyProof,
-    isEmpty: true,
+    isDefault: true,
     revertReason: undefined,
   };
 }
@@ -134,14 +134,14 @@ export function toTxEffect(tx: ProcessedTx): TxEffect {
     tx.data.end.newL2ToL1Msgs.filter(h => !h.isZero()),
     tx.data.end.publicDataUpdateRequests
       .map(t => new PublicDataWrite(t.leafSlot, t.newValue))
-      .filter(h => !h.isEmpty()),
-    tx.encryptedLogs || EncryptedTxL2Logs.empty(),
-    tx.unencryptedLogs || UnencryptedTxL2Logs.empty(),
+      .filter(h => !h.isDefault()),
+    tx.encryptedLogs || EncryptedTxL2Logs.default(),
+    tx.unencryptedLogs || UnencryptedTxL2Logs.default(),
   );
 }
 
 function validateProcessedTxLogs(tx: ProcessedTx): void {
-  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.empty();
+  const unencryptedLogs = tx.unencryptedLogs || UnencryptedTxL2Logs.default();
   const kernelUnencryptedLogsHash = tx.data.end.unencryptedLogsHash;
   const referenceHash = Fr.fromBuffer(unencryptedLogs.hash());
   if (!referenceHash.equals(kernelUnencryptedLogsHash)) {

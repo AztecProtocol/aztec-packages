@@ -32,9 +32,9 @@ export class KernelData {
     public vkPath: Tuple<Fr, typeof VK_TREE_HEIGHT>,
   ) {}
 
-  static empty(): KernelData {
+  static default(): KernelData {
     return new this(
-      KernelCircuitPublicInputs.empty(),
+      KernelCircuitPublicInputs.default(),
       makeEmptyProof(),
       VerificationKey.makeFake(),
       0,

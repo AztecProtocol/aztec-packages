@@ -1,6 +1,6 @@
 import {
   type AccountWallet,
-  type AztecAddress,
+  AztecAddress,
   type CheatCodes,
   type DebugLogger,
   ExtendedNote,
@@ -189,7 +189,7 @@ describe('e2e_crowdfunding_and_claim', () => {
         nonce: noteNonces[0],
       },
       value: extendedNote.note.items[0],
-      owner: extendedNote.note.items[1],
+      owner: AztecAddress.fromField(extendedNote.note.items[1]),
       randomness: extendedNote.note.items[2],
     };
   };

@@ -63,12 +63,17 @@ export class TxContext {
     return new TxContext(reader.readBoolean(), reader.readBoolean(), Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
-  static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
+  static default(chainId: Fr | number = 0, version: Fr | number = 0) {
     return new TxContext(false, false, new Fr(chainId), new Fr(version));
   }
 
-  isEmpty(): boolean {
-    return !this.isFeePaymentTx && !this.isRebatePaymentTx && this.chainId.isZero() && this.version.isZero();
+  isDefault(chainId: number = 0, version: number = 0): boolean {
+    return (
+      !this.isFeePaymentTx &&
+      !this.isRebatePaymentTx &&
+      this.chainId.equals(new Fr(chainId)) &&
+      this.version.equals(new Fr(version))
+    );
   }
 
   /**

@@ -20,7 +20,7 @@ describe('AVM WitGen and Proof Generation', () => {
     msgSender: AztecAddress.random(),
     storageContractAddress: AztecAddress.random(),
     portalContractAddress: EthAddress.random(),
-    functionSelector: FunctionSelector.empty(),
+    functionSelector: FunctionSelector.default(),
     isDelegateCall: false,
     isStaticCall: false,
     sideEffectCounter: 0,
@@ -46,7 +46,7 @@ describe('AVM WitGen and Proof Generation', () => {
     const bytecode: Buffer = Buffer.from('IAAAAAAAAAAAAgAAAAAAAAYAAAAAAAAAAQAAAAI5AAAAAAIAAAAB', 'base64');
     publicContracts.getBytecode.mockResolvedValue(bytecode);
     const executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-    const functionData = FunctionData.empty();
+    const functionData = FunctionData.default();
     const execution: PublicExecution = { contractAddress, functionData, args, callContext };
     const [proof, vk] = await executor.getAvmProof(execution);
     const valid = await executor.verifyAvmProof(vk, proof);

@@ -18,7 +18,7 @@ export class L1Actor {
     public readonly chainId: number,
   ) {}
 
-  static empty() {
+  static default() {
     return new L1Actor(EthAddress.ZERO, 0);
   }
 

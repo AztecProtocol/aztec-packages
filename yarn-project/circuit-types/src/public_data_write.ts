@@ -57,7 +57,7 @@ export class PublicDataWrite {
    * Checks if the public data write operation is empty.
    * @returns True if the public data write operation is empty, false otherwise.
    */
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return this.leafIndex.isZero() && this.newValue.isZero();
   }
 
@@ -81,10 +81,10 @@ export class PublicDataWrite {
   }
 
   /**
-   * Creates an empty public data write operation.
+   * Creates a default public data write operation.
    * @returns A new public data write operation instance.
    */
-  static empty(): PublicDataWrite {
+  static default(): PublicDataWrite {
     return new PublicDataWrite(Fr.ZERO, Fr.ZERO);
   }
 
@@ -96,7 +96,7 @@ export class PublicDataWrite {
     return new PublicDataWrite(Fr.random(), Fr.random());
   }
 
-  static isEmpty(data: PublicDataWrite): boolean {
-    return data.isEmpty();
+  static isDefault(data: PublicDataWrite): boolean {
+    return data.isDefault();
   }
 }

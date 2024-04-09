@@ -36,11 +36,11 @@ export class PartialStateReference {
     return new PartialStateReference(noteHashTree, nullifierTree, publicDataTree);
   }
 
-  static empty(): PartialStateReference {
+  static default(): PartialStateReference {
     return new PartialStateReference(
-      AppendOnlyTreeSnapshot.zero(),
-      AppendOnlyTreeSnapshot.zero(),
-      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.default(),
+      AppendOnlyTreeSnapshot.default(),
+      AppendOnlyTreeSnapshot.default(),
     );
   }
 
@@ -62,7 +62,7 @@ export class PartialStateReference {
     return fields;
   }
 
-  isEmpty(): boolean {
-    return this.noteHashTree.isZero() && this.nullifierTree.isZero() && this.publicDataTree.isZero();
+  isDefault(): boolean {
+    return this.noteHashTree.isDefault() && this.nullifierTree.isDefault() && this.publicDataTree.isDefault();
   }
 }

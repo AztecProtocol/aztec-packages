@@ -19,14 +19,14 @@ export class CallerContext {
   ) {}
 
   /**
-   * Returns a new instance of CallerContext with zero values.
-   * @returns A new instance of CallerContext with zero values.
+   * Returns a new instance of CallerContext with default values.
+   * @returns A new instance of CallerContext with default values.
    */
-  public static empty(): CallerContext {
+  public static default(): CallerContext {
     return new CallerContext(AztecAddress.ZERO, AztecAddress.ZERO);
   }
 
-  isEmpty() {
+  isDefault() {
     return this.msgSender.isZero() && this.storageContractAddress.isZero();
   }
 
@@ -117,11 +117,11 @@ export class CallRequest {
     );
   }
 
-  isEmpty() {
+  isDefault() {
     return (
       this.hash.isZero() &&
       this.callerContractAddress.isZero() &&
-      this.callerContext.isEmpty() &&
+      this.callerContext.isDefault() &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero()
     );
@@ -131,8 +131,8 @@ export class CallRequest {
    * Returns a new instance of CallRequest with zero hash, caller contract address and caller context.
    * @returns A new instance of CallRequest with zero hash, caller contract address and caller context.
    */
-  public static empty() {
-    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.empty(), Fr.ZERO, Fr.ZERO);
+  public static default() {
+    return new CallRequest(Fr.ZERO, AztecAddress.ZERO, CallerContext.default(), Fr.ZERO, Fr.ZERO);
   }
 
   equals(callRequest: CallRequest) {

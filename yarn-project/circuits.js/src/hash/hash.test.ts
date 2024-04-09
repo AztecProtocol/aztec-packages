@@ -90,14 +90,14 @@ describe('hash', () => {
   });
 
   it('Computes an empty nullifier hash ', () => {
-    const emptyNull = SideEffectLinkedToNoteHash.empty();
+    const emptyNull = SideEffectLinkedToNoteHash.default();
 
     const emptyHash = computeNullifierHash(emptyNull).toString();
     expect(emptyHash).toMatchSnapshot();
   });
 
   it('Computes an empty sideeffect hash ', () => {
-    const emptySideEffect = SideEffect.empty();
+    const emptySideEffect = SideEffect.default();
     const emptyHash = computeCommitmentsHash(emptySideEffect).toString();
     expect(emptyHash).toMatchSnapshot();
   });

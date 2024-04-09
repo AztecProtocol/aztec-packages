@@ -19,7 +19,7 @@ export class EthAddress {
   /**
    * Represents a zero Ethereum address with 20 bytes filled with zeros.
    */
-  public static ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
+  public static readonly ZERO = new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
 
   constructor(private buffer: Buffer) {
     if (buffer.length !== EthAddress.SIZE_IN_BYTES) {
@@ -72,6 +72,10 @@ export class EthAddress {
     } else {
       return EthAddress.checkAddressChecksum(address);
     }
+  }
+
+  public static zero() {
+    return EthAddress.ZERO;
   }
 
   /**

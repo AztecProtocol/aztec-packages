@@ -167,7 +167,7 @@ describe('L1Publisher integration', () => {
 
   const makeBloatedProcessedTx = (seed = 0x1) => {
     const tx = mockTx(seed);
-    const kernelOutput = KernelCircuitPublicInputs.empty();
+    const kernelOutput = KernelCircuitPublicInputs.default();
     kernelOutput.constants.txContext.chainId = fr(chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicalHeader = prevHeader;

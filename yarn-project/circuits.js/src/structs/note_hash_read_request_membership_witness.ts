@@ -75,16 +75,16 @@ export class NoteHashReadRequestMembershipWitness {
    * @param leafIndex - Index of the leaf in the Merkle tree.
    * @returns Membership witness with zero sibling path.
    */
-  public static empty(leafIndex: bigint): NoteHashReadRequestMembershipWitness {
+  public static default(leafIndex: bigint): NoteHashReadRequestMembershipWitness {
     const arr = makeTuple(NOTE_HASH_TREE_HEIGHT, () => Fr.ZERO);
     return new NoteHashReadRequestMembershipWitness(new Fr(leafIndex), arr, false, new Fr(0));
   }
 
   /**
    * Creates a transient read request membership witness.
-   * @returns an empty transient read request membership witness.
+   * @returns a default transient read request membership witness.
    */
-  public static emptyTransient(): NoteHashReadRequestMembershipWitness {
+  public static defaultTransient(): NoteHashReadRequestMembershipWitness {
     const arr = makeTuple(NOTE_HASH_TREE_HEIGHT, () => Fr.ZERO);
     return new NoteHashReadRequestMembershipWitness(new Fr(0), arr, true, new Fr(0));
   }

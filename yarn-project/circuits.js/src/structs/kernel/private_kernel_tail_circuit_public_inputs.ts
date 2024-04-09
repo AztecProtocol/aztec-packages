@@ -29,15 +29,15 @@ export class PartialPrivateTailPublicInputsForPublic {
   ) {}
 
   get needsSetup() {
-    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[1].isDefault();
   }
 
   get needsAppLogic() {
-    return !this.end.publicCallStack[0].isEmpty();
+    return !this.end.publicCallStack[0].isDefault();
   }
 
   get needsTeardown() {
-    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[0].isDefault();
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PartialPrivateTailPublicInputsForPublic {
@@ -53,11 +53,11 @@ export class PartialPrivateTailPublicInputsForPublic {
     return serializeToBuffer(this.validationRequests, this.endNonRevertibleData, this.end);
   }
 
-  static empty() {
+  static default() {
     return new PartialPrivateTailPublicInputsForPublic(
-      ValidationRequests.empty(),
-      PublicAccumulatedData.empty(),
-      PublicAccumulatedData.empty(),
+      ValidationRequests.default(),
+      PublicAccumulatedData.default(),
+      PublicAccumulatedData.default(),
     );
   }
 }
@@ -77,10 +77,10 @@ export class PartialPrivateTailPublicInputsForRollup {
     return serializeToBuffer(this.rollupValidationRequests, this.end);
   }
 
-  static empty() {
+  static default() {
     return new PartialPrivateTailPublicInputsForRollup(
-      RollupValidationRequests.empty(),
-      CombinedAccumulatedData.empty(),
+      RollupValidationRequests.default(),
+      CombinedAccumulatedData.default(),
     );
   }
 }
@@ -146,7 +146,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       : 0;
   }
 
-  getNonEmptyNoteHashes() {
+  getNonZeroNoteHashes() {
     const noteHashes = this.forPublic
       ? mergeAccumulatedData(
           MAX_NEW_NULLIFIERS_PER_TX,
@@ -157,7 +157,7 @@ export class PrivateKernelTailCircuitPublicInputs {
     return noteHashes.filter(n => !n.isZero());
   }
 
-  getNonEmptyNullifiers() {
+  getNonZeroNullifiers() {
     const nullifiers = this.forPublic
       ? mergeAccumulatedData(
           MAX_NEW_NULLIFIERS_PER_TX,
@@ -191,13 +191,13 @@ export class PrivateKernelTailCircuitPublicInputs {
     );
   }
 
-  static empty() {
+  static default() {
     return new PrivateKernelTailCircuitPublicInputs(
       AggregationObject.makeFake(),
-      CombinedConstantData.empty(),
+      CombinedConstantData.default(),
       RevertCode.OK,
       undefined,
-      PartialPrivateTailPublicInputsForRollup.empty(),
+      PartialPrivateTailPublicInputsForRollup.default(),
     );
   }
 }

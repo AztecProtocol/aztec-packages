@@ -52,12 +52,16 @@ export class ContractStorageRead {
     return new ContractStorageRead(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
-  static empty() {
+  static default() {
     return new ContractStorageRead(Fr.ZERO, Fr.ZERO);
   }
 
-  isEmpty() {
-    return this.storageSlot.isZero() && this.currentValue.isZero();
+  isDefault() {
+    return (
+      this.storageSlot.isZero() &&
+      this.currentValue.isZero() &&
+      (this.sideEffectCounter == 0 || this.sideEffectCounter == undefined)
+    );
   }
 
   toFriendlyJSON() {

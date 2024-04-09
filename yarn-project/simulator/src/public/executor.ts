@@ -93,7 +93,7 @@ export async function executePublicFunction(
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
-      unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogs: UnencryptedFunctionL2Logs.default(),
       reverted,
       revertReason,
     };
@@ -115,11 +115,11 @@ export async function executePublicFunction(
     endSideEffectCounter,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
 
-  const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
-  const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());
-  const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
-  const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
-  const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
+  const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isDefault());
+  const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isDefault());
+  const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isDefault());
+  const newNoteHashes = newNoteHashesPadded.filter(v => !v.isDefault());
+  const newNullifiers = newNullifiersPadded.filter(v => !v.isDefault());
 
   const { contractStorageReads, contractStorageUpdateRequests } = context.getStorageActionData();
 

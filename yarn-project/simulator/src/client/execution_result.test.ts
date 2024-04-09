@@ -14,19 +14,19 @@ function emptyExecutionResult(): ExecutionResult {
     acir: Buffer.from(''),
     vk: Buffer.from(''),
     partialWitness: new Map(),
-    callStackItem: PrivateCallStackItem.empty(),
+    callStackItem: PrivateCallStackItem.default(),
     noteHashReadRequestPartialWitnesses: [],
     newNotes: [],
     returnValues: [],
     nestedExecutions: [],
     enqueuedPublicFunctionCalls: [],
-    encryptedLogs: EncryptedFunctionL2Logs.empty(),
-    unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+    encryptedLogs: EncryptedFunctionL2Logs.default(),
+    unencryptedLogs: UnencryptedFunctionL2Logs.default(),
   };
 }
 
 describe('Execution Result test suite - collect encrypted logs', () => {
-  function emptyExecutionResultWithEncryptedLogs(encryptedLogs = EncryptedFunctionL2Logs.empty()): ExecutionResult {
+  function emptyExecutionResultWithEncryptedLogs(encryptedLogs = EncryptedFunctionL2Logs.default()): ExecutionResult {
     const executionResult = emptyExecutionResult();
     executionResult.encryptedLogs = encryptedLogs;
     return executionResult;
@@ -114,9 +114,9 @@ describe('Execution Result test suite - collect encrypted logs', () => {
     executionResult.nestedExecutions.push(fnB);
     const encryptedLogs = collectEncryptedLogs(executionResult);
     expect(encryptedLogs).toEqual([
-      EncryptedFunctionL2Logs.empty(),
+      EncryptedFunctionL2Logs.default(),
       makeEncryptedFunctionLogs(['Log 1']),
-      EncryptedFunctionL2Logs.empty(),
+      EncryptedFunctionL2Logs.default(),
     ]);
   });
 
@@ -141,11 +141,11 @@ describe('Execution Result test suite - collect encrypted logs', () => {
 
     const encryptedLogs = collectEncryptedLogs(executionResult);
     expect(encryptedLogs).toEqual([
-      EncryptedFunctionL2Logs.empty(),
-      EncryptedFunctionL2Logs.empty(),
-      EncryptedFunctionL2Logs.empty(),
-      EncryptedFunctionL2Logs.empty(),
-      EncryptedFunctionL2Logs.empty(),
+      EncryptedFunctionL2Logs.default(),
+      EncryptedFunctionL2Logs.default(),
+      EncryptedFunctionL2Logs.default(),
+      EncryptedFunctionL2Logs.default(),
+      EncryptedFunctionL2Logs.default(),
     ]);
   });
 });
@@ -154,7 +154,7 @@ describe('collect unencrypted logs', () => {
   // collection of unencrypted logs work similar to encrypted logs, so lets write other kinds of test cases:
 
   function emptyExecutionResultWithUnencryptedLogs(
-    unencryptedLogs = UnencryptedFunctionL2Logs.empty(),
+    unencryptedLogs = UnencryptedFunctionL2Logs.default(),
   ): ExecutionResult {
     const executionResult = emptyExecutionResult();
     executionResult.unencryptedLogs = unencryptedLogs;
@@ -163,7 +163,7 @@ describe('collect unencrypted logs', () => {
 
   function makeUnencryptedFunctionLogs(contents: string[]) {
     return new UnencryptedFunctionL2Logs(
-      contents.map(s => new UnencryptedL2Log(AztecAddress.ZERO, EventSelector.empty(), Buffer.from(s))),
+      contents.map(s => new UnencryptedL2Log(AztecAddress.ZERO, EventSelector.default(), Buffer.from(s))),
     );
   }
 
@@ -171,7 +171,7 @@ describe('collect unencrypted logs', () => {
     // fnA()
     const executionResult: ExecutionResult = emptyExecutionResult();
     const unencryptedLogs = collectUnencryptedLogs(executionResult);
-    expect(unencryptedLogs).toEqual([UnencryptedFunctionL2Logs.empty()]);
+    expect(unencryptedLogs).toEqual([UnencryptedFunctionL2Logs.default()]);
   });
 
   it('collect unencrypted logs with no logs in some nested calls', () => {
@@ -189,9 +189,9 @@ describe('collect unencrypted logs', () => {
 
     const unencryptedLogs = collectUnencryptedLogs(executionResult);
     expect(unencryptedLogs).toEqual([
-      UnencryptedFunctionL2Logs.empty(),
+      UnencryptedFunctionL2Logs.default(),
       makeUnencryptedFunctionLogs(['Log 1', 'Log 2', 'Log 3']),
-      UnencryptedFunctionL2Logs.empty(),
+      UnencryptedFunctionL2Logs.default(),
     ]);
   });
 
@@ -212,8 +212,8 @@ describe('collect unencrypted logs', () => {
     executionResult.nestedExecutions.push(fnB);
     const unencryptedLogs = collectUnencryptedLogs(executionResult);
     expect(unencryptedLogs).toEqual([
-      UnencryptedFunctionL2Logs.empty(),
-      UnencryptedFunctionL2Logs.empty(),
+      UnencryptedFunctionL2Logs.default(),
+      UnencryptedFunctionL2Logs.default(),
       makeUnencryptedFunctionLogs(['Log 4', 'Log 5', 'Log 6']),
       makeUnencryptedFunctionLogs(['Log 1', 'Log 2', 'Log 3']),
     ]);

@@ -65,22 +65,17 @@ export class ContentCommitment {
     );
   }
 
-  static empty(): ContentCommitment {
+  static default(): ContentCommitment {
     return new ContentCommitment(
-      Fr.zero(),
+      Fr.ZERO,
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
       Buffer.alloc(NUM_BYTES_PER_SHA256),
     );
   }
 
-  isEmpty(): boolean {
-    return (
-      this.txTreeHeight.isZero() &&
-      this.txsEffectsHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
-      this.inHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256)) &&
-      this.outHash.equals(Buffer.alloc(NUM_BYTES_PER_SHA256))
-    );
+  isDefault(): boolean {
+    return this.toBuffer().equals(ContentCommitment.default().toBuffer());
   }
 
   public toString(): string {

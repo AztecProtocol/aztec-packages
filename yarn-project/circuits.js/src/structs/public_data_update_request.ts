@@ -37,12 +37,12 @@ export class PublicDataUpdateRequest {
     return serializeToBuffer(this.leafSlot, this.newValue);
   }
 
-  isEmpty() {
+  isDefault() {
     return this.leafSlot.isZero() && this.newValue.isZero();
   }
 
-  static isEmpty(x: PublicDataUpdateRequest) {
-    return x.isEmpty();
+  static isDefault(x: PublicDataUpdateRequest) {
+    return x.isDefault();
   }
 
   equals(other: PublicDataUpdateRequest) {
@@ -54,7 +54,7 @@ export class PublicDataUpdateRequest {
     return new PublicDataUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader));
   }
 
-  static empty() {
+  static default() {
     return new PublicDataUpdateRequest(Fr.ZERO, Fr.ZERO);
   }
 

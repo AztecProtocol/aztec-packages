@@ -202,7 +202,7 @@ export class AcirSimulator {
 
     const execRequest: FunctionCall = {
       to: contractAddress,
-      functionData: FunctionData.empty(),
+      functionData: FunctionData.default(),
       args: encodeArguments(artifact, [contractAddress, nonce, storageSlot, noteTypeId, extendedNoteItems]),
     };
 

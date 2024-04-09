@@ -76,17 +76,17 @@ export class PublicAccumulatedData {
     return this.toBuffer().toString('hex');
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return (
-      this.newNoteHashes.every(x => x.isEmpty()) &&
-      this.newNullifiers.every(x => x.isEmpty()) &&
+      this.newNoteHashes.every(x => x.isDefault()) &&
+      this.newNullifiers.every(x => x.isDefault()) &&
       this.newL2ToL1Msgs.every(x => x.isZero()) &&
       this.encryptedLogsHash.isZero() &&
       this.unencryptedLogsHash.isZero() &&
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
-      this.publicDataUpdateRequests.every(x => x.isEmpty()) &&
-      this.publicCallStack.every(x => x.isEmpty())
+      this.publicDataUpdateRequests.every(x => x.isDefault()) &&
+      this.publicCallStack.every(x => x.isDefault())
     );
   }
 
@@ -134,17 +134,17 @@ export class PublicAccumulatedData {
     return this.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new this(
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.default),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      Fr.zero(),
-      Fr.zero(),
-      Fr.zero(),
-      Fr.zero(),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.default),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
     );
   }
 }

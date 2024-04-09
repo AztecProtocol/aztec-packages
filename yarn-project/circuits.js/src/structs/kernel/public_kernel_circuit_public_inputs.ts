@@ -52,15 +52,15 @@ export class PublicKernelCircuitPublicInputs {
   }
 
   get needsSetup() {
-    return !this.endNonRevertibleData.publicCallStack[1].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[1].isDefault();
   }
 
   get needsAppLogic() {
-    return !this.end.publicCallStack[0].isEmpty();
+    return !this.end.publicCallStack[0].isDefault();
   }
 
   get needsTeardown() {
-    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
+    return !this.endNonRevertibleData.publicCallStack[0].isDefault();
   }
 
   /**
@@ -80,13 +80,13 @@ export class PublicKernelCircuitPublicInputs {
     );
   }
 
-  static empty() {
+  static default() {
     return new PublicKernelCircuitPublicInputs(
       AggregationObject.makeFake(),
-      ValidationRequests.empty(),
-      PublicAccumulatedData.empty(),
-      PublicAccumulatedData.empty(),
-      CombinedConstantData.empty(),
+      ValidationRequests.default(),
+      PublicAccumulatedData.default(),
+      PublicAccumulatedData.default(),
+      CombinedConstantData.default(),
       RevertCode.OK,
     );
   }

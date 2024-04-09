@@ -14,7 +14,7 @@ export interface SideEffectType {
   /** Convert to a field array */
   toFields(): Fr[];
   /** Are all of the fields of the SideEffect zero? */
-  isEmpty(): boolean;
+  isDefault(): boolean;
 }
 
 /**
@@ -59,18 +59,18 @@ export class SideEffect implements SideEffectType {
   }
 
   /**
-   * Returns whether this instance of side-effect is empty.
+   * Returns whether this instance of side-effect is default.
    * @returns True if the value and counter both are zero.
    */
-  isEmpty() {
-    return SideEffect.isEmpty(this);
+  isDefault() {
+    return SideEffect.isDefault(this);
   }
 
   /**
-   * Checks whether this instance of side-effect is empty.
+   * Checks whether a supplied side-effect is default.
    * @returns True if the value and counter both are zero.
    */
-  static isEmpty(sideEffect: SideEffect) {
+  static isDefault(sideEffect: SideEffect) {
     return sideEffect.value.isZero() && sideEffect.counter.isZero();
   }
 
@@ -78,8 +78,8 @@ export class SideEffect implements SideEffectType {
    * Returns an empty instance of side-effect.
    * @returns Side-effect with both value and counter being zero.
    */
-  static empty(): SideEffect {
-    return new SideEffect(Fr.zero(), Fr.zero());
+  static default(): SideEffect {
+    return new SideEffect(Fr.ZERO, Fr.ZERO);
   }
 
   /**
@@ -139,27 +139,27 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
   }
 
   /**
-   * Returns whether this instance of side-effect is empty.
+   * Returns whether this instance of side-effect is default.
    * @returns True if the value, note hash and counter are all zero.
    */
-  isEmpty() {
-    return SideEffectLinkedToNoteHash.isEmpty(this);
+  isDefault() {
+    return SideEffectLinkedToNoteHash.isDefault(this);
   }
 
   /**
-   * Returns whether this instance of side-effect is empty.
+   * Returns whether a supplied side-effect is default.
    * @returns True if the value, note hash and counter are all zero.
    */
-  static isEmpty(sideEffect: SideEffectLinkedToNoteHash) {
+  static isDefault(sideEffect: SideEffectLinkedToNoteHash) {
     return sideEffect.value.isZero() && sideEffect.noteHash.isZero() && sideEffect.counter.isZero();
   }
 
   /**
-   * Returns an empty instance of side-effect.
+   * Returns a default instance of side-effect (zeroed).
    * @returns Side-effect with value, note hash and counter being zero.
    */
-  static empty(): SideEffectLinkedToNoteHash {
-    return new SideEffectLinkedToNoteHash(Fr.zero(), Fr.zero(), Fr.zero());
+  static default(): SideEffectLinkedToNoteHash {
+    return new SideEffectLinkedToNoteHash(Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 
   /**
@@ -174,12 +174,12 @@ export class SideEffectLinkedToNoteHash implements SideEffectType {
 }
 
 /**
- * Convert an array of side effects to an array only non-empty side effects.
+ * Convert an array of side effects to an array only non-default side effects.
  * @param sideEffects - array to be converted
- * @returns the array of the non-empty side effects
+ * @returns the array of the non-default side effects
  */
-export function nonEmptySideEffects(sideEffects: SideEffectType[]): SideEffectType[] {
-  return sideEffects.filter!(sideEffect => !sideEffect.isEmpty());
+export function nonDefaultSideEffects(sideEffects: SideEffectType[]): SideEffectType[] {
+  return sideEffects.filter(sideEffect => !sideEffect.isDefault());
 }
 
 /**

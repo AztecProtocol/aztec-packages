@@ -52,11 +52,11 @@ export class MaxBlockNumber {
     return new MaxBlockNumber(reader.readBoolean(), reader.readField());
   }
 
-  static empty() {
+  static default() {
     return new MaxBlockNumber(false, Fr.ZERO);
   }
 
-  isEmpty(): boolean {
+  isDefault(): boolean {
     return !this.isSome && this.value.isZero();
   }
 

@@ -107,17 +107,17 @@ export class PrivateAccumulatedData {
     return PrivateAccumulatedData.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  static empty() {
+  static default() {
     return new PrivateAccumulatedData(
-      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.empty),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, SideEffect.default),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.default),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
-      Fr.zero(),
-      Fr.zero(),
-      Fr.zero(),
-      Fr.zero(),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.default),
     );
   }
 }

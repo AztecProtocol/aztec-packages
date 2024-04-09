@@ -8,7 +8,7 @@ import { inspect } from 'util';
 export class Body {
   constructor(public txEffects: TxEffect[]) {
     txEffects.forEach(txEffect => {
-      if (txEffect.isEmpty()) {
+      if (txEffect.isDefault()) {
         throw new Error('Empty tx effect not allowed in Body');
       }
     });
@@ -66,10 +66,10 @@ export class Body {
       return layers[layers.length - 1][0];
     };
 
-    const emptyTxEffectHash = TxEffect.empty().hash();
+    const defaultTxEffectHash = TxEffect.default().hash();
     const leaves: Buffer[] = padArrayEnd(
       this.txEffects.map(txEffect => txEffect.hash()),
-      emptyTxEffectHash,
+      defaultTxEffectHash,
       this.numberOfTxsIncludingPadded,
     );
 
@@ -130,7 +130,7 @@ export class Body {
     return new Body(txEffects);
   }
 
-  static empty() {
+  static default() {
     return new Body([]);
   }
 }

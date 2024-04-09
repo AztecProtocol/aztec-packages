@@ -54,7 +54,7 @@ export class EncryptedL2Log {
     return new EncryptedL2Log(data);
   }
 
-  public static empty() {
+  public static default() {
     return new EncryptedL2Log(Buffer.alloc(0));
   }
 }

@@ -46,7 +46,7 @@ export class DummyProver implements ProverClient {
 
   finaliseBlock(): Promise<BlockResult> {
     return Promise.resolve({
-      block: L2Block.empty(),
+      block: L2Block.default(),
       proof: makeEmptyProof(),
     });
   }
