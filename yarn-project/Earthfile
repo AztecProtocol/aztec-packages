@@ -42,16 +42,10 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
 
-<<<<<<< HEAD
-# TODO versioning flow at end before publish?
-# ENV COMMIT_TAG=$EARTHLY_GIT_HASH
-# RUN ./scripts/version_packages.sh
-=======
 aztec-prod:
     FROM +build
     RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
     SAVE ARTIFACT /usr/src /usr/src
->>>>>>> origin/master
 
 aztec-prod-slim:
     FROM node:18.19.1-slim
