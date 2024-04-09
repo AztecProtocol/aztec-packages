@@ -1,18 +1,15 @@
-import { type DebugLogger, fileURLToPath } from '@aztec/aztec.js';
+import { type DebugLogger } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 
 import * as fs from 'fs/promises';
-import * as path from 'path';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
 const {
-  // PXE_URL = '',
   NOIR_RELEASE_DIR = 'noir-repo/target/release',
   TEMP_DIR = '/tmp',
   ACVM_BINARY_PATH = '',
   ACVM_WORKING_DIRECTORY = '',
-  // ENABLE_GAS = '',
 } = process.env;
 
 // Determines if we have access to the acvm binary and a tmp folder for temp files
