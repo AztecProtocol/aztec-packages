@@ -37,7 +37,7 @@ describe('PrivateCallStackItem', () => {
     expect(hash).toMatchSnapshot();
   });
 
-  it('computes empty item hash', () => {
+  it('computes default item hash', () => {
     const item = PrivateCallStackItem.default();
     const hash = item.hash();
     expect(hash).toMatchSnapshot();
