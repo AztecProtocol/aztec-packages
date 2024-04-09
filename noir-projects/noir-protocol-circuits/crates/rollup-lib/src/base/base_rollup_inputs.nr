@@ -8,6 +8,7 @@ use crate::{
 };
 use dep::types::{
     hash::sha256_to_field,
+    traits::is_default,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
@@ -149,7 +150,7 @@ impl BaseRollupInputs {
                 let is_less_than_nullifier = full_field_less_than(low_leaf.nullifier, nullifier);
                 let is_next_greater_than = full_field_less_than(nullifier, low_leaf.next_nullifier);
 
-                (!low_leaf.is_empty()) & is_less_than_nullifier & (
+                (!is_default(low_leaf)) & is_less_than_nullifier & (
                     is_next_greater_than |
                     ((low_leaf.next_index == 0) & (low_leaf.next_nullifier == 0))
                 )
@@ -804,7 +805,7 @@ mod tests {
         };
 
         builder.new_nullifiers.push(NullifierInsertion { existing_index: 0, value: 1 });
-        let mut tree_nullifiers = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX * 2];
+        let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_TX * 2];
         tree_nullifiers[0] = NullifierLeafPreimage {
             nullifier : 0,
             next_nullifier : 1,
@@ -854,7 +855,7 @@ mod tests {
         }
 
         let output = builder.execute();
-        let mut tree_nullifiers = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX * 2];
+        let mut tree_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_TX * 2];
         tree_nullifiers[0] = builder.pre_existing_nullifiers[0];
 
         tree_nullifiers[1] = NullifierLeafPreimage {

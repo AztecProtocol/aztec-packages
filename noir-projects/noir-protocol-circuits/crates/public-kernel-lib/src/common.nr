@@ -408,7 +408,7 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
     let mut new_l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
         let msg = new_l2_to_l1_msgs[i];
-        if !is_empty(msg) {
+        if !is_default(msg) {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(
                 storage_contract_address,
                 public_inputs.constants.tx_context.version,

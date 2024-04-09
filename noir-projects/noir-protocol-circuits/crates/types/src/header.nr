@@ -30,7 +30,7 @@ impl Eq for Header {
 impl Default for Header {
     fn default() -> Self {
         Self {
-            last_archive: AppendOnlyTreeSnapshot::zero(),
+            last_archive: AppendOnlyTreeSnapshot::default(),
             content_commitment: ContentCommitment::empty(),
             state: StateReference::empty(),
             global_variables: GlobalVariables::empty(),

@@ -468,7 +468,7 @@ impl PrivateContext {
                 public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
                 new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
-                new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+                new_l2_to_l1_msgs: [L2ToL1Message::default(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 start_side_effect_counter: 0,
                 end_side_effect_counter: 0,
                 unencrypted_logs_hash: 0,

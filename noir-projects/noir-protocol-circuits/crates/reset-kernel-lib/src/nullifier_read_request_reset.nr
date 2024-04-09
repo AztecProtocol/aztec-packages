@@ -32,7 +32,7 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
         NullifierSettledReadHint {
             read_request_index: read_request_len,
             membership_witness: unsafe::zeroed(),
-            leaf_preimage: NullifierLeafPreimage::empty()
+            leaf_preimage: NullifierLeafPreimage::default()
         }
     }
 }

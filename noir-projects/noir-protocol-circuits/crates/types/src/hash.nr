@@ -178,7 +178,7 @@ fn smoke_sha256_to_field() {
 #[test]
 fn compute_l2_l1_hash() {
     // All zeroes
-    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());
+    let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::default());
     assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
 
     // Non-zero case

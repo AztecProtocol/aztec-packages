@@ -3,6 +3,15 @@ struct MerkleTree<N> {
     nodes: [Field; N],
 }
 
+impl<N> Default for MerkleTree<N> {
+    fn default() -> Self {
+        MerkleTree {
+            leaves: [0; N],
+            nodes: [0; N]
+        }
+    }
+}
+
 impl<N> MerkleTree<N> {
     pub fn new(leaves: [Field; N]) -> Self {
         let mut nodes = [0; N];

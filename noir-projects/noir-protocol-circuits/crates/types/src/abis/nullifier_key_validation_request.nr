@@ -21,8 +21,8 @@ impl Eq for NullifierKeyValidationRequest {
 impl Empty for NullifierKeyValidationRequest {
     fn empty() -> Self {
         NullifierKeyValidationRequest {
-            public_key: GrumpkinPoint::zero(),
-            secret_key: GrumpkinPrivateKey::zero(),
+            public_key: GrumpkinPoint::default(),
+            secret_key: GrumpkinPrivateKey::default(),
         }
     }
 }
@@ -70,8 +70,8 @@ impl Eq for NullifierKeyValidationRequestContext {
 impl Empty for NullifierKeyValidationRequestContext {
     fn empty() -> Self {
         NullifierKeyValidationRequestContext {
-            public_key: GrumpkinPoint::zero(),
-            secret_key: GrumpkinPrivateKey::zero(),
+            public_key: GrumpkinPoint::default(),
+            secret_key: GrumpkinPrivateKey::default(),
             contract_address: AztecAddress::zero(),
         }
     }

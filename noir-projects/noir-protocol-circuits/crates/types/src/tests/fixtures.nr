@@ -16,7 +16,7 @@ global PUBLIC_KEY = GrumpkinPoint { x: 123456789, y: 123456789 };
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
 fn empty_append_only_tree() -> AppendOnlyTreeSnapshot {
-    AppendOnlyTreeSnapshot::zero()
+    AppendOnlyTreeSnapshot::default()
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440

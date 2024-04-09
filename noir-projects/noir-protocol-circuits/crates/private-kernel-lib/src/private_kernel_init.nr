@@ -257,7 +257,7 @@ mod tests {
 
         builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(
             [
-            L2ToL1Message::empty(),
+            L2ToL1Message::default(),
             L2ToL1Message { recipient: EthAddress::from_field(6), content: 9123 }
         ]
         );
