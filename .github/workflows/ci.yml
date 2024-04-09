@@ -1,4 +1,4 @@
-name: Beta CI
+name: CI
 on:
   push:
     branches: [master]
@@ -217,6 +217,9 @@ jobs:
   setup-bb-bench:
     runs-on: ${{ github.actor }}-bench-x86
     needs: start-bb-bench-runner
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
