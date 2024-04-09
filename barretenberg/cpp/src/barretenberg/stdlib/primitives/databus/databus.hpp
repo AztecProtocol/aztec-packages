@@ -19,24 +19,14 @@ template <typename Builder> class databus {
             : bus_idx(bus_idx){};
 
         /**
-         * @brief Set the raw bus vector entries (possibly unnormalized or constant)
-         * @note A builder/context may not be known at the time when this data is set
+         * @brief Set the entries of the bus vector from possibly unnormalized or constant inputs
+         * @note A builder/context is assumed to be known at this stage, otherwise the first read will fail if index is
+         * constant
          *
          * @tparam Builder
          * @param entries_in
          */
         void set_values(const std::vector<field_pt>& entries_in);
-
-        /**
-         * @brief Initialize the bus vector entries from the raw entries (which are unnormalized and possibly constants)
-         * @note This method must be called only once the context has been set, e.g. after performing the first read
-         *
-         * @tparam Builder
-         */
-        void initialize() const;
-
-        // Read from bus column with a constant index value. Does not add any gates
-        field_pt operator[](size_t index) const;
 
         /**
          * @brief Read from the bus vector with a witness index value. Creates a read gate
@@ -50,11 +40,9 @@ template <typename Builder> class databus {
         Builder* get_context() const { return context; }
 
       private:
-        std::vector<field_pt> raw_entries;     // equivalent precursor to 'entries': unnormalized and possibly constant
-        mutable std::vector<field_pt> entries; // genuine bus vector entries
+        mutable std::vector<field_pt> entries; // bus vector entries
         size_t length = 0;
         BusId bus_idx; // Idx of column in bus
-        mutable bool initialized = false;
         mutable Builder* context = nullptr;
     };
 
