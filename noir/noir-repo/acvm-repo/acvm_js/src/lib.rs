@@ -25,7 +25,7 @@ pub use execute::{
     execute_circuit_with_return_witness, execute_program, execute_program_with_black_box_solver,
 };
 pub use js_execution_error::JsExecutionError;
-pub use js_witness_map::JsPartialAndReturnWitness;
+pub use js_witness_map::JsSolvedAndReturnWitness;
 pub use js_witness_map::JsWitnessMap;
 pub use js_witness_stack::JsWitnessStack;
 pub use logging::init_log_level;

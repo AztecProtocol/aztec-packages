@@ -10,7 +10,7 @@ const WITNESS_MAP: &'static str = r#"
 // Map from witness index to hex string value of witness.
 export type WitnessMap = Map<number, string>;
 
-export type PartialAndReturnWitness = Array<WitnessMap>;
+export type SolvedAndReturnWitness = Array<WitnessMap>;
 "#;
 
 // WitnessMap
@@ -23,12 +23,12 @@ extern "C" {
     #[wasm_bindgen(constructor, js_class = "Map")]
     pub fn new() -> JsWitnessMap;
 
-    #[wasm_bindgen(extends = Array, js_name = "PartialAndReturnWitness", typescript_type = "PartialAndReturnWitness")]
+    #[wasm_bindgen(extends = Array, js_name = "SolvedAndReturnWitness", typescript_type = "SolvedAndReturnWitness")]
     #[derive(Clone, Debug, PartialEq, Eq)]
-    pub type JsPartialAndReturnWitness;
+    pub type JsSolvedAndReturnWitness;
 
     #[wasm_bindgen(constructor, js_class = "Array")]
-    pub fn new() -> JsPartialAndReturnWitness;
+    pub fn new() -> JsSolvedAndReturnWitness;
 }
 
 impl Default for JsWitnessMap {
@@ -37,7 +37,7 @@ impl Default for JsWitnessMap {
     }
 }
 
-impl Default for JsPartialAndReturnWitness {
+impl Default for JsSolvedAndReturnWitness {
     fn default() -> Self {
         Self::new()
     }
@@ -68,9 +68,9 @@ impl From<JsWitnessMap> for WitnessMap {
     }
 }
 
-impl From<Vec<WitnessMap>> for JsPartialAndReturnWitness {
+impl From<Vec<WitnessMap>> for JsSolvedAndReturnWitness {
     fn from(witness_maps: Vec<WitnessMap>) -> Self {
-        let js_witness_maps = JsPartialAndReturnWitness::new();
+        let js_witness_maps = JsSolvedAndReturnWitness::new();
         for witness_map in witness_maps {
             let js_witness_map = JsWitnessMap::from(witness_map);
             js_witness_maps.push(&js_witness_map);

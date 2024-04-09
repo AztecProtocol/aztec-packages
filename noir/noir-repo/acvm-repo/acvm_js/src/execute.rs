@@ -11,11 +11,10 @@ use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use js_sys::Error;
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use crate::public_witness::extract_indices;
-use crate::JsPartialAndReturnWitness;
 use crate::{
     foreign_call::{resolve_brillig, ForeignCallHandler},
-    JsExecutionError, JsWitnessMap, JsWitnessStack,
+    public_witness::extract_indices,
+    JsExecutionError, JsSolvedAndReturnWitness, JsWitnessMap, JsWitnessStack,
 };
 
 #[wasm_bindgen]
@@ -74,7 +73,7 @@ pub async fn execute_circuit_with_return_witness(
     program: Vec<u8>,
     initial_witness: JsWitnessMap,
     foreign_call_handler: ForeignCallHandler,
-) -> Result<JsPartialAndReturnWitness, Error> {
+) -> Result<JsSolvedAndReturnWitness, Error> {
     console_error_panic_hook::set_once();
 
     let program: Program = Program::deserialize_program(&program)
@@ -167,10 +166,6 @@ async fn execute_program_with_native_type_return(
     let program: Program = Program::deserialize_program(&program)
     .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None))?;
 
-    // let executor = ProgramExecutor::new(&program.functions, &solver.0, foreign_call_executor);
-    // let witness_stack = executor.execute(initial_witness.into()).await?;
-
-    // Ok(witness_stack)
     execute_program_with_native_program_and_return(
         solver,
         &program,
