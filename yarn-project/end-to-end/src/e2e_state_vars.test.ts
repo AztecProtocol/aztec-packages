@@ -223,11 +223,8 @@ describe('e2e_state_vars', () => {
       const tx = contract.methods.test_public_dynamic_array_1().send();
       const extendedLogs = await tx.getUnencryptedLogs();
 
-      expect(extendedLogs.logs.map(log => log.log.data.toString('hex').slice(-2))).toStrictEqual([
-        '45',
-        '00',
-      ])
-      
+      expect(extendedLogs.logs.map(log => log.log.data.toString('hex').slice(-2))).toStrictEqual(['45', '00']);
+
       await contract.methods.test_public_dynamic_array_2().send().wait();
 
       const numResponse = await contract.methods.test_public_dynamic_array_3().simulate();
@@ -259,7 +256,7 @@ describe('e2e_state_vars', () => {
         '07',
         '08',
         '09',
-      ])
+      ]);
     });
 
     it('private fixed array test', async () => {
@@ -267,7 +264,7 @@ describe('e2e_state_vars', () => {
       await contract.methods.test_fixed_array_priv_2().send().wait();
       const simulateRes = await contract.methods.test_fixed_array_priv_3().simulate();
 
-      const res = simulateRes.map(({_value}: any) => [Number(_value.points), Number(_value.randomness)]);
+      const res = simulateRes.map(({ _value }: any) => [Number(_value.points), Number(_value.randomness)]);
 
       expect(res).toStrictEqual([
         [0, 0],
