@@ -6,6 +6,20 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] [Aztec.js] IsEmpty / IsZero have been unified and renamed to IsDefault
+
+N.B: Fields and Addresses have not been changed
+
+```diff
+- Point.ZERO;
++ Point.default();
+
+- Header::empty();
++ Header::default();
+```
+
 ## 0.33
 
 ### [Aztec.nr] Storage struct annotation
@@ -66,18 +80,6 @@ This has lead to a lot of bad code where we have the same function implemented t
 It is not possible to call `simulate` on any call to get the return values! 
 However, beware that it currently always returns a Field array of size 4 for private and public.  
 This will change to become similar to the return values of the `unconstrained` functions with proper return types.
-
-### [Aztec.nr] [Aztec.js] IsEmpty / IsZero have been unified and renamed to IsDefault
-
-N.B: Fields and Addresses have not been changed
-
-```diff
-- Point.ZERO;
-+ Point.default();
-
-- Header::empty();
-+ Header::default();
-```
 
 ```diff
 -    #[aztec(private)]
