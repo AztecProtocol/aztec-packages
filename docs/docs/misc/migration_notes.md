@@ -67,6 +67,18 @@ It is not possible to call `simulate` on any call to get the return values!
 However, beware that it currently always returns a Field array of size 4 for private and public.  
 This will change to become similar to the return values of the `unconstrained` functions with proper return types.
 
+### [Aztec.nr] [Aztec.js] IsEmpty / IsZero have been unified and renamed to IsDefault
+
+N.B: Fields and Addresses have not been changed
+
+```diff
+- Point.ZERO;
++ Point.default();
+
+- Header::empty();
++ Header::default();
+```
+
 ```diff
 -    #[aztec(private)]
 -    fn get_shared_immutable_constrained_private() -> pub Leader {

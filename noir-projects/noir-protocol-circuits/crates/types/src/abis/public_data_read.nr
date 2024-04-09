@@ -1,6 +1,6 @@
 use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_READ;
-use dep::std::cmp::Eq;
-use crate::traits::{Empty, Hash};
+use dep::std::{cmp::Eq,default::Default};
+use crate::traits::Hash;
 
 struct PublicDataRead {
     leaf_slot : Field,
@@ -13,8 +13,8 @@ impl Eq for PublicDataRead {
     }
 }
 
-impl Empty for PublicDataRead {
-    fn empty() -> Self {
+impl Default for PublicDataRead {
+    fn default() -> Self {
         Self {
             leaf_slot : 0,
             value : 0,
@@ -28,11 +28,5 @@ impl Hash for PublicDataRead {
             self.leaf_slot,
             self.value,
         ], GENERATOR_INDEX__PUBLIC_DATA_READ)
-    }
-}
-
-impl PublicDataRead {
-    pub fn is_empty(self) -> bool {
-        (self.leaf_slot == 0) & (self.value == 0)
     }
 }

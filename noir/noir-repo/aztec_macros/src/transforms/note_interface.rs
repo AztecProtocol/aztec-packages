@@ -594,7 +594,7 @@ fn generate_note_deserialize_content_source(
                 }
             } else {
                 format!(
-                    "{}: dep::aztec::note::note_header::NoteHeader::empty()",
+                    "{}: dep::aztec::note::note_header::NoteHeader::default()",
                     note_header_field_name
                 )
             }

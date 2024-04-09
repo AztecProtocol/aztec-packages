@@ -18,6 +18,19 @@ struct PublicKernelCircuitPublicInputsBuilder {
     revert_code: u8,
 }
 
+impl Default for PublicKernelCircuitPublicInputsBuilder {
+    fn default() -> Self {
+        PublicKernelCircuitPublicInputsBuilder {
+            aggregation_object: AggregationObject::default(),
+            validation_requests: ValidationRequestsBuilder::default(),
+            end_non_revertible: PublicAccumulatedDataBuilder::default(),
+            end: PublicAccumulatedDataBuilder::default(),
+            constants: CombinedConstantData::default(),
+            revert_code: 0,
+        }
+    }
+}
+
 impl PublicKernelCircuitPublicInputsBuilder {
     pub fn finish(self) -> PublicKernelCircuitPublicInputs {
         PublicKernelCircuitPublicInputs {

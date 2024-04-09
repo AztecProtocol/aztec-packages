@@ -15,6 +15,12 @@ impl Eq for FunctionSelector {
     }
 }
 
+impl Default for FunctionSelector {
+    fn default() -> Self {
+        Self { inner: 0 }
+    }
+}
+
 impl Serialize<1> for FunctionSelector {
     fn serialize(self: Self) -> [Field; 1] {
         [self.inner as Field]
@@ -56,9 +62,5 @@ impl FunctionSelector {
         }
 
         FunctionSelector::from_field(field_from_bytes(selector_be_bytes, true))
-    }
-
-    pub fn zero() -> Self {
-        Self { inner: 0 }
     }
 }

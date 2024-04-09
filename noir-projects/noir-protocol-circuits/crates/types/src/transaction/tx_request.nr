@@ -20,6 +20,17 @@ impl Eq for TxRequest {
     }
 }
 
+impl Default for TxRequest {
+    fn default() -> Self {
+        TxRequest {
+            origin: AztecAddress::default(),
+            args_hash: 0,
+            tx_context: TxContext::default(),
+            function_data: FunctionData::default()
+        }
+    }
+}
+
 impl Hash for TxRequest {
     fn hash(self) -> Field {
         pedersen_hash(self.serialize(), GENERATOR_INDEX__TX_REQUEST)
@@ -68,7 +79,7 @@ mod tests {
     #[test]
     fn serialization_of_empty() {
         // Assuming a zeroed initialization for simplicity
-        let request: TxRequest = dep::std::unsafe::zeroed();
+        let request = TxRequest::default();
         let serialized = request.serialize();
         let deserialized = TxRequest::deserialize(serialized);
         assert(request.eq(deserialized));

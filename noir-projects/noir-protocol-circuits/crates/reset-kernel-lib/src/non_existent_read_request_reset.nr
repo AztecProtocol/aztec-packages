@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{side_effect::OrderedValue, read_request::ReadRequestContext},
     merkle_tree::{assert_check_non_membership, IndexedTreeLeafPreimage, MembershipWitness},
-    traits::{Empty, is_empty}
+    traits::is_default
 };
 
 trait NonMembershipHint<TREE_HEIGHT, LEAF_PREIMAGE> where LEAF_PREIMAGE: IndexedTreeLeafPreimage {
@@ -63,7 +63,7 @@ pub fn reset_non_existent_read_requests<T, N, M, NON_MEMBERSHIP_HINT, TREE_HEIGH
     LEAF_PREIMAGE: IndexedTreeLeafPreimage {
     for i in 0..siloed_read_requests.len() {
         let read_request = siloed_read_requests[i];
-        if !is_empty(read_request) {
+        if !is_default(read_request) {
             // Verify that it's not in the tree.
             let hint = non_membership_hints[i];
             assert_check_non_membership(
@@ -133,8 +133,8 @@ mod tests {
         SideEffect { value: 5, counter: 17 },
         SideEffect { value: 15, counter: 8 },
         SideEffect { value: 25, counter: 11 },
-        SideEffect::empty(),
-        SideEffect::empty(),
+        SideEffect::default(),
+        SideEffect::default(),
     ],
     len: 3,
     };

@@ -3,6 +3,7 @@ use crate::abis::{
     validation_requests::{RollupValidationRequests, ValidationRequests}
 };
 use crate::mocked::AggregationObject;
+use crate::traits::is_default;
 
 struct PublicKernelCircuitPublicInputs {
     aggregation_object: AggregationObject,
@@ -18,17 +19,17 @@ impl PublicKernelCircuitPublicInputs {
         // By definition, the final non-revertible enqueued call is for teardown.
         // since this is a stack, the teardown call would be the 0th element.
         // So if we have more than one element, we need setup.
-        !self.end_non_revertible.public_call_stack[1].is_empty()
+        !is_default(self.end_non_revertible.public_call_stack[1])
     }
 
     pub fn needs_app_logic(self) -> bool {
         // if we have any enqueued revertible public calls, we need to run the public app logic circuit.
-        !self.end.public_call_stack[0].is_empty()
+        !is_default(self.end.public_call_stack[0])
     }
 
     pub fn needs_teardown(self) -> bool {
         // By definition, the final non-revertible enqueued call is for teardown.
         // since this is a stack, the teardown call would be the 0th element.
-        !self.end_non_revertible.public_call_stack[0].is_empty()
+        !is_default(self.end_non_revertible.public_call_stack[0])
     }
 }

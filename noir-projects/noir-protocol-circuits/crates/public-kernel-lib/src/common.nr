@@ -15,7 +15,7 @@ use dep::types::{
     MAX_PUBLIC_DATA_READS_PER_CALL
 },
     hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
-    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array}
+    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_default,is_zero}
 };
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 
@@ -23,9 +23,7 @@ use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value
 pub fn validate_inputs(public_call: PublicCallData) {
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
-    assert(
-        !this_call_stack_item.contract_address.eq(AztecAddress::zero()), "Contract address cannot be zero"
-    );
+    assert(!is_zero(this_call_stack_item.contract_address), "Contract address cannot be zero");
     assert(this_call_stack_item.function_data.selector.to_field() != 0, "Function signature cannot be zero");
     assert(
         this_call_stack_item.function_data.is_private == false, "Cannot execute a private function with the public kernel circuit"
@@ -111,12 +109,14 @@ pub fn initialize_end_values(
 fn perform_static_call_checks(public_call: PublicCallData) {
     let public_inputs = public_call.call_stack_item.public_inputs;
     if public_inputs.call_context.is_static_call {
+
+        // TODO: #5618
         // No state changes are allowed for static calls:
         let new_note_hashes_length = array_length(public_inputs.new_note_hashes);
-        assert(new_note_hashes_length == 0, "new_note_hashes must be empty for static calls");
+        assert(new_note_hashes_length == 0, "new_note_hashes must be a default array (empty) for static calls");
 
         let new_nullifiers_length = array_length(public_inputs.new_nullifiers);
-        assert(new_nullifiers_length == 0, "new_nullifiers must be empty for static calls");
+        assert(new_nullifiers_length == 0, "new_nullifiers must be a default array (empty) for static calls");
 
         let update_requests_length = array_length(public_inputs.contract_storage_update_requests);
         assert(
@@ -124,7 +124,7 @@ fn perform_static_call_checks(public_call: PublicCallData) {
         );
 
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
-        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
+        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty (length 0) for static calls");
 
         // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
         // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
@@ -141,7 +141,7 @@ fn is_valid_caller(request: CallRequest, public_call: PublicCallData) -> bool {
         & request.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
 
     request.caller_contract_address.eq(public_call.call_stack_item.contract_address)
-        & (request.caller_context.is_empty() | valid_caller_context)
+        & (is_default(request.caller_context) | valid_caller_context)
 }
 
 fn validate_call_requests<N>(
@@ -220,7 +220,7 @@ fn propagate_nullifier_read_requests<T>(
 
     for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
         let request = nullifier_read_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             circuit_outputs.validation_requests.nullifier_read_requests.push(request.to_context(storage_contract_address));
         }
     }
@@ -236,7 +236,7 @@ fn propagate_nullifier_non_existent_read_requests<T>(
 
     for i in 0..MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL {
         let request = nullifier_non_existent_read_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             circuit_outputs.validation_requests.nullifier_non_existent_read_requests.push(request.to_context(storage_contract_address));
         }
     }
@@ -253,7 +253,7 @@ fn propagate_valid_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
+        if (!is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -276,7 +276,7 @@ fn propagate_valid_non_revertible_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
+        if (is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -296,7 +296,7 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
 
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
-        if !read_request.is_empty() {
+        if !is_default(read_request) {
             let public_data_read = PublicDataRead {
                 leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
                 value: compute_public_data_tree_value(read_request.current_value)
@@ -408,7 +408,7 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
     let mut new_l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
         let msg = new_l2_to_l1_msgs[i];
-        if !is_empty(msg) {
+        if !is_default(msg) {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(
                 storage_contract_address,
                 public_inputs.constants.tx_context.version,
@@ -468,7 +468,7 @@ pub fn validate_call_against_request(public_call: PublicCallData, request: CallR
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;
-        assert(!caller_context.is_empty(), "caller context cannot be empty for delegate calls");
+        assert(!is_default(caller_context), "caller context cannot be default for delegate calls");
         assert(
             call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls"
         );

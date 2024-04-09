@@ -15,7 +15,7 @@ mod interfaces;
 contract TokenBlacklist {
     // Libs
 
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_zero};
     use dep::aztec::{
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         hash::compute_secret_hash, state_vars::{Map, PublicMutable, PrivateSet, SharedImmutable}
@@ -45,7 +45,7 @@ contract TokenBlacklist {
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress, slow_updates_contract: AztecAddress) {
         // docs:end:constructor
-        assert(!admin.is_zero(), "invalid admin");
+        assert(!is_zero(admin), "invalid admin");
         storage.admin.write(admin);
         // docs:start:write_slow_update_public
         storage.slow_update.initialize(slow_updates_contract);

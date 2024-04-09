@@ -71,7 +71,8 @@ impl PublicContext {
             unencrypted_logs_hash: 0,
             unencrypted_logs_preimages_length: 0,
             historical_header: inputs.historical_header,
-            prover_address: AztecAddress::zero() // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+            prover_address: AztecAddress::zero()
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
         }

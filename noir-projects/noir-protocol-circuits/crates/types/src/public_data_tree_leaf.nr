@@ -1,5 +1,4 @@
-use crate::traits::Empty;
-use dep::std::cmp::Eq;
+use dep::std::{cmp::Eq,default::Default};
 
 struct PublicDataTreeLeaf {
     slot: Field,
@@ -12,17 +11,11 @@ impl Eq for PublicDataTreeLeaf {
     }
 }
 
-impl Empty for PublicDataTreeLeaf  {    
-    fn empty() -> Self {
+impl Default for PublicDataTreeLeaf  {    
+    fn default() -> Self {
         Self {
             slot: 0,
             value: 0,
         }
-    }
-}
-
-impl PublicDataTreeLeaf {
-    pub fn is_empty(self) -> bool {
-        (self.slot == 0) & (self.value == 0)
     }
 }

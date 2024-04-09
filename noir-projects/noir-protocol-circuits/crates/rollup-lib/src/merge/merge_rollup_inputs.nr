@@ -7,6 +7,14 @@ struct MergeRollupInputs{
     previous_rollup_data : [PreviousRollupData; 2]
 }
 
+impl Default for MergeRollupInputs {
+    fn default() -> Self {
+        MergeRollupInputs {
+            previous_rollup_data: [PreviousRollupData::default(); 2]
+        }
+    }
+}
+
 impl MergeRollupInputs {
     pub fn merge_rollup_circuit(self) -> BaseOrMergeRollupPublicInputs {
         // TODO(Lasse): Verify the previous rollup proofs

@@ -50,7 +50,7 @@ impl PublicCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            public_call_stack: dep::std::unsafe::zeroed(),
+            public_call_stack: BoundedVec::new(),
             proof: Proof {},
             portal_contract_address,
             bytecode_hash: contract_function.acir_hash
@@ -75,7 +75,7 @@ impl PublicCallDataBuilder {
 
     pub fn append_public_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
         let value_offset = self.public_inputs.public_call_stack_hashes.len();
-        let mut caller_context = CallerContext::empty();
+        let mut caller_context = CallerContext::default();
         if is_delegate_call {
             let call_context = self.public_inputs.call_context;
             caller_context.msg_sender = call_context.msg_sender;
@@ -119,7 +119,7 @@ impl PublicCallDataBuilder {
     pub fn append_empty_public_data_read_requests(&mut self, num_reads: u64) {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
-                self.public_inputs.contract_storage_reads.push(StorageRead::empty());
+                self.public_inputs.contract_storage_reads.push(StorageRead::default());
             }
         }
     }
@@ -142,7 +142,7 @@ impl PublicCallDataBuilder {
     pub fn append_empty_update_requests(&mut self, num_updates: u64) {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
-                self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
+                self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::default());
             }
         }
     }

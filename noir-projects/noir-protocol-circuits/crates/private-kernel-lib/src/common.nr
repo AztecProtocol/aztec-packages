@@ -21,7 +21,7 @@ use dep::types::{
 },
     merkle_tree::check_membership,
     utils::{arrays::{array_length, array_to_bounded_vec, validate_array}},
-    traits::{is_empty, is_empty_array}
+    traits::{is_default, is_default_array, is_zero}
 };
 
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
@@ -120,14 +120,15 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     if is_static_call {
         // No state changes are allowed for static calls:
         assert(
-            is_empty_array(public_inputs.new_note_hashes), "new_note_hashes must be empty for static calls"
+            is_default_array(public_inputs.new_note_hashes), "new_note_hashes must be empty (only default values) for static calls"
         );
         assert(
-            is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls"
+            is_default_array(public_inputs.new_nullifiers), "new_nullifiers must be empty (only default values) for static calls"
         );
 
+        // TODO: #5618
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
-        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
+        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty (length 0) for static calls");
 
         // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
         // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
@@ -148,7 +149,7 @@ fn is_valid_caller(request_from_stack: CallRequest, fn_being_verified: PrivateCa
         & request_from_stack.caller_context.storage_contract_address.eq(call_context.storage_contract_address);
 
     request_from_stack.caller_contract_address.eq(fn_being_verified.call_stack_item.contract_address)
-        & (request_from_stack.caller_context.is_empty() | valid_caller_context)
+        & (is_default(request_from_stack.caller_context) | valid_caller_context)
 }
 
 fn validate_call_requests<N>(
@@ -203,7 +204,7 @@ pub fn update_end_values(
     let nullifier_read_requests = private_call_public_inputs.nullifier_read_requests;
     for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
         let request = nullifier_read_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             public_inputs.validation_requests.nullifier_read_requests.push(request.to_context(storage_contract_address));
         }
     }
@@ -212,7 +213,7 @@ pub fn update_end_values(
     let nullifier_key_validation_requests = private_call_public_inputs.nullifier_key_validation_requests;
     for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
         let request = nullifier_key_validation_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             public_inputs.validation_requests.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
         }
     }
@@ -277,7 +278,7 @@ pub fn update_end_values(
     let mut new_l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
         let msg = new_l2_to_l1_msgs[i];
-        if !is_empty(msg) {
+        if !is_default(msg) {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(
                 storage_contract_address,
                 private_call_public_inputs.version,
@@ -311,7 +312,7 @@ pub fn contract_logic(private_call: PrivateCallData) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062): Why is this using a hash function from the stdlib::recursion namespace
     let private_call_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
 
-    assert(!contract_address.is_zero(), "contract address cannot be zero");
+    assert(!is_zero(contract_address), "Contract address cannot be zero");
     // std::println(f"contract_address={contract_address}");
     // std::println(f"private_call_vk_hash={private_call_vk_hash}");
 
@@ -358,7 +359,7 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;
-        assert(!caller_context.is_empty(), "caller context cannot be empty for delegate calls");
+        assert(!is_default(caller_context), "caller context cannot be default for delegate calls");
         assert(
             call_context.msg_sender.eq(caller_context.msg_sender), "call stack msg_sender does not match expected msg_sender for delegate calls"
         );

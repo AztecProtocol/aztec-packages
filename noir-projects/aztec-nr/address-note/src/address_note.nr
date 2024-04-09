@@ -2,7 +2,7 @@
 use dep::aztec::log::emit_encrypted_log;
 // docs:end:encrypted_import
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, traits::Empty},
+    protocol_types::address::AztecAddress,
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
     oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
     hash::pedersen_hash, context::PrivateContext
@@ -62,7 +62,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
 impl AddressNote {
     pub fn new(address: AztecAddress, owner: AztecAddress) -> Self {
         let randomness = unsafe_rand();
-        AddressNote { address, owner, randomness, header: NoteHeader::empty() }
+        AddressNote { address, owner, randomness, header: NoteHeader::default() }
     }
     // docs:end:address_note_def
 }

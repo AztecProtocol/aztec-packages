@@ -73,7 +73,7 @@ mod tests {
     },
         hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::{array_eq, array_length}}, traits::is_empty_array
+        utils::{arrays::{array_eq, array_length}}, traits::is_default_array
     };
 
     struct PrivateKernelTailToPublicInputsBuilder {
@@ -104,7 +104,7 @@ mod tests {
             note_hashes: [SideEffect; N]
         ) -> [SideEffect; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
-            let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
+            let mut unique_siloed_note_hashes = [SideEffect::default(); N];
             for i in 0..N {
                 if note_hashes[i].value != 0 {
                     let nonce = compute_note_hash_nonce(first_nullifier.value, i);
@@ -301,7 +301,7 @@ mod tests {
         builder.nullify_transient_note_hash(1, 0);
         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
 
         // The nullifier at index 1 is chopped.
         assert(
@@ -352,7 +352,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // Only the first nullifier is left after squashing.
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
         assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
     }
 
@@ -366,8 +366,8 @@ mod tests {
         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
 
-        let mut reversed_note_hashes = [SideEffect::empty(); 10];
-        let mut reversed_nullifiers = [SideEffectLinkedToNoteHash::empty(); 10];
+        let mut reversed_note_hashes = [SideEffect::default(); 10];
+        let mut reversed_nullifiers = [SideEffectLinkedToNoteHash::default(); 10];
 
         for i in 0..10 {
             reversed_note_hashes[9 - i] = builder.previous_kernel.new_note_hashes.pop();
@@ -507,9 +507,9 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert(!is_empty_array(public_inputs.end_non_revertible.new_nullifiers));
-        assert(is_empty_array(public_inputs.end_non_revertible.new_note_hashes));
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
-        assert(is_empty_array(public_inputs.end.new_nullifiers));
+        assert(!is_default_array(public_inputs.end_non_revertible.new_nullifiers));
+        assert(is_default_array(public_inputs.end_non_revertible.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_nullifiers));
     }
 }

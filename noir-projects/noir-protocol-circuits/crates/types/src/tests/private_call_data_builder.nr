@@ -53,8 +53,8 @@ impl PrivateCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            private_call_stack: dep::std::unsafe::zeroed(),
-            public_call_stack: dep::std::unsafe::zeroed(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
             proof: Proof {},
             vk: VerificationKey {},
             function_leaf_membership_witness: contract_function.membership_witness,
@@ -62,7 +62,7 @@ impl PrivateCallDataBuilder {
             public_keys_hash: contract_data.public_keys_hash,
             contract_class_artifact_hash: contract_data.artifact_hash,
             contract_class_public_bytecode_commitment: contract_data.public_bytecode_commitment,
-            note_hash_read_request_membership_witnesses: dep::std::unsafe::zeroed(),
+            note_hash_read_request_membership_witnesses: BoundedVec::new(),
             portal_contract_address: public_inputs.call_context.portal_contract_address,
             acir_hash: contract_function.acir_hash
         }
@@ -110,7 +110,7 @@ impl PrivateCallDataBuilder {
         is_delegate_call: bool
     ) -> (BoundedVec<Field, N>, BoundedVec<CallRequest, N>) {
         let value_offset = requests.len();
-        let mut caller_context = CallerContext::empty();
+        let mut caller_context = CallerContext::default();
         if is_delegate_call {
             let call_context = self.public_inputs.call_context;
             caller_context.msg_sender = call_context.msg_sender;

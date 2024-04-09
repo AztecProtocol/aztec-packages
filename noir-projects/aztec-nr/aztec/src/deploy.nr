@@ -1,12 +1,12 @@
 use crate::{context::PrivateContext, oracle::get_contract_instance::get_contract_instance};
 
-use dep::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector, constants::DEPLOYER_CONTRACT_ADDRESS};
+use dep::protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector, constants::DEPLOYER_CONTRACT_ADDRESS, traits::is_zero};
 
 // Calls `deploy` on the deployer contract to deploy a new instance.
 pub fn deploy_contract(context: &mut PrivateContext, target: AztecAddress) {
     let instance = get_contract_instance(target);
 
-    let universal_deploy = instance.deployer.is_zero();
+    let universal_deploy = is_zero(instance.deployer);
     if !universal_deploy {
         assert(
             instance.deployer == context.this_address(), "Deployer address does not match current address"

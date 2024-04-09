@@ -6,7 +6,7 @@ use dep::types::{
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
 },
     grumpkin_private_key::GrumpkinPrivateKey, keys::compute_siloed_nullifier_secret_key,
-    traits::is_empty
+    traits::is_default
 };
 
 struct PrivateValidationRequestProcessor {
@@ -60,7 +60,7 @@ impl PrivateValidationRequestProcessor {
         let requests = self.validation_requests.nullifier_key_validation_requests;
         for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i];
-            if !is_empty(request) {
+            if !is_default(request) {
                 let master_secret_key = self.master_nullifier_secret_keys[i];
                 let computed_public_key = master_secret_key.derive_public_key();
                 assert(

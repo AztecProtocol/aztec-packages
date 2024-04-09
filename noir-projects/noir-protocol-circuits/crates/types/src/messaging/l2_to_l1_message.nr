@@ -1,4 +1,4 @@
-use crate::{address::EthAddress, constants::L2_TO_L1_MESSAGE_LENGTH, traits::{Deserialize, Empty, Serialize}};
+use crate::{address::EthAddress, constants::L2_TO_L1_MESSAGE_LENGTH, traits::{Deserialize, Serialize}};
 
 // Note: Not to be confused with L2ToL1Msg in Solidity
 struct L2ToL1Message {
@@ -6,10 +6,10 @@ struct L2ToL1Message {
     content: Field,
 }
 
-impl Empty for L2ToL1Message {
-    fn empty() -> Self {
+impl Default for L2ToL1Message {
+    fn default() -> Self {
         Self {
-            recipient: EthAddress::empty(),
+            recipient: EthAddress::zero(),
             content: 0,
         }
     }
