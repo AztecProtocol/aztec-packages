@@ -8,7 +8,7 @@ AVAILABILITY_ZONE="us-east-2a"
 VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 
-# Unmount existing /var if it's already mounted
+# Check for existing mount, assume we can continue if existing
 if mount | grep -q /var/lib/docker/volumes; then
   echo "Detected mount existing on /var/lib/docker/volumes already"
   echo "Continuing..."
