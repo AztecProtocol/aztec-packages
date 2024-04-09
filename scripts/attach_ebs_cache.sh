@@ -8,6 +8,13 @@ SIZE=128
 VOLUME_TYPE="gp2"
 INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 
+# Unmount existing /var if it's already mounted
+if mount | grep -q /var/lib/docker/volumes; then
+  echo "Detected mount existing on /var/lib/docker/volumes already"
+  echo "Continuing..."
+  exit 0
+fi
+
 # Check for existing volume
 # we don't filter by available - we want to just error if it's attached already
 # this means we are in a weird state (two spot instances running etc)
@@ -88,11 +95,6 @@ if ! file -s $BLKDEVICE | grep -q ext4; then
   mkfs -t ext4 $BLKDEVICE
 fi
 
-# Unmount existing /var if it's already mounted
-if mount | grep -q /var; then
-  umount /var
-fi
-
 # Create a mount point and mount the volume
-mkdir -p /var
-mount $BLKDEVICE /var
+mkdir -p /var/lib/docker/volumes
+mount $BLKDEVICE /var/lib/docker/volumes
