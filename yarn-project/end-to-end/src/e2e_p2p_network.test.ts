@@ -45,16 +45,17 @@ describe('e2e_p2p_network', () => {
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     const bootstrapNode = await createBootstrapNode();
-    const bootstrapNodeAddress = `/ip4/127.0.0.1/tcp/${BOOT_NODE_TCP_PORT}/p2p/${bootstrapNode
-      .getPeerId()!
-      .toString()}`;
+    const bootstrapNodeEnr = bootstrapNode.getENR();
+    if (!bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
+    }
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
     for (let i = 0; i < NUM_NODES; i++) {
-      const node = await createNode(i + 1 + BOOT_NODE_TCP_PORT, bootstrapNodeAddress, i);
+      const node = await createNode(i + 1 + BOOT_NODE_TCP_PORT, bootstrapNodeEnr?.encodeTxt(), i);
       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
       contexts.push(context);
     }
@@ -72,15 +73,16 @@ describe('e2e_p2p_network', () => {
 
   const createBootstrapNode = async () => {
     const peerId = await createLibP2PPeerId();
-    const bootstrapNode = new BootstrapNode(logger);
+    const bootstrapNode = new BootstrapNode();
     const config: P2PConfig = {
       p2pEnabled: true,
       tcpListenPort: BOOT_NODE_TCP_PORT,
+      udpListenPort: BOOT_NODE_TCP_PORT,
       tcpListenIp: '0.0.0.0',
-      announceHostname: '/tcp/127.0.0.1',
+      udpListenIp: '0.0.0.0',
+      announceHostname: '/ip4/127.0.0.1',
       announcePort: BOOT_NODE_TCP_PORT,
       peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
-      clientKADRouting: false,
       minPeerCount: 10,
       maxPeerCount: 100,
 
@@ -106,13 +108,14 @@ describe('e2e_p2p_network', () => {
     const newConfig: AztecNodeConfig = {
       ...config,
       tcpListenPort,
+      udpListenPort: tcpListenPort,
       tcpListenIp: '0.0.0.0',
-      enableNat: false,
+      udpListenIp: '0.0.0.0',
+      announceHostname: '/ip4/127.0.0.1',
       bootstrapNodes: [bootstrapNode],
       minTxsPerBlock: NUM_TXS_PER_BLOCK,
       maxTxsPerBlock: NUM_TXS_PER_BLOCK,
       p2pEnabled: true,
-      clientKADRouting: false,
     };
     return await AztecNodeService.createAndSync(newConfig);
   };

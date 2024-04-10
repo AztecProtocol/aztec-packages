@@ -14,7 +14,6 @@ const p2pOptions =
   'bootstrapNodes:BOOTSTRAP_NODES - string - A list of bootstrap peers to connect to.\n' +
   'announceHostname:P2P_ANNOUNCE_HOSTNAME - string - P2P Hostname to announce.\n' +
   'announcePort:P2P_ANNOUNCE_PORT - number - P2P Port to announce.\n' +
-  'clientKADRouting:P2P_KAD_CLIENT - boolean - Optional specification to run as a client in the Kademlia routing protocol. Default: false\n' +
   'enableNat:P2P_NAT_ENABLED - boolean - Whether to enable NAT from libp2p (ignored for bootstrap node). Default: false\n' +
   'minPeerCount:P2P_MIN_PEERS - number - The minimum number of peers to connect to. Default: 10\n' +
   'maxPeerCount:P2P_MAX_PEERS - number - The maximum number of peers to connect to. Default: 100\n';

@@ -1,14 +1,8 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { noise } from '@chainsafe/libp2p-noise';
-import { yamux } from '@chainsafe/libp2p-yamux';
-import type { ServiceMap } from '@libp2p/interface-libp2p';
-import { kadDHT } from '@libp2p/kad-dht';
-import { mplex } from '@libp2p/mplex';
-import { tcp } from '@libp2p/tcp';
-import { type Libp2p, type Libp2pOptions, type ServiceFactoryMap, createLibp2p } from 'libp2p';
-import { identifyService } from 'libp2p/identify';
-import { format } from 'util';
+import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
+import { SignableENR } from '@chainsafe/enr';
+import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import { type P2PConfig } from '../config.js';
 import { createLibP2PPeerId } from '../service/index.js';
@@ -17,7 +11,7 @@ import { createLibP2PPeerId } from '../service/index.js';
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
  */
 export class BootstrapNode {
-  private node?: Libp2p = undefined;
+  private node?: Discv5 = undefined;
 
   constructor(private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
 
@@ -27,73 +21,42 @@ export class BootstrapNode {
    * @returns An empty promise.
    */
   public async start(config: P2PConfig) {
-    const { peerIdPrivateKey, tcpListenIp, tcpListenPort, announceHostname, announcePort, minPeerCount, maxPeerCount } =
-      config;
+    const { peerIdPrivateKey, udpListenIp, udpListenPort, announceHostname, announcePort } = config;
     const peerId = await createLibP2PPeerId(peerIdPrivateKey);
-    this.logger(
-      `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${
-        announcePort ?? tcpListenPort
-      }`,
-    );
+    const enr = SignableENR.createFromPeerId(peerId);
 
-    const opts: Libp2pOptions<ServiceMap> = {
-      start: false,
+    const listenAddrUdp = multiaddr(`/ip4/${udpListenIp}/udp/${udpListenPort}`);
+    const publicAddr = multiaddr(`${announceHostname}/udp/${announcePort}`);
+    enr.setLocationMultiaddr(publicAddr);
+
+    this.logger(`Starting bootstrap node ${peerId}, listening on ${listenAddrUdp.toString()}`);
+
+    this.node = Discv5.create({
+      enr,
       peerId,
-      addresses: {
-        listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
-        announce: announceHostname ? [`${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
+      bindAddrs: { ip4: listenAddrUdp },
+      config: {
+        lookupTimeout: 2000,
       },
-      transports: [tcp()],
-      streamMuxers: [yamux(), mplex()],
-      connectionEncryption: [noise()],
-      connectionManager: {
-        minConnections: minPeerCount,
-        maxConnections: maxPeerCount,
-      },
-    };
-
-    const services: ServiceFactoryMap = {
-      identify: identifyService({
-        protocolPrefix: 'aztec',
-      }),
-      kadDHT: kadDHT({
-        protocolPrefix: 'aztec',
-        clientMode: false,
-      }),
-      // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
-      // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
-      // work as then you would have a permanent port to be dialled.
-      // Alas, I struggled to get this to work reliably either.
-      // autoNAT: autoNATService({
-      //   protocolPrefix: 'aztec',
-      // }),
-    };
-
-    this.node = await createLibp2p({
-      ...opts,
-      services,
     });
 
-    await this.node.start();
-    this.logger(`lib p2p has started`);
-
-    // print out listening addresses
-    this.logger('listening on addresses:');
-    this.node.getMultiaddrs().forEach(addr => {
-      this.logger(addr.toString());
+    (this.node as Discv5EventEmitter).on('multiaddrUpdated', (addr: Multiaddr) => {
+      this.logger('Advertised socket address updated', { addr: addr.toString() });
+    });
+    (this.node as Discv5EventEmitter).on('discovered', async (enr: SignableENR) => {
+      const addr = await enr.getFullMultiaddr('udp');
+      this.logger(`Discovered new peer, enr: ${enr.encodeTxt()}, addr: ${addr?.toString()}`);
     });
 
-    this.node.addEventListener('peer:discovery', evt => {
-      this.logger(format('Discovered %s', evt.detail.id.toString())); // Log discovered peer
-    });
+    try {
+      await this.node.start();
+      this.logger('Discv5 started');
+    } catch (e) {
+      this.logger.error('Error starting Discv5', e);
+    }
 
-    this.node.addEventListener('peer:connect', evt => {
-      this.logger(format('Connected to %s', evt.detail.toString())); // Log connected peer
-    });
-
-    this.node.addEventListener('peer:disconnect', evt => {
-      this.logger(format('Disconnected from %s', evt.detail.toString())); // Log connected peer
-    });
+    // console.log('ENR: ', Buffer.from(enr.encode()).toString('base64'));
+    this.logger(`ENR:  ${this.node?.enr.encodeTxt()}`);
   }
 
   /**
@@ -112,5 +75,12 @@ export class BootstrapNode {
    */
   public getPeerId() {
     return this.node?.peerId;
+  }
+
+  public getENR() {
+    if (!this.node) {
+      throw new Error('Node not started');
+    }
+    return this.node?.enr.toENR();
   }
 }
