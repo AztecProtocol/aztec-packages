@@ -328,7 +328,7 @@ namespace avm_alu(256);
     pol commit p_b_borrow;
     p_b_borrow * (1 - p_b_borrow) = 0;
 
-    // Check that decomposition of b into lo and hi limbs do not overflow p.
+    // Check that decomposition of b into lo and hi limbs do not overflow/underflow p.
     // This is achieved by checking (p_lo > b_lo && p_hi >= bhi) || (p_lo <= b_lo && p_hi > b_hi)
     // First condition is if borrow = 0, second condition is if borrow = 1;
     #[SUB_LO_2]
@@ -462,6 +462,7 @@ namespace avm_alu(256);
     // TODO: there is an optimisation where we are able to do 1 less range check as the range check on
     // P_SUB_B is implied by the other range checks.
     // Briefly: given a > b and p > a and p > a - b - 1, it is sufficient confirm that p > b without a range check
+    // To accomplish this we would likely change the order of the range_check so we can skip p_sub_b
     #[SHIFT_RELS]
     (a_lo' - b_lo) * rng_chk_sel' = 0;
     (a_hi' - b_hi) * rng_chk_sel' = 0;

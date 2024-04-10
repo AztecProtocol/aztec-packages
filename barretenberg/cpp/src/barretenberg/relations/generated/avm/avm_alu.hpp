@@ -155,25 +155,25 @@ inline std::string get_relation_label_avm_alu(int index)
         return "CTR_NON_ZERO_REL";
 
     case 37:
-        return "LOWER_CMP_RNG_CHK";
+        return "RNG_CHK_LOOKUP_SELECTOR";
 
     case 38:
-        return "UPPER_CMP_RNG_CHK";
+        return "LOWER_CMP_RNG_CHK";
 
     case 39:
+        return "UPPER_CMP_RNG_CHK";
+
+    case 40:
         return "SHIFT_RELS";
 
-    case 41:
+    case 42:
         return "SHIFT_RELS_1";
 
-    case 43:
+    case 44:
         return "SHIFT_RELS_2";
 
-    case 45:
+    case 46:
         return "SHIFT_RELS_3";
-
-    case 47:
-        return "RNG_CHK_LOOKUP_SELECTOR";
     }
     return std::to_string(index);
 }
@@ -184,7 +184,7 @@ template <typename FF_> class avm_aluImpl {
 
     static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{
         2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 6, 6, 8, 3, 4, 4, 5, 4, 4,
-        3, 4, 3, 3, 4, 3, 6, 5, 3, 3, 3, 3, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2,
+        3, 4, 3, 3, 4, 3, 6, 5, 3, 3, 3, 3, 4, 2, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -617,6 +617,14 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(37);
 
+            auto tmp = (avm_alu_rng_chk_lookup_selector - (avm_alu_cmp_sel + avm_alu_rng_chk_sel));
+            tmp *= scaling_factor;
+            std::get<37>(evals) += tmp;
+        }
+        // Contribution 38
+        {
+            Avm_DECLARE_VIEWS(38);
+
             auto tmp =
                 (avm_alu_a_lo - (((((((((avm_alu_u8_r0 + (avm_alu_u8_r1 * FF(256))) + (avm_alu_u16_r0 * FF(65536))) +
                                        (avm_alu_u16_r1 * FF(4294967296UL))) +
@@ -627,11 +635,11 @@ template <typename FF_> class avm_aluImpl {
                                   (avm_alu_u16_r6 * FF(uint256_t{ 0LLU, 281474976710656LLU, 0LLU, 0LLU }))) *
                                  (avm_alu_rng_chk_sel + avm_alu_cmp_sel)));
             tmp *= scaling_factor;
-            std::get<37>(evals) += tmp;
+            std::get<38>(evals) += tmp;
         }
-        // Contribution 38
+        // Contribution 39
         {
-            Avm_DECLARE_VIEWS(38);
+            Avm_DECLARE_VIEWS(39);
 
             auto tmp = (avm_alu_a_hi -
                         ((((((((avm_alu_u16_r7 + (avm_alu_u16_r8 * FF(65536))) + (avm_alu_u16_r9 * FF(4294967296UL))) +
@@ -642,21 +650,13 @@ template <typename FF_> class avm_aluImpl {
                           (avm_alu_u16_r14 * FF(uint256_t{ 0LLU, 281474976710656LLU, 0LLU, 0LLU }))) *
                          (avm_alu_rng_chk_sel + avm_alu_cmp_sel)));
             tmp *= scaling_factor;
-            std::get<38>(evals) += tmp;
-        }
-        // Contribution 39
-        {
-            Avm_DECLARE_VIEWS(39);
-
-            auto tmp = ((avm_alu_a_lo_shift - avm_alu_b_lo) * avm_alu_rng_chk_sel_shift);
-            tmp *= scaling_factor;
             std::get<39>(evals) += tmp;
         }
         // Contribution 40
         {
             Avm_DECLARE_VIEWS(40);
 
-            auto tmp = ((avm_alu_a_hi_shift - avm_alu_b_hi) * avm_alu_rng_chk_sel_shift);
+            auto tmp = ((avm_alu_a_lo_shift - avm_alu_b_lo) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<40>(evals) += tmp;
         }
@@ -664,7 +664,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(41);
 
-            auto tmp = ((avm_alu_b_lo_shift - avm_alu_p_sub_a_lo) * avm_alu_rng_chk_sel_shift);
+            auto tmp = ((avm_alu_a_hi_shift - avm_alu_b_hi) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<41>(evals) += tmp;
         }
@@ -672,7 +672,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(42);
 
-            auto tmp = ((avm_alu_b_hi_shift - avm_alu_p_sub_a_hi) * avm_alu_rng_chk_sel_shift);
+            auto tmp = ((avm_alu_b_lo_shift - avm_alu_p_sub_a_lo) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<42>(evals) += tmp;
         }
@@ -680,7 +680,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(43);
 
-            auto tmp = ((avm_alu_p_sub_a_lo_shift - avm_alu_p_sub_b_lo) * avm_alu_rng_chk_sel_shift);
+            auto tmp = ((avm_alu_b_hi_shift - avm_alu_p_sub_a_hi) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<43>(evals) += tmp;
         }
@@ -688,7 +688,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(44);
 
-            auto tmp = ((avm_alu_p_sub_a_hi_shift - avm_alu_p_sub_b_hi) * avm_alu_rng_chk_sel_shift);
+            auto tmp = ((avm_alu_p_sub_a_lo_shift - avm_alu_p_sub_b_lo) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<44>(evals) += tmp;
         }
@@ -696,7 +696,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(45);
 
-            auto tmp = ((avm_alu_p_sub_b_lo_shift - avm_alu_res_lo) * avm_alu_rng_chk_sel_shift);
+            auto tmp = ((avm_alu_p_sub_a_hi_shift - avm_alu_p_sub_b_hi) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<45>(evals) += tmp;
         }
@@ -704,7 +704,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(46);
 
-            auto tmp = ((avm_alu_p_sub_b_hi_shift - avm_alu_res_hi) * avm_alu_rng_chk_sel_shift);
+            auto tmp = ((avm_alu_p_sub_b_lo_shift - avm_alu_res_lo) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<46>(evals) += tmp;
         }
@@ -712,7 +712,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(47);
 
-            auto tmp = (avm_alu_rng_chk_lookup_selector - (avm_alu_cmp_sel + avm_alu_rng_chk_sel));
+            auto tmp = ((avm_alu_p_sub_b_hi_shift - avm_alu_res_hi) * avm_alu_rng_chk_sel_shift);
             tmp *= scaling_factor;
             std::get<47>(evals) += tmp;
         }

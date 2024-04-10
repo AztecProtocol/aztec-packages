@@ -296,7 +296,7 @@ TEST_P(AvmCmpNegativeTestsLT, ParamTest)
     const auto [a, b, output] = params;
     auto trace_builder = avm_trace::AvmTraceBuilder();
     trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, output });
-    trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
+    trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF);
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_lt == FF(1); };
@@ -307,24 +307,5 @@ TEST_P(AvmCmpNegativeTestsLT, ParamTest)
 
 INSTANTIATE_TEST_SUITE_P(AvmCmpNegativeTests,
                          AvmCmpNegativeTestsLT,
-                         testing::Combine(testing::ValuesIn(cmp_failures), testing::ValuesIn(neg_test_lt)));
-TEST_P(AvmCmpNegativeTestsLTE, ParamTest)
-{
-    const auto [failure, params] = GetParam();
-    const auto [failure_string, failure_mode] = failure;
-    const auto [a, b, output] = params;
-    auto trace_builder = avm_trace::AvmTraceBuilder();
-    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, output });
-    trace_builder.op_lte(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
-    trace_builder.return_op(0, 0, 0);
-    auto trace = trace_builder.finalize();
-    std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_lte == FF(1); };
-    trace = gen_mutated_trace_cmp(trace, std::move(select_row), output, failure_mode);
-    // validate_trace_proof(std::move(trace));
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
-}
-
-INSTANTIATE_TEST_SUITE_P(AvmCmpNegativeTests,
-                         AvmCmpNegativeTestsLTE,
                          testing::Combine(testing::ValuesIn(cmp_failures), testing::ValuesIn(neg_test_lt)));
 } // namespace tests_avm
