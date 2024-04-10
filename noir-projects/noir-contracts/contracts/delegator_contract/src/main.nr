@@ -17,11 +17,9 @@ contract Delegator {
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
         args: [Field; 2]
-    ) {
+    ) -> Field {
         // Call the target private function
-        let return_value: Field = context.delegate_call_private_function(target_contract, target_selector, args).unpack_into();
-        // Copy the return value from the call to this function's return values
-        return_value
+        context.delegate_call_private_function(target_contract, target_selector, args).unpack_into()
     }
 
     #[aztec(private)]

@@ -491,14 +491,12 @@ contract AvmTest {
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
-        let result: Field = context.static_call_public_function(
+        context.static_call_public_function(
             context.this_address(),
             selector,
             [arg_a, arg_b],
             GasOpts::default()
-        ).deserialize_into();
-
-        result
+        ).deserialize_into()
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.

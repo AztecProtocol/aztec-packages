@@ -73,7 +73,7 @@ pub fn transform_function(
 
     // Abstract return types such that they get added to the kernel's return_values
     if !is_avm {
-        if let Some(return_values_statements) = abstract_return_values(func) {
+        if let Some(return_values_statements) = abstract_return_values(func)? {
             // In case we are pushing return values to the context, we remove the statement that originated it
             // This avoids running duplicate code, since blocks like if/else can be value returning statements
             func.def.body.statements.pop();
@@ -310,19 +310,19 @@ fn serialize_to_hasher(
 
     // Match the type to determine the padding to do
     match typ {
-        // `{bounded_vec_name}.extend_from_array({ident}.serialize())`
+        // `{hasher_name}.extend_from_array({ident}.serialize())`
         UnresolvedTypeData::Named(..) => {
             statements.push(add_struct_to_hasher(identifier, hasher_name));
         }
         UnresolvedTypeData::Array(_, arr_type) => {
             statements.push(add_array_to_hasher(identifier, arr_type, hasher_name));
         }
-        // `{bounded_vec_name}.push({ident})`
+        // `{hasher_name}.push({ident})`
         UnresolvedTypeData::FieldElement => {
             statements.push(add_field_to_hasher(identifier, hasher_name));
         }
         // Add the integer to the bounded vec, casted to a field
-        // `{bounded_vec_name}.push({ident} as Field)`
+        // `{hasher_name}.push({ident} as Field)`
         UnresolvedTypeData::Integer(..) | UnresolvedTypeData::Bool => {
             statements.push(add_cast_to_hasher(identifier, hasher_name));
         }
@@ -490,12 +490,18 @@ fn create_context_avm() -> Result<Vec<Statement>, AztecMacroError> {
 /// Similarly; Structs will be pushed to the context, after serialize() is called on them.
 /// Arrays will be iterated over and each element will be pushed to the context.
 /// Any primitive type that can be cast will be casted to a field and pushed to the context.
-fn abstract_return_values(func: &NoirFunction) -> Option<Vec<Statement>> {
+fn abstract_return_values(func: &NoirFunction) -> Result<Option<Vec<Statement>>, AztecMacroError> {
     let current_return_type = func.return_type().typ;
-    if let UnresolvedTypeData::Unit = current_return_type {
-        return None;
+
+    // Short circuit if the function doesn't return anything
+    match current_return_type {
+        UnresolvedTypeData::Unit | UnresolvedTypeData::Unspecified => return Ok(None),
+        _ => (),
     }
-    let last_statement = func.def.body.statements.last()?;
+
+    let Some(last_statement) = func.def.body.statements.last() else {
+        return Ok(None);
+    };
 
     // TODO: support tuples here and in inputs -> convert into an issue
     // Check if the return type is an expression, if it is, we can handle it
@@ -521,13 +527,10 @@ fn abstract_return_values(func: &NoirFunction) -> Option<Vec<Statement>> {
 
             let serialization_statements =
                 serialize_to_hasher(&ident(return_value_name), &current_return_type, hasher_name)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Unsupported return type {:?} for function {:?}",
-                            current_return_type,
-                            func.name()
-                        );
-                    });
+                    .ok_or_else(|| AztecMacroError::UnsupportedFunctionReturnType {
+                    typ: current_return_type.clone(),
+                    span: func.return_type().span.unwrap_or_default(),
+                })?;
 
             replacement_statements.extend(serialization_statements);
 
@@ -537,9 +540,9 @@ fn abstract_return_values(func: &NoirFunction) -> Option<Vec<Statement>> {
                 vec![variable(hasher_name)],
             ))));
 
-            Some(replacement_statements)
+            Ok(Some(replacement_statements))
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
