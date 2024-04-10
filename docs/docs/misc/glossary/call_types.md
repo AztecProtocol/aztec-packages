@@ -51,7 +51,7 @@ It is also possible to call such a function with `STATICCALL` manually (e.g. usi
 
 An external function marked `view` will not be able to mutate state (write to storage, etc.), it can only _view_ the state. Solidity will emit the `STATICCALL` opcode when calling these functions, since its restrictions provide added safety to the caller (e.g. no risk of reentrancy).
 
-Note that it is entirely possible to use `CALL` to call a non-`view` function, and the result will be the exact same as if `STATICCALL` had been used. The reason why `STATICCALL` exists is so that _untrusted or unknown_ contracts can be called while still being able to reason about correctness. From the [EIP](https://eips.ethereum.org/EIPS/eip-214):
+Note that it is entirely possible to use `CALL` to call a `view` function, and the result will be the exact same as if `STATICCALL` had been used. The reason why `STATICCALL` exists is so that _untrusted or unknown_ contracts can be called while still being able to reason about correctness. From the [EIP](https://eips.ethereum.org/EIPS/eip-214):
 
 > '`STATICCALL` adds a way to call other contracts and restrict what they can do in the simplest way. It can be safely assumed that the state of all accounts is the same before and after a static call.'
 
