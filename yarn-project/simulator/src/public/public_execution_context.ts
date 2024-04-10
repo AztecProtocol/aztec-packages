@@ -97,7 +97,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Pack the given array of arguments.
    * @param args - Arguments to pack
    */
-  public packArgumentsArray(args: Fr[]): Promise<Fr> {
+  public packArguments(args: Fr[]): Promise<Fr> {
     return Promise.resolve(this.packedArgsCache.pack(args));
   }
 

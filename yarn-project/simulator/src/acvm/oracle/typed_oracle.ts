@@ -85,8 +85,8 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  packArgumentsArray(_args: Fr[]): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('packArgumentsArray');
+  packArguments(_args: Fr[]): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('packArguments');
   }
 
   getNullifierKeyPair(_accountAddress: AztecAddress): Promise<KeyPair> {
