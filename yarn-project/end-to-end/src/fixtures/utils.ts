@@ -27,7 +27,7 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { randomBytes } from '@aztec/foundation/crypto';
 import {
   AvailabilityOracleAbi,
@@ -260,9 +260,12 @@ async function setupWithRemoteEnvironment(
   const teardown = () => Promise.resolve();
 
   if (['1', 'true'].includes(ENABLE_GAS)) {
+    const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
     // this contract might already have been deployed
     // the following function is idempotent
-    await deployCanonicalGasToken(new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint()));
+    await deployCanonicalGasToken(
+      new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+    );
   }
 
   return {
@@ -374,10 +377,13 @@ export async function setup(
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
+  logger.verbose('Creating a pxe...');
   const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
   if (['1', 'true'].includes(ENABLE_GAS)) {
-    await deployCanonicalGasToken(new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()));
+    await deployCanonicalGasToken(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    );
   }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
