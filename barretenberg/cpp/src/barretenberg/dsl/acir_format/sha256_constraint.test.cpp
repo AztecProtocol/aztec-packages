@@ -22,8 +22,8 @@ TEST_F(Sha256Tests, TestSha256Compression)
         inputs[i] = { .witness = (i + 1), .num_bits = 32 };
     }
     std::array<Sha256Input, 8> hash_values;
-    for (uint32_t i = 16; i < 24; ++i) {
-        hash_values[i] = { .witness = (i + 1), .num_bits = 32 };
+    for (uint32_t i = 0; i < 8; ++i) {
+        hash_values[i] = { .witness = (i + 17), .num_bits = 32 };
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
