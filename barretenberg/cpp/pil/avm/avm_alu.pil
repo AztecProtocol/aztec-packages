@@ -417,7 +417,6 @@ namespace avm_alu(256);
     (res_hi - (A_SUB_B_HI * IS_GT + B_SUB_A_HI * (1 - IS_GT))) * cmp_sel = 0;
 
     // ========= RANGE OPERATIONS ===============================
-    // TODO: 8-bit and 16-bit range checks for the respective registers have not yet been implemented.
 
     // Each call to LT/LTE requires 5x 256-bit range checks. We keep track of how many are left here.
     pol commit cmp_rng_ctr;
@@ -443,6 +442,10 @@ namespace avm_alu(256);
     // We perform a range check if we have some range checks remaining or we are performing a comparison op
     pol RNG_CHK_OP = (rng_chk_sel + cmp_sel);
 
+    pol commit rng_chk_lookup_selector;
+    #[RNG_CHK_LOOKUP_SELECTOR]
+    rng_chk_lookup_selector = cmp_sel + rng_chk_sel;
+
     // Perform 128-bit range check on lo part
     #[LOWER_CMP_RNG_CHK]
     a_lo = SUM_128 * (RNG_CHK_OP);
@@ -456,6 +459,9 @@ namespace avm_alu(256);
            u16_r13 * 2**96 + u16_r14 * 2**112) * (RNG_CHK_OP);
 
     // Shift all elements "across" by 2 columns
+    // TODO: there is an optimisation where we are able to do 1 less range check as the range check on
+    // P_SUB_B is implied by the other range checks.
+    // Briefly: given a > b and p > a and p > a - b - 1, it is sufficient confirm that p > b without a range check
     #[SHIFT_RELS]
     (a_lo' - b_lo) * rng_chk_sel' = 0;
     (a_hi' - b_hi) * rng_chk_sel' = 0;
@@ -469,7 +475,3 @@ namespace avm_alu(256);
     (p_sub_b_lo' - res_lo) * rng_chk_sel'= 0;
     (p_sub_b_hi' - res_hi) * rng_chk_sel'= 0;
 
-    // TODO: Investigate optimising these range checks. Handling non-FF elements should require less range checks.
-    pol commit rng_chk_lookup_selector;
-    #[RNG_CHK_LOOKUP_SELECTOR]
-    rng_chk_lookup_selector = cmp_sel + rng_chk_sel;

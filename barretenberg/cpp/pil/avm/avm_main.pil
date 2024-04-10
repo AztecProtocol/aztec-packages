@@ -312,6 +312,7 @@ namespace avm_main(256);
     ind_op_c {clk, ind_c, mem_idx_c} is avm_mem.ind_op_c {avm_mem.clk, avm_mem.addr, avm_mem.val};
 
     //====== Inter-table Constraints (Range Checks) ============================================
+    // TODO: Investigate optimising these range checks. Handling non-FF elements should require less range checks.
     #[LOOKUP_U8_0]
     avm_alu.rng_chk_lookup_selector { avm_alu.u8_r0 } in sel_rng_8 { clk };
 

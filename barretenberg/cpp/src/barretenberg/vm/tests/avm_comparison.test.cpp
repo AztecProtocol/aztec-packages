@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <iterator>
 #include <ranges>
+#include <sys/types.h>
 #include <tuple>
 #include <vector>
 
@@ -150,6 +151,7 @@ enum CMP_FAILURES {
     CounterRelationFailed,
     CounterNonZeroCheckFailed,
     ShiftRelationFailed,
+    RangeCheckFailed,
 };
 std::vector<std::tuple<std::string, CMP_FAILURES>> cmp_failures = {
     { "INPUT_DECOMP_1", CMP_FAILURES::IncorrectInputDecomposition },
@@ -160,12 +162,16 @@ std::vector<std::tuple<std::string, CMP_FAILURES>> cmp_failures = {
     { "CMP_CTR_REL_2", CMP_FAILURES::CounterRelationFailed },
     { "CTR_NON_ZERO_REL", CMP_FAILURES::CounterNonZeroCheckFailed },
     { "SHIFT_RELS", CMP_FAILURES::ShiftRelationFailed },
+    { "LOOKUP_U16_0", CMP_FAILURES::RangeCheckFailed },
+
 };
-std::vector<ThreeOpParamRow> neg_test_lt = { { 12023, 439321, 1 } };
+std::vector<ThreeOpParamRow> neg_test_lt = { { 12023, 439321, 0 } };
 
 using EXPECTED_ERRORS = std::tuple<std::string, CMP_FAILURES>;
+
 std::vector<Row> gen_mutated_trace_cmp(std::vector<Row> trace,
                                        std::function<bool(Row)>&& select_row,
+                                       FF c_mutated,
                                        CMP_FAILURES fail_mode)
 {
     auto main_trace_row = std::ranges::find_if(trace.begin(), trace.end(), select_row);
@@ -202,11 +208,86 @@ std::vector<Row> gen_mutated_trace_cmp(std::vector<Row> trace,
         range_check_row->avm_alu_a_lo = range_check_row->avm_alu_res_lo;
         range_check_row->avm_alu_a_hi = range_check_row->avm_alu_res_hi;
         break;
+    case RangeCheckFailed: // Canonicalisation check failure
+        // TODO: We can probably refactor this to another function later as it is a bit verbose
+        // and we'll probably use it repeatedly for other range check test.
+
+        // The range check fails in the context of the cmp operation if we set the boolean
+        // result in ic to be incorrect.
+        //
+        // Here we falsely claim LT(12,023, 439,321, 0). i.e. 12023 < 439321 is false.
+        mutate_ic_in_trace(trace, std::move(select_row), c_mutated, true);
+        // Now we have to also update the value of res_lo = (A_SUB_B_LO * IS_GT + B_SUB_A_LO * (1 - IS_GT))
+        // to be B_SUB_A_LO
+
+        alu_row->avm_alu_borrow = FF(0);
+        FF mutated_res_lo =
+            alu_row->avm_alu_b_lo - alu_row->avm_alu_a_lo + alu_row->avm_alu_borrow * (uint256_t(1) << 128);
+        FF mutated_res_hi = alu_row->avm_alu_b_hi - alu_row->avm_alu_a_hi - alu_row->avm_alu_borrow;
+        alu_row->avm_alu_res_lo = mutated_res_lo;
+        alu_row->avm_alu_res_hi = mutated_res_hi;
+        // For each subsequent row that involve the range check, we need to update the shifted values
+        auto next_row = alu_row + 1;
+        next_row->avm_alu_p_sub_b_lo = mutated_res_lo;
+        next_row->avm_alu_p_sub_b_hi = mutated_res_hi;
+
+        next_row = alu_row + 2;
+        next_row->avm_alu_p_sub_a_lo = mutated_res_lo;
+        next_row->avm_alu_p_sub_a_hi = mutated_res_hi;
+        next_row = alu_row + 3;
+
+        next_row->avm_alu_b_lo = mutated_res_lo;
+        next_row->avm_alu_b_hi = mutated_res_hi;
+
+        auto final_row = alu_row + 4;
+        final_row->avm_alu_a_lo = mutated_res_lo;
+        final_row->avm_alu_a_hi = mutated_res_hi;
+
+        uint256_t mutated_res_lo_u256 = mutated_res_lo;
+
+        // The final row contains the mutated res_x values at the a_x slots that will be range check.
+        // To prevent a trivial range check failure, we need to update the lookup counts in the memory
+
+        // Find the main row where the old u8 value in the first register is looked up
+        auto lookup_row = std::ranges::find_if(trace.begin(), trace.end(), [final_row](Row r) {
+            return r.avm_main_clk == final_row->avm_alu_u8_r0 && r.avm_main_sel_rng_8 == FF(1);
+        });
+        // Decrement the counter
+        lookup_row->lookup_u8_0_counts = lookup_row->lookup_u8_0_counts - 1;
+
+        // Assign the new u8 value that goes into the first slice register.
+        final_row->avm_alu_u8_r0 = static_cast<uint8_t>(mutated_res_lo_u256);
+        // Find the main row where the new u8 value in the first register WILL be looked up
+        auto new_lookup_row = std::ranges::find_if(trace.begin(), trace.end(), [final_row](Row r) {
+            return r.avm_main_clk == final_row->avm_alu_u8_r0 && r.avm_main_sel_rng_8 == FF(1);
+        });
+        // Increment the counter
+        new_lookup_row->lookup_u8_0_counts = new_lookup_row->lookup_u8_0_counts + 1;
+        mutated_res_lo_u256 >>= 8;
+
+        // Do the same for the second u8 register
+        lookup_row = std::ranges::find_if(trace.begin(), trace.end(), [final_row](Row r) {
+            return r.avm_main_clk == final_row->avm_alu_u8_r1 && r.avm_main_sel_rng_8 == FF(1);
+        });
+        lookup_row->lookup_u8_1_counts = lookup_row->lookup_u8_1_counts - 1;
+
+        final_row->avm_alu_u8_r1 = static_cast<uint8_t>(mutated_res_lo_u256);
+        new_lookup_row = std::ranges::find_if(trace.begin(), trace.end(), [final_row](Row r) {
+            return r.avm_main_clk == final_row->avm_alu_u8_r1 && r.avm_main_sel_rng_8 == FF(1);
+        });
+        new_lookup_row->lookup_u8_1_counts = new_lookup_row->lookup_u8_1_counts + 1;
+        mutated_res_lo_u256 >>= 8;
+        // Set the remaining 112 bits to the first u16 register to trigger the overflow
+        final_row->avm_alu_u16_r0 = mutated_res_lo_u256;
+
+        break;
     }
     return trace;
 }
 class AvmCmpNegativeTestsLT : public AvmCmpTests,
                               public testing::WithParamInterface<std::tuple<EXPECTED_ERRORS, ThreeOpParamRow>> {};
+class AvmCmpNegativeTestsLTE : public AvmCmpTests,
+                               public testing::WithParamInterface<std::tuple<EXPECTED_ERRORS, ThreeOpParamRow>> {};
 
 TEST_P(AvmCmpNegativeTestsLT, ParamTest)
 {
@@ -219,11 +300,31 @@ TEST_P(AvmCmpNegativeTestsLT, ParamTest)
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_lt == FF(1); };
-    trace = gen_mutated_trace_cmp(trace, std::move(select_row), failure_mode);
+    trace = gen_mutated_trace_cmp(trace, std::move(select_row), output, failure_mode);
+    // validate_trace_proof(std::move(trace));
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmCmpNegativeTests,
                          AvmCmpNegativeTestsLT,
+                         testing::Combine(testing::ValuesIn(cmp_failures), testing::ValuesIn(neg_test_lt)));
+TEST_P(AvmCmpNegativeTestsLTE, ParamTest)
+{
+    const auto [failure, params] = GetParam();
+    const auto [failure_string, failure_mode] = failure;
+    const auto [a, b, output] = params;
+    auto trace_builder = avm_trace::AvmTraceBuilder();
+    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, output });
+    trace_builder.op_lte(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
+    trace_builder.return_op(0, 0, 0);
+    auto trace = trace_builder.finalize();
+    std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_lte == FF(1); };
+    trace = gen_mutated_trace_cmp(trace, std::move(select_row), output, failure_mode);
+    // validate_trace_proof(std::move(trace));
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
+}
+
+INSTANTIATE_TEST_SUITE_P(AvmCmpNegativeTests,
+                         AvmCmpNegativeTestsLTE,
                          testing::Combine(testing::ValuesIn(cmp_failures), testing::ValuesIn(neg_test_lt)));
 } // namespace tests_avm
