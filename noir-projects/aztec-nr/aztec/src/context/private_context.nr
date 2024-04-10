@@ -24,8 +24,7 @@ use dep::protocol_types::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
-    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL,
-    RETURN_VALUES_LENGTH
+    MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, header::Header,
@@ -169,7 +168,7 @@ impl PrivateContext {
         let priv_circuit_pub_inputs = PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
-            return_values: [self.return_hash, 0, 0, 0],
+            returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
@@ -377,8 +376,7 @@ impl PrivateContext {
 
         self.private_call_stack_hashes.push(item.hash());
 
-        let return_hash = item.public_inputs.return_values[0];
-        PackedReturns::new(return_hash)
+        PackedReturns::new(item.public_inputs.returns_hash)
     }
 
     pub fn call_public_function<ARGS_COUNT>(
@@ -466,7 +464,7 @@ impl PrivateContext {
             public_inputs: PublicCircuitPublicInputs {
                 call_context: reader.read_struct(CallContext::deserialize),
                 args_hash: reader.read(),
-                return_values: [0; RETURN_VALUES_LENGTH],
+                returns_hash: 0,
                 nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
                 nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
                 contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],

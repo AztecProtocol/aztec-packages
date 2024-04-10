@@ -105,7 +105,7 @@ export async function executePublicFunction(
 
   const returnWitness = extractReturnWitness(acir, partialWitness);
   const {
-    returnValues: returnHashes,
+    returnsHash,
     nullifierReadRequests: nullifierReadRequestsPadded,
     nullifierNonExistentReadRequests: nullifierNonExistentReadRequestsPadded,
     newL2ToL1Msgs,
@@ -114,7 +114,7 @@ export async function executePublicFunction(
     startSideEffectCounter,
     endSideEffectCounter,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
-  const returnValues = await context.unpackReturns(returnHashes[0]);
+  const returnValues = await context.unpackReturns(returnsHash);
 
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
   const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());

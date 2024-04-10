@@ -1,7 +1,6 @@
 use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext, Deserialize};
 
 use dep::aztec::context::{PublicContext, gas::GasOpts};
-use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
 
 use crate::asset::Asset;
 

@@ -1,8 +1,6 @@
 use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, PrivateContext, Deserialize};
 use dep::aztec::context::{PublicContext, gas::GasOpts};
 
-use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
-
 struct Token {
   address: AztecAddress,
 }

@@ -24,7 +24,7 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
-    use dep::aztec::prelude::Map;
+    use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH,
@@ -34,7 +34,6 @@ contract AvmTest {
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::traits::ToField;
-    use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
     use dep::compressed_string::CompressedString;
 
     // avm lib
@@ -393,16 +392,17 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
         // Nested call using standard context interface function
-        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
-            context.this_address(),
-            selector,
-            [arg_a, arg_b],
-            GasOpts::default()
+        let add_result: Field = Deserialize::deserialize(
+            context.call_public_function(
+                context.this_address(),
+                selector,
+                [arg_a, arg_b],
+                GasOpts::default()
+            )
         );
         // this explicit size in the return variable is necessary to ensure that ret_size is compile-time
         // (ensure the data_to_return is in a HeapArray not a HeapVector)
 
-        let add_result = data_to_return[0];
         add_result
     }
 
@@ -437,14 +437,16 @@ contract AvmTest {
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
-        let result_data: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(
-            context.this_address(),
-            selector,
-            [arg_a, arg_b],
-            GasOpts::default()
+        let result: Field = Deserialize::deserialize(
+            context.static_call_public_function(
+                context.this_address(),
+                selector,
+                [arg_a, arg_b],
+                GasOpts::default()
+            )
         );
 
-        result_data[0]
+        result
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
@@ -453,6 +455,6 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)");
         let calldata: [Field; 1] = [20];
 
-        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default());
+        let _void: [Field; 0] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default());
     }
 }

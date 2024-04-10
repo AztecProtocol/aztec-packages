@@ -1,6 +1,5 @@
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header,
-    constants::RETURN_VALUES_LENGTH
 };
 
 use crate::context::gas::GasOpts;

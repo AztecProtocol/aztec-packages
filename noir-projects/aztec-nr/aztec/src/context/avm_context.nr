@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
-    constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER, RETURN_VALUES_LENGTH},
+    constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER},
     header::Header
 };
 use dep::protocol_types::traits::Serialize;
