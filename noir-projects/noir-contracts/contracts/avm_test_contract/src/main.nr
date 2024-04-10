@@ -26,9 +26,10 @@ contract AvmTest {
     // Libs
     use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::history::nullifier_inclusion::prove_nullifier_inclusion;
     use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH,
-        contract_instance::ContractInstance
+        contract_instance::ContractInstance, hash::silo_nullifier
     };
     use dep::aztec::context::gas::GasOpts;
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
@@ -36,6 +37,7 @@ contract AvmTest {
     use dep::aztec::protocol_types::traits::ToField;
     use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
     use dep::compressed_string::CompressedString;
+    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
@@ -176,6 +178,56 @@ contract AvmTest {
     }
 
     /************************************************************************
+     * ACVM interoperability
+     ************************************************************************/
+    #[aztec(public)]
+    fn constant_field_acvm() -> pub Field {
+        123456
+    }
+
+    #[aztec(public-vm)]
+    fn constant_field_avm() -> pub Field {
+        123456
+    }
+
+    #[aztec(public)]
+    fn new_nullifier_acvm(nullifier: Field) -> pub Field {
+        context.push_new_nullifier(nullifier, 0);
+    }
+
+    #[aztec(public)]
+    fn assert_unsiloed_nullifier_acvm(unsiloed_nullifier: Field) {
+        assert(context.nullifier_exists(unsiloed_nullifier, context.this_address()));
+    }
+
+    #[aztec(public-vm)]
+    fn call_acvm_from_avm() -> pub Field {
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
+            context.this_address(),
+            FunctionSelector::from_signature("constant_field_acvm()"),
+            [],
+            GasOpts::default()
+        );
+        data_to_return[0]
+    }
+
+    #[aztec(public)]
+    fn call_avm_from_acvm() -> pub Field {
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
+            context.this_address(),
+            FunctionSelector::from_signature("constant_field_avm()"),
+            [],
+            GasOpts::default()
+        );
+        data_to_return[0]
+    }
+
+    #[aztec(public-vm)]
+    fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
+        context.call_public_function(context.this_address(), selector, [args], GasOpts::default());
+    }
+
+    /************************************************************************
      * Contract instance
      ************************************************************************/
     #[aztec(public-vm)]
@@ -195,6 +247,14 @@ contract AvmTest {
     fn test_get_contract_instance() {
         let ci = get_contract_instance_avm(context.this_address());
         assert(ci.is_some());
+    }
+
+    /************************************************************************
+     * Authwit functions
+     ************************************************************************/
+    #[aztec(public-vm)]
+    fn test_authwit_send_money(from: AztecAddress, _to: AztecAddress, _amount: Field) {
+        assert_current_call_valid_authwit_public(&mut context, from);
     }
 
     /************************************************************************
@@ -303,19 +363,19 @@ contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[aztec(public-vm)]
     fn nullifier_exists(nullifier: Field) -> pub bool {
-        context.nullifier_exists(nullifier)
+        context.nullifier_exists(nullifier, context.this_address())
     }
 
     #[aztec(public-vm)]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier));
+        assert(context.nullifier_exists(nullifier, context.this_address()));
     }
 
     // Use the standard context interface to emit a new nullifier
     #[aztec(public-vm)]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
-        let exists = context.nullifier_exists(nullifier);
+        let exists = context.nullifier_exists(nullifier, context.this_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 
