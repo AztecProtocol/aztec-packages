@@ -43,11 +43,11 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     op_queue->mul_accumulate(b, y);
     op_queue->add_accumulate(a);
     op_queue->mul_accumulate(b, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->add_accumulate(c);
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
     op_queue->mul_accumulate(c, x);

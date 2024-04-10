@@ -29,11 +29,11 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->mul_accumulate(b, y);
     op_queue->add_accumulate(a);
     op_queue->mul_accumulate(b, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->add_accumulate(c);
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
     op_queue->mul_accumulate(c, x);
@@ -86,7 +86,7 @@ TEST(ECCVMCircuitBuilderTests, ShortMul)
     Fr x = small_x;
 
     op_queue->mul_accumulate(a, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -138,7 +138,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
 
     op_queue->mul_accumulate(a, x);
     op_queue->empty_row();
-    op_queue->eq();
+    op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -154,7 +154,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithEq)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -170,7 +170,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithAdd)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->add_accumulate(a);
 
     ECCVMCircuitBuilder circuit{ op_queue };
@@ -187,7 +187,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithMul)
     Fr x = Fr::random_element(&engine);
 
     op_queue->add_accumulate(a);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
 
     ECCVMCircuitBuilder circuit{ op_queue };
@@ -204,7 +204,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithNoop)
     Fr x = Fr::random_element(&engine);
 
     op_queue->add_accumulate(a);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
 
     op_queue->empty_row();
@@ -228,7 +228,7 @@ TEST(ECCVMCircuitBuilderTests, MSM)
             expected += (points[i] * scalars[i]);
             op_queue->mul_accumulate(points[i], scalars[i]);
         }
-        op_queue->eq();
+        op_queue->eq_and_reset();
     };
 
     // single msms

@@ -36,7 +36,7 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     // EXPECT_EQ(op_queue.eq(), P_expected);
 
     // Adding an equality op should reset the accumulator to zero (the point at infinity)
-    op_queue.eq();
+    op_queue.eq_and_reset();
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
 }
 
@@ -54,18 +54,18 @@ TEST(ECCOpQueueTest, PrependAndSwapTests)
     ECCOpQueue op_queue_a;
     op_queue_a.add_accumulate(P1 + P1);
     op_queue_a.mul_accumulate(P2, z + z);
-    op_queue_a.eq();
+    op_queue_a.eq_and_reset();
     // Add different operations to b
     ECCOpQueue op_queue_b;
     op_queue_b.mul_accumulate(P2, z);
     op_queue_b.add_accumulate(P1);
-    op_queue_b.eq();
+    op_queue_b.eq_and_reset();
 
     // Add same operations as to a
     ECCOpQueue op_queue_c;
     op_queue_c.add_accumulate(P1 + P1);
     op_queue_c.mul_accumulate(P2, z + z);
-    op_queue_c.eq();
+    op_queue_c.eq_and_reset();
 
     const auto& raw_ops_a = op_queue_a.get_raw_ops();
     const auto& raw_ops_b = op_queue_b.get_raw_ops();
@@ -85,7 +85,7 @@ TEST(ECCOpQueueTest, PrependAndSwapTests)
     // Append same operations as now in a to c
     op_queue_c.mul_accumulate(P2, z);
     op_queue_c.add_accumulate(P1);
-    op_queue_c.eq();
+    op_queue_c.eq_and_reset();
 
     // Check a==c
     for (size_t i = 0; i < raw_ops_c.size(); i++) {

@@ -737,7 +737,7 @@ TEST_F(GoblinTranslatorRelationCorrectnessTests, NonNative)
             op_queue->empty_row();
             break;
         case 1:
-            op_queue->eq();
+            op_queue->eq_and_reset();
             break;
         case 2:
             op_queue->add_accumulate(GroupElement::random_element(&engine));

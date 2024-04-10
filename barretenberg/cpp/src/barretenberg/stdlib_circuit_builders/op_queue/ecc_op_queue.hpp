@@ -71,7 +71,7 @@ class ECCOpQueue {
         auto padding_element = Point(x, y);
         auto padding_scalar = -Fr::one();
         mul_accumulate(padding_element, padding_scalar);
-        eq();
+        eq_and_reset();
     }
 
     // void add_bad_eq_op_for_testing
@@ -403,7 +403,7 @@ class ECCOpQueue {
      *
      * @return current internal accumulator point (prior to reset to 0)
      */
-    UltraOp eq() // WORKTODO: eq_and_reset
+    UltraOp eq_and_reset() // WORKTODO: eq_and_reset
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();

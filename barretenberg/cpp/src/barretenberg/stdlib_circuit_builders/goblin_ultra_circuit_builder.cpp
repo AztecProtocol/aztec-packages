@@ -134,7 +134,7 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::a
 template <typename FF> ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_eq()
 {
     // Add raw op to op queue
-    auto ultra_op = op_queue->eq();
+    auto ultra_op = op_queue->eq_and_reset();
     ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
 }
