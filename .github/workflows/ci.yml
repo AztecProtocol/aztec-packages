@@ -42,7 +42,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.runner_action || (contains(github.event.head_commit.message, '[ci restart-spot]') && 'restart' || 'start') }}
+          subaction: ${{ inputs.runner_action || (contains(github.event.head_commit.message, '[ci restart-spot]') && 'restart' || 'start') }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
@@ -74,7 +74,7 @@ jobs:
   build-arm:
     needs: setup-arm
     runs-on: ${{ github.actor }}-arm
-    if: ${{ github.event.inputs.just_start_spot != 'true' }}
+    if: ${{ inputs.just_start_spot != 'true' }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
     steps:
@@ -120,7 +120,7 @@ jobs:
   build-x86:
     needs: setup-x86
     runs-on: ${{ github.actor }}-x86
-    if: ${{ github.event.inputs.just_start_spot != 'true' }}
+    if: ${{ inputs.just_start_spot != 'true' }}
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
     steps:
@@ -181,7 +181,7 @@ jobs:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
       - name: Build and Push Binaries
-        if: ${{ github.event.inputs.just_start_spot != 'true' }}
+        if: ${{ inputs.just_start_spot != 'true' }}
         working-directory: ./barretenberg/cpp/
         run: earthly --push +bench-base
 
@@ -203,7 +203,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.runner_action || 'start' }}
+          subaction: ${{ inputs.runner_action || 'start' }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
@@ -220,7 +220,7 @@ jobs:
   setup-bb-bench:
     runs-on: ${{ github.actor }}-bench-x86
     needs: start-bb-bench-runner
-    if: ${{ github.event.inputs.just_start_spot != 'true' }}
+    if: ${{ inputs.just_start_spot != 'true' }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
