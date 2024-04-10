@@ -57,16 +57,17 @@ void common_validate_cmp(Row row,
     EXPECT_EQ(alu_row.avm_alu_ic, c);
 }
 } // namespace
-using ThreeOpParamRow = std::array<FF, 3>;
-std::vector<ThreeOpParamRow> positive_op_lt_test_values = { { { FF(1), FF(1), FF(0) },
-                                                              { FF(5323), FF(321), FF(0) },
-                                                              { FF(13793), FF(10590617LLU), FF(1) },
-                                                              { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0) },
-                                                              { FF(uint256_t{ 0xb900000000000001 }),
-                                                                FF(uint256_t{ 0x1006021301080000 } << 64) +
-                                                                    uint256_t{ 0x000000000000001080876844827 },
-                                                                1 } } };
-std::vector<ThreeOpParamRow> positive_op_lte_test_values = {
+using ThreeOpParam = std::array<FF, 3>;
+using ThreeOpParamRow = std::tuple<ThreeOpParam, AvmMemoryTag>;
+std::vector<ThreeOpParam> positive_op_lt_test_values = { { { FF(1), FF(1), FF(0) },
+                                                           { FF(5323), FF(321), FF(0) },
+                                                           { FF(13793), FF(10590617LLU), FF(1) },
+                                                           { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0) },
+                                                           { FF(uint256_t{ 0xb900000000000001 }),
+                                                             FF(uint256_t{ 0x1006021301080000 } << 64) +
+                                                                 uint256_t{ 0x000000000000001080876844827 },
+                                                             1 } } };
+std::vector<ThreeOpParam> positive_op_lte_test_values = {
     { { FF(1), FF(1), FF(1) },
       { FF(5323), FF(321), FF(0) },
       { FF(13793), FF(10590617LLU), FF(1) },
@@ -74,6 +75,18 @@ std::vector<ThreeOpParamRow> positive_op_lte_test_values = {
       { FF(uint256_t{ 0x1006021301080000 } << 64) + uint256_t{ 0x000000000000001080876844827 },
         FF(uint256_t{ 0x1006021301080000 } << 64) + uint256_t{ 0x000000000000001080876844827 },
         FF(1) } }
+};
+
+std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> operands, std::vector<AvmMemoryTag> mem_tags)
+{
+    std::vector<ThreeOpParamRow> params;
+    for (size_t i = 0; i < 5; i++) {
+        params.emplace_back(operands[i], mem_tags[i]);
+    }
+    return params;
+}
+std::vector<AvmMemoryTag> mem_tags{
+    { AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
 };
 class AvmCmpTests : public ::testing::Test {
   public:
@@ -93,9 +106,10 @@ class AvmCmpTestsLTE : public AvmCmpTests, public testing::WithParamInterface<Th
  ******************************************************************************/
 TEST_P(AvmCmpTestsLT, ParamTest)
 {
-    const auto [a, b, c] = GetParam();
+    const auto [params, mem_tag] = GetParam();
+    const auto [a, b, c] = params;
     trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, c });
-    trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
+    trace_builder.op_lt(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
     // Validate the trace
@@ -114,13 +128,16 @@ TEST_P(AvmCmpTestsLT, ParamTest)
 
     validate_trace_proof(std::move(trace));
 }
-INSTANTIATE_TEST_SUITE_P(AvmCmpTests, AvmCmpTestsLT, testing::ValuesIn(positive_op_lt_test_values));
+INSTANTIATE_TEST_SUITE_P(AvmCmpTests,
+                         AvmCmpTestsLT,
+                         testing::ValuesIn(gen_three_op_params(positive_op_lt_test_values, mem_tags)));
 
 TEST_P(AvmCmpTestsLTE, ParamTest)
 {
-    const auto [a, b, c] = GetParam();
+    const auto [params, mem_tag] = GetParam();
+    const auto [a, b, c] = params;
     trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, c });
-    trace_builder.op_lte(0, 0, 1, 2, AvmMemoryTag::FF); // [1,254,0,0,....]
+    trace_builder.op_lte(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_lte == FF(1); });
@@ -135,7 +152,9 @@ TEST_P(AvmCmpTestsLTE, ParamTest)
     common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), AvmMemoryTag::FF);
     validate_trace_proof(std::move(trace));
 }
-INSTANTIATE_TEST_SUITE_P(AvmCmpTests, AvmCmpTestsLTE, testing::ValuesIn(positive_op_lte_test_values));
+INSTANTIATE_TEST_SUITE_P(AvmCmpTests,
+                         AvmCmpTestsLTE,
+                         testing::ValuesIn(gen_three_op_params(positive_op_lte_test_values, mem_tags)));
 
 /******************************************************************************
  *
@@ -163,8 +182,8 @@ std::vector<std::tuple<std::string, CMP_FAILURES>> cmp_failures = {
     { "LOOKUP_U16_0", CMP_FAILURES::RangeCheckFailed },
 
 };
-std::vector<ThreeOpParamRow> neg_test_lt = { { 12023, 439321, 0 } };
-std::vector<ThreeOpParamRow> neg_test_lte = { { 12023, 12023, 0 } };
+std::vector<ThreeOpParam> neg_test_lt = { { 12023, 439321, 0 } };
+std::vector<ThreeOpParam> neg_test_lte = { { 12023, 12023, 0 } };
 
 using EXPECTED_ERRORS = std::tuple<std::string, CMP_FAILURES>;
 
@@ -271,9 +290,9 @@ std::vector<Row> gen_mutated_trace_cmp(std::vector<Row> trace,
     return trace;
 }
 class AvmCmpNegativeTestsLT : public AvmCmpTests,
-                              public testing::WithParamInterface<std::tuple<EXPECTED_ERRORS, ThreeOpParamRow>> {};
+                              public testing::WithParamInterface<std::tuple<EXPECTED_ERRORS, ThreeOpParam>> {};
 class AvmCmpNegativeTestsLTE : public AvmCmpTests,
-                               public testing::WithParamInterface<std::tuple<EXPECTED_ERRORS, ThreeOpParamRow>> {};
+                               public testing::WithParamInterface<std::tuple<EXPECTED_ERRORS, ThreeOpParam>> {};
 
 TEST_P(AvmCmpNegativeTestsLT, ParamTest)
 {
