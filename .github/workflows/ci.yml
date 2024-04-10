@@ -61,7 +61,7 @@ jobs:
   setup-arm:
     needs: start-builder
     runs-on: ${{ github.actor }}-arm
-    if: ${{ github.event.inputs.just_start_spot }}
+    if: ${{ github.event.inputs.just_start_spot == 'true' }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -107,7 +107,7 @@ jobs:
   setup-x86:
     needs: start-builder
     runs-on: ${{ github.actor }}-x86
-    if: ${{ github.event.inputs.just_start_spot }}
+    if: ${{ github.event.inputs.just_start_spot == 'true' }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -222,7 +222,7 @@ jobs:
   setup-bb-bench:
     runs-on: ${{ github.actor }}-bench-x86
     needs: start-bb-bench-runner
-    if: ${{ github.event.inputs.just_start_spot }}
+    if: ${{ github.event.inputs.just_start_spot == 'true' }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
