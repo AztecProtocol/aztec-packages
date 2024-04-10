@@ -258,7 +258,9 @@ impl TryFrom<&MemoryValue> for u64 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_integer_with_bit_size(64).map(|value| value.try_into().expect("memory_value has been asserted to contain a 64 bit integer"))
+        memory_value.expect_integer_with_bit_size(64).map(|value| {
+            value.try_into().expect("memory_value has been asserted to contain a 64 bit integer")
+        })
     }
 }
 
@@ -266,7 +268,9 @@ impl TryFrom<&MemoryValue> for u32 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_integer_with_bit_size(32).map(|value| value.try_into().expect("memory_value has been asserted to contain a 32 bit integer"))
+        memory_value.expect_integer_with_bit_size(32).map(|value| {
+            value.try_into().expect("memory_value has been asserted to contain a 32 bit integer")
+        })
     }
 }
 
@@ -274,7 +278,9 @@ impl TryFrom<&MemoryValue> for u8 {
     type Error = MemoryTypeError;
 
     fn try_from(memory_value: &MemoryValue) -> Result<Self, Self::Error> {
-        memory_value.expect_integer_with_bit_size(8).map(|value| value.try_into().expect("memory_value has been asserted to contain an 8 bit integer"))
+        memory_value.expect_integer_with_bit_size(8).map(|value| {
+            value.try_into().expect("memory_value has been asserted to contain an 8 bit integer")
+        })
     }
 }
 
