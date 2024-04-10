@@ -8,6 +8,9 @@ const katex = require("rehype-katex");
 const path = require("path");
 const fs = require("fs");
 
+// required for katex
+let macros = {};
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "Privacy-first zkRollup | Aztec Documentation",
@@ -57,6 +60,7 @@ const config = {
             {
               throwOnError: true,
               globalGroup: true,
+              macros,
             },
           ],
         },
