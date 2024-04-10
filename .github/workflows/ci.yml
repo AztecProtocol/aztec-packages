@@ -8,6 +8,10 @@ on:
       runner_action:
         description: "The action to take with the self-hosted runner (start, stop, restart)."
         required: false
+      just_start_spot:
+        description: "Should we just run spots?"
+        type: boolean
+        required: false
 concurrency:
   # force parallelism
   group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
@@ -57,6 +61,7 @@ jobs:
   setup-arm:
     needs: start-builder
     runs-on: ${{ github.actor }}-arm
+    if: ${{ github.event.inputs.just_start_spot }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -102,6 +107,7 @@ jobs:
   setup-x86:
     needs: start-builder
     runs-on: ${{ github.actor }}-x86
+    if: ${{ github.event.inputs.just_start_spot }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -216,6 +222,7 @@ jobs:
   setup-bb-bench:
     runs-on: ${{ github.actor }}-bench-x86
     needs: start-bb-bench-runner
+    if: ${{ github.event.inputs.just_start_spot }}
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
