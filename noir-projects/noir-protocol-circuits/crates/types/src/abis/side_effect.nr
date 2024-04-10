@@ -57,6 +57,15 @@ impl Empty for SideEffect {
     }
 }
 
+impl Default for SideEffect {
+    fn default() -> Self {
+        SideEffect {
+            value: 0,
+            counter: 0,
+        }
+    }
+}
+
 impl Hash for SideEffect {
     fn hash(self) -> Field {
         dep::std::hash::pedersen_hash_with_separator(
@@ -85,6 +94,26 @@ struct SideEffectLinkedToNoteHash{
     counter: u32,
 }
 
+impl Empty for SideEffectLinkedToNoteHash {
+    fn empty() -> Self {
+        SideEffectLinkedToNoteHash {
+            value: 0,
+            note_hash: 0,
+            counter: 0,
+        }
+    }
+}
+
+impl Default for SideEffectLinkedToNoteHash {
+    fn default() -> Self {
+        SideEffectLinkedToNoteHash {
+            value: 0,
+            note_hash: 0,
+            counter: 0,
+        }
+    }
+}
+
 impl Ordered for SideEffectLinkedToNoteHash {
     fn counter(self) -> u32 {
         self.counter
@@ -105,16 +134,6 @@ impl Eq for SideEffectLinkedToNoteHash {
         (self.value == side_effect.value)
             & (self.note_hash == side_effect.note_hash) 
             & (self.counter == side_effect.counter)
-    }
-}
-
-impl Empty for SideEffectLinkedToNoteHash {
-    fn empty() -> Self {
-        SideEffectLinkedToNoteHash {
-            value: 0,
-            note_hash: 0,
-            counter: 0,
-        }
     }
 }
 

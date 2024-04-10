@@ -32,8 +32,8 @@ impl Default for Header {
         Self {
             last_archive: AppendOnlyTreeSnapshot::default(),
             content_commitment: ContentCommitment::default(),
-            state: StateReference::empty(),
-            global_variables: GlobalVariables::empty(),
+            state: StateReference::default(),
+            global_variables: GlobalVariables::default(),
         }
     }
 }

@@ -1,7 +1,8 @@
 use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot, constants::PARTIAL_STATE_REFERENCE_LENGTH,
-    traits::{Deserialize, Empty, Hash, Serialize}
+    traits::{Deserialize, Hash, Serialize}
 };
+use dep::std::default::Default;
 
 struct PartialStateReference {
     note_hash_tree: AppendOnlyTreeSnapshot,
@@ -14,6 +15,16 @@ impl Eq for PartialStateReference {
         self.note_hash_tree.eq(other.note_hash_tree) &
         self.nullifier_tree.eq(other.nullifier_tree) &
         self.public_data_tree.eq(other.public_data_tree)
+    }
+}
+
+impl Default for PartialStateReference {
+    fn default() -> Self {
+        Self {
+            note_hash_tree: AppendOnlyTreeSnapshot::default(),
+            nullifier_tree: AppendOnlyTreeSnapshot::default(),
+            public_data_tree: AppendOnlyTreeSnapshot::default(),
+        }
     }
 }
 
@@ -50,19 +61,11 @@ impl Deserialize<PARTIAL_STATE_REFERENCE_LENGTH> for PartialStateReference {
     }
 }
 
-impl Empty for PartialStateReference {
-    fn empty() -> Self {
-        Self {
-            note_hash_tree: AppendOnlyTreeSnapshot::default(),
-            nullifier_tree: AppendOnlyTreeSnapshot::default(),
-            public_data_tree: AppendOnlyTreeSnapshot::default(),
-        }
-    }
-}
+
 
 #[test]
-fn serialization_of_empty() {
-    let partial: PartialStateReference = dep::std::unsafe::zeroed();
+fn serialization_of_default() {
+    let partial = PartialStateReference::default();
     let _serialized = partial.serialize();
     let _deserialized = PartialStateReference::deserialize(_serialized);
 }

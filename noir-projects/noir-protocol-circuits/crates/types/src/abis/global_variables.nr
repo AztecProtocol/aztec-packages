@@ -2,7 +2,7 @@ use dep::std::cmp::Eq;
 use crate::{
     address::{AztecAddress, EthAddress},
     constants::{GENERATOR_INDEX__GLOBAL_VARIABLES, GLOBAL_VARIABLES_LENGTH},
-    traits::{Deserialize, Empty, Hash, Serialize}
+    traits::{Deserialize, Hash, Serialize}
 };
 
 // docs:start:global-variables
@@ -44,17 +44,12 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
 
 impl Eq for GlobalVariables {
     fn eq(self, other : GlobalVariables) -> bool {
-        (self.chain_id == other.chain_id) &
-        (self.version == other.version) &
-        (self.block_number == other.block_number) &
-        (self.timestamp == other.timestamp) &
-        (self.coinbase == other.coinbase) &
-        (self.fee_recipient == other.fee_recipient)
+        self.serialize() == other.serialize()
     }
 }
 
-impl Empty for GlobalVariables {
-    fn empty() -> Self {
+impl Default for GlobalVariables {
+    fn default() -> Self {
         Self {
             chain_id: 0,
             version: 0,
@@ -67,8 +62,8 @@ impl Empty for GlobalVariables {
 }
 
 #[test]
-fn serialization_of_empty() {
-    let vars: GlobalVariables = dep::std::unsafe::zeroed();
+fn serialization_of_default() {
+    let vars = GlobalVariables::default();
     let _serialized = vars.serialize();
     let _deserialized = GlobalVariables::deserialize(_serialized);
 }
