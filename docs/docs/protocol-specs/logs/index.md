@@ -333,4 +333,4 @@ function hash_log_data(logs_data) {
 
 ## Log Encryption
 
-Refer to [Private Message Delivery](../private-message-delivery/) for detailed information on generating encrypted data.
+Refer to [Private Message Delivery](../private-message-delivery/index.md) for detailed information on generating encrypted data.

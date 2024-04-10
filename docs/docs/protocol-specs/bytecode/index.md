@@ -42,7 +42,7 @@ There are three different (but related) bytecode standards that are used in Azte
 
 # AVM Bytecode
 
-The AVM bytecode is the compilation target of the public functions of a contract. It's specified in the [AVM section](../public-vm/instruction-set). It allows control flow and uses a flat memory model which tracks bit sizes of values stored in memory via tagging of memory indexes. Sequencers run the AVM bytecode of the public functions of a contract using the AVM and prove the correct execution of it.
+The AVM bytecode is the compilation target of the public functions of a contract. It's specified in the [AVM section](../public-vm/instruction-set.mdx). It allows control flow and uses a flat memory model which tracks bit sizes of values stored in memory via tagging of memory indexes. Sequencers run the AVM bytecode of the public functions of a contract using the AVM and prove the correct execution of it.
 
 # Brillig Bytecode
 
@@ -52,7 +52,7 @@ Brillig bytecode will be very similar to AVM bytecode. While AVM bytecode is spe
 
 Oracles allow nondeterminism during the execution of a given function, allowing the simulator entity to choose the value that an oracle will return during the simulation process. Oracles are heavily used by aztec.nr to fetch data during simulation of private and unconstrained functions, such as fetching notes. They are also used to notify the simulator about events arising during execution, such as a nullified note so that it's not offered again during the simulation.
 
-However, AVM bytecode doesn't allow arbitrary oracles, any nondeterminism introduced is done in a way that the protocol can ensure that the simulator entity (the sequencer) cannot manipulate the result of an oracle. As such, when transforming brillig bytecode to AVM bytecode, all the oracles are replaced by the specific opcodes that the AVM supports for nondeterminism, like [TIMESTAMP](../public-vm/instruction-set#isa-section-timestamp), [ADDRESS](../public-vm/instruction-set#isa-section-address), etc. Any opcode that requires the simulator entity to provide data external to the AVM memory is non-deterministic.
+However, AVM bytecode doesn't allow arbitrary oracles, any nondeterminism introduced is done in a way that the protocol can ensure that the simulator entity (the sequencer) cannot manipulate the result of an oracle. As such, when transforming brillig bytecode to AVM bytecode, all the oracles are replaced by the specific opcodes that the AVM supports for nondeterminism, like [TIMESTAMP](../public-vm/instruction-set.mdx#isa-section-timestamp), [ADDRESS](../public-vm/instruction-set.mdx#isa-section-address), etc. Any opcode that requires the simulator entity to provide data external to the AVM memory is non-deterministic.
 
 The current implementation of Brillig can be found [in the noir repository](https://github.com/noir-lang/noir/blob/master/acvm-repo/brillig/src/opcodes.rs#L60). It's actively being changed to become "AVM bytecode without arbitrary oracles" and right now the differences are handled by a transpiler.
 
@@ -73,7 +73,7 @@ This implies that a block of ACIR bytecode can represent more than one program, 
 
 ## Compiling a contract
 
-When a contract is compiled, an artifact will be generated. This artifact needs to be hashed in a specific manner [detailed in the deployment section](../contract-deployment/classes#artifact-hash) for publishing.
+When a contract is compiled, an artifact will be generated. This artifact needs to be hashed in a specific manner [detailed in the deployment section](../contract-deployment/classes.md#artifact-hash) for publishing.
 
 The exact form of the artifact is not specified by the protocol, but it needs at least the following information:
 
@@ -148,19 +148,19 @@ If the function is public, the entry will be its ABI. If the function is private
 
 ### Bytecode in the artifact
 
-The protocol mandates that public bytecode needs to be published to a data availability solution, since the sequencers need to have the data available to run the public functions. Also, it needs to use an encoding that is friendly to the public VM, such as the one specified in the [AVM section](../public-vm/bytecode-validation-circuit).
+The protocol mandates that public bytecode needs to be published to a data availability solution, since the sequencers need to have the data available to run the public functions. Also, it needs to use an encoding that is friendly to the public VM, such as the one specified in the [AVM section](../public-vm/bytecode-validation-circuit.md).
 
-The bytecode of private and unconstrained functions doesn't need to be published, instead, users that desire to use a given contract can add the artifact to their PXE before interacting with it. Publishing it is [supported but not required](../contract-deployment/classes/#broadcast) by the protocol. However, the verification key of a private function is hashed into the function's leaf of the contract's function tree, so the user can prove to the protocol that he executed the function correctly. Also, contract classes contain an [artifact hash](../contract-deployment/classes#artifact-hash) so the PXE can verify that the artifact corresponds with the contract class.
+The bytecode of private and unconstrained functions doesn't need to be published, instead, users that desire to use a given contract can add the artifact to their PXE before interacting with it. Publishing it is [supported but not required](../contract-deployment/classes.md#broadcast) by the protocol. However, the verification key of a private function is hashed into the function's leaf of the contract's function tree, so the user can prove to the protocol that he executed the function correctly. Also, contract classes contain an [artifact hash](../contract-deployment/classes.md#artifact-hash) so the PXE can verify that the artifact corresponds with the contract class.
 
 The encoding of private and unconstrained functions is not specified by the protocol, but it's recommended to follow [the encoding](https://github.com/noir-lang/noir/blob/master/acvm-repo/acir/src/circuit/mod.rs#L157) that Barretenberg and the ACVM share that is serialization using bincode and gzip for compression.
 
-This implies that the encoding of private and unconstrained functions does not need to be friendly to circuits, since when publishing it the protocol only sees a [generic array of field elements](../contract-deployment/classes#broadcast).
+This implies that the encoding of private and unconstrained functions does not need to be friendly to circuits, since when publishing it the protocol only sees a [generic array of field elements](../contract-deployment/classes.md#broadcast).
 
 ## Executing a private function
 
 When executing a private function, its ACIR bytecode will be executed by the PXE using the ACVM. The ACVM will generate the witness of the execution. The proving system can be used to generate a proof of the correctness of the witness.
 
-The fact that the correct function was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes#class-identifier) contains one leaf in the function tree with this selector and the verification key of the function.
+The fact that the correct function was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes.md#class-identifier) contains one leaf in the function tree with this selector and the verification key of the function.
 
 ## Executing an unconstrained function
 
@@ -170,4 +170,4 @@ When executing an unconstrained function, its Brillig bytecode will be executed 
 
 When executing a public function, its AVM bytecode will be executed by the sequencer with the specified selector and arguments. The sequencer will generate a public VM proof of the correct execution of the AVM bytecode.
 
-The fact that the correct bytecode was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes#class-identifier) contains the [commitment](../public-vm/bytecode-validation-circuit#committed-representation) to the bytecode used.
+The fact that the correct bytecode was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes.md#class-identifier) contains the [commitment](../public-vm/bytecode-validation-circuit.md#committed-representation) to the bytecode used.
