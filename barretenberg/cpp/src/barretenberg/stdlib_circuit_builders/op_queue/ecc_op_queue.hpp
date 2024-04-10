@@ -91,6 +91,28 @@ class ECCOpQueue {
                                              .mul_scalar_full = 0 });
     }
 
+    /**
+     * @brief Write empty row to queue
+     * @warning This is for testing purposes only. Currently no valid use case.
+     *
+     */
+    void empty_row_for_testing()
+    {
+        raw_ops.emplace_back(ECCVMOperation{
+            .add = false,
+            .mul = false,
+            .eq = false,
+            .reset = false,
+            .base_point = point_at_infinity,
+            .z1 = 0,
+            .z2 = 0,
+            .mul_scalar_full = 0,
+        });
+        num_transcript_rows += 1;
+
+        update_cached_msms(raw_ops.back());
+    }
+
     Point get_accumulator() { return accumulator; }
 
     /**
@@ -372,28 +394,6 @@ class ECCOpQueue {
         update_cached_msms(raw_ops.back());
 
         return ultra_op;
-    }
-
-    /**
-     * @brief Write empty row to queue
-     * @warning This is for testing purposes only. Currently no valid use case.
-     *
-     */
-    void empty_row_for_testing()
-    {
-        raw_ops.emplace_back(ECCVMOperation{
-            .add = false,
-            .mul = false,
-            .eq = false,
-            .reset = false,
-            .base_point = point_at_infinity,
-            .z1 = 0,
-            .z2 = 0,
-            .mul_scalar_full = 0,
-        });
-        num_transcript_rows += 1;
-
-        update_cached_msms(raw_ops.back());
     }
 
   private:

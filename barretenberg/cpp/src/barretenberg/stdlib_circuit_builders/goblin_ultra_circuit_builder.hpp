@@ -79,6 +79,12 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         set_goblin_ecc_op_code_constant_variables();
     };
 
+    /**
+     * @brief Convert op code to the witness index for the corresponding op index in the builder
+     *
+     * @param op_code
+     * @return uint32_t
+     */
     uint32_t get_ecc_op_idx(const EccOpCode& op_code)
     {
         switch (op_code) {

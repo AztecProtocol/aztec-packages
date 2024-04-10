@@ -32,9 +32,6 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
     // The correct result should now be stored in the accumulator within the op queue
     EXPECT_EQ(op_queue.get_accumulator(), P_expected);
 
-    // // Equivalently, we can check that the equality op returns the correct point
-    // EXPECT_EQ(op_queue.eq(), P_expected);
-
     // Adding an equality op should reset the accumulator to zero (the point at infinity)
     op_queue.eq_and_reset();
     EXPECT_TRUE(op_queue.get_accumulator().is_point_at_infinity());
