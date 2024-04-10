@@ -11,10 +11,9 @@ use crate::{
     chained_dep, chained_path,
     utils::{
         ast_utils::{
-            assignment, call, cast, expression, ident, ident_path, index_array,
-            index_array_variable, make_eq, make_statement, make_type, member_access, method_call,
-            mutable_assignment, mutable_reference, path, return_type, variable, variable_ident,
-            variable_path,
+            assignment, call, cast, expression, ident, ident_path, index_array, make_eq,
+            make_statement, make_type, method_call, mutable_assignment, mutable_reference, path,
+            return_type, variable, variable_ident, variable_path,
         },
         errors::AztecMacroError,
     },
@@ -586,86 +585,6 @@ fn abstract_storage(typ: &str, unconstrained: bool) -> Statement {
             vec![init_context_call],                         // args
         ),
     )
-}
-
-/// Context Return Values
-///
-/// Creates an instance to the context return values
-/// ```noir
-/// `context.return_values`
-/// ```
-fn context_return_values() -> Expression {
-    member_access("context", "return_values")
-}
-
-/// Make return Push
-///
-/// Translates to:
-/// `context.return_values.push({push_value})`
-fn make_return_push(push_value: Expression) -> Statement {
-    make_statement(StatementKind::Semi(method_call(
-        context_return_values(),
-        "push",
-        vec![push_value],
-    )))
-}
-
-/// Make Return push array
-///
-/// Translates to:
-/// `context.return_values.extend_from_array({push_value})`
-fn make_return_extend_from_array(push_value: Expression) -> Statement {
-    make_statement(StatementKind::Semi(method_call(
-        context_return_values(),
-        "extend_from_array",
-        vec![push_value],
-    )))
-}
-
-/// Make struct return type
-///
-/// Translates to:
-/// ```noir
-/// `context.return_values.extend_from_array({push_value}.serialize())`
-fn make_struct_return_type(expression: Expression) -> Statement {
-    let serialized_call = method_call(
-        expression,  // variable
-        "serialize", // method name
-        vec![],      // args
-    );
-    make_return_extend_from_array(serialized_call)
-}
-
-/// Make array return type
-///
-/// Translates to:
-/// ```noir
-/// for i in 0..{ident}.len() {
-///    context.return_values.push({ident}[i] as Field)
-/// }
-/// ```
-fn make_array_return_type(expression: Expression) -> Statement {
-    let inner_cast_expression =
-        cast(index_array_variable(expression.clone(), "i"), UnresolvedTypeData::FieldElement);
-    let assignment = make_statement(StatementKind::Semi(method_call(
-        context_return_values(), // variable
-        "push",                  // method name
-        vec![inner_cast_expression],
-    )));
-
-    create_loop_over(expression, vec![assignment])
-}
-
-/// Castable return type
-///
-/// Translates to:
-/// ```noir
-/// context.return_values.push({ident} as Field)
-/// ```
-fn make_castable_return_type(expression: Expression) -> Statement {
-    // Cast these types to a field before pushing
-    let cast_expression = cast(expression, UnresolvedTypeData::FieldElement);
-    make_return_push(cast_expression)
 }
 
 /// Create Return Type
