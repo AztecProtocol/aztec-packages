@@ -5,6 +5,7 @@ mod pedersen;
 
 use crate::default::Default;
 use crate::uint128::U128;
+use crate::scalar_mul::EmbeddedCurvePoint;
 
 #[foreign(sha256)]
 // docs:start:sha256
@@ -42,19 +43,13 @@ pub fn blake3_slice(input: [u8]) -> [u8; 32]
 // docs:end:blake3_slice
 {}
 
-// docs:start:pedersen_commitment
-struct PedersenPoint {
-   x : Field,
-   y : Field,
-}
-
-pub fn pedersen_commitment<N>(input: [Field; N]) -> PedersenPoint {
+pub fn pedersen_commitment<N>(input: [Field; N]) -> EmbeddedCurvePoint {
     // docs:end:pedersen_commitment
     pedersen_commitment_with_separator(input, 0)
 }
 
 // docs:start:pedersen_commitment_slice
-pub fn pedersen_commitment_slice(input: [Field]) -> PedersenPoint {
+pub fn pedersen_commitment_slice(input: [Field]) -> EmbeddedCurvePoint {
     pedersen_commitment_with_separator_slice(input, 0)
 }
 // docs:end:pedersen_commitment_slice
@@ -65,14 +60,14 @@ pub fn __pedersen_commitment_with_separator<N>(input: [Field; N], separator: u32
 #[foreign(pedersen_commitment)]
 pub fn __pedersen_commitment_with_separator_slice(input: [Field], separator: u32) -> [Field; 2] {}
 
-pub fn pedersen_commitment_with_separator<N>(input: [Field; N], separator: u32) -> PedersenPoint {
+pub fn pedersen_commitment_with_separator<N>(input: [Field; N], separator: u32) -> EmbeddedCurvePoint {
     let values = __pedersen_commitment_with_separator(input, separator);
-    PedersenPoint { x: values[0], y: values[1] }
+    EmbeddedCurvePoint { x: values[0], y: values[1] }
 }
 
-pub fn pedersen_commitment_with_separator_slice(input: [Field], separator: u32) -> PedersenPoint {
+pub fn pedersen_commitment_with_separator_slice(input: [Field], separator: u32) -> EmbeddedCurvePoint {
     let values = __pedersen_commitment_with_separator_slice(input, separator);
-    PedersenPoint { x: values[0], y: values[1] }
+    EmbeddedCurvePoint { x: values[0], y: values[1] }
 }
 
 // docs:start:pedersen_hash
