@@ -10,6 +10,7 @@ contract Auth {
     // Authorizing a new address has a certain block delay before it goes into effect.
     global CHANGE_AUTHORIZED_DELAY_BLOCKS = 5;
 
+    #[aztec(storage)]
     struct Storage {
         // Admin can change the value of the authorized address via set_authorized()
         admin: PublicImmutable<AztecAddress>,
