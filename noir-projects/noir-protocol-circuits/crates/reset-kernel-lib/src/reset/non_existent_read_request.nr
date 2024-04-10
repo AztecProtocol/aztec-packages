@@ -86,7 +86,7 @@ pub fn reset_non_existent_read_requests<T, N, M, NON_MEMBERSHIP_HINT, TREE_HEIGH
 }
 
 mod tests {
-    use crate::non_existent_read_request_reset::{NonMembershipHint, reset_non_existent_read_requests};
+    use crate::reset::non_existent_read_request::{NonMembershipHint, reset_non_existent_read_requests};
 
     use dep::types::{
         address::AztecAddress, abis::{read_request::ReadRequestContext, side_effect::SideEffect},

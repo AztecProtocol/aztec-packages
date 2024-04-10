@@ -1,11 +1,15 @@
 use crate::common;
-use dep::reset_kernel_lib::{NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicValidationRequestProcessor};
+use dep::reset_kernel_lib::{
+    NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicDataReadRequestHints,
+    PublicValidationRequestProcessor, PublicDataHint
+};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
     kernel_data::PublicKernelData, side_effect::SideEffectLinkedToNoteHash
 },
-    constants::MAX_NEW_NULLIFIERS_PER_TX, utils::{arrays::array_length}
+    constants::{MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX},
+    merkle_tree::conditionally_assert_check_membership, utils::{arrays::array_length}
 };
 use dep::std::unsafe;
 
@@ -13,6 +17,8 @@ struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     nullifier_read_request_hints: NullifierReadRequestHints,
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
+    public_data_read_request_hints: PublicDataReadRequestHints,
+    public_data_hints: [PublicDataHint; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + MAX_PUBLIC_DATA_READS_PER_TX],
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
@@ -33,19 +39,49 @@ impl PublicKernelTailCircuitPrivateInputs {
         );
     }
 
+    fn validate_public_data_hints(self) {
+        let public_data_hints = self.public_data_hints;
+        let public_data_tree_root = self.previous_kernel.public_inputs.constants.historical_header.state.partial.public_data_tree.root;
+        for i in 0..public_data_hints.len() {
+            let hint = public_data_hints[i];
+            // We only need to check leaf_slot to decide if a (non-)membership check is required.
+            // It will fail if a PublicDataHint with 0 leaf_slot is used to verify a non-empty public read or write.
+            if hint.leaf_slot != 0 {
+                if hint.exists {
+                    assert(
+                        hint.value == hint.leaf_preimage.value, "Hinted public data value does not match the value in leaf preimage"
+                    );
+                } else {
+                    assert(hint.value == 0, "Value must be 0 for non-existent public data");
+                }
+
+                conditionally_assert_check_membership(
+                    hint.leaf_slot,
+                    hint.exists,
+                    hint.leaf_preimage,
+                    hint.membership_witness,
+                    public_data_tree_root
+                );
+            }
+        }
+    }
+
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
+        self.validate_inputs();
+
+        self.validate_public_data_hints();
+
         let previous_public_inputs = self.previous_kernel.public_inputs;
         let nullifier_tree_root = previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
-        let request_processor = PublicValidationRequestProcessor {
-            public_inputs: previous_public_inputs,
-            validation_requests: previous_public_inputs.validation_requests,
-            nullifier_read_request_hints: self.nullifier_read_request_hints,
-            nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints,
-            nullifier_tree_root
-        };
+        let request_processor = PublicValidationRequestProcessor::new(
+            previous_public_inputs,
+            self.nullifier_read_request_hints,
+            self.nullifier_non_existent_read_request_hints,
+            nullifier_tree_root,
+            self.public_data_read_request_hints,
+            self.public_data_hints
+        );
         request_processor.validate();
-
-        self.validate_inputs();
 
         let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
 
@@ -58,24 +94,29 @@ impl PublicKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::{public_kernel_tail::PublicKernelTailCircuitPrivateInputs};
+    use crate::public_kernel_tail::PublicKernelTailCircuitPrivateInputs;
     use dep::reset_kernel_lib::{
         tests::{
         nullifier_non_existent_read_request_hints_builder::NullifierNonExistentReadRequestHintsBuilder,
-        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder
+        nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
+        public_data_read_request_hints_builder::PublicDataReadRequestHintsBuilder
     },
-        read_request_reset::{PendingReadHint, ReadRequestState, ReadRequestStatus}
+        PublicDataHint, reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
+    use dep::std::unsafe;
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
         kernel_data::PublicKernelData, nullifier_leaf_preimage::NullifierLeafPreimage
     },
         constants::{
-        MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
-        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT
+        MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
+        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT
     },
-        hash::silo_nullifier,
+        hash::silo_nullifier, public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+        merkle_tree::membership::MembershipWitness,
         tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
         utils::arrays::array_merge
     };
@@ -92,11 +133,32 @@ mod tests {
         )
     }
 
+    fn get_settled_public_data_leaves() -> [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
+        let mut settled_public_data_leaves = [PublicDataTreeLeafPreimage::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        settled_public_data_leaves[0] = PublicDataTreeLeafPreimage { slot: 22, value: 200, next_slot: 33, next_index: 1 };
+        settled_public_data_leaves[1] = PublicDataTreeLeafPreimage { slot: 33, value: 300, next_slot: 0, next_index: 0 };
+        settled_public_data_leaves[2] = PublicDataTreeLeafPreimage { slot: 11, value: 100, next_slot: 22, next_index: 0 };
+        settled_public_data_leaves
+    }
+
+    fn build_public_data_tree<N>() -> NonEmptyMerkleTree<MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT> {
+        let settled_public_data_leaves = get_settled_public_data_leaves();
+        NonEmptyMerkleTree::new(
+            settled_public_data_leaves.map(|preimage: PublicDataTreeLeafPreimage| preimage.hash()),
+            [0; PUBLIC_DATA_TREE_HEIGHT],
+            [0; PUBLIC_DATA_TREE_HEIGHT - PUBLIC_DATA_SUBTREE_HEIGHT],
+            [0; PUBLIC_DATA_SUBTREE_HEIGHT]
+        )
+    }
+
     struct PublicKernelTailCircuitPrivateInputsBuilder {
         previous_kernel: FixtureBuilder,
         previous_revertible: FixtureBuilder,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
         nullifier_non_existent_read_request_hints_builder: NullifierNonExistentReadRequestHintsBuilder,
+        public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder,
+        public_data_hints: BoundedVec<PublicDataHint, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX + MAX_PUBLIC_DATA_READS_PER_TX>,
+        public_data_tree: NonEmptyMerkleTree<MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT>,
     }
 
     impl PublicKernelTailCircuitPrivateInputsBuilder {
@@ -109,7 +171,10 @@ mod tests {
                 previous_kernel,
                 previous_revertible,
                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX),
-                nullifier_non_existent_read_request_hints_builder
+                nullifier_non_existent_read_request_hints_builder,
+                public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder::new(MAX_PUBLIC_DATA_READS_PER_TX),
+                public_data_hints: BoundedVec::new(),
+                public_data_tree: unsafe::zeroed()
             };
             builder.set_nullifiers_for_non_existent_read_request_hints();
             builder
@@ -119,6 +184,13 @@ mod tests {
             let nullifier_tree = build_nullifier_tree();
             self.previous_kernel.historical_header.state.partial.nullifier_tree.root = nullifier_tree.get_root();
             self.nullifier_non_existent_read_request_hints_builder.set_nullifier_tree(nullifier_tree);
+            *self
+        }
+
+        pub fn with_public_data_tree(&mut self) -> Self {
+            let public_data_tree = build_public_data_tree();
+            self.public_data_tree = public_data_tree;
+            self.previous_kernel.historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
             *self
         }
 
@@ -177,6 +249,38 @@ mod tests {
             self.nullifier_non_existent_read_request_hints_builder.add_value_read(siloed_nullifier);
         }
 
+        pub fn add_public_data_hint_for_settled_public_data(&mut self, leaf_index: u64) {
+            let leaf_preimage = get_settled_public_data_leaves()[leaf_index];
+            let membership_witness = MembershipWitness { leaf_index: leaf_index as Field, sibling_path: self.public_data_tree.get_sibling_path(leaf_index) };
+            let hint = PublicDataHint {
+                leaf_slot: leaf_preimage.slot,
+                value: leaf_preimage.value,
+                override_counter: 0,
+                exists: true,
+                membership_witness,
+                leaf_preimage
+            };
+            self.public_data_hints.push(hint);
+        }
+
+        pub fn add_public_data_hint_for_non_existent_public_data(&mut self, leaf_slot: Field, low_leaf_index: u64) {
+            let leaf_preimage = get_settled_public_data_leaves()[low_leaf_index];
+            let membership_witness = MembershipWitness {
+                leaf_index: low_leaf_index as Field,
+                sibling_path: self.public_data_tree.get_sibling_path(low_leaf_index)
+            };
+            let hint = PublicDataHint { leaf_slot, value: 0, override_counter: 0, exists: false, membership_witness, leaf_preimage };
+            self.public_data_hints.push(hint);
+        }
+
+        pub fn add_pending_public_data_read_request(&mut self, public_date_update_request_index: u64) {
+            let read_request_index = self.previous_kernel.add_read_request_for_pending_public_data(public_date_update_request_index);
+            let hint_index = self.public_data_read_request_hints_builder.pending_read_hints.len();
+            let hint = PendingReadHint { read_request_index, pending_value_index: public_date_update_request_index };
+            self.public_data_read_request_hints_builder.pending_read_hints.push(hint);
+            self.public_data_read_request_hints_builder.read_request_statuses[read_request_index] = ReadRequestStatus { state: ReadRequestState.PENDING, hint_index };
+        }
+
         fn sync_counters(&mut self) {
             let counter_non_revertible = self.previous_kernel.counter;
             let counter_revertible = self.previous_revertible.counter;
@@ -194,7 +298,9 @@ mod tests {
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
-                nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints()
+                nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints(),
+                public_data_read_request_hints: self.public_data_read_request_hints_builder.to_hints(),
+                public_data_hints: self.public_data_hints.storage
             };
 
             kernel.public_kernel_tail()
@@ -297,6 +403,95 @@ mod tests {
 
         builder.read_non_existent_nullifier(1);
 
+        builder.failed();
+    }
+
+    #[test]
+    unconstrained fn validate_public_data_hints() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
+
+        builder.add_public_data_hint_for_settled_public_data(1);
+        builder.add_public_data_hint_for_settled_public_data(0);
+        builder.add_public_data_hint_for_settled_public_data(2);
+
         builder.succeeded();
+    }
+
+    #[test(should_fail_with="Hinted public data value does not match the value in leaf preimage")]
+    unconstrained fn validate_public_data_hints_failed_mismatch_value() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
+
+        builder.add_public_data_hint_for_settled_public_data(1);
+
+        let mut hint = builder.public_data_hints.pop();
+        hint.value += 1;
+        builder.public_data_hints.push(hint);
+
+        builder.failed();
+    }
+
+    #[test]
+    unconstrained fn validate_public_data_hints_uninitialized_value() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
+
+        builder.add_public_data_hint_for_non_existent_public_data(25, 0);
+
+        builder.succeeded();
+    }
+
+    #[test(should_fail_with="Value must be 0 for non-existent public data")]
+    unconstrained fn validate_public_data_hints_failed_non_zero_uninitialized_value() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_public_data_tree();
+
+        builder.add_public_data_hint_for_non_existent_public_data(25, 0);
+
+        let mut hint = builder.public_data_hints.pop();
+        hint.value = 1;
+        builder.public_data_hints.push(hint);
+
+        builder.failed();
+    }
+
+    #[test]
+    unconstrained fn pending_public_data_read_requests() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel.append_public_data_update_requests(3);
+
+        builder.add_pending_public_data_read_request(1);
+        builder.add_pending_public_data_read_request(0);
+        builder.add_pending_public_data_read_request(2);
+
+        builder.succeeded();
+    }
+
+    #[test(should_fail_with="Hinted slot of data write does not match read request")]
+    unconstrained fn pending_public_data_read_requests_failed_wrong_write_index() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel.append_public_data_update_requests(2);
+
+        builder.add_pending_public_data_read_request(1);
+
+        let mut hint = builder.public_data_read_request_hints_builder.pending_read_hints.pop();
+        hint.pending_value_index += 1;
+        builder.public_data_read_request_hints_builder.pending_read_hints.push(hint);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Hinted value of data write does not match read request")]
+    unconstrained fn pending_public_data_read_requests_failed_wrong_write_value() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel.append_public_data_update_requests(1);
+
+        builder.add_pending_public_data_read_request(0);
+
+        let mut public_data_write = builder.previous_kernel.public_data_update_requests.pop();
+        public_data_write.new_value += 1;
+        builder.previous_kernel.public_data_update_requests.push(public_data_write);
+
+        builder.failed();
     }
 }
