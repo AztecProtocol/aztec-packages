@@ -65,7 +65,7 @@ size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, Wit
     }
     offset += signature.r.size();
     for (size_t i = 0; i < 32; ++i) {
-        signature_in[i] = static_cast<uint32_t>(i + offset);
+        signature_in[i + 32] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(signature.s[i]);
     }
     offset += signature.s.size();
