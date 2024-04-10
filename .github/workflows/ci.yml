@@ -30,7 +30,7 @@ jobs:
     strategy:
       matrix:
         config:
-          - {ec2_instance_type: m6a.16xlarge, runner_concurrency: 50, ec2_ami_id: ami-04d8422a9ba4de80f, runner_label_suffix: x86}
+          - {ec2_instance_type: m6a.32xlarge, runner_concurrency: 50, ec2_ami_id: ami-04d8422a9ba4de80f, runner_label_suffix: x86}
           - {ec2_instance_type: r6g.16xlarge, runner_concurrency: 8, ec2_ami_id: ami-0d8a9b0419ddb331a, runner_label_suffix: arm}
     steps:
       - name: Start EC2 runner
