@@ -60,7 +60,6 @@ class ECCOpQueue {
     uint32_t num_msm_rows = 0;
 
     const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
-    size_t raw_ops_size() { return raw_ops.size(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): Can remove this with better handling of scalar
     // mul against 0
@@ -73,6 +72,23 @@ class ECCOpQueue {
         auto padding_scalar = -Fr::one();
         mul_accumulate(padding_element, padding_scalar);
         eq_and_reset();
+    }
+
+    /**
+     * @brief A testing only method that adds an erroneous equality op to the raw ops
+     * @brief May be used to ensure that ECCVM responds as expected when encountering a bad op
+     *
+     */
+    void add_erroneous_equality_op_for_testing()
+    {
+        raw_ops.emplace_back(ECCVMOperation{ .add = false,
+                                             .mul = false,
+                                             .eq = true,
+                                             .reset = true,
+                                             .base_point = Point::random_element(),
+                                             .z1 = 0,
+                                             .z2 = 0,
+                                             .mul_scalar_full = 0 });
     }
 
     Point get_accumulator() { return accumulator; }

@@ -93,29 +93,22 @@ TEST(ECCVMCircuitBuilderTests, ShortMul)
     EXPECT_EQ(result, true);
 }
 
-// TEST(ECCVMCircuitBuilderTests, EqFails)
-// {
-//     using ECCVMOperation = eccvm::VMOperation<G1>;
-//     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+TEST(ECCVMCircuitBuilderTests, EqFails)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
-//     auto generators = G1::derive_generators("test generators", 3);
-//     typename G1::element a = generators[0];
-//     Fr x = Fr::random_element(&engine);
+    auto generators = G1::derive_generators("test generators", 3);
+    typename G1::element a = generators[0];
+    Fr x = Fr::random_element(&engine);
 
-//     op_queue->mul_accumulate(a, x);
-//     // Tamper with the eq op such that the expected value is incorect
-//     op_queue->raw_ops.emplace_back(ECCVMOperation{ .add = false,
-//                                                    .mul = false,
-//                                                    .eq = true,
-//                                                    .reset = true,
-//                                                    .base_point = a,
-//                                                    .z1 = 0,
-//                                                    .z2 = 0,
-//                                                    .mul_scalar_full = 0 });
-//     ECCVMCircuitBuilder circuit{ op_queue };
-//     bool result = ECCVMTraceChecker::check(circuit);
-//     EXPECT_EQ(result, false);
-// }
+    op_queue->mul_accumulate(a, x);
+    // Tamper with the eq op such that the expected value is incorect
+    op_queue->add_erroneous_equality_op_for_testing();
+
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
+    EXPECT_EQ(result, false);
+}
 
 TEST(ECCVMCircuitBuilderTests, EmptyRow)
 {
