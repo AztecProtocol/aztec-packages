@@ -115,6 +115,7 @@ Variables like `DEPLOY_AZTEC_CONTRACTS` & `AZTEC_NODE_PORT` are valid here as de
 # Configuration variables for connecting a Node to the Aztec Node P2P network. You'll need a running P2P-Bootstrap node to connect to.
 P2P_ENABLED='false' # A flag to enable P2P networking for this node. (default: false)
 P2P_BLOCK_CHECK_INTERVAL_MS=100 # The frequency in which to check for new L2 blocks.
+P2P_PEER_CHECK_INTERVAL_MS=1000 # The frequency in which to check for peers.
 P2P_L2_BLOCK_QUEUE_SIZE=1000 # Size of queue of L2 blocks to store.
 P2P_TCP_LISTEN_PORT=40400 # The tcp port on which the P2P service should listen for connections.
 P2P_TCP_LISTEN_IP= #The tcp IP on which the P2P service should listen for connections.

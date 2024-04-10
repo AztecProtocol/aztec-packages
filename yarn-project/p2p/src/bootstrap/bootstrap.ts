@@ -2,7 +2,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { SignableENR } from '@chainsafe/enr';
-import { PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import { type P2PConfig } from '../config.js';
@@ -32,7 +32,7 @@ export class BootstrapNode {
     const publicAddr = multiaddr(`${announceHostname}/udp/${announcePort}`);
     enr.setLocationMultiaddr(publicAddr);
 
-    this.logger(`Starting bootstrap node ${peerId}, listening on ${listenAddrUdp.toString()}`);
+    this.logger.info(`Starting bootstrap node ${peerId}, listening on ${listenAddrUdp.toString()}`);
 
     this.node = Discv5.create({
       enr,
@@ -44,21 +44,21 @@ export class BootstrapNode {
     });
 
     (this.node as Discv5EventEmitter).on('multiaddrUpdated', (addr: Multiaddr) => {
-      this.logger('Advertised socket address updated', { addr: addr.toString() });
+      this.logger.info('Advertised socket address updated', { addr: addr.toString() });
     });
     (this.node as Discv5EventEmitter).on('discovered', async (enr: SignableENR) => {
       const addr = await enr.getFullMultiaddr('udp');
-      this.logger(`Discovered new peer, enr: ${enr.encodeTxt()}, addr: ${addr?.toString()}`);
+      this.logger.verbose(`Discovered new peer, enr: ${enr.encodeTxt()}, addr: ${addr?.toString()}`);
     });
 
     try {
       await this.node.start();
-      this.logger('Discv5 started');
+      this.logger.info('Discv5 started');
     } catch (e) {
       this.logger.error('Error starting Discv5', e);
     }
 
-    this.logger(`ENR:  ${this.node?.enr.encodeTxt()}`);
+    this.logger.info(`ENR:  ${this.node?.enr.encodeTxt()}`);
   }
 
   /**

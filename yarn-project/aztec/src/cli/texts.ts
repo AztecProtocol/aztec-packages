@@ -7,6 +7,7 @@ const contractAddresses =
   'availabilityOracleAddress:AVAILABILITY_ORACLE_CONTRACT_ADDRESS - string - The deployed L1 availability oracle contract address.\n';
 const p2pOptions =
   'p2pBlockCheckIntervalMS:P2P_BLOCK_CHECK_INTERVAL_MS - number - The frequency in which to check for blocks. Default: 100\n' +
+  'p2pPeerCheckIntervalMS:P2P_PEER_CHECK_INTERVAL_MS - number - The frequency in which to check for peers. Default: 1000\n' +
   'p2pL2QueueSize:P2P_L2_QUEUE_SIZE - number - Size of queue of L2 blocks to store. Default: 1000\n' +
   'tcpListenPort:TCP_LISTEN_PORT - number - The tcp port on which the P2P service should listen for connections. Default: 40400\n' +
   'tcpListenIp:TCP_LISTEN_IP - string - The tcp IP on which the P2P service should listen for connections. Default: 0.0.0.0\n' +
