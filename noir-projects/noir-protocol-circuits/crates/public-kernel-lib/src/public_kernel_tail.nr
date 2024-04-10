@@ -101,7 +101,7 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::default();
 
         self.validate_inputs();
 

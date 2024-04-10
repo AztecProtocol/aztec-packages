@@ -98,3 +98,4 @@ impl Deserialize<NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH> for NullifierK
         }
     }
 }
+
