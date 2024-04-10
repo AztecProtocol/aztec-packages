@@ -31,7 +31,8 @@ export interface ACIRExecutionResult {
    * 1. The partial witness of the execution.
    * 2. The return witness which contains the given public return values within the full witness.
    */
-  partialAndReturnWitness: Array<ACVMWitness>;
+  partialWitness: ACVMWitness;
+  returnWitness:  ACVMWitness;
 }
 
 /**
@@ -129,7 +130,7 @@ export async function acvm(
     throw err;
   });
 
-  return { partialAndReturnWitness };
+  return { partialWitness: partialAndReturnWitness[0], returnWitness: partialAndReturnWitness[1] };
 }
 
 /**

@@ -95,11 +95,12 @@ async function executePublicFunctionAcvm(
   const initialWitness = context.getInitialWitness();
   const acvmCallback = new Oracle(context);
 
-  const { partialAndReturnWitness, reverted, revertReason } = await (async () => {
+  const { partialWitness, returnWitnessMap, reverted, revertReason } = await (async () => {
     try {
       const result = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback);
       return {
-        partialAndReturnWitness: result.partialAndReturnWitness,
+        partialWitness: result.partialWitness,
+        returnWitnessMap: result.returnWitness,
         reverted: false,
         revertReason: undefined,
       };
@@ -120,7 +121,8 @@ async function executePublicFunctionAcvm(
         throw ee;
       } else {
         return {
-          partialAndReturnWitness: undefined,
+          partialWitness: undefined,
+          returnWitnessMap: undefined,
           reverted: true,
           revertReason: createSimulationError(ee),
         };
@@ -153,11 +155,11 @@ async function executePublicFunctionAcvm(
     };
   }
 
-  if (!partialAndReturnWitness) {
+  if (!partialWitness) {
     throw new Error('No partial witness returned from ACVM');
   }
 
-  const returnWitness = witnessMapToFields(partialAndReturnWitness[1]);
+  const returnWitness = witnessMapToFields(returnWitnessMap);
   const {
     returnValues,
     nullifierReadRequests: nullifierReadRequestsPadded,
