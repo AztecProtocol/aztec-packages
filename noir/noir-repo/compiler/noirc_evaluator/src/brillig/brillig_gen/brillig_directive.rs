@@ -70,10 +70,6 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
 pub(crate) fn directive_quotient(bit_size: u32) -> GeneratedBrillig {
     // `a` is (0) (i.e register index 0)
     // `b` is (1)
-    assert!(
-        bit_size < FieldElement::max_num_bits(),
-        "directive_quotient called with a bit size greater than or equal to field size"
-    );
 
     // TODO: The only difference between these implementations is the integer version will truncate the input to the `bit_size` via cast.
     // Once we deduplicate brillig functions then we can modify this so that fields and integers share the same quotient function.
