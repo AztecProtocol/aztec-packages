@@ -23,7 +23,7 @@ use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value
 pub fn validate_inputs(public_call: PublicCallData) {
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
-    assert(!is_zero(this_call_stack_item.contract_address), "Contract address cannot be zero");
+    assert(!is_zero(this_call_stack_item.contract_address), "contract address cannot be zero");
     assert(this_call_stack_item.function_data.selector.to_field() != 0, "Function signature cannot be zero");
     assert(
         this_call_stack_item.function_data.is_private == false, "Cannot execute a private function with the public kernel circuit"

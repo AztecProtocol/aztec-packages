@@ -312,7 +312,7 @@ pub fn contract_logic(private_call: PrivateCallData) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062): Why is this using a hash function from the stdlib::recursion namespace
     let private_call_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
 
-    assert(!is_zero(contract_address), "Contract address cannot be zero");
+    assert(!is_zero(contract_address), "contract address cannot be zero");
     // std::println(f"contract_address={contract_address}");
     // std::println(f"private_call_vk_hash={private_call_vk_hash}");
 
