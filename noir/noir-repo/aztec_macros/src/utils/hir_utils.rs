@@ -99,6 +99,17 @@ pub fn signature_of_type(typ: &Type) -> String {
             let fields = vecmap(types, signature_of_type);
             format!("({})", fields.join(","))
         }
+        Type::String(len_typ) => {
+            if let Type::Constant(len) = **len_typ {
+                format!("str<{len}>")
+            } else {
+                unimplemented!(
+                    "Cannot generate signature for string with length type {:?}",
+                    len_typ
+                )
+            }
+        }
+        Type::MutableReference(typ) => signature_of_type(typ),
         _ => unimplemented!("Cannot generate signature for type {:?}", typ),
     }
 }

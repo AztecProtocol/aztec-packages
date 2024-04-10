@@ -7,21 +7,19 @@ contract Reader {
     fn constructor() {}
 
     #[aztec(public)]
-    fn check_name_public(who: AztecAddress, what: str<31>) {
+    fn check_name_public(who: AztecAddress, what: FieldCompressedString) {
         let selector = FunctionSelector::from_signature("public_get_name()");
         let ret = context.call_public_function_no_args(who, selector);
         let name = FieldCompressedString::from_field(ret[0]);
-        let _what = FieldCompressedString::from_string(what);
-        assert(name.is_eq(_what));
+        assert(name.is_eq(what));
     }
 
     #[aztec(private)]
-    fn check_name_private(who: AztecAddress, what: str<31>) {
+    fn check_name_private(who: AztecAddress, what: FieldCompressedString) {
         let selector = FunctionSelector::from_signature("private_get_name()");
         let ret = context.call_private_function_no_args(who, selector);
         let name = FieldCompressedString::from_field(ret[0]);
-        let _what = FieldCompressedString::from_string(what);
-        assert(name.is_eq(_what));
+        assert(name.is_eq(what));
     }
 
     unconstrained fn get_name(who: AztecAddress) -> pub str<6> {
@@ -30,21 +28,19 @@ contract Reader {
     }
 
     #[aztec(public)]
-    fn check_symbol_public(who: AztecAddress, what: str<31>) {
+    fn check_symbol_public(who: AztecAddress, what: FieldCompressedString) {
         let selector = FunctionSelector::from_signature("public_get_symbol()");
         let ret = context.call_public_function_no_args(who, selector);
         let symbol = FieldCompressedString::from_field(ret[0]);
-        let _what = FieldCompressedString::from_string(what);
-        assert(symbol.is_eq(_what));
+        assert(symbol.is_eq(what));
     }
 
     #[aztec(private)]
-    fn check_symbol_private(who: AztecAddress, what: str<31>) {
+    fn check_symbol_private(who: AztecAddress, what: FieldCompressedString) {
         let selector = FunctionSelector::from_signature("private_get_symbol()");
         let ret = context.call_private_function_no_args(who, selector);
         let symbol = FieldCompressedString::from_field(ret[0]);
-        let _what = FieldCompressedString::from_string(what);
-        assert(symbol.is_eq(_what));
+        assert(symbol.is_eq(what));
     }
 
     unconstrained fn get_symbol(who: AztecAddress) -> pub str<3> {

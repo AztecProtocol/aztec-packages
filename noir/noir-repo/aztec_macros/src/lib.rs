@@ -62,8 +62,13 @@ fn transform(
     // Usage -> mut ast -> aztec_library::transform(&mut ast)
     // Covers all functions in the ast
     for submodule in ast.submodules.iter_mut().filter(|submodule| submodule.is_contract) {
-        if transform_module(&mut submodule.contents, submodule.name.0.contents.as_str())
-            .map_err(|err| (err.into(), file_id))?
+        if transform_module(
+            crate_id,
+            context,
+            &mut submodule.contents,
+            submodule.name.0.contents.as_str(),
+        )
+        .map_err(|err| (err.into(), file_id))?
         {
             check_for_aztec_dependency(crate_id, context)?;
         }
@@ -77,7 +82,12 @@ fn transform(
 /// Determines if ast nodes are annotated with aztec attributes.
 /// For annotated functions it calls the `transform` function which will perform the required transformations.
 /// Returns true if an annotated node is found, false otherwise
-fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool, AztecMacroError> {
+fn transform_module(
+    crate_id: &CrateId,
+    context: &HirContext,
+    module: &mut SortedModule,
+    module_name: &str,
+) -> Result<bool, AztecMacroError> {
     let mut has_transformed_module = false;
 
     // Check for a user defined storage stru
@@ -89,7 +99,10 @@ fn transform_module(module: &mut SortedModule, module_name: &str) -> Result<bool
         if !check_for_storage_implementation(module, &storage_struct_name) {
             generate_storage_implementation(module, &storage_struct_name)?;
         }
-        generate_storage_layout(module, storage_struct_name)?;
+        // Make sure we're only generating the storage layout for the root crate
+        if crate_id == context.root_crate_id() {
+            generate_storage_layout(module, storage_struct_name)?;
+        }
     }
 
     for structure in module.types.iter_mut() {

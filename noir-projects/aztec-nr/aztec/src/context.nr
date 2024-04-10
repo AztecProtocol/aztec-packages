@@ -7,7 +7,10 @@ mod avm_context;
 mod interface;
 mod gas;
 
-use interface::{ContextInterface, PrivateCallInterface, PublicCallInterface};
+use interface::{
+    ContextInterface, PrivateCallInterface, PublicCallInterface, PrivateVoidCallInterface,
+    PublicVoidCallInterface
+};
 use private_context::PrivateContext;
 use public_context::PublicContext;
 use avm_context::AvmContext;

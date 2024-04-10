@@ -16,7 +16,7 @@ contract ImportTest {
     // See yarn-project/simulator/src/client/private_execution.ts
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[aztec(private)]
-    fn main(target: AztecAddress) -> Field {
+    fn main_contract(target: AztecAddress) -> Field {
         let test_contract_instance = TestPrivateContextInterface::at(target);
         let return_values = test_contract_instance.test_code_gen(
             &mut context,
