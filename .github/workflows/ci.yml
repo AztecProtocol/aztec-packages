@@ -233,6 +233,7 @@ jobs:
         working-directory: ./barretenberg/cpp/
         run: earthly --no-output +bench-ultra-honk --bench_mode=cache
 
+  # TODO simplify pattern of pushing test binaries + making spot runner for tests
   # push test binaries to dockerhub registry
   bb-test-binaries:
     runs-on: ${{ github.actor }}-x86
