@@ -36,6 +36,8 @@ class GoblinRecursionTests : public ::testing::Test {
  * @brief A full Goblin test that mimicks the basic aztec client architecture
  * @details
  */
+// TODO fix with https://github.com/AztecProtocol/barretenberg/issues/930
+// intermittent failures, presumably due to uninitialized memory
 TEST_F(GoblinRecursionTests, DISABLED_Vanilla)
 {
     Goblin goblin;
