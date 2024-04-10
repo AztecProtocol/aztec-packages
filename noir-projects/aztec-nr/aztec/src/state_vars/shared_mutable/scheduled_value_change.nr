@@ -64,11 +64,11 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
         // block horizon.
 
         if historical_block_number >= self.block_of_change {
-            // Once the block of change has been mined, the current vaue (post) will not change unless a new value
+            // Once the block of change has been mined, the current value (post) will not change unless a new value
             // change is scheduled. This did not happen at the historical block number (or else it would not be
             // greater or equal to the block of change), and therefore could only happen after the historical block
             // number. The earliest would be the immediate next block, and so the smallest possible next block of change
-            // equals `historical_block_number + 1 + DELAY`. Our block horizon is simple the previous block to that one.
+            // equals `historical_block_number + 1 + DELAY`. Our block horizon is simply the previous block to that one.
             //
             //      block of      historical        
             //       change         block            block horizon
@@ -79,7 +79,7 @@ impl<T, DELAY> ScheduledValueChange<T, DELAY> {
 
             historical_block_number + DELAY
         } else {
-            // If the block of change has not yet been mined however, then there's two possible scenarios.
+            // If the block of change has not yet been mined however, then there are two possible scenarios.
             //   a) It could be so far into the future that the block horizon is actually determined by the delay,
             //      because a new change could be scheduled and take place _before_ the currently scheduled one. This is
             //      similar to the scenario where the block of change is in the past: the time horizon is the block
