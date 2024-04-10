@@ -22,7 +22,7 @@ jobs:
     name: Start Build Runners
     uses: ./.github/workflows/runners.yml
     with:
-      builder_action: ${{ github.event.inputs.runner_action || (contains(github.event.head_commit.message, '[ci restart-spot]') && 'restart' || 'start') }}
+      build_runner_action: ${{ github.event.inputs.runner_action || (contains(github.event.head_commit.message, '[ci restart-spot]') && 'restart' || 'start') }}
 
   #########################
   # START OF ARM PIPELINE #
