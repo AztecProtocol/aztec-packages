@@ -85,6 +85,7 @@ describe('e2e_p2p_network', () => {
       peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
       minPeerCount: 10,
       maxPeerCount: 100,
+      p2pPeerCheckIntervalMS: 100,
 
       // TODO: the following config options are not applicable to bootstrap nodes
       p2pBlockCheckIntervalMS: 1000,
