@@ -1,4 +1,4 @@
-import { AccountWallet, AztecAddress, ContractFunctionInteraction, Fr, PXE } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, type ContractFunctionInteraction, Fr, type PXE } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -29,7 +29,7 @@ describe('e2e_auth_contract', () => {
       pxe,
     } = await setup(3));
 
-    await publicDeployAccounts(admin, [admin.getAddress(), authorized.getAddress(), other.getAddress()]);
+    await publicDeployAccounts(admin, [admin, authorized, other]);
 
     const deployTx = AuthContract.deploy(admin, admin.getAddress()).send({});
     const receipt = await deployTx.wait();
