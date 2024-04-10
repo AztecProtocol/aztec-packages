@@ -24,7 +24,8 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
     // Construct the proving key; populates all polynomials except for witness polys
     key = std::make_shared<ProvingKey>(builder);
 
-    // Share all unshifted polys from the prover polynomials to the proving key
+    // Share all unshifted polys from the prover polynomials to the proving key. Note: this means that updating a
+    // polynomial in one container automatically updates it in the other via the shared memory.
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
         key_poly = prover_poly.share();
