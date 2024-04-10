@@ -75,7 +75,7 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
 }
 
 #[test]
-fn serialize_deserialize_of_empty() {
+fn serialize_deserialize_of_default() {
     let context = CallContext::default();
     let serialized = context.serialize();
     let deserialized = CallContext::deserialize(serialized);
