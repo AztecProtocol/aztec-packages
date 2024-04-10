@@ -28,7 +28,7 @@ import { Fr, type Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
-import { type PackedValuesCache } from '../common/packed_args_cache.js';
+import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { type ExecutionResult, type NoteAndSlot } from './execution_result.js';

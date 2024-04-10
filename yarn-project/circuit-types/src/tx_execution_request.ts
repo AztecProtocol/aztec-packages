@@ -3,7 +3,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { AuthWitness } from './auth_witness.js';
-import { PackedValues } from './packed_arguments.js';
+import { PackedValues } from './packed_values.js';
 
 /**
  * Request to execute a transaction. Similar to TxRequest, but has the full args.

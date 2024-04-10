@@ -16,7 +16,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
 import { createSimulationError } from '../common/errors.js';
-import { PackedValuesCache } from '../common/packed_args_cache.js';
+import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
