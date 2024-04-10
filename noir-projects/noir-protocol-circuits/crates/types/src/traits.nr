@@ -89,6 +89,17 @@ trait Serialize<N> {
 }
 // docs:end:serialize
 
+impl<N> Serialize<N> for str<N> {
+    fn serialize(self) -> [Field; N] {
+        let mut result = [0; N];
+        let bytes: [u8; N] = self.as_bytes();
+        for i in 0..N {
+            result[i] = field_from_bytes([bytes[i];1], true);
+        }
+        result
+    }
+}
+
 // docs:start:deserialize
 trait Deserialize<N> {
     fn deserialize(fields: [Field; N]) -> Self;
