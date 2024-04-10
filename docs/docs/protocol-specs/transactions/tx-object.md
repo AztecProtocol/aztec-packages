@@ -8,8 +8,8 @@ Mike review:
 - update definitions, given recent changes to the ../circuits section. (In hindsight, the people making the circuit change could perhaps have done this. We'll get there...)
 - wrap the items in "field" and "type" columns with backticks ``.
 - Perhaps rename all subheadings to be the name of the struct, e.g. `TransactionObject` (in backticks), for easier searching and referencing.
-    - (We should probably adopt this approach throughout the yellow paper)
-- Link to any types / fields which are defined on some other page of the yellow paper (e.g. `PrivateKernelPublicInputsFinal` should hopefully have a corresponding definition in the ../circuits/private-kernel-tail.md section).
+    - (We should probably adopt this approach throughout the protocol specs)
+- Link to any types / fields which are defined on some other page of the protocol specs (e.g. `PrivateKernelPublicInputsFinal` should hopefully have a corresponding definition in the ../circuits/private-kernel-tail.md section).
 - Remove private kernel vk tree references; it's an outdated notion that might not be adopted. Edit: liaise with the circuits team, because some of their docs mention a kernel vk tree too, and I'm not sure that's the best approach, given how few vks there will be.
 - Perhaps the types should mirror the types of the ../circuits/* section? I'm not sure. Buffers and arrays of fields are technically correct, from the point of view of the typescript orchestration code, but the underlying data types of what these arrays and buffers actually represent might be more informative. What do you think?
 - See Lasse's diagrams in `archive.md` and in the rollup directory. He's done some significant restructuring and renaming of classes, and I believe Jan is making corresponding changes to the codebase.
@@ -101,7 +101,7 @@ A transaction is identified by its `transaction_hash`. In order to be able to id
 
 <!-- Mike review:
 As per comments elsewhere in my reviews, please can we exactly specify how the hash is calculated? Hash type, domain separator, ordering of hash inputs.
-It would be great if we could also specify the types of these items, and link to where the type is defined elsewhere in this yellow paper.
+It would be great if we could also specify the types of these items, and link to where the type is defined elsewhere in this protocol specs.
 -->
 
 - `origin`

@@ -62,7 +62,7 @@ The "Fold" Prover/Verifier validates that `k` instances of a defined relation (i
 
 #### Protogalaxy Decider
 
-The "Decider" Prover/Verifier validate whether an accumulator instance correctly satisfies the accumulator relation. The accumulator being satisfiable inductively shows that all instances that have been folded were satisfied as well. (additional protocol checks are required to reason about _which_ instances have been folded into the accumulator. See the [IVC specification](https://hackmd.io/h0yTcOHiQWeeTXnxTQhTNQ?view) for more information. (note to zac: put this in the yellow paper!)
+The "Decider" Prover/Verifier validate whether an accumulator instance correctly satisfies the accumulator relation. The accumulator being satisfiable inductively shows that all instances that have been folded were satisfied as well. (additional protocol checks are required to reason about _which_ instances have been folded into the accumulator. See the [IVC specification](https://hackmd.io/h0yTcOHiQWeeTXnxTQhTNQ?view) for more information. (note to zac: put this in the protocol specs!)
 
 ## Goblin Plonk
 

@@ -5,8 +5,8 @@ Transactions are initiated via a _transaction execution request_ sent from the u
 <!--
 Mike review:
 - Perhaps rename all subheadings to be the name of the struct, e.g. `TransactionExecutionRequest` (in backticks), for easier searching and referencing.
-    - (We should probably adopt this approach throughout the yellow paper)
-- Link to any types / fields which are defined on some other page of the yellow paper (e.g. `AuthWitness`).
+    - (We should probably adopt this approach throughout the protocol specs)
+- Link to any types / fields which are defined on some other page of the protocol specs (e.g. `AuthWitness`).
 - Is the hash used to compute `argsHash` protocol-defined or app-defined? If the former, we should define it (in a way which is consistent with all other hash definitions).
 - How are the packed arguments packed? What's the encoding? Or is it app-specific and hence out-of-protocol?
 - "Entrypoint" is such an important term, perhaps it needs to be a subheading (with the text rearranged to accommodate such a subheading), for easier referencing and searching?

@@ -40,7 +40,7 @@ Missing info:
         - Details of the hash to use, and a domain separator for the hash. We might not know the final hash that we'll use, but we should propose one, and we should probably also give each hash a name.
         - E.g. `compute_parent_node("nullifier parent node".to_field(), left_child, right_child)` where `compute_siloed_nullifier = pedersen_hash` (for now).
 
-Pseudocode/algorithms for insertion, batch insertion, membership proofs, non-membership proofs, so that the security of our approach can be validated. We should discuss the best way to consistently present such information, for all sections of the yellow paper.
+Pseudocode/algorithms for insertion, batch insertion, membership proofs, non-membership proofs, so that the security of our approach can be validated. We should discuss the best way to consistently present such information, for all sections of the protocol specs.
 
 EDIT: maybe all these comments should actually go in cryptography/merkle-tree.md
  -->

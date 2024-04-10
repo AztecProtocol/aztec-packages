@@ -67,7 +67,7 @@ library HeaderLib {
 
   struct StateReference {
     AppendOnlyTreeSnapshot l1ToL2MessageTree;
-    // Note: Can't use "partial" name here as in yellow paper because it is a reserved solidity keyword
+    // Note: Can't use "partial" name here as in protocol specs because it is a reserved solidity keyword
     PartialStateReference partialStateReference;
   }
 

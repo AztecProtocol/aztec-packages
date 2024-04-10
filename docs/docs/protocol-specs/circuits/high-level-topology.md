@@ -9,7 +9,7 @@ Once all functions in a transaction are executed, the accumulated data is output
 To illustrate, consider a transaction involving the following functions, where circles depict private functions, and squares denote public functions:
 
 :::info
-A note for Aztec protocol developers: In this yellow paper, the order in which the kernel circuit processes calls is different from previous literature, and is different from the current implementation (as at January 2024).
+A note for Aztec protocol developers: In this protocol spec, the order in which the kernel circuit processes calls is different from previous literature, and is different from the current implementation (as at January 2024).
 :::
 
 <!-- Mike review: perhaps a more comprehensive example would be if f2 makes the calls to f4 and f5, to cover a case which isn't covered in the current example: If f2 calls f4 & f5, then which is processed by the kernel first out of f3, f4, or f5?
