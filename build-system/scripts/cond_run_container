@@ -8,7 +8,8 @@
 set -eu
 
 REPOSITORY=$1
-shift
+RUN_ARGS=$2
+shift 2
 
 BASE_TAG=$(calculate_image_tag $REPOSITORY)
 SUCCESS_TAG=$BASE_TAG-$JOB_NAME
@@ -21,6 +22,6 @@ if ! check_rebuild $SUCCESS_TAG $REPOSITORY; then
   retry ecr_login
   retry docker pull $IMAGE_URI
   export $@
-  docker run --rm -t $IMAGE_URI $@
+  docker run --rm -t $IMAGE_URI $RUN_ARGS
   retry tag_remote_image $REPOSITORY $BASE_TAG $SUCCESS_TAG
 fi
