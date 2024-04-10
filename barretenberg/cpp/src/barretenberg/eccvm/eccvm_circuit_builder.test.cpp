@@ -121,7 +121,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRow)
 {
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
-    op_queue->empty_row();
+    op_queue->empty_row_for_testing();
 
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
@@ -137,7 +137,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
-    op_queue->empty_row();
+    op_queue->empty_row_for_testing();
     op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
@@ -207,7 +207,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithNoop)
     op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
 
-    op_queue->empty_row();
+    op_queue->empty_row_for_testing();
     ECCVMCircuitBuilder circuit{ op_queue };
     bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);

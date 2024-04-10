@@ -96,7 +96,7 @@ TEST(GoblinTranslatorCircuitBuilder, SeveralOperationCorrectness)
     Fq batching_challenge = fq::random_element();
 
     op_queue->eq_and_reset();
-    op_queue->empty_row();
+    op_queue->empty_row_for_testing();
 
     // Sample the evaluation input x
     Fq x = Fq::random_element();

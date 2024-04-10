@@ -425,9 +425,10 @@ class ECCOpQueue {
 
     /**
      * @brief Write empty row to queue
+     * @warning This is for testing purposes only. Currently no valid use case.
      *
      */
-    void empty_row() // WORKTODO: only used for testing. what to do..
+    void empty_row_for_testing()
     {
         raw_ops.emplace_back(ECCVMOperation{
             .add = false,
