@@ -110,14 +110,6 @@ export class PublicExecutionContext extends TypedOracle {
   }
 
   /**
-   * Unpack the given returns.
-   * @param returnsHash - Returns hash to unpack
-   */
-  public unpackReturns(returnsHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
-  }
-
-  /**
    * Fetches a message from the db, given its key.
    * @param contractAddress - Address of a contract by which the message was emitted.
    * @param messageHash - Hash of the message.
