@@ -64,7 +64,7 @@ impl Eq for ContentCommitment {
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_default() {
     let empty = ContentCommitment::default();
     let serialized = empty.serialize();
     let deserialized = ContentCommitment::deserialize(serialized);

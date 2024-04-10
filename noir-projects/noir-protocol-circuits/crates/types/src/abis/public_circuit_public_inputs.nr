@@ -161,7 +161,7 @@ impl Hash for PublicCircuitPublicInputs {
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_default() {
     let pcpi = PublicCircuitPublicInputs::default();
     let serialized = pcpi.serialize();
     let deserialized = PublicCircuitPublicInputs::deserialize(serialized);
@@ -169,11 +169,11 @@ fn serialization_of_empty() {
 }
 
 #[test]
-fn empty_hash() {
+fn default_hash() {
     let inputs = PublicCircuitPublicInputs::default();
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
-    assert_eq(hash, test_data_empty_hash);
+    let test_data_default_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
+    assert_eq(hash, test_data_default_hash);
 }

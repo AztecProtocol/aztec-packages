@@ -251,7 +251,7 @@ impl PublicContextInterface for PublicContext {
             secret
         );
 
-        // Push nullifier (and the "commitment" corresponding to this can be "empty")
+        // Push nullifier (and the "commitment" corresponding to this can be "default")
         self.push_new_nullifier(nullifier, 0)
     }
 

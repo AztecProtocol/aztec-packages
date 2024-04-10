@@ -274,7 +274,7 @@ impl PrivateContext {
             secret
         );
 
-        // Push nullifier (and the "commitment" corresponding to this can be "empty")
+        // Push nullifier (and the "commitment" corresponding to this can be "default")
         self.push_new_nullifier(nullifier, 0)
     }
     // docs:end:consume_l1_to_l2_message

@@ -53,7 +53,7 @@ impl Hash for FunctionData {
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_default() {
     let data = FunctionData::default();
     let serialized = data.serialize();
     let deserialized = FunctionData::deserialize(serialized);
@@ -61,11 +61,11 @@ fn serialization_of_empty() {
 }
 
 #[test]
-fn empty_hash() {
+fn default_hash() {
     let data = FunctionData::default();
     let hash = data.hash();
 
     // Value from function_data.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed;
-    assert_eq(hash, test_data_empty_hash);
+    let test_data_default_hash = 0x27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed;
+    assert_eq(hash, test_data_default_hash);
 }

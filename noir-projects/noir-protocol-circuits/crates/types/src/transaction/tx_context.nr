@@ -70,7 +70,7 @@ impl Hash for TxContext {
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_default() {
     let context = TxContext::default();
     let serialized = context.serialize();
     let deserialized = TxContext::deserialize(serialized);
@@ -78,11 +78,11 @@ fn serialization_of_empty() {
 }
 
 #[test]
-fn empty_hash() {
+fn default_hash() {
     let inputs = TxContext::default();
     let hash = inputs.hash();
 
     // Value from tx_context.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x200569267c0f73ac89aaa414239398db9445dd4ad3a8cf37015cd55b8d4c5e8d;
-    assert_eq(hash, test_data_empty_hash);
+    let test_data_default_hash = 0x200569267c0f73ac89aaa414239398db9445dd4ad3a8cf37015cd55b8d4c5e8d;
+    assert_eq(hash, test_data_default_hash);
 }

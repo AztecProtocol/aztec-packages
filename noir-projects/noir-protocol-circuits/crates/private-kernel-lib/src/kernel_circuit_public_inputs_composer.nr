@@ -164,8 +164,8 @@ impl KernelCircuitPublicInputsComposer {
 
             // Nullified_commitment of value `0` implies non-transient (persistable)
             // nullifier in which case no attempt will be made to match it to a hash.
-            // Non-empty nullified_note_hash implies transient nullifier which MUST be matched to a hash below!
-            // 0-valued nullified_note_hash is empty and will be ignored
+            // Non-default nullified_note_hash implies transient nullifier which MUST be matched to a hash below!
+            // 0-valued nullified_note_hash is default and will be ignored
             if nullified_note_hash != 0 {
                 assert(
                     hint_pos < MAX_NEW_NOTE_HASHES_PER_TX, "New nullifier is transient but hint is invalid"

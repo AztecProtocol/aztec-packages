@@ -77,7 +77,7 @@ mod tests {
     };
 
     #[test]
-    fn serialization_of_empty() {
+    fn serialization_of_default() {
         // Assuming a zeroed initialization for simplicity
         let request = TxRequest::default();
         let serialized = request.serialize();

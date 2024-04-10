@@ -54,7 +54,7 @@ impl Deserialize<STATE_REFERENCE_LENGTH> for StateReference {
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_default() {
     let state = StateReference::default();
     let _serialized = state.serialize();
     let _deserialized = StateReference::deserialize(_serialized);

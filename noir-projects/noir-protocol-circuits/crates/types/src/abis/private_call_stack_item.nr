@@ -71,7 +71,7 @@ impl Hash for PrivateCallStackItem {
 }
 
 #[test]
-fn serialization_of_empty() {
+fn serialization_of_default() {
     let item = PrivateCallStackItem::default();
     let serialized = item.serialize();
     let deserialized = PrivateCallStackItem::deserialize(serialized);
@@ -79,12 +79,12 @@ fn serialization_of_empty() {
 }
 
 #[test]
-fn empty_hash() {
+fn default_hash() {
     let mut item = PrivateCallStackItem::default();
     item.function_data.is_private = true;
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x13f518365c690d1b96d31454afed495ad29fe530939caf7189dd44f9bd63ef89;
-    assert_eq(hash, test_data_empty_hash);
+    let test_data_default_hash = 0x13f518365c690d1b96d31454afed495ad29fe530939caf7189dd44f9bd63ef89;
+    assert_eq(hash, test_data_default_hash);
 }
