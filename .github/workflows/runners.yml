@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 5
     name: Start Build Runner (${{ matrix.config.runner_label_suffix }})
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.build_runner_action }}
+    if: ${{ github.event.inputs.build_runner_action != 'none' }}
     permissions:
       actions: write
     strategy:

@@ -9,7 +9,7 @@ on:
         description: "The action to take with the self-hosted runner (start, stop, restart)."
         type: choice
         options: [start, stop, restart]
-        required: false
+        default: start
       just_start_spot:
         description: "Should we just run spots (no build)?"
         type: boolean
