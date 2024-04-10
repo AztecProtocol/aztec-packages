@@ -13,7 +13,7 @@ use noirc_abi::{
     Abi, MAIN_RETURN_NAME,
 };
 use serde::Serialize;
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
 
 use gloo_utils::format::JsValueSerdeExt;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
