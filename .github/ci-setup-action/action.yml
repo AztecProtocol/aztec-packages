@@ -19,7 +19,9 @@ runs:
 
     - name: Checkout Submodules
       shell: bash
-      run: git submodule sync --recursive && git submodule update --init --recursive
+      run: |
+        git config --global --add safe.directory '*'
+        git submodule sync --recursive && git submodule update --init --recursive
 
     # Since we use multiple runners, dont want them clashing
     - name: Generate Unique Home Directory
