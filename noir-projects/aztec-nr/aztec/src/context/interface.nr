@@ -50,4 +50,5 @@ trait PublicContextInterface {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) -> FunctionReturns<RETURNS_COUNT>;
+     fn nullifier_exists(self, nullifier: Field) -> bool;
 }
