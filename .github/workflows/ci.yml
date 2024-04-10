@@ -188,7 +188,7 @@ jobs:
     name: Start Bench Runner
     runs-on: ubuntu-latest
     permissions:
-      actions: write        
+      actions: write
     steps:
       - name: Start EC2 runner
         id: start-ec2-runner
