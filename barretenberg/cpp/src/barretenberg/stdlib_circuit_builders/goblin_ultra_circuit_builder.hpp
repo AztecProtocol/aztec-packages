@@ -100,6 +100,9 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         case EQUALITY: {
             return equality_op_idx;
         }
+        default: {
+            ASSERT(false);
+        }
         }
     }
 
