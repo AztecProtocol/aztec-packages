@@ -1,12 +1,4 @@
-import {
-  Body,
-  L2Block,
-  MerkleTreeId,
-  type ProcessedTx,
-  PublicKernelType,
-  type TxEffect,
-  toTxEffect,
-} from '@aztec/circuit-types';
+import { Body, L2Block, MerkleTreeId, type ProcessedTx, type TxEffect, toTxEffect } from '@aztec/circuit-types';
 import {
   type BlockResult,
   PROVING_STATUS,
@@ -233,34 +225,6 @@ export class ProvingOrchestrator {
     );
   }
 
-  public async proveNextPublicFunction(
-    provingState: ProvingState | undefined,
-    txIndex: number,
-    nextFunctionIndex: number,
-  ) {
-    if (!provingState?.verifyState()) {
-      logger(`Not executing public function, state invalid`);
-      return;
-    }
-    const request = provingState.getNextPublicFunction(txIndex, nextFunctionIndex);
-    if (!request) {
-      logger(`No Public Functions`);
-      const tx = provingState.allTxs[txIndex];
-      const inputs = provingState.baseRollupInputs[txIndex];
-      const treeSnapshots = provingState.txTreeSnapshots[txIndex];
-      logger(`Running tx at index ${txIndex}, hash ${tx.hash.toString()}`);
-      this.enqueueJob(provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
-        this.runBaseRollup(provingState, BigInt(txIndex), tx, inputs, treeSnapshots),
-      );
-      return;
-    }
-    logger(`Executing Public Kernel ${PublicKernelType[request.type]}`);
-    await sleep(100);
-    this.enqueueJob(provingState, PROVING_JOB_TYPE.PUBLIC_KERNEL, () =>
-      this.proveNextPublicFunction(provingState, txIndex, nextFunctionIndex + 1),
-    );
-  }
-
   /**
    * Marks the block as full and pads it to the full power of 2 block size, no more transactions will be accepted.
    */
@@ -374,6 +338,27 @@ export class ProvingOrchestrator {
     this.jobQueue.put(provingJob);
   }
 
+  private proveNextPublicFunction(provingState: ProvingState | undefined, txIndex: number, nextFunctionIndex: number) {
+    if (!provingState?.verifyState()) {
+      logger.debug(`Not executing public function, state invalid`);
+      return Promise.resolve();
+    }
+    const request = provingState.getNextPublicFunction(txIndex, nextFunctionIndex);
+    if (!request) {
+      const tx = provingState.allTxs[txIndex];
+      const inputs = provingState.baseRollupInputs[txIndex];
+      const treeSnapshots = provingState.txTreeSnapshots[txIndex];
+      this.enqueueJob(provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
+        this.runBaseRollup(provingState, BigInt(txIndex), tx, inputs, treeSnapshots),
+      );
+      return Promise.resolve();
+    }
+    this.enqueueJob(provingState, PROVING_JOB_TYPE.PUBLIC_KERNEL, () =>
+      this.proveNextPublicFunction(provingState, txIndex, nextFunctionIndex + 1),
+    );
+    return Promise.resolve();
+  }
+
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
   private async prepareBaseRollupInputs(provingState: ProvingState | undefined, tx: ProcessedTx) {
     if (!provingState?.verifyState()) {
@@ -396,7 +381,6 @@ export class ProvingOrchestrator {
     }
     provingState!.baseRollupInputs.push(inputs);
     provingState!.txTreeSnapshots.push(treeSnapshots);
-    logger(`Added root ${treeSnapshots.get(MerkleTreeId.NOTE_HASH_TREE)?.root.toString()}`);
   }
 
   // Stores the intermediate inputs prepared for a merge proof
@@ -428,7 +412,6 @@ export class ProvingOrchestrator {
       logger.debug('Not running base rollup, state invalid');
       return;
     }
-    logger(`Running base at index ${index}, ${inputs.start.noteHashTree.root.toString()}`);
     const [duration, baseRollupOutputs] = await elapsed(() =>
       executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.prover, logger),
     );

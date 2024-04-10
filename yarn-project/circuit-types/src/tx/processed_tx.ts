@@ -18,6 +18,9 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 
+/**
+ * Used to communicate to the prover which type of circuit to prove
+ */
 export enum PublicKernelType {
   SETUP,
   APP_LOGIC,
@@ -25,6 +28,9 @@ export enum PublicKernelType {
   TAIL,
 }
 
+/**
+ * Request to the prover to prove a public kernel circuit
+ */
 export type PublicKernelRequest = {
   type: PublicKernelType;
   inputs: PublicKernelCircuitPrivateInputs | PublicKernelTailCircuitPrivateInputs;

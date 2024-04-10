@@ -40,7 +40,7 @@ const getConfig = async () => {
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
     const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
-    logger(`Using native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
+    logger.verbose(`Using native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
 
     const expectedAcvmPath = ACVM_BINARY_PATH
       ? ACVM_BINARY_PATH
@@ -48,7 +48,7 @@ const getConfig = async () => {
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
-    logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    logger.verbose(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
     return {
       acvmWorkingDirectory,
       bbWorkingDirectory,
@@ -57,7 +57,7 @@ const getConfig = async () => {
       directoryToCleanup: ACVM_WORKING_DIRECTORY && BB_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
     };
   } catch (err) {
-    logger(`Native BB not available, error: ${err}`);
+    logger.verbose(`Native BB not available, error: ${err}`);
     return undefined;
   }
 };
@@ -108,12 +108,12 @@ describe('prover/bb_prover', () => {
   it('proves the base rollup', async () => {
     const txs = await Promise.all([makeBloatedProcessedTx(builderDb, 1)]);
 
-    logger('Building base rollup inputs');
+    logger.verbose('Building base rollup inputs');
     const baseRollupInputs = [];
     for (const tx of txs) {
       baseRollupInputs.push(await buildBaseRollupInput(tx, globalVariables, builderDb));
     }
-    logger('Proving base rollups');
+    logger.verbose('Proving base rollups');
     await Promise.all(baseRollupInputs.map(inputs => prover.getBaseRollupProof(inputs)));
   }, 600_000);
 

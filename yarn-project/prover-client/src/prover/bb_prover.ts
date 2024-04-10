@@ -33,7 +33,7 @@ import { NativeACVMSimulator } from '@aztec/simulator';
 import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
-import { BB_RESULT, generateProof, generateVerificationKeyForNoirCircuit, verifyProof } from '../bb/execute.js';
+import { BB_RESULT, generateKeyForNoirCircuit, generateProof, verifyProof } from '../bb/execute.js';
 import { type CircuitProver } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
@@ -155,16 +155,20 @@ export class BBNativeRollupProver implements CircuitProver {
     );
     const promises = [];
     for (const circuitName of realCircuits) {
-      const verificationKeyPromise = generateVerificationKeyForNoirCircuit(
+      const verificationKeyPromise = generateKeyForNoirCircuit(
         this.config.bbBinaryPath,
         this.config.bbWorkingDirectory,
         circuitName,
         ProtocolCircuitArtifacts[circuitName as ProtocolArtifact],
-        logger,
+        'vk',
+        logger.debug,
       ).then(result => {
-        if (result) {
-          this.verificationKeyDirectories.set(circuitName, result);
+        if (result.status == BB_RESULT.FAILURE) {
+          logger.error(`Failed to generate verification key for circuit ${circuitName}`);
+          return;
         }
+        logger.info(`Generated verification key for circuit ${circuitName} at ${result.path!}`);
+        this.verificationKeyDirectories.set(circuitName, result.path!);
       });
       promises.push(verificationKeyPromise);
     }
@@ -185,11 +189,11 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const artifact = ProtocolCircuitArtifacts[circuitType];
 
-    logger(`Generating witness data for ${circuitType}`);
+    logger.debug(`Generating witness data for ${circuitType}`);
 
     const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
 
-    logger(`Proving ${circuitType}...`);
+    logger.debug(`Proving ${circuitType}...`);
 
     const provingResult = await generateProof(
       this.config.bbBinaryPath,
@@ -197,19 +201,21 @@ export class BBNativeRollupProver implements CircuitProver {
       circuitType,
       artifact,
       outputWitnessFile,
-      logger,
+      logger.debug,
     );
 
-    if (provingResult.result.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.result.reason}`);
-      throw new Error(provingResult.result.reason);
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+      throw new Error(provingResult.reason);
     }
 
-    const proofBuffer = await fs.readFile(provingResult.outputPath);
+    const proofBuffer = await fs.readFile(provingResult.path!);
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 
-    logger(`Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proofBuffer.length} bytes`);
+    logger.debug(
+      `Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proofBuffer.length} bytes`,
+    );
 
     return [outputWitness, new Proof(proofBuffer)];
   }
@@ -224,16 +230,16 @@ export class BBNativeRollupProver implements CircuitProver {
 
     await fs.writeFile(proofFileName, proof.buffer);
 
-    const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logger);
+    const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logger.debug);
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 
-    if (result.result.status === BB_RESULT.FAILURE) {
+    if (result.status === BB_RESULT.FAILURE) {
       const errorMessage = `Failed to verify ${circuitType} proof!`;
       throw new Error(errorMessage);
     }
 
-    logger(`Successfully verified ${circuitType} proof in ${result.duration} ms`);
+    logger.info(`Successfully verified ${circuitType} proof in ${result.duration} ms`);
   }
 
   private async verifyPreviousRollupProof(previousRollupData: PreviousRollupData) {

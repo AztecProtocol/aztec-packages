@@ -119,7 +119,7 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);
 
-    this.logger(`Simulated root rollup circuit`, {
+    this.logger.debug(`Simulated root rollup circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'root-rollup',
       duration,

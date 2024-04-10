@@ -3,7 +3,7 @@ import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-pro
 
 import { Command } from 'commander';
 
-import { generateProvingKeyForNoirCircuit, generateVerificationKeyForNoirCircuit } from './execute.js';
+import { generateKeyForNoirCircuit } from './execute.js';
 
 const { BB_WORKING_DIRECTORY, BB_BINARY_PATH } = process.env;
 
@@ -40,11 +40,12 @@ export function getProgram(log: LogFn): Command {
         log(`Failed to find circuit ${options.circuit}`);
         return;
       }
-      await generateProvingKeyForNoirCircuit(
+      await generateKeyForNoirCircuit(
         options.bbPath,
         options.workingDirectory,
         options.circuit,
         compiledCircuit,
+        'pk',
         log,
       );
     });
@@ -65,11 +66,12 @@ export function getProgram(log: LogFn): Command {
         log(`Failed to find circuit ${options.circuit}`);
         return;
       }
-      await generateVerificationKeyForNoirCircuit(
+      await generateKeyForNoirCircuit(
         options.bbPath,
         options.workingDirectory,
         options.circuit,
         compiledCircuit,
+        'vk',
         log,
       );
     });

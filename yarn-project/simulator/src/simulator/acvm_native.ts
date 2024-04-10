@@ -8,8 +8,6 @@ import fs from 'fs/promises';
 
 import { type SimulationProvider } from './simulation_provider.js';
 
-const logger = createDebugLogger('aztec:acvm_native');
-
 /**
  * Parses a TOML format witness map string into a Map structure
  * @param outputString - The witness map in TOML format
@@ -22,12 +20,7 @@ function parseIntoWitnessMap(outputString: string) {
       .filter((line: string) => line.length)
       .map((line: string) => {
         const pair = line.replaceAll(' ', '').split('=');
-        try {
-          return [Number(pair[0]), pair[1].replaceAll('"', '')];
-        } catch (err) {
-          logger(`Error: ${pair[1]}, line: ${line}`);
-          return [0, ''];
-        }
+        return [Number(pair[0]), pair[1].replaceAll('"', '')];
       }),
   );
 }
