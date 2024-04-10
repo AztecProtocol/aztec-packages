@@ -87,23 +87,25 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
      */
     uint32_t get_ecc_op_idx(const EccOpCode& op_code)
     {
+        uint32_t op_idx = 0;
         switch (op_code) {
         case NULL_OP: {
-            return null_op_idx;
+            op_idx = null_op_idx;
         }
         case ADD_ACCUM: {
-            return add_accum_op_idx;
+            op_idx = add_accum_op_idx;
         }
         case MUL_ACCUM: {
-            return mul_accum_op_idx;
+            op_idx = mul_accum_op_idx;
         }
         case EQUALITY: {
-            return equality_op_idx;
+            op_idx = equality_op_idx;
         }
         default: {
             ASSERT(false);
         }
         }
+        return op_idx;
     }
 
     void finalize_circuit();
