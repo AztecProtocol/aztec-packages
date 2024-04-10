@@ -1,22 +1,31 @@
-import { MerkleTreeId, NullifierMembershipWitness, Tx } from '@aztec/circuit-types';
+import { MerkleTreeId, NullifierMembershipWitness, type Tx } from '@aztec/circuit-types';
 import {
-  AztecAddress,
+  type AztecAddress,
   ContractClassRegisteredEvent,
   ContractInstanceDeployedEvent,
-  EthAddress,
+  type EthAddress,
   Fr,
-  FunctionSelector,
-  L1_TO_L2_MSG_TREE_HEIGHT,
-  NULLIFIER_TREE_HEIGHT,
-  NullifierLeafPreimage,
-  PublicDataTreeLeafPreimage,
+  type FunctionSelector,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NULLIFIER_TREE_HEIGHT,
+  type NullifierLeafPreimage,
+  type PublicDataTreeLeafPreimage,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier, computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getCanonicalClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
-import { CommitmentsDB, MessageLoadOracleInputs, PublicContractsDB, PublicStateDB } from '@aztec/simulator';
-import { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import {
+  type CommitmentsDB,
+  MessageLoadOracleInputs,
+  type PublicContractsDB,
+  type PublicStateDB,
+} from '@aztec/simulator';
+import {
+  type ContractClassPublic,
+  type ContractDataSource,
+  type ContractInstanceWithAddress,
+} from '@aztec/types/contracts';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
 /**
  * Implements the PublicContractsDB using a ContractDataSource.
@@ -38,11 +47,11 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     // Extract contract class and instance data from logs and add to cache for this block
     const logs = tx.unencryptedLogs.unrollLogs();
     ContractClassRegisteredEvent.fromLogs(logs, getCanonicalClassRegistererAddress()).forEach(e => {
-      this.log(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
+      this.log.debug(`Adding class ${e.contractClassId.toString()} to public execution contract cache`);
       this.classCache.set(e.contractClassId.toString(), e.toContractClassPublic());
     });
     ContractInstanceDeployedEvent.fromLogs(logs).forEach(e => {
-      this.log(
+      this.log.debug(
         `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to public execution contract cache`,
       );
       this.instanceCache.set(e.address.toString(), e.toContractInstance());

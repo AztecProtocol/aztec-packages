@@ -1,23 +1,23 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger } from '@aztec/foundation/log';
 
 import type { Abi, Narrow } from 'abitype';
 import {
-  Account,
-  Chain,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type Account,
+  type Chain,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   createPublicClient,
   createWalletClient,
   getAddress,
   getContract,
   http,
 } from 'viem';
-import { HDAccount, PrivateKeyAccount } from 'viem/accounts';
+import { type HDAccount, type PrivateKeyAccount } from 'viem/accounts';
 
-import { L1ContractAddresses } from './l1_contract_addresses.js';
+import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
  * Return type of the deployL1Contract function.
@@ -101,7 +101,7 @@ export const deployL1Contracts = async (
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
 ): Promise<DeployL1Contracts> => {
-  logger('Deploying contracts...');
+  logger.debug('Deploying contracts...');
 
   const walletClient = createWalletClient({
     account,
@@ -119,7 +119,7 @@ export const deployL1Contracts = async (
     contractsToDeploy.registry.contractAbi,
     contractsToDeploy.registry.contractBytecode,
   );
-  logger(`Deployed Registry at ${registryAddress}`);
+  logger.info(`Deployed Registry at ${registryAddress}`);
 
   const availabilityOracleAddress = await deployL1Contract(
     walletClient,
@@ -127,7 +127,7 @@ export const deployL1Contracts = async (
     contractsToDeploy.availabilityOracle.contractAbi,
     contractsToDeploy.availabilityOracle.contractBytecode,
   );
-  logger(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
+  logger.info(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
 
   const rollupAddress = await deployL1Contract(
     walletClient,
@@ -136,7 +136,7 @@ export const deployL1Contracts = async (
     contractsToDeploy.rollup.contractBytecode,
     [getAddress(registryAddress.toString()), getAddress(availabilityOracleAddress.toString())],
   );
-  logger(`Deployed Rollup at ${rollupAddress}`);
+  logger.info(`Deployed Rollup at ${rollupAddress}`);
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
   let inboxAddress!: EthAddress;
@@ -148,7 +148,7 @@ export const deployL1Contracts = async (
     });
     inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
   }
-  logger(`Inbox available at ${inboxAddress}`);
+  logger.info(`Inbox available at ${inboxAddress}`);
 
   let outboxAddress!: EthAddress;
   {
@@ -159,7 +159,7 @@ export const deployL1Contracts = async (
     });
     outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
   }
-  logger(`Outbox available at ${outboxAddress}`);
+  logger.info(`Outbox available at ${outboxAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
   const registryContract = getContract({
@@ -180,7 +180,7 @@ export const deployL1Contracts = async (
     contractsToDeploy.gasToken.contractBytecode,
   );
 
-  logger(`Deployed Gas Token at ${gasTokenAddress}`);
+  logger.info(`Deployed Gas Token at ${gasTokenAddress}`);
 
   // this contract remains uninitialized because at this point we don't know the address of the gas token on L2
   const gasPortalAddress = await deployL1Contract(
@@ -190,7 +190,7 @@ export const deployL1Contracts = async (
     contractsToDeploy.gasPortal.contractBytecode,
   );
 
-  logger(`Deployed Gas Portal at ${gasPortalAddress}`);
+  logger.info(`Deployed Gas Portal at ${gasPortalAddress}`);
 
   const l1Contracts: L1ContractAddresses = {
     availabilityOracleAddress,
@@ -232,7 +232,7 @@ export async function deployL1Contract(
     args,
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
     throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);

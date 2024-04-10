@@ -1,4 +1,4 @@
-import { AztecAddress, DebugLogger, EthAddress } from '@aztec/aztec.js';
+import { type AztecAddress, type DebugLogger, type EthAddress } from '@aztec/aztec.js';
 
 import { setup } from './fixtures/utils.js';
 import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
@@ -32,7 +32,7 @@ describe('e2e_public_to_private_messaging', () => {
 
     teardown = teardown_;
     logger = logger_;
-    logger('Successfully deployed contracts and initialized portal');
+    logger.info('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
   afterEach(async () => {

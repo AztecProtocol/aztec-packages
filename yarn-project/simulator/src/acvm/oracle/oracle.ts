@@ -1,16 +1,15 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { RETURN_VALUES_LENGTH } from '@aztec/circuits.js';
+import { RETURN_VALUES_LENGTH, acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { ACVMField } from '../acvm_types.js';
+import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
-import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
-import { TypedOracle } from './typed_oracle.js';
+import { type TypedOracle } from './typed_oracle.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.
@@ -305,12 +304,12 @@ export class Oracle {
   }
 
   debugLog(...args: ACVMField[][]): ACVMField {
-    this.log(oracleDebugCallToFormattedStr(args));
+    this.log.verbose(oracleDebugCallToFormattedStr(args));
     return toACVMField(0);
   }
 
   debugLogWithPrefix(arg0: ACVMField[], ...args: ACVMField[][]): ACVMField {
-    this.log(`${acvmFieldMessageToString(arg0)}: ${oracleDebugCallToFormattedStr(args)}`);
+    this.log.verbose(`${acvmFieldMessageToString(arg0)}: ${oracleDebugCallToFormattedStr(args)}`);
     return toACVMField(0);
   }
 

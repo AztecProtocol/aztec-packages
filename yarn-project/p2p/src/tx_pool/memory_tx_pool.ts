@@ -1,8 +1,8 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
-import { TxAddedToPoolStats } from '@aztec/circuit-types/stats';
+import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { TxPool } from './tx_pool.js';
+import { type TxPool } from './tx_pool.js';
 
 /**
  * In-memory implementation of the Transaction Pool.
@@ -39,7 +39,7 @@ export class InMemoryTxPool implements TxPool {
   public addTxs(txs: Tx[]): Promise<void> {
     for (const tx of txs) {
       const txHash = tx.getTxHash();
-      this.log(`Adding tx with id ${txHash.toString()}`, {
+      this.log.debug(`Adding tx with id ${txHash.toString()}`, {
         eventName: 'tx-added-to-pool',
         ...tx.getStats(),
       } satisfies TxAddedToPoolStats);

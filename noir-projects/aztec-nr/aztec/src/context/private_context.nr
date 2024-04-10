@@ -1,6 +1,7 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     key::nullifier_key::validate_nullifier_key_against_address, messaging::process_l1_to_l2_message,
+    hash::hash_args_array,
     oracle::{
     arguments, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
@@ -27,7 +28,7 @@ use dep::protocol_types::{
     RETURN_VALUES_LENGTH
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    grumpkin_private_key::GrumpkinPrivateKey, hash::hash_args_array, header::Header,
+    grumpkin_private_key::GrumpkinPrivateKey, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::is_empty
 };
 
@@ -346,6 +347,19 @@ impl PrivateContext {
         assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
 
+        // TODO (fees) figure out why this crashes the prover and enable it
+        // we need this in order to pay fees inside child call contexts
+        // assert(
+        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
+        //     | (item.public_inputs.min_revertible_side_effect_counter
+        //         > self.min_revertible_side_effect_counter)
+        // );
+
+        // if item.public_inputs.min_revertible_side_effect_counter
+        //     > self.min_revertible_side_effect_counter {
+        //     self.min_revertible_side_effect_counter = item.public_inputs.min_revertible_side_effect_counter;
+        // }
+
         assert(contract_address.eq(item.contract_address));
         assert(function_selector.eq(item.function_data.selector));
 
@@ -368,6 +382,8 @@ impl PrivateContext {
                 item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address)
             );
         }
+
+        // crate::oracle::debug_log::debug_log_array_with_prefix("Private call stack item", item.serialize());
 
         self.private_call_stack_hashes.push(item.hash());
 

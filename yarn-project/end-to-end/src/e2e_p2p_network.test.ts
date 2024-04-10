@@ -1,17 +1,17 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import {
-  AztecAddress,
+  type AztecAddress,
   CompleteAddress,
-  DebugLogger,
+  type DebugLogger,
   Fr,
   Grumpkin,
   GrumpkinScalar,
-  SentTx,
+  type SentTx,
   TxStatus,
 } from '@aztec/aztec.js';
-import { BootstrapNode, P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
-import { ConstantKeyPair, PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
+import { BootstrapNode, type P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
+import { ConstantKeyPair, type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -121,8 +121,8 @@ describe('e2e_p2p_network', () => {
   const submitTxsTo = async (pxe: PXEService, account: AztecAddress, numTxs: number) => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
-      const tx = await getSchnorrAccount(pxe, GrumpkinScalar.random(), GrumpkinScalar.random(), Fr.random()).deploy();
-      logger(`Tx sent with hash ${await tx.getTxHash()}`);
+      const tx = getSchnorrAccount(pxe, GrumpkinScalar.random(), GrumpkinScalar.random(), Fr.random()).deploy();
+      logger.info(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();
       expect(receipt).toEqual(
         expect.objectContaining({
@@ -130,7 +130,7 @@ describe('e2e_p2p_network', () => {
           error: '',
         }),
       );
-      logger(`Receipt received`);
+      logger.info(`Receipt received for ${await tx.getTxHash()}`);
       txs.push(tx);
     }
     return txs;

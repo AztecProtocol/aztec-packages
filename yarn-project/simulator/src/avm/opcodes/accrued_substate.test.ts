@@ -4,8 +4,8 @@ import { EventSelector } from '@aztec/foundation/abi';
 
 import { mock } from 'jest-mock-extended';
 
-import { CommitmentsDB } from '../../index.js';
-import { AvmContext } from '../avm_context.js';
+import { type CommitmentsDB } from '../../index.js';
+import { type AvmContext } from '../avm_context.js';
 import { Field, Uint8 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import {
@@ -152,8 +152,12 @@ describe('Accrued Substate', () => {
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
       const journalState = context.persistableState.flush();
-      const expected = [value.toFr()];
-      expect(journalState.newNoteHashes).toEqual(expected);
+      expect(journalState.newNoteHashes).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          noteHash: value.toFr(),
+        }),
+      ]);
     });
   });
 
@@ -243,8 +247,12 @@ describe('Accrued Substate', () => {
       await new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0).execute(context);
 
       const journalState = context.persistableState.flush();
-      const expected = [value.toFr()];
-      expect(journalState.newNullifiers).toEqual(expected);
+      expect(journalState.newNullifiers).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress.toField(),
+          nullifier: value.toFr(),
+        }),
+      ]);
     });
 
     it('Nullifier collision reverts (same nullifier emitted twice)', async () => {

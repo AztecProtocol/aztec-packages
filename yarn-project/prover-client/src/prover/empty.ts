@@ -1,20 +1,21 @@
 /* eslint-disable require-await */
 import {
   AggregationObject,
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BaseRollupInputs,
-  MergeRollupInputs,
-  ParityPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BaseRollupInputs,
+  type KernelCircuitPublicInputs,
+  type MergeRollupInputs,
+  type ParityPublicInputs,
   Proof,
-  PublicCircuitPublicInputs,
-  PublicKernelCircuitPublicInputs,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
+  type PublicCircuitPublicInputs,
+  type PublicKernelCircuitPublicInputs,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
-import { PublicProver, RollupProver } from './index.js';
+import { type PublicProver, type RollupProver } from './index.js';
 
 const EMPTY_PROOF_SIZE = 42;
 
@@ -92,6 +93,10 @@ export class EmptyPublicProver implements PublicProver {
    * @param _publicInputs - Public inputs obtained via simulation.
    */
   async getPublicKernelCircuitProof(_publicInputs: PublicKernelCircuitPublicInputs): Promise<Proof> {
+    return new Proof(Buffer.alloc(EMPTY_PROOF_SIZE, 0));
+  }
+
+  async getPublicTailKernelCircuitProof(_publicInputs: KernelCircuitPublicInputs): Promise<Proof> {
     return new Proof(Buffer.alloc(EMPTY_PROOF_SIZE, 0));
   }
 }

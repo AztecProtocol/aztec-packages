@@ -2,7 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 
@@ -104,6 +104,10 @@ export class GlobalVariables {
       coinbase: this.coinbase.toString(),
       feeRecipient: this.feeRecipient.toString(),
     };
+  }
+
+  clone(): GlobalVariables {
+    return GlobalVariables.fromBuffer(this.toBuffer());
   }
 
   isEmpty(): boolean {
