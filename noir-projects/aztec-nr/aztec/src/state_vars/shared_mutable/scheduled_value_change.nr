@@ -143,7 +143,7 @@ impl<T, DELAY> Deserialize<3> for ScheduledValueChange<T, DELAY> {
   }
 }
 
-fn min<T>(lhs: T, rhs: T) -> T where T: Ord {
+fn min(lhs: u32, rhs: u32) -> u32 {
     if lhs < rhs { lhs } else { rhs }
 }
 
