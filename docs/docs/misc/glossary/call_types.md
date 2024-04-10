@@ -55,8 +55,6 @@ Note that it is entirely possible to use `CALL` to call a `view` function, and t
 
 > '`STATICCALL` adds a way to call other contracts and restrict what they can do in the simplest way. It can be safely assumed that the state of all accounts is the same before and after a static call.'
 
-`pure` functions behave almost equivalently, but since `external pure` functions are so rare we'll skip them.
-
 ## JSON-RPC
 
 From outside the EVM, calls to contracts are made via [JSON-RPC](https://ethereum.org/en/developers/docs/apis/json-rpc/) methods, typically from some client library that is aware of contract ABIs, such as [ethers.js](https://docs.ethers.org/v5) or [viem](https://viem.sh/).
