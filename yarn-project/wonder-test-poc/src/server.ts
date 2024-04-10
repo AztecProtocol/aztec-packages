@@ -58,10 +58,10 @@ server.addMethod('debugLog', async params => {
 server.addMethod('callPrivateFunction', async params => {
   const contractAddress = AztecAddress.fromString(params[0].Single);
   const functionSelector = FunctionSelector.fromString(params[1].Single.slice(-8));
-  const args: Fr[] = params[2];
+  const args: Fr = Fr.fromString(params[2].toString());
 
   let txHash = await privateCall(pxe, contractAddress, functionSelector, args);
-
+  console.log(txHash.toString());
   // todo: handle revert -> return false? throw?
   return { values: [{ Single: txHash.toString() }] };
 });
@@ -88,7 +88,7 @@ server.addMethod('getNumberOfNewNotes', async params => {
   const filteredNoteHashes = txEffect.noteHashes.filter(hash => hash.toString() != new Fr(0).toString());
   const numberOfNotes = filteredNoteHashes.length;
 
-  return { values: [{ Single: { inner: numberOfNotes.toString() } }] };
+  return { values: [{ Single: numberOfNotes.toString() }] };
 });
 
 app.post('/', (req, res) => {

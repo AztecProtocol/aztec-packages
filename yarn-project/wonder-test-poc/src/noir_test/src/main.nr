@@ -38,7 +38,7 @@ use dep::aztec::oracle::debug_log::{ debug_log, debug_log_field };
     #[test]
     fn test_internal_call() {
         let deployment_address = deploy();
-        let tx_hash = call_private_function(deployment_address, FunctionSelector::from_signature("set_value(Field)"), [1337,0,0,0]);
+        let tx_hash = call_private_function(deployment_address, FunctionSelector::from_signature("set_value(Field)"), 1337);
 
         let number_of_new_notes = get_number_of_new_notes(tx_hash);
         assert_eq(number_of_new_notes, 1);
@@ -69,9 +69,9 @@ use dep::aztec::oracle::debug_log::{ debug_log, debug_log_field };
     }
 
     #[oracle(callPrivateFunction)]
-    unconstrained fn call_private_function_oracle(contract_address: AztecAddress, method_name: FunctionSelector, args: [Field; 4]) -> pub Field{}
+    unconstrained fn call_private_function_oracle(contract_address: AztecAddress, method_name: FunctionSelector, args: Field) -> pub Field{}
 
-    unconstrained fn call_private_function(contract_address: AztecAddress, method_name: FunctionSelector, args: [Field; 4]) -> pub Field {
+    unconstrained fn call_private_function(contract_address: AztecAddress, method_name: FunctionSelector, args: Field) -> pub Field {
         call_private_function_oracle(contract_address, method_name, args)
     }
 

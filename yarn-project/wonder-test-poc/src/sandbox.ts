@@ -20,9 +20,7 @@ export const initSandbox = async () => {
 
 export const deployContract = async (pxe: PXE) => {
   let accounts = await createAccount(pxe);
-  console.log('start deploying from accounts: ', accounts);
   let deployedContract = await MeaningOfLifeContract.deploy(accounts).send().deployed();
-  console.log('deployed at ', deployedContract.address.toString());
 
   let instance: ContractInstanceWithAddress = deployedContract.instance;
   contractClassId = instance.contractClassId;
@@ -42,7 +40,7 @@ export const privateCall = async (
   pxe: PXE,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  args: Fr[],
+  args: Fr,
 ) => {
   // const functionName = selectorsResolved.get(functionSelector.toString());
 
@@ -85,7 +83,7 @@ export const privateCall = async (
   let deployedContract = await MeaningOfLifeContract.at(contractAddress, wallet);
 
   // TODO: use the fn selector instead
-  let result = await deployedContract.methods.set_value(args[0]).send().wait();
+  let result = await deployedContract.methods.set_value(args).send().wait();
 
   return result.txHash;
 };
