@@ -122,7 +122,6 @@ PEER_ID_PRIVATE_KEY='' # An optional peer id private key. If blank, will generat
 BOOTSTRAP_NODES='' # A list of bootstrap peers to connect to, separated by commas
 P2P_ANNOUNCE_HOSTNAME='' # Hostname to announce to the p2p network
 P2P_ANNOUNCE_PORT='' # Port to announce to the p2p network
-P2P_KAD_CLIENT='false' # Optional specification to run as a client in the Kademlia routing protocol.
 P2P_NAT_ENABLED='false' # Whether to enable NAT from libp2p
 P2P_MIN_PEERS=10 # The minimum number of peers (a peer count below this will cause the node to look for more peers)
 P2P_MAX_PEERS=100 # The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
