@@ -189,7 +189,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.runner_action || 'start' }}
+          subaction: ${{ github.event.inputs.runner_action || (contains(github.event.head_commit.message, '[ci restart-spot]') && 'restart' || 'start') }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
@@ -265,7 +265,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.runner_action || 'start' }}
+          subaction: ${{ github.event.inputs.runner_action || (contains(github.event.head_commit.message, '[ci restart-spot]') && 'restart' || 'start') }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
@@ -273,7 +273,7 @@ jobs:
           ec2_spot_instance_strategy: BestEffort
           runner_label: ${{ github.actor }}-test-x86
           runner_concurrency: 1
-          ec2_instance_type: m7a.4xlarge
+          ec2_instance_type: m7a.16xlarge
           ec2_ami_id: ami-04d8422a9ba4de80f
           ec2_instance_ttl: 20 # 20 minutes to reap, refreshed by job starts
 
