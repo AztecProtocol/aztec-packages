@@ -29,7 +29,7 @@ import {
   createBlackBoxSolver,
   executeCircuitWithBlackBoxSolver,
 } from '@noir-lang/acvm_js';
-import { type Abi, abiDecode, abiEncode } from '@noir-lang/noirc_abi';
+import { type Abi, abiDecode, abiEncode, serializeWitness } from '@noir-lang/noirc_abi';
 import { type WitnessMap } from '@noir-lang/types';
 
 import BaseParityJson from './target/parity_base.json' assert { type: 'json' };
@@ -135,7 +135,7 @@ export const MergeRollupArtifact = MergeRollupJson as NoirCompiledCircuit;
 
 export const RootRollupArtifact = RootRollupJson as NoirCompiledCircuit;
 
-export type ProtocolArtifacts =
+export type ProtocolArtifact =
   | 'PrivateKernelInitArtifact'
   | 'PrivateKernelInnerArtifact'
   | 'PrivateKernelTailArtifact'
@@ -149,7 +149,7 @@ export type ProtocolArtifacts =
   | 'MergeRollupArtifact'
   | 'RootRollupArtifact';
 
-export const ProtocolCircuitArtifacts: Record<ProtocolArtifacts, NoirCompiledCircuit> = {
+export const ProtocolCircuitArtifacts: Record<ProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitArtifact,
   PrivateKernelInnerArtifact: PrivateKernelInnerArtifact,
   PrivateKernelTailArtifact: PrivateKernelTailArtifact,
@@ -173,8 +173,8 @@ const getSolver = (): Promise<WasmBlackBoxFunctionSolver> => {
   return solver;
 };
 
-export async function serialiseInputWitness(witness: WitnessMap) {
-  return await serializeWitness(witness);
+export function serializeInputWitness(witness: WitnessMap) {
+  return serializeWitness(witness);
 }
 
 /**

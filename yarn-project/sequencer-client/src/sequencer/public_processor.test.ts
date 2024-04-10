@@ -115,6 +115,7 @@ describe('public_processor', () => {
         unencryptedLogs: tx.unencryptedLogs,
         isEmpty: false,
         revertReason: undefined,
+        publicKernelRequests: [],
       };
 
       // Jest is complaining that the two objects are not equal, but they are.

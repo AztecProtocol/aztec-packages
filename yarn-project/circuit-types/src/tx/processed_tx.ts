@@ -12,9 +12,23 @@ import {
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
+  PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
+  PublicKernelTailCircuitPrivateInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
+
+export enum PublicKernelType {
+  SETUP,
+  APP_LOGIC,
+  TEARDOWN,
+  TAIL,
+}
+
+export type PublicKernelRequest = {
+  type: PublicKernelType;
+  inputs: PublicKernelCircuitPrivateInputs | PublicKernelTailCircuitPrivateInputs;
+};
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,
@@ -38,6 +52,11 @@ export type ProcessedTx = Pick<Tx, 'proof' | 'encryptedLogs' | 'unencryptedLogs'
    * Reason the tx was reverted.
    */
   revertReason: SimulationError | undefined;
+
+  /**
+   * The collection of public kernel circuit inputs for simulation/proving
+   */
+  publicKernelRequests: PublicKernelRequest[];
 };
 
 export type RevertedTx = ProcessedTx & {
@@ -90,6 +109,7 @@ export function makeProcessedTx(
   tx: Tx,
   kernelOutput: KernelCircuitPublicInputs,
   proof: Proof,
+  PublicKernelRequest: PublicKernelRequest[],
   revertReason?: SimulationError,
 ): ProcessedTx {
   return {
@@ -100,6 +120,7 @@ export function makeProcessedTx(
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
+    publicKernelRequests: [],
   };
 }
 
@@ -123,6 +144,7 @@ export function makeEmptyProcessedTx(header: Header, chainId: Fr, version: Fr): 
     proof: emptyProof,
     isEmpty: true,
     revertReason: undefined,
+    publicKernelRequests: [],
   };
 }
 

@@ -16,7 +16,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
   BaseRollupArtifact,
-  ProtocolArtifacts,
+  ProtocolArtifact,
   ProtocolCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
@@ -50,7 +50,6 @@ export type BBProverConfig = {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements CircuitProver {
-  private provingKeyDirectories: Map<string, string> = new Map<string, string>();
   private verificationKeyDirectories: Map<string, string> = new Map<string, string>();
   constructor(private config: BBProverConfig) {}
 
@@ -143,7 +142,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
-    const [outputWitness, proof] = await this.createProof(witnessMap, 'BaseRollupArtifact');
+    const [outputWitness, proof] = await this.createProof(witnessMap, 'RootRollupArtifact');
 
     await this.verifyProof('RootRollupArtifact', proof);
 
@@ -161,31 +160,19 @@ export class BBNativeRollupProver implements CircuitProver {
         this.config.bbBinaryPath,
         this.config.bbWorkingDirectory,
         circuitName,
-        ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
+        ProtocolCircuitArtifacts[circuitName as ProtocolArtifact],
         logger,
       ).then(result => {
         if (result) {
           this.verificationKeyDirectories.set(circuitName, result);
         }
       });
-      // const provingKeyPromise = generateProvingKeyForNoirCircuit(
-      //   this.config.bbBinaryPath,
-      //   this.config.bbWorkingDirectory,
-      //   circuitName,
-      //   ProtocolCircuitArtifacts[circuitName as ProtocolArtifacts],
-      //   logger,
-      // ).then(result => {
-      //   if (result) {
-      //     this.provingKeyDirectories.set(circuitName, result);
-      //   }
-      // });
       promises.push(verificationKeyPromise);
-      //promises.push(provingKeyPromise);
     }
     await Promise.all(promises);
   }
 
-  private async createProof(witnessMap: WitnessMap, circuitType: string): Promise<[WitnessMap, Proof]> {
+  private async createProof(witnessMap: WitnessMap, circuitType: ProtocolArtifact): Promise<[WitnessMap, Proof]> {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
@@ -197,7 +184,7 @@ export class BBNativeRollupProver implements CircuitProver {
       outputWitnessFile,
     );
 
-    const artifact = ProtocolCircuitArtifacts[circuitType as ProtocolArtifacts];
+    const artifact = ProtocolCircuitArtifacts[circuitType];
 
     logger(`Generating witness data for ${circuitType}`);
 
@@ -209,10 +196,9 @@ export class BBNativeRollupProver implements CircuitProver {
       this.config.bbBinaryPath,
       bbWorkingDirectory,
       circuitType,
-      BaseRollupArtifact,
+      artifact,
       outputWitnessFile,
       logger,
-      //this.provingKeyDirectories.get(circuitType)!,
     );
 
     if (provingResult.result.status === BB_RESULT.FAILURE) {
@@ -224,12 +210,12 @@ export class BBNativeRollupProver implements CircuitProver {
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 
-    logger(`Generated proof for ${circuitType}, size: ${proofBuffer.length} bytes`);
+    logger(`Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proofBuffer.length} bytes`);
 
-    return [outputWitness, Proof.fromBuffer(proofBuffer)];
+    return [outputWitness, new Proof(proofBuffer)];
   }
 
-  private async verifyProof(circuitType: string, proof: Proof) {
+  private async verifyProof(circuitType: ProtocolArtifact, proof: Proof) {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
@@ -237,17 +223,18 @@ export class BBNativeRollupProver implements CircuitProver {
     const proofFileName = `${bbWorkingDirectory}/proof`;
     const verificationKeyPath = this.verificationKeyDirectories.get(circuitType);
 
-    await fs.writeFile(proofFileName, proof.toBuffer());
+    await fs.writeFile(proofFileName, proof.buffer);
 
     const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logger);
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 
     if (result.result.status === BB_RESULT.FAILURE) {
-      throw new Error(`Failed to verify ${circuitType} proof!`);
+      const errorMessage = `Failed to verify ${circuitType} proof!`;
+      throw new Error(errorMessage);
     }
 
-    logger(`Successfully verified ${circuitType} proof!`);
+    logger(`Successfully verified ${circuitType} proof in ${result.duration} ms`);
   }
 
   private async verifyPreviousRollupProof(previousRollupData: PreviousRollupData) {

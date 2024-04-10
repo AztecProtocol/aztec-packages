@@ -1,7 +1,8 @@
-import { type L2Block, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
+import { type L2Block, MerkleTreeId, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
 import {
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
+  BaseRollupInputs,
   type Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -38,6 +39,8 @@ export class ProvingState {
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   private txs: ProcessedTx[] = [];
+  public baseRollupInputs: BaseRollupInputs[] = [];
+  public txTreeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>[] = [];
   constructor(
     public readonly totalNumTxs: number,
     private completionCallback: (result: ProvingResult) => void,
@@ -138,6 +141,21 @@ export class ProvingState {
 
   public areRootParityInputsReady() {
     return this.rootParityInputs.findIndex(p => !p) === -1;
+  }
+
+  public txHasPublicFunctions(index: number) {
+    return index >= 0 && this.txs.length > index && this.txs[index].publicKernelRequests.length;
+  }
+
+  public getNextPublicFunction(txIndex: number, nextIndex: number) {
+    if (txIndex < 0 || txIndex >= this.txs.length) {
+      return undefined;
+    }
+    const tx = this.txs[txIndex];
+    if (nextIndex < 0 || nextIndex >= tx.publicKernelRequests.length) {
+      return undefined;
+    }
+    return tx.publicKernelRequests[nextIndex];
   }
 
   public cancel() {

@@ -261,33 +261,17 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
  * @param witnessPath Path to the file containing the serialized witness
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
- * @param pkPath Optional path containing the proving key data
  */
-void prove(const std::string& bytecodePath,
-           const std::string& witnessPath,
-           const std::string& outputPath,
-           const std::string& pkPath)
+void prove(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
-    Timer circuit_timer;
     acir_composer.create_circuit(constraint_system, witness);
     size_t circuit_size = acir_composer.get_dyadic_circuit_size();
     init_bn254_crs(circuit_size);
-    if (pkPath == "") {
-        acir_composer.init_proving_key();
-    } else {
-        Timer pk_timer;
-        bb::plonk::proving_key_data key_data;
-        auto pk_data = from_buffer<plonk::proving_key_data>(read_file(pkPath));
-        auto crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>(CRS_PATH);
-        auto proving_key =
-            std::make_shared<plonk::proving_key>(std::move(pk_data), crs->get_prover_crs(pk_data.circuit_size + 1));
-        acir_composer.init_proving_key(proving_key);
-    }
+    acir_composer.init_proving_key();
 
-    Timer proof_timer;
     auto proof = acir_composer.create_proof();
 
     if (outputPath == "-") {
@@ -336,7 +320,6 @@ void gateCount(const std::string& bytecodePath)
  */
 bool verify(const std::string& proof_path, const std::string& vk_path)
 {
-    std::cout << "Verifying " << proof_path << " with key at " << vk_path << std::endl;
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
@@ -386,7 +369,6 @@ void write_pk(const std::string& bytecodePath, const std::string& outputPath)
         writeRawBytesToStdout(serialized_pk);
         vinfo("pk written to stdout");
     } else {
-        auto serialized_pk = to_buffer(*pk);
         write_file(outputPath, serialized_pk);
         vinfo("pk written to: ", outputPath);
     }
@@ -649,10 +631,7 @@ int main(int argc, char* argv[])
 
         if (command == "prove") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, output_path, "");
-        } else if (command == "prove_with_key") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, output_path, pk_path);
+            prove(bytecode_path, witness_path, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {

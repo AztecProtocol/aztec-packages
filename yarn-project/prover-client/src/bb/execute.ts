@@ -5,7 +5,6 @@ import { NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
-import path from 'path';
 
 export enum BB_RESULT {
   SUCCESS,
@@ -115,7 +114,7 @@ async function generateKeyForNoirCircuit(
   // Write the bytecode and input witness to the working directory
   await fs.writeFile(bytecodePath, bytecode);
 
-  const args = ['-o', outputPath, '-b', bytecodePath, '-v'];
+  const args = ['-o', outputPath, '-b', bytecodePath];
   const timer = new Timer();
   const result = await executeBB(pathToBB, `write_${key}`, args, log);
   const duration = timer.ms();
@@ -123,15 +122,6 @@ async function generateKeyForNoirCircuit(
   await fs.writeFile(bytecodeHashPath, bytecodeHash);
   return { result, duration, outputPath };
 }
-
-// const directorySize = async (directory: string, filesToOmit: string[]) => {
-//   const files = await fs.readdir(directory);
-//   const stats = files
-//     .filter(f => !filesToOmit.find(file => file === f))
-//     .map(file => fs.stat(path.join(directory, file)));
-
-//   return (await Promise.all(stats)).reduce((accumulator, { size }) => accumulator + size, 0);
-// };
 
 export async function generateVerificationKeyForNoirCircuit(
   pathToBB: string,
@@ -158,9 +148,7 @@ export async function generateVerificationKeyForNoirCircuit(
   }
   const stats = await fs.stat(outputPath);
   log(
-    `Verification key for circuit ${circuitName} written to ${outputPath} in ${duration} ms, size: ${
-      stats.size / (1024 * 1024)
-    } MB`,
+    `Verification key for circuit ${circuitName} generated in ${duration} ms, size: ${stats.size / (1024 * 1024)} MB`,
   );
   return outputPath;
 }
@@ -204,7 +192,6 @@ export async function generateProof(
   compiledCircuit: NoirCompiledCircuit,
   inputWitnessFile: string,
   log: LogFn,
-  provingKeyDirectory?: string,
 ) {
   // The bytecode is written to e.g. /workingDirectory/pk/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/proof/${circuitName}-bytecode`;
@@ -220,7 +207,7 @@ export async function generateProof(
     .catch(_ => false);
   if (!binaryPresent) {
     const failed: BBFailure = { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-    return { result: failed, outputPath: circuitOutputDirectory };
+    return { result: failed, outputPath: circuitOutputDirectory, duration: 0 };
   }
 
   // Clear up the circuit output directory removing anything that is there
@@ -229,13 +216,9 @@ export async function generateProof(
   // Write the bytecode and input witness to the working directory
   await fs.writeFile(bytecodePath, bytecode);
 
-  // For verification keys, the argument is the full file path
   const outputPath = `${circuitOutputDirectory}/proof`;
-  let args = ['-v', '-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile];
-  if (provingKeyDirectory) {
-    args = args.concat(...['-r', provingKeyDirectory!]);
-  }
-  const command = provingKeyDirectory ? 'prove_with_key' : 'prove';
+  const args = ['-o', outputPath, '-b', bytecodePath, '-w', inputWitnessFile];
+  const command = 'prove';
   const timer = new Timer();
   const logFunction = (message: string) => {
     log(`${circuitName} BB out - ${message}`);
@@ -253,13 +236,12 @@ export async function verifyProof(pathToBB: string, proofFullPath: string, verif
     .catch(_ => false);
   if (!binaryPresent) {
     const failed: BBFailure = { status: BB_RESULT.FAILURE, reason: `Failed to find bb binary at ${pathToBB}` };
-    return { result: failed };
+    return { result: failed, duration: 0 };
   }
 
-  log(`Verifying proof at ${proofFullPath} with key at ${verificationKeyPath}`);
-  const args = ['-p', proofFullPath, '-k', verificationKeyPath, '-v'];
+  const args = ['-p', proofFullPath, '-k', verificationKeyPath];
   const timer = new Timer();
-  const result = await executeBB(pathToBB, 'verify', args, log, (code: number) => code === 1);
+  const result = await executeBB(pathToBB, 'verify', args, log);
   const duration = timer.ms();
   return { result, duration };
 }

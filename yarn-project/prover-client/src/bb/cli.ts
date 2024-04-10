@@ -1,5 +1,5 @@
 import { LogFn } from '@aztec/foundation/log';
-import { ProtocolArtifacts, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
+import { ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
 
 import { Command } from 'commander';
 
@@ -36,7 +36,7 @@ export function getProgram(log: LogFn): Command {
     .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
     .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
     .action(async options => {
-      const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifacts];
+      const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {
         log(`Failed to find circuit ${options.circuit}`);
         return;
@@ -61,7 +61,7 @@ export function getProgram(log: LogFn): Command {
     .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
     .requiredOption('-c, --circuit <string>', 'The name of a protocol circuit')
     .action(async options => {
-      const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifacts];
+      const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {
         log(`Failed to find circuit ${options.circuit}`);
         return;

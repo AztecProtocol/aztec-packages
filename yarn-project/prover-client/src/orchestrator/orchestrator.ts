@@ -1,4 +1,12 @@
-import { Body, L2Block, MerkleTreeId, type ProcessedTx, type TxEffect, toTxEffect } from '@aztec/circuit-types';
+import {
+  Body,
+  L2Block,
+  MerkleTreeId,
+  type ProcessedTx,
+  PublicKernelType,
+  type TxEffect,
+  toTxEffect,
+} from '@aztec/circuit-types';
 import {
   type BlockResult,
   PROVING_STATUS,
@@ -18,6 +26,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
+  PublicCallRequest,
   type RootParityInput,
   RootParityInputs,
 } from '@aztec/circuits.js';
@@ -79,6 +88,7 @@ export enum PROVING_JOB_TYPE {
   ROOT_ROLLUP,
   BASE_PARITY,
   ROOT_PARITY,
+  PUBLIC_KERNEL,
 }
 
 export type ProvingJob = {
@@ -100,9 +110,9 @@ export class ProvingOrchestrator {
     private maxConcurrentJobs = MAX_CONCURRENT_JOBS,
   ) {}
 
-  public static new(db: MerkleTreeOperations, prover: CircuitProver) {
+  public static async new(db: MerkleTreeOperations, prover: CircuitProver) {
     const orchestrator = new ProvingOrchestrator(db, prover);
-    orchestrator.start();
+    await orchestrator.start();
     return Promise.resolve(orchestrator);
   }
 
@@ -217,10 +227,39 @@ export class ProvingOrchestrator {
     logger.info(`Received transaction: ${tx.hash}`);
 
     // We start the transaction by enqueueing the state updates
-
     const txIndex = this.provingState.addNewTx(tx);
-    // we start this transaction off by performing it's tree insertions and
-    await this.prepareBaseRollupInputs(this.provingState, BigInt(txIndex), tx);
+    await this.prepareBaseRollupInputs(this.provingState, tx);
+    this.enqueueJob(this.provingState, PROVING_JOB_TYPE.PUBLIC_KERNEL, () =>
+      this.proveNextPublicFunction(this.provingState, txIndex, 0),
+    );
+  }
+
+  public async proveNextPublicFunction(
+    provingState: ProvingState | undefined,
+    txIndex: number,
+    nextFunctionIndex: number,
+  ) {
+    if (!provingState?.verifyState()) {
+      logger(`Not executing public function, state invalid`);
+      return;
+    }
+    const request = provingState.getNextPublicFunction(txIndex, nextFunctionIndex);
+    if (!request) {
+      logger(`No Public Functions`);
+      const tx = provingState.allTxs[txIndex];
+      const inputs = provingState.baseRollupInputs[txIndex];
+      const treeSnapshots = provingState.txTreeSnapshots[txIndex];
+      logger(`Running tx at index ${txIndex}, hash ${tx.hash.toString()}`);
+      this.enqueueJob(provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
+        this.runBaseRollup(provingState, BigInt(txIndex), tx, inputs, treeSnapshots),
+      );
+      return;
+    }
+    logger(`Executing Public Kernel ${PublicKernelType[request.type]}`);
+    await sleep(100);
+    this.enqueueJob(provingState, PROVING_JOB_TYPE.PUBLIC_KERNEL, () =>
+      this.proveNextPublicFunction(provingState, txIndex, nextFunctionIndex + 1),
+    );
   }
 
   /**
@@ -239,7 +278,13 @@ export class ProvingOrchestrator {
     );
     for (let i = this.provingState.transactionsReceived; i < this.provingState.totalNumTxs; i++) {
       const paddingTxIndex = this.provingState.addNewTx(this.provingState.emptyTx);
-      await this.prepareBaseRollupInputs(this.provingState, BigInt(paddingTxIndex), this.provingState!.emptyTx);
+      await this.prepareBaseRollupInputs(this.provingState, this.provingState!.emptyTx);
+      const tx = this.provingState.allTxs[paddingTxIndex];
+      const inputs = this.provingState.baseRollupInputs[paddingTxIndex];
+      const treeSnapshots = this.provingState.txTreeSnapshots[paddingTxIndex];
+      this.enqueueJob(this.provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
+        this.runBaseRollup(this.provingState, BigInt(paddingTxIndex), tx, inputs, treeSnapshots),
+      );
     }
   }
 
@@ -331,7 +376,7 @@ export class ProvingOrchestrator {
   }
 
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
-  private async prepareBaseRollupInputs(provingState: ProvingState | undefined, index: bigint, tx: ProcessedTx) {
+  private async prepareBaseRollupInputs(provingState: ProvingState | undefined, tx: ProcessedTx) {
     if (!provingState?.verifyState()) {
       logger('Not preparing base rollup inputs, state invalid');
       return;
@@ -350,9 +395,9 @@ export class ProvingOrchestrator {
       logger(`Discarding proving job, state no longer valid`);
       return;
     }
-    this.enqueueJob(provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
-      this.runBaseRollup(provingState, index, tx, inputs, treeSnapshots),
-    );
+    provingState!.baseRollupInputs.push(inputs);
+    provingState!.txTreeSnapshots.push(treeSnapshots);
+    logger(`Added root ${treeSnapshots.get(MerkleTreeId.NOTE_HASH_TREE)?.root.toString()}`);
   }
 
   // Stores the intermediate inputs prepared for a merge proof
@@ -384,6 +429,7 @@ export class ProvingOrchestrator {
       logger('Not running base rollup, state invalid');
       return;
     }
+    logger(`Running base at index ${index}, ${inputs.start.noteHashTree.root.toString()}`);
     const [duration, baseRollupOutputs] = await elapsed(() =>
       executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.prover, logger),
     );
@@ -450,6 +496,8 @@ export class ProvingOrchestrator {
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
       rootParityInput,
       provingState.newL1ToL2Messages,
+      provingState.messageTreeSnapshot,
+      provingState.messageTreeRootSiblingPath,
       this.prover,
       this.db,
       logger,
@@ -472,9 +520,7 @@ export class ProvingOrchestrator {
       logger('Not running base parity, state no longer valid');
       return;
     }
-    const [duration, circuitOutputs] = await elapsed(() =>
-      executeBaseParityCircuit(inputs, this.prover, logger),
-    );
+    const [duration, circuitOutputs] = await elapsed(() => executeBaseParityCircuit(inputs, this.prover, logger));
     logger.debug(`Simulated base parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'base-parity',
@@ -508,9 +554,7 @@ export class ProvingOrchestrator {
       logger(`Not running root parity circuit as state is no longer valid`);
       return;
     }
-    const [duration, circuitOutputs] = await elapsed(() =>
-      executeRootParityCircuit(inputs, this.prover, logger),
-    );
+    const [duration, circuitOutputs] = await elapsed(() => executeRootParityCircuit(inputs, this.prover, logger));
     logger.debug(`Simulated root parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'root-parity',

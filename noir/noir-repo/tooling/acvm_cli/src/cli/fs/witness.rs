@@ -54,16 +54,14 @@ pub(crate) fn create_output_witness_string(witnesses: &WitnessMap) -> Result<Str
 }
 
 pub(crate) fn save_witness_to_dir<P: AsRef<Path>>(
-    witnesses: WitnessMap,
+    witnesses: WitnessStack,
     witness_name: &str,
     witness_dir: P,
 ) -> Result<PathBuf, FilesystemError> {
     create_named_dir(witness_dir.as_ref(), "witness");
     let witness_path = witness_dir.as_ref().join(witness_name).with_extension("gz");
 
-    let witness_stack: WitnessStack = witnesses.into();
-
-    let buf: Vec<u8> = witness_stack.try_into().map_err(|_op| FilesystemError::OutputWitnessCreationFailed(witness_name.to_string()))?;
+    let buf: Vec<u8> = witnesses.try_into().map_err(|_op| FilesystemError::OutputWitnessCreationFailed(witness_name.to_string()))?;
     write_to_file(buf.as_slice(), &witness_path);
 
     Ok(witness_path)

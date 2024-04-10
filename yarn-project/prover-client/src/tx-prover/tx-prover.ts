@@ -21,8 +21,6 @@ export class TxProver implements ProverClient {
   ) {
     this.orchestrator = new ProvingOrchestrator(
       worldStateSynchronizer.getLatest(),
-      simulationProvider,
-      getVerificationKeys(),
       new TestCircuitProver(simulationProvider),
     );
   }

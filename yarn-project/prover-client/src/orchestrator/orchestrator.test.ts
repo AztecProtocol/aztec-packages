@@ -1,12 +1,15 @@
 import {
   MerkleTreeId,
   PROVING_STATUS,
-  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   type ProcessedTx,
   type ProvingFailure,
+  PublicKernelRequest,
+  PublicKernelType,
+  makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
+  type BaseOrMergeRollupPublicInputs,
   EthAddress,
   Fr,
   GlobalVariables,
@@ -17,26 +20,28 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   Proof,
   PublicDataTreeLeaf,
-  type BaseOrMergeRollupPublicInputs,
-  type RootRollupPublicInputs
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
   makeParityPublicInputs,
-  makeRootRollupPublicInputs
+  makePublicKernelCircuitPrivateInputs,
+  makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { MerkleTrees, type MerkleTreeOperations } from '@aztec/world-state';
+import { WASMSimulator } from '@aztec/simulator';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
-import { mock, type MockProxy } from 'jest-mock-extended';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MockProxy, mock } from 'jest-mock-extended';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { type CircuitProver } from '../prover/index.js';
+import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { type RollupSimulator } from '../simulator/rollup.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -48,7 +53,7 @@ describe('prover/tx-prover', () => {
   let expectsDb: MerkleTreeOperations;
 
   let simulator: MockProxy<RollupSimulator>;
-  let prover: MockProxy<CircuitProver>;
+  const prover = new TestCircuitProver(new WASMSimulator());
 
   let blockNumber: number;
   let baseRollupOutputLeft: BaseOrMergeRollupPublicInputs;
@@ -57,8 +62,6 @@ describe('prover/tx-prover', () => {
   let mockL1ToL2Messages: Fr[];
 
   let globalVariables: GlobalVariables;
-
-  const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   const chainId = Fr.ZERO;
   const version = Fr.ZERO;
@@ -76,8 +79,7 @@ describe('prover/tx-prover', () => {
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     simulator = mock<RollupSimulator>();
-    prover = mock<CircuitProver>();
-    builder = new ProvingOrchestrator(builderDb, prover);
+    builder = new ProvingOrchestrator(builderDb, prover, 1);
 
     // Create mock l1 to L2 messages
     mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
@@ -89,11 +91,6 @@ describe('prover/tx-prover', () => {
     rootRollupOutput.header.globalVariables = globalVariables;
 
     // Set up mocks
-    prover.getBaseParityProof.mockResolvedValue([makeParityPublicInputs(), emptyProof]);
-    prover.getRootParityProof.mockResolvedValue([makeParityPublicInputs(), emptyProof]);
-    prover.getBaseRollupProof.mockResolvedValue([makeBaseOrMergeRollupPublicInputs(), emptyProof]);
-    prover.getMergeRollupProof.mockResolvedValue([makeBaseOrMergeRollupPublicInputs(), emptyProof]);
-    prover.getRootRollupProof.mockResolvedValue([makeRootRollupPublicInputs(), emptyProof]);
     simulator.baseParityCircuit
       .mockResolvedValueOnce(makeParityPublicInputs(1))
       .mockResolvedValue(makeParityPublicInputs(2))
@@ -146,39 +143,40 @@ describe('prover/tx-prover', () => {
   };
 
   describe('error handling', () => {
+    const mockProver: MockProxy<CircuitProver> = mock<CircuitProver>();
     beforeEach(async () => {
-      builder = await ProvingOrchestrator.new(builderDb, prover);
+      builder = await ProvingOrchestrator.new(builderDb, mockProver);
     });
 
     it.each([
       [
         'Base Rollup Failed',
         () => {
-          prover.getBaseRollupProof.mockRejectedValue('Base Rollup Failed');
+          mockProver.getBaseRollupProof.mockRejectedValue('Base Rollup Failed');
         },
       ],
       [
         'Merge Rollup Failed',
         () => {
-          prover.getMergeRollupProof.mockRejectedValue('Merge Rollup Failed');
+          mockProver.getMergeRollupProof.mockRejectedValue('Merge Rollup Failed');
         },
       ],
       [
         'Root Rollup Failed',
         () => {
-          prover.getRootRollupProof.mockRejectedValue('Root Rollup Failed');
+          mockProver.getRootRollupProof.mockRejectedValue('Root Rollup Failed');
         },
       ],
       [
         'Base Parity Failed',
         () => {
-          prover.getBaseParityProof.mockRejectedValue('Base Parity Failed');
+          mockProver.getBaseParityProof.mockRejectedValue('Base Parity Failed');
         },
       ],
       [
         'Root Parity Failed',
         () => {
-          prover.getRootParityProof.mockRejectedValue('Root Parity Failed');
+          mockProver.getRootParityProof.mockRejectedValue('Root Parity Failed');
         },
       ],
     ] as const)(
@@ -279,7 +277,9 @@ describe('prover/tx-prover', () => {
     }, 30_000);
 
     it('builds a block with 1 transaction', async () => {
-      const txs = await Promise.all([makeEmptyProcessedTx()]);
+      const txs = await Promise.all([makeBloatedProcessedTx(builderDb, 1)]);
+
+      await updateExpectedTreesFromTxs(txs);
 
       // This will need to be a 2 tx block
       const blockTicket = await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTx());
@@ -287,6 +287,46 @@ describe('prover/tx-prover', () => {
       for (const tx of txs) {
         await builder.addNewTx(tx);
       }
+
+      //  we need to complete the block as we have not added a full set of txs
+      await builder.setBlockCompleted();
+
+      const result = await blockTicket.provingPromise;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
+    }, 30_000);
+
+    it('builds a block with a transaction with public functions', async () => {
+      const tx = await makeBloatedProcessedTx(builderDb, 1);
+
+      const setup: PublicKernelRequest = {
+        type: PublicKernelType.SETUP,
+        inputs: makePublicKernelCircuitPrivateInputs(2),
+      };
+
+      const app: PublicKernelRequest = {
+        type: PublicKernelType.APP_LOGIC,
+        inputs: makePublicKernelCircuitPrivateInputs(3),
+      };
+
+      const teardown: PublicKernelRequest = {
+        type: PublicKernelType.TEARDOWN,
+        inputs: makePublicKernelCircuitPrivateInputs(4),
+      };
+
+      const tail: PublicKernelRequest = {
+        type: PublicKernelType.TAIL,
+        inputs: makePublicKernelCircuitPrivateInputs(5),
+      };
+
+      tx.publicKernelRequests = [setup, app, teardown, tail];
+
+      // This will need to be a 2 tx block
+      const blockTicket = await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTx());
+
+      await builder.addNewTx(tx);
 
       //  we need to complete the block as we have not added a full set of txs
       await builder.setBlockCompleted();
@@ -461,7 +501,11 @@ describe('prover/tx-prover', () => {
     }, 10000);
 
     it('builds an unbalanced L2 block', async () => {
-      const txs = await Promise.all([makeBloatedProcessedTx(builderDb, 1), makeBloatedProcessedTx(builderDb, 2), makeBloatedProcessedTx(builderDb, 3)]);
+      const txs = await Promise.all([
+        makeBloatedProcessedTx(builderDb, 1),
+        makeBloatedProcessedTx(builderDb, 2),
+        makeBloatedProcessedTx(builderDb, 3),
+      ]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
@@ -518,7 +562,7 @@ describe('prover/tx-prover', () => {
       );
     }, 1000);
 
-    it('throws if finalising an incompletre block', async () => {
+    it('throws if finalising an incomplete block', async () => {
       await expect(async () => await builder.finaliseBlock()).rejects.toThrow(
         'Invalid proving state, a block must be proven before it can be finalised',
       );
@@ -551,7 +595,7 @@ describe('prover/tx-prover', () => {
     }, 10000);
 
     it.each([[-4], [0], [1], [3], [8.1], [7]] as const)(
-      'fails to start a block with %i transaxctions',
+      'fails to start a block with %i transactions',
       async (blockSize: number) => {
         await expect(
           async () => await builder.startNewBlock(blockSize, globalVariables, [], await makeEmptyProcessedTx()),

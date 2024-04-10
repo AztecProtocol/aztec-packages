@@ -156,8 +156,14 @@ describe('prover/bb_prover', () => {
       await orchestrator.addNewTx(tx);
     }
 
+    await orchestrator.setBlockCompleted();
+
     const provingResult = await provingTicket.provingPromise;
 
     expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
+
+    await orchestrator.finaliseBlock();
+
+    await orchestrator.stop();
   }, 600_000);
 });
