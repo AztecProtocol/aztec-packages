@@ -1,10 +1,10 @@
 // Test contract showing basic public access control that can be used in private. It uses a SharedMutable state variable to
 // publicly store the address of an authorized account that can call private functions.
 contract Auth {
-    use dep::aztec::protocol_types::address::AztecAddress;
+    use dep::aztec::protocol_types::{address::AztecAddress, traits::is_zero};
     use dep::aztec::{
         log::{emit_unencrypted_log, emit_unencrypted_log_from_private},
-        state_vars::{PublicImmutable, SharedMutable}
+        state_vars::{PublicImmutable, SharedMutable},
     };
 
     // Authorizing a new address has a certain block delay before it goes into effect.
@@ -20,7 +20,7 @@ contract Auth {
     #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress) {
-        assert(!admin.is_zero(), "invalid admin");
+        assert(!is_zero(admin), "invalid admin");
         storage.admin.initialize(admin);
         // Note that we don't initialize authorized with any value: because storage defaults to 0 it'll have a 'post'
         // value of 0 and block of change 0, meaning it is effectively autoinitialized at the zero adddress.

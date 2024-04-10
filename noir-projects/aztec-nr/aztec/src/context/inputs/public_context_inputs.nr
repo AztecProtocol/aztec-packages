@@ -13,3 +13,14 @@ struct PublicContextInputs {
     start_side_effect_counter: u32,
 }
 // docs:end:public-context-inputs
+
+impl Default for PublicContextInputs {
+    fn default() -> Self {
+        PublicContextInputs {
+            call_context: CallContext::default(),
+            historical_header: Header::default(),
+            public_global_variables: PublicGlobalVariables::default(),
+            start_side_effect_counter: 0 as u32,
+        }
+    }
+}

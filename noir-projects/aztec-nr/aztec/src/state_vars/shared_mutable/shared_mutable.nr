@@ -116,11 +116,11 @@ mod test {
 
     fn create_context(block_number: Field, private: bool) -> Context {
         if private {
-            let mut private_context: PrivateContext = unsafe::zeroed();
+            let mut private_context = PrivateContext::default();
             private_context.historical_header.global_variables.block_number = block_number;
             Context::private(&mut private_context)
         } else {
-            let mut public_context: PublicContext = unsafe::zeroed();
+            let mut public_context = PublicContext::default();
             public_context.inputs.public_global_variables.block_number = block_number;
             Context::public(&mut public_context)
         }

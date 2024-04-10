@@ -53,6 +53,29 @@ struct PublicContext {
     prover_address: AztecAddress,
 }
 
+impl Default for PublicContext {
+    fn default() -> Self {
+        PublicContext {
+            inputs: PublicContextInputs::default(),
+            side_effect_counter: 0 as u32,
+            args_hash : 0,
+            return_values : BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
+            contract_storage_update_requests: BoundedVec::new(),
+            contract_storage_reads: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            unencrypted_logs_hash: 0,
+            unencrypted_logs_preimages_length: 0,
+            historical_header: Header::default(),
+            prover_address: AztecAddress::zero(),
+        }
+    }
+}
+
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs, args_hash: Field) -> PublicContext {
         PublicContext {
