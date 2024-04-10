@@ -37,10 +37,10 @@ size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, Wit
     uint256_t pub_x_value = account.public_key.x;
     uint256_t pub_y_value = account.public_key.y;
 
-    std::vector<uint32_t> message_in;
-    std::vector<uint32_t> pub_x_indices_in;
-    std::vector<uint32_t> pub_y_indices_in;
-    std::vector<uint32_t> signature_in;
+    std::array<uint32_t, 32> message_in;
+    std::array<uint32_t, 32> pub_x_indices_in;
+    std::array<uint32_t, 32> pub_y_indices_in;
+    std::array<uint32_t, 64> signature_in;
     size_t offset = 0;
     for (size_t i = 0; i < hashed_message.size(); ++i) {
         message_in[i] = static_cast<uint32_t>(i + offset);
