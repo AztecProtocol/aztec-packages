@@ -95,21 +95,23 @@ template <typename FF> void GoblinUltraCircuitBuilder_<FF>::add_gates_to_ensure_
 }
 
 /**
- * @brief Add gates for simple point addition (no mul) and add the raw operation data to the op queue
+ * @brief Add simple point addition operation to the op queue and add corresponding gates
  *
  * @param point Point to be added into the accumulator
  */
 template <typename FF>
 ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const bb::g1::affine_element& point)
 {
-    // Add raw op to queue
+    // Add the operation to the op queue
     auto ultra_op = op_queue->add_accumulate(point);
+
+    // Add corresponding gates for the operation
     ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
 }
 
 /**
- * @brief Add gates for point mul-then-accumulate and add the raw operation data to the op queue
+ * @brief Add point mul-then-accumulate operation to the op queue and add corresponding gates
  *
  * @tparam FF
  * @param point
@@ -119,33 +121,35 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const bb::g1::a
 template <typename FF>
 ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point, const FF& scalar)
 {
-    // Add raw op to op queue
+    // Add the operation to the op queue
     auto ultra_op = op_queue->mul_accumulate(point, scalar);
+
+    // Add corresponding gates for the operation
     ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
 }
 
 /**
- * @brief Add point equality gates based on the current value of the accumulator internal to the op queue and add the
- * raw operation data to the op queue
+ * @brief Add point equality operation to the op queue based on the value of the internal accumulator and add
+ * corresponding gates
  *
  * @return ecc_op_tuple encoding the point to which equality has been asserted
  */
 template <typename FF> ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_eq()
 {
-    // Add raw op to op queue
+    // Add the operation to the op queue
     auto ultra_op = op_queue->eq_and_reset();
+
+    // Add corresponding gates for the operation
     ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
 }
 
 /**
- * @brief Add ecc operation to queue
+ * @brief Add goblin ecc op gates for a single operation
  *
- * @param in Variables array indices corresponding to operation inputs
- * @note We dont explicitly set values for the selectors here since their values are fully determined by
- * the number of ecc op gates. E.g. in the composer we can reconstruct q_ecc_op as the indicator over the range of ecc
- * op gates. All other selectors are simply 0 on this domain.
+ * @param ultra_op Operation data expressed in the ultra format
+ * @note All selectors are set to 0 since the ecc op selector is derived later based on the block size/location.
  */
 template <typename FF> ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op)
 {

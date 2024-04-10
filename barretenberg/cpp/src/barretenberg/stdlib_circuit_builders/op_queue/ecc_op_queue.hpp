@@ -303,7 +303,7 @@ class ECCOpQueue {
         }
     }
 
-    static UltraOp decompose_ecc_operands(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
+    UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
     {
         // WORKTODO: dont decompose if scalar is 0 but check that its not a mul etc
         static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68; // WORKTODO
@@ -329,6 +329,8 @@ class ECCOpQueue {
         ultra_op.z_1 = z_1.to_montgomery_form();
         ultra_op.z_2 = z_2.to_montgomery_form();
 
+        append_to_ultra_ops(ultra_op);
+
         return ultra_op;
     }
 
@@ -342,7 +344,10 @@ class ECCOpQueue {
         // Update the accumulator natively
         accumulator = accumulator + to_add;
 
-        // Store the operation
+        // Construct and store the operation in the ultra op format
+        auto ultra_op = construct_and_populate_ultra_ops(ADD_ACCUM, to_add);
+
+        // Store the raw operation
         raw_ops.emplace_back(ECCVMOperation{
             .add = true,
             .mul = false,
@@ -355,9 +360,6 @@ class ECCOpQueue {
         });
         num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
-
-        auto ultra_op = decompose_ecc_operands(ADD_ACCUM, to_add);
-        populate_ultra_ops(ultra_op);
 
         return ultra_op;
     }
@@ -372,28 +374,22 @@ class ECCOpQueue {
         // Update the accumulator natively
         accumulator = accumulator + to_mul * scalar;
 
-        // Store the operation
-        Fr z1 = 0;
-        Fr z2 = 0;
-        auto converted = scalar.from_montgomery_form();
-        Fr::split_into_endomorphism_scalars(converted, z1, z2);
-        z1 = z1.to_montgomery_form();
-        z2 = z2.to_montgomery_form();
+        // Construct and store the operation in the ultra op format
+        auto ultra_op = construct_and_populate_ultra_ops(MUL_ACCUM, to_mul, scalar);
+
+        // Store the raw operation
         raw_ops.emplace_back(ECCVMOperation{
             .add = false,
             .mul = true,
             .eq = false,
             .reset = false,
             .base_point = to_mul,
-            .z1 = z1,
-            .z2 = z2,
+            .z1 = ultra_op.z_1,
+            .z2 = ultra_op.z_2,
             .mul_scalar_full = scalar,
         });
         num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
-
-        auto ultra_op = decompose_ecc_operands(MUL_ACCUM, to_mul, scalar);
-        populate_ultra_ops(ultra_op);
 
         return ultra_op;
     }
@@ -403,11 +399,15 @@ class ECCOpQueue {
      *
      * @return current internal accumulator point (prior to reset to 0)
      */
-    UltraOp eq_and_reset() // WORKTODO: eq_and_reset
+    UltraOp eq_and_reset()
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();
 
+        // Construct and store the operation in the ultra op format
+        auto ultra_op = construct_and_populate_ultra_ops(EQUALITY, expected);
+
+        // Store raw operation
         raw_ops.emplace_back(ECCVMOperation{
             .add = false,
             .mul = false,
@@ -420,9 +420,6 @@ class ECCOpQueue {
         });
         num_transcript_rows += 1;
         update_cached_msms(raw_ops.back());
-
-        auto ultra_op = decompose_ecc_operands(EQUALITY, expected);
-        populate_ultra_ops(ultra_op);
 
         return ultra_op;
     }
@@ -449,12 +446,12 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Populate two rows of the ultra ops,representing a complete ECC operation. Note that this has 7 inputs so
-     * the second row of ultra_ops[0] (storing the opcodes) will be set to 0.
+     * @brief Populate two rows of the ultra ops,representing a complete ECC operation
+     * @note Only the first 'op' field is utilized so the second is explicitly set to 0
      *
      * @param tuple
      */
-    void populate_ultra_ops(UltraOp tuple)
+    void append_to_ultra_ops(UltraOp tuple)
     {
         ultra_ops[0].emplace_back(tuple.op);
         ultra_ops[1].emplace_back(tuple.x_lo);
