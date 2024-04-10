@@ -5,7 +5,7 @@ FROM --platform=linux/amd64 aztecprotocol/noir-projects as noir-projects
 FROM aztecprotocol/noir as noir
 
 FROM node:18.19.0 as builder
-RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
+RUN apt update && apt install -y jq curl perl git && rm -rf /var/lib/apt/lists/* && apt-get clean
 
 # Copy in portalled packages.
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
@@ -37,18 +37,19 @@ RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
 # We no longer need these
 RUN rm -rf /usr/src/noir-projects /usr/src/l1-contracts
 
+# Anvil. Hacky, but can't be bothered handling foundry image as we're moving to earthly.
+RUN curl -L https://foundry.paradigm.xyz | bash
+RUN /root/.foundry/bin/foundryup --version nightly-de33b6af53005037b463318d2628b5cfcaf39916 && mkdir -p /usr/src/foundry/bin && ln -s /root/.foundry/bin/anvil /usr/src/foundry/bin/anvil
+
 # Create minimal image.
 FROM node:18.19.1-slim
-RUN apt-get update && apt-get install jq gnupg wget netcat-openbsd git -y && \
+RUN apt-get update && apt-get install jq gnupg wget netcat-openbsd -y && \
     wget --quiet --output-document=- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google-archive.gpg && \
     sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
     apt-get update && \
     apt-get install google-chrome-stable -y --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 ENV CHROME_BIN="/usr/bin/google-chrome-stable"
-# Anvil. Hacky, but we're moving to earthly.
-RUN curl -L https://foundry.paradigm.xyz | bash
-RUN /root/.foundry/bin/foundryup --version nightly-de33b6af53005037b463318d2628b5cfcaf39916 && mkdir -p /usr/src/foundry/bin && ln -s /root/.foundry/bin/anvil /usr/src/foundry/bin/anvil
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project/end-to-end
 ENTRYPOINT ["yarn", "test"]
