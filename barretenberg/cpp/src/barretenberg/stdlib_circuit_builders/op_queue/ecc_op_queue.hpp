@@ -39,20 +39,16 @@ class ECCOpQueue {
 
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 
-  public:
-    using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
-
-  private:
-    std::vector<ECCVMOperation> raw_ops;
+    std::vector<bb::eccvm::VMOperation<Curve::Group>> raw_ops;
     std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
-  public:
-    const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
-    size_t raw_ops_size() { return raw_ops.size(); }
 
     size_t current_ultra_ops_size = 0;  // M_i
     size_t previous_ultra_ops_size = 0; // M_{i-1}
 
     std::array<Point, 4> ultra_ops_commitments;
+
+  public:
+    using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
     // as we populate the op_queue, we track the number of rows in each circuit section,
     // as well as the number of multiplications performed.
@@ -62,6 +58,9 @@ class ECCOpQueue {
     uint32_t num_transcript_rows = 0;
     uint32_t num_precompute_table_rows = 0;
     uint32_t num_msm_rows = 0;
+
+    const std::vector<ECCVMOperation>& get_raw_ops() { return raw_ops; }
+    size_t raw_ops_size() { return raw_ops.size(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): Can remove this with better handling of scalar
     // mul against 0
@@ -75,8 +74,6 @@ class ECCOpQueue {
         mul_accumulate(padding_element, padding_scalar);
         eq_and_reset();
     }
-
-    // void add_bad_eq_op_for_testing
 
     Point get_accumulator() { return accumulator; }
 
@@ -186,6 +183,7 @@ class ECCOpQueue {
     [[nodiscard]] size_t get_current_size() const { return current_ultra_ops_size; }
 
     void set_commitment_data(std::array<Point, 4>& commitments) { ultra_ops_commitments = commitments; }
+    const auto& get_ultra_ops_commitments() { return ultra_ops_commitments; }
 
     /**
      * @brief Get a 'view' of the current ultra ops object
@@ -237,19 +235,6 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Get the precompute table row count for single msm object
-     *
-     * @param msm_count
-     * @return uint32_t
-     */
-    static uint32_t get_precompute_table_row_count_for_single_msm(const size_t msm_count)
-    {
-        constexpr size_t num_precompute_rows_per_scalar = eccvm::NUM_WNAF_SLICES / eccvm::WNAF_SLICES_PER_ROW;
-        const size_t num_rows_for_precompute_table = msm_count * num_precompute_rows_per_scalar;
-        return static_cast<uint32_t>(num_rows_for_precompute_table);
-    }
-
-    /**
      * @brief Get the number of rows in the 'msm' column section, for all msms in the circuit
      *
      * @return size_t
@@ -281,56 +266,6 @@ class ECCOpQueue {
         }
 
         return std::max(transcript_rows, std::max(msm_rows, precompute_rows));
-    }
-
-    /**
-     * @brief when inserting operations, update the number of multiplications in the latest scalar mul
-     *
-     * @param op
-     */
-    void update_cached_msms(const ECCVMOperation& op)
-    {
-        if (op.mul) {
-            if (op.z1 != 0) {
-                cached_active_msm_count++;
-            }
-            if (op.z2 != 0) {
-                cached_active_msm_count++;
-            }
-        } else if (cached_active_msm_count != 0) {
-            num_msm_rows += get_msm_row_count_for_single_msm(cached_active_msm_count);
-            num_precompute_table_rows += get_precompute_table_row_count_for_single_msm(cached_active_msm_count);
-            cached_num_muls += cached_active_msm_count;
-            cached_active_msm_count = 0;
-        }
-    }
-
-    UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
-    {
-        UltraOp ultra_op;
-        ultra_op.op_code = op_code;
-        ultra_op.op = Fr(static_cast<uint256_t>(op_code));
-
-        // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
-        const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-        auto x_256 = uint256_t(point.x);
-        auto y_256 = uint256_t(point.y);
-        ultra_op.x_lo = Fr(x_256.slice(0, CHUNK_SIZE));
-        ultra_op.x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
-        ultra_op.y_lo = Fr(y_256.slice(0, CHUNK_SIZE));
-        ultra_op.y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
-
-        // Split scalar into 128 bit endomorphism scalars
-        Fr z_1 = 0;
-        Fr z_2 = 0;
-        auto converted = scalar.from_montgomery_form();
-        Fr::split_into_endomorphism_scalars(converted, z_1, z_2);
-        ultra_op.z_1 = z_1.to_montgomery_form();
-        ultra_op.z_2 = z_2.to_montgomery_form();
-
-        append_to_ultra_ops(ultra_op);
-
-        return ultra_op;
     }
 
     /**
@@ -443,6 +378,78 @@ class ECCOpQueue {
         num_transcript_rows += 1;
 
         update_cached_msms(raw_ops.back());
+    }
+
+  private:
+    /**
+     * @brief when inserting operations, update the number of multiplications in the latest scalar mul
+     *
+     * @param op
+     */
+    void update_cached_msms(const ECCVMOperation& op)
+    {
+        if (op.mul) {
+            if (op.z1 != 0) {
+                cached_active_msm_count++;
+            }
+            if (op.z2 != 0) {
+                cached_active_msm_count++;
+            }
+        } else if (cached_active_msm_count != 0) {
+            num_msm_rows += get_msm_row_count_for_single_msm(cached_active_msm_count);
+            num_precompute_table_rows += get_precompute_table_row_count_for_single_msm(cached_active_msm_count);
+            cached_num_muls += cached_active_msm_count;
+            cached_active_msm_count = 0;
+        }
+    }
+
+    /**
+     * @brief Get the precompute table row count for single msm object
+     *
+     * @param msm_count
+     * @return uint32_t
+     */
+    static uint32_t get_precompute_table_row_count_for_single_msm(const size_t msm_count)
+    {
+        constexpr size_t num_precompute_rows_per_scalar = eccvm::NUM_WNAF_SLICES / eccvm::WNAF_SLICES_PER_ROW;
+        const size_t num_rows_for_precompute_table = msm_count * num_precompute_rows_per_scalar;
+        return static_cast<uint32_t>(num_rows_for_precompute_table);
+    }
+
+    /**
+     * @brief Given an ecc operation and its inputs, decompose into ultra format and populate ultra_ops
+     *
+     * @param op_code
+     * @param point
+     * @param scalar
+     * @return UltraOp
+     */
+    UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
+    {
+        UltraOp ultra_op;
+        ultra_op.op_code = op_code;
+        ultra_op.op = Fr(static_cast<uint256_t>(op_code));
+
+        // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
+        const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        auto x_256 = uint256_t(point.x);
+        auto y_256 = uint256_t(point.y);
+        ultra_op.x_lo = Fr(x_256.slice(0, CHUNK_SIZE));
+        ultra_op.x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
+        ultra_op.y_lo = Fr(y_256.slice(0, CHUNK_SIZE));
+        ultra_op.y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
+
+        // Split scalar into 128 bit endomorphism scalars
+        Fr z_1 = 0;
+        Fr z_2 = 0;
+        auto converted = scalar.from_montgomery_form();
+        Fr::split_into_endomorphism_scalars(converted, z_1, z_2);
+        ultra_op.z_1 = z_1.to_montgomery_form();
+        ultra_op.z_2 = z_2.to_montgomery_form();
+
+        append_to_ultra_ops(ultra_op);
+
+        return ultra_op;
     }
 
     /**
