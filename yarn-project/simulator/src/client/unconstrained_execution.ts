@@ -27,7 +27,7 @@ export async function executeUnconstrainedFunction(
 
   const acir = artifact.bytecode;
   const initialWitness = toACVMWitness(0, args);
-  const { partialAndReturnWitness } = await acvm(
+  const acirExecutionResult = await acvm(
     await AcirSimulator.getSolver(),
     acir,
     initialWitness,
@@ -44,7 +44,7 @@ export async function executeUnconstrainedFunction(
     );
   });
 
-  const returnWitness = witnessMapToFields(partialAndReturnWitness[1]);
+  const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
   return decodeReturnValues(artifact, returnWitness);
 }
 // docs:end:execute_unconstrained_function
