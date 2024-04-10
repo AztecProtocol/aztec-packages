@@ -41,19 +41,6 @@ std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key()
     return proving_key_;
 }
 
-std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key(std::shared_ptr<bb::plonk::proving_key> pk)
-{
-    proving_key_ = pk;
-    return proving_key_;
-}
-
-std::shared_ptr<bb::plonk::proving_key> AcirComposer::init_proving_key(
-    bb::plonk::proving_key_data&& data, std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> const& crs)
-{
-    proving_key_ = std::make_shared<bb::plonk::proving_key>(std::move(data), crs);
-    return proving_key_;
-}
-
 std::vector<uint8_t> AcirComposer::create_proof()
 {
     if (!proving_key_) {

@@ -106,14 +106,6 @@ template <typename B> inline void read_from_file(B& is, std::string const& path,
     read(is, key.memory_write_records);
 }
 
-inline void read_from_file(std::string const& path, proving_key_data& key)
-{
-    auto filename = format(path, "/meta");
-    std::ifstream key_file;
-    key_file.open(filename, std::ios::in | std::ios::binary);
-    read_from_file(key_file, path, key);
-}
-
 template <typename B> inline void write_to_file(B& os, std::string const& path, proving_key& key)
 {
     using serialize::write;
@@ -144,14 +136,6 @@ template <typename B> inline void write_to_file(B& os, std::string const& path, 
     write(os, key.recursive_proof_public_input_indices);
     write(os, key.memory_read_records);
     write(os, key.memory_write_records);
-}
-
-inline void write_to_file(std::string const& path, proving_key& key)
-{
-    auto outputPath = format(path, "/meta");
-    std::ofstream key_file;
-    key_file.open(outputPath, std::ios::out | std::ios::trunc | std::ios::binary);
-    write_to_file(key_file, path, key);
 }
 
 } // namespace bb::plonk

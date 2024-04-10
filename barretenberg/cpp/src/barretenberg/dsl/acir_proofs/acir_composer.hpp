@@ -21,11 +21,6 @@ class AcirComposer {
 
     std::shared_ptr<bb::plonk::proving_key> init_proving_key();
 
-    std::shared_ptr<bb::plonk::proving_key> init_proving_key(std::shared_ptr<bb::plonk::proving_key> pk);
-
-    std::shared_ptr<bb::plonk::proving_key> init_proving_key(
-        bb::plonk::proving_key_data&& data, std::shared_ptr<bb::srs::factories::ProverCrs<curve::BN254>> const& crs);
-
     std::vector<uint8_t> create_proof();
 
     void load_verification_key(bb::plonk::verification_key_data&& data);
