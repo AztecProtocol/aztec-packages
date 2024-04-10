@@ -8,32 +8,34 @@ on:
   workflow_dispatch:
     inputs:
       build_runner_action:
-        type: string
+        type: choice
+        options: [start, stop, restart, none]
         description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
-        required: false
+        default: none
       test_runner_action:
-        type: string
+        type: choice
+        options: [start, stop, restart, none]
         description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
-        required: false
+        default: none
       bench_runner_action:
+        type: choice
+        options: [start, stop, restart, none]
         description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
-        type: string
-        required: false
+        default: none
   workflow_call:
     inputs:
       build_runner_action:
         type: string
         description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
-        required: false
+        default: none
       test_runner_action:
         type: string
         description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
-        required: false
+        default: none
       bench_runner_action:
-        description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
         type: string
-        required: false
-
+        description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
+        default: none
 jobs:
   build:
     timeout-minutes: 5
