@@ -2,7 +2,7 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
-
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 namespace bb {
 
 enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
@@ -36,6 +36,8 @@ class ECCOpQueue {
 
     // The operations written to the queue are also performed natively; the result is stored in accumulator
     Point accumulator = point_at_infinity;
+
+    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 
   public:
     using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
@@ -305,9 +307,6 @@ class ECCOpQueue {
 
     UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
     {
-        // WORKTODO: dont decompose if scalar is 0 but check that its not a mul etc
-        static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = 68; // WORKTODO
-
         UltraOp ultra_op;
         ultra_op.op_code = op_code;
         ultra_op.op = Fr(static_cast<uint256_t>(op_code));
