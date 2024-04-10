@@ -53,13 +53,12 @@ impl TokenBridge {
     }
 
     pub fn token(self: Self, context: &mut PublicContext) -> AztecAddress {
-        let address: AztecAddress = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("get_token()"),
             [],
             GasOpts::default()
-        ).deserialize_into();
-        address
+        ).deserialize_into()
     }
 
     pub fn exit_to_l1_public(

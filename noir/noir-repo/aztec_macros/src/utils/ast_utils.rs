@@ -78,9 +78,17 @@ pub fn mutable_reference(variable_name: &str) -> Expression {
 }
 
 pub fn assignment(name: &str, assigned_to: Expression) -> Statement {
+    assignment_with_type(name, UnresolvedTypeData::Unspecified, assigned_to)
+}
+
+pub fn assignment_with_type(
+    name: &str,
+    typ: UnresolvedTypeData,
+    assigned_to: Expression,
+) -> Statement {
     make_statement(StatementKind::Let(LetStatement {
         pattern: pattern(name),
-        r#type: make_type(UnresolvedTypeData::Unspecified),
+        r#type: make_type(typ),
         expression: assigned_to,
         attributes: vec![],
     }))

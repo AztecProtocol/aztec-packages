@@ -115,11 +115,10 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let leader: Leader = context.call_private_function_no_args(
+        context.call_private_function_no_args(
             context.this_address(),
             FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
-        ).unpack_into();
-        leader
+        ).unpack_into()
     }
 
     #[aztec(public)]
@@ -128,11 +127,10 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let leader: Leader = context.call_public_function_no_args(
+        context.call_public_function_no_args(
             context.this_address(),
             FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
-        ).deserialize_into();
-        leader
+        ).deserialize_into()
     }
 
     #[aztec(public)]

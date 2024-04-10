@@ -28,12 +28,11 @@ impl SlowMap {
     }
 
     pub fn read_at(self: Self, context: &mut PrivateContext, index: Field) -> Field {
-        let returned: Field = context.call_private_function(
+        context.call_private_function(
             self.address,
             FunctionSelector::from_signature("read_at(Field)"),
             [index]
-        ).unpack_into();
-        returned
+        ).unpack_into()
     }
 
     pub fn update_at_private(self: Self, context: &mut PrivateContext, index: Field, new_value: Field) {

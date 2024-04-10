@@ -7,10 +7,7 @@ contract Parent {
     #[aztec(private)]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
         // Call the target private function
-        let return_value: Field = context.call_private_function(target_contract, target_selector, [0]).unpack_into();
-
-        // Copy the return value from the call to this function's return values
-        return_value
+        context.call_private_function(target_contract, target_selector, [0]).unpack_into()
     }
 
     // Public function to directly call another public function to the target_contract using the selector and value provided
@@ -20,14 +17,12 @@ contract Parent {
         target_selector: FunctionSelector,
         init_value: Field
     ) -> Field {
-        let return_value: Field = context.call_public_function(
+        context.call_public_function(
             target_contract,
             target_selector,
             [init_value],
             GasOpts::default()
-        ).deserialize_into();
-
-        return_value
+        ).deserialize_into()
     }
 
     // Same as pub_entry_point, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
@@ -43,14 +38,12 @@ contract Parent {
             [init_value],
             GasOpts::default()
         ).deserialize_into();
-        let return_value: Field = context.call_public_function(
+        context.call_public_function(
             target_contract,
             target_selector,
             [return_value],
             GasOpts::default()
-        ).deserialize_into();
-
-        return_value
+        ).deserialize_into()
     }
 
     // Private function to enqueue a call to the target_contract address using the selector and argument provided
@@ -169,10 +162,7 @@ contract Parent {
         args: [Field; 2]
     ) -> Field {
         // Call the target private function
-        let return_value: Field = context.call_private_function(target_contract, target_selector, args).unpack_into();
-
-        // Copy the return value from the call to this function's return values
-        return_value
+        context.call_private_function(target_contract, target_selector, args).unpack_into()
     }
 
     // Private function to set a static context and verify correct propagation for nested private calls

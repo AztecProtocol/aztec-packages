@@ -203,24 +203,22 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn call_acvm_from_avm() -> pub Field {
-        let data_to_return: Field = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_acvm()"),
             [],
             GasOpts::default()
-        ).deserialize_into();
-        data_to_return
+        ).deserialize_into()
     }
 
     #[aztec(public)]
     fn call_avm_from_acvm() -> pub Field {
-        let data_to_return: Field = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_avm()"),
             [],
             GasOpts::default()
-        ).deserialize_into();
-        data_to_return
+        ).deserialize_into()
     }
 
     #[aztec(public-vm)]
@@ -454,16 +452,12 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
         // Nested call using standard context interface function
-        let add_result: Field = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             selector,
             [arg_a, arg_b],
             GasOpts::default()
-        ).deserialize_into();
-        // this explicit size in the return variable is necessary to ensure that ret_size is compile-time
-        // (ensure the data_to_return is in a HeapArray not a HeapVector)
-
-        add_result
+        ).deserialize_into()
     }
 
     // Directly call_static the external call opcode to initiate a nested call to the add function

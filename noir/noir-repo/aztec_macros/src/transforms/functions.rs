@@ -11,9 +11,9 @@ use crate::{
     chained_dep, chained_path,
     utils::{
         ast_utils::{
-            assignment, call, cast, expression, ident, ident_path, index_array, make_eq,
-            make_statement, make_type, method_call, mutable_assignment, mutable_reference, path,
-            return_type, variable, variable_ident, variable_path,
+            assignment, assignment_with_type, call, cast, expression, ident, ident_path,
+            index_array, make_eq, make_statement, make_type, method_call, mutable_assignment,
+            mutable_reference, path, return_type, variable, variable_ident, variable_path,
         },
         errors::AztecMacroError,
     },
@@ -505,8 +505,9 @@ fn abstract_return_values(func: &NoirFunction) -> Option<Vec<Statement>> {
             let hasher_name = "returns_hasher";
 
             let mut replacement_statements = vec![
-                mutable_assignment(
+                assignment_with_type(
                     return_value_name, // Assigned to
+                    current_return_type.clone(),
                     expression.clone(),
                 ),
                 mutable_assignment(
