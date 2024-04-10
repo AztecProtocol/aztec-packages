@@ -17,6 +17,27 @@
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
+#include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
+#include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
+#include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_1.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_10.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_11.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_12.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_13.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_14.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_2.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_3.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_4.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_5.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_6.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_7.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_8.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u16_9.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u8_0.hpp"
+#include "barretenberg/relations/generated/avm/lookup_u8_1.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_alu.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_bin.hpp"
 #include "barretenberg/relations/generated/avm/perm_main_mem_a.hpp"
@@ -52,6 +73,36 @@ class AvmFlavor {
     // the unshifted and one for the shifted
     static constexpr size_t NUM_ALL_ENTITIES = 224;
 
+    using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
+                                             perm_main_bin_relation<FF>,
+                                             perm_main_mem_a_relation<FF>,
+                                             perm_main_mem_b_relation<FF>,
+                                             perm_main_mem_c_relation<FF>,
+                                             perm_main_mem_ind_a_relation<FF>,
+                                             perm_main_mem_ind_b_relation<FF>,
+                                             perm_main_mem_ind_c_relation<FF>,
+                                             lookup_byte_lengths_relation<FF>,
+                                             lookup_byte_operations_relation<FF>,
+                                             incl_main_tag_err_relation<FF>,
+                                             incl_mem_tag_err_relation<FF>,
+                                             lookup_u8_0_relation<FF>,
+                                             lookup_u8_1_relation<FF>,
+                                             lookup_u16_0_relation<FF>,
+                                             lookup_u16_1_relation<FF>,
+                                             lookup_u16_2_relation<FF>,
+                                             lookup_u16_3_relation<FF>,
+                                             lookup_u16_4_relation<FF>,
+                                             lookup_u16_5_relation<FF>,
+                                             lookup_u16_6_relation<FF>,
+                                             lookup_u16_7_relation<FF>,
+                                             lookup_u16_8_relation<FF>,
+                                             lookup_u16_9_relation<FF>,
+                                             lookup_u16_10_relation<FF>,
+                                             lookup_u16_11_relation<FF>,
+                                             lookup_u16_12_relation<FF>,
+                                             lookup_u16_13_relation<FF>,
+                                             lookup_u16_14_relation<FF>>;
+
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
                                  Avm_vm::avm_main<FF>,
@@ -63,7 +114,28 @@ class AvmFlavor {
                                  perm_main_mem_c_relation<FF>,
                                  perm_main_mem_ind_a_relation<FF>,
                                  perm_main_mem_ind_b_relation<FF>,
-                                 perm_main_mem_ind_c_relation<FF>>;
+                                 perm_main_mem_ind_c_relation<FF>,
+                                 lookup_byte_lengths_relation<FF>,
+                                 lookup_byte_operations_relation<FF>,
+                                 incl_main_tag_err_relation<FF>,
+                                 incl_mem_tag_err_relation<FF>,
+                                 lookup_u8_0_relation<FF>,
+                                 lookup_u8_1_relation<FF>,
+                                 lookup_u16_0_relation<FF>,
+                                 lookup_u16_1_relation<FF>,
+                                 lookup_u16_2_relation<FF>,
+                                 lookup_u16_3_relation<FF>,
+                                 lookup_u16_4_relation<FF>,
+                                 lookup_u16_5_relation<FF>,
+                                 lookup_u16_6_relation<FF>,
+                                 lookup_u16_7_relation<FF>,
+                                 lookup_u16_8_relation<FF>,
+                                 lookup_u16_9_relation<FF>,
+                                 lookup_u16_10_relation<FF>,
+                                 lookup_u16_11_relation<FF>,
+                                 lookup_u16_12_relation<FF>,
+                                 lookup_u16_13_relation<FF>,
+                                 lookup_u16_14_relation<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -71,7 +143,7 @@ class AvmFlavor {
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
@@ -487,7 +559,6 @@ class AvmFlavor {
                      lookup_u16_13_counts,
                      lookup_u16_14_counts };
         };
-        RefVector<DataType> get_sorted_polynomials() { return {}; };
     };
 
     template <typename DataType> class AllEntities {
@@ -1193,8 +1264,69 @@ class AvmFlavor {
                      avm_mem_val };
         };
 
-        // The plookup wires that store plookup read data.
-        std::array<PolynomialHandle, 0> get_table_column_wires() { return {}; };
+        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
+        {
+            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
+
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_alu_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_bin_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_a_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_b_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_c_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_a_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_b_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_c_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_0_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_1_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_0_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_1_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_2_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_3_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_4_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_5_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_6_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_7_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_8_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_9_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_10_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_11_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_12_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_13_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_14_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+        }
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;
@@ -1219,6 +1351,19 @@ class AvmFlavor {
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
         ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
         ~ProverPolynomials() = default;
+
+        ProverPolynomials(ProvingKey& proving_key)
+        {
+            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
+                prover_poly = key_poly.share();
+            }
+            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
+                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
+                prover_poly = key_poly.shifted();
+            }
+        }
+
         [[nodiscard]] size_t get_polynomial_size() const { return avm_alu_a_hi.size(); }
         /**
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
@@ -1258,6 +1403,12 @@ class AvmFlavor {
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
+    /**
+     * @brief A container for the witness commitments.
+     *
+     */
+    using WitnessCommitments = WitnessEntities<Commitment>;
 
     class CommitmentLabels : public AllEntities<std::string> {
       private:
