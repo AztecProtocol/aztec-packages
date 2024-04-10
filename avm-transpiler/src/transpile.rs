@@ -84,9 +84,6 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     BinaryIntOp::Xor => AvmOpcode::XOR,
                     BinaryIntOp::Shl => AvmOpcode::SHL,
                     BinaryIntOp::Shr => AvmOpcode::SHR,
-                    _ => panic!(
-                        "Transpiler doesn't know how to process {:?}", brillig_instr
-                    ),
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
@@ -795,6 +792,9 @@ fn handle_getter_instruction(
         "avmOpcodeVersion" => AvmOpcode::VERSION,
         "avmOpcodeBlockNumber" => AvmOpcode::BLOCKNUMBER,
         "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
+        "avmOpcodeL1GasLeft" => AvmOpcode::L1GASLEFT,
+        "avmOpcodeL2GasLeft" => AvmOpcode::L2GASLEFT,
+        "avmOpcodeDaGasLeft" => AvmOpcode::DAGASLEFT,
         // "callStackDepth" => AvmOpcode::CallStackDepth,
         _ => panic!(
             "Transpiler doesn't know how to process ForeignCall function {:?}",

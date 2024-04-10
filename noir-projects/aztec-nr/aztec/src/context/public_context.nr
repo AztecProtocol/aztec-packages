@@ -1,5 +1,8 @@
 use crate::{
-    context::{inputs::PublicContextInputs, interface::ContextInterface, interface::PublicContextInterface},
+    context::{
+    inputs::PublicContextInputs, interface::ContextInterface, interface::PublicContextInterface,
+    gas::GasOpts
+},
     messaging::process_l1_to_l2_message,
     oracle::{arguments, public_call::call_public_function_internal}, hash::hash_args_array
 };
@@ -217,6 +220,10 @@ impl PublicContextInterface for PublicContext {
         self.inputs.public_global_variables.fee_recipient
     }
 
+    fn nullifier_exists(self, nullifier: Field) -> bool {
+        nullifier_exists_oracle(nullifier) == 1
+    }
+
     fn push_nullifier_read_request(&mut self, nullifier: Field) {
         let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
         self.nullifier_read_requests.push(request);
@@ -268,7 +275,8 @@ impl PublicContextInterface for PublicContext {
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field; ARGS_COUNT],
+        _gas: GasOpts
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
@@ -279,7 +287,8 @@ impl PublicContextInterface for PublicContext {
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field; ARGS_COUNT],
+        _gas: GasOpts
     ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
@@ -297,3 +306,6 @@ impl PublicContextInterface for PublicContext {
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 }
+
+#[oracle(checkNullifierExists)]
+fn nullifier_exists_oracle(nullifier: Field) -> Field {}

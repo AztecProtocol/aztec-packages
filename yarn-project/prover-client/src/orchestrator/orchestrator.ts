@@ -326,7 +326,7 @@ export class ProvingOrchestrator {
     });
 
     if (!l2Block.body.getTxsEffectsHash().equals(rootRollupOutputs.header.contentCommitment.txsEffectsHash)) {
-      logger(inspect(blockBody));
+      logger.debug(inspect(blockBody));
       throw new Error(
         `Txs effects hash mismatch, ${l2Block.body
           .getTxsEffectsHash()
@@ -354,7 +354,7 @@ export class ProvingOrchestrator {
    */
   private enqueueJob(provingState: ProvingState | undefined, jobType: PROVING_JOB_TYPE, job: () => Promise<void>) {
     if (!provingState?.verifyState()) {
-      logger(`Not enqueueing job, proving state invalid`);
+      logger.debug(`Not enqueueing job, proving state invalid`);
       return;
     }
     // We use a 'safeJob'. We don't want promise rejections in the proving pool, we want to capture the error here
@@ -377,7 +377,7 @@ export class ProvingOrchestrator {
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
   private async prepareBaseRollupInputs(provingState: ProvingState | undefined, tx: ProcessedTx) {
     if (!provingState?.verifyState()) {
-      logger('Not preparing base rollup inputs, state invalid');
+      logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
     const inputs = await buildBaseRollupInput(tx, provingState.globalVariables, this.db);
@@ -391,7 +391,7 @@ export class ProvingOrchestrator {
     );
 
     if (!provingState?.verifyState()) {
-      logger(`Discarding proving job, state no longer valid`);
+      logger.debug(`Discarding proving job, state no longer valid`);
       return;
     }
     provingState!.baseRollupInputs.push(inputs);
@@ -425,7 +425,7 @@ export class ProvingOrchestrator {
     treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
   ) {
     if (!provingState?.verifyState()) {
-      logger('Not running base rollup, state invalid');
+      logger.debug('Not running base rollup, state invalid');
       return;
     }
     logger(`Running base at index ${index}, ${inputs.start.noteHashTree.root.toString()}`);
@@ -440,7 +440,7 @@ export class ProvingOrchestrator {
       outputSize: baseRollupOutputs[0].toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!provingState?.verifyState()) {
-      logger(`Discarding job as state no longer valid`);
+      logger.debug(`Discarding job as state no longer valid`);
       return;
     }
     const currentLevel = provingState.numMergeLevels + 1n;
@@ -457,7 +457,7 @@ export class ProvingOrchestrator {
     mergeInputData: MergeRollupInputData,
   ) {
     if (!provingState?.verifyState()) {
-      logger('Not running merge rollup, state invalid');
+      logger.debug('Not running merge rollup, state invalid');
       return;
     }
     const circuitInputs = createMergeRollupInputs(
@@ -475,7 +475,7 @@ export class ProvingOrchestrator {
       outputSize: circuitOutputs[0].toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!provingState?.verifyState()) {
-      logger(`Discarding job as state no longer valid`);
+      logger.debug(`Discarding job as state no longer valid`);
       return;
     }
     logger.info(`Completed merge rollup at level ${level}, index ${index}`);
@@ -485,7 +485,7 @@ export class ProvingOrchestrator {
   // Executes the root rollup circuit
   private async runRootRollup(provingState: ProvingState | undefined) {
     if (!provingState?.verifyState()) {
-      logger('Not running root rollup, state no longer valid');
+      logger.debug('Not running root rollup, state no longer valid');
       return;
     }
     const mergeInputData = provingState.getMergeInputs(0);
@@ -516,7 +516,7 @@ export class ProvingOrchestrator {
   // Enqueues the root parity circuit if all inputs are available
   private async runBaseParityCircuit(provingState: ProvingState | undefined, inputs: BaseParityInputs, index: number) {
     if (!provingState?.verifyState()) {
-      logger('Not running base parity, state no longer valid');
+      logger.debug('Not running base parity, state no longer valid');
       return;
     }
     const [duration, circuitOutputs] = await elapsed(() => executeBaseParityCircuit(inputs, this.prover, logger));
@@ -529,7 +529,7 @@ export class ProvingOrchestrator {
     } satisfies CircuitSimulationStats);
 
     if (!provingState?.verifyState()) {
-      logger(`Discarding job as state no longer valid`);
+      logger.debug(`Discarding job as state no longer valid`);
       return;
     }
     provingState.setRootParityInputs(circuitOutputs, index);
@@ -550,7 +550,7 @@ export class ProvingOrchestrator {
   // Enqueues the root rollup proof if all inputs are available
   private async runRootParityCircuit(provingState: ProvingState | undefined, inputs: RootParityInputs) {
     if (!provingState?.verifyState()) {
-      logger(`Not running root parity circuit as state is no longer valid`);
+      logger.debug(`Not running root parity circuit as state is no longer valid`);
       return;
     }
     const [duration, circuitOutputs] = await elapsed(() => executeRootParityCircuit(inputs, this.prover, logger));
@@ -563,7 +563,7 @@ export class ProvingOrchestrator {
     } satisfies CircuitSimulationStats);
 
     if (!provingState?.verifyState()) {
-      logger(`Discarding job as state no longer valid`);
+      logger.debug(`Discarding job as state no longer valid`);
       return;
     }
     provingState!.finalRootParityInput = circuitOutputs;
@@ -572,7 +572,7 @@ export class ProvingOrchestrator {
 
   private checkAndExecuteRootRollup(provingState: ProvingState | undefined) {
     if (!provingState?.isReadyForRootRollup()) {
-      logger('Not ready for root rollup');
+      logger.debug('Not ready for root rollup');
       return;
     }
     this.enqueueJob(provingState, PROVING_JOB_TYPE.ROOT_ROLLUP, () => this.runRootRollup(provingState));
