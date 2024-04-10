@@ -177,20 +177,25 @@ export class BBNativeRollupProver implements CircuitProver {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
+
+    // Have the ACVM write the partial witness here
     const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
 
+    // Generate the partial witness using the ACVM
+    // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
     const simulator = new NativeACVMSimulator(
       this.config.acvmWorkingDirectory,
       this.config.acvmBinaryPath,
       outputWitnessFile,
     );
 
-    const artifact = ProtocolCircuitArtifacts[circuitType];
+    const artifact = ServerCircuitArtifacts[circuitType];
 
     logger.debug(`Generating witness data for ${circuitType}`);
 
     const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
 
+    // Now prove the circuit from the generated witness
     logger.debug(`Proving ${circuitType}...`);
 
     const provingResult = await generateProof(
@@ -207,6 +212,7 @@ export class BBNativeRollupProver implements CircuitProver {
       throw new Error(provingResult.reason);
     }
 
+    // Read the proof and then cleanup up our temporary directory
     const proofBuffer = await fs.readFile(provingResult.path!);
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
