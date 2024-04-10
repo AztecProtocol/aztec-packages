@@ -119,7 +119,7 @@ impl PublicCallDataBuilder {
     pub fn append_empty_public_data_read_requests(&mut self, num_reads: u64) {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
-                self.public_inputs.contract_storage_reads.push(StorageRead::empty());
+                self.public_inputs.contract_storage_reads.push(StorageRead::default());
             }
         }
     }
@@ -142,7 +142,7 @@ impl PublicCallDataBuilder {
     pub fn append_empty_update_requests(&mut self, num_updates: u64) {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
-                self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
+                self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::default());
             }
         }
     }

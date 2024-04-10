@@ -7,7 +7,7 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::AztecAddress,
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest, traits::{is_default as storage_op_is_default, array_length as storage_op_array_length}},
     constants::{
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
@@ -15,7 +15,7 @@ use dep::types::{
     MAX_PUBLIC_DATA_READS_PER_CALL
 },
     hash::{silo_note_hash, silo_nullifier, compute_l2_to_l1_hash, accumulate_sha256},
-    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_empty, is_empty_array, is_default}
+    utils::{arrays::{array_length, array_to_bounded_vec}}, traits::{is_default,is_zero}
 };
 use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value};
 
@@ -23,9 +23,7 @@ use crate::hash::{compute_public_data_tree_index, compute_public_data_tree_value
 pub fn validate_inputs(public_call: PublicCallData) {
     // Validates commons inputs for all type of kernel inputs
     let this_call_stack_item: PublicCallStackItem = public_call.call_stack_item;
-    assert(
-        !this_call_stack_item.contract_address.eq(AztecAddress::zero()), "Contract address cannot be zero"
-    );
+    assert(!is_zero(this_call_stack_item.contract_address), "Contract address cannot be zero");
     assert(this_call_stack_item.function_data.selector.to_field() != 0, "Function signature cannot be zero");
     assert(
         this_call_stack_item.function_data.is_private == false, "Cannot execute a private function with the public kernel circuit"
@@ -111,20 +109,22 @@ pub fn initialize_end_values(
 fn perform_static_call_checks(public_call: PublicCallData) {
     let public_inputs = public_call.call_stack_item.public_inputs;
     if public_inputs.call_context.is_static_call {
+
+        // TODO: #5618
         // No state changes are allowed for static calls:
         let new_note_hashes_length = array_length(public_inputs.new_note_hashes);
-        assert(new_note_hashes_length == 0, "new_note_hashes must be empty for static calls");
+        assert(new_note_hashes_length == 0, "new_note_hashes must be a default array (empty) for static calls");
 
         let new_nullifiers_length = array_length(public_inputs.new_nullifiers);
-        assert(new_nullifiers_length == 0, "new_nullifiers must be empty for static calls");
+        assert(new_nullifiers_length == 0, "new_nullifiers must be a default array (empty) for static calls");
 
-        let update_requests_length = is_empty_array(public_inputs.contract_storage_update_requests);
+        let update_requests_length = storage_op_array_length(public_inputs.contract_storage_update_requests);
         assert(
-            update_requests_length, "No contract storage update requests are allowed for static calls"
+            update_requests_length == 0, "No contract storage update requests are allowed for static calls"
         );
 
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
-        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
+        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty (length 0) for static calls");
 
         // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
         // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
@@ -253,7 +253,7 @@ fn propagate_valid_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
+        if (!storage_op_is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -276,7 +276,7 @@ fn propagate_valid_non_revertible_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
+        if (!storage_op_is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -296,7 +296,7 @@ fn propagate_valid_public_data_reads(public_call: PublicCallData, circuit_output
 
     for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
         let read_request: StorageRead = read_requests[i];
-        if !read_request.is_empty() {
+        if !storage_op_is_default(read_request) {
             let public_data_read = PublicDataRead {
                 leaf_slot: compute_public_data_tree_index(contract_address, read_request.storage_slot),
                 value: compute_public_data_tree_value(read_request.current_value)

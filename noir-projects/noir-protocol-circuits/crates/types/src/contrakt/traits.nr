@@ -1,16 +1,16 @@
 // We use this because storage read is_default does not match behavior with the normal way we calculate is_default
-trait StorageRequest {
+trait StorageOp {
   fn is_default(self) -> bool;
 }
 
-pub fn is_default<T>(item: T) -> bool where T: StorageRequest {
+pub fn is_default<T>(item: T) -> bool where T: StorageOp {
     item.is_default()
 }
 
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
 // of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
 // valid.
-pub fn validate_array<T, N>(array: [T; N]) where T: StorageRequest + Eq {
+pub fn validate_array<T, N>(array: [T; N]) where T: StorageOp + Eq {
     let array_length = array.len();
 
     let mut first_zero_pos = array_length;
@@ -29,7 +29,7 @@ pub fn validate_array<T, N>(array: [T; N]) where T: StorageRequest + Eq {
 
 // Helper method to determine the number of non-zero/default elements in a validated array (ie, validate_array(array)
 // should be true).
-pub fn array_length<T, N>(array: [T; N]) -> u64 where T: StorageRequest + Eq {
+pub fn array_length<T, N>(array: [T; N]) -> u64 where T: StorageOp + Eq {
     let mut length = 0;
     let mut end = false;
     for elem in array {
@@ -39,4 +39,14 @@ pub fn array_length<T, N>(array: [T; N]) -> u64 where T: StorageRequest + Eq {
         }
     }
     length
+}
+
+pub fn array_eq<T, N, S>(array: [T; N], expected: [T; S]) -> bool where T: StorageOp + Eq {
+    let mut eq = array_length(array) == S;
+
+    for i in 0..S {
+        eq &= array[i].eq(expected[i]);
+    }
+
+    eq
 }

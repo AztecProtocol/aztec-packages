@@ -1,6 +1,7 @@
 use crate::{
     constants::{CONTRACT_STORAGE_READ_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_READ}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Empty, Serialize}
+    traits::{Deserialize, Hash, Serialize},
+    contrakt::traits::StorageOp
 };
 
 struct StorageRead {
@@ -14,8 +15,8 @@ impl Eq for StorageRead {
     }
 }
 
-impl Empty for StorageRead {   
-    fn empty() -> Self {
+impl Default for StorageRead {   
+    fn default() -> Self {
         Self {
             storage_slot: 0,
             current_value: 0,
@@ -46,6 +47,12 @@ impl Deserialize<CONTRACT_STORAGE_READ_LENGTH> for StorageRead {
 
 impl StorageRead {
     pub fn is_empty(self) -> bool {
+        self.storage_slot == 0
+    }
+}
+
+impl StorageOp for StorageRead {
+    fn is_default(self) -> bool {
         self.storage_slot == 0
     }
 }
