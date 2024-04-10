@@ -63,17 +63,18 @@ mod tests {
         read_request_reset::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
     use dep::types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, 
+        MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
+        grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
-        utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
+        utils::{arrays::{array_eq, array_length}}, traits::{is_default, is_default_array}
     };
 
     struct PrivateKernelTailInputsBuilder {
@@ -163,7 +164,7 @@ mod tests {
                 sorted_new_nullifiers_indexes,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
-                master_nullifier_secret_keys: unsafe::zeroed()
+                master_nullifier_secret_keys: [GrumpkinPrivateKey::default(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX]
             };
             kernel.native_private_kernel_circuit_tail()
         }
@@ -269,7 +270,7 @@ mod tests {
         builder.nullify_pending_note_hash(1, 0);
         let new_nullifiers = builder.previous_kernel.new_nullifiers.storage;
         let public_inputs = builder.execute();
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
 
         // The nullifier at index 1 is chopped.
         assert(
@@ -320,7 +321,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         // Only the first nullifier is left after squashing.
-        assert(is_empty_array(public_inputs.end.new_note_hashes));
+        assert(is_default_array(public_inputs.end.new_note_hashes));
         assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0].value]));
     }
 
@@ -334,8 +335,8 @@ mod tests {
         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
 
-        let mut reversed_note_hashes = [SideEffect::empty(); 10];
-        let mut reversed_nullifiers = [SideEffectLinkedToNoteHash::empty(); 10];
+        let mut reversed_note_hashes = [SideEffect::default(); 10];
+        let mut reversed_nullifiers = [SideEffectLinkedToNoteHash::default(); 10];
 
         for i in 0..10 {
             reversed_note_hashes[9 - i] = builder.previous_kernel.new_note_hashes.pop();

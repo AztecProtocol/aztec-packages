@@ -21,7 +21,7 @@ use dep::types::{
 },
     merkle_tree::check_membership,
     utils::{arrays::{array_length, array_to_bounded_vec, validate_array}},
-    traits::{is_empty, is_empty_array, is_zero, is_default}
+    traits::{is_default, is_default_array, is_zero}
 };
 
 pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
@@ -120,14 +120,15 @@ fn perform_static_call_checks(private_call: PrivateCallData) {
     if is_static_call {
         // No state changes are allowed for static calls:
         assert(
-            is_empty_array(public_inputs.new_note_hashes), "new_note_hashes must be empty for static calls"
+            is_default_array(public_inputs.new_note_hashes), "new_note_hashes must be empty (only default values) for static calls"
         );
         assert(
-            is_empty_array(public_inputs.new_nullifiers), "new_nullifiers must be empty for static calls"
+            is_default_array(public_inputs.new_nullifiers), "new_nullifiers must be empty (only default values) for static calls"
         );
 
+        // TODO: #5618
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
-        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty for static calls");
+        assert(new_l2_to_l1_msgs_length == 0, "new_l2_to_l1_msgs must be empty (length 0) for static calls");
 
         // TODO: reevaluate when implementing https://github.com/AztecProtocol/aztec-packages/issues/1165
         // This 4 magical number is the minimum size of the buffer, since it has to store the total length of all the serialized logs.
@@ -277,7 +278,7 @@ pub fn update_end_values(
     let mut new_l2_to_l1_msgs_to_insert : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
         let msg = new_l2_to_l1_msgs[i];
-        if !is_empty(msg) {
+        if !is_default(msg) {
             let new_l2_to_l1_msgs = compute_l2_to_l1_hash(
                 storage_contract_address,
                 private_call_public_inputs.version,
@@ -311,7 +312,7 @@ pub fn contract_logic(private_call: PrivateCallData) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3062): Why is this using a hash function from the stdlib::recursion namespace
     let private_call_vk_hash = stdlib_recursion_verification_key_compress_native_vk(private_call.vk);
 
-    assert(!is_zero(contract_address), "contract address cannot be zero");
+    assert(!is_zero(contract_address), "Contract address cannot be zero");
     // std::println(f"contract_address={contract_address}");
     // std::println(f"private_call_vk_hash={private_call_vk_hash}");
 

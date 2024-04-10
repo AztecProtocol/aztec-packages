@@ -27,7 +27,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_inner(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs : PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::default();
 
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
 
@@ -219,12 +219,12 @@ mod tests {
     }
 
     #[test(should_fail_with="caller context cannot be default for delegate calls")]
-    fn empty_caller_context_for_delegate_calls_fails() {
+    fn default_caller_context_for_delegate_calls_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 
         let private_call = builder.private_call.finish();
         let hash = private_call.call_stack_item.hash();
-        // Caller context is empty for regular calls.
+        // Caller context is default for regular calls.
         let is_delegate_call = false;
         builder.previous_kernel.push_private_call_request(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.to_private_kernel_data();
@@ -691,7 +691,7 @@ mod tests {
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
-    #[test(should_fail_with="new_note_hashes must be empty for static calls")]
+    #[test(should_fail_with="new_note_hashes must be a default array (empty) for static calls")]
     fn creating_new_note_hashes_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
@@ -700,7 +700,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="new_nullifiers must be empty for static calls")]
+    #[test(should_fail_with="new_nullifiers must be a default array (empty) for static calls")]
     fn creating_new_nullifiers_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
