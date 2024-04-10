@@ -37,38 +37,38 @@ size_t generate_ecdsa_constraint(EcdsaSecp256k1Constraint& ecdsa_constraint, Wit
     uint256_t pub_x_value = account.public_key.x;
     uint256_t pub_y_value = account.public_key.y;
 
-    std::array<uint32_t, 32> message_in;
-    std::array<uint32_t, 32> pub_x_indices_in;
-    std::array<uint32_t, 32> pub_y_indices_in;
-    std::array<uint32_t, 64> signature_in;
-    uint32_t offset = 0;
-    for (uint32_t i = 0; i < hashed_message.size(); ++i) {
-        uint32_t[i] = (i + offset);
+    std::vector<uint32_t> message_in;
+    std::vector<uint32_t> pub_x_indices_in;
+    std::vector<uint32_t> pub_y_indices_in;
+    std::vector<uint32_t> signature_in;
+    size_t offset = 0;
+    for (size_t i = 0; i < hashed_message.size(); ++i) {
+        message_in[i] = static_cast<uint32_t>(i + offset);
         const auto byte = static_cast<uint8_t>(hashed_message[i]);
         witness_values.emplace_back(byte);
     }
-    offset += static_cast<uint32_t>(message_in.size());
+    offset += message_in.size();
 
-    for (uint32_t i = 0; i < 32; ++i) {
-        pub_x_indices_in[i] = (i + offset);
+    for (size_t i = 0; i < 32; ++i) {
+        pub_x_indices_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(pub_x_value.slice(248 - i * 8, 256 - i * 8));
     }
-    offset += static_cast<uint32_t>(pub_x_indices_in.size());
-    for (uint32_t i = 0; i < 32; ++i) {
-        pub_y_indices_in[i] = (i + offset);
+    offset += pub_x_indices_in.size();
+    for (size_t i = 0; i < 32; ++i) {
+        pub_y_indices_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(pub_y_value.slice(248 - i * 8, 256 - i * 8));
     }
-    offset += static_cast<uint32_t>(pub_y_indices_in.size();
-    for (uint32_t i = 0; i < 32; ++i) {
-        signature_in[i] = (i + offset);
+    offset += pub_y_indices_in.size();
+    for (size_t i = 0; i < 32; ++i) {
+        signature_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(signature.r[i]);
     }
-    offset += static_cast<uint32_t>(signature.r.size());
-    for (uint32_t i = 0; i < 32; ++i) {
-        signature_in[i] = (i + offset);
+    offset += signature.r.size();
+    for (size_t i = 0; i < 32; ++i) {
+        signature_in[i] = static_cast<uint32_t>(i + offset);
         witness_values.emplace_back(signature.s[i]);
     }
-    offset += static_cast<uint32_t>(signature.s.size());
+    offset += signature.s.size();
 
     witness_values.emplace_back(1);
     const auto result_in = static_cast<uint32_t>(offset);
