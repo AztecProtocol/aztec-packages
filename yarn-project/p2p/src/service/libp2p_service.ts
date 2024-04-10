@@ -124,7 +124,7 @@ export class LibP2PService implements P2PService {
     await this.node.handle(this.protocolId, (incoming: IncomingStreamData) =>
       this.jobQueue.put(() => Promise.resolve(this.handleProtocolDial(incoming))),
     );
-    this.logger(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
+    this.logger.info(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
   }
 
   /**
@@ -233,7 +233,7 @@ export class LibP2PService implements P2PService {
     const peerIdStr = peerMultiAddr.getPeerId();
 
     if (!peerIdStr) {
-      this.logger(`Peer ID not found in discovered node's multiaddr: ${peerMultiAddr}`);
+      this.logger.info(`Peer ID not found in discovered node's multiaddr: ${peerMultiAddr}`);
       return;
     }
 
@@ -243,7 +243,7 @@ export class LibP2PService implements P2PService {
 
     // add to peer store if not already known
     if (!hasPeer) {
-      this.logger(`Discovered peer ${enr.peerId().toString()}. Adding to libp2p peer list`);
+      this.logger.info(`Discovered peer ${enr.peerId().toString()}. Adding to libp2p peer list`);
       try {
         const stream = await this.node.dialProtocol(peerMultiAddr, this.protocolId);
 
