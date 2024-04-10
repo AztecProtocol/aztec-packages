@@ -81,4 +81,4 @@ To elaborate, a public function may not have read access to encrypted private st
 
 In the picture below, it is worth noting that all data reads performed by private functions are historical in nature, and that private functions are not capable of modifying public storage. Conversely, public functions have the capacity to manipulate private storage (e.g., inserting new note hashes, potentially as part of transferring funds from the public domain to the private domain).
 
-![Public - Private Messaging](./images/calls/pub_pvt_messaging.png)
+![Public - Private Messaging](/img/protocol-specs/calls/pub_pvt_messaging.png)

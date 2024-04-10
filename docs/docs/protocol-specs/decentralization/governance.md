@@ -12,13 +12,13 @@ These instances may choose to be immutable themselves, or have governance that e
 
 The version registry will keep track of all historical versions of Aztec & provide them with incentives proportionate to their current stake. Additionally the governance contract will point to what the _current canonical_ version of Aztec is, particularly relevant for 3rd parties to follow, such as centralized exchanges, or portals that wish to follow Aztec governance.
 
-![Governance Summary Image](./images/Aztec-Governance-Summary-1.png)
+![Governance Summary Image](/img/protocol-specs/decentralization/Aztec-Governance-Summary-1.png)
 
 ## Rewards
 
 We propose introducing a governance "version registry" which keeps track of a) which deployments of Aztec have been canonical, and b) which instances currently have tokens staked to them, specifically in order to issue a consistent, single new token in the form of _incentives_ or "rollup/block rewards".
 
-![Rewards Summary Image](./images/Aztec-Governance-Summary-2.png)
+![Rewards Summary Image](/img/protocol-specs/decentralization/Aztec-Governance-Summary-2.png)
 
 Given that deployments may be immutable, it is necessary to ensure that there are operators, i.e., sequencers & provers, running the infrastructure for a given deployment as long as users are interested in it. Therefore we suggest a model where all previous canonical instances of Aztec are rewarded pro-rata to their current proportion of stake.
 
@@ -35,11 +35,11 @@ Upon initial deployment, there will be an immutable set of governance contracts 
 
 The initial instance will be called "Aztec v0" and (the current thinking is that v0) will not include the ability to process user transactions. Sequencers can register for Fernet's sequencer selection algorithm by staking tokens to that particular instance, and practice proposing blocks on mainnet prior to deciding to "go live" with v1, which _does_ enable the processing of user transactions. This instance would then _"restake"_ these tokens within the governance contract, to have a voting weight equal to the amount of tokens staked by its sequencer set. This is in order to ensure that the sequencer selection algorithm is working properly and the community of operators themselves can decide what happens to the network next, i.e., if it's ready to actually "go live" with transactions. It will also serve as a production readiness test of the upgradeability. In the event that these v0 tests are unable to be successfully completed as expected, the community (with potential foundation approval) may need to redeploy and try again.
 
-![Initial Deployment Image](./images/Aztec-Governance-Summary-3.png)
+![Initial Deployment Image](/img/protocol-specs/decentralization/Aztec-Governance-Summary-3.png)
 
 The ability to upgrade to v1 is articulated below, and should follow a "happy path" upgrade where a majority of the v0 sequencer set must agree to upgrade by voting during their block proposals, similar to what was articulated in [the empire stakes back](https://forum.aztec.network/t/upgrade-proposal-the-empire-stakes-back/626). Additionally, token holders can directly participate in the vote, or choose to delegate a vote with the weight of their tokens to another address, including the v0 rollup.
 
-![Version 1 Deployment Image](./images/Aztec-Governance-Summary-4.png)
+![Version 1 Deployment Image](/img/protocol-specs/decentralization/Aztec-Governance-Summary-4.png)
 
 ## Proposing a new version
 
@@ -224,7 +224,7 @@ Sequencers ->> Next Rollup: Proposing new blocks here!
 
 Emergency mode is proposed to be introduced to the initial instance "v0" or "v1" of Aztec, whatever the first instance or deployment is. Emergency mode **will not be included as part of the canonical governance contracts or registry**. If future deployments wish to have a similar security council, they can choose to do so. In this design, the current rollup can determine the timelock period as articulated above, within some predefined constraints, e.g., 3-30 days. Explicitly, the current rollup can give a security council the ability to define what this timelock period may be, and in the case of a potential vulnerability or otherwise, may be well within it's rights to choose the smallest value defined by the immutable governance contract to ensure that the network is able to recover and come back online as quickly as possible.
 
-![Emergency Mode Image](./images/Aztec-Governance-Summary-4.png)
+![Emergency Mode Image](/img/protocol-specs/decentralization/Aztec-Governance-Summary-4.png)
 
 ### Unpausing by default
 

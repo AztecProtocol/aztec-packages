@@ -29,7 +29,7 @@ Anyone can operate an instance of the Aztec Node configured to serve their needs
 
 Client PXEs will interact with instances of the Aztec Node via it's JSON RPC interface.
 
-![P2P Network](./images/network.png)
+![P2P Network](/img/protocol-specs/decentralization/network.png)
 
 ### Transaction Size
 
@@ -39,7 +39,6 @@ Client PXEs will interact with instances of the Aztec Node via it's JSON RPC int
 | -------------------------------------------- | ----- |
 | Public Inputs, Public Calls and Emitted Logs | ~8KB  |
 | Private Kernel Proof                         | ~32KB |
-
 
 ### Sequencer-to-Prover Communication
 
@@ -82,11 +81,11 @@ The underlying transport for DiscV5 communication is UDP. Whilst UDP is not reli
 
 ##### Bootstrapping
 
-When a node wishes to join the network for the first time. It needs to locate at least 1 initial peer in order to 'discover' other nodes. This role is performed by known public 'bootnodes'. Bootnodes may not be full network participants, they may simply be entrypoints containing well populated routing tables for nodes to query. 
+When a node wishes to join the network for the first time. It needs to locate at least 1 initial peer in order to 'discover' other nodes. This role is performed by known public 'bootnodes'. Bootnodes may not be full network participants, they may simply be entrypoints containing well populated routing tables for nodes to query.
 
 ##### Topics
 
-Topics are part of the DiscV5 specification, though the spec is as yet unfinished and implementations do not yet exist. The intention of topics is for the Ethereum P2P network to efficiently support any number of applications under the same discovery scheme. To date, many other applications use Ethereum's discovery network but the only way to 'discover' other nodes for the same application is to query nodes at random and interrogate them. Topics will allow this to be done more efficiently with nodes being able to 'advertise' themselves as supporting specific applications across the network. 
+Topics are part of the DiscV5 specification, though the spec is as yet unfinished and implementations do not yet exist. The intention of topics is for the Ethereum P2P network to efficiently support any number of applications under the same discovery scheme. To date, many other applications use Ethereum's discovery network but the only way to 'discover' other nodes for the same application is to query nodes at random and interrogate them. Topics will allow this to be done more efficiently with nodes being able to 'advertise' themselves as supporting specific applications across the network.
 
 ##### DiscV5 on Aztec
 
@@ -100,17 +99,16 @@ Using Ethereum's DiscV5 network will have significant benefits for Aztec. Networ
 
 The node record for an Aztec node will contain the following key/value pairs. The network endpoints don't all need to be specified but nodes will require at least one ip address and port. The public key is required to verify the signature included with the node record. The id is the identity scheme with "v4" being that currently used by Ethereum.
 
-
-| key | value |
-| -------- | -------- |
-| id     | "v4"     |
-| secp256k1     | The node's public key     |
-| ip     | ipv4 address     |
-| tcp     | tcp port     |
-| ip6     | ipv6 address     |
-| tcp6     | tcp port for v6 address     |
-| aztec | The aztec chain id |
-| eth | The ethereum chain id |
+| key       | value                   |
+| --------- | ----------------------- |
+| id        | "v4"                    |
+| secp256k1 | The node's public key   |
+| ip        | ipv4 address            |
+| tcp       | tcp port                |
+| ip6       | ipv6 address            |
+| tcp6      | tcp port for v6 address |
+| aztec     | The aztec chain id      |
+| eth       | The ethereum chain id   |
 
 ### Transaction Gossip
 
@@ -128,7 +126,7 @@ LibP2P supports the multiplexing of stream based transports such as TCP. There a
 
 #### Encryption handshake
 
-Communication between nodes within LibP2P is encrypted. This is important to protect individual nodes and the network at large from malicious actors. Establishing keys requires a secure handshake protocol. Client's must specify LibP2P's [noise](https://docs.libp2p.io/concepts/secure-comm/noise/) protocol for this purpose. 
+Communication between nodes within LibP2P is encrypted. This is important to protect individual nodes and the network at large from malicious actors. Establishing keys requires a secure handshake protocol. Client's must specify LibP2P's [noise](https://docs.libp2p.io/concepts/secure-comm/noise/) protocol for this purpose.
 
 #### GossipSub
 
@@ -161,17 +159,16 @@ Aztec will use LibP2P's GossipSub protocol for transaction propagation. Nodes mu
 
 The table below contains some of the relevant configuration properties and their default values. These parameters can be validated on testnet but it is expected that for the Aztec network, clients would use similar values, perhaps reducing peering degree slightly to favour reduced bandwidth over message propagation latency.
 
+| Parameter          | Description                                                          | Value    |
+| ------------------ | -------------------------------------------------------------------- | -------- |
+| D                  | The desired peering degree                                           | 6        |
+| D_low              | The peering degree low watermark                                     | 4        |
+| D_high             | The peering degree high watermark                                    | 12       |
+| heartbeat_interval | The time between heartbeats\*                                        | 1 second |
+| mcache_len         | The number of history windows before messages are ejected from cache | 5        |
+| mcache_gossip      | The number of history windows for messages to be gossiped            | 3        |
 
-| Parameter | Description | Value |
-| -------- | -------- | -------- |
-| D     | The desired peering degree     | 6     |
-| D_low     | The peering degree low watermark     | 4     |
-| D_high     | The peering degree high watermark     | 12     |
-| heartbeat_interval     | The time between heartbeats*     | 1 second     |
-| mcache_len     | The number of history windows before messages are ejected from cache     | 5     |
-| mcache_gossip     | The number of history windows for messages to be gossiped     | 3     |
-
-(*)Several things happen at the heartbeat interval:
+(\*)Several things happen at the heartbeat interval:
 
 1. The nature of peerings are evaluated and changed if necessary
 2. Message IDs are gossiped to a randomly selected set of metadata only peers
@@ -197,6 +194,6 @@ GossipSub does not include a mechanism for synchronising the global set of messa
 
 1. Aztec transactions are large, approximately 40Kb. Downloading the entire pool would require transferring in the order of 100s of MB of data. At best this is undesirable and at worst it represents a DoS vector.
 
-2. It is largely redundant. At the point at which a node joins the network, it is likely that production of a block is already underway and many of the transactions that would be downloaded will be removed as soon as that block is published. 
+2. It is largely redundant. At the point at which a node joins the network, it is likely that production of a block is already underway and many of the transactions that would be downloaded will be removed as soon as that block is published.
 
 3. Clients will naturally synchronise the transaction pool by joining the gossiping network and waiting for 1 or 2 blocks. New transactions will be received into the client's local pool and old transactions unknown to the client will be removed as blocks are published.

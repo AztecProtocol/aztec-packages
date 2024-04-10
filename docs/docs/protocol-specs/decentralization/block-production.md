@@ -115,7 +115,7 @@ Anyone ->> Network: eligible as a sequencer
   - get rid of "pre-confirmed"
     :::
 
-![Governance Summary Image](./images/Aztec-Block-Production-1.png)
+![Governance Summary Image](/img/protocol-specs/decentralization/Aztec-Block-Production-1.png)
 
 Every staked sequencers participate in the following phases, comprising an Aztec slot:
 
@@ -275,7 +275,7 @@ It is likely that this proving ecosystem will emerge around a [flashbots mev-boo
 
 Specifically, Proof boost is expected to be open source software sequencers can optionally run alongside their clients that will facilitate a negotiation for the rights to prove this block, therefore earning block rewards in the form of the native protocol token. After the negotiation, the sequencer will commit to an address, and that address will need to put up an economic commitment (deposit) that will be slashed in the event that the block's proofs are not produced within the alloted timeframe.
 
-![image](./images/Aztec-Block-Production-3.png)
+![image](/img/protocol-specs/decentralization/Aztec-Block-Production-3.png)
 
 Initially it's expected that the negotiations and commitment could be facilitated by a trusted relay, similar to L1 block building, but options such as onchain proving pools are under consideration. Due to the out of protocol nature of [Sidecar](https://forum.aztec.network/t/proposal-prover-coordination-sidecar/2428), these designs can be iterated and improved upon outside the scope of other Aztec related governance or upgrades - as long as they maintain compatibility with the currently utilized proving system(s). Eventually, any upgrade or governance mechanism may choose to enshrine a specific well adopted proving protocol, if it makes sense to do so.
 

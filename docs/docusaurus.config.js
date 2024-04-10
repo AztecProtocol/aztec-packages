@@ -199,6 +199,12 @@ const config = {
             position: "left",
             label: "Aztec Protocol",
           },
+          {
+            type: "docSidebar",
+            sidebarId: "protocolSpecSidebar",
+            position: "left",
+            label: "Protocol Specification",
+          },
         ],
       },
       footer: {

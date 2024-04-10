@@ -6,7 +6,7 @@ This section describes the AVM memory model, and in particular specifies "intern
 
 The AVM possesses three distinct data regions, accessed via distinct VM instructions: memory, calldata and returndata
 
-![](./images/memory.png)
+![](/img/protocol-specs/public-vm/memory.png)
 
 All data regions are linear blocks of memory where each memory cell stores a finite field element.
 

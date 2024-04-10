@@ -5,6 +5,8 @@ const childProcess = require("child_process");
 const { preprocessIncludeCode } = require("./include_code");
 const { preprocessIncludeVersion } = require("./include_version");
 
+const { generateInstructionSet } = require("./InstructionSet/genMarkdown");
+
 async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
   const files = fs.readdirSync(docsDir);
   const contentUpdates = [];
@@ -125,6 +127,7 @@ async function run() {
   const content = await processMarkdownFilesInDir(rootDir, docsDir);
 
   await writeProcessedFiles(docsDir, destDir, cachedDestDir, content);
+  await generateInstructionSet();
 
   console.log("Preprocessing complete.");
 }

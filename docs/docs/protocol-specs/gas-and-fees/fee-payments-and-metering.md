@@ -55,7 +55,7 @@ Transactions will be divided into 3 phases:
 
 All of these phases occur **within the same transaction**, ultimately resulting in 2 sets of public inputs being emitted from the private kernel circuits. Those related to the fee payment and those related to the application logic. State changes requested by the application logic are reverted if any component fails. State changes in the fee preparation and distribution components are only reverted if either of those components fail.
 
-![Transaction Components](../gas-and-fees/images/gas-and-fees/Transaction.png)
+![Transaction Components](/img/protocol-specs/gas-and-fees/gas-and-fees/Transaction.png)
 
 The fee preparation and fee distribution phases respectively are responsible for ensuring that sufficient quantity of the fee payment asset is made available for the transaction and that it is correctly distributed to the sequencer with any refund being returned to the transaction sender. The sequencer will have have agency over which contract methods they are willing to accept for execution in these phases and will have visibility over the arguments passed to them. This is important as these functions must be successfully executed in order for the sequencer to be paid. It is assumed that the network will settle on a number of universally recognised fee payment contracts implementing fee preparation and distribution.
 
@@ -90,12 +90,12 @@ An example of L2 gas amortization could be the transaction sender specifying a m
 TotalGasToBeAmortised = (1024 - 2) * GMerge + GRoot
 L2AmortizedGasLimit = TotalGasToBeAmortised / 1024
 
-Where 
+Where
   GMerge = The gas cost of proving the merge rollup circuit.
   GRoot = The gas cost of proving the root rollup circuit.
 ```
-In this example, were the transaction to be included within a rollup larger than 1024 transactions, the transaction sender would be refunded this amortization difference.
 
+In this example, were the transaction to be included within a rollup larger than 1024 transactions, the transaction sender would be refunded this amortization difference.
 
 The private kernel circuits will output 8 `Gas` values. The 6 `GasLimit`'s represent maximum quantities of gas that the transaction sender permits to be consumed. Insufficient limits will cause the transaction to revert with an `OutOfGas` condition. Fees will be refunded to the transaction sender for unused quantities of gas, The `FeeDistributionGas` values are fixed amounts of gas effectively representing fixed fees that the transaction sender is willing to pay for their chosen fee distribution.
 
@@ -129,7 +129,7 @@ L1Fee = (L1AmortizedGasLimit + L1TxGasLimit) * feePerL1Gas
 L2Fee = (L2AmortizedGasLimit + L2TxGasLimit + L2FeeDistributionGas) * feePerL2Gas
 DAFee = (DAAmortizedGasLimit + DATxGasLimit + DAFeeDistributionGas) * feePerDAGas
 
-TotalFee = L1Fee + L2Fee + DAFee 
+TotalFee = L1Fee + L2Fee + DAFee
 ```
 
 ## Executing Transactions and Collecting Fees
@@ -150,12 +150,11 @@ The transaction's fee preparation and fee distribution functions must be called 
 | `DAGasUsed` | The accumulated quantity of DA gas used, both amortized and per-transaction |
 | `feeRecipient` | The aztec address designated as the recipient of fees for the current block |
 
-
 The values of gas used must be calculated and applied appropriately by the sequencer, a variety of constraints are in place for this.
 
 1. The sequencer specifies the size of rollup being produced to the base rollup circuit and uses this value when calculating amortized gas consumption. This value is a public input of the base rollup circuit.
 2. The sequencer specifies the fee recipient to the base rollup circuit and uses this value in fee distribution calls. This value is a public input of the base rollup circuit.
-3. The sequencer calculates an initial set of values for consumed transaction specific and amortized gas. 
+3. The sequencer calculates an initial set of values for consumed transaction specific and amortized gas.
 4. All forms of gas usage are accumulated by the public VM circuit and form part of the public inputs for the public kernel circuit.
 5. The public kernel circuit public inputs also include the gas and fee related inputs provided to the public VM circuit.
 6. The base rollup circuit computes the total amount of L1, L2 and DA gas consumed by the transaction, considering both private and public execution and transaction specific and amortized gas. It also considers reverted public execution. These values are public inputs to the circuit.
@@ -198,7 +197,7 @@ sequenceDiagram
   Alice->>AccountContract: run entrypoint
   AccountContract->>FPA: enqueue FPA.pay_fee(max_fee) msg_sender == Alice as fee distribution function
   AccountContract->>App: app logic
-    App->>AccountContract: 
+    App->>AccountContract:
   AccountContract->>Alice: finished private execution
 
   Alice->>Sequencer: tx object
@@ -208,7 +207,7 @@ sequenceDiagram
   FPA->>Sequencer: Alice has >= funds required from tx object
 
   Sequencer->>App: app logic
-  App->>Sequencer: 
+  App->>Sequencer:
 
   Sequencer->>FPA: FPA.pay_fee(max_fee)
   FPA->>FPA: calculate fee based on inputs to VM circuit
@@ -238,13 +237,13 @@ sequenceDiagram
   Alice->>Alice: transient auth witness for AST private transfer
   Alice->>AccountContract: run entrypoint
   AccountContract->>FPC: private_fee_entrypoint(AST, max_fee, nonce)
-  
+
   FPC->>AST: AST.transfer(FPC, max_fee + commission, nonce)
   AST->>AccountContract: check auth witness
   FPC->>FPC: enqueue FPA.private_fee_payment(max_fee) msg_sender == FPC as fee distribution function
-  FPC->>AccountContract: 
+  FPC->>AccountContract:
   AccountContract->>App: app logic
-    App->>AccountContract: 
+    App->>AccountContract:
   AccountContract->>Alice: finished private execution
 
   Alice->>Sequencer: tx object
@@ -254,7 +253,7 @@ sequenceDiagram
   FPA->>Sequencer: FPC has >= funds required from tx object
 
   Sequencer->>App: app logic
-  App->>Sequencer: 
+  App->>Sequencer:
 
   Sequencer->>FPA: FPA.private_fee_payment(max_fee)
   FPA->>FPA: calculate fee based on inputs to VM circuit
@@ -288,10 +287,10 @@ sequenceDiagram
   activate FPC
   FPC->>FPC: enqueue FPC.public_fee_preparation(Alice, AST, max_fee, nonce) as fee preparation with msg_sender == FPC
   FPC->>FPC: enqueue FPC.public_fee_payment(Alice, AST, max_fee) as fee distribution with msg_sender == FPC
-  FPC->>AccountContract: 
+  FPC->>AccountContract:
   deactivate FPC
   AccountContract->>App: app logic
-    App->>AccountContract: 
+    App->>AccountContract:
   AccountContract->>Alice: finished private execution
 
   Alice->>Sequencer: tx object
@@ -301,15 +300,15 @@ sequenceDiagram
   activate FPC
   FPC->>AST: AST.transfer_public(Alice, FPC, max_fee + commission, nonce)
   AST->>AccountContract: check auth witness
-    AccountContract->>AST: 
-  AST->>FPC: 
+    AccountContract->>AST:
+  AST->>FPC:
   FPC->>FPA: FPA.check_balance(max_fee)
-    FPA->>FPC: 
+    FPA->>FPC:
   FPC->>Sequencer: FPC has the funds
   deactivate FPC
 
   Sequencer->>App: app logic
-  App->>Sequencer: 
+  App->>Sequencer:
 
   Sequencer->>Sequencer: Recognise whitelisted function FPC.public_fee_payment(Alice, AST, max_fee) and msg.sender == FPC
   Sequencer->>FPC: FPC.public_fee_payment(Alice, AST, max_fee)
@@ -319,7 +318,7 @@ sequenceDiagram
   FPA->>Sequencer: Sequencer's balance is increased by fee amount
     FPA->>FPC: rebate value
   FPC->>AST: AST.transfer_public(FPC, Alice, rebate, 0)
-    AST->>FPC: 
+    AST->>FPC:
   FPC->>Alice: Alice's balance is increased by rebate value
   deactivate FPC
 ```
@@ -343,7 +342,7 @@ sequenceDiagram
 
   Alice->>DApp: run entrypoint
   DApp->>AccountContract: check auth witness
-  AccountContract->>DApp: 
+  AccountContract->>DApp:
   DApp->>DApp: check if will sponsor action
   DApp->>FPA: enqueue FPA.pay_fee(max_fee) and msg_sender == DApp as fee distribution
   DApp->>DApp: app logic
@@ -356,7 +355,7 @@ sequenceDiagram
   FPA->>Sequencer: DApp has >= funds required from tx object
 
   Sequencer->>DApp: app logic
-  DApp->>Sequencer: 
+  DApp->>Sequencer:
 
   Sequencer->>FPA: FPA.pay_fee(max_fee)
   FPA->>FPA: calculate fee based on inputs to VM circuit

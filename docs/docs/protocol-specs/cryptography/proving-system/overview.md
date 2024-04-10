@@ -122,4 +122,4 @@ To batch-verify multiple opening proofs, we use the technique articulated in the
 
 The following block diagrams describe the components used by the client-side and server-side Provers when computing client proofs and rollup proofs respectively.
 
-![proof-system-components](../images/proof-system-components.png)
+![proof-system-components](/img/protocol-specs/cryptography/proof-system-components.png)
