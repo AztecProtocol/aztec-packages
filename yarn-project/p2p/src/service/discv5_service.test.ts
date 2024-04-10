@@ -1,4 +1,3 @@
-// import type { PeerId } from '@libp2p/interface';
 import { sleep } from '@aztec/foundation/sleep';
 
 import type { PeerId } from '@libp2p/interface';
@@ -67,6 +66,26 @@ describe('Discv5Service', () => {
 
     await node1.stop();
     await node2.stop();
+  });
+
+  it('should persist peers without bootnode', async () => {
+    port++;
+    const node1 = await createNode(port);
+    port++;
+    const node2 = await createNode(port);
+    await node1.start();
+    await node2.start();
+    await sleep(100);
+
+    await node2.stop();
+    await bootNode.stop();
+
+    await node2.start();
+    await sleep(100);
+
+    const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
+    expect(node2Peers).toHaveLength(1);
+    expect(node2Peers).toContain(node1.getPeerId().toString());
   });
 
   const createNode = async (port: number) => {
