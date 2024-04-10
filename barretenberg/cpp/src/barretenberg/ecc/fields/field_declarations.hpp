@@ -22,9 +22,7 @@
 
 namespace bb {
 /**
- * @brief General class for prime fields
- *
- *@details see \ref field_docs["field documentation"] for more
+ * @brief General class for prime fields see \ref field_docs["field documentation"] for general implementation reference
  *
  * @tparam Params_
  */

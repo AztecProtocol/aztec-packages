@@ -276,6 +276,13 @@ template <class T> constexpr field<T> field<T>::subtract(const field& other) con
     return { r0, r1, r2, r3 };
 }
 
+/**
+ * @brief
+ *
+ * @tparam T
+ * @param other
+ * @return constexpr field<T>
+ */
 template <class T> constexpr field<T> field<T>::subtract_coarse(const field& other) const noexcept
 {
     if constexpr (modulus.data[3] >= 0x4000000000000000ULL) {
@@ -295,6 +302,13 @@ template <class T> constexpr field<T> field<T>::subtract_coarse(const field& oth
 
     return { r0, r1, r2, r3 };
 }
+
+/**
+ * @brief Mongtomery multiplication for moduli > 2²⁵⁴
+ *
+ * @details Explanation of Montgomery form can be found in \ref field_docs_montgomery_explainer and the difference
+ * between WASM and generic versions is explained in \ref field_docs_architecture_details
+ */
 template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& other) const noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
