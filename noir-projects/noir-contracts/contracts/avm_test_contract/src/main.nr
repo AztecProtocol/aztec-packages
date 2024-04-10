@@ -26,15 +26,17 @@ contract AvmTest {
     // Libs
     use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
+    use dep::aztec::history::nullifier_inclusion::prove_nullifier_inclusion;
     use dep::aztec::protocol_types::{
         address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH,
-        contract_instance::ContractInstance
+        contract_instance::ContractInstance, hash::silo_nullifier
     };
     use dep::aztec::context::gas::GasOpts;
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::traits::ToField;
     use dep::compressed_string::CompressedString;
+    use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
@@ -175,6 +177,62 @@ contract AvmTest {
     }
 
     /************************************************************************
+     * ACVM interoperability
+     ************************************************************************/
+    #[aztec(public)]
+    fn constant_field_acvm() -> pub Field {
+        123456
+    }
+
+    #[aztec(public-vm)]
+    fn constant_field_avm() -> pub Field {
+        123456
+    }
+
+    #[aztec(public)]
+    fn new_nullifier_acvm(nullifier: Field) -> pub Field {
+        context.push_new_nullifier(nullifier, 0);
+    }
+
+    #[aztec(public)]
+    fn assert_unsiloed_nullifier_acvm(nullifier: Field) {
+        // ACVM requires siloed nullifier.
+        let siloed_nullifier = silo_nullifier(context.this_address(), nullifier);
+        prove_nullifier_inclusion(siloed_nullifier, context);
+    }
+
+    #[aztec(public-vm)]
+    fn call_acvm_from_avm() -> pub Field {
+        let data_to_return: Field = Deserialize::deserialize(
+            context.call_public_function(
+                context.this_address(),
+                FunctionSelector::from_signature("constant_field_acvm()"),
+                [],
+                GasOpts::default()
+            )
+        );
+        data_to_return
+    }
+
+    #[aztec(public)]
+    fn call_avm_from_acvm() -> pub Field {
+        let data_to_return: Field = Deserialize::deserialize(
+            context.call_public_function(
+                context.this_address(),
+                FunctionSelector::from_signature("constant_field_avm()"),
+                [],
+                GasOpts::default()
+            )
+        );
+        data_to_return
+    }
+
+    #[aztec(public-vm)]
+    fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
+        let _void: [Field; 0] = context.call_public_function(context.this_address(), selector, [args], GasOpts::default());
+    }
+
+    /************************************************************************
      * Contract instance
      ************************************************************************/
     #[aztec(public-vm)]
@@ -194,6 +252,14 @@ contract AvmTest {
     fn test_get_contract_instance() {
         let ci = get_contract_instance_avm(context.this_address());
         assert(ci.is_some());
+    }
+
+    /************************************************************************
+     * Authwit functions
+     ************************************************************************/
+    #[aztec(public-vm)]
+    fn test_authwit_send_money(from: AztecAddress, _to: AztecAddress, _amount: Field) {
+        assert_current_call_valid_authwit_public(&mut context, from);
     }
 
     /************************************************************************
