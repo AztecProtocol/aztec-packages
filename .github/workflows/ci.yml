@@ -31,7 +31,7 @@ jobs:
       matrix:
         config:
           - {ec2_instance_type: m6a.16xlarge, runner_concurrency: 50, ec2_ami_id: ami-04d8422a9ba4de80f, runner_label_suffix: x86}
-          - {ec2_instance_type: r6g.16xlarge, runner_concurrency: 2, ec2_ami_id: ami-0d8a9b0419ddb331a, runner_label_suffix: arm}
+          - {ec2_instance_type: r6g.16xlarge, runner_concurrency: 8, ec2_ami_id: ami-0d8a9b0419ddb331a, runner_label_suffix: arm}
     steps:
       - name: Start EC2 runner
         id: start-ec2-runner
@@ -131,6 +131,14 @@ jobs:
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
+      # Only allow one memory-hunger prover test to use this runner
+      # As detailed in https://github.com/ben-z/gh-action-mutex
+      # things do not become 'pending' in github actions, and instead just cancel one another
+      # so we can't use the native concurrency in GA
+      - name: Set up mutex
+        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+        with:
+          branch: gh-action-mutex-build-x86-${{ github.actor }}
       # prepare images locally, tagged by commit hash
       - run: earthly ./yarn-project+export-end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
