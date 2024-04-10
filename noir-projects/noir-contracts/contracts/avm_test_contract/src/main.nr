@@ -195,8 +195,10 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn assert_unsiloed_nullifier_acvm(unsiloed_nullifier: Field) {
-        assert(context.nullifier_exists(unsiloed_nullifier, context.this_address()));
+    fn assert_unsiloed_nullifier_acvm(nullifier: Field) {
+        // ACVM requires siloed nullifier.
+        let siloed_nullifier = silo_nullifier(context.this_address(), nullifier);
+        assert(context.nullifier_exists(siloed_nullifier));
     }
 
     #[aztec(public-vm)]
@@ -360,19 +362,19 @@ contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[aztec(public-vm)]
     fn nullifier_exists(nullifier: Field) -> pub bool {
-        context.nullifier_exists(nullifier, context.this_address())
+        context.nullifier_exists(nullifier)
     }
 
     #[aztec(public-vm)]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier, context.this_address()));
+        assert(context.nullifier_exists(nullifier));
     }
 
     // Use the standard context interface to emit a new nullifier
     #[aztec(public-vm)]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
-        let exists = context.nullifier_exists(nullifier, context.this_address());
+        let exists = context.nullifier_exists(nullifier);
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 

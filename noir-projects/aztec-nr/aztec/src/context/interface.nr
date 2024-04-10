@@ -49,6 +49,6 @@ trait PublicContextInterface {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> FunctionReturns<RETURNS_COUNT>;
-    fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool;
+    ) -> [Field; RETURN_VALUES_LENGTH];
+    fn nullifier_exists(self, nullifier: Field) -> bool;
 }

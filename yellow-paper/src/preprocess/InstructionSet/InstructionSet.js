@@ -912,12 +912,11 @@ context.worldStateAccessTrace.newNoteHashes.append(
         ],
         "Args": [
             {"name": "nullifierOffset", "description": "memory offset of the unsiloed nullifier"},
-            {"name": "addressOffset", "description": "memory offset of the storage address"},
             {"name": "existsOffset", "description": "memory offset specifying where to store operation's result (whether the nullifier exists)"},
         ],
         "Expression": `
-exists = pendingNullifiers.has(M[addressOffset], M[nullifierOffset]) || context.worldState.nullifiers.has(
-    hash(M[addressOffset], M[nullifierOffset])
+exists = context.worldState.nullifiers.has(
+    hash(context.environment.storageAddress, M[nullifierOffset])
 )
 M[existsOffset] = exists
 `,
@@ -927,7 +926,6 @@ context.worldStateAccessTrace.nullifierChecks.append(
     TracedNullifierCheck {
         callPointer: context.environment.callPointer,
         nullifier: M[nullifierOffset],
-        storageAddress: M[addressOffset],
         exists: exists, // defined above
         counter: ++context.worldStateAccessTrace.accessCounter,
     }

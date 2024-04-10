@@ -198,15 +198,10 @@ contract InclusionProofs {
         }
     }
 
-    #[aztec(public)]
-    fn push_nullifier_public(nullifier: Field) {
-        context.push_new_nullifier(nullifier, 0);
-    }
-
     // Proves nullifier existed at latest block
     #[aztec(public)]
     fn test_nullifier_inclusion_from_public(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier, context.this_address()));
+        assert(context.nullifier_exists(nullifier));
     }
 
     #[aztec(private)]
