@@ -273,7 +273,7 @@ fn insert_public_data_update_requests(
         ),
         |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf| { // Is valid low preimage
             let is_update = low_preimage.slot == write.slot;
-            let is_low_empty = low_preimage.is_empty();
+            let is_low_default = is_default(low_preimage);
 
             let is_less_than_slot = full_field_less_than(low_preimage.slot, write.slot);
             let is_next_greater_than = full_field_less_than(write.slot, low_preimage.next_slot);
@@ -281,7 +281,7 @@ fn insert_public_data_update_requests(
                 is_next_greater_than |
                 ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
-            (!is_low_empty) & (is_update | is_in_range)
+            (!is_low_default) & (is_update | is_in_range)
         },
         |low_preimage: PublicDataTreeLeafPreimage, write: PublicDataTreeLeaf, write_index: u64| { // Update low leaf
             let is_update = low_preimage.slot == write.slot;
@@ -304,7 +304,7 @@ fn insert_public_data_update_requests(
         |write: PublicDataTreeLeaf, low_preimage: PublicDataTreeLeafPreimage| { // Build insertion leaf
             let is_update = low_preimage.slot == write.slot;
             if is_update {
-                PublicDataTreeLeafPreimage::empty()
+                PublicDataTreeLeafPreimage::default()
             }else {
                 PublicDataTreeLeafPreimage {
                     slot: write.slot,
@@ -330,7 +330,7 @@ fn validate_public_data_reads(
         let low_preimage = public_data_reads_preimages[i];
         let witness = public_data_reads_witnesses[i];
 
-        let is_low_empty = low_preimage.is_empty();
+        let is_low_default = is_default(low_preimage);
         let is_exact = low_preimage.slot == read.leaf_slot;
 
         let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
@@ -339,7 +339,7 @@ fn validate_public_data_reads(
             & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
         if (!read.is_empty()) {
-            assert(!is_low_empty, "public data read is not empty but low preimage is empty");
+            assert(!is_low_default, "public data read is not empty but low preimage is empty");
             if is_in_range {
                 assert_eq(read.value, 0, "low leaf for public data read is in range but value is not zero");
             } else {
@@ -414,6 +414,7 @@ mod tests {
         fixture_builder::FixtureBuilder, merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
         sort::sort_high_to_low
     },
+        traits::is_default,
         utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256}
     };
 
@@ -462,7 +463,7 @@ mod tests {
                 sorted_public_data_writes[i] = leaf;
                 sorted_public_data_writes_indexes[i] = sorted_write_tuples[i].original_index;
 
-                if !leaf.is_empty() {
+                if !is_default(leaf) {
                     let low_leaf = pre_existing_public_data[low_leaf_index];
                     if low_leaf.slot == leaf.slot {
                         pre_existing_public_data[low_leaf_index].value = leaf.value;
@@ -492,7 +493,7 @@ mod tests {
                     );
                 }
             } else {
-                sorted_public_data_writes[i] = PublicDataTreeLeaf::empty();
+                sorted_public_data_writes[i] = PublicDataTreeLeaf::default();
                 sorted_public_data_writes_indexes[i] = i;
             }
         }

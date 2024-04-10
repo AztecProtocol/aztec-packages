@@ -220,7 +220,7 @@ fn propagate_nullifier_read_requests<T>(
 
     for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
         let request = nullifier_read_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             circuit_outputs.validation_requests.nullifier_read_requests.push(request.to_context(storage_contract_address));
         }
     }
@@ -236,7 +236,7 @@ fn propagate_nullifier_non_existent_read_requests<T>(
 
     for i in 0..MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL {
         let request = nullifier_non_existent_read_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             circuit_outputs.validation_requests.nullifier_non_existent_read_requests.push(request.to_context(storage_contract_address));
         }
     }
@@ -253,7 +253,7 @@ fn propagate_valid_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
+        if (!is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -276,7 +276,7 @@ fn propagate_valid_non_revertible_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!update_request.is_empty()) {
+        if (!is_default(update_request)) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)

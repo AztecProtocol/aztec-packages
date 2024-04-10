@@ -10,7 +10,7 @@ use dep::types::{
 },
     constants::MAX_NEW_NULLIFIERS_PER_TX,
     utils::{arrays::{array_length, array_merge, array_to_bounded_vec, assert_sorted_array}},
-    hash::silo_nullifier, traits::is_empty
+    hash::silo_nullifier, traits::is_default
 };
 use dep::std::unsafe;
 
@@ -73,7 +73,7 @@ impl PublicKernelTailCircuitPrivateInputs {
         let mut read_requests = self.previous_kernel.public_inputs.validation_requests.nullifier_non_existent_read_requests;
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
-            if !is_empty(read_request) {
+            if !is_default(read_request) {
                 read_requests[i].value = silo_nullifier(read_request.contract_address, read_request.value);
             }
         }

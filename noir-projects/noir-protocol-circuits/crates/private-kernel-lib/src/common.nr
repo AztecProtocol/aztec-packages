@@ -203,7 +203,7 @@ pub fn update_end_values(
     let nullifier_read_requests = private_call_public_inputs.nullifier_read_requests;
     for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
         let request = nullifier_read_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             public_inputs.validation_requests.nullifier_read_requests.push(request.to_context(storage_contract_address));
         }
     }
@@ -212,7 +212,7 @@ pub fn update_end_values(
     let nullifier_key_validation_requests = private_call_public_inputs.nullifier_key_validation_requests;
     for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
         let request = nullifier_key_validation_requests[i];
-        if !is_empty(request) {
+        if !is_default(request) {
             public_inputs.validation_requests.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
         }
     }

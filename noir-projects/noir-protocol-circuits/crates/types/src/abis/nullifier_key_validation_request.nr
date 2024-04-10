@@ -2,7 +2,7 @@ use dep::std::cmp::Eq;
 use crate::{
     address::AztecAddress,
     constants::{NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH, NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH},
-    traits::{Empty, Serialize, Deserialize}, grumpkin_point::GrumpkinPoint,
+    traits::{Serialize, Deserialize}, grumpkin_point::GrumpkinPoint,
     grumpkin_private_key::GrumpkinPrivateKey
 };
 
@@ -18,8 +18,8 @@ impl Eq for NullifierKeyValidationRequest {
     }
 }
 
-impl Empty for NullifierKeyValidationRequest {
-    fn empty() -> Self {
+impl Default for NullifierKeyValidationRequest {
+    fn default() -> Self {
         NullifierKeyValidationRequest {
             public_key: GrumpkinPoint::default(),
             secret_key: GrumpkinPrivateKey::default(),
@@ -67,8 +67,8 @@ impl Eq for NullifierKeyValidationRequestContext {
     }
 }
 
-impl Empty for NullifierKeyValidationRequestContext {
-    fn empty() -> Self {
+impl Default for NullifierKeyValidationRequestContext {
+    fn default() -> Self {
         NullifierKeyValidationRequestContext {
             public_key: GrumpkinPoint::default(),
             secret_key: GrumpkinPrivateKey::default(),
@@ -98,4 +98,3 @@ impl Deserialize<NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH> for NullifierK
         }
     }
 }
-
