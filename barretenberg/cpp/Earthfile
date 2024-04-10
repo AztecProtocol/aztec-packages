@@ -162,30 +162,35 @@ preset-wasm-bench:
 preset-release-assert-test:
     FROM +preset-release-assert
     # build all targets for tests
-    RUN cmake --build build 
+    RUN cmake --build build
     SAVE ARTIFACT build/bin
 
-# Sent to the bench runner using a earthly-cloud build x86 --push +bench-base --bench_mode=true
+# Sent to the bench runner using a earthly-cloud build x86 --push +bench-binaries --bench_mode=true
 # then we can run earthly-cloud bench x86 +bench-ultra-honk etc
-bench-base:
+bench-binaries:
     ARG EARTHLY_GIT_HASH
     ARG TARGETARCH
     ARG bench_mode=build
     LOCALLY
     IF [ $bench_mode = cache ]
-        FROM aztecprotocol/bb-bench-base:$TARGETARCH-$EARTHLY_GIT_HASH
+        FROM aztecprotocol/bb-bench-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
     ELSE
-        FROM +source
+        FROM scratch
         COPY +preset-op-count-time-bench/bin/*_bench op-count-time/bin/
         COPY +preset-op-count-bench/bin/*_bench op-count/bin/
         COPY +preset-release-bench/bin/*_bench release/bin/
         COPY +preset-wasm-bench/bin/*_bench wasm/bin/
-        SAVE IMAGE --push aztecprotocol/bb-bench-base:$TARGETARCH-$EARTHLY_GIT_HASH
+        SAVE ARTIFACT op-count time op-count release wasm
+        SAVE IMAGE --push aztecprotocol/bb-bench-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
     END
+
+bench-base:
+    FROM +source
+    COPY --dir +bench-binaries/* .
 
 # Runs on the bench image, sent from the builder runner
 bench-ultra-honk:
-    FROM +bench-base
+    FROM +bench-binaries
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd release && ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
@@ -195,7 +200,7 @@ bench-ultra-honk:
     RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
 
 bench-client-ivc:
-    FROM +bench-base
+    FROM +bench-binaries
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
     RUN cd release && ./bin/client_ivc_bench --benchmark_filter="ClientIVCBench/Full/6$"

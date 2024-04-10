@@ -18,7 +18,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   # Start cheap (~1/8th the cost of on demand, ~13th the cost of large GA runners) spot builders
-  # just for the CI job. These are specced per user and run the entire CI. 
+  # just for the CI job. These are specced per user and run the entire CI.
   # TODO These have a persistent EBS volume that forms a fast-online docker image cache (used by Earthly), meaning
   # TODO build steps that ran in previous invocations are quickly ran from cache.
   start-builder:
@@ -177,7 +177,7 @@ jobs:
         run: earthly --no-output +test
 
   # push benchmarking binaries to dockerhub registry
-  bb-bench-base:
+  bb-bench-binaries:
     runs-on: ${{ github.actor }}-x86
     needs: setup-x86
     steps:
@@ -186,12 +186,12 @@ jobs:
       - name: Build and Push Binaries
         if: ${{ github.event.inputs.just_start_spot != 'true' }}
         working-directory: ./barretenberg/cpp/
-        run: earthly --push +bench-base
+        run: earthly --push +bench-binaries
 
   start-bb-bench-runner:
     timeout-minutes: 5
     # We wait for binaries to be done for kickoff
-    needs: bb-bench-base
+    needs: bb-bench-binaries
     name: Start Bench Runner
     runs-on: ubuntu-latest
     permissions:
@@ -251,7 +251,7 @@ jobs:
 
   # # Post actions, deploy and summarize logs
   # aztec-bench-summary:
-  #   runs-on: ${{ github.actor }}     
+  #   runs-on: ${{ github.actor }}
   #  # IMPORTANT security flaw if we don't need 'check-run-condition'
   #   needs: e2e-x86
   #   concurrency:
