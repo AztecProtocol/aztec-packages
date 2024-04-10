@@ -12,44 +12,25 @@
 
 namespace bb {
 
-/**
- * Create ECCVMProver from proving key, witness and manifest.
- *
- * @param input_key Proving key.
- * @param input_manifest Input manifest
- *
- * @tparam settings Settings class.
- * */
-ECCVMProver::ECCVMProver(const std::shared_ptr<ProvingKey>& input_key,
-                         const std::shared_ptr<CommitmentKey>& commitment_key,
-                         const std::shared_ptr<Transcript>& transcript)
-    : transcript(transcript)
-    , key(input_key)
-    , commitment_key(commitment_key)
-{ // this will be initialized properly later
-    key->z_perm = Polynomial(key->circuit_size);
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
-        ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
-        prover_poly = key_poly.share();
-    }
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_shifted(), key->get_to_be_shifted())) {
-        ASSERT(flavor_get_label(prover_polynomials, prover_poly) == (flavor_get_label(*key, key_poly) + "_shift"));
-        prover_poly = key_poly.shifted();
-    }
-}
-
 ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcript>& transcript)
+    : transcript(transcript)
+    , prover_polynomials(builder)
 {
     BB_OP_COUNT_TIME_NAME("ECCVMProver(CircuitBuilder&)");
-    // compute wire polynomials and copy into proving key
-    auto local_key = std::make_shared<ProvingKey>(builder);
-    ProverPolynomials polynomials(builder); // WORKTODO: inefficient
-    for (auto [prover_poly, key_poly] : zip_view(polynomials.get_wires(), local_key->get_wires())) {
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/939): Remove redundancy between
+    // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
+
+    // Construct the proving key; populates all polynomials except for witness polys
+    key = std::make_shared<ProvingKey>(builder);
+
+    // Copy the wire polynomials from ProverPolynomials to the ProvingKey
+    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_wires(), key->get_wires())) {
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
-        std::copy(prover_poly.begin(), prover_poly.end(), key_poly.begin());
+        key_poly = prover_poly.share();
     }
 
-    *this = ECCVMProver(std::move(local_key), std::make_shared<CommitmentKey>(local_key->circuit_size), transcript);
+    commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
 }
 
 /**
@@ -97,6 +78,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
         prover_polynomials, relation_parameters, key->circuit_size);
+    key->lookup_inverses = prover_polynomials.lookup_inverses;
     transcript->send_to_verifier(commitment_labels.lookup_inverses, commitment_key->commit(key->lookup_inverses));
     prover_polynomials.lookup_inverses = key->lookup_inverses.share();
 }
