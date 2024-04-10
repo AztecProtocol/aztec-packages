@@ -6,10 +6,10 @@ import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { initContext, initExecutionEnvironment } from '../avm/fixtures/index.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
-import { initContext, initExecutionEnvironment } from '../avm/fixtures/index.js';
 
 describe('AVM WitGen and Proof Generation', () => {
   let publicState: MockProxy<PublicStateDB>;
@@ -43,11 +43,16 @@ describe('AVM WitGen and Proof Generation', () => {
 
     const functionData = FunctionData.fromAbi(addArtifact);
     const args: Fr[] = [new Fr(99), new Fr(12)];
-    // We call initContext here to load up a AvmExecutionEnvironment that prepends the calldata with the function selector 
+    // We call initContext here to load up a AvmExecutionEnvironment that prepends the calldata with the function selector
     // and the args hash. In reality, we should simulate here and get this from the output of the simulation call.
     // For now, the interfaces for the PublicExecutor don't quite line up, so we are doing this.
     const context = initContext({ env: initExecutionEnvironment({ calldata: args }) });
-    const execution: PublicExecution = { contractAddress, functionData, args: context.environment.calldata, callContext };
+    const execution: PublicExecution = {
+      contractAddress,
+      functionData,
+      args: context.environment.calldata,
+      callContext,
+    };
     const executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
     const [proof, vk] = await executor.getAvmProof(execution);
     const valid = await executor.verifyAvmProof(vk, proof);
