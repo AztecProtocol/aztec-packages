@@ -1,10 +1,10 @@
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import type { AztecKVStore, AztecMap } from '@aztec/kv-store';
 
-import { ENR } from '@chainsafe/enr';
+import type { ENR } from '@chainsafe/enr';
 
 export interface AztecPeerStore {
-  addPeer(peerId: string, enr: ENR): Promise<boolean>;
-  removePeer(peerId: string): Promise<boolean>;
+  addPeer(peerId: string, enr: ENR): Promise<void>;
+  removePeer(peerId: string): Promise<void>;
   getPeer(peerId: string): ENR | undefined;
   getAllPeers(): IterableIterator<ENR>;
 }
@@ -16,12 +16,12 @@ export class AztecPeerDb implements AztecPeerStore {
     this.#peers = db.openMap('p2p_peers');
   }
 
-  addPeer(peerId: string, enr: ENR): Promise<boolean> {
-    return this.#peers.set(peerId, enr);
+  async addPeer(peerId: string, enr: ENR): Promise<void> {
+    void (await this.#peers.set(peerId, enr));
   }
 
-  removePeer(peerId: string): Promise<boolean> {
-    return this.#peers.delete(peerId);
+  async removePeer(peerId: string): Promise<void> {
+    void (await this.#peers.delete(peerId));
   }
 
   getPeer(peerId: string): ENR | undefined {
