@@ -10,17 +10,6 @@ runs:
   # define an action, runs in OS of caller
   using: composite
   steps:
-    - name: Cache Submodules
-      id: cache-submodules
-      uses: actions/cache@v3
-      with:
-        path: .git/modules
-        key: submodules-${{ hashFiles('.gitmodules') }}
-
-    - name: Checkout Submodules
-      shell: bash
-      run: git submodule sync --recursive && git submodule update --init --recursive
-
     # Since we use multiple runners, dont want them clashing
     - name: Generate Unique Home Directory
       shell: bash
@@ -28,6 +17,19 @@ runs:
         RUN_HOME=~/run-$RANDOM-$(date +%s)
         echo HOME=$RUN_HOME >> $GITHUB_ENV
         mkdir -p $RUN_HOME
+
+    - name: Cache Submodules
+      id: cache-submodules
+      uses: actions/cache@v3
+      with:
+        path: .git/modules
+        key: submodules-${{ hashFiles('.gitmodules') }}-spot-ebs
+
+    - name: Checkout Submodules
+      shell: bash
+      run: |
+        git config --global --add safe.directory '*'
+        git submodule sync --recursive && git submodule update --init --recursive
 
     # TODO reconsider how jq gets into image
     - name: Setup jq
