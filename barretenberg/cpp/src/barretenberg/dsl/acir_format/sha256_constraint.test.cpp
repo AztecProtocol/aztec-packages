@@ -18,12 +18,12 @@ TEST_F(Sha256Tests, TestSha256Compression)
 {
 
     std::array<Sha256Input, 16> inputs;
-    for (uint32_t i = 1; i < 17; ++i) {
-        inputs[i] = { .witness = i, .num_bits = 32 };
+    for (uint32_t i = 0; i < 16; ++i) {
+        inputs[i] = { .witness = (i + 1), .num_bits = 32 };
     }
     std::array<Sha256Input, 8> hash_values;
-    for (uint32_t i = 17; i < 25; ++i) {
-        hash_values[i] = { .witness = i, .num_bits = 32 };
+    for (uint32_t i = 16; i < 24; ++i) {
+        hash_values[i] = { .witness = (i + 1), .num_bits = 32 };
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
