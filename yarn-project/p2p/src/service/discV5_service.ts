@@ -1,4 +1,5 @@
 import { createDebugLogger } from '@aztec/foundation/log';
+import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { type ENR, SignableENR } from '@chainsafe/enr';
@@ -10,8 +11,8 @@ import type { P2PConfig } from '../config.js';
 import type { PeerDiscoveryService } from './service.js';
 
 export enum PeerDiscoveryState {
-  RUNNING,
-  STOPPED,
+  RUNNING = 'running',
+  STOPPED = 'stopped',
 }
 
 /**
@@ -26,6 +27,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   /** The interval for checking for new peers */
   private discoveryInterval: NodeJS.Timeout | null = null;
+
+  private runningPromise: RunningPromise;
 
   private currentState = PeerDiscoveryState.STOPPED;
 
@@ -79,6 +82,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         this.logger.error(`Error adding bootnode ENRs: ${e}`);
       }
     }
+
+    this.runningPromise = new RunningPromise(async () => {
+      await this.discv5.findRandomNode();
+    }, config.p2pPeerCheckIntervalMS);
   }
 
   public async start(): Promise<void> {
@@ -89,9 +96,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     await this.discv5.start();
     this.logger.info('DiscV5 started');
     this.currentState = PeerDiscoveryState.RUNNING;
-    this.discoveryInterval = setInterval(async () => {
-      await this.discv5.findRandomNode();
-    }, 2000);
+    this.runningPromise.start();
   }
 
   public getAllPeers(): ENR[] {
@@ -106,10 +111,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     return this.peerId;
   }
 
+  public getStatus(): PeerDiscoveryState {
+    return this.currentState;
+  }
+
   public async stop(): Promise<void> {
-    if (this.discoveryInterval) {
-      clearInterval(this.discoveryInterval);
-    }
+    await this.runningPromise.stop();
     await this.discv5.stop();
     this.currentState = PeerDiscoveryState.STOPPED;
   }

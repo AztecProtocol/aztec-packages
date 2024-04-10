@@ -4,7 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import type { PeerId } from '@libp2p/interface';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { DiscV5Service } from './discV5_service.js';
+import { DiscV5Service, PeerDiscoveryState } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 
 describe('Discv5Service', () => {
@@ -21,6 +21,7 @@ describe('Discv5Service', () => {
     bootstrapNodes: [],
     p2pEnabled: true,
     p2pBlockCheckIntervalMS: 50,
+    p2pPeerCheckIntervalMS: 50,
     p2pL2QueueSize: 100,
     transactionProtocol: 'aztec/1.0.0',
     minPeerCount: 1,
@@ -43,6 +44,9 @@ describe('Discv5Service', () => {
     const peers = node.getAllPeers();
     const bootnode = peers[0];
     expect((await bootnode.peerId()).toString()).toEqual(bootNodePeerId.toString());
+    expect(node.getStatus()).toEqual(PeerDiscoveryState.STOPPED); // not started yet
+    await node.start();
+    expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
   });
 
   it('should discover & add a peer', async () => {
@@ -52,7 +56,7 @@ describe('Discv5Service', () => {
     const node2 = await createNode(port);
     await node1.start();
     await node2.start();
-    await sleep(10000);
+    await sleep(100);
     const node1Peers = await Promise.all(node1.getAllPeers().map(async peer => (await peer.peerId()).toString()));
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
 
@@ -63,7 +67,7 @@ describe('Discv5Service', () => {
 
     await node1.stop();
     await node2.stop();
-  }, 20000);
+  });
 
   const createNode = async (port: number) => {
     const peerId = await createLibP2PPeerId();
