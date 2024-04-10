@@ -15,7 +15,6 @@ import {
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
-  ProtocolCircuitArtifacts,
   ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
@@ -50,7 +49,7 @@ export type BBProverConfig = {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements CircuitProver {
-  private verificationKeyDirectories: Map<string, string> = new Map<string, string>();
+  private verificationKeyDirectories: Map<ServerProtocolArtifact, string> = new Map<ServerProtocolArtifact, string>();
   constructor(private config: BBProverConfig) {}
 
   static async new(config: BBProverConfig) {
@@ -166,7 +165,7 @@ export class BBNativeRollupProver implements CircuitProver {
           return;
         }
         logger.info(`Generated verification key for circuit ${circuitName} at ${result.path!}`);
-        this.verificationKeyDirectories.set(circuitName, result.path!);
+        this.verificationKeyDirectories.set(circuitName as ServerProtocolArtifact, result.path!);
       });
       promises.push(verificationKeyPromise);
     }

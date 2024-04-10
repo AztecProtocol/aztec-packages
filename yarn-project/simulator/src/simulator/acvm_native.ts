@@ -1,5 +1,4 @@
 import { randomBytes } from '@aztec/foundation/crypto';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import { type WitnessMap } from '@noir-lang/types';
