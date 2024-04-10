@@ -1,17 +1,27 @@
-import { AztecAddress, ContractFunctionInteraction, EthAddress, Fr, FunctionSelector, PXE, TxHash } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  ContractFunctionInteraction,
+  EthAddress,
+  Fr,
+  FunctionSelector,
+  PXE,
+  TxHash,
+} from '@aztec/aztec.js';
 import { toACVMField } from '@aztec/simulator';
-
-
 
 import bodyParser from 'body-parser';
 import express from 'express';
 import { JSONRPCServer } from 'json-rpc-2.0';
 
-
-
 import { ForeignCallResult } from './ForeignCallResult.js';
-import { deployContract, initSandbox, privateCall, publicCall, unconstrainedCall } from './sandbox.js';
-
+import {
+  deployContract,
+  initSandbox,
+  privateCall,
+  publicCall,
+  publicStorageRead,
+  unconstrainedCall,
+} from './sandbox.js';
 
 const PORT = 5555;
 const app = express();
@@ -88,6 +98,20 @@ server.addMethod('getNumberOfNewNotes', async params => {
   const numberOfNotes = filteredNoteHashes.length;
 
   return { values: [{ Single: numberOfNotes.toString() }] };
+});
+
+server.addMethod('publicStorageRead', async params => {
+  console.log({ params });
+  console.log({ param0: params[0].Single });
+  console.log({ param1: params[1].Single });
+  const contractAddress = AztecAddress.fromString(params[0].Single);
+  console.log({ contractAddress });
+  const storageSlot: Fr = Fr.fromString(params[1].Single.toString());
+  console.log({ storageSlot });
+  let value = await publicStorageRead(pxe, contractAddress, storageSlot);
+  console.log({ value });
+  console.log({ values: [{ Single: value.toString() }] });
+  return { values: [{ Single: value.toString() }] };
 });
 
 app.post('/', (req, res) => {

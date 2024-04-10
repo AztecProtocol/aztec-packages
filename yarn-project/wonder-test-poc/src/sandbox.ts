@@ -1,11 +1,24 @@
 import { createAccount, getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecAddress, ContractFunctionInteraction, ContractInstanceWithAddress, EthAddress, Fr, FunctionArtifact, FunctionSelector, PXE, PackedArguments, Tx, TxExecutionRequest, TxHash, createPXEClient, encodeArguments, initAztecJs } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  ContractFunctionInteraction,
+  ContractInstanceWithAddress,
+  EthAddress,
+  Fr,
+  FunctionArtifact,
+  FunctionSelector,
+  PXE,
+  PackedArguments,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  createPXEClient,
+  encodeArguments,
+  initAztecJs,
+} from '@aztec/aztec.js';
 import { toACVMField } from '@aztec/simulator';
 
-
-
 import { MeaningOfLifeContract } from './artifacts/MeaningOfLife.js';
-
 
 let selectorsResolved = new Map<string, string>();
 let contractClassId: Fr = new Fr(0);
@@ -38,7 +51,12 @@ export const deployContract = async (pxe: PXE) => {
 };
 
 // todo: add notes -> how to catch them? Or passed as args (cumbersome++)
-export const privateCall = async (pxe: PXE, contractAddress: AztecAddress, functionSelector: FunctionSelector, arg: Fr) => {
+export const privateCall = async (
+  pxe: PXE,
+  contractAddress: AztecAddress,
+  functionSelector: FunctionSelector,
+  arg: Fr,
+) => {
   // const functionName = selectorsResolved.get(functionSelector.toString());
 
   // const functionArtifact = MeaningOfLifeContract.artifact.functions.find(
@@ -132,5 +150,10 @@ export const unconstrainedCall = async (
   // make the unconstrained call
   let result = await pxe.viewTx(methodName, args, contractAddress);
 
+  return result;
+};
+
+export const publicStorageRead = async (pxe: PXE, contractAddress: AztecAddress, storageSlot: Fr) => {
+  let result = await pxe.getPublicStorageAt(contractAddress, storageSlot);
   return result;
 };
