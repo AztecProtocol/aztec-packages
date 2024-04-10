@@ -32,7 +32,7 @@ export interface ACIRExecutionResult {
    * 2. The return witness which contains the given public return values within the full witness.
    */
   partialWitness: ACVMWitness;
-  returnWitness:  ACVMWitness;
+  returnWitness: ACVMWitness;
 }
 
 /**
@@ -92,7 +92,7 @@ export async function acvm(
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
 
-  const partialAndReturnWitness = await executeCircuitWithReturnWitness(
+  const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
     solver,
     acir,
     initialWitness,
@@ -130,7 +130,7 @@ export async function acvm(
     throw err;
   });
 
-  return { partialWitness: partialAndReturnWitness[0], returnWitness: partialAndReturnWitness[1] };
+  return { partialWitness: solvedAndReturnWitness.solvedWitness, returnWitness: solvedAndReturnWitness.returnWitness };
 }
 
 /**

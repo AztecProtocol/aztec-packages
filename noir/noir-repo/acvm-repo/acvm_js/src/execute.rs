@@ -94,7 +94,7 @@ pub async fn execute_circuit_with_return_witness(
         extract_indices(&solved_witness, main_circuit.return_values.0.iter().copied().collect())
             .map_err(|err| JsExecutionError::new(err, None))?;
 
-    Ok(vec![solved_witness, return_witness].into())
+    Ok((solved_witness, return_witness).into())
 }
 
 /// Executes an ACIR circuit to generate the solved witness from the initial witness.

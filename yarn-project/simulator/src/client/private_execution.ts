@@ -26,24 +26,21 @@ export async function executePrivateFunction(
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
-  const { partialAndReturnWitness } = await acvm(
-    await AcirSimulator.getSolver(),
-    acir,
-    initialWitness,
-    acvmCallback,
-  ).catch((err: Error) => {
-    throw new ExecutionError(
-      err.message,
-      {
-        contractAddress,
-        functionSelector,
-      },
-      extractCallStack(err, artifact.debug),
-      { cause: err },
-    );
-  });
-  const partialWitness = partialAndReturnWitness[0];
-  const returnWitness = witnessMapToFields(partialAndReturnWitness[1]);
+  const acirExecutionResult = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback).catch(
+    (err: Error) => {
+      throw new ExecutionError(
+        err.message,
+        {
+          contractAddress,
+          functionSelector,
+        },
+        extractCallStack(err, artifact.debug),
+        { cause: err },
+      );
+    },
+  );
+  const partialWitness = acirExecutionResult.partialWitness;
+  const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
   const encryptedLogs = context.getEncryptedLogs();

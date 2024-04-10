@@ -2,7 +2,7 @@ use acvm::{
     acir::native_types::{Witness, WitnessMap},
     FieldElement,
 };
-use js_sys::{Array, JsString, Map};
+use js_sys::{JsString, Map, Object};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
 #[wasm_bindgen(typescript_custom_section)]
@@ -10,7 +10,15 @@ const WITNESS_MAP: &'static str = r#"
 // Map from witness index to hex string value of witness.
 export type WitnessMap = Map<number, string>;
 
-export type SolvedAndReturnWitness = Array<WitnessMap>;
+/**
+ * An execution result containing two witnesses.
+ * 1. The full solved witness of the execution.
+ * 2. The return witness which contains the given public return values within the full witness.
+ */
+export type SolvedAndReturnWitness = {
+    solvedWitness: WitnessMap;
+    returnWitness: WitnessMap;
+}
 "#;
 
 // WitnessMap
@@ -23,11 +31,11 @@ extern "C" {
     #[wasm_bindgen(constructor, js_class = "Map")]
     pub fn new() -> JsWitnessMap;
 
-    #[wasm_bindgen(extends = Array, js_name = "SolvedAndReturnWitness", typescript_type = "SolvedAndReturnWitness")]
+    #[wasm_bindgen(extends = Object, js_name = "SolvedAndReturnWitness", typescript_type = "SolvedAndReturnWitness")]
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub type JsSolvedAndReturnWitness;
 
-    #[wasm_bindgen(constructor, js_class = "Array")]
+    #[wasm_bindgen(constructor, js_class = "Object")]
     pub fn new() -> JsSolvedAndReturnWitness;
 }
 
@@ -68,14 +76,17 @@ impl From<JsWitnessMap> for WitnessMap {
     }
 }
 
-impl From<Vec<WitnessMap>> for JsSolvedAndReturnWitness {
-    fn from(witness_maps: Vec<WitnessMap>) -> Self {
-        let js_witness_maps = JsSolvedAndReturnWitness::new();
-        for witness_map in witness_maps {
-            let js_witness_map = JsWitnessMap::from(witness_map);
-            js_witness_maps.push(&js_witness_map);
-        }
-        js_witness_maps
+impl From<(WitnessMap, WitnessMap)> for JsSolvedAndReturnWitness {
+    fn from(witness_maps: (WitnessMap, WitnessMap)) -> Self {
+        let js_solved_witness = JsWitnessMap::from(witness_maps.0);
+        let js_return_witness = JsWitnessMap::from(witness_maps.1);
+
+        let entry_map = Map::new();
+        entry_map.set(&JsValue::from_str("solvedWitness"), &js_solved_witness);
+        entry_map.set(&JsValue::from_str("returnWitness"), &js_return_witness);
+
+        let solved_and_return_witness = Object::from_entries(&entry_map).unwrap();
+        JsSolvedAndReturnWitness { obj: solved_and_return_witness }
     }
 }
 
