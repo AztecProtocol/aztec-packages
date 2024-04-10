@@ -24,8 +24,8 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder, const std::shared_ptr<Transcri
     // Construct the proving key; populates all polynomials except for witness polys
     key = std::make_shared<ProvingKey>(builder);
 
-    // Copy the wire polynomials from ProverPolynomials to the ProvingKey
-    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_wires(), key->get_wires())) {
+    // Share all unshifted polys from the prover polynomials to the proving key
+    for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
         key_poly = prover_poly.share();
     }
@@ -78,9 +78,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
         prover_polynomials, relation_parameters, key->circuit_size);
-    key->lookup_inverses = prover_polynomials.lookup_inverses;
     transcript->send_to_verifier(commitment_labels.lookup_inverses, commitment_key->commit(key->lookup_inverses));
-    prover_polynomials.lookup_inverses = key->lookup_inverses.share();
 }
 
 /**
