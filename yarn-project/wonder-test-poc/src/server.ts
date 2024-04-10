@@ -32,7 +32,6 @@ server.addMethod('getSqrt', async params => {
 // Deploy a contract
 server.addMethod('deployContract', async params => {
   let contractAddy = await deployContract(pxe);
-
   return { values: [{ Single: contractAddy.toString() }] };
 });
 
@@ -43,7 +42,7 @@ server.addMethod('view', async params => {
   const functionSelector = FunctionSelector.fromString(params[1].Single.slice(-8));
 
   // todo: type?
-  const args = params[2]; //.Array.map(({ inner }: { inner: string }) => inner);
+  const args = params[2];
 
   const result = await unconstrainedCall(pxe, contractAddress, functionSelector, args);
 
@@ -58,10 +57,9 @@ server.addMethod('debugLog', async params => {
 server.addMethod('callPrivateFunction', async params => {
   const contractAddress = AztecAddress.fromString(params[0].Single);
   const functionSelector = FunctionSelector.fromString(params[1].Single.slice(-8));
-  const args: Fr = Fr.fromString(params[2].toString());
+  const args: Fr = Fr.fromString(params[2].Single.toString());
 
   let txHash = await privateCall(pxe, contractAddress, functionSelector, args);
-  console.log(txHash.toString());
   // todo: handle revert -> return false? throw?
   return { values: [{ Single: txHash.toString() }] };
 });
@@ -69,7 +67,8 @@ server.addMethod('callPrivateFunction', async params => {
 server.addMethod('callPublicFunction', async params => {
   const contractAddress = AztecAddress.fromString(params[0].Single);
   const functionSelector = FunctionSelector.fromString(params[1].Single.slice(-8));
-  const arg: Fr = Fr.fromString(params[2].toString());
+  const arg: Fr = Fr.fromString(params[2].Single.toString());
+
   let txHash = await publicCall(pxe, contractAddress, functionSelector, arg);
 
   // todo: handle revert -> return false? throw?

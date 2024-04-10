@@ -32,16 +32,13 @@ export const deployContract = async (pxe: PXE) => {
     selectorsResolved.set(FunctionSelector.fromNameAndParameters(f.name, f.parameters).toString(), f.name);
   });
 
+  console.log('Contract deployed at: ' + deployedContract.address.toString());
+
   return deployedContract.address;
 };
 
 // todo: add notes -> how to catch them? Or passed as args (cumbersome++)
-export const privateCall = async (
-  pxe: PXE,
-  contractAddress: AztecAddress,
-  functionSelector: FunctionSelector,
-  args: Fr,
-) => {
+export const privateCall = async (pxe: PXE, contractAddress: AztecAddress, functionSelector: FunctionSelector, arg: Fr) => {
   // const functionName = selectorsResolved.get(functionSelector.toString());
 
   // const functionArtifact = MeaningOfLifeContract.artifact.functions.find(
@@ -83,7 +80,7 @@ export const privateCall = async (
   let deployedContract = await MeaningOfLifeContract.at(contractAddress, wallet);
 
   // TODO: use the fn selector instead
-  let result = await deployedContract.methods.set_value(args).send().wait();
+  let result = await deployedContract.methods.set_value(arg).send().wait();
 
   return result.txHash;
 };
@@ -92,20 +89,21 @@ export const publicCall = async (
   pxe: PXE,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
-  args: Fr,
+  arg: Fr,
 ) => {
   // This is the same as privateCall for now -> hopefully, context will be different
   let wallet = await createAccount(pxe);
 
   let deployedContract = await MeaningOfLifeContract.at(contractAddress, wallet);
 
+  console.log('public call to contract: ', contractAddress.toString(), ' with args: ', arg.toString());
+
   let result = await deployedContract
     .withWallet(wallet)
-    .methods.public_function_to_call(args.toField())
+    .methods.public_function_to_call(arg)
     .send({ skipPublicSimulation: false })
     .wait({ debug: true });
 
-  console.log(result.txHash);
   return result.txHash;
 };
 
@@ -121,6 +119,15 @@ export const unconstrainedCall = async (
   if (!methodName) {
     throw new Error('Function not found');
   }
+
+  console.log(
+    'unconstrained call to ',
+    methodName,
+    ' at: ',
+    contractAddress.toString(),
+    ' with args: ',
+    args.toString(),
+  );
 
   // make the unconstrained call
   let result = await pxe.viewTx(methodName, args, contractAddress);

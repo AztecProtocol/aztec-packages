@@ -42,6 +42,8 @@ use dep::aztec::oracle::debug_log::{ debug_log, debug_log_field };
 
         let number_of_new_notes = get_number_of_new_notes(tx_hash);
         assert_eq(number_of_new_notes, 1);
+
+        // We need to test the value here! A new note with '0' will pass this test
     }
 
     #[test]
@@ -69,17 +71,17 @@ use dep::aztec::oracle::debug_log::{ debug_log, debug_log_field };
     }
 
     #[oracle(callPrivateFunction)]
-    unconstrained fn call_private_function_oracle(contract_address: AztecAddress, method_name: FunctionSelector, args: Field) -> pub Field{}
+    unconstrained fn call_private_function_oracle(contract_address: AztecAddress, method_name: FunctionSelector, arg: Field) -> pub Field{}
 
-    unconstrained fn call_private_function(contract_address: AztecAddress, method_name: FunctionSelector, args: Field) -> pub Field {
-        call_private_function_oracle(contract_address, method_name, args)
+    unconstrained fn call_private_function(contract_address: AztecAddress, method_name: FunctionSelector, arg: Field) -> pub Field {
+        call_private_function_oracle(contract_address, method_name, arg)
     }
 
     #[oracle(callPublicFunction)]
-    unconstrained fn call_public_function_oracle(contract_address: AztecAddress, method_name: FunctionSelector, args: Field) -> pub Field{}
+    unconstrained fn call_public_function_oracle(contract_address: AztecAddress, method_name: FunctionSelector, arg: Field) -> pub Field{}
 
-    unconstrained fn call_public_function(contract_address: AztecAddress, method_name: FunctionSelector, args: Field) -> pub Field {
-        call_public_function_oracle(contract_address, method_name, args)
+    unconstrained fn call_public_function(contract_address: AztecAddress, method_name: FunctionSelector, arg: Field) -> pub Field {
+        call_public_function_oracle(contract_address, method_name, arg)
     }
 
     #[oracle(getNumberOfNewNotes)]
