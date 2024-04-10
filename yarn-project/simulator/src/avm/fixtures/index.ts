@@ -1,5 +1,5 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { GlobalVariables, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { GlobalVariables, Header, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -63,10 +63,11 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.origin ?? AztecAddress.ZERO,
     overrides?.sender ?? AztecAddress.ZERO,
     overrides?.portal ?? EthAddress.ZERO,
-    overrides?.feePerL1Gas ?? Fr.ZERO,
-    overrides?.feePerL2Gas ?? Fr.ZERO,
-    overrides?.feePerDaGas ?? Fr.ZERO,
-    overrides?.contractCallDepth ?? Fr.ZERO,
+    overrides?.feePerL1Gas ?? Fr.zero(),
+    overrides?.feePerL2Gas ?? Fr.zero(),
+    overrides?.feePerDaGas ?? Fr.zero(),
+    overrides?.contractCallDepth ?? Fr.zero(),
+    overrides?.header ?? Header.default(),
     overrides?.globals ?? GlobalVariables.default(),
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,

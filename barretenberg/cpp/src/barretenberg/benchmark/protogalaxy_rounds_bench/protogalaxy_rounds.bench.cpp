@@ -26,6 +26,8 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Prover
         return std::make_shared<ProverInstance>(builder);
     };
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
+    // k=1
     std::shared_ptr<ProverInstance> prover_instance_1 = construct_instance();
     std::shared_ptr<ProverInstance> prover_instance_2 = construct_instance();
 
@@ -55,23 +57,31 @@ void bench_round_goblin_ultra(::benchmark::State& state,
     _bench_round<GoblinUltraFlavor>(state, F);
 }
 
-BENCHMARK_CAPTURE(bench_round_ultra, preparation, [](auto& prover) { prover.preparation_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_ultra, perturbator, [](auto& prover) { prover.perturbator_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_ultra, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_ultra, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_ultra, preparation, [](auto& prover) {
+    prover.preparation_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_ultra, perturbator, [](auto& prover) {
+    prover.perturbator_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_ultra, combiner_quotient, [](auto& prover) {
+    prover.combiner_quotient_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_ultra, accumulator_update, [](auto& prover) {
+    prover.accumulator_update_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
 
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, preparation, [](auto& prover) { prover.preparation_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, perturbator, [](auto& prover) { prover.perturbator_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, combiner_quotient, [](auto& prover) { prover.combiner_quotient_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
-BENCHMARK_CAPTURE(bench_round_goblin_ultra, accumulator_update, [](auto& prover) { prover.accumulator_update_round(); })
-    -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, preparation, [](auto& prover) {
+    prover.preparation_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, perturbator, [](auto& prover) {
+    prover.perturbator_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, combiner_quotient, [](auto& prover) {
+    prover.combiner_quotient_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
+BENCHMARK_CAPTURE(bench_round_goblin_ultra, accumulator_update, [](auto& prover) {
+    prover.accumulator_update_round();
+}) -> DenseRange(14, 20) -> Unit(kMillisecond);
 
 } // namespace bb
 

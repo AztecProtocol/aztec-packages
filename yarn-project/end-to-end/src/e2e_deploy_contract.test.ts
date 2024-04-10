@@ -1,3 +1,4 @@
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   type AztecNode,
@@ -15,8 +16,10 @@ import {
   SignerlessWallet,
   TxStatus,
   type Wallet,
+  createPXEClient,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
+  makeFetch,
 } from '@aztec/aztec.js';
 import {
   broadcastPrivateFunction,
@@ -76,7 +79,7 @@ describe('e2e_deploy_contract', () => {
       const deployer = new ContractDeployer(TestContractArtifact, wallet);
 
       for (let index = 0; index < 2; index++) {
-        logger(`Deploying contract ${index + 1}...`);
+        logger.info(`Deploying contract ${index + 1}...`);
         await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait({ wallet });
       }
     }, 60_000);
@@ -88,9 +91,9 @@ describe('e2e_deploy_contract', () => {
       const deployer = new ContractDeployer(TestContractArtifact, wallet);
 
       for (let index = 0; index < 2; index++) {
-        logger(`Deploying contract ${index + 1}...`);
+        logger.info(`Deploying contract ${index + 1}...`);
         const receipt = await deployer.deploy().send({ contractAddressSalt: Fr.random() }).wait({ wallet });
-        logger(`Sending TX to contract ${index + 1}...`);
+        logger.info(`Sending TX to contract ${index + 1}...`);
         await receipt.contract.methods.get_public_key(wallet.getAddress()).send().wait();
       }
     }, 90_000);
@@ -155,6 +158,25 @@ describe('e2e_deploy_contract', () => {
         sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
       }
     }, 90_000);
+  });
+
+  describe('regressions', () => {
+    beforeAll(async () => {
+      ({ teardown, pxe, logger, wallet, sequencer, aztecNode } = await setup());
+    }, 100_000);
+    afterAll(() => teardown());
+
+    it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
+      const { PXE_URL } = process.env;
+      if (!PXE_URL) {
+        return;
+      }
+      const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], false));
+      const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
+      await expect(
+        StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' }).send().deployed(),
+      ).rejects.toThrow(/Unknown function/);
+    });
   });
 
   describe('private initialization', () => {
@@ -341,7 +363,7 @@ describe('e2e_deploy_contract', () => {
             deployer: opts.deployer,
           });
           const { address, contractClassId } = instance;
-          logger(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
+          logger.info(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
           await deployFn(instance);
 
           // TODO(@spalladino) We should **not** need the whole instance, including initArgs and salt,
