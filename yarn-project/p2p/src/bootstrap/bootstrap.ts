@@ -55,7 +55,6 @@ export class BootstrapNode {
       this.logger.error('Error starting Discv5', e);
     }
 
-    // console.log('ENR: ', Buffer.from(enr.encode()).toString('base64'));
     this.logger(`ENR:  ${this.node?.enr.encodeTxt()}`);
   }
 
@@ -66,7 +65,7 @@ export class BootstrapNode {
   public async stop() {
     // stop libp2p
     await this.node?.stop();
-    this.logger('libp2p has stopped');
+    this.logger.debug('libp2p has stopped');
   }
 
   /**

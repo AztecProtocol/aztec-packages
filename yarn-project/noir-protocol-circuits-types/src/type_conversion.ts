@@ -379,7 +379,6 @@ export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataN
   return {
     selector: mapFunctionSelectorToNoir(functionData.selector),
     is_private: functionData.isPrivate,
-    is_transpiled: functionData.isTranspiled,
   };
 }
 
@@ -389,11 +388,7 @@ export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataN
  * @returns The function data.
  */
 export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
-  return new FunctionData(
-    mapFunctionSelectorFromNoir(functionData.selector),
-    functionData.is_private,
-    functionData.is_transpiled,
-  );
+  return new FunctionData(mapFunctionSelectorFromNoir(functionData.selector), functionData.is_private);
 }
 
 /**
@@ -1077,8 +1072,8 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-    mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_logs_hash),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_logs_hash),
@@ -1096,8 +1091,8 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapSideEffectToNoir),
-    new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
+    new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapFieldToNoir),
+    new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapFieldToNoir),
     new_l2_to_l1_msgs: mapTuple(combinedAccumulatedData.newL2ToL1Msgs, mapFieldToNoir),
     encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.encryptedLogsHash),
     unencrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.unencryptedLogsHash),

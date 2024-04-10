@@ -147,7 +147,7 @@ void common_validate_bit_op(std::vector<Row> const& trace,
 std::vector<Row> gen_mutated_trace_not(FF const& a, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
 {
     auto trace_builder = avm_trace::AvmTraceBuilder();
-    trace_builder.set(uint128_t{ a }, 0, tag);
+    trace_builder.op_set(0, uint128_t{ a }, 0, tag);
     trace_builder.op_not(0, 0, 1, tag);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
@@ -348,14 +348,14 @@ TEST_P(AvmBitwiseTestsNot, ParamTest)
 {
     const auto [operands, mem_tag] = GetParam();
     const auto [a, output] = operands;
-    trace_builder.set(a, 0, mem_tag);
+    trace_builder.op_set(0, a, 0, mem_tag);
     trace_builder.op_not(0, 0, 1, mem_tag); // [1,254,0,0,....]
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
     FF ff_a = FF(uint256_t::from_uint128(a));
     FF ff_output = FF(uint256_t::from_uint128(output));
     common_validate_op_not(trace, ff_a, ff_output, FF(0), FF(1), mem_tag);
-    validate_trace_proof(std::move(trace));
+    validate_trace_check_circuit(std::move(trace));
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -366,8 +366,8 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
 {
     const auto [operands, mem_tag] = GetParam();
     const auto [a, b, output] = operands;
-    trace_builder.set(a, 0, mem_tag);
-    trace_builder.set(b, 1, mem_tag);
+    trace_builder.op_set(0, a, 0, mem_tag);
+    trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_and(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 2, 1);
 
@@ -377,7 +377,7 @@ TEST_P(AvmBitwiseTestsAnd, AllAndTest)
     FF ff_output = FF(uint256_t::from_uint128(output));
     // EXPECT_EQ(1, 2) << "a ^ b " << (a ^ b) << '\n';
     common_validate_bit_op(trace, 0, ff_a, ff_b, ff_output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace_proof(std::move(trace));
+    validate_trace_check_circuit(std::move(trace));
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
                          AvmBitwiseTestsAnd,
@@ -387,8 +387,8 @@ TEST_P(AvmBitwiseTestsOr, AllOrTest)
 {
     const auto [operands, mem_tag] = GetParam();
     const auto [a, b, output] = operands;
-    trace_builder.set(a, 0, mem_tag);
-    trace_builder.set(b, 1, mem_tag);
+    trace_builder.op_set(0, a, 0, mem_tag);
+    trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_or(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 2, 1);
     auto trace = trace_builder.finalize();
@@ -398,7 +398,7 @@ TEST_P(AvmBitwiseTestsOr, AllOrTest)
     FF ff_output = FF(uint256_t::from_uint128(output));
 
     common_validate_bit_op(trace, 1, ff_a, ff_b, ff_output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace_proof(std::move(trace));
+    validate_trace_check_circuit(std::move(trace));
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
                          AvmBitwiseTestsOr,
@@ -408,8 +408,8 @@ TEST_P(AvmBitwiseTestsXor, AllXorTest)
 {
     const auto [operands, mem_tag] = GetParam();
     const auto [a, b, output] = operands;
-    trace_builder.set(a, 0, mem_tag);
-    trace_builder.set(b, 1, mem_tag);
+    trace_builder.op_set(0, a, 0, mem_tag);
+    trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_xor(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 2, 1);
     auto trace = trace_builder.finalize();
@@ -419,7 +419,7 @@ TEST_P(AvmBitwiseTestsXor, AllXorTest)
     FF ff_output = FF(uint256_t::from_uint128(output));
 
     common_validate_bit_op(trace, 2, ff_a, ff_b, ff_output, FF(0), FF(1), FF(2), mem_tag);
-    validate_trace_proof(std::move(trace));
+    validate_trace_check_circuit(std::move(trace));
 }
 
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseTests,
@@ -473,15 +473,15 @@ TEST_P(AvmBitwiseNegativeTestsAnd, AllNegativeTests)
     const auto [operands, mem_tag] = params;
     const auto [a, b, output] = operands;
     auto trace_builder = avm_trace::AvmTraceBuilder();
-    trace_builder.set(uint128_t{ a }, 0, mem_tag);
-    trace_builder.set(uint128_t{ b }, 1, mem_tag);
+    trace_builder.op_set(0, uint128_t{ a }, 0, mem_tag);
+    trace_builder.op_set(0, uint128_t{ b }, 1, mem_tag);
     trace_builder.op_and(0, 0, 1, 2, mem_tag);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
     FF ff_output = FF(uint256_t::from_uint128(output));
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_and == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), ff_output, failure_mode);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), failure_string);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,
                          AvmBitwiseNegativeTestsAnd,
@@ -494,15 +494,15 @@ TEST_P(AvmBitwiseNegativeTestsOr, AllNegativeTests)
     const auto [operands, mem_tag] = params;
     const auto [a, b, output] = operands;
     auto trace_builder = avm_trace::AvmTraceBuilder();
-    trace_builder.set(uint128_t{ a }, 0, mem_tag);
-    trace_builder.set(uint128_t{ b }, 1, mem_tag);
+    trace_builder.op_set(0, uint128_t{ a }, 0, mem_tag);
+    trace_builder.op_set(0, uint128_t{ b }, 1, mem_tag);
     trace_builder.op_or(0, 0, 1, 2, mem_tag);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
     FF ff_output = FF(uint256_t::from_uint128(output));
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_or == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), ff_output, failure_mode);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), failure_string);
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,
                          AvmBitwiseNegativeTestsOr,
@@ -514,15 +514,15 @@ TEST_P(AvmBitwiseNegativeTestsXor, AllNegativeTests)
     const auto [operands, mem_tag] = params;
     const auto [a, b, output] = operands;
     auto trace_builder = avm_trace::AvmTraceBuilder();
-    trace_builder.set(uint128_t{ a }, 0, mem_tag);
-    trace_builder.set(uint128_t{ b }, 1, mem_tag);
+    trace_builder.op_set(0, uint128_t{ a }, 0, mem_tag);
+    trace_builder.op_set(0, uint128_t{ b }, 1, mem_tag);
     trace_builder.op_xor(0, 0, 1, 2, mem_tag);
     trace_builder.halt();
     auto trace = trace_builder.finalize();
     FF ff_output = FF(uint256_t::from_uint128(output));
     std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_xor == FF(1); };
     trace = gen_mutated_trace_bit(trace, std::move(select_row), ff_output, failure_mode);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string)
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), failure_string)
 }
 INSTANTIATE_TEST_SUITE_P(AvmBitwiseNegativeTests,
                          AvmBitwiseNegativeTestsXor,
@@ -532,7 +532,7 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
 {
     auto trace_builder = avm_trace::AvmTraceBuilder();
     // Triggers a write row 1 of mem_trace and alu_trace
-    trace_builder.set(10, 0, AvmMemoryTag::U8);
+    trace_builder.op_set(0, 10, 0, AvmMemoryTag::U8);
     // Triggers a write in row 2 of alu_trace
     trace_builder.op_not(0, 0, 1, AvmMemoryTag::U8);
     // Finally, we will have a write in row 3 of the mem_trace to copy the result
@@ -553,32 +553,32 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
         trace.at(i).avm_alu_in_tag = FF(6);
     }
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_FF_NOT_XOR");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_FF_NOT_XOR");
 }
 
 TEST_F(AvmBitwiseNegativeTestsU8, BitwiseNot)
 {
     std::vector<Row> trace = gen_mutated_trace_not(FF{ 1 }, FF{ 2 }, AvmMemoryTag::U8);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_OP_NOT");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_OP_NOT");
 }
 
 TEST_F(AvmBitwiseNegativeTestsU16, BitwiseNot)
 {
     std::vector<Row> trace = gen_mutated_trace_not(FF{ 32'768 }, FF{ 8'192 }, AvmMemoryTag::U16);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_OP_NOT");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_OP_NOT");
 }
 
 TEST_F(AvmBitwiseNegativeTestsU32, BitwiseNot)
 {
     std::vector<Row> trace = gen_mutated_trace_not(FF{ 0xdeadbeef }, FF{ 0x20020af }, AvmMemoryTag::U64);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_OP_NOT");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_OP_NOT");
 }
 
 TEST_F(AvmBitwiseNegativeTestsU64, BitwiseNot)
 {
     std::vector<Row> trace =
         gen_mutated_trace_not(FF{ 0x10000000000000LLU }, FF{ 0x10000fed0100000LLU }, AvmMemoryTag::U64);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_OP_NOT");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_OP_NOT");
 }
 
 TEST_F(AvmBitwiseNegativeTestsU128, BitwiseNot)
@@ -587,6 +587,6 @@ TEST_F(AvmBitwiseNegativeTestsU128, BitwiseNot)
     uint128_t const b = uint128_t{ 0x300000ae921000 } << 64;
     std::vector<Row> trace =
         gen_mutated_trace_not(FF{ uint256_t::from_uint128(a) }, FF{ uint256_t::from_uint128(b) }, AvmMemoryTag::U128);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "ALU_OP_NOT");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_OP_NOT");
 }
 } // namespace tests_avm

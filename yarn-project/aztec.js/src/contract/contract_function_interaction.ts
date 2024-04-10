@@ -3,7 +3,7 @@ import { type AztecAddress, FunctionData, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 
 import { type Wallet } from '../account/wallet.js';
-import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
+import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
 export { SendMethodOptions };
 
@@ -47,7 +47,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], opts?.fee);
+      this.txRequest = await this.wallet.createTxExecutionRequest({
+        calls: [this.request()],
+        fee: opts?.fee,
+      });
     }
     return this.txRequest;
   }

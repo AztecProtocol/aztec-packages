@@ -84,12 +84,12 @@ export class LibP2PService implements P2PService {
       throw new Error('P2P service already started');
     }
     const { enableNat, tcpListenIp, tcpListenPort, announceHostname, announcePort } = this.config;
-    this.logger(`Starting P2P node on ${tcpListenIp}:${tcpListenPort}`);
+    this.logger.info(`Starting P2P node on ${tcpListenIp}:${tcpListenPort}`);
     if (announceHostname) {
-      this.logger(`Announcing at ${announceHostname}/tcp/${announcePort ?? tcpListenPort}`);
+      this.logger.info(`Announcing at ${announceHostname}/tcp/${announcePort ?? tcpListenPort}`);
     }
     if (enableNat) {
-      this.logger(`Enabling NAT in libp2p module`);
+      this.logger.info(`Enabling NAT in libp2p module`);
     }
 
     // handle discovered peers from external discovery service
@@ -100,7 +100,7 @@ export class LibP2PService implements P2PService {
     this.node.addEventListener('peer:discovery', evt => {
       const peerId = evt.detail.id;
       if (this.isBootstrapPeer(peerId)) {
-        this.logger(`Discovered bootstrap peer ${peerId.toString()}`);
+        this.logger.verbose(`Discovered bootstrap peer ${peerId.toString()}`);
       }
     });
 
@@ -112,9 +112,9 @@ export class LibP2PService implements P2PService {
     this.node.addEventListener('peer:disconnect', evt => {
       const peerId = evt.detail;
       if (this.isBootstrapPeer(peerId)) {
-        this.logger(`Disconnect from bootstrap peer ${peerId.toString()}`);
+        this.logger.verbose(`Disconnect from bootstrap peer ${peerId.toString()}`);
       } else {
-        this.logger(`Disconnected from transaction peer ${peerId.toString()}`);
+        this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
       }
     });
 
@@ -132,11 +132,11 @@ export class LibP2PService implements P2PService {
    * @returns An empty promise.
    */
   public async stop() {
-    this.logger('Stopping job queue...');
+    this.logger.debug('Stopping job queue...');
     await this.jobQueue.end();
-    this.logger('Stopping LibP2P...');
+    this.logger.debug('Stopping LibP2P...');
     await this.node.stop();
-    this.logger('LibP2P service stopped');
+    this.logger.info('LibP2P service stopped');
   }
 
   /**
@@ -262,7 +262,7 @@ export class LibP2PService implements P2PService {
     try {
       const { message, peer } = await this.consumeInboundStream(incomingStreamData);
       if (!message.length) {
-        this.logger(`Ignoring 0 byte message from peer${peer.toString()}`);
+        this.logger.verbose(`Ignoring 0 byte message from peer${peer.toString()}`);
       }
       await this.processMessage(message, peer);
     } catch (err) {
@@ -287,9 +287,9 @@ export class LibP2PService implements P2PService {
 
   private handleNewConnection(peerId: PeerId) {
     if (this.isBootstrapPeer(peerId)) {
-      this.logger(`Connected to bootstrap peer ${peerId.toString()}`);
+      this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
     } else {
-      this.logger(`Connected to transaction peer ${peerId.toString()}`);
+      this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
       // send the peer our current pooled transaction hashes
       void this.jobQueue.put(async () => {
         await this.sendTxHashesMessageToPeer(peerId);
@@ -317,7 +317,7 @@ export class LibP2PService implements P2PService {
   private async processReceivedTxHashes(encodedMessage: Buffer, peerId: PeerId) {
     try {
       const txHashes = decodeTransactionHashesMessage(encodedMessage);
-      this.logger(`Received tx hash messages from ${peerId.toString()}`);
+      this.logger.debug(`Received tx hash messages from ${peerId.toString()}`);
       // we send a message requesting the transactions that we don't have from the set of received hashes
       const requiredHashes = txHashes.filter(hash => !this.txPool.hasTx(hash));
       if (!requiredHashes.length) {
@@ -331,7 +331,7 @@ export class LibP2PService implements P2PService {
 
   private async processReceivedGetTransactionsRequest(encodedMessage: Buffer, peerId: PeerId) {
     try {
-      this.logger(`Received get txs messages from ${peerId.toString()}`);
+      this.logger.debug(`Received get txs messages from ${peerId.toString()}`);
       // get the transactions in the list that we have and return them
       const removeUndefined = <S>(value: S | undefined): value is S => value != undefined;
       const txHashes = decodeGetTransactionsRequestMessage(encodedMessage);
@@ -362,7 +362,7 @@ export class LibP2PService implements P2PService {
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.knownTxLookup.addPeerForTx(peerId, txHashString);
-    this.logger(`Received tx ${txHashString} from peer ${peerId.toString()}`);
+    this.logger.debug(`Received tx ${txHashString} from peer ${peerId.toString()}`);
     await this.txPool.addTxs([tx]);
     this.propagateTx(tx);
   }
@@ -376,10 +376,10 @@ export class LibP2PService implements P2PService {
     for (const peer of peers) {
       try {
         if (this.knownTxLookup.hasPeerSeenTx(peer, txHashString)) {
-          this.logger(`Not sending tx ${txHashString} to peer ${peer.toString()} as they have already seen it`);
+          this.logger.debug(`Not sending tx ${txHashString} to peer ${peer.toString()} as they have already seen it`);
           continue;
         }
-        this.logger(`Sending tx ${txHashString} to peer ${peer.toString()}`);
+        this.logger.debug(`Sending tx ${txHashString} to peer ${peer.toString()}`);
         await this.sendRawMessageToPeer(payload, peer);
         this.knownTxLookup.addPeerForTx(peer, txHashString);
       } catch (err) {

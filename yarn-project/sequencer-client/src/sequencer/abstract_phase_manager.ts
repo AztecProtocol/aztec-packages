@@ -42,7 +42,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
-  type ABIType,
+  type AbiType,
   type DecodedReturn,
   type FunctionArtifact,
   type ProcessReturnValues,
@@ -230,15 +230,11 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
-        // NOTE: temporary glue to incorporate avm execution calls.
-        const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
-          execution.functionData.isTranspiled
-            ? this.publicExecutor.simulateAvm(execution, globalVariables, sideEffectCounter)
-            : this.publicExecutor.simulate(execution, globalVariables, sideEffectCounter);
 
-        const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
+        const result = isExecutionRequest
+          ? await this.publicExecutor.simulate(current, this.globalVariables, sideEffectCounter)
+          : current;
 
         const functionSelector = result.execution.functionData.selector.toString();
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
@@ -288,7 +284,7 @@ export abstract class AbstractPhaseManager {
           const paddedReturn = padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH);
 
           // TODO(#5450) Need to use the proper return values here
-          const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
+          const returnTypes: AbiType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
           const mockArtifact = { returnTypes } as any as FunctionArtifact;
 
           currentReturn = decodeReturnValues(mockArtifact, paddedReturn);

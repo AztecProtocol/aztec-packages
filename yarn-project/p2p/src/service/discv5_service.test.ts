@@ -7,7 +7,7 @@ describe('Discv5Service', () => {
   let bootNode: BootstrapNode;
   let port = 1234;
   const baseConfig = {
-    announceHostname: 'localhost',
+    announceHostname: '/ip4/127.0.0.1',
     tcpListenPort: port,
     udpListenIp: '0.0.0.0',
     tcpListenIp: '0.0.0.0',
