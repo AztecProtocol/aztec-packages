@@ -266,12 +266,11 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
 {
     auto constraint_system = get_constraint_system(bytecodePath);
     auto witness = get_witness(witnessPath);
+
     acir_proofs::AcirComposer acir_composer{ 0, verbose };
     acir_composer.create_circuit(constraint_system, witness);
-    size_t circuit_size = acir_composer.get_dyadic_circuit_size();
-    init_bn254_crs(circuit_size);
+    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
-
     auto proof = acir_composer.create_proof();
 
     if (outputPath == "-") {
@@ -324,6 +323,7 @@ bool verify(const std::string& proof_path, const std::string& vk_path)
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     acir_composer.load_verification_key(std::move(vk_data));
     auto verified = acir_composer.verify_proof(read_file(proof_path));
+
     vinfo("verified: ", verified);
     return verified;
 }
