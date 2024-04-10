@@ -52,7 +52,13 @@ const config = {
           },
           routeBasePath: "/",
           remarkPlugins: [math],
-          rehypePlugins: [katex],
+          rehypePlugins: [
+            katex,
+            {
+              throwOnError: true,
+              globalGroup: true,
+            },
+          ],
         },
         blog: false,
         theme: {
