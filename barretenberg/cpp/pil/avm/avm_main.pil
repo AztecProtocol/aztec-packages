@@ -160,7 +160,7 @@ namespace avm_main(256);
 
     //====== COMPARATOR OPCODES CONSTRAINTS =====================================
     // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
-    #[EQ_OUTPUT_U8]
+    #[OUTPUT_U8]
     (sel_op_eq + sel_op_lte + sel_op_lt) * (w_in_tag - 1) = 0;
 
     // Relation for division over the finite field

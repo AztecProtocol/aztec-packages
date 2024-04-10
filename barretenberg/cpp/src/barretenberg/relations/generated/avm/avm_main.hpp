@@ -56,7 +56,7 @@ inline std::string get_relation_label_avm_main(int index)
 {
     switch (index) {
     case 27:
-        return "EQ_OUTPUT_U8";
+        return "OUTPUT_U8";
 
     case 28:
         return "SUBOP_DIVISION_FF";

@@ -448,9 +448,6 @@ class AvmCircuitBuilder {
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
             polys.perm_main_alu[i] = rows[i].perm_main_alu;
-<<<<<<< HEAD
-
-=======
             polys.perm_main_bin[i] = rows[i].perm_main_bin;
             polys.perm_main_mem_a[i] = rows[i].perm_main_mem_a;
             polys.perm_main_mem_b[i] = rows[i].perm_main_mem_b;
@@ -462,14 +459,8 @@ class AvmCircuitBuilder {
             polys.lookup_byte_operations[i] = rows[i].lookup_byte_operations;
             polys.incl_main_tag_err[i] = rows[i].incl_main_tag_err;
             polys.incl_mem_tag_err[i] = rows[i].incl_mem_tag_err;
-<<<<<<< HEAD
->>>>>>> 7a982d52c (feat: init avm cmp)
-=======
             polys.lookup_u8_0[i] = rows[i].lookup_u8_0;
             polys.lookup_u8_1[i] = rows[i].lookup_u8_1;
-<<<<<<< HEAD
->>>>>>> 8d38899c9 (feat: some wip)
-=======
             polys.lookup_u16_0[i] = rows[i].lookup_u16_0;
             polys.lookup_u16_1[i] = rows[i].lookup_u16_1;
             polys.lookup_u16_2[i] = rows[i].lookup_u16_2;
@@ -485,7 +476,6 @@ class AvmCircuitBuilder {
             polys.lookup_u16_12[i] = rows[i].lookup_u16_12;
             polys.lookup_u16_13[i] = rows[i].lookup_u16_13;
             polys.lookup_u16_14[i] = rows[i].lookup_u16_14;
->>>>>>> 760ed7310 (fix: 16_bit range checks)
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;

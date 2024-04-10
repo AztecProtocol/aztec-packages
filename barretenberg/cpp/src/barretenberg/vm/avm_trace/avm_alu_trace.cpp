@@ -570,18 +570,16 @@ FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
 
     // Note: This is counter-intuitive, to show that a < b we actually show that b > a
     // The subtlely is here that the circuit is designed as a GT(x,y) circuit, therefor we swap the inputs a & b
-    FF circuit_input_a = b;
-    FF circuit_input_b = a;
     // Get the decomposition of b
     auto [a_lo, a_hi] = decompose(b);
     // Get the decomposition of a
     auto [b_lo, b_hi] = decompose(a);
     // Get the decomposition of p - a and p - b **remember that we swap the inputs**
     // Note that a valid witness here is ONLY that p > a and p > b
-    auto [p_sub_a_lo, p_sub_a_hi, p_a_borrow] = gt_witness(FF::modulus, circuit_input_a);
-    auto [p_sub_b_lo, p_sub_b_hi, p_b_borrow] = gt_witness(FF::modulus, circuit_input_b);
+    auto [p_sub_a_lo, p_sub_a_hi, p_a_borrow] = gt_witness(FF::modulus, b);
+    auto [p_sub_b_lo, p_sub_b_hi, p_b_borrow] = gt_witness(FF::modulus, a);
     // We either generate a witness that a <= b or a > b (its validity depends on the value of c)
-    auto [r_lo, r_hi, borrow] = gt_or_lte_witness(circuit_input_a, circuit_input_b);
+    auto [r_lo, r_hi, borrow] = gt_or_lte_witness(b, a);
 
     // The vector of limbs that are used in the GT circuit and that are range checked
     std::vector<uint256_t> hi_lo_limbs = { a_lo,       a_hi,       b_lo,       b_hi, p_sub_a_lo,
