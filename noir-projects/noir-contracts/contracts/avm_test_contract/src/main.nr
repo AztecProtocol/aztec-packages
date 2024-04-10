@@ -24,7 +24,7 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
-    use dep::aztec::prelude::{Map, Deserialize};
+    use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::history::nullifier_inclusion::prove_nullifier_inclusion;
     use dep::aztec::protocol_types::{
@@ -35,6 +35,7 @@ contract AvmTest {
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::traits::ToField;
+    use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
     use dep::compressed_string::CompressedString;
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
@@ -203,27 +204,29 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn call_acvm_from_avm() -> pub Field {
-        context.call_public_function(
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_acvm()"),
             [],
             GasOpts::default()
-        ).deserialize_into()
+        );
+        data_to_return[0]
     }
 
     #[aztec(public)]
     fn call_avm_from_acvm() -> pub Field {
-        context.call_public_function(
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_avm()"),
             [],
             GasOpts::default()
-        ).deserialize_into()
+        );
+        data_to_return[0]
     }
 
     #[aztec(public-vm)]
     fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
-        context.call_public_function(context.this_address(), selector, [args], GasOpts::default()).assert_empty();
+        context.call_public_function(context.this_address(), selector, [args], GasOpts::default());
     }
 
     /************************************************************************
@@ -452,12 +455,17 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
         // Nested call using standard context interface function
-        context.call_public_function(
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
             context.this_address(),
             selector,
             [arg_a, arg_b],
             GasOpts::default()
-        ).deserialize_into()
+        );
+        // this explicit size in the return variable is necessary to ensure that ret_size is compile-time
+        // (ensure the data_to_return is in a HeapArray not a HeapVector)
+
+        let add_result = data_to_return[0];
+        add_result
     }
 
     // Directly call_static the external call opcode to initiate a nested call to the add function
@@ -491,12 +499,14 @@ contract AvmTest {
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
-        context.static_call_public_function(
+        let result_data: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(
             context.this_address(),
             selector,
             [arg_a, arg_b],
             GasOpts::default()
-        ).deserialize_into()
+        );
+
+        result_data[0]
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
@@ -505,6 +515,6 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)");
         let calldata: [Field; 1] = [20];
 
-        context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default()).assert_empty();
+        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default());
     }
 }

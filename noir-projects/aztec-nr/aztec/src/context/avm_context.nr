@@ -1,6 +1,7 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
-    constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER}, header::Header
+    constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER, RETURN_VALUES_LENGTH},
+    header::Header
 };
 use dep::protocol_types::traits::Serialize;
 use dep::protocol_types::abis::function_selector::FunctionSelector;
@@ -9,7 +10,6 @@ use crate::context::inputs::avm_context_inputs::AvmContextInputs;
 use crate::context::interface::ContextInterface;
 use crate::context::interface::PublicContextInterface;
 use crate::context::gas::GasOpts;
-use crate::context::public_context::FunctionReturns;
 
 struct AvmContext {
     inputs: AvmContextInputs,
@@ -132,34 +132,34 @@ impl PublicContextInterface for AvmContext {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn call_public_function<ARGS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> FunctionReturns<RETURNS_COUNT> {        
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
         );
-        let data_to_return: [Field; RETURNS_COUNT] = results.0;
+        let data_to_return: [Field; RETURN_VALUES_LENGTH] = results.0;
         let success: u8 = results.1;
         assert(success == 1, "Nested call failed!");
 
-        FunctionReturns::new(data_to_return)
+        data_to_return
     }
 
-    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn static_call_public_function<ARGS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> FunctionReturns<RETURNS_COUNT> {
-        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let (data_to_return, success): ([Field; RETURN_VALUES_LENGTH], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
             args,
@@ -167,17 +167,17 @@ impl PublicContextInterface for AvmContext {
         );
 
         assert(success == 1, "Nested static call failed!");
-        FunctionReturns::new(data_to_return)
+        data_to_return
     }
 
-    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn delegate_call_public_function<ARGS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> FunctionReturns<RETURNS_COUNT> {
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         assert(false, "'delegate_call_public_function' not implemented!");
-        FunctionReturns::new([0; RETURNS_COUNT])
+        [0; RETURN_VALUES_LENGTH]
     }
 }
 

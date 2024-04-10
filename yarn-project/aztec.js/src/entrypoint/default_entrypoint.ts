@@ -1,4 +1,4 @@
-import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import { PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
 import { TxContext } from '@aztec/circuits.js';
 
 import { type EntrypointInterface, type ExecutionRequestInit } from './entrypoint.js';
@@ -17,15 +17,15 @@ export class DefaultEntrypoint implements EntrypointInterface {
     }
 
     const call = calls[0];
-    const entrypointPackedValues = PackedValues.fromValues(call.args);
+    const entrypointPackedArguments = PackedArguments.fromArgs(call.args);
     const txContext = TxContext.empty(this.chainId, this.protocolVersion);
     return Promise.resolve(
       new TxExecutionRequest(
         call.to,
         call.functionData,
-        entrypointPackedValues.hash,
+        entrypointPackedArguments.hash,
         txContext,
-        [...packedArguments, entrypointPackedValues],
+        [...packedArguments, entrypointPackedArguments],
         authWitnesses,
       ),
     );

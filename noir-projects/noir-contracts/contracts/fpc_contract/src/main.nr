@@ -3,7 +3,6 @@ mod interfaces;
 contract FPC {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_empty};
     use dep::aztec::state_vars::SharedImmutable;
-    use dep::aztec::prelude::Deserialize;
     use dep::aztec::context::gas::GasOpts;
     use crate::interfaces::Token;
 
@@ -47,7 +46,7 @@ contract FPC {
             [context.msg_sender().to_field(), amount, asset.to_field(), nonce]
         );
 
-        context.call_public_function(
+        let _void = context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("pay_fee((Field),Field,(Field))"),
             [context.msg_sender().to_field(), amount, asset.to_field()]
@@ -63,12 +62,12 @@ contract FPC {
     #[aztec(public)]
     #[aztec(internal)]
     fn pay_fee(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
-        let refund: Field = context.call_public_function(
+        let refund = context.call_public_function(
             storage.gas_token_address.read_public(),
             FunctionSelector::from_signature("pay_fee(Field)"),
             [amount],
             GasOpts::default()
-        ).deserialize_into();
+        )[0];
 
         // Just do public refunds for the present
         Token::at(asset).transfer_public(&mut context, context.this_address(), refund_address, refund, 0)
@@ -77,12 +76,12 @@ contract FPC {
     #[aztec(public)]
     #[aztec(internal)]
     fn pay_fee_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
-        let refund: Field = context.call_public_function(
+        let refund = context.call_public_function(
             storage.gas_token_address.read_public(),
             FunctionSelector::from_signature("pay_fee(Field)"),
             [amount],
             GasOpts::default()
-        ).deserialize_into();
+        )[0];
 
         Token::at(asset).shield(&mut context, context.this_address(), refund, secret_hash, 0);
     }

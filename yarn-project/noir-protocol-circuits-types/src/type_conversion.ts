@@ -673,7 +673,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     max_block_number: mapMaxBlockNumberToNoir(privateCircuitPublicInputs.maxBlockNumber),
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
-    returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
+    return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
     note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapSideEffectToNoir),
     nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_key_validation_requests: mapTuple(
@@ -1425,7 +1425,7 @@ export function mapPublicCircuitPublicInputsToNoir(
   return {
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
-    returns_hash: mapFieldToNoir(publicInputs.returnsHash),
+    return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
     nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(

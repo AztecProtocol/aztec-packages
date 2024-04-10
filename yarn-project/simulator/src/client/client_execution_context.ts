@@ -28,7 +28,7 @@ import { Fr, type Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
-import { type PackedValuesCache } from '../common/packed_values_cache.js';
+import { type PackedArgsCache } from '../common/packed_args_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { type ExecutionResult, type NoteAndSlot } from './execution_result.js';
@@ -72,7 +72,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
-    private readonly packedValuesCache: PackedValuesCache,
+    private readonly packedArgsCache: PackedArgsCache,
     private readonly noteCache: ExecutionNoteCache,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
@@ -93,7 +93,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   public getInitialWitness(abi: FunctionAbi) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.packedValuesCache.unpack(this.argsHash);
+    const args = this.packedArgsCache.unpack(this.argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -175,23 +175,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param args - Arguments to pack
    */
   public packArguments(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(args));
-  }
-
-  /**
-   * Pack the given returns.
-   * @param returns - Returns to pack
-   */
-  public packReturns(returns: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedValuesCache.pack(returns));
-  }
-
-  /**
-   * Unpack the given returns.
-   * @param returnsHash - Returns hash to unpack
-   */
-  public unpackReturns(returnsHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
+    return Promise.resolve(this.packedArgsCache.pack(args));
   }
 
   /**
@@ -391,7 +375,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicalHeader,
       this.authWitnesses,
-      this.packedValuesCache,
+      this.packedArgsCache,
       this.noteCache,
       this.db,
       this.curve,
@@ -444,7 +428,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       isDelegateCall,
       isStaticCall,
     );
-    const args = this.packedValuesCache.unpack(argsHash);
+    const args = this.packedArgsCache.unpack(argsHash);
     const enqueuedRequest = PublicCallRequest.from({
       args,
       callContext: derivedCallContext,

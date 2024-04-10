@@ -100,7 +100,7 @@ export {
   MerkleTreeId,
   Note,
   PXE,
-  PackedValues,
+  PackedArguments,
   PartialAddress,
   PublicKey,
   SyncStatus,

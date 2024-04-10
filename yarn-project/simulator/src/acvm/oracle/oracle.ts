@@ -1,7 +1,8 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
+import { RETURN_VALUES_LENGTH, acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -24,17 +25,6 @@ export class Oracle {
   async packArguments(args: ACVMField[]): Promise<ACVMField> {
     const packed = await this.typedOracle.packArguments(args.map(fromACVMField));
     return toACVMField(packed);
-  }
-
-  // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async packReturns(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packReturns(values.map(fromACVMField));
-    return toACVMField(packed);
-  }
-
-  async unpackReturns([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
-    const unpacked = await this.typedOracle.unpackReturns(fromACVMField(returnsHash));
-    return unpacked.map(toACVMField);
   }
 
   async getNullifierKeyPair([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
@@ -358,7 +348,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return returnValues.map(toACVMField);
+    return padArrayEnd(returnValues, Fr.ZERO, RETURN_VALUES_LENGTH).map(toACVMField);
   }
 
   async enqueuePublicFunctionCall(

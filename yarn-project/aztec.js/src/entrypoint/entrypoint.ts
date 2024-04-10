@@ -1,4 +1,9 @@
-import { type AuthWitness, type FunctionCall, type PackedValues, type TxExecutionRequest } from '@aztec/circuit-types';
+import {
+  type AuthWitness,
+  type FunctionCall,
+  type PackedArguments,
+  type TxExecutionRequest,
+} from '@aztec/circuit-types';
 
 import { EntrypointPayload, type FeeOptions } from './payload.js';
 
@@ -14,7 +19,7 @@ export type ExecutionRequestInit = {
   /** Any transient auth witnesses needed for this execution */
   authWitnesses?: AuthWitness[];
   /** Any transient packed arguments for this execution */
-  packedArguments?: PackedValues[];
+  packedArguments?: PackedArguments[];
   /** How the fee is going to be payed */
   fee?: FeeOptions;
 };

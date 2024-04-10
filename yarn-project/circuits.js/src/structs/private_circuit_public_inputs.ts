@@ -22,6 +22,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+  RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { Header } from '../structs/header.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
@@ -46,9 +47,9 @@ export class PrivateCircuitPublicInputs {
      */
     public argsHash: Fr,
     /**
-     * Pedersen hash of the return values of the corresponding function call.
+     * Return values of the corresponding function call.
      */
-    public returnsHash: Fr,
+    public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
     /**
      * The side-effect counter under which all side effects are non-revertible.
      */
@@ -157,7 +158,7 @@ export class PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
       reader.readObject(CallContext),
       reader.readObject(Fr),
-      reader.readObject(Fr),
+      reader.readArray(RETURN_VALUES_LENGTH, Fr),
       reader.readObject(Fr),
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect),
@@ -185,7 +186,7 @@ export class PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
       reader.readObject(CallContext),
       reader.readField(),
-      reader.readField(),
+      reader.readFieldArray(RETURN_VALUES_LENGTH),
       reader.readField(),
       reader.readObject(MaxBlockNumber),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect),
@@ -216,7 +217,7 @@ export class PrivateCircuitPublicInputs {
     return new PrivateCircuitPublicInputs(
       CallContext.empty(),
       Fr.ZERO,
-      Fr.ZERO,
+      makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       Fr.ZERO,
       MaxBlockNumber.empty(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, SideEffect.empty),
@@ -247,7 +248,7 @@ export class PrivateCircuitPublicInputs {
     return (
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
-      this.returnsHash.isZero() &&
+      isZeroArray(this.returnValues) &&
       this.minRevertibleSideEffectCounter.isZero() &&
       this.maxBlockNumber.isEmpty() &&
       isEmptyArray(this.noteHashReadRequests) &&
@@ -277,7 +278,7 @@ export class PrivateCircuitPublicInputs {
     return [
       fields.callContext,
       fields.argsHash,
-      fields.returnsHash,
+      fields.returnValues,
       fields.minRevertibleSideEffectCounter,
       fields.maxBlockNumber,
       fields.noteHashReadRequests,

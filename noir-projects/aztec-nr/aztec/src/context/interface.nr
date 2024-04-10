@@ -1,7 +1,9 @@
-use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header};
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header,
+    constants::RETURN_VALUES_LENGTH
+};
 
 use crate::context::gas::GasOpts;
-use crate::context::public_context::FunctionReturns;
 
 trait ContextInterface {
     fn push_new_note_hash(&mut self, note_hash: Field);
@@ -30,25 +32,25 @@ trait PublicContextInterface {
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress);
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]);
     fn accumulate_unencrypted_logs<T>(&mut self, log: T);
-    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn call_public_function<ARGS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> FunctionReturns<RETURNS_COUNT>;
-    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    ) -> [Field; RETURN_VALUES_LENGTH];
+    fn static_call_public_function<ARGS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> FunctionReturns<RETURNS_COUNT>;
-    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    ) -> [Field; RETURN_VALUES_LENGTH];
+    fn delegate_call_public_function<ARGS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> FunctionReturns<RETURNS_COUNT>;
+    ) -> [Field; RETURN_VALUES_LENGTH];
     fn nullifier_exists(self, nullifier: Field) -> bool;
 }

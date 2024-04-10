@@ -210,9 +210,7 @@ contract Test {
         }
         let args_hash = args.hash();
         let mut context = PrivateContext::new(inputs, args_hash);
-        let mut returns = ArgsHasher::new();
-        returns.add(args_hash);
-        context.set_return_hash(returns);
+        context.return_values.push(args_hash);
         context.finish()
     }
 
