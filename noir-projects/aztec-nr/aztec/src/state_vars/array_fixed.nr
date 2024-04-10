@@ -1,5 +1,5 @@
 use crate::context::{PrivateContext, PublicContext, Context};
-use dep::protocol_types::{hash::pedersen_hash, traits::ToField};
+use dep::protocol_types::{constants::AVOID_SLOT_0_INDEX_SEPARATOR, hash::pedersen_hash, traits::ToField};
 use crate::state_vars::storage::Storage;
 use crate::state_vars::map::Map;
 
@@ -36,6 +36,6 @@ impl<T, LENGTH> FixedArray<T, LENGTH> {
 
   pub fn at_index(self, index: u64) -> T {
     assert(index < LENGTH, "at_index must be called with number < length");
-    self.map.at(index)
+    self.map.at(index + AVOID_SLOT_0_INDEX_SEPARATOR)
   }
 }
