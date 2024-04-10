@@ -33,6 +33,20 @@ struct RootRollupInputs {
     new_archive_sibling_path : [Field; ARCHIVE_HEIGHT],
 }
 
+impl Default for RootRollupInputs {
+    fn default() -> Self {
+        RootRollupInputs {
+            previous_rollup_data : [PreviousRollupData::default(); 2],
+            l1_to_l2_roots: RootParityInput::default(),
+            new_l1_to_l2_messages : [0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
+            new_l1_to_l2_message_tree_root_sibling_path : [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+            start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot::default(),
+            start_archive_snapshot : AppendOnlyTreeSnapshot::default(),
+            new_archive_sibling_path : [0; ARCHIVE_HEIGHT],
+        }
+    }
+}
+
 impl RootRollupInputs {
     pub fn root_rollup_circuit(self) -> RootRollupPublicInputs {
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;

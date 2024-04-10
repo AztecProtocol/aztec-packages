@@ -31,7 +31,7 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
     fn nada(read_request_len: u64) -> Self {
         NullifierSettledReadHint {
             read_request_index: read_request_len,
-            membership_witness: unsafe::zeroed(),
+            membership_witness: MembershipWitness::default(),
             leaf_preimage: NullifierLeafPreimage::default()
         }
     }

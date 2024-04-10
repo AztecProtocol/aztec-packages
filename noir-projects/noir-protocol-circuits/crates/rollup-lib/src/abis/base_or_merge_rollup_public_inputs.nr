@@ -29,3 +29,18 @@ struct BaseOrMergeRollupPublicInputs {
     txs_effects_hash : Field,
     out_hash : Field, 
 }
+
+impl Default for BaseOrMergeRollupPublicInputs {
+    fn default() -> Self {
+        BaseOrMergeRollupPublicInputs {
+            rollup_type : 0 as u32,
+            height_in_block_tree : 0,
+            aggregation_object : AggregationObject::default(),
+            constants : ConstantRollupData::default(),
+            start: PartialStateReference::default(),
+            end: PartialStateReference::default(),
+            txs_effects_hash : 0,
+            out_hash : 0, 
+        }
+    }
+}

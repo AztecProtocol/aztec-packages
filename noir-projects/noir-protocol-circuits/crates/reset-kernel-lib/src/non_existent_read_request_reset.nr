@@ -133,8 +133,8 @@ mod tests {
         SideEffect { value: 5, counter: 17 },
         SideEffect { value: 15, counter: 8 },
         SideEffect { value: 25, counter: 11 },
-        SideEffect::empty(),
-        SideEffect::empty(),
+        SideEffect::default(),
+        SideEffect::default(),
     ],
     len: 3,
     };
