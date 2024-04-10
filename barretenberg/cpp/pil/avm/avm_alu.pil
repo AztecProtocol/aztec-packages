@@ -62,9 +62,7 @@ namespace avm_alu(256);
     pol commit cf;
 
     // Compute predicate telling whether there is a row entry in the ALU table.
-    #[SELECTOR_REL]
     alu_sel = op_add + op_sub + op_mul + op_not + op_eq + op_lt + op_lte;
-    #[SELECTOR_REL_2]
     cmp_sel = op_lt + op_lte;
 
     // ========= Type Constraints =============================================
@@ -440,7 +438,7 @@ namespace avm_alu(256);
     cmp_rng_ctr * ((1 - rng_chk_sel) * (1 -  op_eq_diff_inv) +  op_eq_diff_inv) - rng_chk_sel = 0;
 
     // We perform a range check if we have some range checks remaining or we are performing a comparison op
-    pol RNG_CHK_OP = (rng_chk_sel + cmp_sel);
+    pol RNG_CHK_OP = rng_chk_sel + cmp_sel;
 
     pol commit rng_chk_lookup_selector;
     #[RNG_CHK_LOOKUP_SELECTOR]
@@ -448,7 +446,7 @@ namespace avm_alu(256);
 
     // Perform 128-bit range check on lo part
     #[LOWER_CMP_RNG_CHK]
-    a_lo = SUM_128 * (RNG_CHK_OP);
+    a_lo = SUM_128 * RNG_CHK_OP;
 
 
     // Perform 128-bit range check on hi part
@@ -456,14 +454,14 @@ namespace avm_alu(256);
     a_hi = (u16_r7 + u16_r8 * 2**16 + 
            u16_r9 * 2**32 + u16_r10 * 2**48 + 
            u16_r11 * 2**64 + u16_r12 * 2**80 + 
-           u16_r13 * 2**96 + u16_r14 * 2**112) * (RNG_CHK_OP);
+           u16_r13 * 2**96 + u16_r14 * 2**112) * RNG_CHK_OP;
 
     // Shift all elements "across" by 2 columns
     // TODO: there is an optimisation where we are able to do 1 less range check as the range check on
     // P_SUB_B is implied by the other range checks.
     // Briefly: given a > b and p > a and p > a - b - 1, it is sufficient confirm that p > b without a range check
     // To accomplish this we would likely change the order of the range_check so we can skip p_sub_b
-    #[SHIFT_RELS]
+    #[SHIFT_RELS_0]
     (a_lo' - b_lo) * rng_chk_sel' = 0;
     (a_hi' - b_hi) * rng_chk_sel' = 0;
     #[SHIFT_RELS_1]

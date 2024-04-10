@@ -17,8 +17,8 @@ namespace tests_avm {
 using namespace bb::avm_trace;
 namespace {
 
-void common_validate_cmp(Row row,
-                         Row alu_row,
+void common_validate_cmp(Row const& row,
+                         Row const& alu_row,
                          FF const& a,
                          FF const& b,
                          FF const& c,
@@ -49,7 +49,7 @@ void common_validate_cmp(Row row,
 
     // Check the instruction tags
     EXPECT_EQ(row.avm_main_r_in_tag, FF(static_cast<uint32_t>(tag)));
-    EXPECT_EQ(row.avm_main_w_in_tag, FF(1));
+    EXPECT_EQ(row.avm_main_w_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
 
     // Check that intermediate registers are correctly copied in Alu trace
     EXPECT_EQ(alu_row.avm_alu_ia, a);
@@ -77,15 +77,16 @@ std::vector<ThreeOpParam> positive_op_lte_test_values = {
         FF(1) } }
 };
 
-std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> operands, std::vector<AvmMemoryTag> mem_tags)
+std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> operands,
+                                                 std::vector<AvmMemoryTag> mem_tag_arr)
 {
     std::vector<ThreeOpParamRow> params;
     for (size_t i = 0; i < 5; i++) {
-        params.emplace_back(operands[i], mem_tags[i]);
+        params.emplace_back(operands[i], mem_tag_arr[i]);
     }
     return params;
 }
-std::vector<AvmMemoryTag> mem_tags{
+std::vector<AvmMemoryTag> mem_tag_arr{
     { AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
 };
 class AvmCmpTests : public ::testing::Test {
@@ -108,11 +109,15 @@ TEST_P(AvmCmpTestsLT, ParamTest)
 {
     const auto [params, mem_tag] = GetParam();
     const auto [a, b, c] = params;
-    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, c });
+    if (mem_tag == AvmMemoryTag::FF) {
+        trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ a, b });
+    } else {
+        trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
+        trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
+    }
     trace_builder.op_lt(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
-    // Validate the trace
 
     // Get the row in the avm with the LT selector set
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_lt == FF(1); });
@@ -120,23 +125,28 @@ TEST_P(AvmCmpTestsLT, ParamTest)
     // Use the row in the main trace to find the same operation in the alu trace.
     FF clk = row->avm_main_clk;
     auto alu_row = std::ranges::find_if(
-        trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk && r.avm_alu_op_lt; });
+        trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk && r.avm_alu_op_lt == FF(1); });
     // Check that both rows were found
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_TRUE(alu_row != trace.end());
-    common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), AvmMemoryTag::FF);
+    ASSERT_TRUE(row != trace.end());
+    ASSERT_TRUE(alu_row != trace.end());
+    common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), mem_tag);
 
     validate_trace_proof(std::move(trace));
 }
 INSTANTIATE_TEST_SUITE_P(AvmCmpTests,
                          AvmCmpTestsLT,
-                         testing::ValuesIn(gen_three_op_params(positive_op_lt_test_values, mem_tags)));
+                         testing::ValuesIn(gen_three_op_params(positive_op_lt_test_values, mem_tag_arr)));
 
 TEST_P(AvmCmpTestsLTE, ParamTest)
 {
     const auto [params, mem_tag] = GetParam();
     const auto [a, b, c] = params;
-    trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, c });
+    if (mem_tag == AvmMemoryTag::FF) {
+        trace_builder.calldata_copy(0, 0, 2, 0, std::vector<FF>{ a, b });
+    } else {
+        trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
+        trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
+    }
     trace_builder.op_lte(0, 0, 1, 2, mem_tag);
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
@@ -147,14 +157,14 @@ TEST_P(AvmCmpTestsLTE, ParamTest)
     auto alu_row = std::ranges::find_if(
         trace.begin(), trace.end(), [clk](Row r) { return r.avm_alu_clk == clk && r.avm_alu_op_lte; });
     // Check that both rows were found
-    EXPECT_TRUE(row != trace.end());
-    EXPECT_TRUE(alu_row != trace.end());
-    common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), AvmMemoryTag::FF);
+    ASSERT_TRUE(row != trace.end());
+    ASSERT_TRUE(alu_row != trace.end());
+    common_validate_cmp(*row, *alu_row, a, b, c, FF(0), FF(1), FF(2), mem_tag);
     validate_trace_proof(std::move(trace));
 }
 INSTANTIATE_TEST_SUITE_P(AvmCmpTests,
                          AvmCmpTestsLTE,
-                         testing::ValuesIn(gen_three_op_params(positive_op_lte_test_values, mem_tags)));
+                         testing::ValuesIn(gen_three_op_params(positive_op_lte_test_values, mem_tag_arr)));
 
 /******************************************************************************
  *
@@ -178,19 +188,17 @@ std::vector<std::tuple<std::string, CMP_FAILURES>> cmp_failures = {
     { "RES_HI", CMP_FAILURES::ResHiCheckFailed },
     { "CMP_CTR_REL_2", CMP_FAILURES::CounterRelationFailed },
     { "CTR_NON_ZERO_REL", CMP_FAILURES::CounterNonZeroCheckFailed },
-    { "SHIFT_RELS", CMP_FAILURES::ShiftRelationFailed },
+    { "SHIFT_RELS_0", CMP_FAILURES::ShiftRelationFailed },
     { "LOOKUP_U16_0", CMP_FAILURES::RangeCheckFailed },
 
 };
-std::vector<ThreeOpParam> neg_test_lt = { { 12023, 439321, 0 } };
-std::vector<ThreeOpParam> neg_test_lte = { { 12023, 12023, 0 } };
+std::vector<ThreeOpParam> neg_test_lt = { { FF::modulus - 1, FF::modulus_minus_two, 0 } };
+std::vector<ThreeOpParam> neg_test_lte = { { FF::modulus - 1, FF::modulus - 1, 0 } };
 
 using EXPECTED_ERRORS = std::tuple<std::string, CMP_FAILURES>;
 
-std::vector<Row> gen_mutated_trace_cmp(std::vector<Row> trace,
-                                       std::function<bool(Row)>&& select_row,
-                                       FF c_mutated,
-                                       CMP_FAILURES fail_mode)
+std::vector<Row> gen_mutated_trace_cmp(
+    std::vector<Row> trace, std::function<bool(Row)> select_row, FF c_mutated, CMP_FAILURES fail_mode, bool is_lte)
 {
     auto main_trace_row = std::ranges::find_if(trace.begin(), trace.end(), select_row);
     auto main_clk = main_trace_row->avm_main_clk;
@@ -202,7 +210,7 @@ std::vector<Row> gen_mutated_trace_cmp(std::vector<Row> trace,
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_alu_cmp_rng_ctr > FF(0); });
     switch (fail_mode) {
     case IncorrectInputDecomposition:
-        alu_row->avm_alu_a_lo = FF(0);
+        alu_row->avm_alu_a_lo = alu_row->avm_alu_a_lo + FF(1);
         break;
     case SubLoCheckFailed:
         alu_row->avm_alu_p_a_borrow = FF::one() - alu_row->avm_alu_p_a_borrow;
@@ -233,11 +241,16 @@ std::vector<Row> gen_mutated_trace_cmp(std::vector<Row> trace,
         mutate_ic_in_trace(trace, std::move(select_row), c_mutated, true);
 
         // Now we have to also update the value of res_lo = (A_SUB_B_LO * IS_GT + B_SUB_A_LO * (1 - IS_GT))
-        // to be B_SUB_A_LO
         alu_row->avm_alu_borrow = FF(0);
         FF mutated_res_lo =
             alu_row->avm_alu_b_lo - alu_row->avm_alu_a_lo + alu_row->avm_alu_borrow * (uint256_t(1) << 128);
         FF mutated_res_hi = alu_row->avm_alu_b_hi - alu_row->avm_alu_a_hi - alu_row->avm_alu_borrow;
+
+        if (is_lte) {
+            mutated_res_lo = alu_row->avm_alu_a_lo - alu_row->avm_alu_b_lo - FF::one() +
+                             alu_row->avm_alu_borrow * (uint256_t(1) << 128);
+            mutated_res_hi = alu_row->avm_alu_a_hi - alu_row->avm_alu_b_hi - alu_row->avm_alu_borrow;
+        }
         alu_row->avm_alu_res_lo = mutated_res_lo;
         alu_row->avm_alu_res_hi = mutated_res_hi;
         // For each subsequent row that involve the range check, we need to update the shifted values
@@ -304,8 +317,8 @@ TEST_P(AvmCmpNegativeTestsLT, ParamTest)
     trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF);
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
-    std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_lt == FF(1); };
-    trace = gen_mutated_trace_cmp(trace, std::move(select_row), output, failure_mode);
+    std::function<bool(Row)> select_row = [](Row r) { return r.avm_main_sel_op_lt == FF(1); };
+    trace = gen_mutated_trace_cmp(trace, select_row, output, failure_mode, false);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
 }
 
@@ -320,11 +333,11 @@ TEST_P(AvmCmpNegativeTestsLTE, ParamTest)
     const auto [a, b, output] = params;
     auto trace_builder = avm_trace::AvmTraceBuilder();
     trace_builder.calldata_copy(0, 0, 3, 0, std::vector<FF>{ a, b, output });
-    trace_builder.op_lt(0, 0, 1, 2, AvmMemoryTag::FF);
+    trace_builder.op_lte(0, 0, 1, 2, AvmMemoryTag::FF);
     trace_builder.return_op(0, 0, 0);
     auto trace = trace_builder.finalize();
-    std::function<bool(Row)>&& select_row = [](Row r) { return r.avm_main_sel_op_lt == FF(1); };
-    trace = gen_mutated_trace_cmp(trace, std::move(select_row), output, failure_mode);
+    std::function<bool(Row)> select_row = [](Row r) { return r.avm_main_sel_op_lte == FF(1); };
+    trace = gen_mutated_trace_cmp(trace, select_row, output, failure_mode, true);
     EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), failure_string);
 }
 INSTANTIATE_TEST_SUITE_P(AvmCmpNegativeTests,

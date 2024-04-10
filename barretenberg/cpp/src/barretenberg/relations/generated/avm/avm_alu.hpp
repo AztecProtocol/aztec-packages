@@ -85,12 +85,6 @@ template <typename FF> struct Avm_aluRow {
 inline std::string get_relation_label_avm_alu(int index)
 {
     switch (index) {
-    case 0:
-        return "SELECTOR_REL";
-
-    case 1:
-        return "SELECTOR_REL_2";
-
     case 10:
         return "ALU_ADD_SUB_1";
 
@@ -164,7 +158,7 @@ inline std::string get_relation_label_avm_alu(int index)
         return "UPPER_CMP_RNG_CHK";
 
     case 40:
-        return "SHIFT_RELS";
+        return "SHIFT_RELS_0";
 
     case 42:
         return "SHIFT_RELS_1";

@@ -464,8 +464,8 @@ std::tuple<uint8_t, uint8_t, std::vector<uint16_t>> AvmAluTraceBuilder::to_alu_s
 }
 
 /**
- * @brief This is a helper function that is used to generate the range check entries for the comparison operation.
- *        This additionally increments the counts for the corresponding range lookups entries.
+ * @brief This is a helper function that is used to generate the range check entries for the comparison operation
+ * (LT/LTE opcodes). This additionally increments the counts for the corresponding range lookups entries.
  * @param row The initial row where the comparison operation was performed
  * @param hi_lo_limbs The vector of 128-bit limbs hi and lo pairs of limbs that will be range checked.
  * @return A vector of AluTraceEntry rows for the range checks for the comparison operation.
@@ -480,28 +480,30 @@ std::vector<AvmAluTraceBuilder::AluTraceEntry> AvmAluTraceBuilder::cmp_range_che
     std::vector<AvmAluTraceBuilder::AluTraceEntry> rows{ std::move(row) };
     rows.resize(num_rows, {});
 
+    // We need to ensure that the number of rows is even
+    ASSERT(hi_lo_limbs.size() % 2 == 0);
     // Now for each row, we need to unpack a pair from the hi_lo_limb array into the ALUs 8-bit and 16-bit registers
     // The first row unpacks a_lo and a_hi, the second row unpacks b_lo and b_hi, and so on.
     for (size_t j = 0; j < num_rows; j++) {
-        auto* r = &rows.at(j);
+        auto& r = rows.at(j);
         uint256_t lo_limb = hi_lo_limbs.at(2 * j);
         uint256_t hi_limb = hi_lo_limbs.at(2 * j + 1);
         uint256_t limb = lo_limb + (hi_limb << 128);
         // Unpack lo limb and handle in the 8-bit registers
         auto [alu_u8_r0, alu_u8_r1, alu_u16_reg] = AvmAluTraceBuilder::to_alu_slice_registers(limb);
-        r->alu_u8_r0 = alu_u8_r0;
-        r->alu_u8_r1 = alu_u8_r1;
-        std::copy(alu_u16_reg.begin(), alu_u16_reg.end(), r->alu_u16_reg.begin());
+        r.alu_u8_r0 = alu_u8_r0;
+        r.alu_u8_r1 = alu_u8_r1;
+        std::copy(alu_u16_reg.begin(), alu_u16_reg.end(), r.alu_u16_reg.begin());
 
-        r->cmp_rng_ctr = j > 0 ? static_cast<uint8_t>(num_rows - j) : 0;
-        r->rng_chk_sel = j > 0;
-        r->alu_op_eq_diff_inv = j > 0 ? FF(num_rows - j).invert() : 0;
+        r.cmp_rng_ctr = j > 0 ? static_cast<uint8_t>(num_rows - j) : 0;
+        r.rng_chk_sel = j > 0;
+        r.alu_op_eq_diff_inv = j > 0 ? FF(num_rows - j).invert() : 0;
 
         std::vector<FF> limb_arr = { hi_lo_limbs.begin() + static_cast<int>(2 * j), hi_lo_limbs.end() };
         // Resizing here is probably suboptimal for performance, we can probably handle the shorter vectors and
         // pad with zero during the finalise
         limb_arr.resize(10, FF::zero());
-        r->hi_lo_limbs = limb_arr;
+        r.hi_lo_limbs = limb_arr;
     }
     return rows;
 }
@@ -560,6 +562,7 @@ std::tuple<uint256_t, uint256_t, bool> gt_or_lte_witness(uint256_t const& a, uin
  * @param a Left operand of the LT
  * @param b Right operand of the LT
  * @param clk Clock referring to the operation in the main trace.
+ * @param in_tag Instruction tag defining the number of bits for the LT.
  *
  * @return FF The boolean result of LT casted to a finite field element
  */
@@ -569,7 +572,7 @@ FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
     bool c = uint256_t(a) < uint256_t(b);
 
     // Note: This is counter-intuitive, to show that a < b we actually show that b > a
-    // The subtlely is here that the circuit is designed as a GT(x,y) circuit, therefor we swap the inputs a & b
+    // The subtlety is here that the circuit is designed as a GT(x,y) circuit, therefore we swap the inputs a & b
     // Get the decomposition of b
     auto [a_lo, a_hi] = decompose(b);
     // Get the decomposition of a
@@ -616,6 +619,7 @@ FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
  * @param a Left operand of the LTE
  * @param b Right operand of the LTE
  * @param clk Clock referring to the operation in the main trace.
+ * @param in_tag Instruction tag defining the number of bits for the LT.
  *
  * @return FF The boolean result of LTE casted to a finite field element
  */
