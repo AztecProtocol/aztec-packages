@@ -51,7 +51,6 @@ const aztecNRSidebar = buildSidebarItemsFromStructure(
   "developers/contracts/references/aztec-nr"
 );
 
-console.log(aztecNRSidebar);
 /** @type {import('@docusaurus/plugin-content-docs').SidebarsConfig} */
 const sidebars = {
   docsSidebar: [
