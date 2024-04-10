@@ -466,30 +466,33 @@ fn create_context_avm() -> Result<Vec<Statement>, AztecMacroError> {
 
 /// Abstract Return Type
 ///
-/// This function intercepts the function's current return type and replaces it with pushes
-/// To the kernel
+/// This function intercepts the function's current return type and replaces it with pushes to a hasher
+/// that will be used to generate the returns hash for the kernel.
 ///
 /// The replaced code:
 /// ```noir
 /// /// Before
-/// #[aztec(private)]
-/// fn foo() -> protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
-///   // ...
-///   let my_return_value: Field = 10;
-///   context.return_values.push(my_return_value);
-/// }
-///
-/// /// After
 /// #[aztec(private)]
 /// fn foo() -> Field {
 ///     // ...
 ///    let my_return_value: Field = 10;
 ///    my_return_value
 /// }
+///
+/// /// After
+/// #[aztec(private)]
+/// fn foo() -> protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
+///   // ...
+///   let my_return_value: Field = 10;
+///   let macro__returned__values = my_return_value;
+///   let mut returns_hasher = ArgsHasher::new();
+///   returns_hasher.add(macro__returned__values);
+///   context.set_return_hash(returns_hasher);
+/// }
 /// ```
-/// Similarly; Structs will be pushed to the context, after serialize() is called on them.
-/// Arrays will be iterated over and each element will be pushed to the context.
-/// Any primitive type that can be cast will be casted to a field and pushed to the context.
+/// Similarly; Structs will be pushed to the hasher, after serialize() is called on them.
+/// Arrays will be iterated over and each element will be pushed to the hasher.
+/// Any primitive type that can be cast will be casted to a field and pushed to the hasher.
 fn abstract_return_values(func: &NoirFunction) -> Result<Option<Vec<Statement>>, AztecMacroError> {
     let current_return_type = func.return_type().typ;
 
