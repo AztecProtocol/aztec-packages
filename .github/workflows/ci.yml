@@ -174,7 +174,7 @@ jobs:
         run: earthly --no-output +test
 
   # push benchmarking binaries to dockerhub registry
-  bb-bench-base:
+  bb-bench-binaries:
     runs-on: ${{ github.actor }}-x86
     needs: setup-x86
     steps:
@@ -183,12 +183,12 @@ jobs:
       - name: Build and Push Binaries
         if: ${{ github.event.inputs.just_start_spot != 'true' }}
         working-directory: ./barretenberg/cpp/
-        run: earthly --push +bench-base
+        run: earthly --push +bench-binaries
 
   start-bb-bench-runner:
     timeout-minutes: 5
     # We wait for binaries to be done for kickoff
-    needs: bb-bench-base
+    needs: bb-bench-binaries
     name: Start Bench Runner
     runs-on: ubuntu-latest
     permissions:
