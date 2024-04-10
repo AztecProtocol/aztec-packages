@@ -1,0 +1,74 @@
+name: Start Runners
+
+# Start cheap (~1/8th the cost of on demand, ~13th the cost of large GA runners) spot builders
+# just for the CI job. These are specced per user and run the entire CI.
+# These have a persistent EBS volume that forms a fast-online docker image cache (used by Earthly), meaning
+# build steps that ran in previous invocations are quickly ran from cache.
+on:
+  workflow_call:
+    inputs:
+      build_runner_action:
+        type: string
+        description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
+        required: false
+      test_runner_action:
+        type: string
+        description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
+        required: false
+      bench_runner_action:
+        description: "The action to take with the self-hosted runner: start, stop, restart, or none (default)."
+        type: string
+        required: false
+
+jobs:
+  build:
+    timeout-minutes: 5
+    name: Start Build Runner (${{ matrix.config.runner_label_suffix }})
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.builder_action }}
+    permissions:
+      actions: write
+    strategy:
+      matrix:
+        config:
+          - {ec2_instance_type: m6a.16xlarge, ec2_ami_id: ami-04d8422a9ba4de80f, runner_label_suffix: x86}
+          - {ec2_instance_type: r6g.16xlarge, ec2_ami_id: ami-0d8a9b0419ddb331a, runner_label_suffix: arm}
+    steps:
+      - name: Start EC2 runner
+        id: start-ec2-runner
+        uses: AztecProtocol/ec2-action-builder@v0.3
+        with:
+          github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: "us-east-2"
+          ec2_subnet_id: subnet-4cfabd25
+          subaction: ${{ github.event.inputs.builder_action }}
+          # prevent reaping by mainframe spot reaper
+          ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
+          github_action_runner_version: v2.315.0
+          ec2_security_group_id: sg-0ccd4e5df0dcca0c9
+          ec2_spot_instance_strategy: BestEffort
+          runner_label: ${{ github.actor }}-${{ matrix.config.runner_label_suffix }}
+          runner_concurrency: 60 # enough room to run multiple jobs at once
+          ec2_instance_type: ${{ matrix.config.ec2_instance_type }}
+          ec2_ami_id: ${{ matrix.config.ec2_ami_id }}
+          ec2_instance_ttl: 30 # 30 minutes to reap, refreshed by job starts
+
+  # prevents concurrency issues with multiple (implicit) earthly bootstraps
+  build-setup:
+    needs: build
+    timeout-minutes: 5
+    runs-on: ${{ github.actor }}-${{ matrix.arch }}
+    strategy:
+      matrix:
+        arch: [x86, arm]
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
+      - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
+      # Attach our 128gb cache disk
+      - run: ./scripts/attach_ebs_cache.sh ${{ github.actor }}-arm 128
+      - run: earthly bootstrap
