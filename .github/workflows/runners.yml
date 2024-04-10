@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 5
     name: Start Build Runner (${{ matrix.config.runner_label_suffix }})
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.build_runner_action != 'none' }}
+    if: ${{ inputs.build_runner_action != 'none' }}
     permissions:
       actions: write
     strategy:
@@ -59,7 +59,7 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws_region: "us-east-2"
           ec2_subnet_id: subnet-4cfabd25
-          subaction: ${{ github.event.inputs.build_runner_action }}
+          subaction: ${{ inputs.build_runner_action }}
           # prevent reaping by mainframe spot reaper
           ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
           github_action_runner_version: v2.315.0
