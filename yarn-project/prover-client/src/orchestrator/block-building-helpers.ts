@@ -46,7 +46,7 @@ import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/seri
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { CircuitProver } from '../prover/interface.js';
+import { type CircuitProver } from '../prover/interface.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);

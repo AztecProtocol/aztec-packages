@@ -12,9 +12,9 @@ import {
   type Header,
   KernelCircuitPublicInputs,
   type Proof,
-  PublicKernelCircuitPrivateInputs,
+  type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
-  PublicKernelTailCircuitPrivateInputs,
+  type PublicKernelTailCircuitPrivateInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 

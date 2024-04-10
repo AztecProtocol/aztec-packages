@@ -1,38 +1,20 @@
 import { PROVING_STATUS, makeEmptyProcessedTx } from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  BaseParityInputs,
-  EthAddress,
-  Fr,
-  GlobalVariables,
-  Header,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
-  RootParityInput,
-  RootParityInputs,
-  RootRollupPublicInputs,
-} from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, GlobalVariables, Header, type RootRollupPublicInputs } from '@aztec/circuits.js';
 import { makeRootRollupPublicInputs } from '@aztec/circuits.js/testing';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tuple } from '@aztec/foundation/serialize';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import { type MemDown, default as memdown } from 'memdown';
 import path from 'path';
 
 import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
-import {
-  buildBaseRollupInput,
-  createMergeRollupInputs,
-  executeRootRollupCircuit,
-} from '../orchestrator/block-building-helpers.js';
+import { buildBaseRollupInput } from '../orchestrator/block-building-helpers.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { BBNativeRollupProver, BBProverConfig } from './bb_prover.js';
+import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 

@@ -26,7 +26,6 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
-  PublicCallRequest,
   type RootParityInput,
   RootParityInputs,
 } from '@aztec/circuits.js';
@@ -37,11 +36,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { elapsed } from '@aztec/foundation/timer';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { CircuitProver } from '../prover/index.js';
+import { type CircuitProver } from '../prover/index.js';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,

@@ -1,6 +1,6 @@
 import {
   MerkleTreeId,
-  PublicKernelRequest,
+  type PublicKernelRequest,
   type SimulationError,
   type Tx,
   type UnencryptedFunctionL2Logs,

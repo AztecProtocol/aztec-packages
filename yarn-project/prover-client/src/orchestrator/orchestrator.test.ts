@@ -3,7 +3,7 @@ import {
   PROVING_STATUS,
   type ProcessedTx,
   type ProvingFailure,
-  PublicKernelRequest,
+  type PublicKernelRequest,
   PublicKernelType,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
 } from '@aztec/circuit-types';
@@ -18,7 +18,6 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_SUBTREE_HEIGHT,
-  Proof,
   PublicDataTreeLeaf,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';

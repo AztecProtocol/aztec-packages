@@ -1,22 +1,21 @@
 /* eslint-disable require-await */
 import {
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BaseRollupInputs,
-  MergeRollupInputs,
-  ParityPublicInputs,
-  PreviousRollupData,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BaseRollupInputs,
+  type MergeRollupInputs,
+  type ParityPublicInputs,
+  type PreviousRollupData,
   Proof,
   RollupTypes,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
-  BaseRollupArtifact,
-  ProtocolArtifact,
+  type ProtocolArtifact,
   ProtocolCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
@@ -31,11 +30,11 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { NativeACVMSimulator } from '@aztec/simulator';
 
-import { WitnessMap } from '@noir-lang/types';
+import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
 import { BB_RESULT, generateProof, generateVerificationKeyForNoirCircuit, verifyProof } from '../bb/execute.js';
-import { CircuitProver } from './interface.js';
+import { type CircuitProver } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 

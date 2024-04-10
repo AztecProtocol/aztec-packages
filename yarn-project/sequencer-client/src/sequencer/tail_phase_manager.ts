@@ -1,4 +1,4 @@
-import { PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
+import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
   type Fr,
   type GlobalVariables,

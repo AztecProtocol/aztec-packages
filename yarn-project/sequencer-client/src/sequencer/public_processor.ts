@@ -2,7 +2,7 @@ import {
   type BlockProver,
   type FailedTx,
   type ProcessedTx,
-  PublicKernelRequest,
+  type PublicKernelRequest,
   type SimulationError,
   Tx,
   makeEmptyProcessedTx,

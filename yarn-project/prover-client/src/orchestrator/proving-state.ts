@@ -1,8 +1,8 @@
-import { type L2Block, MerkleTreeId, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
+import { type L2Block, type MerkleTreeId, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
 import {
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
-  BaseRollupInputs,
+  type BaseRollupInputs,
   type Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,

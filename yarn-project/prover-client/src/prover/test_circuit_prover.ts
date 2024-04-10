@@ -1,14 +1,14 @@
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BaseRollupInputs,
-  MergeRollupInputs,
-  ParityPublicInputs,
-  Proof,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BaseRollupInputs,
+  type MergeRollupInputs,
+  type ParityPublicInputs,
+  type Proof,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -21,8 +21,6 @@ import {
   SimulatedBaseRollupArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
-  convertBaseRollupInputsToWitnessMap,
-  convertBaseRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
@@ -32,9 +30,9 @@ import {
   convertSimulatedBaseRollupInputsToWitnessMap,
   convertSimulatedBaseRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import { CircuitProver } from './interface.js';
+import { type CircuitProver } from './interface.js';
 
 /**
  * A class for use in testing situations (e2e, unit test etc)

@@ -10,7 +10,7 @@ import {
 } from '@aztec/circuits.js';
 import { fr, makeProof } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
 export const makeBloatedProcessedTx = async (builderDb: MerkleTreeOperations, seed = 0x1) => {
   seed *= MAX_NEW_NULLIFIERS_PER_TX; // Ensure no clashing given incremental seeds
