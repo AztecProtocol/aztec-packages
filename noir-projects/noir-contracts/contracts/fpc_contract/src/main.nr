@@ -63,14 +63,12 @@ contract FPC {
     #[aztec(public)]
     #[aztec(internal)]
     fn pay_fee(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
-        let refund: Field = Deserialize::deserialize(
-            context.call_public_function(
-                storage.gas_token_address.read_public(),
-                FunctionSelector::from_signature("pay_fee(Field)"),
-                [amount],
-                GasOpts::default()
-            )
-        );
+        let refund: Field = context.call_public_function(
+            storage.gas_token_address.read_public(),
+            FunctionSelector::from_signature("pay_fee(Field)"),
+            [amount],
+            GasOpts::default()
+        ).deserialize_into();
 
         // Just do public refunds for the present
         Token::at(asset).transfer_public(&mut context, context.this_address(), refund_address, refund, 0)
@@ -79,14 +77,12 @@ contract FPC {
     #[aztec(public)]
     #[aztec(internal)]
     fn pay_fee_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
-        let refund: Field = Deserialize::deserialize(
-            context.call_public_function(
-                storage.gas_token_address.read_public(),
-                FunctionSelector::from_signature("pay_fee(Field)"),
-                [amount],
-                GasOpts::default()
-            )
-        );
+        let refund: Field = context.call_public_function(
+            storage.gas_token_address.read_public(),
+            FunctionSelector::from_signature("pay_fee(Field)"),
+            [amount],
+            GasOpts::default()
+        ).deserialize_into();
 
         Token::at(asset).shield(&mut context, context.this_address(), refund, secret_hash, 0);
     }

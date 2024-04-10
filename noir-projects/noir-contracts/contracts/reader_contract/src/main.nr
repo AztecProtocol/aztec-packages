@@ -9,7 +9,7 @@ contract Reader {
     #[aztec(public)]
     fn check_name_public(who: AztecAddress, what: str<31>) {
         let selector = FunctionSelector::from_signature("public_get_name()");
-        let name: FieldCompressedString = Deserialize::deserialize(context.call_public_function_no_args(who, selector));
+        let name: FieldCompressedString = context.call_public_function_no_args(who, selector).deserialize_into();
         let _what = FieldCompressedString::from_string(what);
         assert(name.is_eq(_what));
     }
@@ -30,7 +30,7 @@ contract Reader {
     #[aztec(public)]
     fn check_symbol_public(who: AztecAddress, what: str<31>) {
         let selector = FunctionSelector::from_signature("public_get_symbol()");
-        let symbol: FieldCompressedString = Deserialize::deserialize(context.call_public_function_no_args(who, selector));
+        let symbol: FieldCompressedString = context.call_public_function_no_args(who, selector).deserialize_into();
         let _what = FieldCompressedString::from_string(what);
         assert(symbol.is_eq(_what));
     }
@@ -51,7 +51,7 @@ contract Reader {
     #[aztec(public)]
     fn check_decimals_public(who: AztecAddress, what: u8) {
         let selector = FunctionSelector::from_signature("public_get_decimals()");
-        let ret: u8 = Deserialize::deserialize(context.call_public_function_no_args(who, selector));
+        let ret: u8 = context.call_public_function_no_args(who, selector).deserialize_into();
         assert(ret == what);
     }
 

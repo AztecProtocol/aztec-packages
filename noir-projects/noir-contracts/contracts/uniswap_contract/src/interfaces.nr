@@ -19,12 +19,12 @@ impl Token {
         amount: Field,
         nonce: Field
     ) {
-        let _void: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 
     pub fn unshield(
@@ -53,14 +53,12 @@ impl TokenBridge {
     }
 
     pub fn token(self: Self, context: &mut PublicContext) -> AztecAddress {
-        let address: AztecAddress = Deserialize::deserialize(
-            context.call_public_function(
-                self.address,
-                FunctionSelector::from_signature("get_token()"),
-                [],
-                GasOpts::default()
-            )
-        );
+        let address: AztecAddress = context.call_public_function(
+            self.address,
+            FunctionSelector::from_signature("get_token()"),
+            [],
+            GasOpts::default()
+        ).deserialize_into();
         address
     }
 
@@ -72,12 +70,12 @@ impl TokenBridge {
         caller_on_l1: EthAddress,
         nonce: Field
     ) {
-        let _void: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("exit_to_l1_public((Field),Field,(Field),Field)"),
             [recipient.to_field(), amount, caller_on_l1.to_field(), nonce],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 }
 // docs:end:interfaces

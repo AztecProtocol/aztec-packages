@@ -1,8 +1,7 @@
-use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header,
-};
+use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header};
 
 use crate::context::gas::GasOpts;
+use crate::context::public_context::FunctionReturns;
 
 trait ContextInterface {
     fn push_new_note_hash(&mut self, note_hash: Field);
@@ -37,18 +36,18 @@ trait PublicContextInterface {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURNS_COUNT];
+    ) -> FunctionReturns<RETURNS_COUNT>;
     fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURNS_COUNT];
+    ) -> FunctionReturns<RETURNS_COUNT>;
     fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURNS_COUNT];
+    ) -> FunctionReturns<RETURNS_COUNT>;
 }

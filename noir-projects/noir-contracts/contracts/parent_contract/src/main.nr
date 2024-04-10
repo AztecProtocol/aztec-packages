@@ -20,14 +20,12 @@ contract Parent {
         target_selector: FunctionSelector,
         init_value: Field
     ) -> Field {
-        let return_value: Field = Deserialize::deserialize(
-            context.call_public_function(
-                target_contract,
-                target_selector,
-                [init_value],
-                GasOpts::default()
-            )
-        );
+        let return_value: Field = context.call_public_function(
+            target_contract,
+            target_selector,
+            [init_value],
+            GasOpts::default()
+        ).deserialize_into();
 
         return_value
     }
@@ -39,22 +37,18 @@ contract Parent {
         target_selector: FunctionSelector,
         init_value: Field
     ) -> Field {
-        let return_value: Field = Deserialize::deserialize(
-            context.call_public_function(
-                target_contract,
-                target_selector,
-                [init_value],
-                GasOpts::default()
-            )
-        );
-        let return_value: Field = Deserialize::deserialize(
-            context.call_public_function(
-                target_contract,
-                target_selector,
-                [return_value],
-                GasOpts::default()
-            )
-        );
+        let return_value: Field = context.call_public_function(
+            target_contract,
+            target_selector,
+            [init_value],
+            GasOpts::default()
+        ).deserialize_into();
+        let return_value: Field = context.call_public_function(
+            target_contract,
+            target_selector,
+            [return_value],
+            GasOpts::default()
+        ).deserialize_into();
 
         return_value
     }
@@ -208,9 +202,7 @@ contract Parent {
         target_selector: FunctionSelector,
         args: [Field; 1]
     ) -> Field {
-        Deserialize::deserialize(
-            context.static_call_public_function(target_contract, target_selector, args, GasOpts::default())
-        )
+        context.static_call_public_function(target_contract, target_selector, args, GasOpts::default()).deserialize_into()
     }
 
     // Public function to set a static context and verify correct propagation for nested public calls
@@ -223,14 +215,12 @@ contract Parent {
         // Call the target public function through the pub entrypoint statically
         let pub_entry_point_selector = FunctionSelector::from_signature("pub_entry_point((Field),(u32),Field)");
         let this_address = context.this_address();
-        Deserialize::deserialize(
-            context.static_call_public_function(
-                this_address,
-                pub_entry_point_selector,
-                [target_contract.to_field(), target_selector.to_field(), args[0]],
-                GasOpts::default()
-            )
-        )
+        context.static_call_public_function(
+            this_address,
+            pub_entry_point_selector,
+            [target_contract.to_field(), target_selector.to_field(), args[0]],
+            GasOpts::default()
+        ).deserialize_into()
     }
 
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided

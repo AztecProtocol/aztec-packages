@@ -32,12 +32,12 @@ contract StatefulTest {
     #[aztec(initializer)]
     fn public_constructor(owner: AztecAddress, value: Field) {
         let selector = FunctionSelector::from_signature("increment_public_value_no_init_check((Field),Field)");
-        let _res: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             selector,
             [owner.to_field(), value],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 
     #[aztec(private)]

@@ -18,12 +18,12 @@ impl Token {
         amount: Field,
         nonce: Field
     ) {
-        let _void: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 
     pub fn shield(
@@ -34,12 +34,12 @@ impl Token {
         secret_hash: Field,
         nonce: Field
     ) {
-        let _void: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("shield((Field),Field,Field,Field)"),
             [from.to_field(), amount, secret_hash, nonce],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 
     // Private

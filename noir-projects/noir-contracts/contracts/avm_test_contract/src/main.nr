@@ -203,33 +203,29 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn call_acvm_from_avm() -> pub Field {
-        let data_to_return: Field = Deserialize::deserialize(
-            context.call_public_function(
-                context.this_address(),
-                FunctionSelector::from_signature("constant_field_acvm()"),
-                [],
-                GasOpts::default()
-            )
-        );
+        let data_to_return: Field = context.call_public_function(
+            context.this_address(),
+            FunctionSelector::from_signature("constant_field_acvm()"),
+            [],
+            GasOpts::default()
+        ).deserialize_into();
         data_to_return
     }
 
     #[aztec(public)]
     fn call_avm_from_acvm() -> pub Field {
-        let data_to_return: Field = Deserialize::deserialize(
-            context.call_public_function(
-                context.this_address(),
-                FunctionSelector::from_signature("constant_field_avm()"),
-                [],
-                GasOpts::default()
-            )
-        );
+        let data_to_return: Field = context.call_public_function(
+            context.this_address(),
+            FunctionSelector::from_signature("constant_field_avm()"),
+            [],
+            GasOpts::default()
+        ).deserialize_into();
         data_to_return
     }
 
     #[aztec(public-vm)]
     fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
-        let _void: [Field; 0] = context.call_public_function(context.this_address(), selector, [args], GasOpts::default());
+        context.call_public_function(context.this_address(), selector, [args], GasOpts::default()).assert_empty();
     }
 
     /************************************************************************
@@ -458,14 +454,12 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
         // Nested call using standard context interface function
-        let add_result: Field = Deserialize::deserialize(
-            context.call_public_function(
-                context.this_address(),
-                selector,
-                [arg_a, arg_b],
-                GasOpts::default()
-            )
-        );
+        let add_result: Field = context.call_public_function(
+            context.this_address(),
+            selector,
+            [arg_a, arg_b],
+            GasOpts::default()
+        ).deserialize_into();
         // this explicit size in the return variable is necessary to ensure that ret_size is compile-time
         // (ensure the data_to_return is in a HeapArray not a HeapVector)
 
@@ -503,14 +497,12 @@ contract AvmTest {
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
-        let result: Field = Deserialize::deserialize(
-            context.static_call_public_function(
-                context.this_address(),
-                selector,
-                [arg_a, arg_b],
-                GasOpts::default()
-            )
-        );
+        let result: Field = context.static_call_public_function(
+            context.this_address(),
+            selector,
+            [arg_a, arg_b],
+            GasOpts::default()
+        ).deserialize_into();
 
         result
     }
@@ -521,6 +513,6 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)");
         let calldata: [Field; 1] = [20];
 
-        let _void: [Field; 0] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default());
+        context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default()).assert_empty();
     }
 }

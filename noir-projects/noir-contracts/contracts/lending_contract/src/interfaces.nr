@@ -14,14 +14,12 @@ impl PriceFeed {
     }
 
     pub fn get_price(self: Self, context: &mut PublicContext) -> U128 {
-        let price_field: Field = Deserialize::deserialize(
-            context.call_public_function(
-                self.address,
-                FunctionSelector::from_signature("get_price(Field)"),
-                [0],
-                GasOpts::default()
-            )
-        );
+        let price_field: Field = context.call_public_function(
+            self.address,
+            FunctionSelector::from_signature("get_price(Field)"),
+            [0],
+            GasOpts::default()
+        ).deserialize_into();
 
         U128::from_integer(price_field)
     }
@@ -44,21 +42,21 @@ impl Token {
         amount: Field,
         nonce: Field
     ) {
-        let _void: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 
     pub fn mint_public(self: Self, context: &mut PublicContext, to: AztecAddress, amount: Field) {
-        let _void: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("mint_public((Field),Field)"),
             [to.to_field(), amount],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 
     pub fn burn_public(
@@ -68,12 +66,12 @@ impl Token {
         amount: Field,
         nonce: Field
     ) {
-        let _void: [Field; 0] = context.call_public_function(
+        context.call_public_function(
             self.address,
             FunctionSelector::from_signature("burn_public((Field),Field,Field)"),
             [from.to_field(), amount, nonce],
             GasOpts::default()
-        );
+        ).assert_empty();
     }
 
     // Private
@@ -111,11 +109,9 @@ impl Lending {
     }
 
     pub fn update_accumulator(self: Self, context: &mut PublicContext) -> Asset {
-        let return_values = context.call_public_function_no_args(
+        context.call_public_function_no_args(
             self.address,
             FunctionSelector::from_signature("update_accumulator()")
-        );
-
-        Asset::deserialize(return_values)
+        ).deserialize_into()
     }
 }

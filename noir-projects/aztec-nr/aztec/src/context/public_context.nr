@@ -23,7 +23,7 @@ use dep::protocol_types::{
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::Deserialize
 };
 
 struct PublicContext {
@@ -81,7 +81,7 @@ impl PublicContext {
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
     }
 
@@ -89,7 +89,7 @@ impl PublicContext {
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
@@ -97,7 +97,7 @@ impl PublicContext {
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
     }
 
@@ -108,19 +108,21 @@ impl PublicContext {
         args_hash: Field,
         is_static_call: bool,
         is_delegate_call: bool
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let side_effect_counter = self.side_effect_counter;
         // TODO get next value from output of `call_public_function_internal`
         self.side_effect_counter += 1;
 
-        call_public_function_internal(
+        let raw_returns = call_public_function_internal(
             contract_address,
             function_selector,
             args_hash,
             side_effect_counter,
             is_static_call,
             is_delegate_call
-        )
+        );
+
+        FunctionReturns::new(raw_returns)
     }
 
     pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
@@ -278,7 +280,7 @@ impl PublicContextInterface for PublicContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         _gas: GasOpts
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
@@ -290,7 +292,7 @@ impl PublicContextInterface for PublicContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         _gas: GasOpts
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
@@ -301,9 +303,31 @@ impl PublicContextInterface for PublicContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
+    }
+}
+
+struct FunctionReturns<N> {
+    values: [Field; N]
+}
+
+impl<N> FunctionReturns<N> {
+    pub fn new(values: [Field; N]) -> FunctionReturns<N> {
+        FunctionReturns { values }
+    }
+
+    pub fn assert_empty(returns: FunctionReturns<0>) {
+        assert(returns.values.len() == 0);
+    }
+
+    pub fn raw(self) -> [Field; N] {
+        self.values
+    }
+
+    pub fn deserialize_into<T>(self) -> T where T: Deserialize<N> {
+        Deserialize::deserialize(self.raw())
     }
 }

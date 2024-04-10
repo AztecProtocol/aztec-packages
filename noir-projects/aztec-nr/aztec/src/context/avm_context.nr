@@ -1,7 +1,6 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
-    constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER},
-    header::Header
+    constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER}, header::Header
 };
 use dep::protocol_types::traits::Serialize;
 use dep::protocol_types::abis::function_selector::FunctionSelector;
@@ -10,6 +9,7 @@ use crate::context::inputs::avm_context_inputs::AvmContextInputs;
 use crate::context::interface::ContextInterface;
 use crate::context::interface::PublicContextInterface;
 use crate::context::gas::GasOpts;
+use crate::context::public_context::FunctionReturns;
 
 struct AvmContext {
     inputs: AvmContextInputs,
@@ -137,7 +137,7 @@ impl PublicContextInterface for AvmContext {
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURNS_COUNT] {        
+    ) -> FunctionReturns<RETURNS_COUNT> {        
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
@@ -148,7 +148,7 @@ impl PublicContextInterface for AvmContext {
         let success: u8 = results.1;
         assert(success == 1, "Nested call failed!");
 
-        data_to_return
+        FunctionReturns::new(data_to_return)
     }
 
     fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
@@ -157,7 +157,7 @@ impl PublicContextInterface for AvmContext {
         temporary_function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT],
         gas_opts: GasOpts
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
@@ -166,7 +166,7 @@ impl PublicContextInterface for AvmContext {
         );
 
         assert(success == 1, "Nested static call failed!");
-        data_to_return
+        FunctionReturns::new(data_to_return)
     }
 
     fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
@@ -174,9 +174,9 @@ impl PublicContextInterface for AvmContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURNS_COUNT] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         assert(false, "'delegate_call_public_function' not implemented!");
-        [0; RETURNS_COUNT]
+        FunctionReturns::new([0; RETURNS_COUNT])
     }
 }
 

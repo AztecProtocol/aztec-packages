@@ -159,7 +159,7 @@ function generateFunctionInterface(functionData: FunctionArtifact, kind: 'privat
   const isSync = (isPrivate && kind === 'private') || (!isPrivate && kind === 'public');
   // TODO: When return typing data is available in the artifact, we can instead codegen the concrete return type for public and private.
   const generics = !isPrivate && isSync ? `<RETURN_LENGTH>` : ``;
-  const retType = isPrivate ? `-> PackedReturns` : isSync ? `-> [Field; RETURN_LENGTH] ` : ``;
+  const retType = isPrivate ? `-> PackedReturns` : isSync ? `-> FunctionReturns<RETURN_LENGTH> ` : ``;
 
   return `
   pub fn ${name}${generics}(
@@ -177,7 +177,7 @@ ${callStatement}
  */
 function generateStaticImports() {
   return `use dep::std;
-use dep::aztec::context::{ PrivateContext, PublicContext, PackedReturns, gas::GasOpts };
+use dep::aztec::context::{ PrivateContext, PublicContext, PackedReturns, FunctionReturns, gas::GasOpts };
 use dep::aztec::protocol_types::{
   address::AztecAddress,
   abis::function_selector::FunctionSelector,

@@ -33,15 +33,13 @@ pub fn assert_current_call_valid_authwit_public<TPublicContext>(
     let inner_hash = compute_inner_authwit_hash(
         [(*context).msg_sender().to_field(), (*context).selector().to_field(), (*context).get_args_hash()]
     );
-    let result: Field = Deserialize::deserialize(
-        PublicContextInterface::call_public_function(
-            context,
-            on_behalf_of,
-            function_selector,
-            [inner_hash],
-            GasOpts::default()
-        )
-    );
+    let result: Field = PublicContextInterface::call_public_function(
+        context,
+        on_behalf_of,
+        function_selector,
+        [inner_hash],
+        GasOpts::default()
+    ).deserialize_into();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
 }
 // docs:end:assert_current_call_valid_authwit_public

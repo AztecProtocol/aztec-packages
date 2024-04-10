@@ -39,7 +39,7 @@ contract Delegator {
         target_selector: FunctionSelector,
         args: [Field; 1]
     ) {
-        let _result: Field = Deserialize::deserialize(context.delegate_call_public_function(target_contract, target_selector, args));
+        let _result: Field = context.delegate_call_public_function(target_contract, target_selector, args).deserialize_into();
     }
 
     unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {
