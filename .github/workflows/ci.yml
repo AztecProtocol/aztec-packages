@@ -277,7 +277,7 @@ jobs:
           ec2_instance_ttl: 20 # 20 minutes to reap, refreshed by job starts
 
   setup-bb-test:
-    runs-on: ${{ github.actor }}-bench-x86
+    runs-on: ${{ github.actor }}-test-x86
     needs: start-bb-bench-runner
     timeout-minutes: 5
     if: ${{ github.event.inputs.just_start_spot != 'true' }}
@@ -293,9 +293,9 @@ jobs:
 
   # barretenberg (prover) native tests
   bb-native-tests:
-    needs: setup-x86
+    needs: setup-bb-test
     timeout-minutes: 15
-    runs-on: ${{ github.actor }}-${{matrix.environment}}
+    runs-on: ${{ github.actor }}-test-x86
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
       - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
