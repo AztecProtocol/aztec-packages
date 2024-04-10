@@ -36,8 +36,7 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     ecc_op_tuple queue_ecc_eq();
 
   private:
-    void populate_ecc_op_wires(const ecc_op_tuple& in);
-    ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
+    ecc_op_tuple populate_ecc_op_wires(const UltraOp& ultra_op);
     void set_goblin_ecc_op_code_constant_variables();
     void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
     void apply_databus_selectors(BusId bus_idx);
@@ -79,6 +78,24 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
+
+    uint32_t get_ecc_op_idx(const EccOpCode& op_code)
+    {
+        switch (op_code) {
+        case NULL_OP: {
+            return null_op_idx;
+        }
+        case ADD_ACCUM: {
+            return add_accum_op_idx;
+        }
+        case MUL_ACCUM: {
+            return mul_accum_op_idx;
+        }
+        case EQUALITY: {
+            return equality_op_idx;
+        }
+        }
+    }
 
     void finalize_circuit();
     void add_gates_to_ensure_all_polys_are_non_zero();

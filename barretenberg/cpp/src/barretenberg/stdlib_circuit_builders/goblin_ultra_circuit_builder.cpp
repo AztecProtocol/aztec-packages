@@ -103,12 +103,8 @@ template <typename FF>
 ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const bb::g1::affine_element& point)
 {
     // Add raw op to queue
-    op_queue->add_accumulate(point);
-
-    // Decompose operation inputs into width-four form and add ecc op gates
-    auto op_tuple = decompose_ecc_operands(add_accum_op_idx, point);
-    populate_ecc_op_wires(op_tuple);
-
+    auto ultra_op = op_queue->add_accumulate(point);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
 }
 
@@ -124,12 +120,8 @@ template <typename FF>
 ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::affine_element& point, const FF& scalar)
 {
     // Add raw op to op queue
-    op_queue->mul_accumulate(point, scalar);
-
-    // Decompose operation inputs into width-four form and add ecc op gates
-    auto op_tuple = decompose_ecc_operands(mul_accum_op_idx, point, scalar);
-    populate_ecc_op_wires(op_tuple);
-
+    auto ultra_op = op_queue->mul_accumulate(point, scalar);
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
 }
 
@@ -142,57 +134,9 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const bb::g1::a
 template <typename FF> ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_eq()
 {
     // Add raw op to op queue
-    auto point = op_queue->eq();
-
-    // Decompose operation inputs into width-four form and add ecc op gates
-    auto op_tuple = decompose_ecc_operands(equality_op_idx, point);
-    populate_ecc_op_wires(op_tuple);
-
+    auto ultra_op = op_queue->eq();
+    ecc_op_tuple op_tuple = populate_ecc_op_wires(ultra_op);
     return op_tuple;
-}
-
-/**
- * @brief Decompose ecc operands into components, add corresponding variables, return ecc op tuple
- *
- * @param op_idx Index of op code in variables array
- * @param point
- * @param scalar
- * @return ecc_op_tuple Tuple of indices into variables array used to construct pair of ecc op gates
- */
-template <typename FF>
-ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_idx,
-                                                                    const g1::affine_element& point,
-                                                                    const FF& scalar)
-{
-    // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
-    const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
-    auto x_256 = uint256_t(point.x);
-    auto y_256 = uint256_t(point.y);
-    auto x_lo = FF(x_256.slice(0, CHUNK_SIZE));
-    auto x_hi = FF(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
-    auto y_lo = FF(y_256.slice(0, CHUNK_SIZE));
-    auto y_hi = FF(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
-
-    // Split scalar into 128 bit endomorphism scalars
-    FF z_1 = 0;
-    FF z_2 = 0;
-    auto converted = scalar.from_montgomery_form();
-    FF::split_into_endomorphism_scalars(converted, z_1, z_2);
-    z_1 = z_1.to_montgomery_form();
-    z_2 = z_2.to_montgomery_form();
-
-    // Populate ultra ops in OpQueue with the decomposed operands
-    op_queue->populate_ultra_ops({ this->variables[op_idx], x_lo, x_hi, y_lo, y_hi, z_1, z_2 });
-
-    // Add variables for decomposition and get indices needed for op wires
-    auto x_lo_idx = this->add_variable(x_lo);
-    auto x_hi_idx = this->add_variable(x_hi);
-    auto y_lo_idx = this->add_variable(y_lo);
-    auto y_hi_idx = this->add_variable(y_hi);
-    auto z_1_idx = this->add_variable(z_1);
-    auto z_2_idx = this->add_variable(z_2);
-
-    return { op_idx, x_lo_idx, x_hi_idx, y_lo_idx, y_hi_idx, z_1_idx, z_2_idx };
 }
 
 /**
@@ -203,17 +147,28 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_
  * the number of ecc op gates. E.g. in the composer we can reconstruct q_ecc_op as the indicator over the range of ecc
  * op gates. All other selectors are simply 0 on this domain.
  */
-template <typename FF> void GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wires(const ecc_op_tuple& in)
+template <typename FF> ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra_op)
 {
-    this->blocks.ecc_op.populate_wires(in.op, in.x_lo, in.x_hi, in.y_lo);
+    ecc_op_tuple op_tuple;
+    op_tuple.op = get_ecc_op_idx(ultra_op.op_code);
+    op_tuple.x_lo = this->add_variable(ultra_op.x_lo);
+    op_tuple.x_hi = this->add_variable(ultra_op.x_hi);
+    op_tuple.y_lo = this->add_variable(ultra_op.y_lo);
+    op_tuple.y_hi = this->add_variable(ultra_op.y_hi);
+    op_tuple.z_1 = this->add_variable(ultra_op.z_1);
+    op_tuple.z_2 = this->add_variable(ultra_op.z_2);
+
+    this->blocks.ecc_op.populate_wires(op_tuple.op, op_tuple.x_lo, op_tuple.x_hi, op_tuple.y_lo);
     for (auto& selector : this->blocks.ecc_op.selectors) {
         selector.emplace_back(0);
     }
 
-    this->blocks.ecc_op.populate_wires(this->zero_idx, in.y_hi, in.z_1, in.z_2);
+    this->blocks.ecc_op.populate_wires(this->zero_idx, op_tuple.y_hi, op_tuple.z_1, op_tuple.z_2);
     for (auto& selector : this->blocks.ecc_op.selectors) {
         selector.emplace_back(0);
     }
+
+    return op_tuple;
 };
 
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
