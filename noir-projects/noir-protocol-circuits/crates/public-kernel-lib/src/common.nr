@@ -118,9 +118,9 @@ fn perform_static_call_checks(public_call: PublicCallData) {
         let new_nullifiers_length = array_length(public_inputs.new_nullifiers);
         assert(new_nullifiers_length == 0, "new_nullifiers must be empty for static calls");
 
-        let update_requests_length = array_length(public_inputs.contract_storage_update_requests);
+        let update_requests_length = is_empty_array(public_inputs.contract_storage_update_requests);
         assert(
-            update_requests_length == 0, "No contract storage update requests are allowed for static calls"
+            update_requests_length, "No contract storage update requests are allowed for static calls"
         );
 
         let new_l2_to_l1_msgs_length = array_length(public_inputs.new_l2_to_l1_msgs);
@@ -253,7 +253,7 @@ fn propagate_valid_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!is_default(update_request)) {
+        if (!update_request.is_empty()) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)
@@ -276,7 +276,7 @@ fn propagate_valid_non_revertible_public_data_update_requests(
 
     for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
         let update_request = update_requests[i];
-        if (!is_default(update_request)) {
+        if (!update_request.is_empty()) {
             let public_data_update_request = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value)

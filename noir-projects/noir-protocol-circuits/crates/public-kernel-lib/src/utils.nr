@@ -14,7 +14,7 @@ pub fn compute_public_data_reads<N>(
     contract_address: AztecAddress,
     read_requests: [StorageRead; N]
 ) -> [PublicDataRead; N] {
-    let mut public_data_reads = [PublicDataRead::empty(); N];
+    let mut public_data_reads = [PublicDataRead::default(); N];
     for i in 0..N {
         let read_request = read_requests[i];
         if !read_request.is_empty() {
@@ -35,10 +35,10 @@ pub fn compute_public_data_update_requests<N>(
     contract_address: AztecAddress,
     update_requests: [StorageUpdateRequest; N]
 ) -> [PublicDataUpdateRequest; N] {
-    let mut public_data_update_requests = [PublicDataUpdateRequest::empty(); N];
+    let mut public_data_update_requests = [PublicDataUpdateRequest::default(); N];
     for i in 0..N {
         let update_request = update_requests[i];
-        if !is_default(update_request) {
+        if !update_request.is_empty() {
             public_data_update_requests[i] = PublicDataUpdateRequest {
                 leaf_slot: compute_public_data_tree_index(contract_address, update_request.storage_slot),
                 new_value: compute_public_data_tree_value(update_request.new_value),

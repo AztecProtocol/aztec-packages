@@ -1,6 +1,6 @@
 use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST;
-use dep::std::cmp::Eq;
-use crate::traits::{Empty, Hash};
+use dep::std::{cmp::Eq,default::Default};
+use crate::traits::Hash;
 
 struct PublicDataUpdateRequest {
     leaf_slot : Field,
@@ -14,8 +14,8 @@ impl Eq for PublicDataUpdateRequest {
     }
 }
 
-impl Empty for PublicDataUpdateRequest {
-    fn empty() -> Self {
+impl Default for PublicDataUpdateRequest {
+    fn default() -> Self {
         Self {
             leaf_slot : 0,
             new_value : 0
@@ -29,11 +29,5 @@ impl Hash for PublicDataUpdateRequest {
             self.leaf_slot,
             self.new_value
         ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
-    }
-}
-
-impl PublicDataUpdateRequest {
-    pub fn is_empty(self) -> bool {
-        (self.leaf_slot == 0) & (self.new_value == 0)
     }
 }

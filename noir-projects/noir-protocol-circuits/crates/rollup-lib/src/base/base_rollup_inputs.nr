@@ -338,7 +338,7 @@ fn validate_public_data_reads(
         let is_in_range = is_less_than_slot
             & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
 
-        if (!read.is_empty()) {
+        if (!is_default(read)) {
             assert(!is_low_default, "public data read is not empty but low preimage is empty");
             if is_in_range {
                 assert_eq(read.value, 0, "low leaf for public data read is in range but value is not zero");

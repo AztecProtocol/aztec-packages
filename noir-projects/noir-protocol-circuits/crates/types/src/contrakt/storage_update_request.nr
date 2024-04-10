@@ -1,8 +1,8 @@
 use crate::{
     constants::{CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST},
-    hash::pedersen_hash, traits::{Deserialize, Hash, Serialize}
+    hash::pedersen_hash, traits::{Deserialize, Hash, Empty, Serialize}
 };
-use dep::std::{cmp::Eq,default::Default};
+use dep::std::cmp::Eq;
 
 struct StorageUpdateRequest{
     storage_slot : Field,
@@ -16,8 +16,8 @@ impl Eq for StorageUpdateRequest {
     }
 }
 
-impl Default for StorageUpdateRequest {
-    fn default() -> Self {
+impl Empty for StorageUpdateRequest {
+    fn empty() -> Self {
         StorageUpdateRequest {
             storage_slot: 0,
             new_value: 0,
@@ -43,5 +43,11 @@ impl Deserialize<CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH> for StorageUpdateReques
             storage_slot: serialized[0],
             new_value: serialized[1],
         }
+    }
+}
+
+impl StorageUpdateRequest {
+    pub fn is_empty(self) -> bool {
+        self.storage_slot == 0
     }
 }
