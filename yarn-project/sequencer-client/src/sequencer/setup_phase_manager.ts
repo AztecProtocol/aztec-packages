@@ -46,6 +46,7 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
     await this.publicStateDB.checkpoint();
 
+    // Return a list of setup proving requests
     const kernelRequests = kernelInputs.map(input => {
       const request: PublicKernelRequest = {
         type: PublicKernelType.SETUP,

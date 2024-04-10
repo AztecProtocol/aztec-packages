@@ -242,6 +242,7 @@ export class ProvingOrchestrator {
     for (let i = this.provingState.transactionsReceived; i < this.provingState.totalNumTxs; i++) {
       const paddingTxIndex = this.provingState.addNewTx(this.provingState.emptyTx);
       await this.prepareBaseRollupInputs(this.provingState, this.provingState!.emptyTx);
+      // TODO(@Phil): Properly encapsulate this stuff
       const tx = this.provingState.allTxs[paddingTxIndex];
       const inputs = this.provingState.baseRollupInputs[paddingTxIndex];
       const treeSnapshots = this.provingState.txTreeSnapshots[paddingTxIndex];
@@ -345,6 +346,7 @@ export class ProvingOrchestrator {
     }
     const request = provingState.getNextPublicFunction(txIndex, nextFunctionIndex);
     if (!request) {
+      // TODO(@Phil): Properly encapsulate this stuff
       const tx = provingState.allTxs[txIndex];
       const inputs = provingState.baseRollupInputs[txIndex];
       const treeSnapshots = provingState.txTreeSnapshots[txIndex];
@@ -379,6 +381,7 @@ export class ProvingOrchestrator {
       logger.debug(`Discarding proving job, state no longer valid`);
       return;
     }
+    // TODO(@Phil): Properly encapsulate this stuff
     provingState!.baseRollupInputs.push(inputs);
     provingState!.txTreeSnapshots.push(treeSnapshots);
   }

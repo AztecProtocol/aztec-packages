@@ -135,10 +135,7 @@ export const MergeRollupArtifact = MergeRollupJson as NoirCompiledCircuit;
 
 export const RootRollupArtifact = RootRollupJson as NoirCompiledCircuit;
 
-export type ProtocolArtifact =
-  | 'PrivateKernelInitArtifact'
-  | 'PrivateKernelInnerArtifact'
-  | 'PrivateKernelTailArtifact'
+export type ServerProtocolArtifact =
   | 'PublicKernelSetupArtifact'
   | 'PublicKernelAppLogicArtifact'
   | 'PublicKernelTeardownArtifact'
@@ -148,6 +145,31 @@ export type ProtocolArtifact =
   | 'BaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'RootRollupArtifact';
+
+export type ClientProtocolArtifact =
+  | 'PrivateKernelInitArtifact'
+  | 'PrivateKernelInnerArtifact'
+  | 'PrivateKernelTailArtifact';
+
+export type ProtocolArtifact = ServerProtocolArtifact | ClientProtocolArtifact;
+
+export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiledCircuit> = {
+  PublicKernelSetupArtifact: PublicKernelSetupArtifact,
+  PublicKernelAppLogicArtifact: PublicKernelAppLogicArtifact,
+  PublicKernelTeardownArtifact: PublicKernelTeardownArtifact,
+  PublicKernelTailArtifact: PublicKernelTailArtifact,
+  BaseParityArtifact: BaseParityArtifact,
+  RootParityArtifact: RootParityArtifact,
+  BaseRollupArtifact: BaseRollupArtifact,
+  MergeRollupArtifact: MergeRollupArtifact,
+  RootRollupArtifact: RootRollupArtifact,
+};
+
+export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
+  PrivateKernelInitArtifact: PrivateKernelInitArtifact,
+  PrivateKernelInnerArtifact: PrivateKernelInnerArtifact,
+  PrivateKernelTailArtifact: PrivateKernelTailArtifact,
+};
 
 export const ProtocolCircuitArtifacts: Record<ProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitArtifact,

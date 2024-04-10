@@ -46,9 +46,10 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
     await this.publicStateDB.checkpoint();
 
+    // Return a list of teardown proving requests
     const kernelRequests = kernelInputs.map(input => {
       const request: PublicKernelRequest = {
-        type: PublicKernelType.APP_LOGIC,
+        type: PublicKernelType.TEARDOWN,
         inputs: input,
       };
       return request;

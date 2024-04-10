@@ -31,7 +31,7 @@ function parseIntoWitnessMap(outputString: string) {
  * @param bytecode - The circuit bytecode
  * @param workingDirectory - A directory to use for temporary files by the ACVM
  * @param pathToAcvm - The path to the ACVM binary
- * @param outputFilename - If specified, the output will be stored as a file, encoded using Bincode, instead of being streamed back over stdout
+ * @param outputFilename - If specified, the output will be stored as a file, encoded using Bincode
  * @returns The completed partial witness outputted from the circuit
  */
 export async function executeNativeCircuit(

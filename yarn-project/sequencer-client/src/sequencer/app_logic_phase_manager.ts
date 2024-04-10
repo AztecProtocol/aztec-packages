@@ -63,6 +63,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
       await this.publicStateDB.checkpoint();
     }
 
+    // Return a list of app logic proving requests
     const kernelRequests = kernelInputs.map(input => {
       const request: PublicKernelRequest = {
         type: PublicKernelType.APP_LOGIC,

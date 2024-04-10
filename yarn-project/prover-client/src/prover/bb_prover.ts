@@ -15,8 +15,9 @@ import {
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
-  type ProtocolArtifact,
   ProtocolCircuitArtifacts,
+  ServerCircuitArtifacts,
+  type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
   convertBaseRollupInputsToWitnessMap,
@@ -150,16 +151,13 @@ export class BBNativeRollupProver implements CircuitProver {
   }
 
   private async init() {
-    const realCircuits = Object.keys(ProtocolCircuitArtifacts).filter(
-      (n: string) => !n.includes('Simulated') && !n.includes('PrivateKernel'),
-    );
     const promises = [];
-    for (const circuitName of realCircuits) {
+    for (const circuitName in ServerCircuitArtifacts) {
       const verificationKeyPromise = generateKeyForNoirCircuit(
         this.config.bbBinaryPath,
         this.config.bbWorkingDirectory,
         circuitName,
-        ProtocolCircuitArtifacts[circuitName as ProtocolArtifact],
+        ServerCircuitArtifacts[circuitName as ServerProtocolArtifact],
         'vk',
         logger.debug,
       ).then(result => {
@@ -175,7 +173,7 @@ export class BBNativeRollupProver implements CircuitProver {
     await Promise.all(promises);
   }
 
-  private async createProof(witnessMap: WitnessMap, circuitType: ProtocolArtifact): Promise<[WitnessMap, Proof]> {
+  private async createProof(witnessMap: WitnessMap, circuitType: ServerProtocolArtifact): Promise<[WitnessMap, Proof]> {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
@@ -220,7 +218,7 @@ export class BBNativeRollupProver implements CircuitProver {
     return [outputWitness, new Proof(proofBuffer)];
   }
 
-  private async verifyProof(circuitType: ProtocolArtifact, proof: Proof) {
+  private async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });

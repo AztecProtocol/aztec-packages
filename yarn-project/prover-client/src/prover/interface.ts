@@ -25,7 +25,6 @@ export interface CircuitProver {
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
-   * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
   getRootParityProof(inputs: RootParityInputs): Promise<[ParityPublicInputs, Proof]>;
 
@@ -38,14 +37,12 @@ export interface CircuitProver {
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
-   * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
   getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]>;
 
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
-   * @param publicInputs - Public inputs of the circuit obtained via simulation, modified by this call.
    */
   getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]>;
 }

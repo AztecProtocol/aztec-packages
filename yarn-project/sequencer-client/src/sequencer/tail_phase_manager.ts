@@ -51,8 +51,9 @@ export class TailPhaseManager extends AbstractPhaseManager {
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
+    // Return a tail proving request
     const request: PublicKernelRequest = {
-      type: PublicKernelType.APP_LOGIC,
+      type: PublicKernelType.TAIL,
       inputs: inputs,
     };
 

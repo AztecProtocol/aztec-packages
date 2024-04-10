@@ -269,6 +269,7 @@ export abstract class AbstractPhaseManager {
         const circuitResult = await this.runKernelCircuit(kernelOutput, kernelProof, callData);
         kernelOutput = circuitResult[1];
 
+        // Capture the inputs to the kernel circuit for later proving
         publicKernelInputs.push(circuitResult[0]);
 
         // sanity check. Note we can't expect them to just be equal, because e.g.
