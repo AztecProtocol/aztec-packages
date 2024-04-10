@@ -7,7 +7,7 @@ import {
   type ForeignCallInput,
   type ForeignCallOutput,
   type WasmBlackBoxFunctionSolver,
-  executeCircuitWithBlackBoxSolver,
+  executeCircuitWithReturnWitness,
 } from '@noir-lang/acvm_js';
 
 import { traverseCauseChain } from '../common/errors.js';
@@ -27,9 +27,12 @@ type ACIRCallback = Record<
  */
 export interface ACIRExecutionResult {
   /**
-   * The partial witness of the execution.
+   * An execution result contains two witnesses.
+   * 1. The partial witness of the execution.
+   * 2. The return witness which contains the given public return values within the full witness.
    */
   partialWitness: ACVMWitness;
+  returnWitness: ACVMWitness;
 }
 
 /**
@@ -89,13 +92,13 @@ export async function acvm(
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
 
-  const partialWitness = await executeCircuitWithBlackBoxSolver(
+  const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
     solver,
     acir,
     initialWitness,
     async (name: string, args: ForeignCallInput[]) => {
       try {
-        logger.verbose(`Oracle callback ${name}`);
+        logger.debug(`Oracle callback ${name}`);
         const oracleFunction = callback[name as ORACLE_NAMES];
         if (!oracleFunction) {
           throw new Error(`Oracle callback ${name} not found`);
@@ -127,7 +130,7 @@ export async function acvm(
     throw err;
   });
 
-  return { partialWitness };
+  return { partialWitness: solvedAndReturnWitness.solvedWitness, returnWitness: solvedAndReturnWitness.returnWitness };
 }
 
 /**
