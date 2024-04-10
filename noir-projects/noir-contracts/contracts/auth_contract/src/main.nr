@@ -1,4 +1,4 @@
-// Test contract showing basic public access control that can be used in private. It a SharedMutable state variable to
+// Test contract showing basic public access control that can be used in private. It uses a SharedMutable state variable to
 // publicly store the address of an authorized account that can call private functions.
 contract Auth {
     use dep::aztec::protocol_types::address::AztecAddress;
