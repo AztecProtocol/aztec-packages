@@ -53,24 +53,24 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       },
     });
 
-    this.logger(`ENR NodeId: ${this.enr.nodeId}`);
-    this.logger(`ENR UDP: ${multiAddrUdp.toString()}`);
+    this.logger.info(`ENR NodeId: ${this.enr.nodeId}`);
+    this.logger.info(`ENR UDP: ${multiAddrUdp.toString()}`);
 
     (this.discv5 as Discv5EventEmitter).on('discovered', (enr: ENR) => this.onDiscovered(enr));
     (this.discv5 as Discv5EventEmitter).on('enrAdded', async (enr: ENR) => {
-      this.logger(`ENR added: ${enr.encodeTxt()}`);
+      this.logger.info(`ENR added: ${enr.encodeTxt()}`);
       const multiAddrTcp = await enr.getFullMultiaddr('tcp');
       const multiAddrUdp = await enr.getFullMultiaddr('udp');
-      this.logger(`ENR multiaddr: ${multiAddrTcp?.toString()}, ${multiAddrUdp?.toString()}`);
+      this.logger.info(`ENR multiaddr: ${multiAddrTcp?.toString()}, ${multiAddrUdp?.toString()}`);
     });
 
     (this.discv5 as Discv5EventEmitter).on('peer', (peerId: PeerId) => {
-      this.logger(`peer: ${peerId}`);
+      this.logger.info(`peer: ${peerId}`);
     });
 
     // Add bootnode ENR if provided
     if (bootstrapNodes?.length) {
-      this.logger(`Adding bootstrap ENRs: ${bootstrapNodes.join(', ')}`);
+      this.logger.info(`Adding bootstrap ENRs: ${bootstrapNodes.join(', ')}`);
       try {
         bootstrapNodes.forEach(enr => {
           this.discv5.addEnr(enr);
@@ -82,12 +82,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async start(): Promise<void> {
-    this.logger('Starting DiscV5');
+    this.logger.info('Starting DiscV5');
     if (this.currentState === PeerDiscoveryState.RUNNING) {
       throw new Error('DiscV5Service already started');
     }
     await this.discv5.start();
-    this.logger('DiscV5 started');
+    this.logger.info('DiscV5 started');
     this.currentState = PeerDiscoveryState.RUNNING;
     this.discoveryInterval = setInterval(async () => {
       await this.discv5.findRandomNode();

@@ -2,6 +2,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
 import { SignableENR } from '@chainsafe/enr';
+import { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
 
 import { type P2PConfig } from '../config.js';
@@ -12,6 +13,7 @@ import { createLibP2PPeerId } from '../service/index.js';
  */
 export class BootstrapNode {
   private node?: Discv5 = undefined;
+  private peerId?: PeerId;
 
   constructor(private logger = createDebugLogger('aztec:p2p_bootstrap')) {}
 
@@ -23,6 +25,7 @@ export class BootstrapNode {
   public async start(config: P2PConfig) {
     const { peerIdPrivateKey, udpListenIp, udpListenPort, announceHostname, announcePort } = config;
     const peerId = await createLibP2PPeerId(peerIdPrivateKey);
+    this.peerId = peerId;
     const enr = SignableENR.createFromPeerId(peerId);
 
     const listenAddrUdp = multiaddr(`/ip4/${udpListenIp}/udp/${udpListenPort}`);
@@ -73,7 +76,10 @@ export class BootstrapNode {
    * @returns The node's peer Id
    */
   public getPeerId() {
-    return this.node?.peerId;
+    if (!this.peerId) {
+      throw new Error('Node not started');
+    }
+    return this.peerId;
   }
 
   public getENR() {

@@ -1,13 +1,19 @@
 // import type { PeerId } from '@libp2p/interface';
+import { sleep } from '@aztec/foundation/sleep';
+
+import type { PeerId } from '@libp2p/interface';
+
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 
 describe('Discv5Service', () => {
   let bootNode: BootstrapNode;
+  let bootNodePeerId: PeerId;
   let port = 1234;
   const baseConfig = {
     announceHostname: '/ip4/127.0.0.1',
+    announcePort: port,
     tcpListenPort: port,
     udpListenIp: '0.0.0.0',
     tcpListenIp: '0.0.0.0',
@@ -21,12 +27,13 @@ describe('Discv5Service', () => {
     maxPeerCount: 100,
   };
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     bootNode = new BootstrapNode();
     await bootNode.start(baseConfig);
+    bootNodePeerId = bootNode.getPeerId();
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await bootNode.stop();
   });
 
@@ -34,18 +41,29 @@ describe('Discv5Service', () => {
     port++;
     const node = await createNode(port);
     const peers = node.getAllPeers();
-    expect(peers).toEqual([]);
+    const bootnode = peers[0];
+    expect((await bootnode.peerId()).toString()).toEqual(bootNodePeerId.toString());
   });
 
   it('should discover & add a peer', async () => {
     port++;
     const node1 = await createNode(port);
-    const node2 = await createNode(port + 1);
+    port++;
+    const node2 = await createNode(port);
     await node1.start();
     await node2.start();
-    const node1Peers = node1.getAllPeers();
-    expect(node1Peers).toEqual([]);
-  });
+    await sleep(10000);
+    const node1Peers = await Promise.all(node1.getAllPeers().map(async peer => (await peer.peerId()).toString()));
+    const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
+
+    expect(node1Peers).toHaveLength(2);
+    expect(node2Peers).toHaveLength(2);
+    expect(node1Peers).toContain(node2.getPeerId().toString());
+    expect(node2Peers).toContain(node1.getPeerId().toString());
+
+    await node1.stop();
+    await node2.stop();
+  }, 20000);
 
   const createNode = async (port: number) => {
     const peerId = await createLibP2PPeerId();
