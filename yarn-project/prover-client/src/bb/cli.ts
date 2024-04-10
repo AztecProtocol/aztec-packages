@@ -10,7 +10,6 @@ const { BB_WORKING_DIRECTORY, BB_BINARY_PATH } = process.env;
 /**
  * Returns commander program that defines the CLI.
  * @param log - Console logger.
- * @param debugLogger - Debug logger.
  * @returns The CLI.
  */
 export function getProgram(log: LogFn): Command {
