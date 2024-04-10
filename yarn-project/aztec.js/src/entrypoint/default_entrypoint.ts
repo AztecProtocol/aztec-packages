@@ -18,7 +18,7 @@ export class DefaultEntrypoint implements EntrypointInterface {
 
     const call = calls[0];
     const entrypointPackedArguments = PackedArguments.fromArgs(call.args);
-    const txContext = TxContext.empty(this.chainId, this.protocolVersion);
+    const txContext = TxContext.default(this.chainId, this.protocolVersion);
     return Promise.resolve(
       new TxExecutionRequest(
         call.to,
