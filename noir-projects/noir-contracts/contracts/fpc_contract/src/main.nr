@@ -3,6 +3,7 @@ contract FPC {
     use dep::aztec::state_vars::SharedImmutable;
     use dep::token::Token;
     use dep::gas_token::GasToken;
+    use dep::aztec::context::gas::GasOpts;
 
     #[aztec(storage)]
     struct Storage {
