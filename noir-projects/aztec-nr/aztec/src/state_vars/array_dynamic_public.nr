@@ -38,7 +38,7 @@ impl<T> PublicDynamicArray<T> {
     let array_read: [Field; 1] = storage_read(self.storage_slot);
     let array_length = array_read[0];
 
-    let mut ret = self.map.at(array_length as u64 + AVOID_SLOT_0_INDEX_SEPARATOR);
+    let mut ret = self.map.at(array_length as u64 + AVOID_SLOT_0_INDEX_SEPARATOR as u64);
 
     storage_write(self.storage_slot, [array_length + 1]);
 
@@ -54,7 +54,7 @@ impl<T> PublicDynamicArray<T> {
 
     let new_array_length = array_length - 1;
 
-    let mut ret = self.map.at(new_array_length as u64 + AVOID_SLOT_0_INDEX_SEPARATOR);
+    let mut ret = self.map.at(new_array_length as u64 + AVOID_SLOT_0_INDEX_SEPARATOR as u64);
 
     // we make sure to overwrite the slot that is 1 greater than the one we are popping to make sure ret still has a value that can be read from.
     // Any subsequent pushes will overwrite the value, and we will at most have 1 dead value.
@@ -85,7 +85,7 @@ impl<T> PublicDynamicArray<T> {
     let array_length = array_read[0];
     assert(index < array_length as u64, "at_index must be called with index < length");
 
-    self.map.at(index + AVOID_SLOT_0_INDEX_SEPARATOR)
+    self.map.at(index + AVOID_SLOT_0_INDEX_SEPARATOR as u64)
   }
 
   pub fn length(self) -> Field {

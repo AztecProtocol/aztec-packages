@@ -36,6 +36,6 @@ impl<T, LENGTH> FixedArray<T, LENGTH> {
 
   pub fn at_index(self, index: u64) -> T {
     assert(index < LENGTH, "at_index must be called with number < length");
-    self.map.at(index + AVOID_SLOT_0_INDEX_SEPARATOR)
+    self.map.at(index + AVOID_SLOT_0_INDEX_SEPARATOR as u64)
   }
 }

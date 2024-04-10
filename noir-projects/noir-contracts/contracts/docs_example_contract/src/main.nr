@@ -55,9 +55,9 @@ contract DocsExample {
         // docs:start:storage-public-immutable-declaration
         public_immutable: PublicImmutable<Leader>,
         // docs:end:storage-public-immutable-declaration
-        fixed_array_test_pub: FixedArray<PublicMutable<u64>, 10>,
-        fixed_array_test_priv: FixedArray<PrivateMutable<CardNote>, 10>,
-        public_dynamic_array_test: PublicDynamicArray<PublicMutable<u64>>,
+        // fixed_array_test_pub: FixedArray<PublicMutable<u64>, 10>,
+        // fixed_array_test_priv: FixedArray<PrivateMutable<CardNote>, 10>,
+        // public_dynamic_array_test: PublicDynamicArray<PublicMutable<u64>>,
     }
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
@@ -100,27 +100,27 @@ contract DocsExample {
                 // docs:start:storage-public-immutable
                 public_immutable: PublicImmutable::new(context, 9),
                 // docs:end:storage-public-immutable
-                fixed_array_test_pub: FixedArray::new(
-                    context,
-                    10,
-                    |context, slot| {
-                        PublicMutable::new(context, slot)
-                    }
-                ),
-                fixed_array_test_priv: FixedArray::new(
-                    context,
-                    11,
-                    |context, slot| {
-                        PrivateMutable::new(context, slot)
-                    }
-                ),
-                public_dynamic_array_test: PublicDynamicArray::new(
-                    context,
-                    12,
-                    |context, slot| {
-                        PublicMutable::new(context, slot)
-                    }
-                ),
+                // fixed_array_test_pub: FixedArray::new(
+                //     context,
+                //     10,
+                //     |context, slot| {
+                //         PublicMutable::new(context, slot)
+                //     }
+                // ),
+                // fixed_array_test_priv: FixedArray::new(
+                //     context,
+                //     11,
+                //     |context, slot| {
+                //         PrivateMutable::new(context, slot)
+                //     }
+                // ),
+                // public_dynamic_array_test: PublicDynamicArray::new(
+                //     context,
+                //     12,
+                //     |context, slot| {
+                //         PublicMutable::new(context, slot)
+                //     }
+                // ),
             }
         }
     }

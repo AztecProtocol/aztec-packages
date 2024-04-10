@@ -90,7 +90,7 @@ global MAX_ARGS_LENGTH: u64 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
 // The initialization slot is computed by adding the constant bellow to the variable's storage slot. This constant has
 // to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
 global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
-global AVOID_SLOT_0_INDEX_SEPARATOR: u64 = 1;
+global AVOID_SLOT_0_INDEX_SEPARATOR: Field = 1;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
 // 126976 = 31 * 4096;
 global BLOB_SIZE_IN_BYTES: Field = 126976;
