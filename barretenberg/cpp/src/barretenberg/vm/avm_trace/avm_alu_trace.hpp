@@ -47,7 +47,7 @@ class AvmAluTraceBuilder {
         // Comparison Operation
         bool borrow = false;
 
-        std::vector<FF> hi_lo_limbs;
+        std::vector<FF> hi_lo_limbs{};
         bool p_a_borrow = false;
         bool p_b_borrow = false;
         uint8_t cmp_rng_ctr = 0;
