@@ -90,7 +90,7 @@ function markdownSublist(items) {
   return markdown;
 }
 
-function markdownInstructionSetSection(pathToGenDir) {
+function markdownInstructionSetSection(docsDir) {
   let markdown = "## Instructions\n";
   for (let i = 0; i < INSTRUCTION_SET.length; i++) {
     const instr = INSTRUCTION_SET[i];
@@ -116,9 +116,17 @@ function markdownInstructionSetSection(pathToGenDir) {
       }
       subsection += `${item}\n`;
     }
-    const bitFormatPath = `./images/bit-formats/${name.replace(/`/g, "")}.png`;
-    if (fs.existsSync(`${pathToGenDir}/${bitFormatPath}`)) {
-      subsection += `\n[![](${bitFormatPath})](${bitFormatPath})`;
+
+    // docusaurus will get images from static/img
+    const urlPath = `/img/protocol-specs/public-vm/bit-formats/${name.replace(
+      /`/g,
+      ""
+    )}.png`;
+
+    const bitFormatImagePath = path.join(docsDir, "..", `static${urlPath}`);
+
+    if (fs.existsSync(bitFormatImagePath)) {
+      subsection += `\n[![](${urlPath})](${urlPath})`;
     }
     markdown += `\n${subsection}\n`;
   }
@@ -126,7 +134,7 @@ function markdownInstructionSetSection(pathToGenDir) {
 }
 
 async function generateInstructionSet() {
-  const rootDir = path.join(__dirname, "../../../");
+  const rootDir = path.join(__dirname, "../../../../");
   const docsDir = path.join(rootDir, "docs", "docs");
 
   const relPath = path.relative(
@@ -141,7 +149,8 @@ async function generateInstructionSet() {
 
   const preface = instructionSetPreface();
   const table = htmlInstructionSetTable();
-  const section = markdownInstructionSetSection(docsDirName);
+
+  const section = markdownInstructionSetSection(docsDir);
   const doc = `${preface}\n${table}\n\n${section}`;
   fs.writeFileSync(docsFilePath, doc);
 

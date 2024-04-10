@@ -119,6 +119,8 @@ async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
 }
 
 async function run() {
+  await generateInstructionSet();
+
   const rootDir = path.join(__dirname, "../../../");
   const docsDir = path.join(rootDir, "docs", "docs");
   const destDir = path.join(rootDir, "docs", "processed-docs");
@@ -127,7 +129,6 @@ async function run() {
   const content = await processMarkdownFilesInDir(rootDir, docsDir);
 
   await writeProcessedFiles(docsDir, destDir, cachedDestDir, content);
-  await generateInstructionSet();
 
   console.log("Preprocessing complete.");
 }

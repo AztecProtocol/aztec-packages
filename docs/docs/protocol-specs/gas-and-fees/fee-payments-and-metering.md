@@ -55,7 +55,7 @@ Transactions will be divided into 3 phases:
 
 All of these phases occur **within the same transaction**, ultimately resulting in 2 sets of public inputs being emitted from the private kernel circuits. Those related to the fee payment and those related to the application logic. State changes requested by the application logic are reverted if any component fails. State changes in the fee preparation and distribution components are only reverted if either of those components fail.
 
-![Transaction Components](/img/protocol-specs/gas-and-fees/gas-and-fees/Transaction.png)
+![Transaction Components](/img/protocol-specs/gas-and-fees/Transaction.png)
 
 The fee preparation and fee distribution phases respectively are responsible for ensuring that sufficient quantity of the fee payment asset is made available for the transaction and that it is correctly distributed to the sequencer with any refund being returned to the transaction sender. The sequencer will have have agency over which contract methods they are willing to accept for execution in these phases and will have visibility over the arguments passed to them. This is important as these functions must be successfully executed in order for the sequencer to be paid. It is assumed that the network will settle on a number of universally recognised fee payment contracts implementing fee preparation and distribution.
 
