@@ -67,21 +67,36 @@ contract OracleResolver {
     fn test_public_storage_read() {
         let deployment_address = deploy();
 
-        // Attempting to make this work with public storage instead of immutable
-        // TODO: change to immutable variable
+        let _tmp = call_public_function(
+            deployment_address,
+            FunctionSelector::from_signature("public_function_to_call(Field)"),
+            1337
+        );
+
         let storage_slot = view(
             deployment_address,
             FunctionSelector::from_signature("get_public_storage_slot()"),
             [0, 0, 0, 0]
         );
 
-        // let PUBLIC_VALUE_LOGICAL_SLOT = 2;
-
-        // let PUBLIC_VALUE_SLOT = pedersen_hash([deployment_address.to_field(), storage_slot]);
-
         let value_stored = read_public_storage(deployment_address, storage_slot);
 
         assert_eq(value_stored, 1337);
+    }
+
+    #[test]
+    fn test_public_immutable_storage_read() {
+        let deployment_address = deploy();
+
+        let storage_slot = view(
+            deployment_address,
+            FunctionSelector::from_signature("get_public_immutable_storage_slot()"),
+            [0, 0, 0, 0]
+        );
+
+        let value_stored = read_public_storage(deployment_address, storage_slot);
+
+        assert_eq(value_stored, 404);
     }
 
     #[oracle(deployContract)]

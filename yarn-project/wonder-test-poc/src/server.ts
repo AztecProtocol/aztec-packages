@@ -101,16 +101,11 @@ server.addMethod('getNumberOfNewNotes', async params => {
 });
 
 server.addMethod('publicStorageRead', async params => {
-  console.log({ params });
-  console.log({ param0: params[0].Single });
-  console.log({ param1: params[1].Single });
   const contractAddress = AztecAddress.fromString(params[0].Single);
-  console.log({ contractAddress });
   const storageSlot: Fr = Fr.fromString(params[1].Single.toString());
-  console.log({ storageSlot });
+
   let value = await publicStorageRead(pxe, contractAddress, storageSlot);
-  console.log({ value });
-  console.log({ values: [{ Single: value.toString() }] });
+
   return { values: [{ Single: value.toString() }] };
 });
 

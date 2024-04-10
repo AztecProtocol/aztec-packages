@@ -3,6 +3,8 @@
 ## Repo org:
 -- todo: find the best place where to put this dir
 
+NOTE: the first time(s) you run `yarn test`, it might fails with tx dropped from the p2p node. Running it again usually fixes it (something to investigate later one - wild guess is contract class id collision - maybe we should try with a first non-concomitant deploy, before running the others)
+
 src
 ├── sandbox.ts: wrap pxe calls/sandbox interactions
 ├── server.ts: an Express rpc server meant to be used as oracle resolver, resolve the endpoints to sandbox.ts functions

@@ -1,24 +1,11 @@
 import { createAccount, getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  ContractFunctionInteraction,
-  ContractInstanceWithAddress,
-  EthAddress,
-  Fr,
-  FunctionArtifact,
-  FunctionSelector,
-  PXE,
-  PackedArguments,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  createPXEClient,
-  encodeArguments,
-  initAztecJs,
-} from '@aztec/aztec.js';
+import { AztecAddress, ContractFunctionInteraction, ContractInstanceWithAddress, EthAddress, Fr, FunctionArtifact, FunctionSelector, PXE, PackedArguments, Tx, TxExecutionRequest, TxHash, createPXEClient, encodeArguments, initAztecJs } from '@aztec/aztec.js';
 import { toACVMField } from '@aztec/simulator';
 
+
+
 import { MeaningOfLifeContract } from './artifacts/MeaningOfLife.js';
+
 
 let selectorsResolved = new Map<string, string>();
 let contractClassId: Fr = new Fr(0);
@@ -57,8 +44,6 @@ export const privateCall = async (
   functionSelector: FunctionSelector,
   arg: Fr,
 ) => {
-  // const functionName = selectorsResolved.get(functionSelector.toString());
-
   // const functionArtifact = MeaningOfLifeContract.artifact.functions.find(
   //   (f: FunctionArtifact) => f.name === functionName
   // );
@@ -100,6 +85,8 @@ export const privateCall = async (
   // TODO: use the fn selector instead
   let result = await deployedContract.methods.set_value(arg).send().wait();
 
+  console.log('private call to contract: ', contractAddress.toString(), ' with args: ', arg.toString());
+
   return result.txHash;
 };
 
@@ -114,13 +101,13 @@ export const publicCall = async (
 
   let deployedContract = await MeaningOfLifeContract.at(contractAddress, wallet);
 
-  console.log('public call to contract: ', contractAddress.toString(), ' with args: ', arg.toString());
-
   let result = await deployedContract
     .withWallet(wallet)
     .methods.public_function_to_call(arg)
     .send({ skipPublicSimulation: false })
     .wait({ debug: true });
+
+  console.log('public call to contract: ', contractAddress.toString(), ' with args: ', arg.toString());
 
   return result.txHash;
 };
@@ -138,6 +125,9 @@ export const unconstrainedCall = async (
     throw new Error('Function not found');
   }
 
+  // make the unconstrained call
+  let result = await pxe.viewTx(methodName, args, contractAddress);
+
   console.log(
     'unconstrained call to ',
     methodName,
@@ -145,15 +135,24 @@ export const unconstrainedCall = async (
     contractAddress.toString(),
     ' with args: ',
     args.toString(),
+    '\n result: ',
+    result.toString(),
   );
-
-  // make the unconstrained call
-  let result = await pxe.viewTx(methodName, args, contractAddress);
 
   return result;
 };
 
 export const publicStorageRead = async (pxe: PXE, contractAddress: AztecAddress, storageSlot: Fr) => {
   let result = await pxe.getPublicStorageAt(contractAddress, storageSlot);
+
+  console.log(
+    'public storage read from contract: ',
+    contractAddress.toString(),
+    ' with slot: ',
+    storageSlot.toString(),
+    '\nresult: ',
+    result.toString(),
+  );
+  
   return result;
 };

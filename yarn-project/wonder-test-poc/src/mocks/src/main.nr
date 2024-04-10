@@ -9,7 +9,8 @@ contract MeaningOfLife {
         immutable_public_value: PublicImmutable<Field>,
     }
 
-    #[aztec(private)]
+    #[aztec(public)]
+    #[aztec(initializer)]
     fn constructor() {
         storage.immutable_public_value.initialize(404);
     }
@@ -20,6 +21,10 @@ contract MeaningOfLife {
 
     unconstrained fn get_public_value() -> pub Field {
         storage.public_value.read()
+    }
+
+    unconstrained fn get_public_immutable_storage_slot() -> pub Field {
+        storage.immutable_public_value.get_storage_slot()
     }
 
     unconstrained fn get_public_storage_slot() -> pub Field {
