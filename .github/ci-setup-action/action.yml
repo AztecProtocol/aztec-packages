@@ -7,7 +7,7 @@ inputs:
     required: true
     description: 'DockerHub Password'
   concurrency_key:
-    required: true
+    required: false
     description: 'Concurrency key for locking jobs'
 runs:
   # define an action, runs in OS of caller
