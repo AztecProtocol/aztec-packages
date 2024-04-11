@@ -10,10 +10,21 @@ import EventEmitter from 'events';
 import type { P2PConfig } from '../config.js';
 import type { PeerDiscoveryService } from './service.js';
 
+export const AZTEC_ENR_KEY = 'aztec_network';
+
 export enum PeerDiscoveryState {
   RUNNING = 'running',
   STOPPED = 'stopped',
 }
+
+export enum AztecENR {
+  devnet = 0x01,
+  testnet = 0x02,
+  mainnet = 0x03,
+}
+
+// TODO: Make this an env var
+const AZTEC_NET = AztecENR.devnet;
 
 /**
  * Peer discovery service using Discv5.
@@ -37,6 +48,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     const { announceHostname, tcpListenPort, udpListenIp, udpListenPort, bootstrapNodes } = config;
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
+    // Add aztec identification to ENR
+    this.enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+    const testVal = this.enr.kvs.get(AZTEC_ENR_KEY);
+    console.log('testVal:', testVal);
 
     const multiAddrUdp = multiaddr(`${announceHostname}/udp/${udpListenPort}/p2p/${peerId.toString()}`);
     const multiAddrTcp = multiaddr(`${announceHostname}/tcp/${tcpListenPort}/p2p/${peerId.toString()}`);
@@ -122,6 +137,14 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private onDiscovered(enr: ENR) {
-    this.emit('peer:discovered', enr);
+    // check the peer is an aztec peer
+    const value = enr.kvs.get(AZTEC_ENR_KEY);
+    if (value) {
+      const network = value[0];
+      if (network === AZTEC_NET) {
+        console.log('found an Aztec node!');
+        this.emit('peer:discovered', enr);
+      }
+    }
   }
 }
