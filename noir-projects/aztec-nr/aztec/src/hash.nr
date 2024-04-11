@@ -91,22 +91,22 @@ pub fn hash_args(args: [Field]) -> Field {
     } else {
         assert(args.len() < ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH);
         let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
-        let mut current_chunk = [0; ARGS_HASH_CHUNK_LENGTH];
+        let mut current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
 
         let mut current_chunk_index = 0;
         let mut index_inside_current_chunk = 0;
         for i in 0..args.len() {
-            current_chunk[index_inside_current_chunk] = args[i];
+            current_chunk_values[index_inside_current_chunk] = args[i];
             index_inside_current_chunk+=1;
             if index_inside_current_chunk == ARGS_HASH_CHUNK_LENGTH {
-                chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk, GENERATOR_INDEX__FUNCTION_ARGS);
-                current_chunk = [0; ARGS_HASH_CHUNK_LENGTH];
+                chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
+                current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
                 current_chunk_index+=1;
                 index_inside_current_chunk = 0;
             }
         }
         if index_inside_current_chunk > 0 {
-            chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk, GENERATOR_INDEX__FUNCTION_ARGS);
+            chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
         }
         pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
     }
