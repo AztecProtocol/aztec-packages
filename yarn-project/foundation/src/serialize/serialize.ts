@@ -127,7 +127,10 @@ export type Fieldable =
   | number
   | bigint
   | {
-      /** Serialize to a field. */
+      /**
+       * Serialize to a field.
+       * @dev Duplicate to `toField` but left as is as it is used in AVM codebase.
+       */
       toFr: () => Fr;
     }
   | {
