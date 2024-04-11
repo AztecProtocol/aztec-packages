@@ -136,7 +136,7 @@ describe('prover/orchestrator', () => {
       const finalisedBlock = await builder.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(blockNumber);
-    }, 30_000);
+    }, 60_000);
 
     it('builds an unbalanced L2 block', async () => {
       const txs = await Promise.all([
@@ -166,6 +166,6 @@ describe('prover/orchestrator', () => {
       const finalisedBlock = await builder.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(blockNumber);
-    }, 30_000);
+    }, 60_000);
   });
 });

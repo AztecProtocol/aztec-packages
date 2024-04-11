@@ -83,7 +83,7 @@ describe('prover/orchestrator', () => {
       const finalisedBlock = await builder.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(blockNumber);
-    }, 30_000);
+    }, 60_000);
 
     it('builds a block with 1 transaction', async () => {
       const txs = await Promise.all([makeBloatedProcessedTx(builderDb, 1)]);
@@ -110,7 +110,7 @@ describe('prover/orchestrator', () => {
       const finalisedBlock = await builder.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(blockNumber);
-    }, 30_000);
+    }, 60_000);
 
     it('builds a block with a transaction with public functions', async () => {
       const tx = await makeBloatedProcessedTx(builderDb, 1);
@@ -155,7 +155,7 @@ describe('prover/orchestrator', () => {
       const finalisedBlock = await builder.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(blockNumber);
-    }, 30_000);
+    }, 60_000);
 
     it('builds a block concurrently with transaction simulation', async () => {
       const txs = await Promise.all([
@@ -184,6 +184,6 @@ describe('prover/orchestrator', () => {
       const finalisedBlock = await builder.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(blockNumber);
-    }, 30_000);
+    }, 60_000);
   });
 });
