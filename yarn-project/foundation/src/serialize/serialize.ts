@@ -121,7 +121,7 @@ export type Bufferable =
   | Bufferable[];
 
 /** A type that can be converted to a Field or a Field array. */
-export type Fieldeable =
+export type Fieldable =
   | Fr
   | boolean
   | number
@@ -138,7 +138,7 @@ export type Fieldeable =
       /** Serialize to an array of fields. */
       toFields: () => Fr[];
     }
-  | Fieldeable[];
+  | Fieldable[];
 
 /**
  * Serializes a list of objects contiguously.
@@ -180,7 +180,7 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
  * @param objs - Objects to serialize.
  * @returns An array of fields with the concatenation of all fields.
  */
-export function serializeToFields(...objs: Fieldeable[]): Fr[] {
+export function serializeToFields(...objs: Fieldable[]): Fr[] {
   let ret: Fr[] = [];
   for (const obj of objs) {
     if (Array.isArray(obj)) {

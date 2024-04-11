@@ -1,7 +1,7 @@
 import { BarretenbergSync, Fr as FrBarretenberg } from '@aztec/bb.js';
 
 import { Fr } from '../../fields/fields.js';
-import { type Fieldeable, serializeToFields } from '../../serialize/serialize.js';
+import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
 
 /**
  * Create a pedersen commitment (point) from an array of input fields.
@@ -20,11 +20,11 @@ export function pedersenCommit(input: Buffer[]) {
 
 /**
  * Create a pedersen hash (field) from an array of input fields.
- * @param input - The input fieldeables to hash.
+ * @param input - The input fieldables to hash.
  * @param index - The separator index to use for the hash.
  * @returns The pedersen hash.
  */
-export function pedersenHash(input: Fieldeable[], index = 0): Fr {
+export function pedersenHash(input: Fieldable[], index = 0): Fr {
   const inputFields = serializeToFields(input);
   return Fr.fromBuffer(
     Buffer.from(
