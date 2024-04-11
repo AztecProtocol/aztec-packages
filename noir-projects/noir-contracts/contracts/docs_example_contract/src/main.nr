@@ -18,7 +18,6 @@ contract DocsExample {
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
         PrivateSet, SharedImmutable, Deserialize
     };
-    use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 
     use dep::aztec::{
         note::note_getter_options::Comparator,

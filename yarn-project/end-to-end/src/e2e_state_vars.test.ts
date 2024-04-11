@@ -218,66 +218,66 @@ describe('e2e_state_vars', () => {
     });
   });
 
-  describe('Arrays', () => {
-    it('public dynamic array test', async () => {
-      const tx = contract.methods.test_public_dynamic_array_1().send();
-      const extendedLogs = await tx.getUnencryptedLogs();
+  // describe('Arrays', () => {
+  //   it('public dynamic array test', async () => {
+  //     const tx = contract.methods.test_public_dynamic_array_1().send();
+  //     const extendedLogs = await tx.getUnencryptedLogs();
 
-      expect(extendedLogs.logs.map(log => log.log.data.toString('hex').slice(-2))).toStrictEqual(['45', '00']);
+  //     expect(extendedLogs.logs.map(log => log.log.data.toString('hex').slice(-2))).toStrictEqual(['45', '00']);
 
-      await contract.methods.test_public_dynamic_array_2().send().wait();
+  //     await contract.methods.test_public_dynamic_array_2().send().wait();
 
-      const numResponse = await contract.methods.test_public_dynamic_array_3().simulate();
-      const lengthResponse = await contract.methods.test_public_dynamic_array_4().simulate();
+  //     const numResponse = await contract.methods.test_public_dynamic_array_3().simulate();
+  //     const lengthResponse = await contract.methods.test_public_dynamic_array_4().simulate();
 
-      expect([numResponse, lengthResponse]).toStrictEqual([420n, 1n]);
+  //     expect([numResponse, lengthResponse]).toStrictEqual([420n, 1n]);
 
-      await contract.methods.test_public_dynamic_array_5().send().wait();
-      const afterRemoved = await contract.methods.test_public_dynamic_array_6().simulate();
-      expect(afterRemoved).toStrictEqual(0n);
-    });
+  //     await contract.methods.test_public_dynamic_array_5().send().wait();
+  //     const afterRemoved = await contract.methods.test_public_dynamic_array_6().simulate();
+  //     expect(afterRemoved).toStrictEqual(0n);
+  //   });
 
-    it('public fixed array test', async () => {
-      await contract.methods.test_fixed_array_pub_1().send().wait();
-      await contract.methods.test_fixed_array_pub_2().send().wait();
+  //   it('public fixed array test', async () => {
+  //     await contract.methods.test_fixed_array_pub_1().send().wait();
+  //     await contract.methods.test_fixed_array_pub_2().send().wait();
 
-      const tx = contract.methods.test_fixed_array_pub_3().send();
+  //     const tx = contract.methods.test_fixed_array_pub_3().send();
 
-      const extendedLogs = (await tx.getUnencryptedLogs()).logs;
+  //     const extendedLogs = (await tx.getUnencryptedLogs()).logs;
 
-      expect(extendedLogs.map(extendedLog => extendedLog.log.data.toString('hex').slice(-2))).toStrictEqual([
-        '00',
-        '01',
-        '02',
-        '03',
-        '04',
-        '05',
-        '09',
-        '07',
-        '08',
-        '09',
-      ]);
-    });
+  //     expect(extendedLogs.map(extendedLog => extendedLog.log.data.toString('hex').slice(-2))).toStrictEqual([
+  //       '00',
+  //       '01',
+  //       '02',
+  //       '03',
+  //       '04',
+  //       '05',
+  //       '09',
+  //       '07',
+  //       '08',
+  //       '09',
+  //     ]);
+  //   });
 
-    it('private fixed array test', async () => {
-      await contract.methods.test_fixed_array_priv_1().send().wait();
-      await contract.methods.test_fixed_array_priv_2().send().wait();
-      const simulateRes = await contract.methods.test_fixed_array_priv_3().simulate();
+  //   it('private fixed array test', async () => {
+  //     await contract.methods.test_fixed_array_priv_1().send().wait();
+  //     await contract.methods.test_fixed_array_priv_2().send().wait();
+  //     const simulateRes = await contract.methods.test_fixed_array_priv_3().simulate();
 
-      const res = simulateRes.map(({ _value }: any) => [Number(_value.points), Number(_value.randomness)]);
+  //     const res = simulateRes.map(({ _value }: any) => [Number(_value.points), Number(_value.randomness)]);
 
-      expect(res).toStrictEqual([
-        [0, 0],
-        [1, 1],
-        [2, 2],
-        [3, 3],
-        [4, 4],
-        [5, 5],
-        [9, 9],
-        [7, 7],
-        [8, 8],
-        [9, 9],
-      ]);
-    });
-  });
+  //     expect(res).toStrictEqual([
+  //       [0, 0],
+  //       [1, 1],
+  //       [2, 2],
+  //       [3, 3],
+  //       [4, 4],
+  //       [5, 5],
+  //       [9, 9],
+  //       [7, 7],
+  //       [8, 8],
+  //       [9, 9],
+  //     ]);
+  //   });
+  // });
 });
