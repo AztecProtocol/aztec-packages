@@ -198,6 +198,8 @@ export function serializeToFields(...objs: Fieldable[]): Fr[] {
       ret.push(obj.toFr());
     } else if ('toField' in obj) {
       ret.push(obj.toField());
+    } else if (Buffer.isBuffer(obj)) {
+      ret.push(Fr.fromBuffer(obj));
     } else {
       throw new Error(`Cannot serialize input to field: ${typeof obj} ${(obj as any).constructor?.name}`);
     }
