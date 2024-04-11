@@ -115,7 +115,7 @@ export function makeProcessedTx(
   tx: Tx,
   kernelOutput: KernelCircuitPublicInputs,
   proof: Proof,
-  PublicKernelRequest: PublicKernelRequest[],
+  publicKernelRequests: PublicKernelRequest[],
   revertReason?: SimulationError,
 ): ProcessedTx {
   return {
@@ -126,7 +126,7 @@ export function makeProcessedTx(
     unencryptedLogs: revertReason ? UnencryptedTxL2Logs.empty() : tx.unencryptedLogs,
     isEmpty: false,
     revertReason,
-    publicKernelRequests: [],
+    publicKernelRequests,
   };
 }
 
