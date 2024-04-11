@@ -116,7 +116,7 @@ mod test {
 
     fn create_context(block_number: Field, private: bool) -> Context {
         if private {
-            let mut private_context: PrivateContext = unsafe::zeroed();
+            let mut private_context = PrivateContext::empty();
             private_context.historical_header.global_variables.block_number = block_number;
             Context::private(&mut private_context)
         } else {

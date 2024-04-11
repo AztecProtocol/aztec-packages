@@ -106,8 +106,8 @@ fn not_zero_assert_is_zero() {
 
 #[test]
 fn test_eq() {
-    let mut context1: CallContext = dep::std::unsafe::zeroed();
-    let mut context2: CallContext = dep::std::unsafe::zeroed();
+    let mut context1 = CallContext::empty();
+    let mut context2 = CallContext::empty();
 
     context1.is_delegate_call = true;
     context2.is_delegate_call = true;
@@ -121,8 +121,8 @@ fn test_eq() {
 
 #[test(should_fail)]
 fn not_eq_test_eq() {
-    let mut context1: CallContext = dep::std::unsafe::zeroed();
-    let mut context2: CallContext = dep::std::unsafe::zeroed();
+    let mut context1 = CallContext::empty();
+    let mut context2 = CallContext::empty();
 
     context1.is_delegate_call = true;
     context2.is_delegate_call = false;
@@ -138,6 +138,6 @@ fn not_eq_test_eq() {
 
 #[test]
 fn hash_smoke() {
-    let context: CallContext = dep::std::unsafe::zeroed();
+    let context = CallContext::empty();
     let _hashed = context.hash();
 }

@@ -184,14 +184,14 @@ impl FixtureBuilder {
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
         let accumulated_data = self.to_public_accumulated_data();
         let end_non_revertible = if revertible {
-            unsafe::zeroed()
+            PublicAccumulatedData::empty()
         } else {
             accumulated_data
         };
         let end = if revertible {
             accumulated_data
         } else {
-            unsafe::zeroed()
+            PublicAccumulatedData::empty()
         };
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
