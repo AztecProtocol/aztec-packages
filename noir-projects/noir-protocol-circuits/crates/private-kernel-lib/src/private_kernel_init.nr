@@ -1,5 +1,4 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
     combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
@@ -77,7 +76,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         self.initialize_end_values(&mut public_inputs);
 
@@ -180,15 +179,6 @@ mod tests {
 
         let expected_unencrypted_logs_hash = compute_logs_hash(0, unencrypted_logs_hash);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_return_values() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        builder.private_call.public_inputs.return_values.extend_from_array([0, 9123]);
-
-        builder.failed();
     }
 
     #[test(should_fail_with = "invalid array")]

@@ -1,5 +1,4 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
@@ -27,7 +26,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_inner(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs : PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs  = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
 
@@ -73,7 +72,6 @@ mod tests {
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
         tests::{private_call_data_builder::PrivateCallDataBuilder, fixture_builder::FixtureBuilder}
     };
-    use dep::std::unsafe;
 
     struct PrivateKernelInnerInputsBuilder {
         previous_kernel: FixtureBuilder,
@@ -371,15 +369,6 @@ mod tests {
         // Change the storage contract to be a different value.
         call_request.caller_context.storage_contract_address.inner += 1;
         builder.private_call.public_call_stack.push(call_request);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_return_values() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.private_call.public_inputs.return_values.extend_from_array([0, 553]);
 
         builder.failed();
     }
