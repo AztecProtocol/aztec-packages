@@ -1,7 +1,8 @@
 use crate::common;
 use dep::types::{
     abis::{
-    combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
+    gas_settings::GasSettings, combined_constant_data::CombinedConstantData,
+    private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
@@ -21,6 +22,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         public_inputs.constants = CombinedConstantData {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
+            gas_settings: GasSettings::empty(), // TODO(palla/gas-in-circuits)
         };
         public_inputs.min_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.min_revertible_side_effect_counter;
     }
@@ -390,7 +392,7 @@ mod tests {
     #[test]
     fn propagate_max_block_number_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
-        builder.private_call.request_max_block_number(42);
+        builder.private_call.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
