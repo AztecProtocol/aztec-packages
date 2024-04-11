@@ -130,7 +130,7 @@ impl PrivateContext {
             min_revertible_side_effect_counter,
             args_hash,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::default(),
+            max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
