@@ -8,6 +8,7 @@ mod util;
 contract Uniswap {
     use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable};
     use dep::aztec::oracle::context::get_portal_address;
+    use dep::aztec::context::gas::GasOpts;
 
     use dep::authwit::auth::{
         IS_VALID_SELECTOR, assert_current_call_valid_authwit_public, compute_call_authwit_hash,
@@ -17,6 +18,7 @@ contract Uniswap {
     use crate::interfaces::{Token, TokenBridge};
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};
 
+    #[aztec(storage)]
     struct Storage {
         // like with account contracts, stores the approval message on a slot and tracks if they are active
         approved_action: Map<Field, PublicMutable<bool>>,
@@ -61,11 +63,12 @@ contract Uniswap {
         );
 
         // Approve bridge to burn this contract's funds and exit to L1 Uniswap Portal
-        let _void = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("_approve_bridge_and_exit_input_asset_to_L1((Field),(Field),Field)"),
-            [input_asset.to_field(), input_asset_bridge.to_field(), input_amount]
-        );
+            [input_asset.to_field(), input_asset_bridge.to_field(), input_amount],
+            GasOpts::default()
+        ).assert_empty();
 
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.

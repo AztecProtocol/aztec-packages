@@ -1,37 +1,37 @@
 import {
-  AuthWitness,
-  AztecNode,
+  type AuthWitness,
+  type AztecNode,
   EncryptedFunctionL2Logs,
   EncryptedL2Log,
   L1NotePayload,
   Note,
-  NoteStatus,
+  type NoteStatus,
   TaggedNote,
   UnencryptedFunctionL2Logs,
-  UnencryptedL2Log,
+  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
   CallContext,
   FunctionData,
   FunctionSelector,
-  Header,
+  type Header,
   NoteHashReadRequestMembershipWitness,
   PublicCallRequest,
-  SideEffect,
+  type SideEffect,
   TxContext,
 } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
-import { FunctionAbi, FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { NoteData, toACVMWitness } from '../acvm/index.js';
-import { PackedArgsCache } from '../common/packed_args_cache.js';
-import { DBOracle } from './db_oracle.js';
-import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult, NoteAndSlot } from './execution_result.js';
+import { type NoteData, toACVMWitness } from '../acvm/index.js';
+import { type PackedValuesCache } from '../common/packed_values_cache.js';
+import { type DBOracle } from './db_oracle.js';
+import { type ExecutionNoteCache } from './execution_note_cache.js';
+import { type ExecutionResult, type NoteAndSlot } from './execution_result.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -72,7 +72,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
-    private readonly packedArgsCache: PackedArgsCache,
+    private readonly packedValuesCache: PackedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
     protected readonly db: DBOracle,
     private readonly curve: Grumpkin,
@@ -93,7 +93,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   public getInitialWitness(abi: FunctionAbi) {
     const argumentsSize = countArgumentsSize(abi);
 
-    const args = this.packedArgsCache.unpack(this.argsHash);
+    const args = this.packedValuesCache.unpack(this.argsHash);
 
     if (args.length !== argumentsSize) {
       throw new Error('Invalid arguments size');
@@ -175,7 +175,23 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param args - Arguments to pack
    */
   public packArguments(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedArgsCache.pack(args));
+    return Promise.resolve(this.packedValuesCache.pack(args));
+  }
+
+  /**
+   * Pack the given returns.
+   * @param returns - Returns to pack
+   */
+  public packReturns(returns: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.packedValuesCache.pack(returns));
+  }
+
+  /**
+   * Unpack the given returns.
+   * @param returnsHash - Returns hash to unpack
+   */
+  public unpackReturns(returnsHash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
   }
 
   /**
@@ -235,7 +251,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       offset,
     });
 
-    this.log(
+    this.log.debug(
       `Returning ${notes.length} notes for ${this.callContext.storageContractAddress} at ${storageSlot}: ${notes
         .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
@@ -316,7 +332,7 @@ export class ClientExecutionContext extends ViewDataOracle {
   public emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
     const text = log.toHumanReadable();
-    this.log(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
+    this.log.verbose(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
@@ -349,7 +365,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall: boolean,
     isDelegateCall: boolean,
   ) {
-    this.log(
+    this.log.debug(
       `Calling private function ${this.contractAddress}:${functionSelector} from ${this.callContext.storageContractAddress}`,
     );
 
@@ -375,7 +391,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       derivedCallContext,
       this.historicalHeader,
       this.authWitnesses,
-      this.packedArgsCache,
+      this.packedValuesCache,
       this.noteCache,
       this.db,
       this.curve,
@@ -428,7 +444,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       isDelegateCall,
       isStaticCall,
     );
-    const args = this.packedArgsCache.unpack(argsHash);
+    const args = this.packedValuesCache.unpack(argsHash);
     const enqueuedRequest = PublicCallRequest.from({
       args,
       callContext: derivedCallContext,
@@ -441,7 +457,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     // side-effect counter, that will leak info about how many other private
     // side-effects occurred in the TX. Ultimately the private kernel should
     // just output everything in the proper order without any counters.
-    this.log(
+    this.log.verbose(
       `Enqueued call to public function (with side-effect counter #${sideEffectCounter}) ${targetContractAddress}:${functionSelector}(${targetArtifact.name})`,
     );
 
@@ -497,7 +513,7 @@ export class ClientExecutionContext extends ViewDataOracle {
         throw new Error(`No witness for slot ${storageSlot.toString()}`);
       }
       const value = witness.leafPreimage.value;
-      this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
+      this.log.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
       values.push(value);
     }
     return values;

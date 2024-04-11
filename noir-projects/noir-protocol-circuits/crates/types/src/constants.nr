@@ -1,5 +1,4 @@
 global ARGS_LENGTH: u64 = 16;
-global RETURN_VALUES_LENGTH: u64 = 4;
 
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
@@ -37,25 +36,11 @@ global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: u64 = 1;
 
 // "PER TRANSACTION" CONSTANTS
 global MAX_NEW_NOTE_HASHES_PER_TX: u64 = 64;
-global MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX: u64 = 8;
-global MAX_REVERTIBLE_NOTE_HASHES_PER_TX: u64 = 56;
-
 global MAX_NEW_NULLIFIERS_PER_TX: u64 = 64;
-global MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX: u64 = 8;
-global MAX_REVERTIBLE_NULLIFIERS_PER_TX: u64 = 56;
-
 global MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX: u64 = 8;
-
 global MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX: u64 = 8;
-global MAX_NON_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX: u64 = 3;
-global MAX_REVERTIBLE_PUBLIC_CALL_STACK_LENGTH_PER_TX: u64 = 5;
-
 global MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u64 = 32;
-global MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u64 = 16;
-global MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX: u64 = 16;
-
 global MAX_PUBLIC_DATA_READS_PER_TX: u64 = 32;
-
 global MAX_NEW_L2_TO_L1_MSGS_PER_TX: u64 = 2;
 global MAX_NOTE_HASH_READ_REQUESTS_PER_TX: u64 = 128;
 global MAX_NULLIFIER_READ_REQUESTS_PER_TX: u64 = 8; // Change it to a larger value when there's a seperate reset circuit.
@@ -107,6 +92,8 @@ global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
 // 126976 = 31 * 4096;
 global BLOB_SIZE_IN_BYTES: Field = 126976;
+// How much gas is subtracted from L2GASLEFT when making a nested public call by default in the AVM
+global NESTED_CALL_L2_GAS_BUFFER = 20000;
 
 // CONTRACT CLASS CONSTANTS
 global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u64 = 15000;
@@ -131,7 +118,7 @@ global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE = 0xe7af8166354
 // CONTRACT INSTANCE CONSTANTS
 // sha224sum 'struct ContractInstanceDeployed'
 global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
-global DEPLOYER_CONTRACT_ADDRESS = 0x1ad693effc2a4a40fdf5911ff29e19d2b6cd3cf73e6c3685519a6fb783144dcb;
+global DEPLOYER_CONTRACT_ADDRESS = 0x00eadf9f983d265e8f496dec4172e75b4a98fe00a99a1b80042a7257b63a3a56;
 
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
@@ -155,7 +142,7 @@ global CONTRACT_INSTANCE_LENGTH: u64 = 6;
 global CONTRACT_STORAGE_READ_LENGTH: u64 = 2;
 global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u64 = 2;
 global ETH_ADDRESS_LENGTH = 1;
-global FUNCTION_DATA_LENGTH: u64 = 3;
+global FUNCTION_DATA_LENGTH: u64 = 2;
 global FUNCTION_LEAF_PREIMAGE_LENGTH: u64 = 5;
 global GLOBAL_VARIABLES_LENGTH: u64 = 6;
 global HEADER_LENGTH: u64 = 20; // 2 for last_archive, 4 for content commitment, 8 for state reference, 6 for global vars
@@ -165,18 +152,18 @@ global MAX_BLOCK_NUMBER_LENGTH: u64 = 2; // 1 for the option flag, 1 for the val
 global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
 global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 211;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 207;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 207;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 204;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 198;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 195;
 global STATE_REFERENCE_LENGTH: u64 = 8; // 2 for snap + 8 for partial
 global TX_CONTEXT_DATA_LENGTH: u64 = 4;
-global TX_REQUEST_LENGTH: u64 = 9; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH
+global TX_REQUEST_LENGTH: u64 = 8; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH
 
-global ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH: Field = 12; // 2 + FUNCTION_DATA_LENGTH + CALL_CONTEXT_LENGTH
+global ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH: Field = 11; // 2 + FUNCTION_DATA_LENGTH + CALL_CONTEXT_LENGTH
 global GET_NOTES_ORACLE_RETURN_LENGTH: u64 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;

@@ -1,7 +1,7 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { ContractDeployer, EthAddress, Fq, Fr, Point } from '@aztec/aztec.js';
+import { ContractDeployer, type EthAddress, type Fq, Fr, type Point } from '@aztec/aztec.js';
 import { getInitializer } from '@aztec/foundation/abi';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { encodeArgs } from '../encoding.js';
@@ -23,7 +23,7 @@ export async function deploy(
   log: LogFn,
   logJson: (output: any) => void,
 ) {
-  const contractArtifact = await getContractArtifact(artifactPath, log);
+  const contractArtifact = await getContractArtifact(artifactPath);
   const constructorArtifact = getInitializer(contractArtifact, initializer);
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
@@ -43,9 +43,9 @@ export async function deploy(
     if (!constructorArtifact) {
       throw new Error(`Cannot process constructor arguments as no constructor was found`);
     }
-    debugLogger(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
+    debugLogger.verbose(`Input arguments: ${rawArgs.map((x: any) => `"${x}"`).join(', ')}`);
     args = encodeArgs(rawArgs, constructorArtifact!.parameters);
-    debugLogger(`Encoded arguments: ${args.join(', ')}`);
+    debugLogger.verbose(`Encoded arguments: ${args.join(', ')}`);
   }
 
   const deploy = deployer.deploy(...args);
@@ -53,7 +53,7 @@ export async function deploy(
   await deploy.create({ contractAddressSalt: salt, portalContract: portalAddress });
   const tx = deploy.send({ contractAddressSalt: salt, portalContract: portalAddress });
   const txHash = await tx.getTxHash();
-  debugLogger(`Deploy tx sent with hash ${txHash}`);
+  debugLogger.verbose(`Deploy tx sent with hash ${txHash}`);
   if (wait) {
     const deployed = await tx.wait();
     const { address, partialAddress } = deployed.contract;

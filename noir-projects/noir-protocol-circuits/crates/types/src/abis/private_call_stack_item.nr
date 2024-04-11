@@ -2,7 +2,7 @@ use crate::{
     abis::{function_data::FunctionData, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     address::AztecAddress,
     constants::{GENERATOR_INDEX__CALL_STACK_ITEM, PRIVATE_CALL_STACK_ITEM_LENGTH}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize}, utils::reader::Reader
+    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader
 };
 
 struct PrivateCallStackItem {
@@ -60,9 +60,19 @@ impl Hash for PrivateCallStackItem {
     }
 }
 
+impl Empty for PrivateCallStackItem {
+    fn empty() -> Self {
+        PrivateCallStackItem {
+            contract_address: AztecAddress::empty(),
+            function_data: FunctionData::empty(),
+            public_inputs: PrivateCircuitPublicInputs::empty(),
+        }
+    }
+}
+
 #[test]
 fn serialization_of_empty() {
-    let item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let item = PrivateCallStackItem::empty();
     let serialized = item.serialize();
     let deserialized = PrivateCallStackItem::deserialize(serialized);
     assert(item.eq(deserialized));
@@ -70,11 +80,11 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let mut item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let mut item = PrivateCallStackItem::empty();
     item.function_data.is_private = true;
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x06b381be873c42defb570287e3ba23900175838afb6047a27c7dce1f653b4ac5;
+    let test_data_empty_hash = 0x112feea8d86e92581b3cff6542aadf341cd5532244302a95c1de00939480effe;
     assert_eq(hash, test_data_empty_hash);
 }

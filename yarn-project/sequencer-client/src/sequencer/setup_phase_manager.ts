@@ -1,10 +1,15 @@
-import { Tx } from '@aztec/circuit-types';
-import { GlobalVariables, Header, Proof, PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
-import { PublicExecutor, PublicStateDB } from '@aztec/simulator';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type Tx } from '@aztec/circuit-types';
+import {
+  type GlobalVariables,
+  type Header,
+  type Proof,
+  type PublicKernelCircuitPublicInputs,
+} from '@aztec/circuits.js';
+import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
+import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
+import { type ContractsDataSourcePublicDB } from '../simulator/public_executor.js';
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 
 /**
@@ -29,7 +34,7 @@ export class SetupPhaseManager extends AbstractPhaseManager {
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof: Proof,
   ) {
-    this.log(`Processing tx ${tx.getTxHash()}`);
+    this.log.verbose(`Processing tx ${tx.getTxHash()}`);
     const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs, revertReason] =
       await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousPublicKernelProof).catch(
         // the abstract phase manager throws if simulation gives error in a non-revertible phase
@@ -40,6 +45,6 @@ export class SetupPhaseManager extends AbstractPhaseManager {
       );
     tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
     await this.publicStateDB.checkpoint();
-    return { publicKernelOutput, publicKernelProof, revertReason };
+    return { publicKernelOutput, publicKernelProof, revertReason, returnValues: undefined };
   }
 }

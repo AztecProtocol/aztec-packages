@@ -69,15 +69,15 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
     EXPECT_EQ(row->avm_mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
     EXPECT_EQ(row->avm_mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::FF)));
 
-    validate_trace_proof(std::move(trace));
+    validate_trace(std::move(trace));
 }
 
 // Testing an equality operation with a mismatched memory tag.
 // The proof must pass and we check that the AVM error is raised.
 TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
 {
-    trace_builder.set(3, 0, AvmMemoryTag::U32);
-    trace_builder.set(5, 1, AvmMemoryTag::U16);
+    trace_builder.op_set(0, 3, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 5, 1, AvmMemoryTag::U16);
 
     trace_builder.op_eq(0, 0, 1, 2, AvmMemoryTag::U32);
     trace_builder.halt();
@@ -112,15 +112,15 @@ TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
     EXPECT_EQ(row->avm_mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U32)));
     EXPECT_EQ(row->avm_mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U16)));
 
-    validate_trace_proof(std::move(trace));
+    validate_trace(std::move(trace));
 }
 
 // Testing violation that m_lastAccess is a delimiter for two different addresses
 // in the memory trace
 TEST_F(AvmMemoryTests, mLastAccessViolation)
 {
-    trace_builder.set(4, 0, AvmMemoryTag::U8);
-    trace_builder.set(9, 1, AvmMemoryTag::U8);
+    trace_builder.op_set(0, 4, 0, AvmMemoryTag::U8);
+    trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:     [4,9,0,0,0,0,....]
     trace_builder.op_sub(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,5,0,0,0.....]
@@ -143,15 +143,15 @@ TEST_F(AvmMemoryTests, mLastAccessViolation)
 
     row->avm_mem_lastAccess = FF(0);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "MEM_LAST_ACCESS_DELIMITER");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MEM_LAST_ACCESS_DELIMITER");
 }
 
 // Testing violation that a memory read operation must read the same value which was
 // written into memory
 TEST_F(AvmMemoryTests, readWriteConsistencyValViolation)
 {
-    trace_builder.set(4, 0, AvmMemoryTag::U8);
-    trace_builder.set(9, 1, AvmMemoryTag::U8);
+    trace_builder.op_set(0, 4, 0, AvmMemoryTag::U8);
+    trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
     trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
@@ -173,15 +173,15 @@ TEST_F(AvmMemoryTests, readWriteConsistencyValViolation)
     EXPECT_TRUE(row != trace.end());
 
     row->avm_mem_val = FF(35);
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "MEM_READ_WRITE_VAL_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MEM_READ_WRITE_VAL_CONSISTENCY");
 }
 
 // Testing violation that memory read operation must read the same tag which was
 // written into memory
 TEST_F(AvmMemoryTests, readWriteConsistencyTagViolation)
 {
-    trace_builder.set(4, 0, AvmMemoryTag::U8);
-    trace_builder.set(9, 1, AvmMemoryTag::U8);
+    trace_builder.op_set(0, 4, 0, AvmMemoryTag::U8);
+    trace_builder.op_set(0, 9, 1, AvmMemoryTag::U8);
 
     //                           Memory layout:      [4,9,0,0,0,0,....]
     trace_builder.op_mul(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,36,0,0,0.....]
@@ -204,7 +204,7 @@ TEST_F(AvmMemoryTests, readWriteConsistencyTagViolation)
 
     row->avm_mem_tag = static_cast<uint32_t>(AvmMemoryTag::U16);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "MEM_READ_WRITE_TAG_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MEM_READ_WRITE_TAG_CONSISTENCY");
 }
 
 // Testing violation that a memory read at uninitialized location must have value 0.
@@ -215,7 +215,7 @@ TEST_F(AvmMemoryTests, readUninitializedMemoryViolation)
 
     trace[1].avm_mem_val = 9;
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "MEM_ZERO_INIT");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MEM_ZERO_INIT");
 }
 
 // Testing violation that an operation with a mismatched memory tag
@@ -244,12 +244,12 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
     auto index = static_cast<uint32_t>(row - trace.begin());
     auto trace2 = trace;
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "MEM_IN_TAG_CONSISTENCY_1");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MEM_IN_TAG_CONSISTENCY_1");
 
     // More sophisticated attempt by adapting witness "on_min_inv" to make pass the above constraint
     trace2[index].avm_mem_one_min_inv = FF(1);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace2)), "MEM_IN_TAG_CONSISTENCY_2");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace2)), "MEM_IN_TAG_CONSISTENCY_2");
 }
 
 // Testing violation that an operation with a consistent memory tag
@@ -276,7 +276,7 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 
     row->avm_mem_tag_err = FF(1);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "MEM_IN_TAG_CONSISTENCY_1");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MEM_IN_TAG_CONSISTENCY_1");
 }
 
 // Testing violation that a write operation must not set a VM error.
@@ -303,7 +303,7 @@ TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
     ASSERT_TRUE(row != trace.end());
     row->avm_mem_tag_err = FF(1);
 
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_proof(std::move(trace)), "NO_TAG_ERR_WRITE");
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "NO_TAG_ERR_WRITE");
 }
 
 } // namespace tests_avm
