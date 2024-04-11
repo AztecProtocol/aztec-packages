@@ -96,8 +96,8 @@ impl Empty for RootRollupInputs {
             l1_to_l2_roots: RootParityInput::empty(),
             new_l1_to_l2_messages : [0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
             new_l1_to_l2_message_tree_root_sibling_path : [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
-            start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot::empty(),
-            start_archive_snapshot : AppendOnlyTreeSnapshot::empty(),
+            start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot::zero(),
+            start_archive_snapshot : AppendOnlyTreeSnapshot::zero(),
             new_archive_sibling_path : [0; ARCHIVE_HEIGHT],
         }
     }

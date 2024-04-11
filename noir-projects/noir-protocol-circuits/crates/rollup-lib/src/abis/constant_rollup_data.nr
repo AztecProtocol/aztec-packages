@@ -32,7 +32,7 @@ impl Eq for ConstantRollupData {
 impl Empty for ConstantRollupData {
     fn empty() -> Self {
         ConstantRollupData {
-            last_archive: AppendOnlyTreeSnapshot::empty(),
+            last_archive: AppendOnlyTreeSnapshot::zero(),
             private_kernel_vk_tree_root: 0,
             public_kernel_vk_tree_root: 0,
             base_rollup_vk_hash: 0,

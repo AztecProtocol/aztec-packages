@@ -1,5 +1,4 @@
 use dep::std::cmp::Eq;
-use crate::traits::Empty;
 
 struct AppendOnlyTreeSnapshot {
     root : Field,
@@ -26,11 +25,5 @@ impl AppendOnlyTreeSnapshot {
 impl Eq for AppendOnlyTreeSnapshot {
     fn eq(self, other : AppendOnlyTreeSnapshot) -> bool {
         (self.root == other.root) & (self.next_available_leaf_index == other.next_available_leaf_index)
-    }
-}
-
-impl Empty for AppendOnlyTreeSnapshot {
-    fn empty() -> Self {
-        Self { root: 0, next_available_leaf_index: 0 }
     }
 }
