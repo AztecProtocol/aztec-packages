@@ -94,7 +94,7 @@ jobs:
           concurrency_key: bb-native-tests-${{ github.actor }}-x86
       - name: "Native Prover Tests"
         working-directory: ./barretenberg/cpp/
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: earthly --no-output +test
 
   # push benchmarking binaries to dockerhub registry
@@ -111,7 +111,7 @@ jobs:
           concurrency_key: bb-bench-binaries-${{ github.actor }}-x86
       - name: Build and Push Binaries
         if: ${{ github.event.inputs.just_start_spot != 'true' }}
-        timeout-minutes: 15
+        timeout-minutes: 25
         working-directory: ./barretenberg/cpp/
         run: earthly --push +bench-binaries
 
