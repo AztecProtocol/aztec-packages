@@ -25,10 +25,6 @@ enum PROVING_STATE_LIFECYCLE {
   PROVING_STATE_REJECTED,
 }
 
-class TxProvingState {
-  processedTx: ProcessedTx;
-}
-
 /**
  * The current state of the proving schedule. Contains the raw inputs (txs) and intermediate state to generate every constituent proof in the tree.
  * Carries an identifier so we can identify if the proving state is discarded and a new one started.
