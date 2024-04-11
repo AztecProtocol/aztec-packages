@@ -77,7 +77,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         self.initialize_end_values(&mut public_inputs);
 

@@ -40,7 +40,7 @@ impl KernelCircuitPublicInputsComposer {
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         transient_note_hash_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX]
     ) -> Self {
-        let public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         KernelCircuitPublicInputsComposer {
             public_inputs,
