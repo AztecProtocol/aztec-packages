@@ -28,7 +28,7 @@ describe('prover/bb_prover', () => {
   beforeAll(async () => {
     const config = await getConfig(logger);
     if (!config) {
-      throw new Error(`BB binary must be present to test the BB Prover`);
+      throw new Error(`BB and ACVM binaries must be present to test the BB Prover`);
     }
     directoryToCleanup = config.directoryToCleanup;
     const bbConfig: BBProverConfig = {
