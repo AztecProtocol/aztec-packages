@@ -1,5 +1,5 @@
 use super::{
-    brillig::{Brillig, BrilligInputs, BrilligOutputs},
+    brillig::{Brillig, BrilligPointer},
     directives::Directive,
 };
 use crate::native_types::{Expression, Witness};
@@ -21,6 +21,7 @@ pub enum Opcode {
     BlackBoxFuncCall(BlackBoxFuncCall),
     Directive(Directive),
     Brillig(Brillig),
+    BrilligPointer(BrilligPointer),
     /// Atomic operation on a block of memory
     MemoryOp {
         block_id: BlockId,
@@ -93,6 +94,11 @@ impl std::fmt::Display for Opcode {
                 writeln!(f, "inputs: {:?}", brillig.inputs)?;
                 writeln!(f, "outputs: {:?}", brillig.outputs)?;
                 writeln!(f, "{:?}", brillig.bytecode)
+            }
+            Opcode::BrilligPointer(brillig) => {
+                write!(f, "BRILLIG {:?}: ", brillig.bytecode_index)?;
+                writeln!(f, "inputs: {:?}", brillig.inputs)?;
+                writeln!(f, "outputs: {:?}", brillig.outputs)
             }
             Opcode::MemoryOp { block_id, op, predicate } => {
                 write!(f, "MEM ")?;
