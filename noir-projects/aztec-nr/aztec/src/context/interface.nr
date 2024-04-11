@@ -1,4 +1,7 @@
-use dep::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header};
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, header::Header,
+    traits::Deserialize
+};
 
 use crate::context::private_context::PrivateContext;
 use crate::context::public_context::PublicContext;
@@ -55,82 +58,89 @@ trait PublicContextInterface {
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool;
 }
 
-struct PrivateCallInterface {
+struct PrivateCallInterface<T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
-    args_hash: Field
+    args_hash: Field,
 }
 
-impl PrivateCallInterface {
-    pub fn call(self, context: &mut PrivateContext) -> [Field; 4] {
-        context.call_private_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            self.args_hash,
-            false,
-            false
-        )
-    }
-
-    pub fn static_call(self, context: &mut PrivateContext) -> [Field; 4] {
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
-    }
-
-    pub fn delegate_call(self, context: &mut PrivateContext) -> [Field; 4] {
-        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true)
-    }
-}
-
-struct PrivateVoidCallInterface {
-    target_contract: AztecAddress,
-    selector: FunctionSelector,
-    args_hash: Field
-}
-
-impl PrivateVoidCallInterface {
-    pub fn call(self, context: &mut PrivateContext) {
-        let _ = context.call_private_function_with_packed_args(
+impl<T> PrivateCallInterface<T> {
+    pub fn call<N>(self, context: &mut PrivateContext) -> T where T: Deserialize<N> {
+        let returns = context.call_private_function_with_packed_args(
             self.target_contract,
             self.selector,
             self.args_hash,
             false,
             false
         );
+        let unpacked: T = returns.unpack_into();
+        unpacked
     }
 
-    pub fn static_call(self, context: &mut PrivateContext) {
-        let _ = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
+    pub fn static_call<N>(self, context: &mut PrivateContext) -> T where T: Deserialize<N> {
+        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
+        returns.unpack_into()
     }
 
-    pub fn delegate_call(self, context: &mut PrivateContext) {
-        let _ = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
+    pub fn delegate_call<N>(self, context: &mut PrivateContext) -> T where T: Deserialize<N> {
+        let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
+        returns.unpack_into()
     }
 }
 
-struct PublicCallInterface {
+struct PrivateVoidCallInterface {
     target_contract: AztecAddress,
     selector: FunctionSelector,
-    args_hash: Field
+    args_hash: Field,
 }
 
-impl PublicCallInterface {
-
-    pub fn call(self, context: &mut PublicContext) -> [Field; 4] {
-        context.call_public_function_with_packed_args(
+impl PrivateVoidCallInterface {
+    pub fn call(self, context: &mut PrivateContext) {
+        context.call_private_function_with_packed_args(
             self.target_contract,
             self.selector,
             self.args_hash,
             false,
             false
-        )
+        ).assert_empty();
     }
 
-    pub fn static_call(self, context: &mut PublicContext) -> [Field; 4] {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false)
+    pub fn static_call(self, context: &mut PrivateContext) {
+        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 
-    pub fn delegate_call(self, context: &mut PublicContext) -> [Field; 4] {
-        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true)
+    pub fn delegate_call(self, context: &mut PrivateContext) {
+        context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true).assert_empty();
+    }
+}
+
+struct PublicCallInterface<T> {
+    target_contract: AztecAddress,
+    selector: FunctionSelector,
+    args_hash: Field,
+}
+
+impl<T> PublicCallInterface<T> {
+
+    pub fn call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
+        let returns = context.call_public_function_with_packed_args(
+            self.target_contract,
+            self.selector,
+            self.args_hash,
+            false,
+            false
+        );
+        returns.deserialize_into()
+    }
+
+    pub fn static_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
+        let returns = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
+        returns.deserialize_into()
+    }
+
+    pub fn delegate_call<N>(self, context: &mut PublicContext) -> T where T: Deserialize<N> {
+        let returns = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
+        returns.deserialize_into()
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {
@@ -159,23 +169,22 @@ struct PublicVoidCallInterface {
 }
 
 impl PublicVoidCallInterface {
-
     pub fn call(self, context: &mut PublicContext) {
-        let _ = context.call_public_function_with_packed_args(
+        context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
             self.args_hash,
             false,
             false
-        );
+        ).assert_empty()
     }
 
     pub fn static_call(self, context: &mut PublicContext) {
-        let _ = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 
     pub fn delegate_call(self, context: &mut PublicContext) {
-        let _ = context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
+        context.call_public_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true).assert_empty();
     }
 
     pub fn enqueue(self, context: &mut PrivateContext) {

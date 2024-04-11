@@ -27,7 +27,7 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
         })
         .collect::<Vec<_>>()
         .join(", ");
-    let fn_return_type = func.return_type();
+    let fn_return_type: noirc_frontend::UnresolvedType = func.return_type();
 
     let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", SELECTOR_PLACEHOLDER);
 
@@ -70,20 +70,26 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
         "let args_hash = 0;".to_string()
     };
     let is_void = if matches!(fn_return_type.typ, UnresolvedTypeData::Unit) { "Void" } else { "" };
+
     let fn_body = format!(
         "{}
             dep::aztec::context::{}{}CallInterface {{
                 target_contract: self.target_contract,
                 selector: {},
-                args_hash
+                args_hash,
             }}",
-        args_hash, aztec_visibility, is_void, fn_selector
+        args_hash, aztec_visibility, is_void, fn_selector,
     );
+    let return_type_hint = if is_void == "Void" {
+        "".to_string()
+    } else {
+        format!("<{}>", fn_return_type.typ.to_string().replace("plain::", ""))
+    };
     format!(
-        "pub fn {}(self, {}) -> dep::aztec::context::{}{}CallInterface {{
+        "pub fn {}(self, {}) -> dep::aztec::context::{}{}CallInterface{} {{
                 {}
             }}",
-        fn_name, fn_parameters, aztec_visibility, is_void, fn_body
+        fn_name, fn_parameters, aztec_visibility, is_void, return_type_hint, fn_body
     )
 }
 
@@ -118,8 +124,6 @@ pub fn generate_contract_interface(
         module_name,
         stubs.join("\n"),
     );
-
-    //println!("Generated contract interface: {}", contract_interface);
 
     let (contract_interface_ast, errors) = parse_program(&contract_interface);
     if !errors.is_empty() {

@@ -148,10 +148,8 @@ contract Lending {
     #[aztec(public)]
     #[aztec(internal)]
     fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: Field) {
-        let asset_raw = Lending::at(context.this_address()).update_accumulator().call(&mut context);
-        let asset = Asset::deserialize(asset_raw);
-        let price_raw = PriceFeed::at(asset.oracle).get_price(0).call(&mut context);
-        let price = U128::from_integer(price_raw[0]);
+        let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
+        let price = PriceFeed::at(asset.oracle).get_price(0).call(&mut context).price;
 
         let coll_loc = storage.collateral.at(owner);
         let collateral: Field = coll_loc.read();
@@ -198,10 +196,8 @@ contract Lending {
     #[aztec(public)]
     #[aztec(internal)]
     fn _borrow(owner: AztecAddress, to: AztecAddress, amount: Field) {
-        let asset_raw = Lending::at(context.this_address()).update_accumulator().call(&mut context);
-        let asset = Asset::deserialize(asset_raw);
-        let price_raw = PriceFeed::at(asset.oracle).get_price(0).call(&mut context);
-        let price = U128::from_integer(price_raw[0]);
+        let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
+        let price = PriceFeed::at(asset.oracle).get_price(0).call(&mut context).price;
 
         // Fetch collateral and static_debt, compute health of current position
         let collateral = U128::from_integer(storage.collateral.at(owner).read());
@@ -253,8 +249,7 @@ contract Lending {
     #[aztec(public)]
     #[aztec(internal)]
     fn _repay(owner: AztecAddress, amount: Field, stable_coin: AztecAddress) {
-        let asset_raw = Lending::at(context.this_address()).update_accumulator().call(&mut context);
-        let asset = Asset::deserialize(asset_raw);
+        let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
 
         // To ensure that private is using the correct token.
         assert(stable_coin.eq(storage.stable_coin.read()));

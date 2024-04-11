@@ -14,11 +14,13 @@ contract Delegator {
     }
 
     #[aztec(private)]
-    fn private_delegate_set_value(target_contract: AztecAddress, value: Field, owner: AztecAddress) {
+    fn private_delegate_set_value(
+        target_contract: AztecAddress,
+        value: Field,
+        owner: AztecAddress
+    ) -> Field {
         // Call the target private function
-        let return_values = DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context);
-        // Copy the return value from the call to this function's return values
-        return_values[0]
+        DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context)
     }
 
     #[aztec(private)]
