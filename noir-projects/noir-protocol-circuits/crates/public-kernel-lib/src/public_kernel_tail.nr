@@ -12,7 +12,6 @@ use dep::types::{
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
     utils::{arrays::array_length}
 };
-use dep::std::unsafe;
 
 struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -85,7 +84,7 @@ impl PublicKernelTailCircuitPrivateInputs {
         );
         request_processor.validate();
 
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
 
         self.propagate_revert_code(&mut public_inputs);
 
@@ -105,7 +104,6 @@ mod tests {
     },
         PublicDataHint, reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
-    use dep::std::unsafe;
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
@@ -176,7 +174,7 @@ mod tests {
                 nullifier_non_existent_read_request_hints_builder,
                 public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder::new(MAX_PUBLIC_DATA_READS_PER_TX),
                 public_data_hints: BoundedVec::new(),
-                public_data_tree: unsafe::zeroed()
+                public_data_tree: NonEmptyMerkleTree::empty()
             };
             builder.set_nullifiers_for_non_existent_read_request_hints();
             builder

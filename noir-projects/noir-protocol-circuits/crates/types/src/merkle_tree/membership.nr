@@ -2,7 +2,8 @@ use crate::{
     merkle_tree::{
     leaf_preimage::IndexedTreeLeafPreimage,
     indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf, root::root_from_sibling_path
-}
+},
+    traits::Empty
 };
 
 struct MembershipWitness<N> {
@@ -10,7 +11,16 @@ struct MembershipWitness<N> {
     sibling_path: [Field; N]
 }
 
-pub fn check_membership<TREE_HEIGHT>(leaf: Field, index: Field, sibling_path: [Field; TREE_HEIGHT], root: Field) -> bool {
+impl<N> Empty for MembershipWitness<N> {
+    fn empty() -> Self {
+        MembershipWitness {
+            leaf_index: 0,
+            sibling_path: [0; N]
+        }
+    }
+}
+
+pub fn check_membership<N>(leaf: Field, index: Field, sibling_path: [Field; N], root: Field) -> bool {
     let calculated_root = root_from_sibling_path(leaf, index, sibling_path);
     calculated_root == root
 }

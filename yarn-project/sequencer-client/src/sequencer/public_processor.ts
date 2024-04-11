@@ -21,9 +21,9 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
+import { type TxValidator } from '../tx_validator/tx_validator.js';
 import { type AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
-import { type TxValidator } from './tx_validator.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -90,7 +90,7 @@ export class PublicProcessor {
     txs: Tx[],
     maxTransactions = txs.length,
     blockProver?: BlockProver,
-    txValidator?: TxValidator,
+    txValidator?: TxValidator<ProcessedTx>,
   ): Promise<[ProcessedTx[], FailedTx[], ProcessReturnValues[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
     txs = txs.map(tx => Tx.clone(tx));
@@ -161,7 +161,7 @@ export class PublicProcessor {
       this.publicContractsDB,
       this.publicStateDB,
     );
-    this.log(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
+    this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
     let proof = tx.proof;
     let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
@@ -195,7 +195,7 @@ export class PublicProcessor {
 
     const processedTx = makeProcessedTx(tx, finalKernelOutput, proof, revertReason);
 
-    this.log(`Processed public part of ${tx.getTxHash()}`, {
+    this.log.debug(`Processed public part of ${tx.getTxHash()}`, {
       eventName: 'tx-sequencer-processing',
       duration: timer.ms(),
       effectsSize: toTxEffect(processedTx).toBuffer().length,

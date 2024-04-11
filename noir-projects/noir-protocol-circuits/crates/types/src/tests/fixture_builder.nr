@@ -1,6 +1,7 @@
 use crate::{
     abis::{
-    call_context::CallContext, call_request::{CallerContext, CallRequest},
+    gas_used::GasUsed, gas_settings::GasSettings, call_context::CallContext,
+    call_request::{CallerContext, CallRequest},
     accumulated_data::{
     CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
     PublicAccumulatedData, PublicAccumulatedDataBuilder
@@ -23,9 +24,8 @@ use crate::{
     VK_TREE_HEIGHT
 },
     hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
-    tests::fixtures, transaction::tx_context::TxContext
+    tests::fixtures, transaction::tx_context::TxContext, traits::Empty
 };
-use dep::std::unsafe;
 
 struct FixtureBuilder {
     contract_address: AztecAddress,
@@ -34,6 +34,7 @@ struct FixtureBuilder {
     // Constant data.
     historical_header: Header,
     tx_context: TxContext,
+    gas_settings: GasSettings,
     
     // Accumulated data.
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
@@ -46,6 +47,7 @@ struct FixtureBuilder {
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    gas_used: GasUsed,
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
@@ -86,7 +88,7 @@ impl FixtureBuilder {
             public_data_update_requests: BoundedVec::new(),
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            max_block_number: MaxBlockNumber::default(),
+            max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
@@ -98,12 +100,18 @@ impl FixtureBuilder {
             vk_path: [0; VK_TREE_HEIGHT],
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
-            counter: 0
+            counter: 0,
+            gas_used: GasUsed::empty(),
+            gas_settings: GasSettings::empty()
         }
     }
 
     pub fn to_constant_data(self) -> CombinedConstantData {
-        CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context }
+        CombinedConstantData {
+            historical_header: self.historical_header,
+            tx_context: self.tx_context,
+            gas_settings: self.gas_settings
+        }
     }
 
     pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
@@ -116,7 +124,8 @@ impl FixtureBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             private_call_stack: self.private_call_stack,
-            public_call_stack: self.public_call_stack
+            public_call_stack: self.public_call_stack,
+            gas_used: self.gas_used
         };
         public_inputs.finish()
     }
@@ -131,7 +140,8 @@ impl FixtureBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: self.public_data_update_requests,
-            public_call_stack: self.public_call_stack
+            public_call_stack: self.public_call_stack,
+            gas_used: self.gas_used
         };
         public_inputs.finish()
     }
@@ -145,7 +155,8 @@ impl FixtureBuilder {
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            public_data_update_requests: self.public_data_update_requests.storage
+            public_data_update_requests: self.public_data_update_requests.storage,
+            gas_used: self.gas_used
         }
     }
 
@@ -183,14 +194,14 @@ impl FixtureBuilder {
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
         let accumulated_data = self.to_public_accumulated_data();
         let end_non_revertible = if revertible {
-            unsafe::zeroed()
+            PublicAccumulatedData::empty()
         } else {
             accumulated_data
         };
         let end = if revertible {
             accumulated_data
         } else {
-            unsafe::zeroed()
+            PublicAccumulatedData::empty()
         };
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
@@ -233,7 +244,7 @@ impl FixtureBuilder {
         let mocked_value_offset = self.new_note_hashes.len() + 1;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
-                // The default value is its index + 1.
+                // The empty value is its index + 1.
                 self.new_note_hashes.push(
                     SideEffect { value: (i + mocked_value_offset) as Field, counter: self.next_counter() }
                 );
@@ -387,5 +398,41 @@ impl FixtureBuilder {
         let counter = self.counter;
         self.counter += 1;
         counter
+    }
+}
+
+impl Empty for FixtureBuilder {
+    fn empty() -> Self {
+        FixtureBuilder {
+            contract_address: AztecAddress::zero(),
+            storage_contract_address: AztecAddress::zero(),
+            historical_header: Header::empty(),
+            tx_context: TxContext::empty(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: BoundedVec::new(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            max_block_number: MaxBlockNumber::empty(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            public_data_reads: BoundedVec::new(),
+            proof: Proof::empty(),
+            vk: VerificationKey::empty(),
+            vk_index: 0,
+            vk_path: [0; VK_TREE_HEIGHT],
+            revert_code: 0,
+            min_revertible_side_effect_counter: 0,
+            counter: 0,
+            gas_settings: GasSettings::empty(),
+            gas_used: GasUsed::empty(),
+        }
     }
 }

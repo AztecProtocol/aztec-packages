@@ -1,11 +1,15 @@
-use dep::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH, header::Header};
+use dep::protocol_types::{
+    address::{AztecAddress, EthAddress},
+    constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER}, header::Header
+};
 use dep::protocol_types::traits::Serialize;
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::abis::public_circuit_public_inputs::PublicCircuitPublicInputs;
-use dep::protocol_types::constants::RETURN_VALUES_LENGTH;
 use crate::context::inputs::avm_context_inputs::AvmContextInputs;
 use crate::context::interface::ContextInterface;
 use crate::context::interface::PublicContextInterface;
+use crate::context::gas::GasOpts;
+use crate::context::public_context::FunctionReturns;
 
 struct AvmContext {
     inputs: AvmContextInputs,
@@ -48,28 +52,35 @@ impl AvmContext {
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
-    pub fn nullifier_exists(self, nullifier: Field) -> bool {
-        nullifier_exists(nullifier) == 1
-    }
 
     fn call_public_function_raw<ARGS_COUNT, RET_COUNT>(
         self: &mut Self,
-        gas: [Field; 3],
+        gas: GasOpts,
         contract_address: AztecAddress,
         temporary_function_selector: Field,
         args: [Field; ARGS_COUNT]
     ) -> ([Field; RET_COUNT], u8) {
-        call(gas, contract_address, args, temporary_function_selector)
+        call(
+            gas_for_call(gas),
+            contract_address,
+            args,
+            temporary_function_selector
+        )
     }
 
     fn static_call_public_function_raw<ARGS_COUNT, RET_COUNT>(
         self: &mut Self,
-        gas: [Field; 3],
+        gas: GasOpts,
         contract_address: AztecAddress,
         temporary_function_selector: Field,
         args: [Field; ARGS_COUNT]
     ) -> ([Field; RET_COUNT], u8) {
-        call_static(gas, contract_address, args, temporary_function_selector)
+        call_static(
+            gas_for_call(gas),
+            contract_address,
+            args,
+            temporary_function_selector
+        )
     }
 }
 
@@ -90,6 +101,25 @@ impl PublicContextInterface for AvmContext {
     fn fee_recipient(self) -> AztecAddress {
         assert(false, "'fee_recipient' not implemented!");
         AztecAddress::zero()
+    }
+
+    fn fee_per_da_gas(self) -> Field {
+        assert(false, "'fee_per_da_gas' not implemented!");
+        0
+    }
+
+    fn fee_per_l1_gas(self) -> Field {
+        assert(false, "'fee_per_l1_gas' not implemented!");
+        0
+    }
+
+    fn fee_per_l2_gas(self) -> Field {
+        assert(false, "'fee_per_l2_gas' not implemented!");
+        0
+    }
+
+    fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
+        nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
 
     fn push_nullifier_read_request(&mut self, nullifier: Field) {
@@ -117,54 +147,52 @@ impl PublicContextInterface for AvmContext {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    fn call_public_function<ARGS_COUNT>(
+    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let gas = [/*l1_gas*/10000, /*l2_gas*/10000, /*da_gas*/10000];
-
+        args: [Field; ARGS_COUNT],
+        gas_opts: GasOpts
+    ) -> FunctionReturns<RETURNS_COUNT> {        
         let results = call(
-            gas,
+            gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
         );
-        let data_to_return: [Field; RETURN_VALUES_LENGTH] = results.0;
+        let data_to_return: [Field; RETURNS_COUNT] = results.0;
         let success: u8 = results.1;
         assert(success == 1, "Nested call failed!");
 
-        data_to_return
+        FunctionReturns::new(data_to_return)
     }
 
-    fn static_call_public_function<ARGS_COUNT>(
+    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
-        let gas = [/*l1_gas*/10000, /*l2_gas*/10000, /*da_gas*/10000];
-
-        let (data_to_return, success): ([Field; RETURN_VALUES_LENGTH], u8) = call_static(
-            gas,
+        args: [Field; ARGS_COUNT],
+        gas_opts: GasOpts
+    ) -> FunctionReturns<RETURNS_COUNT> {
+        let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
+            gas_for_call(gas_opts),
             contract_address,
             args,
             temporary_function_selector.to_field()
         );
 
         assert(success == 1, "Nested static call failed!");
-        data_to_return
+        FunctionReturns::new(data_to_return)
     }
 
-    fn delegate_call_public_function<ARGS_COUNT>(
+    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         assert(false, "'delegate_call_public_function' not implemented!");
-        [0; RETURN_VALUES_LENGTH]
+        FunctionReturns::new([0; RETURNS_COUNT])
     }
 }
 
@@ -201,6 +229,15 @@ impl ContextInterface for AvmContext {
     fn get_args_hash(self) -> Field {
         self.inputs.args_hash
     }
+}
+
+// Helper functions
+fn gas_for_call(user_gas: GasOpts) -> [Field; 3] {
+    [
+        user_gas.l1_gas.unwrap_or_else(|| l1_gas_left()),
+        user_gas.l2_gas.unwrap_or_else(|| l2_gas_left() - NESTED_CALL_L2_GAS_BUFFER),
+        user_gas.da_gas.unwrap_or_else(|| da_gas_left())
+    ]
 }
 
 // AVM oracles (opcodes) follow, do not use directly.
@@ -240,6 +277,15 @@ fn block_number() -> Field {}
 #[oracle(avmOpcodeTimestamp)]
 fn timestamp() -> u64 {}
 
+#[oracle(avmOpcodeL1GasLeft)]
+fn l1_gas_left() -> Field {}
+
+#[oracle(avmOpcodeL2GasLeft)]
+fn l2_gas_left() -> Field {}
+
+#[oracle(avmOpcodeDaGasLeft)]
+fn da_gas_left() -> Field {}
+
 #[oracle(avmOpcodeNoteHashExists)]
 fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {}
 
@@ -247,7 +293,7 @@ fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {}
 fn emit_note_hash(note_hash: Field) {}
 
 #[oracle(avmOpcodeNullifierExists)]
-fn nullifier_exists(nullifier: Field) -> u8 {}
+fn nullifier_exists(nullifier: Field, address: Field) -> u8 {}
 
 #[oracle(avmOpcodeEmitNullifier)]
 fn emit_nullifier(nullifier: Field) {}

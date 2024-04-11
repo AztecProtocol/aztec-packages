@@ -2,8 +2,8 @@
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { type AztecAddress, BatchCall, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
 import {
   type DeployL1Contracts,
   type L1ContractAddresses,
@@ -156,7 +156,7 @@ async function initL1GasPortal(
     {} as any,
   );
 
-  logger(
+  logger.info(
     `Initialized Gas Portal at ${l1ContractAddresses.gasPortalAddress} to bridge between L1 ${l1ContractAddresses.gasTokenAddress} to L2 ${l2GasTokenAddress}`,
   );
 }
@@ -179,7 +179,7 @@ async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: 
 
   await batch.send().wait();
 
-  logger(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
+  logger.info(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
 }
 
 /** Sandbox settings. */
@@ -212,7 +212,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   if (config.enableGas) {
     await deployCanonicalL2GasToken(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()),
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
       aztecNodeConfig.l1Contracts,
     );
   }

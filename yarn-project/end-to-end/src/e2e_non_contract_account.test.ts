@@ -27,9 +27,9 @@ describe('e2e_non_contract_account', () => {
     ({ teardown, pxe, wallet, logger } = await setup(1));
     nonContractAccountWallet = new SignerlessWallet(pxe);
 
-    logger(`Deploying L2 contract...`);
+    logger.debug(`Deploying L2 contract...`);
     contract = await TestContract.deploy(wallet).send().deployed();
-    logger('L2 contract deployed');
+    logger.info(`L2 contract deployed at ${contract.address}`);
   }, 100_000);
 
   afterEach(() => teardown());
@@ -80,15 +80,13 @@ describe('e2e_non_contract_account', () => {
 
     // Add the note
     const note = new Note([new Fr(value)]);
-    const storageSlot = new Fr(1);
-    const noteTypeId = new Fr(7010510110810078111116101n); // FieldNote
 
     const extendedNote = new ExtendedNote(
       note,
       wallet.getCompleteAddress().address,
       contract.address,
-      storageSlot,
-      noteTypeId,
+      TestContract.storage.example_constant.slot,
+      TestContract.notes.FieldNote.id,
       txHash,
     );
     await wallet.addNote(extendedNote);

@@ -27,7 +27,7 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { randomBytes } from '@aztec/foundation/crypto';
 import {
   AvailabilityOracleAbi,
@@ -95,14 +95,14 @@ const getACVMConfig = async (logger: DebugLogger) => {
     const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
     const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
-    logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    logger.info(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
     return {
       acvmWorkingDirectory,
       expectedAcvmPath,
       directoryToCleanup: ACVM_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
     };
   } catch (err) {
-    logger(`Native ACVM not available, error: ${err}`);
+    logger.error(`Native ACVM not available, error: ${err}`);
     return undefined;
   }
 };
@@ -225,20 +225,20 @@ async function setupWithRemoteEnvironment(
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
-  logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
+  logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
-  logger(`Creating PXE client to remote host ${PXE_URL}`);
+  logger.verbose(`Creating PXE client to remote host ${PXE_URL}`);
   const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], true));
   await waitForPXE(pxeClient, logger);
-  logger('JSON RPC client connected to PXE');
-  logger(`Retrieving contract addresses from ${PXE_URL}`);
+  logger.verbose('JSON RPC client connected to PXE');
+  logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
-  logger('PXE created, constructing available wallets from already registered accounts...');
+  logger.verbose('PXE created, constructing available wallets from already registered accounts...');
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
 
   if (wallets.length < numberOfAccounts) {
     const numNewAccounts = numberOfAccounts - wallets.length;
-    logger(`Deploying ${numNewAccounts} accounts...`);
+    logger.verbose(`Deploying ${numNewAccounts} accounts...`);
     wallets.push(...(await createAccounts(pxeClient, numNewAccounts)));
   }
 
@@ -260,9 +260,12 @@ async function setupWithRemoteEnvironment(
   const teardown = () => Promise.resolve();
 
   if (['1', 'true'].includes(ENABLE_GAS)) {
+    const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
     // this contract might already have been deployed
     // the following function is idempotent
-    await deployCanonicalGasToken(new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint()));
+    await deployCanonicalGasToken(
+      new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+    );
   }
 
   return {
@@ -327,12 +330,20 @@ export async function setup(
 
   let anvil: Anvil | undefined;
 
+  // spawn an anvil instance if one isn't already running
+  // and we're not connecting to a remote PXE
   if (!config.rpcUrl) {
+    if (PXE_URL) {
+      throw new Error(
+        `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+      );
+    }
+
     // Start anvil.
     // We go via a wrapper script to ensure if the parent dies, anvil dies.
     const ethereumHostPort = await getPort();
     config.rpcUrl = `http://localhost:${ethereumHostPort}`;
-    const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+    anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
     await anvil.start();
   }
 
@@ -363,7 +374,7 @@ export async function setup(
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
-  logger('Creating and synching an aztec node...');
+  logger.verbose('Creating and synching an aztec node...');
 
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
@@ -374,10 +385,13 @@ export async function setup(
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
+  logger.verbose('Creating a pxe...');
   const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
   if (['1', 'true'].includes(ENABLE_GAS)) {
-    await deployCanonicalGasToken(new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()));
+    await deployCanonicalGasToken(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    );
   }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
@@ -392,7 +406,7 @@ export async function setup(
 
     if (acvmConfig?.directoryToCleanup) {
       // remove the temp directory created for the acvm
-      logger(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
+      logger.verbose(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
       await fs.rm(acvmConfig.directoryToCleanup, { recursive: true, force: true });
     }
 
@@ -522,7 +536,7 @@ export function getBalancesFn(
   const balances = async (...addresses: AztecAddress[]) => {
     const b = await Promise.all(addresses.map(address => method(address).simulate()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
-    logger(debugString);
+    logger.verbose(debugString);
     return b;
   };
 
