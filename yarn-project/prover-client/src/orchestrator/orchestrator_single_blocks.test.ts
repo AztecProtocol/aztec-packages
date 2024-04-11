@@ -1,6 +1,10 @@
-import { PROVING_STATUS, type ProcessedTx, type PublicKernelRequest, PublicKernelType } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { fr, makePublicKernelCircuitPrivateInputs } from '@aztec/circuits.js/testing';
+import { PROVING_STATUS, type PublicKernelRequest, PublicKernelType } from '@aztec/circuit-types';
+import { type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import {
+  fr,
+  makePublicKernelCircuitPrivateInputs,
+  makePublicKernelTailCircuitPrivateInputs,
+} from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -13,7 +17,8 @@ import {
   getConfig,
   getSimulationProvider,
   makeBloatedProcessedTx,
-  makeEmptyProcessedTx,
+  makeEmptyProcessedTestTx,
+  makeGlobals,
   updateExpectedTreesFromTxs,
 } from '../mocks/fixtures.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
@@ -33,19 +38,6 @@ describe('prover/orchestrator', () => {
   let blockNumber: number;
 
   let globalVariables: GlobalVariables;
-
-  const chainId = Fr.ZERO;
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
-
-  const makeGlobals = (blockNumber: number) => {
-    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
-  };
-
-  const makeEmptyProcessedTestTx = (): Promise<ProcessedTx> => {
-    return makeEmptyProcessedTx(builderDb, chainId, version);
-  };
 
   beforeEach(async () => {
     blockNumber = 3;
@@ -73,13 +65,13 @@ describe('prover/orchestrator', () => {
     });
 
     it('builds an empty L2 block', async () => {
-      const txs = await Promise.all([makeEmptyProcessedTestTx(), makeEmptyProcessedTestTx()]);
+      const txs = await Promise.all([makeEmptyProcessedTestTx(builderDb), makeEmptyProcessedTestTx(builderDb)]);
 
       const blockTicket = await builder.startNewBlock(
         txs.length,
         globalVariables,
         [],
-        await makeEmptyProcessedTestTx(),
+        await makeEmptyProcessedTestTx(builderDb),
       );
 
       for (const tx of txs) {
@@ -99,7 +91,12 @@ describe('prover/orchestrator', () => {
       await updateExpectedTreesFromTxs(expectsDb, txs);
 
       // This will need to be a 2 tx block
-      const blockTicket = await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTestTx());
+      const blockTicket = await builder.startNewBlock(
+        2,
+        globalVariables,
+        [],
+        await makeEmptyProcessedTestTx(builderDb),
+      );
 
       for (const tx of txs) {
         await builder.addNewTx(tx);
@@ -135,13 +132,18 @@ describe('prover/orchestrator', () => {
 
       const tail: PublicKernelRequest = {
         type: PublicKernelType.TAIL,
-        inputs: makePublicKernelCircuitPrivateInputs(5),
+        inputs: makePublicKernelTailCircuitPrivateInputs(5),
       };
 
       tx.publicKernelRequests = [setup, app, teardown, tail];
 
       // This will need to be a 2 tx block
-      const blockTicket = await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTestTx());
+      const blockTicket = await builder.startNewBlock(
+        2,
+        globalVariables,
+        [],
+        await makeEmptyProcessedTestTx(builderDb),
+      );
 
       await builder.addNewTx(tx);
 
@@ -169,7 +171,7 @@ describe('prover/orchestrator', () => {
         txs.length,
         globalVariables,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(),
+        await makeEmptyProcessedTestTx(builderDb),
       );
 
       for (const tx of txs) {
