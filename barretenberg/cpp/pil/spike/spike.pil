@@ -1,6 +1,8 @@
 
-namespace Spike(1);
+namespace Spike(16);
 
-pol constant y;
+pol constant first = [1] + [0]*;
 pol commit x;
 pol public kernel_inputs;
+
+x - first = 0;

@@ -14,6 +14,7 @@ namespace bb {
 class SpikeProver {
 
     using Flavor = SpikeFlavor;
+    using FF = Flavor::FF;
     using PCS = Flavor::PCS;
     using PCSCommitmentKey = Flavor::CommitmentKey;
     using ProvingKey = Flavor::ProvingKey;
@@ -23,19 +24,16 @@ class SpikeProver {
     using Transcript = Flavor::Transcript;
 
   public:
-    using FF = Flavor::FF;
-    using PublicInputColumns = Flavor::PublicInputColumns;
-
     explicit SpikeProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
 
-    void execute_preamble_round(std::vector<FF> public_inputs);
+    void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_log_derivative_inverse_round();
     void execute_relation_check_rounds();
     void execute_zeromorph_rounds();
 
     HonkProof& export_proof();
-    HonkProof& construct_proof(std::vector<FF> public_inputs);
+    HonkProof& construct_proof();
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 

@@ -44,21 +44,11 @@ SpikeProver::SpikeProver(std::shared_ptr<Flavor::ProvingKey> input_key,
  * @brief Add circuit size, public input size, and public inputs to transcript
  *
  */
-// void SpikeProver::execute_preamble_round(SpikeProver::PublicInputColumns public_inputs)
-// TODO(md): as we are sending the commitment to the verifier, we do NOT need to send the public inputs to the verifier
-// one by one. We only do so in this case in preparation for when we stop sending the commitment
-void SpikeProver::execute_preamble_round(std::vector<FF> public_inputs)
+void SpikeProver::execute_preamble_round()
 {
     const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
 
     transcript->send_to_verifier("circuit_size", circuit_size);
-
-    // send all of the public inputs to the prover - this wont work
-    for (size_t i = 0; i < public_inputs.size(); ++i) {
-        auto public_input_i = public_inputs[i];
-        // TODO:
-        transcript->send_to_verifier("public_input_" + std::to_string(i), public_input_i);
-    }
 }
 
 /**
@@ -74,24 +64,12 @@ void SpikeProver::execute_wire_commitments_round()
     witness_commitments.Spike_x = commitment_key->commit(key->Spike_x);
 
     // Send all commitments to the verifier
-    // transcript->send_to_verifier(commitment_labels.Spike_kernel_inputs__is_public,
-    //                              witness_commitments.Spike_kernel_inputs__is_public);
+    transcript->send_to_verifier(commitment_labels.Spike_kernel_inputs__is_public,
+                                 witness_commitments.Spike_kernel_inputs__is_public);
     transcript->send_to_verifier(commitment_labels.Spike_x, witness_commitments.Spike_x);
 }
 
-void SpikeProver::execute_log_derivative_inverse_round()
-{
-
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
-
-    key->compute_logderivative_inverses(relation_parameters);
-
-    // Commit to all logderivative inverse polynomials
-
-    // Send all commitments to the verifier
-}
+void SpikeProver::execute_log_derivative_inverse_round() {}
 
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.
@@ -134,17 +112,15 @@ HonkProof& SpikeProver::export_proof()
     return proof;
 }
 
-// TODO: maybe the public inputs can be sent in the circuit builder?
-HonkProof& SpikeProver::construct_proof(std::vector<FF> public_inputs)
+HonkProof& SpikeProver::construct_proof()
 {
     // Add circuit size public input size and public inputs to transcript.
-    execute_preamble_round(public_inputs);
+    execute_preamble_round();
 
     // Compute wire commitments
     execute_wire_commitments_round();
 
     // Compute sorted list accumulator and commitment
-    execute_log_derivative_inverse_round();
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

@@ -13,8 +13,7 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-// TODO: had to include below to make it compile
-#include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/generated/spike/spike.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -35,17 +34,14 @@ class SpikeFlavor {
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using RelationSeparator = FF;
 
-    // NEW!
-    using PublicInputColumns = std::map<std::string, std::vector<FF>>;
-
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 0;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 1;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 2;
+    static constexpr size_t NUM_ALL_ENTITIES = 3;
 
-    using Relations = std::tuple<>;
+    using Relations = std::tuple<Spike_vm::spike<FF>>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -70,7 +66,7 @@ class SpikeFlavor {
 
         DEFINE_FLAVOR_MEMBERS(DataType, Spike_first)
 
-        RefVector<DataType> get_selectors() { return {}; };
+        RefVector<DataType> get_selectors() { return { Spike_first }; };
         RefVector<DataType> get_sigma_polynomials() { return {}; };
         RefVector<DataType> get_id_polynomials() { return {}; };
         RefVector<DataType> get_table_polynomials() { return {}; };
@@ -101,14 +97,6 @@ class SpikeFlavor {
         using Base::Base;
 
         RefVector<DataType> get_to_be_shifted() { return {}; };
-
-        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
-        {
-            ProverPolynomials prover_polynomials = ProverPolynomials(*this);
-            // TODO: also required this when there were no inverses
-            // Maybe codegen should be selective over which is created
-            void(relation_parameters.beta);
-        }
     };
 
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey>;

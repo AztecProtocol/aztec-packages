@@ -32,9 +32,9 @@ using FF = SpikeVerifier::FF;
 // This challenge is generated during the sumcheck protocol
 //
 // TODO: Using the current evaluate_mle implementation is inefficient
-FF evaluate_public_input_column(std::vector<FF> evals, std::vector<FF> challenges)
+FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
 {
-    Polynomial<FF> polynomial(evals);
+    Polynomial<FF> polynomial(points);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -71,10 +71,6 @@ bool SpikeVerifier::verify_proof(const HonkProof& proof, std::vector<FF> public_
         transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_kernel_inputs__is_public);
     commitments.Spike_x = transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_x);
 
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
-
     // Get commitments to inverses
 
     // Execute Sumcheck Verifier
@@ -105,10 +101,10 @@ bool SpikeVerifier::verify_proof(const HonkProof& proof, std::vector<FF> public_
     // at the same challenge point.
     // TODO: document this design choice in a github issue
 
-    info("sumcheck claimed evaluations", claimed_evaluations);
-
     FF public_column_evaluation = evaluate_public_input_column(public_inputs, multivariate_challenge);
-    info("public column evaluation: ", public_column_evaluation);
+    if (public_column_evaluation != claimed_evaluations.Spike_kernel_inputs__is_public) {
+        return false;
+    }
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.

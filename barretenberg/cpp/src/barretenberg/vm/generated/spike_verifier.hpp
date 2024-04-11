@@ -15,7 +15,7 @@ class SpikeVerifier {
 
   public:
     using FF = Flavor::FF;
-    using PublicInputColumns = Flavor::PublicInputColumns;
+    // using PublicInputColumns = Flavor::PublicInputColumns;
 
     explicit SpikeVerifier(std::shared_ptr<VerificationKey> verifier_key = nullptr);
     SpikeVerifier(SpikeVerifier&& other) noexcept;

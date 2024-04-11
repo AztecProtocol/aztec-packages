@@ -11,12 +11,13 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 
+#include "barretenberg/relations/generated/spike/spike.hpp"
 #include "barretenberg/vm/generated/spike_flavor.hpp"
 
 namespace bb {
 
 template <typename FF> struct SpikeFullRow {
-    FF Spike_first;
+    FF Spike_first{};
     FF Spike_kernel_inputs__is_public{};
     FF Spike_x{};
 };
@@ -31,8 +32,8 @@ class SpikeCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 2;
-    static constexpr size_t num_polys = 2;
+    static constexpr size_t num_fixed_columns = 3;
+    static constexpr size_t num_polys = 3;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -58,9 +59,40 @@ class SpikeCircuitBuilder {
 
     [[maybe_unused]] bool check_circuit()
     {
-        // There are no relations, so check circuit does nothing
-        // auto polys = compute_polynomials();
-        // const size_t num_rows = polys.get_polynomial_size();
+
+        auto polys = compute_polynomials();
+        const size_t num_rows = polys.get_polynomial_size();
+
+        const auto evaluate_relation = [&]<typename Relation>(const std::string& relation_name,
+                                                              std::string (*debug_label)(int)) {
+            typename Relation::SumcheckArrayOfValuesOverSubrelations result;
+            for (auto& r : result) {
+                r = 0;
+            }
+            constexpr size_t NUM_SUBRELATIONS = result.size();
+
+            for (size_t i = 0; i < num_rows; ++i) {
+                Relation::accumulate(result, polys.get_row(i), {}, 1);
+
+                bool x = true;
+                for (size_t j = 0; j < NUM_SUBRELATIONS; ++j) {
+                    if (result[j] != 0) {
+                        std::string row_name = debug_label(static_cast<int>(j));
+                        throw_or_abort(
+                            format("Relation ", relation_name, ", subrelation index ", row_name, " failed at row ", i));
+                        x = false;
+                    }
+                }
+                if (!x) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        if (!evaluate_relation.template operator()<Spike_vm::spike<FF>>("spike", Spike_vm::get_relation_label_spike)) {
+            return false;
+        }
 
         return true;
     }
