@@ -8,6 +8,7 @@ pub enum AztecMacroError {
     AztecDepNotFound,
     ContractHasTooManyPrivateFunctions { span: Span },
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
+    UnsupportedFunctionReturnType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
     CouldNotImplementComputeNoteHashAndNullifier { secondary_message: Option<String> },
@@ -35,6 +36,11 @@ impl From<AztecMacroError> for MacroError {
             },
             AztecMacroError::UnsupportedFunctionArgumentType { span, typ } => MacroError {
                 primary_message: format!("Provided parameter type `{typ:?}` is not supported in Aztec contract interface"),
+                secondary_message: None,
+                span: Some(span),
+            },
+            AztecMacroError::UnsupportedFunctionReturnType { span, typ } => MacroError {
+                primary_message: format!("Provided return type `{typ:?}` is not supported in Aztec contract interface"),
                 secondary_message: None,
                 span: Some(span),
             },
