@@ -8,7 +8,7 @@ use crate::{
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, RETURN_VALUES_LENGTH,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     MAX_UNENCRYPTED_LOGS_PER_CALL
 },
@@ -21,7 +21,7 @@ struct PublicCircuitPublicInputs{
     call_context: CallContext,
 
     args_hash: Field,
-    return_values: [Field; RETURN_VALUES_LENGTH],
+    returns_hash: Field,
 
     nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
     nullifier_non_existent_read_requests: [ReadRequest; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
@@ -63,7 +63,7 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
         fields.extend_from_array(self.call_context.serialize());
         fields.push(self.args_hash);
-        fields.extend_from_array(self.return_values);
+        fields.push(self.returns_hash);
         for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
             fields.extend_from_array(self.nullifier_read_requests[i].serialize());
         }
@@ -109,7 +109,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
         let inputs = PublicCircuitPublicInputs {
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
-            return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
+            returns_hash: reader.read(),
             nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
             nullifier_non_existent_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL]),
             contract_storage_update_requests: reader.read_struct_array(StorageUpdateRequest::deserialize, [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]),

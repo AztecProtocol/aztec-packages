@@ -5,7 +5,7 @@ use crate::{
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
-    address::{AztecAddress, compute_initialization_hash}, hash::hash_args_array, header::Header,
+    address::{AztecAddress, compute_initialization_hash}, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
 };
 use crate::constants::{
@@ -13,14 +13,14 @@ use crate::constants::{
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    RETURN_VALUES_LENGTH, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
+    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 };
 
 struct PrivateCircuitPublicInputsBuilder {
     call_context: CallContext,
 
     args_hash: Field,
-    return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
+    returns_hash: Field,
 
     min_revertible_side_effect_counter: u32,
 
@@ -53,7 +53,7 @@ impl PrivateCircuitPublicInputsBuilder {
     pub fn new() -> Self {
         let mut public_inputs: PrivateCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
 
-        let args_hash = hash_args_array([]);
+        let args_hash = 0;
 
         let contract_data = fixtures::contracts::default_contract;
         let portal_contract_address = contract_data.portal_contract_address;
@@ -85,7 +85,7 @@ impl PrivateCircuitPublicInputsBuilder {
         PrivateCircuitPublicInputs {
             call_context: self.call_context,
             args_hash: self.args_hash,
-            return_values: self.return_values.storage,
+            returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,

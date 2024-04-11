@@ -2,6 +2,7 @@
 #include "barretenberg/execution_trace/execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/arithmetization.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -9,6 +10,9 @@ namespace bb {
 using namespace bb;
 
 template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBuilder_<UltraHonkArith<FF>> {
+  private:
+    DataBus databus; // Container for public calldata/returndata
+
   public:
     using Arithmetization = UltraHonkArith<FF>;
 
@@ -26,11 +30,6 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     uint32_t mul_accum_op_idx;
     uint32_t equality_op_idx;
 
-    // DataBus call/return data arrays
-    std::vector<uint32_t> public_calldata;
-    std::vector<uint32_t> calldata_read_counts;
-    std::vector<uint32_t> public_return_data;
-
     // Functions for adding ECC op queue "gates"
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
@@ -40,7 +39,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     void populate_ecc_op_wires(const ecc_op_tuple& in);
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
     void set_goblin_ecc_op_code_constant_variables();
-    void create_calldata_read_gate(const databus_lookup_gate_<FF>& in);
+    void create_databus_read_gate(const databus_lookup_gate_<FF>& in, BusId bus_idx);
+    void apply_databus_selectors(BusId bus_idx);
 
   public:
     GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
@@ -126,18 +126,46 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     /**
      * @brief Add a witness variable to the public calldata.
      *
-     * @param in Value to be added to calldata.
-     * */
-    uint32_t add_public_calldata(const FF& in)
+     */
+    void add_public_calldata(const uint32_t& in) { return append_to_bus_vector(BusId::CALLDATA, in); }
+
+    /**
+     * @brief Add a witness variable to the public return_data.
+     *
+     */
+    void add_public_return_data(const uint32_t& in) { return append_to_bus_vector(BusId::RETURNDATA, in); }
+
+    uint32_t read_bus_vector(BusId bus_idx, const uint32_t& read_idx_witness_idx);
+
+    /**
+     * @brief Read from calldata and create a corresponding databus read gate
+     *
+     * @param read_idx_witness_idx Witness index for the calldata read index
+     * @return uint32_t Witness index for the result of the read
+     */
+    uint32_t read_calldata(const uint32_t& read_idx_witness_idx)
     {
-        const uint32_t index = this->add_variable(in);
-        public_calldata.emplace_back(index);
-        // Note: this is a bit inefficent to do every time but for safety these need to be coupled
-        calldata_read_counts.resize(public_calldata.size());
-        return index;
+        return read_bus_vector(BusId::CALLDATA, read_idx_witness_idx);
+    };
+
+    /**
+     * @brief Read from return_data and create a corresponding databus read gate
+     *
+     * @param read_idx_witness_idx Witness index for the return_data read index
+     * @return uint32_t Witness index for the result of the read
+     */
+    uint32_t read_return_data(const uint32_t& read_idx_witness_idx)
+    {
+        return read_bus_vector(BusId::RETURNDATA, read_idx_witness_idx);
+    };
+
+    void append_to_bus_vector(const BusId bus_idx, const uint32_t& witness_idx)
+    {
+        databus[static_cast<size_t>(bus_idx)].append(witness_idx);
     }
 
-    uint32_t read_calldata(const uint32_t& read_idx_witness_idx);
+    const BusVector& get_calldata() { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
+    const BusVector& get_return_data() { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);

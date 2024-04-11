@@ -47,7 +47,7 @@ export function computeArtifactHash(
 
   const preimage = computeArtifactHashPreimage(artifact);
   const artifactHash = computeArtifactHash(computeArtifactHashPreimage(artifact));
-  getLogger().trace('Computed artifact hash', { artifactHash, ...preimage });
+  getLogger().debug('Computed artifact hash', { artifactHash, ...preimage });
   return artifactHash;
 }
 
@@ -60,7 +60,7 @@ export function computeArtifactHashPreimage(artifact: ContractArtifact) {
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
   // TODO(@spalladino): Should we use the sorted event selectors instead? They'd need to be unique for that.
-  const metadata = { name: artifact.name, events: artifact.events };
+  const metadata = { name: artifact.name, outputs: artifact.outputs };
   return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
 }
 

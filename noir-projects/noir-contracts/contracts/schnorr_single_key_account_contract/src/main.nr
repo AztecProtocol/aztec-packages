@@ -7,7 +7,6 @@ contract SchnorrSingleKeyAccount {
     use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
 
     use crate::{util::recover_address, auth_oracle::get_auth_witness};
-    use dep::aztec::oracle::debug_log::debug_log_format;
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
 
@@ -16,6 +15,12 @@ contract SchnorrSingleKeyAccount {
     fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload);
+    }
+
+    #[aztec(private)]
+    fn pay_init_fee(fee_payload: pub FeePayload) {
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.pay_init_fee(fee_payload);
     }
 
     #[aztec(private)]

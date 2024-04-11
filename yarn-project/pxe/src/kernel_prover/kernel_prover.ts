@@ -178,7 +178,6 @@ export class KernelProver {
       mapTuple(sortedNullifiers, n => n.noteHash),
       sortedNoteHashes,
     );
-    
     this.log.debug(
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );

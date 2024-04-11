@@ -31,7 +31,6 @@ import {
   PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
-  RETURN_VALUES_LENGTH,
   ReadRequest,
   RevertCode,
   SideEffect,
@@ -42,6 +41,13 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import {
+  type AbiType,
+  type DecodedReturn,
+  type FunctionArtifact,
+  type ProcessReturnValues,
+  decodeReturnValues,
+} from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -114,17 +120,25 @@ export abstract class AbstractPhaseManager {
      * revert reason, if any
      */
     revertReason: SimulationError | undefined;
+    returnValues: ProcessReturnValues;
   }>;
 
   public static extractEnqueuedPublicCallsByPhase(
     publicInputs: PrivateKernelTailCircuitPublicInputs,
     enqueuedPublicFunctionCalls: PublicCallRequest[],
   ): Record<PublicKernelPhase, PublicCallRequest[]> {
+    const data = publicInputs.forPublic;
+    if (!data) {
+      return {
+        [PublicKernelPhase.SETUP]: [],
+        [PublicKernelPhase.APP_LOGIC]: [],
+        [PublicKernelPhase.TEARDOWN]: [],
+        [PublicKernelPhase.TAIL]: [],
+      };
+    }
     const publicCallsStack = enqueuedPublicFunctionCalls.slice().reverse();
-    const nonRevertibleCallStack = publicInputs.forPublic!.endNonRevertibleData.publicCallStack.filter(
-      i => !i.isEmpty(),
-    );
-    const revertibleCallStack = publicInputs.forPublic!.end.publicCallStack.filter(i => !i.isEmpty());
+    const nonRevertibleCallStack = data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
+    const revertibleCallStack = data.end.publicCallStack.filter(i => !i.isEmpty());
 
     const callRequestsStack = publicCallsStack
       .map(call => call.toCallRequest())
@@ -186,14 +200,22 @@ export abstract class AbstractPhaseManager {
     tx: Tx,
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     previousPublicKernelProof: Proof,
-  ): Promise<[PublicKernelCircuitPublicInputs, Proof, UnencryptedFunctionL2Logs[], SimulationError | undefined]> {
+  ): Promise<
+    [
+      PublicKernelCircuitPublicInputs,
+      Proof,
+      UnencryptedFunctionL2Logs[],
+      SimulationError | undefined,
+      ProcessReturnValues,
+    ]
+  > {
     let kernelOutput = previousPublicKernelOutput;
     let kernelProof = previousPublicKernelProof;
 
     const enqueuedCalls = this.extractEnqueuedPublicCalls(tx);
 
     if (!enqueuedCalls || !enqueuedCalls.length) {
-      return [kernelOutput, kernelProof, [], undefined];
+      return [kernelOutput, kernelProof, [], undefined, undefined];
     }
 
     const newUnencryptedFunctionLogs: UnencryptedFunctionL2Logs[] = [];
@@ -202,8 +224,12 @@ export abstract class AbstractPhaseManager {
     // separate public callstacks to be proven by separate public kernel sequences
     // and submitted separately to the base rollup?
 
+    const returns = [];
+
     for (const enqueuedCall of enqueuedCalls) {
       const executionStack: (PublicExecution | PublicExecutionResult)[] = [enqueuedCall];
+
+      let currentReturn: DecodedReturn | undefined = undefined;
 
       // Keep track of which result is for the top/enqueued call
       let enqueuedExecutionResult: PublicExecutionResult | undefined;
@@ -211,15 +237,11 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
-        // NOTE: temporary glue to incorporate avm execution calls.
-        const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
-          execution.functionData.isTranspiled
-            ? this.publicExecutor.simulateAvm(execution, globalVariables, sideEffectCounter)
-            : this.publicExecutor.simulate(execution, globalVariables, sideEffectCounter);
 
-        const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
+        const result = isExecutionRequest
+          ? await this.publicExecutor.simulate(current, this.globalVariables, sideEffectCounter)
+          : current;
 
         const functionSelector = result.execution.functionData.selector.toString();
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
@@ -258,22 +280,32 @@ export abstract class AbstractPhaseManager {
               result.revertReason
             }`,
           );
-          return [kernelOutput, kernelProof, [], result.revertReason];
+          return [kernelOutput, kernelProof, [], result.revertReason, undefined];
         }
 
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
+
+          // TODO(#5450) Need to use the proper return values here
+          const returnTypes: AbiType[] = [
+            { kind: 'array', length: result.returnValues.length, type: { kind: 'field' } },
+          ];
+          const mockArtifact = { returnTypes } as any as FunctionArtifact;
+
+          currentReturn = decodeReturnValues(mockArtifact, result.returnValues);
         }
       }
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
       patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!, this.phase);
+
+      returns.push(currentReturn);
     }
 
     // TODO(#3675): This should be done in a public kernel circuit
     removeRedundantPublicDataWrites(kernelOutput, this.phase);
 
-    return [kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined];
+    return [kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined, returns];
   }
 
   protected async runKernelCircuit(
@@ -338,7 +370,7 @@ export abstract class AbstractPhaseManager {
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
-      returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
+      returnsHash: computeVarArgsHash(result.returnValues),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
         ReadRequest.empty(),

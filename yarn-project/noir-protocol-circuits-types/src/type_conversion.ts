@@ -381,7 +381,6 @@ export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataN
   return {
     selector: mapFunctionSelectorToNoir(functionData.selector),
     is_private: functionData.isPrivate,
-    is_transpiled: functionData.isTranspiled,
   };
 }
 
@@ -391,11 +390,7 @@ export function mapFunctionDataToNoir(functionData: FunctionData): FunctionDataN
  * @returns The function data.
  */
 export function mapFunctionDataFromNoir(functionData: FunctionDataNoir): FunctionData {
-  return new FunctionData(
-    mapFunctionSelectorFromNoir(functionData.selector),
-    functionData.is_private,
-    functionData.is_transpiled,
-  );
+  return new FunctionData(mapFunctionSelectorFromNoir(functionData.selector), functionData.is_private);
 }
 
 /**
@@ -680,7 +675,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     max_block_number: mapMaxBlockNumberToNoir(privateCircuitPublicInputs.maxBlockNumber),
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
-    return_values: mapTuple(privateCircuitPublicInputs.returnValues, mapFieldToNoir),
+    returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),
     note_hash_read_requests: mapTuple(privateCircuitPublicInputs.noteHashReadRequests, mapSideEffectToNoir),
     nullifier_read_requests: mapTuple(privateCircuitPublicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_key_validation_requests: mapTuple(
@@ -1079,8 +1074,8 @@ export function mapCombinedAccumulatedDataFromNoir(
   combinedAccumulatedData: CombinedAccumulatedDataNoir,
 ): CombinedAccumulatedData {
   return new CombinedAccumulatedData(
-    mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapSideEffectFromNoir),
-    mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapSideEffectLinkedFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_note_hashes, MAX_NEW_NOTE_HASHES_PER_TX, mapFieldFromNoir),
+    mapTupleFromNoir(combinedAccumulatedData.new_nullifiers, MAX_NEW_NULLIFIERS_PER_TX, mapFieldFromNoir),
     mapTupleFromNoir(combinedAccumulatedData.new_l2_to_l1_msgs, MAX_NEW_L2_TO_L1_MSGS_PER_TX, mapFieldFromNoir),
     mapFieldFromNoir(combinedAccumulatedData.encrypted_logs_hash),
     mapFieldFromNoir(combinedAccumulatedData.unencrypted_logs_hash),
@@ -1098,8 +1093,8 @@ export function mapCombinedAccumulatedDataToNoir(
   combinedAccumulatedData: CombinedAccumulatedData,
 ): CombinedAccumulatedDataNoir {
   return {
-    new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapSideEffectToNoir),
-    new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapSideEffectLinkedToNoir),
+    new_note_hashes: mapTuple(combinedAccumulatedData.newNoteHashes, mapFieldToNoir),
+    new_nullifiers: mapTuple(combinedAccumulatedData.newNullifiers, mapFieldToNoir),
     new_l2_to_l1_msgs: mapTuple(combinedAccumulatedData.newL2ToL1Msgs, mapFieldToNoir),
     encrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.encryptedLogsHash),
     unencrypted_logs_hash: mapFieldToNoir(combinedAccumulatedData.unencryptedLogsHash),
@@ -1295,6 +1290,22 @@ export function mapPrivateKernelTailCircuitPrivateInputsToNoir(
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
+    master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
+  };
+}
+
+export function mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(
+  inputs: PrivateKernelTailCircuitPrivateInputs,
+): PrivateKernelTailToPublicCircuitPrivateInputsNoir {
+  return {
+    previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
+    sorted_new_note_hashes: mapTuple(inputs.sortedNewNoteHashes, mapSideEffectToNoir),
+    sorted_new_note_hashes_indexes: mapTuple(inputs.sortedNewNoteHashesIndexes, mapNumberToNoir),
+    read_commitment_hints: mapTuple(inputs.readCommitmentHints, mapFieldToNoir),
+    sorted_new_nullifiers: mapTuple(inputs.sortedNewNullifiers, mapSideEffectLinkedToNoir),
+    sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
+    nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
+    nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
     sorted_encrypted_log_hashes: mapTuple(inputs.sortedEncryptedLogHashes, mapSideEffectToNoir),
     sorted_encrypted_log_hashes_indexes: mapTuple(inputs.sortedEncryptedLogHashesIndexes, mapNumberToNoir),
     sorted_unencrypted_log_hashes: mapTuple(inputs.sortedUnencryptedLogHashes, mapSideEffectToNoir),
@@ -1440,7 +1451,7 @@ export function mapPublicCircuitPublicInputsToNoir(
   return {
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
-    return_values: mapTuple(publicInputs.returnValues, mapFieldToNoir),
+    returns_hash: mapFieldToNoir(publicInputs.returnsHash),
     nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
     contract_storage_update_requests: mapTuple(

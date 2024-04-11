@@ -79,7 +79,7 @@ mod tests {
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
-        hash::compute_unique_siloed_note_hashes,
+        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
     };
@@ -106,12 +106,16 @@ mod tests {
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // note_hashes for the given note_hashes.
-        pub fn compute_unique_siloed_note_hashes<N>(
-            self,
-            note_hashes: [SideEffect; N]
-        ) -> [SideEffect; N] {
+        pub fn compute_unique_siloed_note_hashes<N>(self, note_hashes: [SideEffect; N]) -> [Field; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
-            compute_unique_siloed_note_hashes(first_nullifier.value, note_hashes)
+            let mut unique_siloed_note_hashes = [0; N];
+            for i in 0..N {
+                if note_hashes[i].value != 0 {
+                    let nonce = compute_note_hash_nonce(first_nullifier.value, i);
+                    unique_siloed_note_hashes[i] = compute_unique_siloed_note_hash(nonce, note_hashes[i].value);
+                }
+            }
+            unique_siloed_note_hashes
         }
 
         pub fn add_pending_note_hash_read_request(&mut self, note_hash_index: u64) {
@@ -297,7 +301,7 @@ mod tests {
         assert(
             array_eq(
                 public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
+                [new_nullifiers[0].value, new_nullifiers[2].value]
             )
         );
     }
@@ -324,7 +328,7 @@ mod tests {
         assert(
             array_eq(
                 public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
+                [new_nullifiers[0].value, new_nullifiers[2].value]
             )
         );
     }
@@ -343,7 +347,7 @@ mod tests {
 
         // Only the first nullifier is left after squashing.
         assert(is_empty_array(public_inputs.end.new_note_hashes));
-        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
+        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0].value]));
     }
 
     #[test]
@@ -367,17 +371,13 @@ mod tests {
         builder.previous_kernel.new_note_hashes.extend_from_array(reversed_note_hashes);
         builder.previous_kernel.new_nullifiers.extend_from_array(reversed_nullifiers);
 
-        let sorted_unique_note_hashes = compute_unique_siloed_note_hashes(
-            // tx nullifier is part of non revertible accumulated data
-            builder.previous_kernel.new_nullifiers.get_unchecked(0).value,
-            sorted_note_hashes
-        );
+        let sorted_unique_note_hashes = builder.compute_unique_siloed_note_hashes(sorted_note_hashes);
 
         let public_inputs = builder.execute();
 
         for i in 0..10 {
             assert(public_inputs.end.new_note_hashes[i].eq(sorted_unique_note_hashes[i]));
-            assert(public_inputs.end.new_nullifiers[i].eq(sorted_nullifiers[i]));
+            assert(public_inputs.end.new_nullifiers[i].eq(sorted_nullifiers[i].value));
         }
     }
 

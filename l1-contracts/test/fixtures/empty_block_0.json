@@ -5,16 +5,7 @@
     "sender": "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
   },
   "messages": {
-    "l2ToL1Messages": [
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "0x0000000000000000000000000000000000000000000000000000000000000000"
-    ]
+    "l2ToL1Messages": []
   },
   "block": {
     "archive": "0x01007183631e140ed7dc77f98e3c1091071251cc9b287d55b8565a62ec9a6dce",
@@ -23,9 +14,9 @@
     "decodedHeader": {
       "contentCommitment": {
         "inHash": "0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c",
-        "outHash": "0x00efcbdb79553ae6863646bf36441755bc344a9a4af335fadc6659594faa4316",
-        "txTreeHeight": 2,
-        "txsEffectsHash": "0x008194e3dd375d5d878dcf9546bb5c2c77e165c6b1bef9aead8ceb35c3762bd5"
+        "outHash": "0x0007638bb56b6dda2b64b8f76841114ac3a87a1820030e2e16772c4d294879c3",
+        "txTreeHeight": 1,
+        "txsEffectsHash": "0x00df6b1c97b9e01113fa0363d9ff71c85addc74e92b22d433b2fb082d2493896"
       },
       "globalVariables": {
         "blockNumber": 1,
@@ -46,15 +37,15 @@
         },
         "partialStateReference": {
           "noteHashTree": {
-            "nextAvailableLeafIndex": 256,
+            "nextAvailableLeafIndex": 128,
             "root": "0x16642d9ccd8346c403aa4c3fa451178b22534a27035cdaa6ec34ae53b29c50cb"
           },
           "nullifierTree": {
-            "nextAvailableLeafIndex": 384,
+            "nextAvailableLeafIndex": 256,
             "root": "0x0bcfa3e9f1a8922ee92c6dc964d6595907c1804a86753774322b468f69d4f278"
           },
           "publicDataTree": {
-            "nextAvailableLeafIndex": 192,
+            "nextAvailableLeafIndex": 128,
             "root": "0x0572c8db882674dd026b8877fbba1b700a4407da3ae9ce5fa43215a28163362b"
           }
         }

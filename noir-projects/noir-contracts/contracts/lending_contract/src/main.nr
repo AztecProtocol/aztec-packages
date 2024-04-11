@@ -12,7 +12,7 @@ mod interfaces;
 // - Liquidations
 contract Lending {
     use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext, Map, PublicMutable};
-    use dep::aztec::context::{PublicContext, Context};
+    use dep::aztec::context::{PublicContext, Context, gas::GasOpts};
 
     use crate::asset::Asset;
     use crate::interest_math::compute_multiplier;
@@ -20,6 +20,7 @@ contract Lending {
     use crate::interfaces::{Token, Lending, PriceFeed};
 
     // Storage structure, containing all storage, and specifying what slots they use.
+    #[aztec(storage)]
     struct Storage {
         collateral_asset: PublicMutable<AztecAddress>,
         stable_coin: PublicMutable<AztecAddress>,
@@ -122,11 +123,12 @@ contract Lending {
             nonce
         );
         let selector = FunctionSelector::from_signature("_deposit((Field),Field,(Field))");
-        let _ = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             selector,
-            [on_behalf_of, amount, collateral_asset.to_field()]
-        );
+            [on_behalf_of, amount, collateral_asset.to_field()],
+            GasOpts::default()
+        ).assert_empty();
     }
 
     #[aztec(public)]
@@ -156,11 +158,12 @@ contract Lending {
     #[aztec(public)]
     fn withdraw_public(to: AztecAddress, amount: Field) {
         let selector = FunctionSelector::from_signature("_withdraw((Field),(Field),Field)");
-        let _ = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             selector,
-            [context.msg_sender().to_field(), to.to_field(), amount]
-        );
+            [context.msg_sender().to_field(), to.to_field(), amount],
+            GasOpts::default()
+        ).assert_empty();
     }
 
     #[aztec(public)]
@@ -214,11 +217,12 @@ contract Lending {
     #[aztec(public)]
     fn borrow_public(to: AztecAddress, amount: Field) {
         let selector = FunctionSelector::from_signature("_borrow((Field),(Field),Field)");
-        let _ = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             selector,
-            [context.msg_sender().to_field(), to.to_field(), amount]
-        );
+            [context.msg_sender().to_field(), to.to_field(), amount],
+            GasOpts::default()
+        ).assert_empty();
     }
 
     #[aztec(public)]
@@ -277,11 +281,12 @@ contract Lending {
     fn repay_public(amount: Field, nonce: Field, owner: AztecAddress, stable_coin: AztecAddress) {
         Token::at(stable_coin).burn_public(&mut context, context.msg_sender(), amount, nonce);
         let selector = FunctionSelector::from_signature("_repay((Field),Field,(Field))");
-        let _ = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             selector,
-            [owner.to_field(), amount, stable_coin.to_field()]
-        );
+            [owner.to_field(), amount, stable_coin.to_field()],
+            GasOpts::default()
+        ).assert_empty();
     }
 
     #[aztec(public)]

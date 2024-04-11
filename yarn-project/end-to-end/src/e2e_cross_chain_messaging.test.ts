@@ -60,7 +60,7 @@ describe('e2e_cross_chain_messaging', () => {
     logger = logger_;
     aztecNode = aztecNode_;
     teardown = teardown_;
-    logger('Successfully deployed contracts and initialized portal');
+    logger.info('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
   afterEach(async () => {
@@ -101,7 +101,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
 
     // time to withdraw the funds again!
-    logger('Withdrawing funds from L2');
+    logger.info('Withdrawing funds from L2');
 
     // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
@@ -173,7 +173,7 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
 
     // send the right one -
@@ -210,7 +210,7 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user1Wallet)
         .methods.exit_to_l1_private(l2Token.address, ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
   }, 120_000);
 
@@ -250,7 +250,7 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 120_000);
 });

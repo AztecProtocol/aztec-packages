@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn compute_call_stack_item_request_hash() {
         let contract_address = AztecAddress::from_field(1);
-        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false, is_transpiled: false };
+        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false };
 
         let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
         public_inputs.new_note_hashes[0] = SideEffect{
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn compute_call_stack_item_hash() {
         let contract_address = AztecAddress::from_field(1);
-        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false, is_transpiled: false };
+        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false };
 
         let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
         public_inputs.new_note_hashes[0] = SideEffect{

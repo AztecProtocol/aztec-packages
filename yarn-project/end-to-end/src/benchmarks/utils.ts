@@ -27,7 +27,7 @@ import { type EndToEndContext, setup } from '../fixtures/utils.js';
 export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
   const context = await setup(1, { ...opts });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
-  context.logger(`Deployed benchmarking contract at ${contract.address}`);
+  context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   return { context, contract, sequencer };
 }
@@ -88,7 +88,7 @@ export async function sendTxs(
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
-  await Promise.all(calls.map(call => call.simulate({ skipPublicSimulation: true })));
+  await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   const sentTxs = calls.map(call => call.send());
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool

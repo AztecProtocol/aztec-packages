@@ -1,7 +1,7 @@
 import {
   type AztecNode,
   type KeyStore,
-  L2BlockContext,
+  type L2Block,
   L2BlockL2Logs,
   MerkleTreeId,
   type TxHash,
@@ -51,10 +51,10 @@ export class Synchronizer {
     this.running = true;
 
     await this.jobQueue.put(() => this.initialSync());
-    this.log('Initial sync complete');
+    this.log.info('Initial sync complete');
     this.runningPromise = new RunningPromise(() => this.sync(limit), retryInterval);
     this.runningPromise.start();
-    this.log('Started loop');
+    this.log.debug('Started loop');
   }
 
   protected async initialSync() {
@@ -107,17 +107,16 @@ export class Synchronizer {
 
       const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
-      // Wrap blocks in block contexts & only keep those that match our query
-      const blockContexts = blocks.filter(block => block.number >= from).map(block => new L2BlockContext(block));
-
       // Update latest tree roots from the most recent block
-      const latestBlock = blockContexts[blockContexts.length - 1];
+      const latestBlock = blocks[blocks.length - 1];
       await this.setHeaderFromBlock(latestBlock);
 
       const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
-      this.log(`Forwarding ${logCount} encrypted logs and blocks to ${this.noteProcessors.length} note processors`);
+      this.log.debug(
+        `Forwarding ${logCount} encrypted logs and blocks to ${this.noteProcessors.length} note processors`,
+      );
       for (const noteProcessor of this.noteProcessors) {
-        await noteProcessor.process(blockContexts, encryptedLogs);
+        await noteProcessor.process(blocks, encryptedLogs);
       }
       return true;
     } catch (err) {
@@ -185,14 +184,12 @@ export class Synchronizer {
 
       const encryptedLogs = blocks.flatMap(block => block.body.encryptedLogs);
 
-      const blockContexts = blocks.map(block => new L2BlockContext(block));
-
       const logCount = L2BlockL2Logs.getTotalLogCount(encryptedLogs);
-      this.log(`Forwarding ${logCount} encrypted logs and blocks to note processors in catch up mode`);
+      this.log.debug(`Forwarding ${logCount} encrypted logs and blocks to note processors in catch up mode`);
 
       for (const noteProcessor of catchUpGroup) {
         // find the index of the first block that the note processor is not yet synced to
-        const index = blockContexts.findIndex(block => block.block.number > noteProcessor.status.syncedToBlock);
+        const index = blocks.findIndex(block => block.number > noteProcessor.status.syncedToBlock);
         if (index === -1) {
           // Due to the limit, we might not have fetched a new enough block for the note processor.
           // And since the group is sorted, we break as soon as we find a note processor
@@ -202,14 +199,14 @@ export class Synchronizer {
 
         this.log.debug(
           `Catching up note processor ${noteProcessor.publicKey.toString()} by processing ${
-            blockContexts.length - index
+            blocks.length - index
           } blocks`,
         );
-        await noteProcessor.process(blockContexts.slice(index), encryptedLogs.slice(index));
+        await noteProcessor.process(blocks.slice(index), encryptedLogs.slice(index));
 
         if (noteProcessor.status.syncedToBlock === toBlockNumber) {
           // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
-          this.log(`Note processor for ${noteProcessor.publicKey.toString()} has caught up`, {
+          this.log.debug(`Note processor for ${noteProcessor.publicKey.toString()} has caught up`, {
             eventName: 'note-processor-caught-up',
             publicKey: noteProcessor.publicKey.toString(),
             duration: noteProcessor.timer.ms(),
@@ -231,13 +228,12 @@ export class Synchronizer {
     }
   }
 
-  private async setHeaderFromBlock(latestBlock: L2BlockContext) {
-    const { block } = latestBlock;
-    if (block.number < this.initialSyncBlockNumber) {
+  private async setHeaderFromBlock(latestBlock: L2Block) {
+    if (latestBlock.number < this.initialSyncBlockNumber) {
       return;
     }
 
-    await this.db.setHeader(block.header);
+    await this.db.setHeader(latestBlock.header);
   }
 
   /**
@@ -250,7 +246,7 @@ export class Synchronizer {
   public async stop() {
     this.running = false;
     await this.runningPromise?.stop();
-    this.log('Stopped');
+    this.log.info('Stopped');
   }
 
   /**
@@ -360,7 +356,7 @@ export class Synchronizer {
     await this.db.addNotes(newNotes);
 
     newNotes.forEach(noteDao => {
-      this.log(
+      this.log.debug(
         `Decoded deferred note for contract ${noteDao.contractAddress} at slot ${
           noteDao.storageSlot
         } with nullifier ${noteDao.siloedNullifier.toString()}`,

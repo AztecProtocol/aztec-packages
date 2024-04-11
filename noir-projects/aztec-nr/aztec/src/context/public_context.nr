@@ -1,6 +1,11 @@
 use crate::{
-    context::{inputs::PublicContextInputs, interface::ContextInterface, interface::PublicContextInterface},
-    messaging::process_l1_to_l2_message, oracle::{arguments, public_call::call_public_function_internal}
+    context::{
+    inputs::PublicContextInputs, interface::ContextInterface, interface::PublicContextInterface,
+    gas::GasOpts
+},
+    messaging::process_l1_to_l2_message,
+    oracle::{arguments, public_call::call_public_function_internal, returns},
+    hash::{hash_args_array, ArgsHasher}
 };
 use dep::protocol_types::{
     abis::{
@@ -10,7 +15,7 @@ use dep::protocol_types::{
     public_circuit_public_inputs::PublicCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
-    address::{AztecAddress, EthAddress},
+    hash::silo_nullifier, address::{AztecAddress, EthAddress},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -18,9 +23,8 @@ use dep::protocol_types::{
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, RETURN_VALUES_LENGTH,
     MAX_UNENCRYPTED_LOGS_PER_CALL
 },
-    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    hash::hash_args_array, header::Header, messaging::l2_to_l1_message::L2ToL1Message,
-    utils::reader::Reader
+    contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest}, header::Header,
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::Deserialize
 };
 
 struct PublicContext {
@@ -28,7 +32,7 @@ struct PublicContext {
     side_effect_counter: u32,
 
     args_hash : Field,
-    return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
+    return_hash : Field,
 
     nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     nullifier_non_existent_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL>,
@@ -56,7 +60,7 @@ impl PublicContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter,
             args_hash,
-            return_values: BoundedVec::new(),
+            return_hash: 0,
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
             contract_storage_update_requests: BoundedVec::new(),
@@ -74,50 +78,57 @@ impl PublicContext {
         }
     }
 
-    pub fn call_public_function_no_args(
+    pub fn call_public_function_no_args<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, false)
     }
 
-    pub fn static_call_public_function_no_args(
+    pub fn static_call_public_function_no_args<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
-    pub fn delegate_call_public_function_no_args(
+    pub fn delegate_call_public_function_no_args<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0, false, true)
     }
 
-    pub fn call_public_function_with_packed_args(
+    pub fn call_public_function_with_packed_args<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
         is_static_call: bool,
         is_delegate_call: bool
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let side_effect_counter = self.side_effect_counter;
         // TODO get next value from output of `call_public_function_internal`
         self.side_effect_counter += 1;
 
-        call_public_function_internal(
+        let raw_returns = call_public_function_internal(
             contract_address,
             function_selector,
             args_hash,
             side_effect_counter,
             is_static_call,
             is_delegate_call
-        )
+        );
+
+        FunctionReturns::new(raw_returns)
+    }
+
+    pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
+        returns::pack_returns(returns_hasher.fields);
+        self.return_hash = returns_hasher.hash();
     }
 
 
@@ -140,7 +151,7 @@ impl PublicContext {
             nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
             contract_storage_reads: self.contract_storage_reads.storage,
-            return_values: self.return_values.storage,
+            returns_hash: self.return_hash,
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             public_call_stack_hashes: self.public_call_stack_hashes.storage,
@@ -224,6 +235,12 @@ impl PublicContextInterface for PublicContext {
         self.inputs.public_global_variables.fee_recipient
     }
 
+    fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool {
+        // Current public can only check for settled nullifiers, so we always silo.
+        let siloed_nullifier = silo_nullifier(address, unsiloed_nullifier);
+        nullifier_exists_oracle(siloed_nullifier) == 1
+    }
+
     fn push_nullifier_read_request(&mut self, nullifier: Field) {
         let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
         self.nullifier_read_requests.push(request);
@@ -271,36 +288,63 @@ impl PublicContextInterface for PublicContext {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 
-    fn call_public_function<ARGS_COUNT>(
+    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+        args: [Field; ARGS_COUNT],
+        _gas: GasOpts
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
-    fn static_call_public_function<ARGS_COUNT>(
+    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+        args: [Field; ARGS_COUNT],
+        _gas: GasOpts
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
-    fn delegate_call_public_function<ARGS_COUNT>(
+    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) -> FunctionReturns<RETURNS_COUNT> {
         let args_hash = hash_args_array(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
+    }
+}
+
+#[oracle(checkNullifierExists)]
+fn nullifier_exists_oracle(nullifier: Field) -> Field {}
+
+struct FunctionReturns<N> {
+    values: [Field; N]
+}
+
+impl<N> FunctionReturns<N> {
+    pub fn new(values: [Field; N]) -> FunctionReturns<N> {
+        FunctionReturns { values }
+    }
+
+    pub fn assert_empty(returns: FunctionReturns<0>) {
+        assert(returns.values.len() == 0);
+    }
+
+    pub fn raw(self) -> [Field; N] {
+        self.values
+    }
+
+    pub fn deserialize_into<T>(self) -> T where T: Deserialize<N> {
+        Deserialize::deserialize(self.raw())
     }
 }

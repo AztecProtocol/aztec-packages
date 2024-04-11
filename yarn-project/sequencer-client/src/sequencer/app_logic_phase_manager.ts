@@ -38,9 +38,9 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     // TODO(#4073): This is catching only private deployments, when we add public ones, we'll
     // have to capture contracts emitted in that phase as well.
     // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
-    this.log(`Processing tx ${tx.getTxHash()}`);
+    this.log.verbose(`Processing tx ${tx.getTxHash()}`);
     await this.publicContractsDB.addNewContracts(tx);
-    const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs, revertReason] =
+    const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs, revertReason, returnValues] =
       await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousPublicKernelProof).catch(
         // if we throw for any reason other than simulation, we need to rollback and drop the TX
         async err => {
@@ -57,6 +57,6 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
       await this.publicStateDB.checkpoint();
     }
 
-    return { publicKernelOutput, publicKernelProof, revertReason };
+    return { publicKernelOutput, publicKernelProof, revertReason, returnValues };
   }
 }

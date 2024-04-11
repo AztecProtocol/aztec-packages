@@ -4,7 +4,7 @@ import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@az
 
 import { type AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type FeeOptions } from '../entrypoint/entrypoint.js';
+import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
 
@@ -16,8 +16,8 @@ export class AccountWallet extends BaseWallet {
     super(pxe);
   }
 
-  createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(execs, fee);
+  createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
+    return this.account.createTxExecutionRequest(exec);
   }
 
   getChainId(): Fr {
@@ -161,7 +161,7 @@ export class AccountWallet extends BaseWallet {
       messageHash,
     ]);
 
-    const [isValidInPrivate, isValidInPublic] = await interaction.view();
+    const [isValidInPrivate, isValidInPublic] = (await interaction.simulate()) as [boolean, boolean];
     return { isValidInPrivate, isValidInPublic };
   }
 

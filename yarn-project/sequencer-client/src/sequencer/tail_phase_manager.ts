@@ -1,16 +1,17 @@
 import { UnencryptedL2Log, Tx, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
+  Fr,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
-  type MAX_NEW_NOTE_HASHES_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
   type SideEffect,
   makeEmptyProof,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
-  Fr,
+  mergeAccumulatedData,
+  sortByCounter,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
@@ -35,9 +36,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
   }
 
   async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
-    this.log(`Processing tx ${tx.getTxHash()}`);
-    // Temporary hack. Should sort them in the tail circuit.
-    previousPublicKernelOutput.end.unencryptedLogsHashes = this.sortNoteHashes<typeof MAX_UNENCRYPTED_LOGS_PER_TX>(previousPublicKernelOutput.end.unencryptedLogsHashes);
+    this.log.verbose(`Processing tx ${tx.getTxHash()}`);
     const [finalKernelOutput, publicKernelProof] = await this.runTailKernelCircuit(
       previousPublicKernelOutput,
       previousPublicKernelProof,
@@ -58,6 +57,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
       finalKernelOutput,
       publicKernelProof,
       revertReason: undefined,
+      returnValues: undefined,
     };
   }
 
@@ -66,9 +66,15 @@ export class TailPhaseManager extends AbstractPhaseManager {
     previousProof: Proof,
   ): Promise<[KernelCircuitPublicInputs, Proof]> {
     const output = await this.simulate(previousOutput, previousProof);
+
     // Temporary hack. Should sort them in the tail circuit.
-    // TODO(#757): Enforce proper ordering of public state actions
-    output.end.newNoteHashes = this.sortNoteHashes<typeof MAX_NEW_NOTE_HASHES_PER_TX>(output.end.newNoteHashes);
+    const noteHashes = mergeAccumulatedData(
+      MAX_NEW_NOTE_HASHES_PER_TX,
+      previousOutput.endNonRevertibleData.newNoteHashes,
+      previousOutput.end.newNoteHashes,
+    );
+    output.end.newNoteHashes = this.sortNoteHashes<typeof MAX_NEW_NOTE_HASHES_PER_TX>(noteHashes);
+
     return [output, makeEmptyProof()];
   }
 
@@ -97,14 +103,12 @@ export class TailPhaseManager extends AbstractPhaseManager {
     return this.publicKernel.publicKernelCircuitTail(inputs);
   }
 
-  private sortNoteHashes<N extends number>(noteHashes: Tuple<SideEffect, N>): Tuple<SideEffect, N> {
-    return noteHashes.sort((n0, n1) => {
-      if (n0.isEmpty()) {
-        return 1;
-      }
-      return Number(n0.counter.toBigInt() - n1.counter.toBigInt());
-    });
-  }
+private sortNoteHashes<N extends number>(noteHashes: Tuple<SideEffect, N>): Tuple<Fr, N> {
+  return sortByCounter(noteHashes.map(n => ({ ...n, counter: n.counter.toNumber() }))).map(n => n.value) as Tuple<
+    Fr,
+    N
+  >;
+}
 
   // As above, this is a hack for unencrypted logs ordering, now they are sorted. Since the public kernel
   // cannot keep track of side effects that happen after or before a nested call, we override the gathered logs.

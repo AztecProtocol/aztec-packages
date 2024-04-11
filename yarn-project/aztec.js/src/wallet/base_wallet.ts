@@ -7,6 +7,7 @@ import {
   type LogFilter,
   type NoteFilter,
   type PXE,
+  type SimulatedTx,
   type SyncStatus,
   type Tx,
   type TxEffect,
@@ -27,7 +28,7 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type Wallet } from '../account/wallet.js';
 import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type FeeOptions } from '../entrypoint/entrypoint.js';
+import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 
 /**
  * A base class for Wallet implementations
@@ -41,7 +42,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getVersion(): Fr;
 
-  abstract createTxExecutionRequest(execs: FunctionCall[], fee?: FeeOptions): Promise<TxExecutionRequest>;
+  abstract createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest>;
 
   abstract createAuthWit(
     messageHashOrIntent:
@@ -101,8 +102,11 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.pxe.getContracts();
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.simulateTx(txRequest, simulatePublic);
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.pxe.proveTx(txRequest, simulatePublic);
+  }
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender: AztecAddress): Promise<SimulatedTx> {
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);

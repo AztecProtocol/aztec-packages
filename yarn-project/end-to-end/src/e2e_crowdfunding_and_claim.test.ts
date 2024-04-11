@@ -64,10 +64,15 @@ describe('e2e_crowdfunding_and_claim', () => {
     txHash: TxHash,
     address: AztecAddress,
   ) => {
-    const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
     const note = new Note([new Fr(amount), secretHash]);
-    const extendedNote = new ExtendedNote(note, wallet.getAddress(), address, storageSlot, noteTypeId, txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      wallet.getAddress(),
+      address,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
+      txHash,
+    );
     await wallet.addNote(extendedNote);
   };
 
@@ -88,7 +93,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     )
       .send()
       .deployed();
-    logger(`Donation Token deployed to ${donationToken.address}`);
+    logger.info(`Donation Token deployed to ${donationToken.address}`);
 
     rewardToken = await TokenContract.deploy(
       operatorWallet,
@@ -99,7 +104,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     )
       .send()
       .deployed();
-    logger(`Reward Token deployed to ${rewardToken.address}`);
+    logger.info(`Reward Token deployed to ${rewardToken.address}`);
 
     crowdfundingPrivateKey = GrumpkinScalar.random();
     crowdfundingPublicKey = generatePublicKey(crowdfundingPrivateKey);
@@ -114,12 +119,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     const crowdfundingInstance = crowdfundingDeployment.getInstance();
     await pxe.registerAccount(crowdfundingPrivateKey, computePartialAddress(crowdfundingInstance));
     crowdfundingContract = await crowdfundingDeployment.send().deployed();
-    logger(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
+    logger.info(`Crowdfunding contract deployed at ${crowdfundingContract.address}`);
 
     claimContract = await ClaimContract.deploy(operatorWallet, crowdfundingContract.address, rewardToken.address)
       .send()
       .deployed();
-    logger(`Claim contract deployed at ${claimContract.address}`);
+    logger.info(`Claim contract deployed at ${claimContract.address}`);
 
     await rewardToken.methods.set_minter(claimContract.address, true).send().wait();
 
@@ -231,12 +236,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     }
 
     // Since the RWT is minted 1:1 with the DNT, the balance of the reward token should be equal to the donation amount
-    const balanceRWT = await rewardToken.methods.balance_of_public(donorWallets[0].getAddress()).view();
+    const balanceRWT = await rewardToken.methods.balance_of_public(donorWallets[0].getAddress()).simulate();
     expect(balanceRWT).toEqual(donationAmount);
 
     const balanceDNTBeforeWithdrawal = await donationToken.methods
       .balance_of_private(operatorWallet.getAddress())
-      .view();
+      .simulate();
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
     // 4) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
@@ -244,7 +249,7 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     const balanceDNTAfterWithdrawal = await donationToken.methods
       .balance_of_private(operatorWallet.getAddress())
-      .view();
+      .simulate();
 
     // Operator should have all the DNT now
     expect(balanceDNTAfterWithdrawal).toEqual(donationAmount);
