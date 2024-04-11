@@ -2,7 +2,7 @@ use crate::{
     abis::{function_data::FunctionData, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     address::AztecAddress,
     constants::{GENERATOR_INDEX__CALL_STACK_ITEM, PRIVATE_CALL_STACK_ITEM_LENGTH}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize}, utils::reader::Reader
+    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader
 };
 
 struct PrivateCallStackItem {
@@ -57,6 +57,16 @@ impl Deserialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
 impl Hash for PrivateCallStackItem {
     fn hash(self) -> Field {
         pedersen_hash(self.serialize(), GENERATOR_INDEX__CALL_STACK_ITEM)
+    }
+}
+
+impl Empty for PrivateCallStackItem {
+    fn empty() -> Self {
+        PrivateCallStackItem {
+            contract_address: AztecAddress::empty(),
+            function_data: FunctionData::empty(),
+            public_inputs: PrivateCircuitPublicInputs::empty(),
+        }
     }
 }
 

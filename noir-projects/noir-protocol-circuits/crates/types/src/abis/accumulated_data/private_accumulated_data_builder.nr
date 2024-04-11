@@ -12,7 +12,8 @@ use crate::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
-}
+},
+traits::Empty
 };
 use dep::std::unsafe;
 
@@ -185,5 +186,21 @@ mod tests {
         assert(array_eq(revertible.new_note_hashes, revertible_commitments));
         assert(array_eq(revertible.new_nullifiers, revertible_nullifiers));
         assert(array_eq(revertible.public_call_stack, revertible_public_call_stack));
+    }
+}
+
+impl Empty for PrivateAccumulatedDataBuilder {
+    fn empty() -> Self {
+        PrivateAccumulatedDataBuilder {
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+        }
     }
 }

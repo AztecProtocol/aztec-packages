@@ -23,7 +23,8 @@ use crate::{
     VK_TREE_HEIGHT
 },
     hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
-    tests::fixtures, transaction::tx_context::TxContext
+    tests::fixtures, transaction::tx_context::TxContext,
+    traits::Empty
 };
 use dep::std::unsafe;
 
@@ -86,7 +87,7 @@ impl FixtureBuilder {
             public_data_update_requests: BoundedVec::new(),
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            max_block_number: MaxBlockNumber::default(),
+            max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
@@ -233,7 +234,7 @@ impl FixtureBuilder {
         let mocked_value_offset = self.new_note_hashes.len() + 1;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
-                // The default value is its index + 1.
+                // The empty value is its index + 1.
                 self.new_note_hashes.push(
                     SideEffect { value: (i + mocked_value_offset) as Field, counter: self.next_counter() }
                 );
@@ -261,9 +262,9 @@ impl FixtureBuilder {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if i < num_updates {
                 let update_request = PublicDataUpdateRequest {
-                    // The default leaf index is its index + 23.
+                    // The empty leaf index is its index + 23.
                     leaf_slot: (value_offset + i + 23) as Field,
-                    // The default value is its index + 678.
+                    // The empty value is its index + 678.
                     new_value: (value_offset + i + 678) as Field
                 };
                 self.public_data_update_requests.push(update_request);
@@ -276,9 +277,9 @@ impl FixtureBuilder {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
             if i < num_reads {
                 let read_request = PublicDataRead {
-                    // The default leaf index is its index + 34.
+                    // The empty leaf index is its index + 34.
                     leaf_slot: (value_offset + i + 34) as Field,
-                    // The default value is its index + 5566.
+                    // The empty value is its index + 5566.
                     value: (value_offset + i + 5566) as Field
                 };
                 self.public_data_reads.push(read_request);
@@ -375,5 +376,39 @@ impl FixtureBuilder {
         let counter = self.counter;
         self.counter += 1;
         counter
+    }
+}
+
+impl Empty for FixtureBuilder {
+    fn empty() -> Self {
+        FixtureBuilder {
+            contract_address: AztecAddress::zero(),
+            storage_contract_address: AztecAddress::zero(),
+            historical_header: Header::empty(),
+            tx_context: TxContext::empty(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: BoundedVec::new(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            max_block_number: MaxBlockNumber::empty(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            public_data_reads: BoundedVec::new(),
+            proof: Proof::empty(),
+            vk: VerificationKey::empty(),
+            vk_index: 0,
+            vk_path: [0; VK_TREE_HEIGHT],
+            revert_code: 0,
+            min_revertible_side_effect_counter: 0,
+            counter: 0
+        }
     }
 }
