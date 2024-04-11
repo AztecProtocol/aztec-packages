@@ -1,0 +1,6 @@
+
+namespace Spike(1);
+
+pol constant y;
+pol commit x;
+pol public kernel_inputs;
