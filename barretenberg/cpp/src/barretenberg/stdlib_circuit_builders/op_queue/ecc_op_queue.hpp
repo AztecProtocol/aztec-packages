@@ -75,6 +75,12 @@ class ECCOpQueue {
     }
 
     /**
+     * @brief A fuzzing only method for setting raw ops directly
+     *
+     */
+    void set_raw_ops_for_fuzzing(std::vector<ECCVMOperation>& raw_ops_in) { raw_ops = raw_ops_in; }
+
+    /**
      * @brief A testing only method that adds an erroneous equality op to the raw ops
      * @brief May be used to ensure that ECCVM responds as expected when encountering a bad op
      *
