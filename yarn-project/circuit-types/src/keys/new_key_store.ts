@@ -1,9 +1,23 @@
-import { type AztecAddress, Fr, PartialAddress, type PublicKey } from '@aztec/circuits.js';
+import { type AztecAddress, type Fr, type PartialAddress, type PublicKey } from '@aztec/circuits.js';
 
 /**
  * Represents a secure storage for managing keys.
  */
 export interface NewKeyStore {
+  /**
+   * Creates a new account from a randomly generated secret key.
+   * @returns A promise that resolves to the newly created account's AztecAddress.
+   */
+  createAccount(): Promise<AztecAddress>;
+
+  /**
+   * Adds an account to the key store from the provided secret key.
+   * @param sk - The secret key of the account.
+   * @param partialAddress - The partial address of the account.
+   * @returns The account's address.
+   */
+  addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress>;
+
   /**
    * Gets the master nullifier public key for a given account.
    * @throws If the account does not exist in the key store.

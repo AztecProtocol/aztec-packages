@@ -1,5 +1,5 @@
 import { type NewKeyStore, type PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, Fq, type Fr, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
+import { AztecAddress, Fq, Fr, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { poseidonHash } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
@@ -16,14 +16,30 @@ export class NewTestKeyStore implements NewKeyStore {
     this.#keys = database.openMap('key_store');
   }
 
+  /**
+   * Creates a new account from a randomly generated secret key.
+   * @returns A promise that resolves to the newly created account's AztecAddress.
+   */
+  public createAccount(): Promise<AztecAddress> {
+    const sk = Fr.random();
+    const partialAddress = Fr.random();
+    return this.addAccount(sk, partialAddress);
+  }
+
+  /**
+   * Adds an account to the key store from the provided secret key.
+   * @param sk - The secret key of the account.
+   * @param partialAddress - The partial address of the account.
+   * @returns The account's address.
+   */
   public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress> {
-    // First we derive the master secret keys
+    // First we derive master secret keys
     const masterNullifierSecretKey = poseidonHash([sk], GeneratorIndex.NSK_M);
     const masterIncomingViewingSecretKey = poseidonHash([sk], GeneratorIndex.IVSK_M);
     const masterOutgoingViewingSecretKey = poseidonHash([sk], GeneratorIndex.OVSK_M);
     const masterTaggingSecretKey = poseidonHash([sk], GeneratorIndex.TSK_M);
 
-    // Then we derive the master public keys
+    // Then we derive master public keys
     // TODO: Is converting from Fr to Fq bellow an issue? Fr.MODULUS is < Fq.MODULUS so it shouldn't but should we refactor this anyway?
     const masterNullifierPublicKey = this.curve.mul(
       this.curve.generator(),
