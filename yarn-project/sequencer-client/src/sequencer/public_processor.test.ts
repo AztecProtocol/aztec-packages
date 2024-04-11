@@ -21,6 +21,7 @@ import {
   EthAddress,
   Fr,
   FunctionData,
+  GasSettings,
   GlobalVariables,
   Header,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -51,8 +52,8 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { type ContractsDataSourcePublicDB, type WorldStatePublicDB } from '../simulator/public_executor.js';
 import { RealPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
+import { type TxValidator } from '../tx_validator/tx_validator.js';
 import { PublicProcessor } from './public_processor.js';
-import { type TxValidator } from './tx_validator.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
@@ -277,7 +278,7 @@ describe('public_processor', () => {
         throw new Error(`Unexpected execution request: ${execution}`);
       });
 
-      const txValidator: MockProxy<TxValidator> = mock<TxValidator>();
+      const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
       txValidator.validateTxs.mockRejectedValue([[], [tx]]);
 
       const [processed, failed] = await processor.process([tx], 1, prover, txValidator);
@@ -794,7 +795,17 @@ class PublicExecutionResultBuilder {
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, 0),
+      callContext: new CallContext(
+        from,
+        tx.to,
+        EthAddress.ZERO,
+        tx.functionData.selector,
+        false,
+        false,
+        0,
+        GasSettings.empty(),
+        Fr.ZERO,
+      ),
       contractAddress: tx.to,
       functionData: tx.functionData,
       args: tx.args,
