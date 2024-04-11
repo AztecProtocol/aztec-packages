@@ -16,17 +16,18 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-class SpikeVerifierColumnsCircuitBuilderTests : public ::testing::Test {
+class SpikePublicColumnsTests : public ::testing::Test {
   protected:
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     void SetUp() override { srs::init_crs_factory("../srs_db/ignition"); };
 };
 
 // Test file for testing public inputs evaluations are the same in the verifier and in sumcheck
-
-TEST(SpikeVerifierColumnsCircuitBuilderTests, VerificationSuccess)
+//
+// The first test runs the verification with the same public inputs in the verifier and in the prover, prover inputs are
+// set in the below function The second failure test runs the verification with the different public inputs
+bool verify_spike_with_public_with_public_inputs(std::vector<SpikeFlavor::FF> verifier_public__inputs)
 {
-    using FF = SpikeFlavor::FF;
     using Builder = SpikeCircuitBuilder;
     using Row = Builder::Row;
     Builder circuit_builder;
@@ -35,14 +36,12 @@ TEST(SpikeVerifierColumnsCircuitBuilderTests, VerificationSuccess)
 
     const size_t circuit_size = 16;
     std::vector<Row> rows;
-    std::vector<FF> public_inputs;
 
     // Add to the public input column that is increasing
     for (size_t i = 0; i < circuit_size; i++) {
         // Make sure the external and trace public inputs are the same
-        Row row{ .Spike_kernel_inputs__is_public = i };
+        Row row{ .Spike_kernel_inputs__is_public = i + 1 };
         rows.push_back(row);
-        public_inputs.emplace_back(i);
     }
 
     circuit_builder.set_trace(std::move(rows));
@@ -53,16 +52,22 @@ TEST(SpikeVerifierColumnsCircuitBuilderTests, VerificationSuccess)
     HonkProof proof = prover.construct_proof();
 
     auto verifier = composer.create_verifier(circuit_builder);
-    bool verified = verifier.verify_proof(proof, public_inputs);
 
+    return verifier.verify_proof(proof, verifier_public__inputs);
+}
+
+TEST(SpikePublicColumnsTests, VerificationSuccess)
+{
+    std::vector<SpikeFlavor::FF> public_inputs = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+    bool verified = verify_spike_with_public_with_public_inputs(public_inputs);
     ASSERT_TRUE(verified);
+}
 
-    // Assert that the same proof fails with different public inputs
-    std::vector<FF> failure_public_inputs;
-    for (size_t i = 0; i < circuit_size; i++) {
-        // Make sure the external and trace public inputs are NOT same
-        failure_public_inputs.emplace_back(i + 1);
-    }
-    bool verification_failure = verifier.verify_proof(proof, failure_public_inputs);
-    ASSERT_FALSE(verification_failure);
+TEST(SpikePublicColumnsTests, VerificationFailure)
+{
+    std::vector<SpikeFlavor::FF> public_inputs = {
+        10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160
+    };
+    bool verified = verify_spike_with_public_with_public_inputs(public_inputs);
+    ASSERT_FALSE(verified);
 }
