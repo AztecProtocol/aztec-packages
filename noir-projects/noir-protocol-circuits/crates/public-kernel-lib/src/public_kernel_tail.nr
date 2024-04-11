@@ -10,7 +10,7 @@ use dep::types::{
 },
     constants::MAX_NEW_NULLIFIERS_PER_TX,
     utils::{arrays::{array_length, array_merge, array_to_bounded_vec, assert_sorted_array}},
-    hash::silo_nullifier, traits::is_default
+    hash::silo_nullifier, traits::is_empty
 };
 use dep::std::unsafe;
 
@@ -73,7 +73,7 @@ impl PublicKernelTailCircuitPrivateInputs {
         let mut read_requests = self.previous_kernel.public_inputs.validation_requests.nullifier_non_existent_read_requests;
         for i in 0..read_requests.len() {
             let read_request = read_requests[i];
-            if !is_default(read_request) {
+            if !is_empty(read_request) {
                 read_requests[i].value = silo_nullifier(read_request.contract_address, read_request.value);
             }
         }
@@ -101,7 +101,7 @@ impl PublicKernelTailCircuitPrivateInputs {
     }
 
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
-        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::default();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
 
         self.validate_inputs();
 
@@ -141,7 +141,7 @@ mod tests {
     };
 
     fn build_nullifier_tree<N>() -> NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT> {
-        let mut pre_existing_nullifiers = [NullifierLeafPreimage::default(); MAX_NEW_NULLIFIERS_PER_TX];
+        let mut pre_existing_nullifiers = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX];
         pre_existing_nullifiers[0] = NullifierLeafPreimage { nullifier: 0, next_nullifier: 100, next_index: 1 };
         pre_existing_nullifiers[1] = NullifierLeafPreimage { nullifier: 100, next_nullifier: 0, next_index: 0 };
         NonEmptyMerkleTree::new(

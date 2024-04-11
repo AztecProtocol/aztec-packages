@@ -73,7 +73,7 @@ impl OwnedNote for TokenNote {
             amount,
             owner,
             randomness: unsafe_rand(),
-            header: NoteHeader::default(),
+            header: NoteHeader::empty(),
         }
     }
 

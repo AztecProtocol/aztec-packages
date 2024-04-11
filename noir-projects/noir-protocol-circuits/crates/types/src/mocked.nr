@@ -3,24 +3,24 @@
 
 struct AggregationObject{}
 
-impl Default for AggregationObject {
-    fn default() -> Self {
+impl Empty for AggregationObject {
+    fn empty() -> Self {
         AggregationObject {}
     }
 }
 
 struct Proof{}
 
-impl Default for Proof {
-    fn default() -> Self {
+impl Empty for Proof {
+    fn empty() -> Self {
         Proof {}
     }
 }
 
 struct VerificationKey{}
 
-impl Default for VerificationKey {
-    fn default() -> Self {
+impl Empty for VerificationKey {
+    fn empty() -> Self {
         VerificationKey {}
     }
 }

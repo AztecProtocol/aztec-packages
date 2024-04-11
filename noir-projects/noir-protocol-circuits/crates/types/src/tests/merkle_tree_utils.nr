@@ -76,10 +76,10 @@ struct NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_
     _phantom_subtree_height: [Field; SUBTREE_HEIGHT],
 }
 
-impl<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> Default for NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
-    fn default() -> Self {
+impl<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> Empty for NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
+    fn empty() -> Self {
         NonEmptyMerkleTree {
-            subtree: MerkleTree::default(),
+            subtree: MerkleTree::empty(),
             zero_hashes: [0; TREE_HEIGHT],
             left_supertree_branch: [0; SUPERTREE_HEIGHT],
             _phantom_subtree_height: [0; SUBTREE_HEIGHT],

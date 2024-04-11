@@ -16,7 +16,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("mint_public((Field),Field)"),
             [to.to_field(), amount],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
 
@@ -32,7 +32,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("burn_public((Field),Field,Field)"),
             [from.to_field(), amount, nonce],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
     // docs:end:public_burn_interface
@@ -42,7 +42,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("mint_private(Field,Field)"),
             [amount, secret_hash],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
 

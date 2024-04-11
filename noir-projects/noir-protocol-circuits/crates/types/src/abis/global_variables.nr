@@ -48,8 +48,8 @@ impl Eq for GlobalVariables {
     }
 }
 
-impl Default for GlobalVariables {
-    fn default() -> Self {
+impl Empty for GlobalVariables {
+    fn empty() -> Self {
         Self {
             chain_id: 0,
             version: 0,
@@ -62,8 +62,8 @@ impl Default for GlobalVariables {
 }
 
 #[test]
-fn serialization_of_default() {
-    let vars = GlobalVariables::default();
+fn serialization_of_empty() {
+    let vars = GlobalVariables::empty();
     let _serialized = vars.serialize();
     let _deserialized = GlobalVariables::deserialize(_serialized);
 }

@@ -19,7 +19,7 @@ trait ContextInterface {
 }
 
 // TEMPORARY: This trait is to promote sharing of the current public context
-// and the upcoming AvmContext. This will be removed once the AvmContext is the default.
+// and the upcoming AvmContext. This will be removed once the AvmContext is the empty.
 // If you are adding something here, then you should also implement it in the AvmContext.
 trait PublicContextInterface {
     fn block_number(self) -> Field;

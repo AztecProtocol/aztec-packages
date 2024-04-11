@@ -19,7 +19,7 @@ impl NoteInterface<TEST_NOTE_LENGTH> for TestNote {
     fn deserialize_content(fields: [Field; TEST_NOTE_LENGTH]) -> Self {
       Self {
         value: fields[0],
-        header: NoteHeader::default(),
+        header: NoteHeader::empty(),
       }
     }
 
@@ -56,6 +56,6 @@ impl NoteInterface<TEST_NOTE_LENGTH> for TestNote {
 
 impl TestNote {
     pub fn new(value: Field) -> Self {
-        TestNote { value, header: NoteHeader::default() }
+        TestNote { value, header: NoteHeader::empty() }
     }
 }

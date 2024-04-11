@@ -2,7 +2,7 @@ use crate::{
     constants::CONTENT_COMMITMENT_LENGTH, traits::{Deserialize, Hash, Serialize},
     utils::arr_copy_slice
 };
-use dep::std::default::Default;
+use dep::std::empty::Empty;
 
 struct ContentCommitment {
   tx_tree_height: Field,
@@ -43,8 +43,8 @@ impl Deserialize<CONTENT_COMMITMENT_LENGTH> for ContentCommitment {
   }
 }
 
-impl Default for ContentCommitment {
-  fn default() -> Self {
+impl Empty for ContentCommitment {
+  fn empty() -> Self {
     Self {
       tx_tree_height: 0,
       txs_effects_hash: 0,
@@ -64,8 +64,8 @@ impl Eq for ContentCommitment {
 }
 
 #[test]
-fn serialization_of_default() {
-    let empty = ContentCommitment::default();
+fn serialization_of_empty() {
+    let empty = ContentCommitment::empty();
     let serialized = empty.serialize();
     let deserialized = ContentCommitment::deserialize(serialized);
 

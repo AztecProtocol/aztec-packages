@@ -6,10 +6,10 @@ struct ParityPublicInputs {
     converted_root: Field,
 }
 
-impl Default for ParityPublicInputs {
-    fn default() -> Self {
+impl Empty for ParityPublicInputs {
+    fn empty() -> Self {
         ParityPublicInputs {
-            aggregation_object: AggregationObject::default(),
+            aggregation_object: AggregationObject::empty(),
             sha_root: 0,
             converted_root: 0,
         }

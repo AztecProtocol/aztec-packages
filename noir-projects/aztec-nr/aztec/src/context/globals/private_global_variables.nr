@@ -9,8 +9,8 @@ struct PrivateGlobalVariables {
 }
 // docs:end:private-global-variables
 
-impl Default for PrivateGlobalVariables {
-    fn default() -> Self {
+impl Empty for PrivateGlobalVariables {
+    fn empty() -> Self {
         PrivateGlobalVariables {
             chain_id: 0,
             version: 0,

@@ -1,5 +1,5 @@
 use crate::address::AztecAddress;
-use dep::std::{cmp::Eq,default::Default};
+use dep::std::{cmp::Eq,empty::Empty};
 
 struct CallerContext {
     msg_sender: AztecAddress,
@@ -13,8 +13,8 @@ impl Eq for CallerContext {
     }
 }
 
-impl Default for CallerContext {
-    fn default() -> Self {
+impl Empty for CallerContext {
+    fn empty() -> Self {
         CallerContext {
             msg_sender: AztecAddress::zero(),
             storage_contract_address: AztecAddress::zero(),

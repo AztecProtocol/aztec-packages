@@ -1,6 +1,6 @@
 use crate::traits::Hash;
-use dep::std::default::Default;
-use crate::traits::is_default;
+use dep::std::empty::Empty;
+use crate::traits::is_empty;
 
 struct PublicDataTreeLeafPreimage {
     slot : Field,
@@ -18,8 +18,8 @@ impl Eq for PublicDataTreeLeafPreimage {
     }
 }
 
-impl Default for PublicDataTreeLeafPreimage {
-    fn default() -> Self {
+impl Empty for PublicDataTreeLeafPreimage {
+    fn empty() -> Self {
         Self {
             slot: 0,
             value: 0,
@@ -31,7 +31,7 @@ impl Default for PublicDataTreeLeafPreimage {
 
 impl Hash for PublicDataTreeLeafPreimage {
     fn hash(self) -> Field {
-        if is_default(self) {
+        if is_empty(self) {
             0
         } else {
             dep::std::hash::pedersen_hash([self.slot, self.value, (self.next_index as Field), self.next_slot])

@@ -26,15 +26,15 @@ impl Eq for ConstantRollupData {
     }
 }
 
-impl Default for ConstantRollupData {
-    fn default() -> Self {
+impl Empty for ConstantRollupData {
+    fn empty() -> Self {
         ConstantRollupData {
-            last_archive: AppendOnlyTreeSnapshot::default(),
+            last_archive: AppendOnlyTreeSnapshot::empty(),
             private_kernel_vk_tree_root: 0,
             public_kernel_vk_tree_root: 0,
             base_rollup_vk_hash: 0,
             merge_rollup_vk_hash: 0,
-            global_variables: GlobalVariables::default(),
+            global_variables: GlobalVariables::empty(),
         }
     }
 }

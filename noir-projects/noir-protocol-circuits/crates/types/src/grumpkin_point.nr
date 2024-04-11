@@ -29,8 +29,8 @@ impl Eq for GrumpkinPoint {
     }
 }
 
-impl Default for GrumpkinPoint {
-    fn default() -> Self {
+impl Empty for GrumpkinPoint {
+    fn empty() -> Self {
         Self { x: 0, y: 0 }
     }
 }

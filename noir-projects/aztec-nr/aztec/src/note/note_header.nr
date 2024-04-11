@@ -1,6 +1,6 @@
 use dep::protocol_types::address::AztecAddress;
 use dep::protocol_types::traits::Serialize;
-use dep::std::default::Default;
+use dep::std::empty::Empty;
 
 struct NoteHeader {
     contract_address: AztecAddress,
@@ -11,8 +11,8 @@ struct NoteHeader {
     is_transient: bool,
 }
 
-impl Default for NoteHeader {
-    fn default() -> Self {
+impl Empty for NoteHeader {
+    fn empty() -> Self {
         NoteHeader { contract_address: AztecAddress::zero(), nonce: 0, storage_slot: 0, is_transient: false }
     }
 }

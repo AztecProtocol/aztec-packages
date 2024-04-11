@@ -10,11 +10,11 @@ struct CombinedConstantData {
     tx_context: TxContext,
 }
 
-impl Default for CombinedConstantData {
-    fn default() -> Self {
+impl Empty for CombinedConstantData {
+    fn empty() -> Self {
         CombinedConstantData {
-            historical_header: Header::default(),
-            tx_context: TxContext::default(),
+            historical_header: Header::empty(),
+            tx_context: TxContext::empty(),
         }
     }
 }

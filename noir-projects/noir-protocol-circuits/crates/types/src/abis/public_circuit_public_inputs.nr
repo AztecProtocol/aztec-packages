@@ -57,25 +57,25 @@ impl Eq for PublicCircuitPublicInputs {
     }
 }
 
-impl Default for PublicCircuitPublicInputs {
-    fn default() -> Self {
+impl Empty for PublicCircuitPublicInputs {
+    fn empty() -> Self {
         PublicCircuitPublicInputs {
-            call_context: CallContext::default(),
+            call_context: CallContext::empty(),
             args_hash: 0,
             return_values: [0; RETURN_VALUES_LENGTH],
-            nullifier_read_requests: [ReadRequest::default(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
-            nullifier_non_existent_read_requests: [ReadRequest::default(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
-            contract_storage_update_requests: [StorageUpdateRequest::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-            contract_storage_reads: [StorageRead::default(); MAX_PUBLIC_DATA_READS_PER_CALL],
+            nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
+            nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
+            contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+            contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
             public_call_stack_hashes: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-            new_note_hashes: [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_CALL],
-            new_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_CALL],
-            new_l2_to_l1_msgs: [L2ToL1Message::default(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+            new_note_hashes: [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL],
+            new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
+            new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
             unencrypted_logs_hash: 0,
             unencrypted_log_preimages_length: 0,
-            historical_header: Header::default(),
+            historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
             revert_code: 0 as u8,
         }
@@ -132,14 +132,14 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             call_context: reader.read_struct(CallContext::deserialize),
             args_hash: reader.read(),
             return_values: reader.read_array([0; RETURN_VALUES_LENGTH]),
-            nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::default(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
-            nullifier_non_existent_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::default(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL]),
-            contract_storage_update_requests: reader.read_struct_array(StorageUpdateRequest::deserialize, [StorageUpdateRequest::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]),
-            contract_storage_reads: reader.read_struct_array(StorageRead::deserialize, [StorageRead::default(); MAX_PUBLIC_DATA_READS_PER_CALL]),
+            nullifier_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL]),
+            nullifier_non_existent_read_requests: reader.read_struct_array(ReadRequest::deserialize, [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL]),
+            contract_storage_update_requests: reader.read_struct_array(StorageUpdateRequest::deserialize, [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]),
+            contract_storage_reads: reader.read_struct_array(StorageRead::deserialize, [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL]),
             public_call_stack_hashes: reader.read_array([0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
-            new_note_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::default(); MAX_NEW_NOTE_HASHES_PER_CALL]),
-            new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_CALL]),
-            new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::default(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
+            new_note_hashes: reader.read_struct_array(SideEffect::deserialize, [SideEffect::empty(); MAX_NEW_NOTE_HASHES_PER_CALL]),
+            new_nullifiers: reader.read_struct_array(SideEffectLinkedToNoteHash::deserialize, [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL]),
+            new_l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL]),
             start_side_effect_counter: reader.read() as u32,
             end_side_effect_counter: reader.read() as u32,
             unencrypted_logs_hash: reader.read() as Field,
@@ -161,19 +161,19 @@ impl Hash for PublicCircuitPublicInputs {
 }
 
 #[test]
-fn serialization_of_default() {
-    let pcpi = PublicCircuitPublicInputs::default();
+fn serialization_of_empty() {
+    let pcpi = PublicCircuitPublicInputs::empty();
     let serialized = pcpi.serialize();
     let deserialized = PublicCircuitPublicInputs::deserialize(serialized);
     assert(pcpi.eq(deserialized));
 }
 
 #[test]
-fn default_hash() {
-    let inputs = PublicCircuitPublicInputs::default();
+fn empty_hash() {
+    let inputs = PublicCircuitPublicInputs::empty();
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_default_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
-    assert_eq(hash, test_data_default_hash);
+    let test_data_empty_hash = 0x0f1eb4e352e8dab6cbab3c63b6d8f3cd2cd90cc7ae5ff142e4dfa2b3e28e01c1;
+    assert_eq(hash, test_data_empty_hash);
 }

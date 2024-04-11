@@ -15,8 +15,8 @@ impl Eq for StorageRead {
     }
 }
 
-impl Default for StorageRead {   
-    fn default() -> Self {
+impl Empty for StorageRead {   
+    fn empty() -> Self {
         Self {
             storage_slot: 0,
             current_value: 0,
@@ -52,7 +52,7 @@ impl StorageRead {
 }
 
 impl StorageOp for StorageRead {
-    fn is_default(self) -> bool {
+    fn is_empty(self) -> bool {
         self.storage_slot == 0
     }
 }

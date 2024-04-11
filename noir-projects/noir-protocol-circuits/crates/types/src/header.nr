@@ -7,7 +7,7 @@ use crate::{
     hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Hash, Serialize},
     utils::arr_copy_slice, content_commitment::ContentCommitment
 };
-use dep::std::default::Default;
+use dep::std::empty::Empty;
 
 // docs:start:header
 struct Header {
@@ -27,13 +27,13 @@ impl Eq for Header {
     }
 }
 
-impl Default for Header {
-    fn default() -> Self {
+impl Empty for Header {
+    fn empty() -> Self {
         Self {
-            last_archive: AppendOnlyTreeSnapshot::default(),
-            content_commitment: ContentCommitment::default(),
-            state: StateReference::default(),
-            global_variables: GlobalVariables::default(),
+            last_archive: AppendOnlyTreeSnapshot::empty(),
+            content_commitment: ContentCommitment::empty(),
+            state: StateReference::empty(),
+            global_variables: GlobalVariables::empty(),
         }
     }
 }
@@ -82,8 +82,8 @@ impl Hash for Header {
 }
 
 #[test]
-fn serialization_of_default() {
-    let header = Header::default();
+fn serialization_of_empty() {
+    let header = Header::empty();
     let serialized = header.serialize();
     let deserialized = Header::deserialize(serialized);
     assert(header.eq(deserialized));
@@ -91,16 +91,16 @@ fn serialization_of_default() {
 
 #[test]
 fn hash_smoke() {
-    let header = Header::default();
+    let header = Header::empty();
     let _hashed = header.hash();
 }
 
 #[test]
-fn default_hash() {
-    let header = Header::default();
+fn empty_hash() {
+    let header = Header::empty();
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test
-    let test_data_default_hash = 0x2a45c01b78a6b9a2392b7490966b41f47e5d9ac95610fa3eabe99d9aec7f6ad0;
-    assert_eq(hash, test_data_default_hash);
+    let test_data_empty_hash = 0x2a45c01b78a6b9a2392b7490966b41f47e5d9ac95610fa3eabe99d9aec7f6ad0;
+    assert_eq(hash, test_data_empty_hash);
 }

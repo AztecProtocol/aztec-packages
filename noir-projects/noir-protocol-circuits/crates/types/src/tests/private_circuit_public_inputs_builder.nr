@@ -48,14 +48,14 @@ struct PrivateCircuitPublicInputsBuilder {
     version: Field,
 }
 
-impl Default for PrivateCircuitPublicInputsBuilder {
-    fn default() -> Self {
+impl Empty for PrivateCircuitPublicInputsBuilder {
+    fn empty() -> Self {
         PrivateCircuitPublicInputsBuilder {
-            call_context: CallContext::default(),
+            call_context: CallContext::empty(),
             args_hash: 0,
             return_values: BoundedVec::new(),
             min_revertible_side_effect_counter: 0 as u32,
-            max_block_number: MaxBlockNumber::default(),
+            max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
@@ -68,7 +68,7 @@ impl Default for PrivateCircuitPublicInputsBuilder {
             unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
-            historical_header: Header::default(),
+            historical_header: Header::empty(),
             chain_id: 0,
             version: 0,
         }
@@ -77,14 +77,14 @@ impl Default for PrivateCircuitPublicInputsBuilder {
 
 impl PrivateCircuitPublicInputsBuilder {
     pub fn new() -> Self {
-        let mut public_inputs = PrivateCircuitPublicInputsBuilder::default();
+        let mut public_inputs = PrivateCircuitPublicInputsBuilder::empty();
 
         let args_hash = 0;
 
-        let contract_data = fixtures::contracts::default_contract;
+        let contract_data = fixtures::contracts::empty_contract;
         let portal_contract_address = contract_data.portal_contract_address;
 
-        let contract_function = fixtures::contract_functions::default_private_function;
+        let contract_function = fixtures::contract_functions::empty_private_function;
         let function_data = contract_function.data;
 
         let contract_address = contract_data.address;

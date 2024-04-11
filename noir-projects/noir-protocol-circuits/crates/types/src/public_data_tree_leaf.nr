@@ -1,4 +1,4 @@
-use dep::std::{cmp::Eq,default::Default};
+use dep::std::{cmp::Eq,empty::Empty};
 
 struct PublicDataTreeLeaf {
     slot: Field,
@@ -11,8 +11,8 @@ impl Eq for PublicDataTreeLeaf {
     }
 }
 
-impl Default for PublicDataTreeLeaf  {    
-    fn default() -> Self {
+impl Empty for PublicDataTreeLeaf  {    
+    fn empty() -> Self {
         Self {
             slot: 0,
             value: 0,

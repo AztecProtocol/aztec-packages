@@ -24,10 +24,10 @@ impl Zero for AztecAddress {
     }
 }
 
-// This is implemented so we have one trait for everything "default", or otherwise known as the "undefined" value,
+// This is implemented so we have one trait for everything "empty", or otherwise known as the "undefined" value,
 // this helps with things such as the array helper
-impl Default for AztecAddress {
-    fn default() -> Self {
+impl Empty for AztecAddress {
+    fn empty() -> Self {
         AztecAddress::zero()
     }
 }

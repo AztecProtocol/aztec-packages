@@ -21,10 +21,10 @@ struct NullifierNonExistentReadRequestHintsBuilder {
 impl NullifierNonExistentReadRequestHintsBuilder {
     pub fn new() -> Self {
         NullifierNonExistentReadRequestHintsBuilder {
-            nullifier_tree: NonEmptyMerkleTree::default(),
+            nullifier_tree: NonEmptyMerkleTree::empty(),
             non_membership_hints: BoundedVec::new(),
             read_values: BoundedVec::new(),
-            pending_nullifiers: [SideEffectLinkedToNoteHash::default(); MAX_NEW_NULLIFIERS_PER_TX]
+            pending_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_TX]
         }
     }
 

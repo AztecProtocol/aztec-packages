@@ -26,11 +26,11 @@ struct PublicCallDataBuilder {
 
 impl PublicCallDataBuilder {
     pub fn new() -> Self {
-        let contract_data = fixtures::contracts::default_contract;
+        let contract_data = fixtures::contracts::empty_contract;
         let contract_address = contract_data.address;
         let portal_contract_address = contract_data.portal_contract_address;
 
-        let contract_function = fixtures::contract_functions::default_public_function;
+        let contract_function = fixtures::contract_functions::empty_public_function;
         let function_data = contract_function.data;
 
         let mut public_inputs = PublicCircuitPublicInputsBuilder::new();
@@ -75,7 +75,7 @@ impl PublicCallDataBuilder {
 
     pub fn append_public_call_requests(&mut self, num_requests: u64, is_delegate_call: bool) {
         let value_offset = self.public_inputs.public_call_stack_hashes.len();
-        let mut caller_context = CallerContext::default();
+        let mut caller_context = CallerContext::empty();
         if is_delegate_call {
             let call_context = self.public_inputs.call_context;
             caller_context.msg_sender = call_context.msg_sender;
@@ -85,7 +85,7 @@ impl PublicCallDataBuilder {
         for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
             exceeded_len |= i == num_requests;
             if !exceeded_len {
-                // The default hash is its index + 7788.
+                // The empty hash is its index + 7788.
                 let hash = (value_offset + 7788) as Field;
                 let call_request = CallRequest {
                     hash,
@@ -106,9 +106,9 @@ impl PublicCallDataBuilder {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
                 let read_request = StorageRead {
-                    // The default storage slot is its index + 1.
+                    // The empty storage slot is its index + 1.
                     storage_slot: (value_offset + i + 1) as Field,
-                    // The default value is its index + 999.
+                    // The empty value is its index + 999.
                     current_value: (value_offset + i + 999) as Field
                 };
                 self.public_inputs.contract_storage_reads.push(read_request);
@@ -119,7 +119,7 @@ impl PublicCallDataBuilder {
     pub fn append_empty_public_data_read_requests(&mut self, num_reads: u64) {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             if i < num_reads {
-                self.public_inputs.contract_storage_reads.push(StorageRead::default());
+                self.public_inputs.contract_storage_reads.push(StorageRead::empty());
             }
         }
     }
@@ -129,9 +129,9 @@ impl PublicCallDataBuilder {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
                 let update_request = StorageUpdateRequest {
-                    // The default storage slot is its index + 1.
+                    // The empty storage slot is its index + 1.
                     storage_slot: (value_offset + i + 1) as Field,
-                    // The default value is its index + 890.
+                    // The empty value is its index + 890.
                     new_value: (value_offset + i + 890) as Field
                 };
                 self.public_inputs.contract_storage_update_requests.push(update_request);
@@ -142,7 +142,7 @@ impl PublicCallDataBuilder {
     pub fn append_empty_update_requests(&mut self, num_updates: u64) {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             if i < num_updates {
-                self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::default());
+                self.public_inputs.contract_storage_update_requests.push(StorageUpdateRequest::empty());
             }
         }
     }

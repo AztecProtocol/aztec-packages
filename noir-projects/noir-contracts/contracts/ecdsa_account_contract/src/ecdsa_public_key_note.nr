@@ -63,7 +63,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         }
         y[31] = serialized_note[3].to_be_bytes(32)[31];
 
-        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::default() }
+        EcdsaPublicKeyNote { x, y, owner: AztecAddress::from_field(serialized_note[4]), header: NoteHeader::empty() }
     }
 
    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
@@ -104,6 +104,6 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
 
 impl EcdsaPublicKeyNote {
     pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
-        EcdsaPublicKeyNote { x, y, owner, header: NoteHeader::default() }
+        EcdsaPublicKeyNote { x, y, owner, header: NoteHeader::empty() }
     }
 }

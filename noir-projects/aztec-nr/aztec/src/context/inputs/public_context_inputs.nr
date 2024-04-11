@@ -14,12 +14,12 @@ struct PublicContextInputs {
 }
 // docs:end:public-context-inputs
 
-impl Default for PublicContextInputs {
-    fn default() -> Self {
+impl Empty for PublicContextInputs {
+    fn empty() -> Self {
         PublicContextInputs {
-            call_context: CallContext::default(),
-            historical_header: Header::default(),
-            public_global_variables: PublicGlobalVariables::default(),
+            call_context: CallContext::empty(),
+            historical_header: Header::empty(),
+            public_global_variables: PublicGlobalVariables::empty(),
             start_side_effect_counter: 0 as u32,
         }
     }

@@ -93,7 +93,7 @@ global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
 // 126976 = 31 * 4096;
 global BLOB_SIZE_IN_BYTES: Field = 126976;
-// How much gas is subtracted from L2GASLEFT when making a nested public call by default in the AVM
+// How much gas is subtracted from L2GASLEFT when making a nested public call by empty in the AVM
 global NESTED_CALL_L2_GAS_BUFFER = 20000;
 
 // CONTRACT CLASS CONSTANTS
@@ -180,7 +180,7 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
- * We start from 1 to avoid the default generators. The generator indices are listed
+ * We start from 1 to avoid the empty generators. The generator indices are listed
  * based on the number of elements each index hashes. The following conditions must be met:
  *
  * +-----------+-------------------------------+----------------------+

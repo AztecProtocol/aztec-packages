@@ -24,7 +24,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
 
@@ -40,7 +40,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("shield((Field),Field,Field,Field)"),
             [from.to_field(), amount, secret_hash, nonce],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
 

@@ -14,8 +14,8 @@ impl Eq for GrumpkinPrivateKey {
     }
 }
 
-impl Default for GrumpkinPrivateKey {
-    fn default() -> Self {
+impl Empty for GrumpkinPrivateKey {
+    fn empty() -> Self {
         Self { high: 0, low: 0 }
     }
 }

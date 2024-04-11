@@ -1,4 +1,4 @@
-use dep::std::{cmp::Eq,default::Default};
+use dep::std::{cmp::Eq,empty::Empty};
 
 struct AppendOnlyTreeSnapshot {
     root : Field,
@@ -18,8 +18,8 @@ impl AppendOnlyTreeSnapshot {
     }
 }
 
-impl Default for AppendOnlyTreeSnapshot {
-    fn default() -> Self {
+impl Empty for AppendOnlyTreeSnapshot {
+    fn empty() -> Self {
         Self { root: 0, next_available_leaf_index: 0 }
     }
 }

@@ -1,4 +1,4 @@
-use crate::traits::{Default, is_default};
+use crate::traits::{Empty, is_empty};
 
 struct SortedTuple<T> {
     value: T,
@@ -29,7 +29,7 @@ struct SortedResult<T, N> {
 pub fn sort_get_sorted_hints<N, T>(
     values: [T; N],
     ordering: fn(T, T) -> bool
-) -> SortedResult<T, N> where T: Eq + Default {
+) -> SortedResult<T, N> where T: Eq + Empty {
     let mut tuples = [SortedTuple { value: values[0], original_index: 0 }; N];
     for i in 0..N {
         tuples[i] = SortedTuple {
@@ -39,13 +39,13 @@ pub fn sort_get_sorted_hints<N, T>(
     }
 
     let sorted_tuples = tuples.sort_via(
-        |a: SortedTuple<T>, b: SortedTuple<T>| is_default(b.value) | (!is_default(a.value) & !is_default(b.value) & ordering(a.value, b.value))
+        |a: SortedTuple<T>, b: SortedTuple<T>| is_empty(b.value) | (!is_empty(a.value) & !is_empty(b.value) & ordering(a.value, b.value))
     );
 
     let sorted_array = sorted_tuples.map(|t: SortedTuple<T>| t.value);
     let mut sorted_index_hints = [0; N];
     for i in 0..N {
-        if !is_default(sorted_tuples[i].value) {
+        if !is_empty(sorted_tuples[i].value) {
             let original_index = sorted_tuples[i].original_index;
             sorted_index_hints[original_index] = i;
         }

@@ -18,11 +18,11 @@ impl Eq for NullifierKeyValidationRequest {
     }
 }
 
-impl Default for NullifierKeyValidationRequest {
-    fn default() -> Self {
+impl Empty for NullifierKeyValidationRequest {
+    fn empty() -> Self {
         NullifierKeyValidationRequest {
-            public_key: GrumpkinPoint::default(),
-            secret_key: GrumpkinPrivateKey::default(),
+            public_key: GrumpkinPoint::empty(),
+            secret_key: GrumpkinPrivateKey::empty(),
         }
     }
 }
@@ -67,11 +67,11 @@ impl Eq for NullifierKeyValidationRequestContext {
     }
 }
 
-impl Default for NullifierKeyValidationRequestContext {
-    fn default() -> Self {
+impl Empty for NullifierKeyValidationRequestContext {
+    fn empty() -> Self {
         NullifierKeyValidationRequestContext {
-            public_key: GrumpkinPoint::default(),
-            secret_key: GrumpkinPrivateKey::default(),
+            public_key: GrumpkinPoint::empty(),
+            secret_key: GrumpkinPrivateKey::empty(),
             contract_address: AztecAddress::zero(),
         }
     }

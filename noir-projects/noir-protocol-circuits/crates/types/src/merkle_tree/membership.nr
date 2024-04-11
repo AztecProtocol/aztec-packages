@@ -5,8 +5,8 @@ struct MembershipWitness<N> {
     sibling_path: [Field; N]
 }
 
-impl<N> Default for MembershipWitness<N> {
-    fn default() -> Self {
+impl<N> Empty for MembershipWitness<N> {
+    fn empty() -> Self {
         MembershipWitness {
             leaf_index: 0,
             sibling_path: [0; N]

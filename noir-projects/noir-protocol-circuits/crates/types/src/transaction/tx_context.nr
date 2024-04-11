@@ -20,8 +20,8 @@ impl Eq for TxContext {
     }
 }
 
-impl Default for TxContext {
-    fn default() -> Self {
+impl Empty for TxContext {
+    fn empty() -> Self {
         TxContext {
             is_fee_payment_tx : false,
             is_rebate_payment_tx : false,
@@ -70,19 +70,19 @@ impl Hash for TxContext {
 }
 
 #[test]
-fn serialization_of_default() {
-    let context = TxContext::default();
+fn serialization_of_empty() {
+    let context = TxContext::empty();
     let serialized = context.serialize();
     let deserialized = TxContext::deserialize(serialized);
     assert(context.eq(deserialized));
 }
 
 #[test]
-fn default_hash() {
-    let inputs = TxContext::default();
+fn empty_hash() {
+    let inputs = TxContext::empty();
     let hash = inputs.hash();
 
     // Value from tx_context.test.ts "computes empty item hash" test
-    let test_data_default_hash = 0x200569267c0f73ac89aaa414239398db9445dd4ad3a8cf37015cd55b8d4c5e8d;
-    assert_eq(hash, test_data_default_hash);
+    let test_data_empty_hash = 0x200569267c0f73ac89aaa414239398db9445dd4ad3a8cf37015cd55b8d4c5e8d;
+    assert_eq(hash, test_data_empty_hash);
 }

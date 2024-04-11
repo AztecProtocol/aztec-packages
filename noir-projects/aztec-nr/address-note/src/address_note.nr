@@ -62,7 +62,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
 impl AddressNote {
     pub fn new(address: AztecAddress, owner: AztecAddress) -> Self {
         let randomness = unsafe_rand();
-        AddressNote { address, owner, randomness, header: NoteHeader::default() }
+        AddressNote { address, owner, randomness, header: NoteHeader::empty() }
     }
     // docs:end:address_note_def
 }

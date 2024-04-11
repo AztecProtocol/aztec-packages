@@ -40,7 +40,7 @@ impl KernelCircuitPublicInputsComposer {
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         transient_note_hash_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX]
     ) -> Self {
-        let public_inputs = PrivateKernelCircuitPublicInputsBuilder::default();
+        let public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         KernelCircuitPublicInputsComposer {
             public_inputs,
@@ -164,8 +164,8 @@ impl KernelCircuitPublicInputsComposer {
 
             // Nullified_commitment of value `0` implies non-transient (persistable)
             // nullifier in which case no attempt will be made to match it to a hash.
-            // Non-default nullified_note_hash implies transient nullifier which MUST be matched to a hash below!
-            // 0-valued nullified_note_hash is default and will be ignored
+            // Non-empty nullified_note_hash implies transient nullifier which MUST be matched to a hash below!
+            // 0-valued nullified_note_hash is empty and will be ignored
             if nullified_note_hash != 0 {
                 assert(
                     hint_pos < MAX_NEW_NOTE_HASHES_PER_TX, "New nullifier is transient but hint is invalid"
@@ -178,8 +178,8 @@ impl KernelCircuitPublicInputsComposer {
                 // match found!
                 // squash both the nullifier and the hash
                 // (set to 0 here and then rearrange array after loop)
-                new_note_hashes[hint_pos] = SideEffect::default();
-                new_nullifiers[n_idx] = SideEffectLinkedToNoteHash::default();
+                new_note_hashes[hint_pos] = SideEffect::empty();
+                new_nullifiers[n_idx] = SideEffectLinkedToNoteHash::empty();
             }
             // non-transient (persistable) nullifiers are just kept in new_nullifiers array and forwarded
             // to public inputs (used later by base rollup circuit)

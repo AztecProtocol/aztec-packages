@@ -206,7 +206,7 @@ contract AvmTest {
             context.this_address(),
             FunctionSelector::from_signature("constant_field_acvm()"),
             [],
-            GasOpts::default()
+            GasOpts::empty()
         );
         data_to_return[0]
     }
@@ -217,14 +217,14 @@ contract AvmTest {
             context.this_address(),
             FunctionSelector::from_signature("constant_field_avm()"),
             [],
-            GasOpts::default()
+            GasOpts::empty()
         );
         data_to_return[0]
     }
 
     #[aztec(public-vm)]
     fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
-        context.call_public_function(context.this_address(), selector, [args], GasOpts::default());
+        context.call_public_function(context.this_address(), selector, [args], GasOpts::empty());
     }
 
     /************************************************************************
@@ -404,7 +404,7 @@ contract AvmTest {
 
         // Nested call
         let results = context.call_public_function_raw(
-            GasOpts::default(),
+            GasOpts::empty(),
             context.this_address(),
             selector,
             [arg_a, arg_b]
@@ -457,7 +457,7 @@ contract AvmTest {
             context.this_address(),
             selector,
             [arg_a, arg_b],
-            GasOpts::default()
+            GasOpts::empty()
         );
         // this explicit size in the return variable is necessary to ensure that ret_size is compile-time
         // (ensure the data_to_return is in a HeapArray not a HeapVector)
@@ -472,7 +472,7 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
 
         let (result_data, success): ([Field; 1], u8) = context.static_call_public_function_raw(
-            GasOpts::default(),
+            GasOpts::empty(),
             context.this_address(),
             selector,
             [arg_a, arg_b]
@@ -487,7 +487,7 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)").to_field();
         let calldata: [Field; 1] = [20];
 
-        let (_data_to_return, success): ([Field; 0], u8) = context.static_call_public_function_raw(GasOpts::default(), context.this_address(), selector, calldata);
+        let (_data_to_return, success): ([Field; 0], u8) = context.static_call_public_function_raw(GasOpts::empty(), context.this_address(), selector, calldata);
 
         success
     }
@@ -501,7 +501,7 @@ contract AvmTest {
             context.this_address(),
             selector,
             [arg_a, arg_b],
-            GasOpts::default()
+            GasOpts::empty()
         );
 
         result_data[0]
@@ -513,6 +513,6 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)");
         let calldata: [Field; 1] = [20];
 
-        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default());
+        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::empty());
     }
 }

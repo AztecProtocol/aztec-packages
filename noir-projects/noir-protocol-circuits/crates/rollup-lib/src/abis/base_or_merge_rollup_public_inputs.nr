@@ -30,15 +30,15 @@ struct BaseOrMergeRollupPublicInputs {
     out_hash : Field, 
 }
 
-impl Default for BaseOrMergeRollupPublicInputs {
-    fn default() -> Self {
+impl Empty for BaseOrMergeRollupPublicInputs {
+    fn empty() -> Self {
         BaseOrMergeRollupPublicInputs {
             rollup_type : 0 as u32,
             height_in_block_tree : 0,
-            aggregation_object : AggregationObject::default(),
-            constants : ConstantRollupData::default(),
-            start: PartialStateReference::default(),
-            end: PartialStateReference::default(),
+            aggregation_object : AggregationObject::empty(),
+            constants : ConstantRollupData::empty(),
+            start: PartialStateReference::empty(),
+            end: PartialStateReference::empty(),
             txs_effects_hash : 0,
             out_hash : 0, 
         }

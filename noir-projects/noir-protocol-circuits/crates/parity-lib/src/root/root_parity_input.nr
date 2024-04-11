@@ -6,11 +6,11 @@ struct RootParityInput {
     public_inputs: ParityPublicInputs,
 }
 
-impl Default for RootParityInput {
-    fn default() -> Self {
+impl Empty for RootParityInput {
+    fn empty() -> Self {
         RootParityInput {
-            proof: Proof::default(),
-            public_inputs: ParityPublicInputs::default(),
+            proof: Proof::empty(),
+            public_inputs: ParityPublicInputs::empty(),
         }
     }
 }

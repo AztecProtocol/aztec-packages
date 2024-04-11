@@ -2,7 +2,7 @@ use crate::{
     abis::side_effect::{OrderedValue, ContractScopedOrderedValue},
     traits::{Serialize, Deserialize}, address::AztecAddress
 };
-use dep::std::{cmp::Eq,default::Default};
+use dep::std::{cmp::Eq,empty::Empty};
 
 global READ_REQUEST_SERIALIZED_LEN = 2;
 global READ_REQUEST_CONTEXT_SERIALIZED_LEN = 3;
@@ -28,8 +28,8 @@ impl Eq for ReadRequest {
     }
 }
 
-impl Default for ReadRequest {
-    fn default() -> Self {
+impl Empty for ReadRequest {
+    fn empty() -> Self {
         ReadRequest {
             value: 0,
             counter: 0,
@@ -93,12 +93,12 @@ impl Eq for ReadRequestContext {
     }
 }
 
-impl Default for ReadRequestContext {
-    fn default() -> Self {
+impl Empty for ReadRequestContext {
+    fn empty() -> Self {
         ReadRequestContext {
             value: 0,
             counter: 0,
-            contract_address: AztecAddress::default(),
+            contract_address: AztecAddress::empty(),
         }
     }
 }

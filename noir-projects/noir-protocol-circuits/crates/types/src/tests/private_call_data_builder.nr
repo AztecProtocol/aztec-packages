@@ -44,8 +44,8 @@ impl PrivateCallDataBuilder {
     pub fn new() -> Self {
         let public_inputs = PrivateCircuitPublicInputsBuilder::new();
 
-        let contract_data = fixtures::contracts::default_contract;
-        let contract_function = fixtures::contract_functions::default_private_function;
+        let contract_data = fixtures::contracts::empty_contract;
+        let contract_function = fixtures::contract_functions::empty_private_function;
         let function_data = contract_function.data;
 
         PrivateCallDataBuilder {
@@ -110,7 +110,7 @@ impl PrivateCallDataBuilder {
         is_delegate_call: bool
     ) -> (BoundedVec<Field, N>, BoundedVec<CallRequest, N>) {
         let value_offset = requests.len();
-        let mut caller_context = CallerContext::default();
+        let mut caller_context = CallerContext::empty();
         if is_delegate_call {
             let call_context = self.public_inputs.call_context;
             caller_context.msg_sender = call_context.msg_sender;
@@ -122,7 +122,7 @@ impl PrivateCallDataBuilder {
         for i in 0..N {
             exceeded_len |= i == num_requests;
             if !exceeded_len {
-                // The default hash is its index + 7788.
+                // The empty hash is its index + 7788.
                 let hash = (value_offset + 7788) as Field;
                 let request = CallRequest {
                     hash,

@@ -10,7 +10,7 @@ global APP_PAYLOAD_SIZE_IN_BYTES: u64 = 420;
 
 global ACCOUNT_MAX_CALLS: u64 = 4;
 
-// Note: If you change the following struct you have to update default_entrypoint.ts
+// Note: If you change the following struct you have to update empty_entrypoint.ts
 // docs:start:app-payload-struct
 struct AppPayload {
   function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],

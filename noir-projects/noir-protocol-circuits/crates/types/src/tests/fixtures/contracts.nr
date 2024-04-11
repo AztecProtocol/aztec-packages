@@ -17,7 +17,7 @@ struct ContractData {
 }
 
 // taken from __snapshots__/noir_test_gen.test.ts.snap
-global default_contract = ContractData {
+global empty_contract = ContractData {
   contract_address_salt: 0x000000000000000000000000000000000000000000000000000000000000ddd5,
   artifact_hash: 0x0000000000000000000000000000000000000000000000000000000000003039,
   public_bytecode_commitment: 0x129a3438653fe147133b2c274757920e37896305e7664c8c1eb380be3efd5fed,

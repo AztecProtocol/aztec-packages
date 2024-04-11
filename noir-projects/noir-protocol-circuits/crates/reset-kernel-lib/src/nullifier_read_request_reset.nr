@@ -31,8 +31,8 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
     fn nada(read_request_len: u64) -> Self {
         NullifierSettledReadHint {
             read_request_index: read_request_len,
-            membership_witness: MembershipWitness::default(),
-            leaf_preimage: NullifierLeafPreimage::default()
+            membership_witness: MembershipWitness::empty(),
+            leaf_preimage: NullifierLeafPreimage::empty()
         }
     }
 }
@@ -136,9 +136,9 @@ mod tests {
         let read_request_statuses = [
             ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 0 },
             ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 0 },
-            ReadRequestStatus::default(),
+            ReadRequestStatus::empty(),
             ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 1 },
-            ReadRequestStatus::default()
+            ReadRequestStatus::empty()
         ];
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let unverified_read_requests = reset_read_requests(

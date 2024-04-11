@@ -1,5 +1,5 @@
 use crate::constants::GENERATOR_INDEX__PUBLIC_DATA_READ;
-use dep::std::{cmp::Eq,default::Default};
+use dep::std::{cmp::Eq,empty::Empty};
 use crate::traits::Hash;
 
 struct PublicDataRead {
@@ -13,8 +13,8 @@ impl Eq for PublicDataRead {
     }
 }
 
-impl Default for PublicDataRead {
-    fn default() -> Self {
+impl Empty for PublicDataRead {
+    fn empty() -> Self {
         Self {
             leaf_slot : 0,
             value : 0,

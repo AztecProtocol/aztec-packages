@@ -5,7 +5,7 @@ struct GasOpts {
 }
 
 impl GasOpts {
-    pub fn default() -> Self {
+    pub fn empty() -> Self {
         GasOpts { l1_gas: Option::none(), l2_gas: Option::none(), da_gas: Option::none() }
     }
 

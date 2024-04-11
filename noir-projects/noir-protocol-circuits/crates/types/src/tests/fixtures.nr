@@ -15,8 +15,8 @@ global MSG_SENDER = AztecAddress { inner: 27 };
 global PUBLIC_KEY = GrumpkinPoint { x: 123456789, y: 123456789 };
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
-fn default_append_only_tree() -> AppendOnlyTreeSnapshot {
-    AppendOnlyTreeSnapshot::default()
+fn empty_append_only_tree() -> AppendOnlyTreeSnapshot {
+    AppendOnlyTreeSnapshot::empty()
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
@@ -30,22 +30,22 @@ fn zero_aztec_address() -> AztecAddress {
 }
 
 // Workaround for https://github.com/noir-lang/noir/issues/1440
-fn default_content_commitment() -> ContentCommitment {
-    ContentCommitment::default()
+fn empty_content_commitment() -> ContentCommitment {
+    ContentCommitment::empty()
 }
 
 global HEADER = Header {
-    last_archive: default_append_only_tree(),
-    content_commitment: default_content_commitment(),
+    last_archive: empty_append_only_tree(),
+    content_commitment: empty_content_commitment(),
     state: StateReference {
-        l1_to_l2_message_tree: default_append_only_tree(),
+        l1_to_l2_message_tree: empty_append_only_tree(),
         partial: PartialStateReference {
             note_hash_tree: AppendOnlyTreeSnapshot {
                 root: fixtures::note_hash_tree::ROOT,
                 next_available_leaf_index: 0, // TODO: should this be populated?
             },
-            nullifier_tree: default_append_only_tree(),
-            public_data_tree: default_append_only_tree()
+            nullifier_tree: empty_append_only_tree(),
+            public_data_tree: empty_append_only_tree()
         }
     },
     global_variables: GlobalVariables {

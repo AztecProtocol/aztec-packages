@@ -53,7 +53,7 @@ fn test_message_input_flattened_length() {
 mod tests {
     use crate::{
         root::{root_rollup_inputs::RootRollupInputs, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP_NUM_BYTES},
-        tests::root_rollup_inputs::default_root_rollup_inputs
+        tests::root_rollup_inputs::empty_root_rollup_inputs
     };
     use dep::types::utils::{uint256::U256, field::field_from_bytes_32_trunc};
     use dep::types::hash::accumulate_sha256;
@@ -62,7 +62,7 @@ mod tests {
     fn check_block_hashes_empty_blocks() {
         let expected_txs_effects_hash = accumulate_sha256([1, 2]);
 
-        let inputs = default_root_rollup_inputs();
+        let inputs = empty_root_rollup_inputs();
         let outputs = inputs.root_rollup_circuit();
 
         // check txs effects hash
@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn end_state() {
-        let inputs = default_root_rollup_inputs();
+        let inputs = empty_root_rollup_inputs();
         let outputs = inputs.root_rollup_circuit();
 
         assert(

@@ -23,7 +23,7 @@ impl Token {
             self.address,
             FunctionSelector::from_signature("transfer_public((Field),(Field),Field,Field)"),
             [from.to_field(), to.to_field(), amount, nonce],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
 
@@ -57,7 +57,7 @@ impl TokenBridge {
             self.address,
             FunctionSelector::from_signature("get_token()"),
             [],
-            GasOpts::default()
+            GasOpts::empty()
         );
         AztecAddress::from_field(return_values[0])
     }
@@ -74,7 +74,7 @@ impl TokenBridge {
             self.address,
             FunctionSelector::from_signature("exit_to_l1_public((Field),Field,(Field),Field)"),
             [recipient.to_field(), amount, caller_on_l1.to_field(), nonce],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
 }

@@ -53,10 +53,10 @@ struct PublicContext {
     prover_address: AztecAddress,
 }
 
-impl Default for PublicContext {
-    fn default() -> Self {
+impl Empty for PublicContext {
+    fn empty() -> Self {
         PublicContext {
-            inputs: PublicContextInputs::default(),
+            inputs: PublicContextInputs::empty(),
             side_effect_counter: 0 as u32,
             args_hash : 0,
             return_values : BoundedVec::new(),
@@ -70,7 +70,7 @@ impl Default for PublicContext {
             new_l2_to_l1_msgs: BoundedVec::new(),
             unencrypted_logs_hash: 0,
             unencrypted_logs_preimages_length: 0,
-            historical_header: Header::default(),
+            historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
         }
     }
@@ -280,7 +280,7 @@ impl PublicContextInterface for PublicContext {
             secret
         );
 
-        // Push nullifier (and the "commitment" corresponding to this can be "default")
+        // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, 0)
     }
 

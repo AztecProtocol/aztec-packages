@@ -21,10 +21,10 @@ impl Zero for EthAddress {
     }
 }
 
-// This is implemented so we have one trait for everything "default", or otherwise known as the "undefined" value,
+// This is implemented so we have one trait for everything "empty", or otherwise known as the "undefined" value,
 // this helps with things such as the array helper
-impl Default for EthAddress {
-    fn default() -> Self {
+impl Empty for EthAddress {
+    fn empty() -> Self {
         EthAddress::zero()
     }
 }

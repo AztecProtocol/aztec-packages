@@ -48,8 +48,8 @@ impl Eq for SideEffect {
     }
 }
 
-impl Default for SideEffect {
-    fn default() -> Self {
+impl Empty for SideEffect {
+    fn empty() -> Self {
         SideEffect {
             value: 0,
             counter: 0,
@@ -108,8 +108,8 @@ impl Eq for SideEffectLinkedToNoteHash {
     }
 }
 
-impl Default for SideEffectLinkedToNoteHash {
-    fn default() -> Self {
+impl Empty for SideEffectLinkedToNoteHash {
+    fn empty() -> Self {
         SideEffectLinkedToNoteHash {
             value: 0,
             note_hash: 0,

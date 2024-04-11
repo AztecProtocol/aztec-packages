@@ -10,7 +10,7 @@ contract SchnorrSingleKeyAccount {
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
 
-    // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
+    // Note: If you globally change the entrypoint signature don't forget to update empty_entrypoint.ts
     #[aztec(private)]
     fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);

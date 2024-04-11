@@ -1,11 +1,11 @@
-use dep::std::{default::Default,cmp::Eq};
+use dep::std::{empty::Empty,cmp::Eq};
 
-pub fn is_default<T>(item: T) -> bool where T: Default + Eq {
-    item.eq(T::default())
+pub fn is_empty<T>(item: T) -> bool where T: Empty + Eq {
+    item.eq(T::empty())
 }
 
-pub fn is_default_array<T, N>(array: [T; N]) -> bool where T: Default + Eq {
-    array.all(|elem| is_default(elem))
+pub fn is_empty_array<T, N>(array: [T; N]) -> bool where T: Empty + Eq {
+    array.all(|elem| is_empty(elem))
 }
 
 // If a Field is equal to zero, then it is regarded as zero.

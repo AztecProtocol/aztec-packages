@@ -6,8 +6,8 @@ struct L2ToL1Message {
     content: Field,
 }
 
-impl Default for L2ToL1Message {
-    fn default() -> Self {
+impl Empty for L2ToL1Message {
+    fn empty() -> Self {
         Self {
             recipient: EthAddress::zero(),
             content: 0,

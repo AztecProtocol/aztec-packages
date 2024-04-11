@@ -11,7 +11,7 @@ struct ContractFunction {
 }
 
 // sibling_path taken from __snapshots__/noir_test_gen.test.ts.snap
-global default_private_function = ContractFunction {
+global empty_private_function = ContractFunction {
     data: FunctionData {
         selector: FunctionSelector { inner: 1010101 },
         is_private: true,
@@ -30,7 +30,7 @@ global default_private_function = ContractFunction {
     },
 };
 
-global default_public_function = ContractFunction {
+global empty_public_function = ContractFunction {
     data: FunctionData {
         selector: FunctionSelector { inner: 3030303 },
         is_private: false,

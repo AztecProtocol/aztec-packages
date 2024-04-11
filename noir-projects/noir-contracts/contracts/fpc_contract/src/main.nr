@@ -66,7 +66,7 @@ contract FPC {
             storage.gas_token_address.read_public(),
             FunctionSelector::from_signature("pay_fee(Field)"),
             [amount],
-            GasOpts::default()
+            GasOpts::empty()
         )[0];
 
         // Just do public refunds for the present
@@ -80,7 +80,7 @@ contract FPC {
             storage.gas_token_address.read_public(),
             FunctionSelector::from_signature("pay_fee(Field)"),
             [amount],
-            GasOpts::default()
+            GasOpts::empty()
         )[0];
 
         Token::at(asset).shield(&mut context, context.this_address(), refund, secret_hash, 0);

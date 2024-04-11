@@ -1,10 +1,10 @@
-// We use this because storage read is_default does not match behavior with the normal way we calculate is_default
+// We use this because storage read is_empty does not match behavior with the normal way we calculate is_empty
 trait StorageOp {
-  fn is_default(self) -> bool;
+  fn is_empty(self) -> bool;
 }
 
-pub fn is_default<T>(item: T) -> bool where T: StorageOp {
-    item.is_default()
+pub fn is_empty<T>(item: T) -> bool where T: StorageOp {
+    item.is_empty()
 }
 
 // Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
@@ -17,23 +17,23 @@ pub fn validate_array<T, N>(array: [T; N]) where T: StorageOp + Eq {
     let mut last_non_zero_pos = 0;
 
     for i in 0..array_length {
-        let is_default = array[i].is_default();
-        if !is_default {
+        let is_empty = array[i].is_empty();
+        if !is_empty {
             last_non_zero_pos = i;
-        } else if is_default & (first_zero_pos == array_length) {
+        } else if is_empty & (first_zero_pos == array_length) {
             first_zero_pos = i;
         }
     }
     assert(last_non_zero_pos <= first_zero_pos, "invalid array");
 }
 
-// Helper method to determine the number of non-zero/default elements in a validated array (ie, validate_array(array)
+// Helper method to determine the number of non-zero/empty elements in a validated array (ie, validate_array(array)
 // should be true).
 pub fn array_length<T, N>(array: [T; N]) -> u64 where T: StorageOp + Eq {
     let mut length = 0;
     let mut end = false;
     for elem in array {
-        end |= elem.is_default();
+        end |= elem.is_empty();
         if !end {
             length += 1;
         }

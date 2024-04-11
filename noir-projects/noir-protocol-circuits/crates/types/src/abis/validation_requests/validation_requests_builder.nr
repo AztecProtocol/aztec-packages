@@ -22,10 +22,10 @@ struct ValidationRequestsBuilder {
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
 }
 
-impl Default for ValidationRequestsBuilder {
-    fn default() -> Self {
+impl Empty for ValidationRequestsBuilder {
+    fn empty() -> Self {
         ValidationRequestsBuilder {
-            max_block_number: MaxBlockNumber::default(),
+            max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),

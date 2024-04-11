@@ -17,11 +17,11 @@ impl Eq for StateReference {
     }
 }
 
-impl Default for StateReference {
-    fn default() -> Self {
+impl Empty for StateReference {
+    fn empty() -> Self {
         Self {
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::default(),
-            partial: PartialStateReference::default(),
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::empty(),
+            partial: PartialStateReference::empty(),
         }
     }
 }
@@ -54,8 +54,8 @@ impl Deserialize<STATE_REFERENCE_LENGTH> for StateReference {
 }
 
 #[test]
-fn serialization_of_default() {
-    let state = StateReference::default();
+fn serialization_of_empty() {
+    let state = StateReference::empty();
     let _serialized = state.serialize();
     let _deserialized = StateReference::deserialize(_serialized);
 }

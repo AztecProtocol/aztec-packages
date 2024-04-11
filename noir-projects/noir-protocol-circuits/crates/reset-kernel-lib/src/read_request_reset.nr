@@ -1,7 +1,7 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use dep::types::{
     abis::{read_request::ReadRequestContext, side_effect::OrderedValue}, hash::silo_nullifier,
-    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::is_default
+    merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::is_empty
 };
 
 struct ReadRequestStateEnum {
@@ -21,8 +21,8 @@ struct ReadRequestStatus {
     hint_index: u64,
 }
 
-impl Default for ReadRequestStatus {
-    fn default() -> Self {
+impl Empty for ReadRequestStatus {
+    fn empty() -> Self {
         ReadRequestStatus { state: ReadRequestState.NADA, hint_index: 0 }
     }
 }
@@ -112,7 +112,7 @@ fn propagate_unverified_read_requests<READ_REQUEST_LEN, T, NUM_PENDING_READS, S,
     let mut propagated_read_requests = BoundedVec::new();
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
-        if !is_default(read_request) {
+        if !is_empty(read_request) {
             let status = read_request_statuses[i];
             if status.state == ReadRequestState.NADA {
                 propagated_read_requests.push(read_request);
@@ -180,8 +180,8 @@ mod tests {
         }
     }
 
-    impl Default for TestLeafPreimage {
-        fn default() -> Self {
+    impl Empty for TestLeafPreimage {
+        fn empty() -> Self {
             TestLeafPreimage {
                 value: 0
             }
@@ -212,8 +212,8 @@ mod tests {
         fn nada(read_request_len: u64) -> Self {
             TestSettledReadHint {
                 read_request_index: read_request_len,
-                membership_witness: MembershipWitness::default(),
-                leaf_preimage: TestLeafPreimage::default()
+                membership_witness: MembershipWitness::empty(),
+                leaf_preimage: TestLeafPreimage::empty()
             }
         }
     }
@@ -335,9 +335,9 @@ mod tests {
     #[test]
     fn test_propagate_unverified_read_requests() {
         let read_request_statuses = [
-            ReadRequestStatus::default(),
+            ReadRequestStatus::empty(),
             ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 0 },
-            ReadRequestStatus::default(),
+            ReadRequestStatus::empty(),
             ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 0 }
         ];
         let pending_read_hints = [pending_read_hints[0]];

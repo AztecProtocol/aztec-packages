@@ -11,12 +11,12 @@ struct PrivateContextInputs {
 }
 // docs:end:private-context-inputs
 
-impl Default for PrivateContextInputs {
-    fn default() -> Self {
+impl Empty for PrivateContextInputs {
+    fn empty() -> Self {
         PrivateContextInputs {
-            call_context : CallContext::default(),
-            historical_header: Header::default(),
-            private_global_variables: PrivateGlobalVariables::default(),
+            call_context : CallContext::empty(),
+            historical_header: Header::empty(),
+            private_global_variables: PrivateGlobalVariables::empty(),
             start_side_effect_counter: 0 as u32,
         }
     }

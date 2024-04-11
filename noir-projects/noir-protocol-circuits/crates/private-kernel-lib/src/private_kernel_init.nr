@@ -76,7 +76,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::default();
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         self.initialize_end_values(&mut public_inputs);
 
@@ -256,7 +256,7 @@ mod tests {
 
         builder.private_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(
             [
-            L2ToL1Message::default(),
+            L2ToL1Message::empty(),
             L2ToL1Message { recipient: EthAddress::from_field(6), content: 9123 }
         ]
         );
@@ -389,7 +389,7 @@ mod tests {
     }
 
     #[test]
-    fn default_max_block_number() {
+    fn empty_max_block_number() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
         let public_inputs = builder.execute();
 

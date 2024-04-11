@@ -48,7 +48,7 @@ contract Benchmarking {
             context.this_address(),
             FunctionSelector::from_signature("broadcast((Field))"),
             [owner.to_field()],
-            GasOpts::default()
+            GasOpts::empty()
         );
     }
 

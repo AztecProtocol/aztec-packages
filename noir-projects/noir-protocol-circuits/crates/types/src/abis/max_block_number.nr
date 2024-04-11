@@ -4,8 +4,8 @@ struct MaxBlockNumber {
     _opt: Option<u32>
 }
 
-impl Default for MaxBlockNumber {
-    fn default() -> Self {
+impl Empty for MaxBlockNumber {
+    fn empty() -> Self {
         Self { _opt: Option::none() }
     }
 }
@@ -75,16 +75,16 @@ impl MaxBlockNumber {
 
 #[test]
 fn zeroed_is_none() {
-    // Large parts of the kernel rely on zeroed to initialize structs. This conveniently matches what `default` does,
-    // and though we should eventually move everything to use `default`, it's good to check for now that both are
+    // Large parts of the kernel rely on zeroed to initialize structs. This conveniently matches what `empty` does,
+    // and though we should eventually move everything to use `empty`, it's good to check for now that both are
     // equivalent.
     let a: MaxBlockNumber = dep::std::unsafe::zeroed();
     assert(a.is_none());
 }
 
 #[test]
-fn serde_default() {
-    let a = MaxBlockNumber::default();
+fn serde_empty() {
+    let a = MaxBlockNumber::empty();
     let b = MaxBlockNumber::deserialize(a.serialize());
     assert(b.is_none());
 }
@@ -97,22 +97,22 @@ fn serde_some() {
 }
 
 #[test(should_fail)]
-fn default_unwrap_panics() {
-    let a = MaxBlockNumber::default();
+fn empty_unwrap_panics() {
+    let a = MaxBlockNumber::empty();
     let _ = a.unwrap();
 }
 
 #[test]
-fn min_default_default() {
-    let a = MaxBlockNumber::default();
-    let b = MaxBlockNumber::default();
+fn min_empty_empty() {
+    let a = MaxBlockNumber::empty();
+    let b = MaxBlockNumber::empty();
 
     assert(MaxBlockNumber::min(a, b).is_none());
 }
 
 #[test]
-fn min_default_some() {
-    let a = MaxBlockNumber::default();
+fn min_empty_some() {
+    let a = MaxBlockNumber::empty();
     let b = MaxBlockNumber::new(13);
 
     assert_eq(MaxBlockNumber::min(a, b).unwrap(), 13);
@@ -129,8 +129,8 @@ fn min_some_some() {
 }
 
 #[test]
-fn min_with_u32_default() {
-    let a = MaxBlockNumber::default();
+fn min_with_u32_empty() {
+    let a = MaxBlockNumber::empty();
     let b = 42;
 
     assert_eq(MaxBlockNumber::min_with_u32(a, b).unwrap(), 42);

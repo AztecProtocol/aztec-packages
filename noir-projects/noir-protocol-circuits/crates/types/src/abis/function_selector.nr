@@ -15,8 +15,8 @@ impl Eq for FunctionSelector {
     }
 }
 
-impl Default for FunctionSelector {
-    fn default() -> Self {
+impl Empty for FunctionSelector {
+    fn empty() -> Self {
         Self { inner: 0 as u32 }
     }
 }

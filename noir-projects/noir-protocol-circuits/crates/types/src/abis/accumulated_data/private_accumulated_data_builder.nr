@@ -33,8 +33,8 @@ struct PrivateAccumulatedDataBuilder {
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 }
 
-impl Default for PrivateAccumulatedDataBuilder {
-    fn default() -> Self {
+impl Empty for PrivateAccumulatedDataBuilder {
+    fn empty() -> Self {
         PrivateAccumulatedDataBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
@@ -73,7 +73,7 @@ impl PrivateAccumulatedDataBuilder {
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            public_data_update_requests: [PublicDataUpdateRequest::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
         }
     }
 
@@ -81,8 +81,8 @@ impl PrivateAccumulatedDataBuilder {
         self,
         min_revertible_side_effect_counter: u32
     ) -> (PublicAccumulatedData, PublicAccumulatedData) {
-        let mut non_revertible_builder = PublicAccumulatedDataBuilder::default();
-        let mut revertible_builder = PublicAccumulatedDataBuilder::default();
+        let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
+        let mut revertible_builder = PublicAccumulatedDataBuilder::empty();
 
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = self.new_note_hashes.storage[i];
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {
-        let mut builder = PrivateAccumulatedDataBuilder::default();
+        let mut builder = PrivateAccumulatedDataBuilder::empty();
 
         let non_revertible_commitments = [
             SideEffect { value: 1, counter: 1 },
@@ -150,14 +150,14 @@ mod tests {
             CallRequest {
                 hash: 1,
                 caller_contract_address: AztecAddress::from_field(1),
-                caller_context: CallerContext::default(),
+                caller_context: CallerContext::empty(),
                 start_side_effect_counter: 5,
                 end_side_effect_counter: 0
             },
             CallRequest {
                 hash: 2,
                 caller_contract_address: AztecAddress::from_field(1),
-                caller_context: CallerContext::default(),
+                caller_context: CallerContext::empty(),
                 start_side_effect_counter: 6,
                 end_side_effect_counter: 0
             }
@@ -177,7 +177,7 @@ mod tests {
             CallRequest {
                 hash: 3,
                 caller_contract_address: AztecAddress::from_field(3),
-                caller_context: CallerContext::default(),
+                caller_context: CallerContext::empty(),
                 start_side_effect_counter: 9,
                 end_side_effect_counter: 0
             }

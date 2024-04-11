@@ -3,8 +3,8 @@ struct MerkleTree<N> {
     nodes: [Field; N],
 }
 
-impl<N> Default for MerkleTree<N> {
-    fn default() -> Self {
+impl<N> Empty for MerkleTree<N> {
+    fn empty() -> Self {
         MerkleTree {
             leaves: [0; N],
             nodes: [0; N]

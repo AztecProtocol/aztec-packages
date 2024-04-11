@@ -36,7 +36,7 @@ contract SchnorrAccount {
         // docs:end:initialize
     }
 
-    // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
+    // Note: If you globally change the entrypoint signature don't forget to update empty_entrypoint.ts file
     #[aztec(private)]
     #[aztec(noinitcheck)]
     fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {

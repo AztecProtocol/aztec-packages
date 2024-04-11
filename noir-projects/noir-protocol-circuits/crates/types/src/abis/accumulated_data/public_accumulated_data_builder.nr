@@ -28,8 +28,8 @@ struct PublicAccumulatedDataBuilder {
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 }
 
-impl Default for PublicAccumulatedDataBuilder {
-    fn default() -> Self {
+impl Empty for PublicAccumulatedDataBuilder {
+    fn empty() -> Self {
         PublicAccumulatedDataBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),

@@ -2,7 +2,7 @@ use crate::{
     abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot, constants::PARTIAL_STATE_REFERENCE_LENGTH,
     traits::{Deserialize, Hash, Serialize}
 };
-use dep::std::default::Default;
+use dep::std::empty::Empty;
 
 struct PartialStateReference {
     note_hash_tree: AppendOnlyTreeSnapshot,
@@ -18,12 +18,12 @@ impl Eq for PartialStateReference {
     }
 }
 
-impl Default for PartialStateReference {
-    fn default() -> Self {
+impl Empty for PartialStateReference {
+    fn empty() -> Self {
         Self {
-            note_hash_tree: AppendOnlyTreeSnapshot::default(),
-            nullifier_tree: AppendOnlyTreeSnapshot::default(),
-            public_data_tree: AppendOnlyTreeSnapshot::default(),
+            note_hash_tree: AppendOnlyTreeSnapshot::empty(),
+            nullifier_tree: AppendOnlyTreeSnapshot::empty(),
+            public_data_tree: AppendOnlyTreeSnapshot::empty(),
         }
     }
 }
@@ -64,8 +64,8 @@ impl Deserialize<PARTIAL_STATE_REFERENCE_LENGTH> for PartialStateReference {
 
 
 #[test]
-fn serialization_of_default() {
-    let partial = PartialStateReference::default();
+fn serialization_of_empty() {
+    let partial = PartialStateReference::empty();
     let _serialized = partial.serialize();
     let _deserialized = PartialStateReference::deserialize(_serialized);
 }

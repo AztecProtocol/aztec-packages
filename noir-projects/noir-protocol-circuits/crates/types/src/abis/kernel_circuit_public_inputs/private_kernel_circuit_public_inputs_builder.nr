@@ -18,14 +18,14 @@ struct PrivateKernelCircuitPublicInputsBuilder {
     constants: CombinedConstantData,
 }
 
-impl Default for PrivateKernelCircuitPublicInputsBuilder {
-    fn default() -> Self {
+impl Empty for PrivateKernelCircuitPublicInputsBuilder {
+    fn empty() -> Self {
         PrivateKernelCircuitPublicInputsBuilder {
-            aggregation_object: AggregationObject::default(),
+            aggregation_object: AggregationObject::empty(),
             min_revertible_side_effect_counter: 0 as u32,
-            validation_requests: ValidationRequestsBuilder::default(),
-            end: PrivateAccumulatedDataBuilder::default(),
-            constants: CombinedConstantData::default(),
+            validation_requests: ValidationRequestsBuilder::empty(),
+            end: PrivateAccumulatedDataBuilder::empty(),
+            constants: CombinedConstantData::empty(),
         }
     }
 }

@@ -22,7 +22,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::default();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
@@ -341,7 +341,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="new_note_hashes must be a default array (empty) for static calls")]
+    #[test(should_fail_with="new_note_hashes must be a empty array (empty) for static calls")]
     fn public_kernel_fails_creating_new_note_hashes_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
@@ -350,7 +350,7 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="new_nullifiers must be a default array (empty) for static calls")]
+    #[test(should_fail_with="new_nullifiers must be a empty array (empty) for static calls")]
     fn public_kernel_fails_creating_new_nullifiers_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;

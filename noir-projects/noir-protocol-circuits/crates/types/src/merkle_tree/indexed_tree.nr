@@ -4,7 +4,7 @@ use crate::{
     membership::{assert_check_membership, MembershipWitness},
     root::{calculate_subtree_root, calculate_empty_tree_root, root_from_sibling_path}
 },
-    traits::{Default, Hash, is_default}, utils::arrays::check_permutation
+    traits::{Empty, Hash, is_empty}, utils::arrays::check_permutation
 };
 
 pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight, TreeHeight>(
@@ -20,18 +20,18 @@ pub fn batch_insert<Value, Leaf, SubtreeWidth, SiblingPathLength, SubtreeHeight,
     build_insertion_leaf: fn(Value, Leaf) -> Leaf,
     _subtree_height: [Field; SubtreeHeight],
     _tree_height: [Field; TreeHeight]
-) -> AppendOnlyTreeSnapshot where Value: Eq + Default, Leaf: Hash + Default {
+) -> AppendOnlyTreeSnapshot where Value: Eq + Empty, Leaf: Hash + Empty {
     // A permutation to the values is provided to make the insertion use only one insertion strategy
     check_permutation(values_to_insert, sorted_values, sorted_values_indexes);
 
     // Now, update the existing leaves with the new leaves
     let mut current_tree_root = start_snapshot.root;
-    let mut insertion_subtree = [Leaf::default(); SubtreeWidth];
+    let mut insertion_subtree = [Leaf::empty(); SubtreeWidth];
     let start_insertion_index = start_snapshot.next_available_leaf_index;
 
     for i in 0..sorted_values.len() {
         let value = sorted_values[i];
-        if !is_default(value) {
+        if !is_empty(value) {
             let low_leaf_preimage = low_leaf_preimages[i];
             let witness = low_leaf_membership_witnesses[i];
 

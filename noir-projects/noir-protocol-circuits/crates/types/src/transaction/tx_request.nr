@@ -20,13 +20,13 @@ impl Eq for TxRequest {
     }
 }
 
-impl Default for TxRequest {
-    fn default() -> Self {
+impl Empty for TxRequest {
+    fn empty() -> Self {
         TxRequest {
-            origin: AztecAddress::default(),
+            origin: AztecAddress::empty(),
             args_hash: 0,
-            tx_context: TxContext::default(),
-            function_data: FunctionData::default()
+            tx_context: TxContext::empty(),
+            function_data: FunctionData::empty()
         }
     }
 }
@@ -77,9 +77,9 @@ mod tests {
     };
 
     #[test]
-    fn serialization_of_default() {
+    fn serialization_of_empty() {
         // Assuming a zeroed initialization for simplicity
-        let request = TxRequest::default();
+        let request = TxRequest::empty();
         let serialized = request.serialize();
         let deserialized = TxRequest::deserialize(serialized);
         assert(request.eq(deserialized));

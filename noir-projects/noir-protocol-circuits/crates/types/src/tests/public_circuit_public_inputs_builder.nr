@@ -35,10 +35,10 @@ struct PublicCircuitPublicInputsBuilder {
     revert_code: u8,
 }
 
-impl Default for PublicCircuitPublicInputsBuilder {
-    fn default() -> Self {
+impl Empty for PublicCircuitPublicInputsBuilder {
+    fn empty() -> Self {
         PublicCircuitPublicInputsBuilder {
-            call_context: CallContext::default(),
+            call_context: CallContext::empty(),
             args_hash: 0,
             return_values: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
@@ -53,7 +53,7 @@ impl Default for PublicCircuitPublicInputsBuilder {
             end_side_effect_counter: 0 as u32,
             unencrypted_logs_hash: 0,
             unencrypted_log_preimages_length: 0,
-            historical_header: Header::default(),
+            historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
             revert_code: 0 as u8,
         }
@@ -62,7 +62,7 @@ impl Default for PublicCircuitPublicInputsBuilder {
 
 impl PublicCircuitPublicInputsBuilder {
     pub fn new() -> Self {
-        let mut public_inputs = PublicCircuitPublicInputsBuilder::default();
+        let mut public_inputs = PublicCircuitPublicInputsBuilder::empty();
         public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
         public_inputs.historical_header = fixtures::HEADER;
         public_inputs

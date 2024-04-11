@@ -27,8 +27,8 @@ struct CombinedAccumulatedData {
     public_data_update_requests: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
 }
 
-impl Default for CombinedAccumulatedData {
-    fn default() -> Self {
+impl Empty for CombinedAccumulatedData {
+    fn empty() -> Self {
         CombinedAccumulatedData {
             new_note_hashes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
             new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_TX],
@@ -37,7 +37,7 @@ impl Default for CombinedAccumulatedData {
             unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
-            public_data_update_requests: [PublicDataUpdateRequest::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
         }
     }
 }

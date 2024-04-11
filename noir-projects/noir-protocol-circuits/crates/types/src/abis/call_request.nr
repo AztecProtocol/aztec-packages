@@ -1,5 +1,5 @@
 use crate::address::AztecAddress;
-use dep::std::{cmp::Eq,default::Default};
+use dep::std::{cmp::Eq,empty::Empty};
 use crate::abis::caller_context::CallerContext;
 
 struct CallRequest {
@@ -20,12 +20,12 @@ impl Eq for CallRequest {
     }
 }
 
-impl Default for CallRequest {
-    fn default() -> Self {
+impl Empty for CallRequest {
+    fn empty() -> Self {
         CallRequest {
             hash: 0,
             caller_contract_address: AztecAddress::zero(),
-            caller_context: CallerContext::default(),
+            caller_context: CallerContext::empty(),
             start_side_effect_counter: 0,
             end_side_effect_counter: 0,
         }
