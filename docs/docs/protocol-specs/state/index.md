@@ -76,10 +76,10 @@ Below is a short description of the state catagories (trees) and why they have t
 - [**Note Hashes**](./note-hash-tree.md): A set of hashes (commitments) of the individual blobs of contract data (we call these blobs of data notes). New notes can be created and their hashes inserted through contract execution. We need to support efficient membership proofs as any read will require one to prove validity. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees), storing the note hashes as leaves.
 - [**Nullifiers**](./nullifier-tree.md): A set of nullifiers for notes that have been spent. We need to support efficient non-membership proofs since we need to check that a note has not been spent before it can be used. The set is represented as an [Indexed Merkle tree](./tree-implementations.md#indexed-merkle-trees).
 - [**Public Data**](./public-data-tree.md): The key-value store for public contract state. We need to support both efficient membership and non-membership proofs! We require both, since the tree is "empty" from the start. Meaning that if the key is not already stored (non-membership), we need to insert it, and if it is already stored (membership) we need to just update the value.
-- **L1 to L2 Messages**: The set of messages sent from L1 to L2. The set itself only needs to support efficient membership proofs, so we can ensure that the message was correctly sent from L1. However, it utilizes the Nullifier tree from above to ensure that the message cannot be processed twice. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees). For more information on how the L1 to L2 messages are used, see the [L1 Smart Contracts](../l1-smart-contracts/index.md) page.
+- **L1 to L2 Messages**: The set of messages sent from L1 to L2. The set itself only needs to support efficient membership proofs, so we can ensure that the message was correctly sent from L1. However, it utilizes the Nullifier tree from above to ensure that the message cannot be processed twice. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees). For more information on how the L1 to L2 messages are used, see the [L1 Smart Contracts](../l1-smart-contracts) page.
 - [**Archive Tree**](./archive.md): The set of block headers that have been processed. We need to support efficient membership proofs as this is used in private execution to get the roots of the other trees. The set is represented as an [Append-only Merkle tree](./tree-implementations.md#append-only-merkle-trees).
 
-To recall, the global state in Aztec is represented by a set of Merkle trees: the [Note Hash tree](./note-hash-tree.md), [Nullifier tree](./nullifier-tree.md), and [Public Data tree](./public-data-tree.md) reflect the latest state of the chain, while the L1 to L2 message tree allows for [cross-chain communication](../l1-smart-contracts/index.md#l2-outbox) and the [Archive Tree](./archive.md) allows for historical state access.
+To recall, the global state in Aztec is represented by a set of Merkle trees: the [Note Hash tree](./note-hash-tree.md), [Nullifier tree](./nullifier-tree.md), and [Public Data tree](./public-data-tree.md) reflect the latest state of the chain, while the L1 to L2 message tree allows for [cross-chain communication](../l1-smart-contracts/#l2-outbox) and the [Archive Tree](./archive.md) allows for historical state access.
 
 <!-- NOTE: If you're editing this diagram, there will be other diagrams (e.g. in the rollup-circuits / circuits sections) that will need to be updated too. There are also class definitions in other sections which will need to be updated. -->
 
@@ -106,6 +106,9 @@ class GlobalVariables {
     chain_id: Fr
     coinbase: EthAddress
     fee_recipient: Address
+    gas_fees.fees_per_da_gas: Fr
+    gas_fees.fees_per_l1_gas: Fr
+    gas_fees.fees_per_l2_gas: Fr
 }
 
 class ContentCommitment {
