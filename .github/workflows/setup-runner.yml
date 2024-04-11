@@ -1,0 +1,86 @@
+name: Reusable Spot Instance and Setup Workflow
+on:
+  workflow_call:
+    inputs:
+      runner_label:
+        required: true
+        type: string
+      runner_concurrency:
+        required: true
+        type: number
+      ec2_instance_type:
+        required: true
+        type: string
+      ec2_ami_id:
+        required: true
+        type: string
+      ec2_instance_ttl:
+        required: true
+        type: number
+      ec2_subnet_id:
+        default: subnet-4cfabd25
+        type: string
+      ec2_security_group_id:
+        default: sg-0ccd4e5df0dcca0c9
+        type: string
+      ec2_spot_instance_strategy:
+        default: BestEffort
+        type: string
+      aws_region:
+        default: "us-east-2"
+        type: string
+      ref_sha:
+        required: true
+        type: string
+      ebs_cache_size_gb:
+        required: true
+        type: string
+    secrets:
+      aws_access_key_id:
+        required: true
+      aws_secret_access_key:
+        required: true
+      github_token:
+        required: true
+      dockerhub_password:
+        required: true
+jobs:
+  start-builder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start EC2 runner
+        uses: AztecProtocol/ec2-action-builder@v0.3
+        with:
+          github_token: ${{ inputs.github_token }}
+          aws_access_key_id: ${{ inputs.aws_access_key_id }}
+          aws_secret_access_key: ${{ inputs.aws_secret_access_key }}
+          aws_region: ${{ inputs.aws_region }}
+          ec2_subnet_id: ${{ inputs.ec2_subnet_id }}
+          ec2_security_group_id: ${{ inputs.ec2_security_group_id }}
+          ec2_spot_instance_strategy: ${{ inputs.ec2_spot_instance_strategy }}
+          runner_label: ${{ inputs.runner_label }}
+          runner_concurrency: ${{ inputs.runner_concurrency }}
+          ec2_instance_type: ${{ inputs.ec2_instance_type }}
+          ec2_ami_id: ${{ inputs.ec2_ami_id }}
+          ec2_instance_ttl: ${{ inputs.ec2_instance_ttl }}
+          ec2_instance_tags: '[{"Key": "Keep-Alive", "Value": "true"}]'
+
+  setup:
+    needs: start-builder
+    runs-on: ${{ inputs.runner_label }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref_sha }}
+
+      - name: Setup CI
+        uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: ${{ inputs.dockerhub_password }}
+
+      - name: Attach EBS Cache Disk
+        run: ./scripts/attach_ebs_cache.sh ${{ inputs.runner_label }} 128
+
+      - name: Run Earthly Bootstrap
+        run: earthly bootstrap

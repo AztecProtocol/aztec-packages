@@ -2,7 +2,7 @@
 name: Setup Workflow
 description: 'Reusable setup steps'
 
-inputs:
+secrets:
   dockerhub_password:
     required: true
     description: 'DockerHub Password'
