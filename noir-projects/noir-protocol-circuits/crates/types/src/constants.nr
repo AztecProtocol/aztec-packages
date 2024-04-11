@@ -34,8 +34,12 @@ global MAX_NOTE_HASH_READ_REQUESTS_PER_CALL: u64 = 32;
 global MAX_NULLIFIER_READ_REQUESTS_PER_CALL: u64 = 2; // Change it to a larger value when there's a seperate reset circuit.
 global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u64 = 2;
 global MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL: u64 = 1;
-global MAX_ENCRYPTED_LOGS_PER_CALL: u64 = 2;
-global MAX_UNENCRYPTED_LOGS_PER_CALL: u64 = 2;
+// Note: if changing enc logs per call value by n, change PRIVATE_CALL_STACK_ITEM_LENGTH and PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH by 2n
+// and change DEPLOYER_CONTRACT_ADDRESS to new value
+global MAX_ENCRYPTED_LOGS_PER_CALL: u64 = 4;
+// Note: if changing unenc logs per call value by n, change PRIVATE_CALL_STACK_ITEM_LENGTH, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, and PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH by 2n
+// and change DEPLOYER_CONTRACT_ADDRESS to new value
+global MAX_UNENCRYPTED_LOGS_PER_CALL: u64 = 4;
 
 // "PER TRANSACTION" CONSTANTS
 global MAX_NEW_NOTE_HASHES_PER_TX: u64 = 64;
@@ -121,7 +125,7 @@ global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE = 0xe7af8166354
 // CONTRACT INSTANCE CONSTANTS
 // sha224sum 'struct ContractInstanceDeployed'
 global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
-global DEPLOYER_CONTRACT_ADDRESS = 0x1ad693effc2a4a40fdf5911ff29e19d2b6cd3cf73e6c3685519a6fb783144dcb;
+global DEPLOYER_CONTRACT_ADDRESS = 0x06d4e6f227dd9ff2e9e2b9e9df4fb4f650a1776499a7acc0d273f5dbb2704d59;
 
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
@@ -155,13 +159,13 @@ global MAX_BLOCK_NUMBER_LENGTH: u64 = 2; // 1 for the option flag, 1 for the val
 global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
 global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 217;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 225;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 213;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 221;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 201;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 205;
 global STATE_REFERENCE_LENGTH: u64 = 8; // 2 for snap + 8 for partial
 global TX_CONTEXT_DATA_LENGTH: u64 = 4;
 global TX_REQUEST_LENGTH: u64 = 9; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH

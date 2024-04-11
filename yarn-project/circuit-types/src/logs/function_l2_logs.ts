@@ -1,5 +1,5 @@
 import { sha256Trunc } from '@aztec/foundation/crypto';
-import { BufferReader, prefixBufferWithLength, truncateAndPad } from '@aztec/foundation/serialize';
+import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import { EncryptedL2Log } from './encrypted_l2_log.js';
 import { UnencryptedL2Log } from './unencrypted_l2_log.js';

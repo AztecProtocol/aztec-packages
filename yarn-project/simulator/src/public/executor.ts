@@ -92,6 +92,7 @@ export async function executePublicFunction(
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
+      unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
@@ -112,6 +113,7 @@ export async function executePublicFunction(
     newNullifiers: newNullifiersPadded,
     startSideEffectCounter,
     endSideEffectCounter,
+    unencryptedLogsHashes: unencryptedLogsHashesPadded,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
 
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
@@ -119,6 +121,7 @@ export async function executePublicFunction(
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
+  const unencryptedLogsHashes = unencryptedLogsHashesPadded.filter(v => !v.isEmpty());
 
   const { contractStorageReads, contractStorageUpdateRequests } = context.getStorageActionData();
 
@@ -149,6 +152,7 @@ export async function executePublicFunction(
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
+    unencryptedLogsHashes,
     unencryptedLogs,
     reverted: false,
     revertReason: undefined,

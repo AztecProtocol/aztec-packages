@@ -1,5 +1,5 @@
-import { sha256 } from '@aztec/foundation/crypto';
-import { BufferReader, prefixBufferWithLength, truncateAndPad } from '@aztec/foundation/serialize';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import isEqual from 'lodash.isequal';
 
@@ -91,7 +91,7 @@ export abstract class TxL2Logs<TLog extends UnencryptedL2Log | EncryptedL2Log> {
       logsHashes[1] = logsFromSingleFunctionCall.hash(); // privateCircuitPublicInputsLogsHash
 
       // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
-      kernelPublicInputsLogsHash = truncateAndPad(sha256(Buffer.concat(logsHashes)));
+      kernelPublicInputsLogsHash = sha256Trunc(Buffer.concat(logsHashes));
     }
 
     return kernelPublicInputsLogsHash;

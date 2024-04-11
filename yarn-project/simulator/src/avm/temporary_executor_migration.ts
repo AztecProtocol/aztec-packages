@@ -96,6 +96,7 @@ export function temporaryConvertAvmResults(
   const nullifierReadRequests: ReadRequest[] = [];
   const nullifierNonExistentReadRequests: ReadRequest[] = [];
   const newNullifiers: SideEffectLinkedToNoteHash[] = [];
+  const unencryptedLogsHashes: SideEffect[] = [];
   const unencryptedLogs = UnencryptedFunctionL2Logs.empty();
   const newL2ToL1Messages = newWorldState.newL1Messages.map(() => L2ToL1Message.empty());
   // TODO keep track of side effect counters
@@ -115,6 +116,7 @@ export function temporaryConvertAvmResults(
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
+    unencryptedLogsHashes,
     unencryptedLogs,
     reverted: result.reverted,
     revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,

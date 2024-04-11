@@ -433,7 +433,8 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
             new_logs_to_insert.push(new_log)
         }
     }
-    public_inputs.end.encrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
+    public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
+    public_inputs.end.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
 }
 
 /**

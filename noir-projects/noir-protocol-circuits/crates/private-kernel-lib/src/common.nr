@@ -299,12 +299,6 @@ pub fn update_end_values(
 
     public_inputs.end.encrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(private_call_public_inputs.encrypted_logs_hashes));
     public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(private_call_public_inputs.unencrypted_logs_hashes));
-    // let previous_encrypted_logs_hash = public_inputs.end.encrypted_logs_hash;
-    // let current_encrypted_logs_hash = compute_call_logs_hash(private_call_public_inputs.encrypted_logs_hashes);
-    // public_inputs.end.encrypted_logs_hash = compute_accumulated_logs_hash(previous_encrypted_logs_hash,current_encrypted_logs_hash);
-    // let previous_unencrypted_logs_hash = public_inputs.end.unencrypted_logs_hash;
-    // let current_unencrypted_logs_hash = compute_call_logs_hash(private_call_public_inputs.unencrypted_logs_hashes);
-    // public_inputs.end.unencrypted_logs_hash = compute_accumulated_logs_hash(previous_unencrypted_logs_hash,current_unencrypted_logs_hash);
 
     // Add log preimages lengths from current iteration to accumulated lengths
     public_inputs.end.encrypted_log_preimages_length = public_inputs.end.encrypted_log_preimages_length +

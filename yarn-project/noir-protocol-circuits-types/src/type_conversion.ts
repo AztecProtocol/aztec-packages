@@ -1295,6 +1295,10 @@ export function mapPrivateKernelTailCircuitPrivateInputsToNoir(
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
+    sorted_encrypted_log_hashes: mapTuple(inputs.sortedEncryptedLogHashes, mapSideEffectToNoir),
+    sorted_encrypted_log_hashes_indexes: mapTuple(inputs.sortedEncryptedLogHashesIndexes, mapNumberToNoir),
+    sorted_unencrypted_log_hashes: mapTuple(inputs.sortedUnencryptedLogHashes, mapSideEffectToNoir),
+    sorted_unencrypted_log_hashes_indexes: mapTuple(inputs.sortedUnencryptedLogHashesIndexes, mapNumberToNoir),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
   };
 }
@@ -1311,6 +1315,10 @@ export function mapPrivateKernelTailToPublicCircuitPrivateInputsToNoir(
     sorted_new_nullifiers_indexes: mapTuple(inputs.sortedNewNullifiersIndexes, mapNumberToNoir),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     nullifier_commitment_hints: mapTuple(inputs.nullifierCommitmentHints, mapFieldToNoir),
+    sorted_encrypted_log_hashes: mapTuple(inputs.sortedEncryptedLogHashes, mapSideEffectToNoir),
+    sorted_encrypted_log_hashes_indexes: mapTuple(inputs.sortedEncryptedLogHashesIndexes, mapNumberToNoir),
+    sorted_unencrypted_log_hashes: mapTuple(inputs.sortedUnencryptedLogHashes, mapSideEffectToNoir),
+    sorted_unencrypted_log_hashes_indexes: mapTuple(inputs.sortedUnencryptedLogHashesIndexes, mapNumberToNoir),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),
   };
 }

@@ -386,9 +386,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       sideEffectCounter,
     );
 
-    console.log("in client context");
-    console.log(targetContractAddress);
-
     const childExecutionResult = await executePrivateFunction(
       context,
       targetArtifact,

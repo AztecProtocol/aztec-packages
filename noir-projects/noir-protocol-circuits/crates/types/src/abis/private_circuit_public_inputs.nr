@@ -185,8 +185,7 @@ fn serialization_of_empty() {
 fn empty_hash() {
     let inputs: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
     let hash = inputs.hash();
-    // TODO(Miranda)
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x1304e6c42e3c53fc7c918cbf1ea70333b4f214726c0784cf9878cd641967dab1;
+    let test_data_empty_hash = 0x02e09d8c4897d560bd4caf05ab45fa22e1d4a251bf5b5e0448310a7f40f7a0b8;
     assert_eq(hash, test_data_empty_hash);
 }

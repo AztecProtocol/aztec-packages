@@ -1,4 +1,4 @@
-import { type Tx } from '@aztec/circuit-types';
+import { UnencryptedL2Log, Tx, UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
   type GlobalVariables,
   type Header,
@@ -9,6 +9,8 @@ import {
   PublicKernelTailCircuitPrivateInputs,
   type SideEffect,
   makeEmptyProof,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
+  Fr,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
@@ -34,6 +36,8 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
   async handle(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs, previousPublicKernelProof: Proof) {
     this.log(`Processing tx ${tx.getTxHash()}`);
+    // Temporary hack. Should sort them in the tail circuit.
+    previousPublicKernelOutput.end.unencryptedLogsHashes = this.sortNoteHashes<typeof MAX_UNENCRYPTED_LOGS_PER_TX>(previousPublicKernelOutput.end.unencryptedLogsHashes);
     const [finalKernelOutput, publicKernelProof] = await this.runTailKernelCircuit(
       previousPublicKernelOutput,
       previousPublicKernelProof,
@@ -44,7 +48,8 @@ export class TailPhaseManager extends AbstractPhaseManager {
         throw err;
       },
     );
-
+    // Temporary hack. Should sort them in the tail circuit.
+    this.patchLogsOrdering(tx, previousPublicKernelOutput);
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
@@ -99,5 +104,32 @@ export class TailPhaseManager extends AbstractPhaseManager {
       }
       return Number(n0.counter.toBigInt() - n1.counter.toBigInt());
     });
+  }
+
+  // As above, this is a hack for unencrypted logs ordering, now they are sorted. Since the public kernel
+  // cannot keep track of side effects that happen after or before a nested call, we override the gathered logs.
+  // As a sanity check, we at least verify that the elements are the same, so we are only tweaking their ordering.
+  // See same fn in pxe_service.ts
+  // Added as part of resolving #5017
+  private patchLogsOrdering(
+    tx: Tx, publicInputs: PublicKernelCircuitPublicInputs,
+  ) {
+    const unencLogs = tx.unencryptedLogs.unrollLogs();
+    const sortedUnencLogs = publicInputs.end.unencryptedLogsHashes;
+
+    let finalUnencLogs: UnencryptedL2Log[] = [];
+    sortedUnencLogs.forEach((sideEffect: SideEffect) => {
+      if (!sideEffect.isEmpty()) {
+        const isLog = (log: UnencryptedL2Log ) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
+        const thisLogIndex = unencLogs.findIndex(isLog);
+        finalUnencLogs.push(unencLogs[thisLogIndex]);
+      }
+    });
+    const unencryptedLogs = new UnencryptedFunctionL2Logs(finalUnencLogs);
+
+    tx.unencryptedLogs.functionLogs[0] = unencryptedLogs;
+    for (let i = 1; i < tx.unencryptedLogs.functionLogs.length; i++) {
+      tx.unencryptedLogs.functionLogs[i] = UnencryptedFunctionL2Logs.empty();
+    }
   }
 }

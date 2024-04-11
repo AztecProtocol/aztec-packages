@@ -767,6 +767,7 @@ class PublicExecutionResultBuilder {
       newNullifiers: [],
       newL2ToL1Messages: [],
       contractStorageReads: [],
+      unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,

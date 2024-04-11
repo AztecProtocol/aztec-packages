@@ -27,8 +27,8 @@ library Constants {
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 2;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 2;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL = 1;
-  uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 2;
-  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 2;
+  uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
+  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_NEW_NOTE_HASHES_PER_TX = 64;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
@@ -87,7 +87,7 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x1ad693effc2a4a40fdf5911ff29e19d2b6cd3cf73e6c3685519a6fb783144dcb;
+    0x06d4e6f227dd9ff2e9e2b9e9df4fb4f650a1776499a7acc0d273f5dbb2704d59;
   uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 17;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
   uint256 internal constant GET_NOTE_ORACLE_RETURN_LENGTH = 23;
@@ -110,9 +110,9 @@ library Constants {
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 217;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 213;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 201;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 225;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 221;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 205;
   uint256 internal constant STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant TX_CONTEXT_DATA_LENGTH = 4;
   uint256 internal constant TX_REQUEST_LENGTH = 9;
