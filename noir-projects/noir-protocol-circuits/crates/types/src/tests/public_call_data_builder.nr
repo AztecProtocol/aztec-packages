@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-    call_context::CallContext, call_request::{CallerContext, CallRequest}, function_data::FunctionData,
+    gas_settings::GasSettings, call_context::CallContext, call_request::{CallerContext, CallRequest}, function_data::FunctionData,
     public_call_data::PublicCallData, public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, side_effect::SideEffect
 },
@@ -43,6 +43,8 @@ impl PublicCallDataBuilder {
             is_delegate_call: false,
             is_static_call: false,
             side_effect_counter: 0,  // needed?
+            gas_settings: GasSettings::empty(),
+            transaction_fee: 0,
         };
 
         PublicCallDataBuilder {
@@ -50,7 +52,7 @@ impl PublicCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            public_call_stack: dep::std::unsafe::zeroed(),
+            public_call_stack: BoundedVec::new(),
             proof: Proof {},
             portal_contract_address,
             bytecode_hash: contract_function.acir_hash

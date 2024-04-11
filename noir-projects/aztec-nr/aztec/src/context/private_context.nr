@@ -30,7 +30,7 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::{is_empty, Deserialize}
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::{is_empty, Deserialize, Empty}
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -134,7 +134,7 @@ impl PrivateContext {
             min_revertible_side_effect_counter,
             args_hash,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::default(),
+            max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_key_validation_requests: BoundedVec::new(),
@@ -201,7 +201,7 @@ impl PrivateContext {
     }
 
     // docs:start:max-block-number
-    pub fn request_max_block_number(&mut self, max_block_number: u32) {
+    pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
         // docs:end:max-block-number
         self.max_block_number = MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
     }
@@ -546,6 +546,29 @@ impl PrivateContext {
         }
 
         self.public_call_stack_hashes.push(item.hash());
+    }
+}
+
+impl Empty for PrivateContext {
+    fn empty() -> Self {
+        PrivateContext {
+            inputs: PrivateContextInputs::empty(),
+            side_effect_counter: 0 as u32,
+            min_revertible_side_effect_counter: 0 as u32,
+            args_hash : 0,
+            return_hash : 0,
+            max_block_number: MaxBlockNumber::empty(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            private_call_stack_hashes : BoundedVec::new(),
+            public_call_stack_hashes : BoundedVec::new(),
+            new_l2_to_l1_msgs : BoundedVec::new(),
+            historical_header: Header::empty(),
+            nullifier_key: Option::none(),
+        }
     }
 }
 

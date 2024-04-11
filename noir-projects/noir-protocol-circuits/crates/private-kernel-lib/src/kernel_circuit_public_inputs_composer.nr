@@ -1,5 +1,5 @@
 use crate::common;
-use dep::std::{cmp::Eq, option::Option, unsafe};
+use dep::std::{cmp::Eq, option::Option};
 use dep::reset_kernel_lib::{NullifierReadRequestHints, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
@@ -49,7 +49,7 @@ impl KernelCircuitPublicInputsComposer {
         sorted_unencrypted_log_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
         sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
     ) -> Self {
-        let public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         KernelCircuitPublicInputsComposer {
             public_inputs,

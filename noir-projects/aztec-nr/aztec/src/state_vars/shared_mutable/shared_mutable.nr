@@ -54,8 +54,9 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
         let (scheduled_value_change, historical_block_number) = self.historical_read_from_public_storage(*context);
         let block_horizon = scheduled_value_change.get_block_horizon(historical_block_number);
 
-        // Prevent this transaction from being included in any block after the `block_horizon`
-        context.request_max_block_number(block_horizon);
+        // We prevent this transaction from being included in any block after the block horizon, ensuring that the 
+        // historical public value matches the current one, since it can only change after the horizon.
+        context.set_tx_max_block_number(block_horizon);
         scheduled_value_change.get_current_at(historical_block_number)
     }
 
@@ -91,7 +92,7 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
 }
 
 mod test {
-    use dep::std::{unsafe, merkle::compute_merkle_root, test::OracleMock};
+    use dep::std::{merkle::compute_merkle_root, test::OracleMock};
 
     use crate::{
         context::{PublicContext, PrivateContext, Context},
@@ -116,11 +117,11 @@ mod test {
 
     fn create_context(block_number: Field, private: bool) -> Context {
         if private {
-            let mut private_context: PrivateContext = unsafe::zeroed();
+            let mut private_context = PrivateContext::empty();
             private_context.historical_header.global_variables.block_number = block_number;
             Context::private(&mut private_context)
         } else {
-            let mut public_context: PublicContext = unsafe::zeroed();
+            let mut public_context = PublicContext::empty();
             public_context.inputs.public_global_variables.block_number = block_number;
             Context::public(&mut public_context)
         }

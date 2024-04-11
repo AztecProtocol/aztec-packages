@@ -1,6 +1,7 @@
 use crate::{
     hash::compute_tx_logs_hash,
     abis::{
+    gas_used::GasUsed,
     accumulated_data::{
     combined_accumulated_data::CombinedAccumulatedData,
     private_accumulated_data::PrivateAccumulatedData, public_accumulated_data::PublicAccumulatedData,
@@ -13,9 +14,9 @@ use crate::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
-}
+},
+    traits::Empty
 };
-use dep::std::unsafe;
 
 struct PrivateAccumulatedDataBuilder {
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
@@ -32,6 +33,8 @@ struct PrivateAccumulatedDataBuilder {
 
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+
+    gas_used: GasUsed
 }
 
 impl PrivateAccumulatedDataBuilder {
@@ -45,7 +48,8 @@ impl PrivateAccumulatedDataBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             private_call_stack: self.private_call_stack.storage,
-            public_call_stack: self.public_call_stack.storage
+            public_call_stack: self.public_call_stack.storage,
+            gas_used: self.gas_used
         }
     }
 
@@ -62,7 +66,8 @@ impl PrivateAccumulatedDataBuilder {
             unencrypted_logs_hash: unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            public_data_update_requests: unsafe::zeroed()
+            public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+            gas_used: self.gas_used
         }
     }
 
@@ -70,8 +75,8 @@ impl PrivateAccumulatedDataBuilder {
         self,
         min_revertible_side_effect_counter: u32
     ) -> (PublicAccumulatedData, PublicAccumulatedData) {
-        let mut non_revertible_builder: PublicAccumulatedDataBuilder = unsafe::zeroed();
-        let mut revertible_builder: PublicAccumulatedDataBuilder = unsafe::zeroed();
+        let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
+        let mut revertible_builder = PublicAccumulatedDataBuilder::empty();
 
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = self.new_note_hashes.storage[i];
@@ -119,11 +124,10 @@ mod tests {
     },
         address::AztecAddress, utils::arrays::array_eq
     };
-    use dep::std::unsafe;
 
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {
-        let mut builder: PrivateAccumulatedDataBuilder = unsafe::zeroed();
+        let mut builder = PrivateAccumulatedDataBuilder::empty();
 
         let non_revertible_commitments = [
             SideEffect { value: 1, counter: 1 },
@@ -190,5 +194,22 @@ mod tests {
         assert(array_eq(revertible.new_note_hashes, revertible_commitments));
         assert(array_eq(revertible.new_nullifiers, revertible_nullifiers));
         assert(array_eq(revertible.public_call_stack, revertible_public_call_stack));
+    }
+}
+
+impl Empty for PrivateAccumulatedDataBuilder {
+    fn empty() -> Self {
+        PrivateAccumulatedDataBuilder {
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            gas_used: GasUsed::empty(),
+        }
     }
 }

@@ -33,6 +33,24 @@ PrivateKernelCircuitPublicInputs {
     "publicInputs": [],
   },
   "constants": CombinedConstantData {
+    "gasSettings": GasSettings {
+      "da": DimensionGasSettings {
+        "gasLimit": 0,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+        "teardownGasLimit": 0,
+      },
+      "inclusionFee": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+      "l1": DimensionGasSettings {
+        "gasLimit": 0,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+        "teardownGasLimit": 0,
+      },
+      "l2": DimensionGasSettings {
+        "gasLimit": 0,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+        "teardownGasLimit": 0,
+      },
+    },
     "historicalHeader": Header {
       "contentCommitment": ContentCommitment {
         "inHash": Buffer<0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c>,
@@ -1743,6 +1761,24 @@ PrivateKernelTailCircuitPublicInputs {
     "publicInputs": [],
   },
   "constants": CombinedConstantData {
+    "gasSettings": GasSettings {
+      "da": DimensionGasSettings {
+        "gasLimit": 0,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+        "teardownGasLimit": 0,
+      },
+      "inclusionFee": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+      "l1": DimensionGasSettings {
+        "gasLimit": 0,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+        "teardownGasLimit": 0,
+      },
+      "l2": DimensionGasSettings {
+        "gasLimit": 0,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+        "teardownGasLimit": 0,
+      },
+    },
     "historicalHeader": Header {
       "contentCommitment": ContentCommitment {
         "inHash": Buffer<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -1755,6 +1791,11 @@ PrivateKernelTailCircuitPublicInputs {
         "chainId": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "coinbase": "0x0000000000000000000000000000000000000000",
         "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "gasFees": {
+          "feePerDaGas": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "feePerL1Gas": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        },
         "timestamp": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "version": "0x0000000000000000000000000000000000000000000000000000000000000000",
       },

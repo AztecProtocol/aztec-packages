@@ -15,6 +15,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
+import { GasUsed } from '../gas_used.js';
 import { PublicDataUpdateRequest } from '../public_data_update_request.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 
@@ -58,6 +59,9 @@ export class PublicAccumulatedData {
      * Current public call stack.
      */
     public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+
+    /** Gas used so far by the transaction. */
+    public gasUsed: GasUsed,
   ) {}
 
   toBuffer() {
@@ -71,6 +75,7 @@ export class PublicAccumulatedData {
       this.unencryptedLogPreimagesLength,
       this.publicDataUpdateRequests,
       this.publicCallStack,
+      this.gasUsed,
     );
   }
 
@@ -88,7 +93,8 @@ export class PublicAccumulatedData {
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.publicDataUpdateRequests.every(x => x.isEmpty()) &&
-      this.publicCallStack.every(x => x.isEmpty())
+      this.publicCallStack.every(x => x.isEmpty()) &&
+      this.gasUsed.isEmpty()
     );
   }
 
@@ -104,6 +110,7 @@ export class PublicAccumulatedData {
   unencryptedLogPreimagesLength: ${this.unencryptedLogPreimagesLength}
   publicDataUpdateRequests: [${this.publicDataUpdateRequests.map(h => h.toString()).join(', ')}],
   publicCallStack: [${this.publicCallStack.map(h => h.toString()).join(', ')}],
+  gasUsed: [${this.gasUsed}]
 }`;
   }
 
@@ -124,6 +131,7 @@ export class PublicAccumulatedData {
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
+      reader.readObject(GasUsed),
     );
   }
 
@@ -147,6 +155,7 @@ export class PublicAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      GasUsed.empty(),
     );
   }
 }
