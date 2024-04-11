@@ -101,7 +101,9 @@ describe('prover/bb_prover', () => {
 
     expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
 
-    await orchestrator.finaliseBlock();
+    const blockResult = await orchestrator.finaliseBlock();
+
+    await expect(prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
 
     await orchestrator.stop();
   }, 600_000);
