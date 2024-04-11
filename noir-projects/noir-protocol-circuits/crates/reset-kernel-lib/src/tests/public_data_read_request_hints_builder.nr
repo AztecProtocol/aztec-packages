@@ -1,13 +1,13 @@
 use crate::{
     public_data_read_request_reset::PublicDataReadRequestHints,
-    reset::{mutable_data_read_request::SettledReadHint, read_request::{PendingReadHint, ReadRequestStatus}}
+    reset::{mutable_data_read_request::SettledDataReadHint, read_request::{PendingReadHint, ReadRequestStatus}}
 };
 use dep::types::constants::MAX_PUBLIC_DATA_READS_PER_TX;
 
 struct PublicDataReadRequestHintsBuilder {
     read_request_statuses: [ReadRequestStatus; MAX_PUBLIC_DATA_READS_PER_TX],
     pending_read_hints: BoundedVec<PendingReadHint, MAX_PUBLIC_DATA_READS_PER_TX>,
-    settled_read_hints: BoundedVec<SettledReadHint, MAX_PUBLIC_DATA_READS_PER_TX>,
+    settled_read_hints: BoundedVec<SettledDataReadHint, MAX_PUBLIC_DATA_READS_PER_TX>,
 }
 
 impl PublicDataReadRequestHintsBuilder {
@@ -15,7 +15,7 @@ impl PublicDataReadRequestHintsBuilder {
         PublicDataReadRequestHintsBuilder {
             read_request_statuses: [ReadRequestStatus::empty(); MAX_PUBLIC_DATA_READS_PER_TX],
             pending_read_hints: BoundedVec { storage: [PendingReadHint::nada(read_request_len); MAX_PUBLIC_DATA_READS_PER_TX], len: 0 },
-            settled_read_hints: BoundedVec { storage: [SettledReadHint::nada(read_request_len); MAX_PUBLIC_DATA_READS_PER_TX], len: 0 }
+            settled_read_hints: BoundedVec { storage: [SettledDataReadHint::nada(read_request_len); MAX_PUBLIC_DATA_READS_PER_TX], len: 0 }
         }
     }
 

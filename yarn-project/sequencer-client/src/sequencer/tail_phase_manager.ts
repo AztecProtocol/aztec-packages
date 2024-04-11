@@ -5,6 +5,8 @@ import {
   type Header,
   type KernelCircuitPublicInputs,
   MAX_NEW_NOTE_HASHES_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
@@ -81,25 +83,55 @@ export class TailPhaseManager extends AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): Promise<KernelCircuitPublicInputs> {
+    const inputs = await this.buildPrivateInputs(previousOutput, previousProof);
+    return this.publicKernel.publicKernelCircuitTail(inputs);
+  }
+
+  private async buildPrivateInputs(previousOutput: PublicKernelCircuitPublicInputs, previousProof: Proof) {
     const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
 
     const { validationRequests, endNonRevertibleData, end } = previousOutput;
+
+    const pendingNullifiers = mergeAccumulatedData(
+      MAX_NEW_NULLIFIERS_PER_TX,
+      endNonRevertibleData.newNullifiers,
+      end.newNullifiers,
+    );
+
     const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
       validationRequests.nullifierReadRequests,
-      endNonRevertibleData.newNullifiers,
-      end.newNullifiers,
+      pendingNullifiers,
     );
+
     const nullifierNonExistentReadRequestHints = await this.hintsBuilder.getNullifierNonExistentReadRequestHints(
       validationRequests.nullifierNonExistentReadRequests,
-      endNonRevertibleData.newNullifiers,
-      end.newNullifiers,
+      pendingNullifiers,
     );
-    const inputs = new PublicKernelTailCircuitPrivateInputs(
+
+    const pendingPublicDataWrites = mergeAccumulatedData(
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      endNonRevertibleData.publicDataUpdateRequests,
+      end.publicDataUpdateRequests,
+    );
+
+    const publicDataHints = await this.hintsBuilder.getPublicDataHints(
+      validationRequests.publicDataReads,
+      pendingPublicDataWrites,
+    );
+
+    const publicDataReadRequestHints = this.hintsBuilder.getPublicDataReadRequestHints(
+      validationRequests.publicDataReads,
+      pendingPublicDataWrites,
+      publicDataHints,
+    );
+
+    return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
       nullifierReadRequestHints,
       nullifierNonExistentReadRequestHints,
+      publicDataHints,
+      publicDataReadRequestHints,
     );
-    return this.publicKernel.publicKernelCircuitTail(inputs);
   }
 
   private sortNoteHashes<N extends number>(noteHashes: Tuple<SideEffect, N>): Tuple<Fr, N> {

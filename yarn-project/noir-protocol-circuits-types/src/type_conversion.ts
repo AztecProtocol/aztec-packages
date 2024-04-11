@@ -72,7 +72,9 @@ import {
   type PublicCallData,
   type PublicCallStackItem,
   type PublicCircuitPublicInputs,
+  type PublicDataHint,
   PublicDataRead,
+  type PublicDataReadRequestHints,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -89,6 +91,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
+  type SettledDataReadHint,
   type SettledReadHint,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -164,8 +167,11 @@ import {
 import {
   type NullifierNonExistentReadRequestHints as NullifierNonExistentReadRequestHintsNoir,
   type NullifierNonMembershipHint as NullifierNonMembershipHintNoir,
+  type PublicDataHint as PublicDataHintNoir,
+  type PublicDataReadRequestHints as PublicDataReadRequestHintsNoir,
   type PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   type PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
+  type SettledDataReadHint as SettledDataReadHintNoir,
 } from './types/public_kernel_tail_types.js';
 import {
   type ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
@@ -877,6 +883,13 @@ function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
   };
 }
 
+function mapSettledDataReadHintToNoir(hint: SettledDataReadHint): SettledDataReadHintNoir {
+  return {
+    read_request_index: mapNumberToNoir(hint.readRequestIndex),
+    settled_data_hint_index: mapNumberToNoir(hint.settledDataHintIndex),
+  };
+}
+
 function mapNullifierSettledReadHintToNoir(
   hint: SettledReadHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
 ): NullifierSettledReadHintNoir {
@@ -912,6 +925,24 @@ function mapNullifierNonExistentReadRequestHintsToNoir(
     sorted_pending_values: mapTuple(hints.sortedPendingValues, mapSideEffectLinkedToNoir),
     sorted_pending_value_index_hints: mapTuple(hints.sortedPendingValueHints, mapNumberToNoir),
     next_pending_value_indices: mapTuple(hints.nextPendingValueIndices, mapNumberToNoir),
+  };
+}
+
+function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
+  return {
+    leaf_slot: mapFieldToNoir(hint.leafSlot),
+    value: mapFieldToNoir(hint.value),
+    override_counter: mapNumberToNoir(hint.overrideCounter),
+    membership_witness: mapPublicDataMembershipWitnessToNoir(hint.membershipWitness),
+    leaf_preimage: mapPublicDataTreePreimageToNoir(hint.leafPreimage),
+  };
+}
+
+function mapPublicDataReadRequestHintsToNoir(hints: PublicDataReadRequestHints): PublicDataReadRequestHintsNoir {
+  return {
+    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
+    pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
+    settled_read_hints: mapTuple(hints.settledReadHints, mapSettledDataReadHintToNoir),
   };
 }
 
@@ -1326,6 +1357,8 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     nullifier_non_existent_read_request_hints: mapNullifierNonExistentReadRequestHintsToNoir(
       inputs.nullifierNonExistentReadRequestHints,
     ),
+    public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
+    public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
   };
 }
 

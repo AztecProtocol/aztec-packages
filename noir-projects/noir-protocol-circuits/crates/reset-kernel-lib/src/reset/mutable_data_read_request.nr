@@ -10,14 +10,14 @@ trait SettledDataHint {
     fn override_counter(self) -> u32;
 }
 
-struct SettledReadHint {
+struct SettledDataReadHint {
     read_request_index: u64,
     settled_data_hint_index: u64,
 }
 
-impl SettledReadHint {
+impl SettledDataReadHint {
     pub fn nada(read_request_len: u64) -> Self {
-        SettledReadHint { read_request_index: read_request_len, settled_data_hint_index: 0 }
+        SettledDataReadHint { read_request_index: read_request_len, settled_data_hint_index: 0 }
     }
 }
 
@@ -49,7 +49,7 @@ fn validate_pending_read_requests<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDI
 fn validate_settled_read_requests<READ_REQUEST_LEN, NUM_SETTLED_DATA_HINTS, H, NUM_SETTLED_READS>(
     read_requests: [PublicDataRead; READ_REQUEST_LEN],
     settled_data_hints: [H; NUM_SETTLED_DATA_HINTS],
-    hints: [SettledReadHint; NUM_SETTLED_READS]
+    hints: [SettledDataReadHint; NUM_SETTLED_READS]
 ) where H: SettledDataHint {
     for i in 0..NUM_SETTLED_READS {
         let read_request_index = hints[i].read_request_index;
@@ -70,7 +70,7 @@ fn ensure_all_read_requests_are_verified<READ_REQUEST_LEN, NUM_PENDING_READS, NU
     read_requests: [PublicDataRead; READ_REQUEST_LEN],
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     pending_read_hints: [PendingReadHint; NUM_PENDING_READS],
-    settled_read_hints: [SettledReadHint; NUM_SETTLED_READS]
+    settled_read_hints: [SettledDataReadHint; NUM_SETTLED_READS]
 ) {
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests[i];
@@ -97,7 +97,7 @@ pub fn reset_mutable_data_read_requests<READ_REQUEST_LEN, PENDING_VALUE_LEN, H, 
     data_writes: [PublicDataUpdateRequest; PENDING_VALUE_LEN],
     settled_data_hints: [H; NUM_SETTLED_DATA_HINTS],
     pending_read_hints: [PendingReadHint; NUM_PENDING_READS],
-    settled_read_hints: [SettledReadHint; NUM_SETTLED_READS]
+    settled_read_hints: [SettledDataReadHint; NUM_SETTLED_READS]
 ) where H: SettledDataHint {
     validate_pending_read_requests(read_requests, data_writes, pending_read_hints);
 
@@ -115,7 +115,7 @@ mod tests {
     use crate::reset::{
         mutable_data_read_request::{
         ensure_all_read_requests_are_verified, reset_mutable_data_read_requests, SettledDataHint,
-        SettledReadHint, validate_pending_read_requests, validate_settled_read_requests
+        SettledDataReadHint, validate_pending_read_requests, validate_settled_read_requests
     },
         read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
@@ -164,14 +164,14 @@ mod tests {
         (read_requests, hints.storage)
     }
 
-    fn create_settled_read_requests<N>(settled_data_hint_indices: [u64; N]) -> ([PublicDataRead; N], [SettledReadHint; N]) {
+    fn create_settled_read_requests<N>(settled_data_hint_indices: [u64; N]) -> ([PublicDataRead; N], [SettledDataReadHint; N]) {
         let read_requests = settled_data_hint_indices.map(
             |settled_data_hint_index: u64| PublicDataRead { leaf_slot: settled_data_hints[settled_data_hint_index].leaf_slot, value: settled_data_hints[settled_data_hint_index].value }
         );
         let mut hints = BoundedVec::new();
         for i in 0..N {
             hints.push(
-                SettledReadHint { read_request_index: i, settled_data_hint_index: settled_data_hint_indices[i] }
+                SettledDataReadHint { read_request_index: i, settled_data_hint_index: settled_data_hint_indices[i] }
             );
         }
         (read_requests, hints.storage)
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn reset_settled_reads_skips_nada() {
         let read_requests = [PublicDataRead { leaf_slot: 88, value: 9999 }];
-        let hints = [SettledReadHint::nada(1)];
+        let hints = [SettledDataReadHint::nada(1)];
         validate_settled_read_requests(read_requests, settled_data_hints, hints);
     }
 
