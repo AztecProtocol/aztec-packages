@@ -54,7 +54,8 @@ export class TestCircuitProver implements CircuitProver {
   public async getBaseParityProof(inputs: BaseParityInputs): Promise<[ParityPublicInputs, Proof]> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
-    const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseParityArtifact);
+    // use WASM here as it is faster for small circuits
+    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, BaseParityArtifact);
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
@@ -69,7 +70,8 @@ export class TestCircuitProver implements CircuitProver {
   public async getRootParityProof(inputs: RootParityInputs): Promise<[ParityPublicInputs, Proof]> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
-    const witness = await this.simulationProvider.simulateCircuit(witnessMap, RootParityArtifact);
+    // use WASM here as it is faster for small circuits
+    const witness = await this.wasmSimulator.simulateCircuit(witnessMap, RootParityArtifact);
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 

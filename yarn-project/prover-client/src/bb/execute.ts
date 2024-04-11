@@ -63,6 +63,8 @@ export function executeBB(
 }
 
 const bytecodeHashFilename = 'bytecode_hash';
+const bytecodeFilename = 'bytecode';
+const proofFileName = 'proof';
 
 /**
  * Used for generating either a proving or verification key, will exit early if the key already exists
@@ -86,17 +88,21 @@ export async function generateKeyForNoirCircuit(
   log: LogFn,
   force = false,
 ): Promise<BBSuccess | BBFailure> {
-  // The bytecode is written to e.g. /workingDirectory/pk/BaseParityArtifact-bytecode
-  const bytecodePath = `${workingDirectory}/${key}/${circuitName}-bytecode`;
   const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
   // The key generation is written to e.g. /workingDirectory/pk/BaseParityArtifact/pk
   // The bytecode hash file is also written here as /workingDirectory/pk/BaseParityArtifact/bytecode-hash
+  // The bytecode is written to e.g. /workingDirectory/pk/BaseParityArtifact/bytecode
+  // The bytecode is removed after the key is generated, leaving just the hash file
   const circuitOutputDirectory = `${workingDirectory}/${key}/${circuitName}`;
   const bytecodeHashPath = `${circuitOutputDirectory}/${bytecodeHashFilename}`;
+  const bytecodePath = `${circuitOutputDirectory}/${bytecodeFilename}`;
   const bytecodeHash = sha256(bytecode);
 
   const outputPath = `${circuitOutputDirectory}/${key}`;
+
+  // ensure the directory exists
+  await fs.mkdir(circuitOutputDirectory, { recursive: true });
 
   // Generate the key if we have been told to, or there is no bytecode hash
   let mustRegenerate =
@@ -114,7 +120,7 @@ export async function generateKeyForNoirCircuit(
 
   if (!mustRegenerate) {
     // No need to generate, early out
-    return { status: BB_RESULT.ALREADY_PRESENT, duration: 0 };
+    return { status: BB_RESULT.ALREADY_PRESENT, duration: 0, path: outputPath };
   }
 
   // Check we have access to bb
@@ -128,10 +134,6 @@ export async function generateKeyForNoirCircuit(
 
   // We are now going to generate the key
   try {
-    // Clear up the circuit output directory removing anything that is there
-    await fs.rm(circuitOutputDirectory, { recursive: true, force: true });
-    await fs.mkdir(circuitOutputDirectory, { recursive: true });
-
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
 
@@ -155,47 +157,6 @@ export async function generateKeyForNoirCircuit(
 }
 
 /**
- * Used for generating either a proving or verification key, will exit early if the key already exists
- * It assumes the provided working directory is one where the caller wishes to maintain a permanent set of keys
- * It is not considered a temporary directory
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - The directory into which the key should be created
- * @param circuitName - An identifier for the circuit
- * @param compiledCircuit - The compiled circuit
- * @param key - The type of key, either 'pk' or 'vk'
- * @param log - A logging function
- * @returns The path to the key, or undefined.
- */
-// export async function generateKey(
-//   pathToBB: string,
-//   workingDirectory: string,
-//   circuitName: string,
-//   compiledCircuit: NoirCompiledCircuit,
-//   key: 'pk' | 'vk',
-//   log: LogFn,
-// ) {
-//   const { result, duration, outputPath } = await generateKeyForNoirCircuit(
-//     pathToBB,
-//     workingDirectory,
-//     circuitName,
-//     compiledCircuit,
-//     key,
-//     log,
-//   );
-//   if (result.status === BB_RESULT.FAILURE) {
-//     log(`Failed to generate ${key} key for circuit ${circuitName}, reason: ${result.reason}`);
-//     return;
-//   }
-//   if (result.status === BB_RESULT.ALREADY_PRESENT) {
-//     log(`Key ${key} for circuit ${circuitName} was already present`);
-//     return outputPath;
-//   }
-//   const stats = await fs.stat(outputPath);
-//   log(`Key ${key} for circuit ${circuitName} generated in ${duration} ms, size: ${stats.size / (1024 * 1024)} MB`);
-//   return outputPath;
-// }
-
-/**
  * Used for generating proofs of noir circuits.
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
  * @param pathToBB - The full path to the bb binary
@@ -214,16 +175,19 @@ export async function generateProof(
   inputWitnessFile: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
-  // Clear up the circuit output directory removing anything that is there
-  await fs.rm(workingDirectory, { recursive: true, force: true });
-  await fs.mkdir(workingDirectory, { recursive: true });
+  // Check that the working directory exists
+  try {
+    await fs.access(workingDirectory);
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
+  }
 
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
   const bytecode = Buffer.from(compiledCircuit.bytecode, 'base64');
 
   // The proof is written to e.g. /workingDirectory/proof
-  const outputPath = `${workingDirectory}/proof`;
+  const outputPath = `${workingDirectory}/${proofFileName}`;
 
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)

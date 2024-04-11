@@ -1,0 +1,183 @@
+import { MerkleTreeId, PROVING_STATUS, type ProcessedTx } from '@aztec/circuit-types';
+import { AztecAddress, EthAddress, Fr, GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { fr } from '@aztec/circuits.js/testing';
+import { range } from '@aztec/foundation/array';
+import { times } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+
+import { type MemDown, default as memdown } from 'memdown';
+
+import {
+  getConfig,
+  getSimulationProvider,
+  makeBloatedProcessedTx,
+  makeEmptyProcessedTx,
+  updateExpectedTreesFromTxs,
+} from '../mocks/fixtures.js';
+import { TestCircuitProver } from '../prover/test_circuit_prover.js';
+import { ProvingOrchestrator } from './orchestrator.js';
+
+export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
+
+const logger = createDebugLogger('aztec:orchestrator-test');
+
+describe('prover/orchestrator', () => {
+  let builder: ProvingOrchestrator;
+  let builderDb: MerkleTreeOperations;
+  let expectsDb: MerkleTreeOperations;
+
+  let prover: TestCircuitProver;
+
+  let blockNumber: number;
+  let mockL1ToL2Messages: Fr[];
+
+  let globalVariables: GlobalVariables;
+
+  const chainId = Fr.ZERO;
+  const version = Fr.ZERO;
+  const coinbase = EthAddress.ZERO;
+  const feeRecipient = AztecAddress.ZERO;
+
+  const makeGlobals = (blockNumber: number) => {
+    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
+  };
+
+  const makeEmptyProcessedTestTx = (): Promise<ProcessedTx> => {
+    return makeEmptyProcessedTx(builderDb, chainId, version);
+  };
+
+  beforeEach(async () => {
+    blockNumber = 3;
+    globalVariables = makeGlobals(blockNumber);
+
+    const acvmConfig = await getConfig(logger);
+    const simulationProvider = await getSimulationProvider({
+      acvmWorkingDirectory: acvmConfig?.acvmWorkingDirectory,
+      acvmBinaryPath: acvmConfig?.expectedAcvmPath,
+    });
+    prover = new TestCircuitProver(simulationProvider);
+
+    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+    expectsDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+    builder = new ProvingOrchestrator(builderDb, prover, 1);
+
+    // Create mock l1 to L2 messages
+    mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
+  }, 20_000);
+
+  describe('blocks', () => {
+    beforeEach(async () => {
+      builder = await ProvingOrchestrator.new(builderDb, prover);
+    });
+
+    afterEach(async () => {
+      await builder.stop();
+    });
+
+    it.each([
+      [0, 2],
+      [1, 2],
+      [4, 4],
+      [5, 8],
+      [9, 16],
+    ] as const)(
+      'builds an L2 block with %i bloated txs and %i txs total',
+      async (bloatedCount: number, totalCount: number) => {
+        const noteHashTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+        const txs = [
+          ...(await Promise.all(times(bloatedCount, (i: number) => makeBloatedProcessedTx(builderDb, i)))),
+          ...(await Promise.all(times(totalCount - bloatedCount, makeEmptyProcessedTestTx))),
+        ];
+
+        const blockTicket = await builder.startNewBlock(
+          txs.length,
+          globalVariables,
+          mockL1ToL2Messages,
+          await makeEmptyProcessedTestTx(),
+        );
+
+        for (const tx of txs) {
+          await builder.addNewTx(tx);
+        }
+
+        const result = await blockTicket.provingPromise;
+        expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+
+        const finalisedBlock = await builder.finaliseBlock();
+
+        expect(finalisedBlock.block.number).toEqual(blockNumber);
+
+        await updateExpectedTreesFromTxs(expectsDb, txs);
+        const noteHashTreeAfter = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+
+        if (bloatedCount > 0) {
+          expect(noteHashTreeAfter.root).not.toEqual(noteHashTreeBefore.root);
+        }
+
+        const expectedNoteHashTreeAfter = await expectsDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE).then(t => t.root);
+        expect(noteHashTreeAfter.root).toEqual(expectedNoteHashTreeAfter);
+      },
+      60000,
+    );
+
+    it('builds a mixed L2 block', async () => {
+      const txs = await Promise.all([
+        makeBloatedProcessedTx(builderDb, 1),
+        makeBloatedProcessedTx(builderDb, 2),
+        makeBloatedProcessedTx(builderDb, 3),
+        makeBloatedProcessedTx(builderDb, 4),
+      ]);
+
+      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+      const blockTicket = await builder.startNewBlock(
+        txs.length,
+        globalVariables,
+        l1ToL2Messages,
+        await makeEmptyProcessedTestTx(),
+      );
+
+      for (const tx of txs) {
+        await builder.addNewTx(tx);
+      }
+
+      const result = await blockTicket.provingPromise;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
+    }, 30_000);
+
+    it('builds an unbalanced L2 block', async () => {
+      const txs = await Promise.all([
+        makeBloatedProcessedTx(builderDb, 1),
+        makeBloatedProcessedTx(builderDb, 2),
+        makeBloatedProcessedTx(builderDb, 3),
+      ]);
+
+      const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
+
+      // this needs to be a 4 tx block that will need to be completed
+      const blockTicket = await builder.startNewBlock(
+        4,
+        globalVariables,
+        l1ToL2Messages,
+        await makeEmptyProcessedTestTx(),
+      );
+
+      for (const tx of txs) {
+        await builder.addNewTx(tx);
+      }
+
+      await builder.setBlockCompleted();
+
+      const result = await blockTicket.provingPromise;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      const finalisedBlock = await builder.finaliseBlock();
+
+      expect(finalisedBlock.block.number).toEqual(blockNumber);
+    }, 30_000);
+  });
+});

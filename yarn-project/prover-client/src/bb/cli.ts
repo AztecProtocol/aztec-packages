@@ -2,6 +2,7 @@ import { type LogFn } from '@aztec/foundation/log';
 import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
 
 import { Command } from 'commander';
+import * as fs from 'fs/promises';
 
 import { generateKeyForNoirCircuit } from './execute.js';
 
@@ -40,6 +41,12 @@ export function getProgram(log: LogFn): Command {
         log(`Failed to find circuit ${options.circuit}`);
         return;
       }
+      try {
+        await fs.access(options.workingDirectory);
+      } catch (error) {
+        log(`Working directory does not exist`);
+        return;
+      }
       await generateKeyForNoirCircuit(
         options.bbPath,
         options.workingDirectory,
@@ -64,6 +71,12 @@ export function getProgram(log: LogFn): Command {
       const compiledCircuit = ProtocolCircuitArtifacts[options.circuit as ProtocolArtifact];
       if (!compiledCircuit) {
         log(`Failed to find circuit ${options.circuit}`);
+        return;
+      }
+      try {
+        await fs.access(options.workingDirectory);
+      } catch (error) {
+        log(`Working directory does not exist`);
         return;
       }
       await generateKeyForNoirCircuit(
