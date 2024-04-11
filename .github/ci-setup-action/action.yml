@@ -64,7 +64,7 @@ runs:
     # so we can't use the native concurrency in GA
     - name: Limit concurrency
       uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
-      if: ${{ inputs.concurrency_key != "" }}
+      if: ${{ inputs.concurrency_key }}
       with:
         repository: AztecProtocol/git-metadata
         branch: gh-actions-mutex-${{ inputs.concurrency_key }}
