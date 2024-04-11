@@ -69,35 +69,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 193;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 210;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 224;
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 148;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 169;
->>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 153;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 174;
->>>>>>> 220457275 (5557: PIL relations for CMOV opcode)
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 155;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 176;
->>>>>>> bdc8f5a57 (5557: several bug fixes for CMOV opcode and first unit test)
+    static constexpr size_t NUM_ALL_ENTITIES = 241;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -108,7 +84,7 @@ class AvmFlavor {
                                              perm_main_mem_ind_a_relation<FF>,
                                              perm_main_mem_ind_b_relation<FF>,
                                              perm_main_mem_ind_c_relation<FF>,
-<<<<<<< HEAD
+                                             perm_main_mem_ind_d_relation<FF>,
                                              lookup_byte_lengths_relation<FF>,
                                              lookup_byte_operations_relation<FF>,
                                              incl_main_tag_err_relation<FF>,
@@ -130,13 +106,6 @@ class AvmFlavor {
                                              lookup_u16_12_relation<FF>,
                                              lookup_u16_13_relation<FF>,
                                              lookup_u16_14_relation<FF>>;
-=======
-                                             perm_main_mem_ind_d_relation<FF>,
-                                             lookup_byte_lengths_relation<FF>,
-                                             lookup_byte_operations_relation<FF>,
-                                             incl_main_tag_err_relation<FF>,
-                                             incl_mem_tag_err_relation<FF>>;
->>>>>>> e353f6a7d (5557: fixes after master rebase)
 
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
@@ -151,8 +120,7 @@ class AvmFlavor {
                                  perm_main_mem_ind_a_relation<FF>,
                                  perm_main_mem_ind_b_relation<FF>,
                                  perm_main_mem_ind_c_relation<FF>,
-<<<<<<< HEAD
-<<<<<<< HEAD
+                                 perm_main_mem_ind_d_relation<FF>,
                                  lookup_byte_lengths_relation<FF>,
                                  lookup_byte_operations_relation<FF>,
                                  incl_main_tag_err_relation<FF>,
@@ -174,23 +142,6 @@ class AvmFlavor {
                                  lookup_u16_12_relation<FF>,
                                  lookup_u16_13_relation<FF>,
                                  lookup_u16_14_relation<FF>>;
-=======
-<<<<<<< HEAD
-                                 incl_main_tag_err_relation<FF>,
-                                 incl_mem_tag_err_relation<FF>,
-                                 lookup_byte_lengths_relation<FF>,
-                                 lookup_byte_operations_relation<FF>>;
-=======
-                                 perm_main_mem_ind_d_relation<FF>>;
->>>>>>> 7c841655b (5557: Add an additional intermediate register id)
->>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
-=======
-                                 perm_main_mem_ind_d_relation<FF>,
-                                 lookup_byte_lengths_relation<FF>,
-                                 lookup_byte_operations_relation<FF>,
-                                 incl_main_tag_err_relation<FF>,
-                                 incl_mem_tag_err_relation<FF>>;
->>>>>>> e353f6a7d (5557: fixes after master rebase)
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
@@ -1426,11 +1377,8 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_c_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-<<<<<<< HEAD
-=======
             bb::compute_logderivative_inverse<AvmFlavor, perm_main_mem_ind_d_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
->>>>>>> e353f6a7d (5557: fixes after master rebase)
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
@@ -1439,7 +1387,6 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-<<<<<<< HEAD
             bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_0_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_u8_1_relation<FF>>(
@@ -1474,8 +1421,6 @@ class AvmFlavor {
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_u16_14_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
-=======
->>>>>>> e353f6a7d (5557: fixes after master rebase)
         }
     };
 
@@ -1966,23 +1911,11 @@ class AvmFlavor {
         Commitment perm_main_mem_ind_a;
         Commitment perm_main_mem_ind_b;
         Commitment perm_main_mem_ind_c;
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-        // Lookup inverses
-=======
         Commitment perm_main_mem_ind_d;
->>>>>>> 7c841655b (5557: Add an additional intermediate register id)
->>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
-=======
-        Commitment perm_main_mem_ind_d;
->>>>>>> e353f6a7d (5557: fixes after master rebase)
         Commitment lookup_byte_lengths;
         Commitment lookup_byte_operations;
         Commitment incl_main_tag_err;
         Commitment incl_mem_tag_err;
-<<<<<<< HEAD
         Commitment lookup_u8_0;
         Commitment lookup_u8_1;
         Commitment lookup_u16_0;
@@ -2000,8 +1933,6 @@ class AvmFlavor {
         Commitment lookup_u16_12;
         Commitment lookup_u16_13;
         Commitment lookup_u16_14;
-=======
->>>>>>> e353f6a7d (5557: fixes after master rebase)
         Commitment lookup_byte_lengths_counts;
         Commitment lookup_byte_operations_counts;
         Commitment incl_main_tag_err_counts;

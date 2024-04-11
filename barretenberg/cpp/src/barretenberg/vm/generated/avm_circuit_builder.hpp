@@ -304,23 +304,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t num_fixed_columns = 224;
-    static constexpr size_t num_polys = 195;
-=======
-    static constexpr size_t num_fixed_columns = 169;
-    static constexpr size_t num_polys = 150;
->>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
-=======
-    static constexpr size_t num_fixed_columns = 174;
-    static constexpr size_t num_polys = 155;
->>>>>>> 220457275 (5557: PIL relations for CMOV opcode)
-=======
-    static constexpr size_t num_fixed_columns = 176;
-    static constexpr size_t num_polys = 157;
->>>>>>> bdc8f5a57 (5557: several bug fixes for CMOV opcode and first unit test)
+    static constexpr size_t num_fixed_columns = 241;
+    static constexpr size_t num_polys = 212;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -496,24 +481,6 @@ class AvmCircuitBuilder {
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
-            polys.perm_main_alu[i] = rows[i].perm_main_alu;
-<<<<<<< HEAD
-
-=======
-            polys.perm_main_bin[i] = rows[i].perm_main_bin;
-            polys.perm_main_mem_a[i] = rows[i].perm_main_mem_a;
-            polys.perm_main_mem_b[i] = rows[i].perm_main_mem_b;
-            polys.perm_main_mem_c[i] = rows[i].perm_main_mem_c;
-            polys.perm_main_mem_d[i] = rows[i].perm_main_mem_d;
-            polys.perm_main_mem_ind_a[i] = rows[i].perm_main_mem_ind_a;
-            polys.perm_main_mem_ind_b[i] = rows[i].perm_main_mem_ind_b;
-            polys.perm_main_mem_ind_c[i] = rows[i].perm_main_mem_ind_c;
-            polys.perm_main_mem_ind_d[i] = rows[i].perm_main_mem_ind_d;
-            polys.lookup_byte_lengths[i] = rows[i].lookup_byte_lengths;
-            polys.lookup_byte_operations[i] = rows[i].lookup_byte_operations;
-            polys.incl_main_tag_err[i] = rows[i].incl_main_tag_err;
-            polys.incl_mem_tag_err[i] = rows[i].incl_mem_tag_err;
->>>>>>> 7c841655b (5557: Add an additional intermediate register id)
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;

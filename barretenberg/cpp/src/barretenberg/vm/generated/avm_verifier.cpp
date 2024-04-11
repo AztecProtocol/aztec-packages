@@ -369,21 +369,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_b);
     commitments.perm_main_mem_ind_c =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_c);
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-
-    // Lookups
-=======
     commitments.perm_main_mem_ind_d =
         transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_d);
->>>>>>> 7c841655b (5557: Add an additional intermediate register id)
->>>>>>> d0b1584f6 (5557: Add an additional intermediate register id)
-=======
-    commitments.perm_main_mem_ind_d =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.perm_main_mem_ind_d);
->>>>>>> e353f6a7d (5557: fixes after master rebase)
     commitments.lookup_byte_lengths =
         transcript->template receive_from_prover<Commitment>(commitment_labels.lookup_byte_lengths);
     commitments.lookup_byte_operations =

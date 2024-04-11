@@ -650,7 +650,7 @@ void AvmTraceBuilder::op_lt(
 
     range_checked_required = true;
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_dst_offset, c, in_tag, AvmMemoryTag::U8);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, AvmMemoryTag::U8);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -666,7 +666,7 @@ void AvmTraceBuilder::op_lt(
         .avm_main_internal_return_ptr = FF(internal_return_ptr),
         .avm_main_mem_idx_a = FF(res.direct_a_offset),
         .avm_main_mem_idx_b = FF(res.direct_b_offset),
-        .avm_main_mem_idx_c = FF(res.direct_dst_offset),
+        .avm_main_mem_idx_c = FF(res.direct_c_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
@@ -701,7 +701,7 @@ void AvmTraceBuilder::op_lte(
 
     range_checked_required = true;
     // Write into memory value c from intermediate register ic.
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_dst_offset, c, in_tag, AvmMemoryTag::U8);
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IC, res.direct_c_offset, c, in_tag, AvmMemoryTag::U8);
 
     main_trace.push_back(Row{
         .avm_main_clk = clk,
@@ -717,7 +717,7 @@ void AvmTraceBuilder::op_lte(
         .avm_main_internal_return_ptr = FF(internal_return_ptr),
         .avm_main_mem_idx_a = FF(res.direct_a_offset),
         .avm_main_mem_idx_b = FF(res.direct_b_offset),
-        .avm_main_mem_idx_c = FF(res.direct_dst_offset),
+        .avm_main_mem_idx_c = FF(res.direct_c_offset),
         .avm_main_mem_op_a = FF(1),
         .avm_main_mem_op_b = FF(1),
         .avm_main_mem_op_c = FF(1),
