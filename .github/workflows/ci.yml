@@ -58,7 +58,7 @@ jobs:
   # START OF ARM PIPELINE #
   #########################
   start-arm-builder:
-    uses: ./.github/workflows/publish-bb.yml
+    uses: ./.github/workflows/setup-runner.yml
     with:
       runner_label: ${{ github.actor }}-arm
       runner_concurrency: 8
