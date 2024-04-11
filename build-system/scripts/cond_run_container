@@ -9,7 +9,7 @@ set -eu
 
 REPOSITORY=$1
 RUN_ARGS=$2
-DOCKER_ARGS=$3
+DOCKER_ARGS=${3:-}
 shift 3
 
 BASE_TAG=$(calculate_image_tag $REPOSITORY)
