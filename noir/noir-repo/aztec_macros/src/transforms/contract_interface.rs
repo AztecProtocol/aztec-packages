@@ -149,8 +149,8 @@ pub fn update_fn_signatures_in_contract_interface(
 ) -> Result<(), (AztecMacroError, FileId)> {
     if let Some((name, _, file_id)) = get_contract_module_data(context, crate_id) {
         let maybe_interface_struct =
-            collect_crate_structs(crate_id, context).iter().find_map(|&(_, struct_id)| {
-                let r#struct = context.def_interner.get_struct(struct_id);
+            collect_crate_structs(crate_id, context).iter().find_map(|struct_id| {
+                let r#struct = context.def_interner.get_struct(*struct_id);
                 if r#struct.borrow().name.0.contents == name {
                     Some(r#struct)
                 } else {

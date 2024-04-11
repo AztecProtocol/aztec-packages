@@ -162,8 +162,11 @@ impl AbiType {
                 let fields = struct_type.get_fields(args);
                 let fields = vecmap(fields, |(name, typ)| (name, Self::from_type(context, &typ)));
                 // For the ABI, we always want to resolve the struct paths from the root crate
-                let path =
-                    context.fully_qualified_struct_path(context.root_crate_id(), struct_type.id);
+                let path = context.fully_qualified_struct_path(
+                    context.root_crate_id(),
+                    struct_type.id,
+                    false,
+                );
                 Self::Struct { fields, path }
             }
             Type::Alias(def, args) => Self::from_type(context, &def.borrow().get_type(args)),

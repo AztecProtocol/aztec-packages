@@ -14,7 +14,7 @@ use noirc_frontend::{
 
 use super::ast_utils::is_custom_attribute;
 
-pub fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<(String, StructId)> {
+pub fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<StructId> {
     context
         .def_map(crate_id)
         .map(|def_map| {
@@ -24,21 +24,7 @@ pub fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<(S
                 .flat_map(|(_, module)| {
                     module.type_definitions().filter_map(move |typ| {
                         if let ModuleDefId::TypeId(struct_id) = typ {
-                            let module_id = struct_id.module_id();
-                            let path = context
-                                .fully_qualified_struct_path(context.root_crate_id(), struct_id);
-                            let path = if path.contains("::") {
-                                let prefix = if &module_id.krate == context.root_crate_id() {
-                                    "crate"
-                                } else {
-                                    "dep"
-                                };
-                                format!("{}::{}", prefix, path)
-                            } else {
-                                path
-                            };
-
-                            Some((path, struct_id))
+                            Some(struct_id)
                         } else {
                             None
                         }
@@ -121,10 +107,20 @@ pub fn fetch_crate_notes(
 ) -> Vec<(String, Shared<StructType>)> {
     collect_crate_structs(crate_id, context)
         .iter()
-        .filter_map(|(path, struct_id)| {
+        .filter_map(|struct_id| {
             let r#struct = context.def_interner.get_struct(*struct_id);
             let attributes = context.def_interner.struct_attributes(struct_id);
             if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")) {
+                let module_id = struct_id.module_id();
+                let path =
+                    context.fully_qualified_struct_path(context.root_crate_id(), *struct_id, true);
+                let path = if path.contains("::") {
+                    let prefix =
+                        if &module_id.krate == context.root_crate_id() { "crate" } else { "dep" };
+                    format!("{}::{}", prefix, path)
+                } else {
+                    path
+                };
                 Some((path.clone(), r#struct))
             } else {
                 None

@@ -1,7 +1,7 @@
-#[oracle(packArgumentsArray)]
+#[oracle(packArguments)]
 fn pack_arguments_array_oracle<N>(_args: [Field; N]) -> Field {}
 
-#[oracle(packArgumentsArray)]
+#[oracle(packArguments)]
 fn pack_arguments_oracle<N>(_args: [Field]) -> Field {}
 
 /// - Pack arguments will notify the simulator that these arguments will be used later at

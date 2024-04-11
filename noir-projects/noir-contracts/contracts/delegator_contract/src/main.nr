@@ -5,6 +5,7 @@ contract Delegator {
         PublicMutable, PrivateSet
     };
     use dep::value_note::value_note::ValueNote;
+    use dep::delegated_on::DelegatedOn;
 
     #[aztec(storage)]
     struct Storage {
@@ -13,13 +14,9 @@ contract Delegator {
     }
 
     #[aztec(private)]
-    fn private_delegate_set_value(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 2]
-    ) {
+    fn private_delegate_set_value(target_contract: AztecAddress, value: Field, owner: AztecAddress) {
         // Call the target private function
-        let return_values = context.delegate_call_private_function(target_contract, target_selector, args);
+        let return_values = DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context);
         // Copy the return value from the call to this function's return values
         return_values[0]
     }

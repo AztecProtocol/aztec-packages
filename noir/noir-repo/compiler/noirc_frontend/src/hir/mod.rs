@@ -137,7 +137,12 @@ impl Context<'_, '_> {
     ///
     /// For example, if you project contains a `main.nr` and `foo.nr` and you provide the `main_crate_id` and the
     /// `bar_struct_id` where the `Bar` struct is inside `foo.nr`, this function would return `foo::Bar` as a [String].
-    pub fn fully_qualified_struct_path(&self, crate_id: &CrateId, id: StructId) -> String {
+    pub fn fully_qualified_struct_path(
+        &self,
+        crate_id: &CrateId,
+        id: StructId,
+        bfs: bool,
+    ) -> String {
         let module_id = id.module_id();
         let child_id = module_id.local_id.0;
         let def_map =
@@ -150,9 +155,13 @@ impl Context<'_, '_> {
         if &module_id.krate == crate_id {
             module_path
         } else {
-            let crates = self
-                .find_dependencies(crate_id, &module_id.krate)
-                .expect("The Struct was supposed to be defined in a dependency");
+            let crates = if bfs {
+                self.find_dependencies_bfs(crate_id, &module_id.krate)
+                    .expect("The Struct was supposed to be defined in a dependency")
+            } else {
+                self.find_dependencies_dfs(crate_id, &module_id.krate)
+                    .expect("The Struct was supposed to be defined in a dependency")
+            };
             crates.join("::") + "::" + &module_path
         }
     }
@@ -162,7 +171,7 @@ impl Context<'_, '_> {
     /// In that case, we will get [lib1,lib2] when looking for a struct defined in lib2,
     /// re-exported by lib1 and used by the main crate.
     /// Returns the path from crate_id to target_crate_id
-    fn find_dependencies(
+    fn find_dependencies_dfs(
         &self,
         crate_id: &CrateId,
         target_crate_id: &CrateId,
@@ -171,12 +180,46 @@ impl Context<'_, '_> {
             if &dep.crate_id == target_crate_id {
                 return Some(vec![dep.name.to_string()]);
             }
-            if let Some(mut path) = self.find_dependencies(&dep.crate_id, target_crate_id) {
+            if let Some(mut path) = self.find_dependencies_dfs(&dep.crate_id, target_crate_id) {
                 path.insert(0, dep.name.to_string());
                 return Some(path);
             }
         }
         None
+    }
+
+    /// Recursively walks down the crate dependency graph from crate_id until we reach requested crate
+    /// This is needed in case a library (lib1) re-export a structure defined in another library (lib2)
+    /// In that case, we will get [lib1,lib2] when looking for a struct defined in lib2,
+    /// re-exported by lib1 and used by the main crate.
+    /// Returns the path from crate_id to target_crate_id
+    fn find_dependencies_bfs(
+        &self,
+        crate_id: &CrateId,
+        target_crate_id: &CrateId,
+    ) -> Option<Vec<String>> {
+        self.crate_graph[crate_id]
+            .dependencies
+            .iter()
+            .find_map(|dep| {
+                if &dep.crate_id == target_crate_id {
+                    return Some(vec![dep.name.to_string()]);
+                } else {
+                    None
+                }
+            })
+            .or_else(|| {
+                self.crate_graph[crate_id].dependencies.iter().find_map(|dep| {
+                    if let Some(mut path) =
+                        self.find_dependencies_bfs(&dep.crate_id, target_crate_id)
+                    {
+                        path.insert(0, dep.name.to_string());
+                        return Some(path);
+                    } else {
+                        None
+                    }
+                })
+            })
     }
 
     pub fn function_meta(&self, func_id: &FuncId) -> &FuncMeta {
