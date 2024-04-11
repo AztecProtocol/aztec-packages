@@ -2,10 +2,13 @@
 name: Setup Workflow
 description: 'Reusable setup steps'
 
-secrets:
+inputs:
   dockerhub_password:
     required: true
     description: 'DockerHub Password'
+  concurrency_key:
+    required: true
+    description: 'Concurrency key for locking jobs'
 runs:
   # define an action, runs in OS of caller
   using: composite
@@ -56,3 +59,12 @@ runs:
         else
           echo "Docker daemon already configured."
         fi
+    # As detailed in https://github.com/ben-z/gh-action-mutex
+    # things do not become 'pending' in github actions, and instead just cancel one another
+    # so we can't use the native concurrency in GA
+    - name: Limit concurrency
+      uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+      if: ${{ inputs.concurrency_key != "" }}
+      with:
+        repository: AztecProtocol/git-metadata
+        branch: gh-actions-mutex-${{ inputs.concurrency_key }}

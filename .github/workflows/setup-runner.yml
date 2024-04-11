@@ -1,3 +1,8 @@
+
+# Start cheap (~1/8th the cost of on demand, ~13th the cost of large GA runners) spot builders
+# just for the CI job. These are specced per user and run the entire CI.
+# TODO These have a persistent EBS volume that forms a fast-online docker image cache (used by Earthly), meaning
+# TODO build steps that ran in previous invocations are quickly ran from cache.
 name: Reusable Spot Instance and Setup Workflow
 on:
   workflow_call:
@@ -64,12 +69,12 @@ jobs:
 
   setup:
     needs: start-builder
-    runs-on: ${{ github.event.pull_request.head.sha }}
+    runs-on: ${{ inputs.runner_label }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref_sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup CI
         uses: ./.github/ci-setup-action
