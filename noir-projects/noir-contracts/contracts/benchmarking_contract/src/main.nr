@@ -10,7 +10,7 @@ contract Benchmarking {
     };
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{context::Context};
+    use dep::aztec::{context::{Context, gas::GasOpts}};
 
     #[aztec(storage)]
     struct Storage {
@@ -32,8 +32,8 @@ contract Benchmarking {
     #[aztec(private)]
     fn recreate_note(owner: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
-        let getter_options = NoteGetterOptions::new().set_limit(1).set_offset(index);
-        let notes = owner_notes.get_notes(getter_options);
+        let mut getter_options = NoteGetterOptions::new();
+        let notes = owner_notes.get_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes[0].unwrap_unchecked();
         owner_notes.remove(note);
         increment(owner_notes, note.value, owner);
@@ -44,11 +44,12 @@ contract Benchmarking {
     fn increment_balance(owner: AztecAddress, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
-        let _callStackItem1 = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("broadcast((Field))"),
-            [owner.to_field()]
-        );
+            [owner.to_field()],
+            GasOpts::default()
+        ).assert_empty();
     }
 
     // Emits a public log.

@@ -56,7 +56,6 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 }
 
 mod tests {
-    use dep::std::unsafe;
     use crate::private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs;
     use dep::reset_kernel_lib::{
         tests::nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
@@ -64,14 +63,15 @@ mod tests {
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
-        hash::compute_unique_siloed_note_hashes,
+        grumpkin_private_key::GrumpkinPrivateKey,
+        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::is_empty_array
     };
@@ -104,7 +104,17 @@ mod tests {
             note_hashes: [SideEffect; N]
         ) -> [SideEffect; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
-            compute_unique_siloed_note_hashes(first_nullifier.value, note_hashes)
+            let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
+            for i in 0..N {
+                if note_hashes[i].value != 0 {
+                    let nonce = compute_note_hash_nonce(first_nullifier.value, i);
+                    unique_siloed_note_hashes[i] = SideEffect {
+                        value: compute_unique_siloed_note_hash(nonce, note_hashes[i].value),
+                        counter: note_hashes[i].counter,
+                    };
+                }
+            }
+            unique_siloed_note_hashes
         }
 
         pub fn add_pending_note_hash_read_request(&mut self, note_hash_index: u64) {
@@ -160,7 +170,7 @@ mod tests {
                 sorted_new_nullifiers_indexes,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
-                master_nullifier_secret_keys: unsafe::zeroed()
+                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
             };
             kernel.execute()
         }
@@ -367,11 +377,7 @@ mod tests {
         builder.previous_kernel.new_note_hashes.extend_from_array(reversed_note_hashes);
         builder.previous_kernel.new_nullifiers.extend_from_array(reversed_nullifiers);
 
-        let sorted_unique_note_hashes = compute_unique_siloed_note_hashes(
-            // tx nullifier is part of non revertible accumulated data
-            builder.previous_kernel.new_nullifiers.get_unchecked(0).value,
-            sorted_note_hashes
-        );
+        let sorted_unique_note_hashes = builder.compute_unique_siloed_note_hashes(sorted_note_hashes);
 
         let public_inputs = builder.execute();
 
@@ -470,11 +476,7 @@ mod tests {
         let new_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let public_inputs = builder.execute();
 
-        let siloed_note_hashes = compute_unique_siloed_note_hashes(
-            // tx nullifier is part of non revertible accumulated data
-            public_inputs.end_non_revertible.new_nullifiers[0].value,
-            new_note_hashes
-        );
+        let siloed_note_hashes = builder.compute_unique_siloed_note_hashes(new_note_hashes);
 
         assert(
             array_eq(

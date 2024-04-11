@@ -2,8 +2,8 @@ use crate::{
     abis::{
     call_context::CallContext, call_request::{CallerContext, CallRequest},
     accumulated_data::{
-    CombinedAccumulatedData, CombinedAccumulatedDataBuilder, PrivateAccumulatedData,
-    PrivateAccumulatedDataBuilder, PublicAccumulatedData, PublicAccumulatedDataBuilder
+    CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
+    PublicAccumulatedData, PublicAccumulatedDataBuilder
 },
     combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
@@ -23,9 +23,9 @@ use crate::{
     VK_TREE_HEIGHT
 },
     hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
-    tests::fixtures, transaction::tx_context::TxContext
+    tests::fixtures, transaction::tx_context::TxContext,
+    traits::Empty
 };
-use dep::std::unsafe;
 
 struct FixtureBuilder {
     contract_address: AztecAddress,
@@ -86,7 +86,7 @@ impl FixtureBuilder {
             public_data_update_requests: BoundedVec::new(),
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            max_block_number: MaxBlockNumber::default(),
+            max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
@@ -137,17 +137,16 @@ impl FixtureBuilder {
     }
 
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
-        let public_inputs = CombinedAccumulatedDataBuilder {
-            new_note_hashes: self.new_note_hashes,
-            new_nullifiers: self.new_nullifiers,
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs,
+        CombinedAccumulatedData {
+            new_note_hashes: self.new_note_hashes.storage.map(|n: SideEffect| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: SideEffectLinkedToNoteHash| n.value),
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            public_data_update_requests: self.public_data_update_requests
-        };
-        public_inputs.finish()
+            public_data_update_requests: self.public_data_update_requests.storage
+        }
     }
 
     pub fn to_validation_requests(self) -> ValidationRequests {
@@ -184,14 +183,14 @@ impl FixtureBuilder {
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {
         let accumulated_data = self.to_public_accumulated_data();
         let end_non_revertible = if revertible {
-            unsafe::zeroed()
+            PublicAccumulatedData::empty()
         } else {
             accumulated_data
         };
         let end = if revertible {
             accumulated_data
         } else {
-            unsafe::zeroed()
+            PublicAccumulatedData::empty()
         };
         let validation_requests = self.to_validation_requests();
         let constants = self.to_constant_data();
@@ -234,7 +233,7 @@ impl FixtureBuilder {
         let mocked_value_offset = self.new_note_hashes.len() + 1;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
-                // The default value is its index + 1.
+                // The empty value is its index + 1.
                 self.new_note_hashes.push(
                     SideEffect { value: (i + mocked_value_offset) as Field, counter: self.next_counter() }
                 );
@@ -376,5 +375,39 @@ impl FixtureBuilder {
         let counter = self.counter;
         self.counter += 1;
         counter
+    }
+}
+
+impl Empty for FixtureBuilder {
+    fn empty() -> Self {
+        FixtureBuilder {
+            contract_address: AztecAddress::zero(),
+            storage_contract_address: AztecAddress::zero(),
+            historical_header: Header::empty(),
+            tx_context: TxContext::empty(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            public_data_update_requests: BoundedVec::new(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
+            max_block_number: MaxBlockNumber::empty(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_non_existent_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            public_data_reads: BoundedVec::new(),
+            proof: Proof::empty(),
+            vk: VerificationKey::empty(),
+            vk_index: 0,
+            vk_path: [0; VK_TREE_HEIGHT],
+            revert_code: 0,
+            min_revertible_side_effect_counter: 0,
+            counter: 0
+        }
     }
 }

@@ -12,14 +12,14 @@ import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.
 
 export { JsonStringify } from '../convert.js';
 
-const debug = createDebugLogger('json-rpc:json_rpc_client');
+const log = createDebugLogger('json-rpc:json_rpc_client');
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.
  * @param host - The host URL.
  * @param method - The RPC method name.
  * @param body - The RPC payload.
- * @param noRetry - Whether to throw a `NoRetryError` in case the response is not ok and the body contains an error
+ * @param noRetry - Whether to throw a `NoRetryError` in case the response is a 5xx error and the body contains an error
  *                  message (see `retry` function for more details).
  * @returns The parsed JSON response, or throws an error.
  */
@@ -30,7 +30,7 @@ export async function defaultFetch(
   useApiEndpoints: boolean,
   noRetry = false,
 ) {
-  debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
+  log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   if (useApiEndpoints) {
     resp = await fetch(`${host}/${rpcMethod}`, {
@@ -56,7 +56,7 @@ export async function defaultFetch(
     throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
   if (!resp.ok) {
-    if (noRetry) {
+    if (noRetry || (resp.status >= 400 && resp.status < 500)) {
       throw new NoRetryError('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
     } else {
       throw new Error('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
@@ -112,9 +112,9 @@ export function createJsonRpcClient<T extends object>(
       method,
       params: params.map(param => convertToJsonObj(classConverter, param)),
     };
-    debug(format(`JsonRpcClient.request`, method, '<-', params));
+    log.debug(format(`JsonRpcClient.request`, method, '<-', params));
     const res = await fetch(host, method, body, useApiEndpoints);
-    debug(format(`JsonRpcClient.result`, method, '->', res));
+    log.debug(format(`JsonRpcClient.result`, method, '->', res));
     if (res.error) {
       throw res.error;
     }
@@ -138,7 +138,7 @@ export function createJsonRpcClient<T extends object>(
           return Reflect.get(target, method);
         }
         return (...params: any[]) => {
-          debug(format(`JsonRpcClient.constructor`, 'proxy', rpcMethod, '<-', params));
+          log.debug(format(`JsonRpcClient.constructor`, 'proxy', rpcMethod, '<-', params));
           return request(rpcMethod, params);
         };
       },

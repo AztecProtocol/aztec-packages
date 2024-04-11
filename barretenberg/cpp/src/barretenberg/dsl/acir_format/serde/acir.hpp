@@ -159,21 +159,12 @@ struct BlackBoxFuncCall {
 
     struct Keccak256 {
         std::vector<Program::FunctionInput> inputs;
+        Program::FunctionInput var_message_size;
         std::vector<Program::Witness> outputs;
 
         friend bool operator==(const Keccak256&, const Keccak256&);
         std::vector<uint8_t> bincodeSerialize() const;
         static Keccak256 bincodeDeserialize(std::vector<uint8_t>);
-    };
-
-    struct Keccak256VariableLength {
-        std::vector<Program::FunctionInput> inputs;
-        Program::FunctionInput var_message_size;
-        std::vector<Program::Witness> outputs;
-
-        friend bool operator==(const Keccak256VariableLength&, const Keccak256VariableLength&);
-        std::vector<uint8_t> bincodeSerialize() const;
-        static Keccak256VariableLength bincodeDeserialize(std::vector<uint8_t>);
     };
 
     struct Keccakf1600 {
@@ -289,7 +280,6 @@ struct BlackBoxFuncCall {
                  FixedBaseScalarMul,
                  EmbeddedCurveAdd,
                  Keccak256,
-                 Keccak256VariableLength,
                  Keccakf1600,
                  RecursiveAggregation,
                  BigIntAdd,
@@ -1137,6 +1127,7 @@ struct Opcode {
         uint32_t id;
         std::vector<Program::Witness> inputs;
         std::vector<Program::Witness> outputs;
+        std::optional<Program::Expression> predicate;
 
         friend bool operator==(const Call&, const Call&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -2953,6 +2944,9 @@ inline bool operator==(const BlackBoxFuncCall::Keccak256& lhs, const BlackBoxFun
     if (!(lhs.inputs == rhs.inputs)) {
         return false;
     }
+    if (!(lhs.var_message_size == rhs.var_message_size)) {
+        return false;
+    }
     if (!(lhs.outputs == rhs.outputs)) {
         return false;
     }
@@ -2984,6 +2978,7 @@ void serde::Serializable<Program::BlackBoxFuncCall::Keccak256>::serialize(
     const Program::BlackBoxFuncCall::Keccak256& obj, Serializer& serializer)
 {
     serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
+    serde::Serializable<decltype(obj.var_message_size)>::serialize(obj.var_message_size, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -2993,64 +2988,6 @@ Program::BlackBoxFuncCall::Keccak256 serde::Deserializable<Program::BlackBoxFunc
     Deserializer& deserializer)
 {
     Program::BlackBoxFuncCall::Keccak256 obj;
-    obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
-    obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
-    return obj;
-}
-
-namespace Program {
-
-inline bool operator==(const BlackBoxFuncCall::Keccak256VariableLength& lhs,
-                       const BlackBoxFuncCall::Keccak256VariableLength& rhs)
-{
-    if (!(lhs.inputs == rhs.inputs)) {
-        return false;
-    }
-    if (!(lhs.var_message_size == rhs.var_message_size)) {
-        return false;
-    }
-    if (!(lhs.outputs == rhs.outputs)) {
-        return false;
-    }
-    return true;
-}
-
-inline std::vector<uint8_t> BlackBoxFuncCall::Keccak256VariableLength::bincodeSerialize() const
-{
-    auto serializer = serde::BincodeSerializer();
-    serde::Serializable<BlackBoxFuncCall::Keccak256VariableLength>::serialize(*this, serializer);
-    return std::move(serializer).bytes();
-}
-
-inline BlackBoxFuncCall::Keccak256VariableLength BlackBoxFuncCall::Keccak256VariableLength::bincodeDeserialize(
-    std::vector<uint8_t> input)
-{
-    auto deserializer = serde::BincodeDeserializer(input);
-    auto value = serde::Deserializable<BlackBoxFuncCall::Keccak256VariableLength>::deserialize(deserializer);
-    if (deserializer.get_buffer_offset() < input.size()) {
-        throw_or_abort("Some input bytes were not read");
-    }
-    return value;
-}
-
-} // end of namespace Program
-
-template <>
-template <typename Serializer>
-void serde::Serializable<Program::BlackBoxFuncCall::Keccak256VariableLength>::serialize(
-    const Program::BlackBoxFuncCall::Keccak256VariableLength& obj, Serializer& serializer)
-{
-    serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
-    serde::Serializable<decltype(obj.var_message_size)>::serialize(obj.var_message_size, serializer);
-    serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
-}
-
-template <>
-template <typename Deserializer>
-Program::BlackBoxFuncCall::Keccak256VariableLength serde::Deserializable<
-    Program::BlackBoxFuncCall::Keccak256VariableLength>::deserialize(Deserializer& deserializer)
-{
-    Program::BlackBoxFuncCall::Keccak256VariableLength obj;
     obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
     obj.var_message_size = serde::Deserializable<decltype(obj.var_message_size)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
@@ -7491,6 +7428,9 @@ inline bool operator==(const Opcode::Call& lhs, const Opcode::Call& rhs)
     if (!(lhs.outputs == rhs.outputs)) {
         return false;
     }
+    if (!(lhs.predicate == rhs.predicate)) {
+        return false;
+    }
     return true;
 }
 
@@ -7520,6 +7460,7 @@ void serde::Serializable<Program::Opcode::Call>::serialize(const Program::Opcode
     serde::Serializable<decltype(obj.id)>::serialize(obj.id, serializer);
     serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
+    serde::Serializable<decltype(obj.predicate)>::serialize(obj.predicate, serializer);
 }
 
 template <>
@@ -7530,6 +7471,7 @@ Program::Opcode::Call serde::Deserializable<Program::Opcode::Call>::deserialize(
     obj.id = serde::Deserializable<decltype(obj.id)>::deserialize(deserializer);
     obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
+    obj.predicate = serde::Deserializable<decltype(obj.predicate)>::deserialize(deserializer);
     return obj;
 }
 

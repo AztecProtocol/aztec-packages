@@ -210,7 +210,9 @@ contract Test {
         }
         let args_hash = args.hash();
         let mut context = PrivateContext::new(inputs, args_hash);
-        context.return_values.push(args_hash);
+        let mut returns = ArgsHasher::new();
+        returns.add(args_hash);
+        context.set_return_hash(returns);
         context.finish()
     }
 
@@ -370,7 +372,8 @@ contract Test {
     fn consume_note_from_secret(secret: Field) {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
-        let options = NoteGetterOptions::new().select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         notes_set.remove(note);
