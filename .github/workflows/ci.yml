@@ -71,7 +71,7 @@ jobs:
           concurrency_key: e2e-${{ github.actor }}-x86-${{ matrix.test }}
       - name: Test
         working-directory: ./yarn-project/end-to-end/
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
       # TODO
       # - name: Upload logs
@@ -95,7 +95,7 @@ jobs:
           concurrency_key: bb-native-tests-${{ github.actor }}-x86
       - name: "Native Prover Tests"
         working-directory: ./barretenberg/cpp/
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: earthly --no-output +test
 
   # push benchmarking binaries to dockerhub registry
