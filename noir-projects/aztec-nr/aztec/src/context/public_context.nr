@@ -58,8 +58,8 @@ impl Default for PublicContext {
         PublicContext {
             inputs: PublicContextInputs::default(),
             side_effect_counter: 0 as u32,
-            args_hash : 0,
-            return_values : BoundedVec::new(),
+            args_hash: 0,
+            return_hash: 0,
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
             contract_storage_update_requests: BoundedVec::new(),

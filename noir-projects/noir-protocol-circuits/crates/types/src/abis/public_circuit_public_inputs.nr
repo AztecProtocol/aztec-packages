@@ -62,7 +62,7 @@ impl Default for PublicCircuitPublicInputs {
         PublicCircuitPublicInputs {
             call_context: CallContext::default(),
             args_hash: 0,
-            return_values: [0; RETURN_VALUES_LENGTH],
+            returns_hash: 0,
             nullifier_read_requests: [ReadRequest::default(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
             nullifier_non_existent_read_requests: [ReadRequest::default(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
             contract_storage_update_requests: [StorageUpdateRequest::default(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],

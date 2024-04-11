@@ -40,7 +40,7 @@ impl Default for PublicCircuitPublicInputsBuilder {
         PublicCircuitPublicInputsBuilder {
             call_context: CallContext::default(),
             args_hash: 0,
-            return_values: BoundedVec::new(),
+            returns_hash: 0,
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
             contract_storage_update_requests: BoundedVec::new(),
