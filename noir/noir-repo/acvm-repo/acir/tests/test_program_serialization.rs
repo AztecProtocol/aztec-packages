@@ -41,7 +41,7 @@ fn addition_circuit() {
         return_values: PublicInputs([Witness(3)].into()),
         ..Circuit::default()
     };
-    let program = Program { functions: vec![circuit] };
+    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 
@@ -72,7 +72,7 @@ fn fixed_base_scalar_mul_circuit() {
         return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(3), Witness(4)])),
         ..Circuit::default()
     };
-    let program = Program { functions: vec![circuit] };
+    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 
@@ -100,7 +100,7 @@ fn pedersen_circuit() {
         return_values: PublicInputs(BTreeSet::from_iter(vec![Witness(2), Witness(3)])),
         ..Circuit::default()
     };
-    let program = Program { functions: vec![circuit] };
+    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 
@@ -142,7 +142,7 @@ fn schnorr_verify_circuit() {
         return_values: PublicInputs(BTreeSet::from([output])),
         ..Circuit::default()
     };
-    let program = Program { functions: vec![circuit] };
+    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 
@@ -206,7 +206,7 @@ fn simple_brillig_foreign_call() {
         private_parameters: BTreeSet::from([Witness(1), Witness(2)]),
         ..Circuit::default()
     };
-    let program = Program { functions: vec![circuit] };
+    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 
@@ -306,7 +306,7 @@ fn complex_brillig_foreign_call() {
         private_parameters: BTreeSet::from([Witness(1), Witness(2), Witness(3)]),
         ..Circuit::default()
     };
-    let program = Program { functions: vec![circuit] };
+    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 
@@ -348,7 +348,7 @@ fn memory_op_circuit() {
         return_values: PublicInputs([Witness(4)].into()),
         ..Circuit::default()
     };
-    let program = Program { functions: vec![circuit] };
+    let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 
@@ -450,7 +450,8 @@ fn nested_acir_call_circuit() {
         ..Circuit::default()
     };
 
-    let program = Program { functions: vec![main, nested_call, inner_call] };
+    let program =
+        Program { functions: vec![main, nested_call, inner_call], unconstrained_functions: vec![] };
 
     let bytes = Program::serialize_program(&program);
 

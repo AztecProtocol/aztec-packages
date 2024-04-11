@@ -142,6 +142,20 @@ pub(super) fn transform_internal(
                 new_acir_opcode_positions.push(acir_opcode_positions[index]);
                 transformed_opcodes.push(opcode);
             }
+            Opcode::BrilligPointer(ref brillig) => {
+                for output in &brillig.outputs {
+                    match output {
+                        BrilligOutputs::Simple(w) => transformer.mark_solvable(*w),
+                        BrilligOutputs::Array(v) => {
+                            for witness in v {
+                                transformer.mark_solvable(*witness);
+                            }
+                        }
+                    }
+                }
+                new_acir_opcode_positions.push(acir_opcode_positions[index]);
+                transformed_opcodes.push(opcode);
+            }
             Opcode::Call { ref outputs, .. } => {
                 for witness in outputs {
                     transformer.mark_solvable(*witness);

@@ -289,8 +289,11 @@ fn count_opcodes_and_gates_in_program(
             Ok(FunctionInfo {
                 name: compiled_program.names[i].clone(),
                 acir_opcodes: function.opcodes.len(),
-                circuit_size: backend
-                    .get_exact_circuit_size(&Program { functions: vec![function] })?,
+                // TODO: update serialization on backend. Unconstrained funcs will not matter here though
+                circuit_size: backend.get_exact_circuit_size(&Program {
+                    functions: vec![function],
+                    unconstrained_functions: vec![],
+                })?,
             })
         })
         .collect::<Result<_, _>>()?;

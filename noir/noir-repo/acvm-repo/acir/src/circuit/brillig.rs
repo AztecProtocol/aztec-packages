@@ -29,3 +29,21 @@ pub struct Brillig {
     /// Predicate of the Brillig execution - indicates if it should be skipped
     pub predicate: Option<Expression>,
 }
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrilligPointer {
+    pub inputs: Vec<BrilligInputs>,
+    pub outputs: Vec<BrilligOutputs>,
+    // A pointer to the index of the Brillig VM bytecode to be executed by the ACVM
+    pub bytecode_index: u32,
+    /// Predicate of the Brillig execution - indicates if it should be skipped
+    pub predicate: Option<Expression>,
+}
+
+/// This is purely a wrapper struct around a list of Brillig opcode's which represents
+/// a full Brillig function to be executed by the Brillig VM.
+/// This is stored separately on a program and accessed through a [BrilligPointer].
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct BrilligBytecode {
+    pub bytecode: Vec<BrilligOpcode>,
+}
