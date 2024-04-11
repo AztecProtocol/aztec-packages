@@ -1,5 +1,5 @@
-import { PROVING_STATUS, type ProcessedTx, type ProvingFailure } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { PROVING_STATUS, type ProvingFailure } from '@aztec/circuit-types';
+import { type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -8,7 +8,13 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig, getSimulationProvider, makeBloatedProcessedTx, makeEmptyProcessedTx } from '../mocks/fixtures.js';
+import {
+  getConfig,
+  getSimulationProvider,
+  makeBloatedProcessedTx,
+  makeEmptyProcessedTestTx,
+  makeGlobals,
+} from '../mocks/fixtures.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -21,19 +27,6 @@ describe('prover/orchestrator', () => {
   let builderDb: MerkleTreeOperations;
 
   let prover: TestCircuitProver;
-
-  const chainId = Fr.ZERO;
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
-
-  const makeGlobals = (blockNumber: number) => {
-    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
-  };
-
-  const makeEmptyProcessedTestTx = (): Promise<ProcessedTx> => {
-    return makeEmptyProcessedTx(builderDb, chainId, version);
-  };
 
   beforeEach(async () => {
     const acvmConfig = await getConfig(logger);
@@ -66,7 +59,12 @@ describe('prover/orchestrator', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await builder.startNewBlock(2, globals1, l1ToL2Messages, await makeEmptyProcessedTestTx());
+      const blockTicket1 = await builder.startNewBlock(
+        2,
+        globals1,
+        l1ToL2Messages,
+        await makeEmptyProcessedTestTx(builderDb),
+      );
 
       await builder.addNewTx(txs1[0]);
       await builder.addNewTx(txs1[1]);
@@ -84,7 +82,12 @@ describe('prover/orchestrator', () => {
 
       await builderDb.rollback();
 
-      const blockTicket2 = await builder.startNewBlock(2, globals2, l1ToL2Messages, await makeEmptyProcessedTestTx());
+      const blockTicket2 = await builder.startNewBlock(
+        2,
+        globals2,
+        l1ToL2Messages,
+        await makeEmptyProcessedTestTx(builderDb),
+      );
 
       await builder.addNewTx(txs2[0]);
       await builder.addNewTx(txs2[1]);
@@ -106,13 +109,23 @@ describe('prover/orchestrator', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await builder.startNewBlock(2, globals1, l1ToL2Messages, await makeEmptyProcessedTestTx());
+      const blockTicket1 = await builder.startNewBlock(
+        2,
+        globals1,
+        l1ToL2Messages,
+        await makeEmptyProcessedTestTx(builderDb),
+      );
 
       await builder.addNewTx(txs1[0]);
 
       await builderDb.rollback();
 
-      const blockTicket2 = await builder.startNewBlock(2, globals2, l1ToL2Messages, await makeEmptyProcessedTestTx());
+      const blockTicket2 = await builder.startNewBlock(
+        2,
+        globals2,
+        l1ToL2Messages,
+        await makeEmptyProcessedTestTx(builderDb),
+      );
 
       await builder.addNewTx(txs2[0]);
       await builder.addNewTx(txs2[1]);

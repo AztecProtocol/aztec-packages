@@ -1,5 +1,5 @@
-import { MerkleTreeId, PROVING_STATUS, type ProcessedTx } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { MerkleTreeId, PROVING_STATUS } from '@aztec/circuit-types';
+import { Fr, type GlobalVariables, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
@@ -13,7 +13,8 @@ import {
   getConfig,
   getSimulationProvider,
   makeBloatedProcessedTx,
-  makeEmptyProcessedTx,
+  makeEmptyProcessedTestTx,
+  makeGlobals,
   updateExpectedTreesFromTxs,
 } from '../mocks/fixtures.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
@@ -34,19 +35,6 @@ describe('prover/orchestrator', () => {
   let mockL1ToL2Messages: Fr[];
 
   let globalVariables: GlobalVariables;
-
-  const chainId = Fr.ZERO;
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
-
-  const makeGlobals = (blockNumber: number) => {
-    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
-  };
-
-  const makeEmptyProcessedTestTx = (): Promise<ProcessedTx> => {
-    return makeEmptyProcessedTx(builderDb, chainId, version);
-  };
 
   beforeEach(async () => {
     blockNumber = 3;
@@ -88,14 +76,14 @@ describe('prover/orchestrator', () => {
         const noteHashTreeBefore = await builderDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
         const txs = [
           ...(await Promise.all(times(bloatedCount, (i: number) => makeBloatedProcessedTx(builderDb, i)))),
-          ...(await Promise.all(times(totalCount - bloatedCount, makeEmptyProcessedTestTx))),
+          ...(await Promise.all(times(totalCount - bloatedCount, _ => makeEmptyProcessedTestTx(builderDb)))),
         ];
 
         const blockTicket = await builder.startNewBlock(
           txs.length,
           globalVariables,
           mockL1ToL2Messages,
-          await makeEmptyProcessedTestTx(),
+          await makeEmptyProcessedTestTx(builderDb),
         );
 
         for (const tx of txs) {
@@ -136,7 +124,7 @@ describe('prover/orchestrator', () => {
         txs.length,
         globalVariables,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(),
+        await makeEmptyProcessedTestTx(builderDb),
       );
 
       for (const tx of txs) {
@@ -164,7 +152,7 @@ describe('prover/orchestrator', () => {
         4,
         globalVariables,
         l1ToL2Messages,
-        await makeEmptyProcessedTestTx(),
+        await makeEmptyProcessedTestTx(builderDb),
       );
 
       for (const tx of txs) {

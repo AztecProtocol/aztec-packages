@@ -1,12 +1,17 @@
-import { PROVING_STATUS, type ProcessedTx } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables } from '@aztec/circuits.js';
+import { PROVING_STATUS } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig, getSimulationProvider, makeBloatedProcessedTx, makeEmptyProcessedTx } from '../mocks/fixtures.js';
+import {
+  getConfig,
+  getSimulationProvider,
+  makeBloatedProcessedTx,
+  makeEmptyProcessedTestTx,
+  makeGlobals,
+} from '../mocks/fixtures.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -19,19 +24,6 @@ describe('prover/orchestrator', () => {
   let builderDb: MerkleTreeOperations;
 
   let prover: TestCircuitProver;
-
-  const chainId = Fr.ZERO;
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
-
-  const makeGlobals = (blockNumber: number) => {
-    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
-  };
-
-  const makeEmptyProcessedTestTx = (): Promise<ProcessedTx> => {
-    return makeEmptyProcessedTx(builderDb, chainId, version);
-  };
 
   beforeEach(async () => {
     const acvmConfig = await getConfig(logger);
@@ -60,7 +52,7 @@ describe('prover/orchestrator', () => {
 
       for (let i = 0; i < numBlocks; i++) {
         const tx = await makeBloatedProcessedTx(builderDb, i + 1);
-        const emptyTx = await makeEmptyProcessedTestTx();
+        const emptyTx = await makeEmptyProcessedTestTx(builderDb);
         tx.data.constants.historicalHeader = header;
         emptyTx.data.constants.historicalHeader = header;
 

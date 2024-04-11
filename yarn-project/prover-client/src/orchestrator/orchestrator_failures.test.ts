@@ -1,5 +1,5 @@
 import { PROVING_STATUS, type ProcessedTx } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables } from '@aztec/circuits.js';
+import { Fr, type GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { WASMSimulator } from '@aztec/simulator';
@@ -8,7 +8,7 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { jest } from '@jest/globals';
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig, getSimulationProvider, makeEmptyProcessedTx } from '../mocks/fixtures.js';
+import { getConfig, getSimulationProvider, makeEmptyProcessedTx, makeGlobals } from '../mocks/fixtures.js';
 import { type CircuitProver } from '../prover/index.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
@@ -27,17 +27,8 @@ describe('prover/orchestrator', () => {
 
   let globalVariables: GlobalVariables;
 
-  const chainId = Fr.ZERO;
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
-
-  const makeGlobals = (blockNumber: number) => {
-    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
-  };
-
   const makeEmptyProcessedTestTx = (): Promise<ProcessedTx> => {
-    return makeEmptyProcessedTx(builderDb, chainId, version);
+    return makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);
   };
 
   beforeEach(async () => {

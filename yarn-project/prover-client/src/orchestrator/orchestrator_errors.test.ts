@@ -1,12 +1,18 @@
-import { PROVING_STATUS, type ProcessedTx } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables } from '@aztec/circuits.js';
+import { PROVING_STATUS } from '@aztec/circuit-types';
+import { Fr, type GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig, getSimulationProvider, makeBloatedProcessedTx, makeEmptyProcessedTx } from '../mocks/fixtures.js';
+import {
+  getConfig,
+  getSimulationProvider,
+  makeBloatedProcessedTx,
+  makeEmptyProcessedTestTx,
+  makeGlobals,
+} from '../mocks/fixtures.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -23,19 +29,6 @@ describe('prover/orchestrator', () => {
   let blockNumber: number;
 
   let globalVariables: GlobalVariables;
-
-  const chainId = Fr.ZERO;
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
-
-  const makeGlobals = (blockNumber: number) => {
-    return new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
-  };
-
-  const makeEmptyProcessedTestTx = (): Promise<ProcessedTx> => {
-    return makeEmptyProcessedTx(builderDb, chainId, version);
-  };
 
   beforeEach(async () => {
     blockNumber = 3;
@@ -73,14 +66,14 @@ describe('prover/orchestrator', () => {
         txs.length,
         globalVariables,
         [],
-        await makeEmptyProcessedTestTx(),
+        await makeEmptyProcessedTestTx(builderDb),
       );
 
       for (const tx of txs) {
         await builder.addNewTx(tx);
       }
 
-      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTestTx(builderDb))).rejects.toThrow(
         'Rollup not accepting further transactions',
       );
 
@@ -92,7 +85,7 @@ describe('prover/orchestrator', () => {
     }, 30_000);
 
     it('throws if adding a transaction before start', async () => {
-      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTestTx(builderDb))).rejects.toThrow(
         `Invalid proving state, call startNewBlock before adding transactions`,
       );
     }, 1000);
@@ -110,13 +103,13 @@ describe('prover/orchestrator', () => {
     }, 1000);
 
     it('throws if finalising an already finalised block', async () => {
-      const txs = await Promise.all([makeEmptyProcessedTestTx(), makeEmptyProcessedTestTx()]);
+      const txs = await Promise.all([makeEmptyProcessedTestTx(builderDb), makeEmptyProcessedTestTx(builderDb)]);
 
       const blockTicket = await builder.startNewBlock(
         txs.length,
         globalVariables,
         [],
-        await makeEmptyProcessedTestTx(),
+        await makeEmptyProcessedTestTx(builderDb),
       );
 
       for (const tx of txs) {
@@ -131,11 +124,11 @@ describe('prover/orchestrator', () => {
     }, 60000);
 
     it('throws if adding to a cancelled block', async () => {
-      await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTestTx());
+      await builder.startNewBlock(2, globalVariables, [], await makeEmptyProcessedTestTx(builderDb));
 
       builder.cancelBlock();
 
-      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTestTx())).rejects.toThrow(
+      await expect(async () => await builder.addNewTx(await makeEmptyProcessedTestTx(builderDb))).rejects.toThrow(
         'Rollup not accepting further transactions',
       );
     }, 10000);
@@ -144,7 +137,8 @@ describe('prover/orchestrator', () => {
       'fails to start a block with %i transactions',
       async (blockSize: number) => {
         await expect(
-          async () => await builder.startNewBlock(blockSize, globalVariables, [], await makeEmptyProcessedTestTx()),
+          async () =>
+            await builder.startNewBlock(blockSize, globalVariables, [], await makeEmptyProcessedTestTx(builderDb)),
         ).rejects.toThrow(`Length of txs for the block should be a power of two and at least two (got ${blockSize})`);
       },
     );
@@ -153,7 +147,8 @@ describe('prover/orchestrator', () => {
       // Assemble a fake transaction
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
       await expect(
-        async () => await builder.startNewBlock(2, globalVariables, l1ToL2Messages, await makeEmptyProcessedTestTx()),
+        async () =>
+          await builder.startNewBlock(2, globalVariables, l1ToL2Messages, await makeEmptyProcessedTestTx(builderDb)),
       ).rejects.toThrow('Too many L1 to L2 messages');
     });
   });

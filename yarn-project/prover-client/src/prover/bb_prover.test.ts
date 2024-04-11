@@ -1,5 +1,5 @@
 import { PROVING_STATUS, makeEmptyProcessedTx } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables, Header } from '@aztec/circuits.js';
+import { Fr, type GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
@@ -7,7 +7,7 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import * as fs from 'fs/promises';
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig, makeBloatedProcessedTx } from '../mocks/fixtures.js';
+import { getConfig, makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
 import { buildBaseRollupInput } from '../orchestrator/block-building-helpers.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
@@ -24,11 +24,6 @@ describe('prover/bb_prover', () => {
   let blockNumber: number;
 
   let globalVariables: GlobalVariables;
-
-  const chainId = Fr.ZERO;
-  const version = Fr.ZERO;
-  const coinbase = EthAddress.ZERO;
-  const feeRecipient = AztecAddress.ZERO;
 
   beforeAll(async () => {
     const config = await getConfig(logger);
@@ -47,7 +42,7 @@ describe('prover/bb_prover', () => {
 
   beforeEach(async () => {
     blockNumber = 3;
-    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
+    globalVariables = makeGlobals(blockNumber);
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
   }, 60_000);

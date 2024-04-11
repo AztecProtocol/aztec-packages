@@ -6,7 +6,11 @@ import {
   mockTx,
 } from '@aztec/circuit-types';
 import {
+  AztecAddress,
+  EthAddress,
   Fr,
+  GasFees,
+  GlobalVariables,
   KernelCircuitPublicInputs,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
@@ -158,4 +162,20 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeOperations, txs: 
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
   }
+};
+
+export const makeGlobals = (blockNumber: number) => {
+  return new GlobalVariables(
+    Fr.ZERO,
+    Fr.ZERO,
+    new Fr(blockNumber),
+    Fr.ZERO,
+    EthAddress.ZERO,
+    AztecAddress.ZERO,
+    GasFees.empty(),
+  );
+};
+
+export const makeEmptyProcessedTestTx = (builderDb: MerkleTreeOperations): Promise<ProcessedTx> => {
+  return makeEmptyProcessedTx(builderDb, Fr.ZERO, Fr.ZERO);
 };
