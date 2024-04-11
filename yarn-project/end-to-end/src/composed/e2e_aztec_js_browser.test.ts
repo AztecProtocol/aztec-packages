@@ -41,7 +41,7 @@ const setupApp = async () => {
   }
 
   const app = new Koa();
-  app.use(serve(path.resolve(__dirname, './web')));
+  app.use(serve(path.resolve(__dirname, '../web')));
   const server = app.listen(PORT, () => {
     logger.info(`Web Server started at http://localhost:${PORT}`);
   });
