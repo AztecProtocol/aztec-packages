@@ -56,12 +56,14 @@ const config = {
           routeBasePath: "/",
           remarkPlugins: [math],
           rehypePlugins: [
-            katex,
-            {
-              throwOnError: true,
-              globalGroup: true,
-              macros,
-            },
+            [
+              katex,
+              {
+                throwOnError: true,
+                globalGroup: true,
+                macros,
+              },
+            ],
           ],
         },
         blog: false,

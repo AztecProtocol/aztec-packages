@@ -14,7 +14,6 @@ $$
 \gdef\Ivpkm{\color{green}{Ivpk_m}\color{black}{}}
 \gdef\Ovpkm{\color{green}{Ovpk_m}\color{black}{}}
 
-
 \gdef\address{\color{green}{address}\color{black}{}}
 \gdef\codehash{\color{green}{code\_hash}\color{black}{}}
 \gdef\constructorhash{\color{green}{constructor\_hash}\color{black}{}}
