@@ -156,4 +156,6 @@ export enum GeneratorIndex {
   IVSK_M = 48,
   OVSK_M = 49,
   TSK_M = 50,
+  PUBLIC_KEYS_HASH = 51,
+  CONTRACT_ADDRESS_V1 = 52,
 }

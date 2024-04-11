@@ -1,36 +1,38 @@
-import { AztecAddress, Fr, PartialAddress, type PublicKey } from '@aztec/circuits.js';
+import { type AztecAddress, Fr, PartialAddress, type PublicKey } from '@aztec/circuits.js';
 
 /**
  * Represents a secure storage for managing keys.
  */
 export interface NewKeyStore {
   /**
-   * Retrieves the master nullifier public key.
-   * @returns A Promise that resolves to the master nullifier public key.
+   * Gets the master nullifier public key for a given account.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account address for which to retrieve the master nullifier public key.
+   * @returns The master nullifier public key for the account.
    */
-  getMasterNullifierPublicKey(): Promise<PublicKey>;
+  getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey>;
 
   /**
-   * Retrieves the master incoming viewing key.
-   * @returns A Promise that resolves to the master incoming viewing key.
+   * Gets the master incoming viewing public key for a given account.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account address for which to retrieve the master incoming viewing public key.
+   * @returns The master incoming viewing public key for the account.
    */
-  getMasterIncomingViewingPublicKey(): Promise<PublicKey>;
+  getMasterIncomingViewingPublicKey(account: AztecAddress): Promise<PublicKey>;
 
   /**
    * Retrieves the master outgoing viewing key.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account to retrieve the master outgoing viewing key for.
    * @returns A Promise that resolves to the master outgoing viewing key.
    */
-  getMasterOutgoingViewingPublicKey(): Promise<PublicKey>;
+  getMasterOutgoingViewingPublicKey(account: AztecAddress): Promise<PublicKey>;
 
   /**
    * Retrieves the master tagging key.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account to retrieve the master tagging key for.
    * @returns A Promise that resolves to the master tagging key.
    */
-  getMasterTaggingPublicKey(): Promise<PublicKey>;
-
-  /**
-   * Retrieves the hash of the public keys.
-   * @returns A Promise that resolves to the hash of the public keys.
-   */
-  getPublicKeysHash(): Promise<PublicKey>;
+  getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey>;
 }
