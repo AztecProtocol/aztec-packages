@@ -1,6 +1,6 @@
 import {
   MerkleTreeId,
-  ProcessedTx,
+  type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
   mockTx,
@@ -21,9 +21,9 @@ import { fr, makeProof } from '@aztec/circuits.js/testing';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { DebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NativeACVMSimulator, SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';

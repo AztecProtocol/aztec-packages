@@ -177,8 +177,6 @@ export class BBNativeRollupProver implements CircuitProver {
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
 
-    logger.error(`Created directory ${bbWorkingDirectory}`);
-
     // Have the ACVM write the partial witness here
     const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
 

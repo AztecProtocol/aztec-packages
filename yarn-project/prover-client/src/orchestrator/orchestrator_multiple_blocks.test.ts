@@ -1,20 +1,12 @@
-import {
-  PROVING_STATUS,
-  type ProcessedTx
-} from '@aztec/circuit-types';
+import { PROVING_STATUS, type ProcessedTx } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr, GlobalVariables } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { MerkleTrees, type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
-import {
-  getConfig,
-  getSimulationProvider,
-  makeBloatedProcessedTx,
-  makeEmptyProcessedTx
-} from '../mocks/fixtures.js';
+import { getConfig, getSimulationProvider, makeBloatedProcessedTx, makeEmptyProcessedTx } from '../mocks/fixtures.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -52,7 +44,6 @@ describe('prover/orchestrator', () => {
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     builder = new ProvingOrchestrator(builderDb, prover, 1);
   }, 20_000);
-
 
   describe('multiple blocks', () => {
     beforeEach(async () => {
