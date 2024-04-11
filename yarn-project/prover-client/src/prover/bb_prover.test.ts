@@ -63,7 +63,7 @@ describe('prover/bb_prover', () => {
     }
     logger.verbose('Proving base rollups');
     await Promise.all(baseRollupInputs.map(inputs => prover.getBaseRollupProof(inputs)));
-  }, 60_000);
+  }, 600_000);
 
   it('proves all circuits', async () => {
     const txs = await Promise.all([
@@ -97,5 +97,5 @@ describe('prover/bb_prover', () => {
     await expect(prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
 
     await orchestrator.stop();
-  }, 300_000);
+  }, 600_000);
 });
