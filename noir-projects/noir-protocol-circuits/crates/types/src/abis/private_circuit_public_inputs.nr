@@ -200,7 +200,7 @@ impl Empty for PrivateCircuitPublicInputs {
 
 #[test]
 fn serialization_of_empty() {
-    let pcpi: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let pcpi = PrivateCircuitPublicInputs::empty();
     let serialized = pcpi.serialize();
     let deserialized = PrivateCircuitPublicInputs::deserialize(serialized);
     assert(pcpi.eq(deserialized));
@@ -208,7 +208,7 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let inputs: PrivateCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let inputs = PrivateCircuitPublicInputs::empty();
     let hash = inputs.hash();
 
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test

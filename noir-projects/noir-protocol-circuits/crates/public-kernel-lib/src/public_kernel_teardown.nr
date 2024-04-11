@@ -3,7 +3,6 @@ use dep::types::abis::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
     kernel_data::PublicKernelData, public_call_data::PublicCallData
 };
-use dep::std::unsafe;
 
 struct PublicKernelTeardownCircuitPrivateInputs {
     previous_kernel: PublicKernelData,

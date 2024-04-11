@@ -1,5 +1,4 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
@@ -73,7 +72,6 @@ mod tests {
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
         tests::{private_call_data_builder::PrivateCallDataBuilder, fixture_builder::FixtureBuilder}
     };
-    use dep::std::unsafe;
 
     struct PrivateKernelInnerInputsBuilder {
         previous_kernel: FixtureBuilder,

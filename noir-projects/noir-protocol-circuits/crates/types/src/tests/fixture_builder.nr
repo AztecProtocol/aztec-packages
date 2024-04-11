@@ -26,7 +26,6 @@ use crate::{
     tests::fixtures, transaction::tx_context::TxContext,
     traits::Empty
 };
-use dep::std::unsafe;
 
 struct FixtureBuilder {
     contract_address: AztecAddress,

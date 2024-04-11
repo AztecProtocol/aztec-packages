@@ -72,7 +72,7 @@ impl Empty for PrivateCallStackItem {
 
 #[test]
 fn serialization_of_empty() {
-    let item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let item = PrivateCallStackItem::empty();
     let serialized = item.serialize();
     let deserialized = PrivateCallStackItem::deserialize(serialized);
     assert(item.eq(deserialized));
@@ -80,7 +80,7 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let mut item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let mut item = PrivateCallStackItem::empty();
     item.function_data.is_private = true;
     let hash = item.hash();
 

@@ -1,5 +1,5 @@
 use crate::common;
-use dep::std::{cmp::Eq, option::Option, unsafe};
+use dep::std::{cmp::Eq, option::Option};
 use dep::reset_kernel_lib::{NullifierReadRequestHints, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{

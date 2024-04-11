@@ -91,7 +91,7 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
 }
 
 mod test {
-    use dep::std::{unsafe, merkle::compute_merkle_root, test::OracleMock};
+    use dep::std::{merkle::compute_merkle_root, test::OracleMock};
 
     use crate::{
         context::{PublicContext, PrivateContext, Context},
@@ -120,7 +120,7 @@ mod test {
             private_context.historical_header.global_variables.block_number = block_number;
             Context::private(&mut private_context)
         } else {
-            let mut public_context: PublicContext = unsafe::zeroed();
+            let mut public_context = PublicContext::empty();
             public_context.inputs.public_global_variables.block_number = block_number;
             Context::public(&mut public_context)
         }

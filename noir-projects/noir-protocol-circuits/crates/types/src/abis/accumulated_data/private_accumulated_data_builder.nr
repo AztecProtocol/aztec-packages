@@ -15,7 +15,6 @@ use crate::{
 },
 traits::Empty
 };
-use dep::std::unsafe;
 
 struct PrivateAccumulatedDataBuilder {
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
@@ -58,7 +57,7 @@ impl PrivateAccumulatedDataBuilder {
             unencrypted_logs_hash: self.unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            public_data_update_requests: unsafe::zeroed()
+            public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
         }
     }
 
@@ -115,7 +114,6 @@ mod tests {
     },
         address::AztecAddress, utils::arrays::array_eq
     };
-    use dep::std::unsafe;
 
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {

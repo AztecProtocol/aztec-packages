@@ -4,7 +4,6 @@ use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
 use crate::common;
-use dep::std::unsafe;
 
 struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,

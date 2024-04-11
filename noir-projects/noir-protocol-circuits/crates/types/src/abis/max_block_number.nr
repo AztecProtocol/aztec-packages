@@ -84,7 +84,7 @@ fn zeroed_is_none() {
     // Large parts of the kernel rely on zeroed to initialize structs. This conveniently matches what `default` does,
     // and though we should eventually move everything to use `default`, it's good to check for now that both are
     // equivalent.
-    let a: MaxBlockNumber = dep::std::unsafe::zeroed();
+    let a = MaxBlockNumber::default();
     assert(a.is_none());
 }
 

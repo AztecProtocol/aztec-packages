@@ -12,7 +12,6 @@ use dep::types::{
     utils::{arrays::{array_length, array_merge, array_to_bounded_vec, assert_sorted_array}},
     hash::silo_nullifier, traits::is_empty
 };
-use dep::std::unsafe;
 
 struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,

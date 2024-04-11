@@ -1,5 +1,4 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
     combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
