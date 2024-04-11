@@ -25,13 +25,17 @@ enum PROVING_STATE_LIFECYCLE {
   PROVING_STATE_REJECTED,
 }
 
+class TxProvingState {
+  processedTx: ProcessedTx;
+}
+
 /**
  * The current state of the proving schedule. Contains the raw inputs (txs) and intermediate state to generate every constituent proof in the tree.
  * Carries an identifier so we can identify if the proving state is discarded and a new one started.
  * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
  */
 export class ProvingState {
-  private provingStateLifecyle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
+  private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
   private mergeRollupInputs: MergeRollupInputData[] = [];
   private rootParityInputs: Array<RootParityInput | undefined> = [];
   private finalRootParityInputs: RootParityInput | undefined;
@@ -66,7 +70,7 @@ export class ProvingState {
   public addNewTx(tx: ProcessedTx) {
     this.txs.push(tx);
     if (this.txs.length === this.totalNumTxs) {
-      this.provingStateLifecyle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
+      this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
     return this.txs.length - 1;
   }
@@ -89,13 +93,13 @@ export class ProvingState {
 
   public verifyState() {
     return (
-      this.provingStateLifecyle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED ||
-      this.provingStateLifecyle === PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL
+      this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED ||
+      this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL
     );
   }
 
   public isAcceptingTransactions() {
-    return this.provingStateLifecyle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
+    return this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
   }
 
   public get allTxs() {
@@ -166,7 +170,7 @@ export class ProvingState {
     if (!this.verifyState()) {
       return;
     }
-    this.provingStateLifecyle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
+    this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
     this.rejectionCallback(reason);
   }
 
@@ -174,7 +178,7 @@ export class ProvingState {
     if (!this.verifyState()) {
       return;
     }
-    this.provingStateLifecyle = PROVING_STATE_LIFECYCLE.PROVING_STATE_RESOLVED;
+    this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_RESOLVED;
     this.completionCallback(result);
   }
 }

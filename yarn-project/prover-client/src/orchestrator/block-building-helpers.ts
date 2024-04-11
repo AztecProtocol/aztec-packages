@@ -3,7 +3,6 @@ import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
-  type BaseParityInputs,
   BaseRollupInputs,
   ConstantRollupData,
   Fr,
@@ -31,8 +30,7 @@ import {
   type PublicDataTreeLeafPreimage,
   ROLLUP_VK_TREE_HEIGHT,
   RollupTypes,
-  RootParityInput,
-  type RootParityInputs,
+  type RootParityInput,
   RootRollupInputs,
   type RootRollupPublicInputs,
   StateDiffHints,
@@ -41,12 +39,10 @@ import {
   type VerificationKey,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
-import { type DebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { type CircuitProver } from '../prover/interface.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);
@@ -179,43 +175,6 @@ export function createMergeRollupInputs(
     getPreviousRollupDataFromPublicInputs(right[0], right[1], vk),
   ]);
   return mergeInputs;
-}
-
-export async function executeMergeRollupCircuit(
-  mergeInputs: MergeRollupInputs,
-  prover: CircuitProver,
-  logger?: DebugLogger,
-): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
-  logger?.debug(`Running merge rollup circuit`);
-  return await prover.getMergeRollupProof(mergeInputs);
-}
-
-export async function executeRootRollupCircuit(
-  left: [BaseOrMergeRollupPublicInputs, Proof],
-  right: [BaseOrMergeRollupPublicInputs, Proof],
-  l1ToL2Roots: RootParityInput,
-  newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-  messageTreeSnapshot: AppendOnlyTreeSnapshot,
-  messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
-  prover: CircuitProver,
-  db: MerkleTreeOperations,
-  logger?: DebugLogger,
-): Promise<[RootRollupPublicInputs, Proof]> {
-  logger?.debug(`Running root rollup circuit`);
-  const rootInput = await getRootRollupInput(
-    ...left,
-    ...right,
-    l1ToL2Roots,
-    newL1ToL2Messages,
-    messageTreeSnapshot,
-    messageTreeRootSiblingPath,
-    db,
-  );
-
-  // Simulate and get proof for the root circuit
-  const [rootOutput, rootProof] = await prover.getRootRollupProof(rootInput);
-
-  return [rootOutput, rootProof];
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
@@ -441,19 +400,6 @@ export async function getMembershipWitnessFor<N extends number>(
   return new MembershipWitness(height, index, assertLength(path.toFields(), height));
 }
 
-export async function executeBaseRollupCircuit(
-  tx: ProcessedTx,
-  inputs: BaseRollupInputs,
-  treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
-  prover: CircuitProver,
-  logger?: DebugLogger,
-): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
-  logger?.debug(`Running base rollup for ${tx.hash}`);
-  const [rollupOutput, proof] = await prover.getBaseRollupProof(inputs);
-  validatePartialState(rollupOutput.end, treeSnapshots);
-  return [rollupOutput, proof];
-}
-
 export function validatePartialState(
   partialState: PartialStateReference,
   treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
@@ -484,26 +430,6 @@ export function validateSimulatedTree(
       })`,
     );
   }
-}
-
-export async function executeBaseParityCircuit(
-  inputs: BaseParityInputs,
-  prover: CircuitProver,
-  logger?: DebugLogger,
-): Promise<RootParityInput> {
-  logger?.debug(`Running base parity circuit`);
-  const [parityPublicInputs, proof] = await prover.getBaseParityProof(inputs);
-  return new RootParityInput(proof, parityPublicInputs);
-}
-
-export async function executeRootParityCircuit(
-  inputs: RootParityInputs,
-  prover: CircuitProver,
-  logger?: DebugLogger,
-): Promise<RootParityInput> {
-  logger?.debug(`Running root parity circuit`);
-  const [parityPublicInputs, proof] = await prover.getRootParityProof(inputs);
-  return new RootParityInput(proof, parityPublicInputs);
 }
 
 export function validateTx(tx: ProcessedTx) {

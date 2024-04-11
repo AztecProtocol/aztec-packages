@@ -28,13 +28,17 @@ export enum PublicKernelType {
   TAIL,
 }
 
-/**
- * Request to the prover to prove a public kernel circuit
- */
-export type PublicKernelRequest = {
-  type: PublicKernelType;
-  inputs: PublicKernelCircuitPrivateInputs | PublicKernelTailCircuitPrivateInputs;
+export type PublicKernelTailRequest = {
+  type: PublicKernelType.TAIL;
+  inputs: PublicKernelTailCircuitPrivateInputs;
 };
+
+export type PublicKernelNonTailRequest = {
+  type: PublicKernelType.SETUP | PublicKernelType.APP_LOGIC | PublicKernelType.TEARDOWN;
+  inputs: PublicKernelCircuitPrivateInputs;
+};
+
+export type PublicKernelRequest = PublicKernelTailRequest | PublicKernelNonTailRequest;
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,

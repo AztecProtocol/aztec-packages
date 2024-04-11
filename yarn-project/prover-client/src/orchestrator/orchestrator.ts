@@ -18,7 +18,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
-  type RootParityInput,
+  RootParityInput,
   RootParityInputs,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -36,13 +36,10 @@ import { type CircuitProver } from '../prover/index.js';
 import {
   buildBaseRollupInput,
   createMergeRollupInputs,
-  executeBaseParityCircuit,
-  executeBaseRollupCircuit,
-  executeMergeRollupCircuit,
-  executeRootParityCircuit,
-  executeRootRollupCircuit,
+  getRootRollupInput,
   getSubtreeSiblingPath,
   getTreeSnapshot,
+  validatePartialState,
   validateRootOutput,
   validateTx,
 } from './block-building-helpers.js';
@@ -415,15 +412,17 @@ export class ProvingOrchestrator {
       logger.debug('Not running base rollup, state invalid');
       return;
     }
-    const [duration, baseRollupOutputs] = await elapsed(() =>
-      executeBaseRollupCircuit(tx, inputs, treeSnapshots, this.prover, logger),
-    );
+    const [duration, baseRollupOutputs] = await elapsed(async () => {
+      const [rollupOutput, proof] = await this.prover.getBaseRollupProof(inputs);
+      validatePartialState(rollupOutput.end, treeSnapshots);
+      return { rollupOutput, proof };
+    });
     logger.debug(`Simulated base rollup circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'base-rollup',
       duration,
       inputSize: inputs.toBuffer().length,
-      outputSize: baseRollupOutputs[0].toBuffer().length,
+      outputSize: baseRollupOutputs.rollupOutput.toBuffer().length,
     } satisfies CircuitSimulationStats);
     if (!provingState?.verifyState()) {
       logger.debug(`Discarding job as state no longer valid`);
@@ -431,7 +430,10 @@ export class ProvingOrchestrator {
     }
     const currentLevel = provingState.numMergeLevels + 1n;
     logger.info(`Completed base rollup at index ${index}, current level ${currentLevel}`);
-    this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, baseRollupOutputs);
+    this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [
+      baseRollupOutputs.rollupOutput,
+      baseRollupOutputs.proof,
+    ]);
   }
 
   // Executes the merge rollup circuit and stored the output as intermediate state for the parent merge/root circuit
@@ -450,9 +452,7 @@ export class ProvingOrchestrator {
       [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
       [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
     );
-    const [duration, circuitOutputs] = await elapsed(() =>
-      executeMergeRollupCircuit(circuitInputs, this.prover, logger),
-    );
+    const [duration, circuitOutputs] = await elapsed(() => this.prover.getMergeRollupProof(circuitInputs));
     logger.debug(`Simulated merge rollup circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'merge-rollup',
@@ -476,21 +476,26 @@ export class ProvingOrchestrator {
     }
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
-    const [circuitsOutput, proof] = await executeRootRollupCircuit(
-      [mergeInputData.inputs[0]!, mergeInputData.proofs[0]!],
-      [mergeInputData.inputs[1]!, mergeInputData.proofs[1]!],
+
+    const rootInput = await getRootRollupInput(
+      mergeInputData.inputs[0]!,
+      mergeInputData.proofs[0]!,
+      mergeInputData.inputs[1]!,
+      mergeInputData.proofs[1]!,
       rootParityInput,
       provingState.newL1ToL2Messages,
       provingState.messageTreeSnapshot,
       provingState.messageTreeRootSiblingPath,
-      this.prover,
       this.db,
-      logger,
     );
+
+    // Simulate and get proof for the root circuit
+    const [rootOutput, rootProof] = await this.prover.getRootRollupProof(rootInput);
+
     logger.info(`Completed root rollup`);
 
-    provingState.rootRollupPublicInputs = circuitsOutput;
-    provingState.finalProof = proof;
+    provingState.rootRollupPublicInputs = rootOutput;
+    provingState.finalProof = rootProof;
 
     const provingResult: ProvingResult = {
       status: PROVING_STATUS.SUCCESS,
@@ -505,7 +510,10 @@ export class ProvingOrchestrator {
       logger.debug('Not running base parity, state no longer valid');
       return;
     }
-    const [duration, circuitOutputs] = await elapsed(() => executeBaseParityCircuit(inputs, this.prover, logger));
+    const [duration, circuitOutputs] = await elapsed(async () => {
+      const [parityPublicInputs, proof] = await this.prover.getBaseParityProof(inputs);
+      return new RootParityInput(proof, parityPublicInputs);
+    });
     logger.debug(`Simulated base parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'base-parity',
@@ -539,7 +547,10 @@ export class ProvingOrchestrator {
       logger.debug(`Not running root parity circuit as state is no longer valid`);
       return;
     }
-    const [duration, circuitOutputs] = await elapsed(() => executeRootParityCircuit(inputs, this.prover, logger));
+    const [duration, circuitOutputs] = await elapsed(async () => {
+      const [parityPublicInputs, proof] = await this.prover.getRootParityProof(inputs);
+      return new RootParityInput(proof, parityPublicInputs);
+    });
     logger.debug(`Simulated root parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'root-parity',
