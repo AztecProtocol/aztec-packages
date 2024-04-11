@@ -57,10 +57,10 @@ impl PrivateCircuitPublicInputsBuilder {
 
         let args_hash = 0;
 
-        let contract_data = fixtures::contracts::empty_contract;
+        let contract_data = fixtures::contracts::default_contract;
         let portal_contract_address = contract_data.portal_contract_address;
 
-        let contract_function = fixtures::contract_functions::empty_private_function;
+        let contract_function = fixtures::contract_functions::default_private_function;
         let function_data = contract_function.data;
 
         let contract_address = contract_data.address;
@@ -116,7 +116,7 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
         PrivateCircuitPublicInputsBuilder {
             call_context: CallContext::empty(),
             args_hash: 0,
-            return_values: BoundedVec::new(),
+            returns_hash: 0,
             min_revertible_side_effect_counter: 0 as u32,
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),

@@ -174,7 +174,7 @@ impl Empty for PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs {
             call_context: CallContext::empty(),
             args_hash: 0,
-            return_values: [0; RETURN_VALUES_LENGTH],
+            returns_hash: 0,
             min_revertible_side_effect_counter: 0 as u32,
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: [SideEffect::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],

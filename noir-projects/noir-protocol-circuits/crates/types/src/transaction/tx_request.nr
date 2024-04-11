@@ -78,8 +78,7 @@ mod tests {
 
     #[test]
     fn serialization_of_empty() {
-        // Assuming a zeroed initialization for simplicity
-        let request: TxRequest = dep::std::unsafe::zeroed();
+        let request = TxRequest::empty();
         let serialized = request.serialize();
         let deserialized = TxRequest::deserialize(serialized);
         assert(request.eq(deserialized));

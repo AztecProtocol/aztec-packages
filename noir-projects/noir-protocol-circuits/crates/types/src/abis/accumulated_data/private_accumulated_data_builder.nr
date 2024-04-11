@@ -66,8 +66,8 @@ impl PrivateAccumulatedDataBuilder {
         self,
         min_revertible_side_effect_counter: u32
     ) -> (PublicAccumulatedData, PublicAccumulatedData) {
-        let mut non_revertible_builder: PublicAccumulatedDataBuilder = unsafe::zeroed();
-        let mut revertible_builder: PublicAccumulatedDataBuilder = unsafe::zeroed();
+        let mut non_revertible_builder = PublicAccumulatedDataBuilder::empty();
+        let mut revertible_builder = PublicAccumulatedDataBuilder::empty();
 
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             let note_hash = self.new_note_hashes.storage[i];
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     unconstrained fn splits_revertible_and_non_revertible() {
-        let mut builder: PrivateAccumulatedDataBuilder = unsafe::zeroed();
+        let mut builder = PrivateAccumulatedDataBuilder::empty();
 
         let non_revertible_commitments = [
             SideEffect { value: 1, counter: 1 },

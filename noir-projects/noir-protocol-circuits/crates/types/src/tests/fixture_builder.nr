@@ -262,9 +262,9 @@ impl FixtureBuilder {
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if i < num_updates {
                 let update_request = PublicDataUpdateRequest {
-                    // The empty leaf index is its index + 23.
+                    // The default leaf index is its index + 23.
                     leaf_slot: (value_offset + i + 23) as Field,
-                    // The empty value is its index + 678.
+                    // The default value is its index + 678.
                     new_value: (value_offset + i + 678) as Field
                 };
                 self.public_data_update_requests.push(update_request);
@@ -277,9 +277,9 @@ impl FixtureBuilder {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
             if i < num_reads {
                 let read_request = PublicDataRead {
-                    // The empty leaf index is its index + 34.
+                    // The default leaf index is its index + 34.
                     leaf_slot: (value_offset + i + 34) as Field,
-                    // The empty value is its index + 5566.
+                    // The default value is its index + 5566.
                     value: (value_offset + i + 5566) as Field
                 };
                 self.public_data_reads.push(read_request);

@@ -1,4 +1,4 @@
-use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Serialize}};
+use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Serialize, Empty}};
 
 struct MaxBlockNumber {
     _opt: Option<u32>
@@ -6,6 +6,12 @@ struct MaxBlockNumber {
 
 impl Default for MaxBlockNumber {
     fn default() -> Self {
+        Self { _opt: Option::none() }
+    }
+}
+
+impl Empty for MaxBlockNumber {
+    fn empty() -> Self {
         Self { _opt: Option::none() }
     }
 }

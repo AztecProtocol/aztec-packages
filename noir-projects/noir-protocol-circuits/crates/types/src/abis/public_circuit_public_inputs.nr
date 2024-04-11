@@ -140,7 +140,7 @@ impl Empty for PublicCircuitPublicInputs {
         PublicCircuitPublicInputs {
             call_context: CallContext::empty(),
             args_hash: 0,
-            return_values: [0; RETURN_VALUES_LENGTH],
+            returns_hash: 0,
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
             nullifier_non_existent_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL],
             contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
@@ -162,7 +162,7 @@ impl Empty for PublicCircuitPublicInputs {
 
 #[test]
 fn serialization_of_empty() {
-    let pcpi: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let pcpi = PublicCircuitPublicInputs::empty();
     let serialized = pcpi.serialize();
     let deserialized = PublicCircuitPublicInputs::deserialize(serialized);
     assert(pcpi.eq(deserialized));
@@ -170,7 +170,7 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+    let inputs = PublicCircuitPublicInputs::empty();
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test

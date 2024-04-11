@@ -14,7 +14,7 @@ use crate::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
 },
-traits::Empty
+traits::Empty,
 };
 
 struct PublicCircuitPublicInputsBuilder {
@@ -75,7 +75,7 @@ impl Empty for PublicCircuitPublicInputsBuilder {
         PublicCircuitPublicInputsBuilder {
             call_context: CallContext::empty(),
             args_hash: 0,
-            return_values: BoundedVec::new(),
+            returns_hash: 0,
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
             contract_storage_update_requests: BoundedVec::new(),
@@ -89,7 +89,7 @@ impl Empty for PublicCircuitPublicInputsBuilder {
             unencrypted_logs_hash: 0,
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
-            prover_address: AztecAddress::zero(),ř
+            prover_address: AztecAddress::zero(),
             revert_code: 0 as u8,
         }
     }
