@@ -150,7 +150,7 @@ jobs:
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 15
-        run: earthly --no-output +bench-ulAtra-honk --bench_mode=cache
+        run: earthly --no-output +bench-ultra-honk --bench_mode=cache
 
   # # Post actions, deploy and summarize logs
   # aztec-bench-summary:
