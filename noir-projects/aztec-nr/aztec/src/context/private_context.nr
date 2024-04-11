@@ -28,7 +28,8 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::{is_empty, Deserialize, Empty}
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
+    traits::{is_empty, Deserialize, Empty}
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -190,11 +191,6 @@ impl PrivateContext {
             version: self.inputs.private_global_variables.version
         };
 
-        // crate::oracle::debug_log::debug_log_format(
-        //     "Finished private context with {0} note hash read requests",
-        //     [self.note_hash_read_requests.len() as Field]
-        // );
-
         priv_circuit_pub_inputs
     }
 
@@ -209,12 +205,6 @@ impl PrivateContext {
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
-        // crate::oracle::debug_log::debug_log_format(
-        //     "Pushing note hash read request for note_hash={0} counter={1} len={2}",
-        //     [
-        //     note_hash, self.side_effect_counter as Field, (self.note_hash_read_requests.len() as Field) + 1
-        // ]
-        // );
         let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
         self.note_hash_read_requests.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -366,18 +356,6 @@ impl PrivateContext {
             }
         }
 
-        // crate::oracle::debug_log::debug_log_format(
-        //     "Called private function got back contract_address={0} function_data={1} public_inputs={2} note_hash_read_reqs={3}",
-        //     [
-        //     item.contract_address.to_field(), item.function_data.hash(), item.public_inputs.hash(), note_hash_read_req_count
-        // ]
-        // );
-
-        // crate::oracle::debug_log::debug_log_array_with_prefix(
-        //     "Called private function public inputs",
-        //     item.public_inputs.serialize()
-        // );
-
         assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
         assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
@@ -417,8 +395,6 @@ impl PrivateContext {
                 item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address)
             );
         }
-
-        // crate::oracle::debug_log::debug_log_array_with_prefix("Private call stack item", item.serialize());
 
         self.private_call_stack_hashes.push(item.hash());
 
