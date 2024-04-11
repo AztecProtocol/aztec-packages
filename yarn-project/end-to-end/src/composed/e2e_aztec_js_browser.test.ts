@@ -5,8 +5,8 @@ import Koa from 'koa';
 import serve from 'koa-static';
 import path, { dirname } from 'path';
 
-import { setup } from './fixtures/utils.js';
-import { browserTestSuite } from './shared/browser.js';
+import { setup } from '../fixtures/utils.js';
+import { browserTestSuite } from '../shared/browser.js';
 
 const { PXE_URL = '' } = process.env;
 

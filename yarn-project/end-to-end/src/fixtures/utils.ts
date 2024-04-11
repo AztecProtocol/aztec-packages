@@ -389,7 +389,7 @@ export async function setup(
   logger.verbose('Creating a pxe...');
   const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
-  if (['1', 'true'].includes(process.env.ENABLE_GAS!)) {
+  if (enableGas) {
     await deployCanonicalGasToken(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
     );
