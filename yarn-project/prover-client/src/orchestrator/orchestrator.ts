@@ -344,7 +344,7 @@ export class ProvingOrchestrator {
       logger.debug(`Not executing public function, state invalid`);
       return Promise.resolve();
     }
-    const request = provingState.getNextPublicFunction(txIndex, nextFunctionIndex);
+    const request = provingState.getPublicFunction(txIndex, nextFunctionIndex);
     if (!request) {
       // TODO(@Phil): Properly encapsulate this stuff
       const tx = provingState.allTxs[txIndex];

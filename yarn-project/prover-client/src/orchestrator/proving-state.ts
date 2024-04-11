@@ -147,7 +147,7 @@ export class ProvingState {
     return index >= 0 && this.txs.length > index && this.txs[index].publicKernelRequests.length;
   }
 
-  public getNextPublicFunction(txIndex: number, nextIndex: number) {
+  public getPublicFunction(txIndex: number, nextIndex: number) {
     if (txIndex < 0 || txIndex >= this.txs.length) {
       return undefined;
     }
