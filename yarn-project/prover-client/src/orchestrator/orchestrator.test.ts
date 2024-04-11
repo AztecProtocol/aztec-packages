@@ -20,6 +20,7 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
   type RootRollupPublicInputs,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import {
   fr,
@@ -35,6 +36,7 @@ import { openTmpStore } from '@aztec/kv-store/utils';
 import { WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 
@@ -142,8 +144,10 @@ describe('prover/tx-prover', () => {
   };
 
   describe('error handling', () => {
-    const mockProver: MockProxy<CircuitProver> = mock<CircuitProver>();
+    let mockProver: CircuitProver;
+
     beforeEach(async () => {
+      mockProver = new TestCircuitProver(new WASMSimulator());
       builder = await ProvingOrchestrator.new(builderDb, mockProver);
     });
 
@@ -151,31 +155,31 @@ describe('prover/tx-prover', () => {
       [
         'Base Rollup Failed',
         () => {
-          mockProver.getBaseRollupProof.mockRejectedValue('Base Rollup Failed');
+          jest.spyOn(mockProver, 'getBaseRollupProof').mockRejectedValue('Base Rollup Failed');
         },
       ],
       [
         'Merge Rollup Failed',
         () => {
-          mockProver.getMergeRollupProof.mockRejectedValue('Merge Rollup Failed');
+          jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue('Merge Rollup Failed');
         },
       ],
       [
         'Root Rollup Failed',
         () => {
-          mockProver.getRootRollupProof.mockRejectedValue('Root Rollup Failed');
+          jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue('Root Rollup Failed');
         },
       ],
       [
         'Base Parity Failed',
         () => {
-          mockProver.getBaseParityProof.mockRejectedValue('Base Parity Failed');
+          jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue('Base Parity Failed');
         },
       ],
       [
         'Root Parity Failed',
         () => {
-          mockProver.getRootParityProof.mockRejectedValue('Root Parity Failed');
+          jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue('Root Parity Failed');
         },
       ],
     ] as const)(
