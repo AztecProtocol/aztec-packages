@@ -31,7 +31,7 @@ jobs:
           # What was our last merge on noir side?
           # Detect our last sync commit (written by this action before pushing) with a fallback for the first time we ever do this
           BASE_NOIR_COMMIT=$(curl https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/.noir-sync-commit)
-          if [ "$AZTEC_SYNC_COMMIT" = "404: Not Found" ] ; then
+          if [ "$BASE_NOIR_COMMIT" = "404: Not Found" ] ; then
             BASE_NOIR_COMMIT="50d2735825454a8638a308156d4ea23b3c4420d8"
           fi
           echo "BASE_NOIR_COMMIT=$BASE_NOIR_COMMIT" >> $GITHUB_ENV
