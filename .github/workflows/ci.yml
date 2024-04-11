@@ -39,6 +39,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          # must be globally unique for build x runner
           concurrency_key: build-${{ github.actor }}-x86
       # prepare images locally, tagged by commit hash
       - run: earthly ./yarn-project+export-end-to-end
@@ -62,6 +63,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          # must be globally unique for build x runner
           concurrency_key: e2e-${{ github.actor }}-x86-${{ matrix.test }}
       - name: Test
         working-directory: ./yarn-project/end-to-end/
@@ -84,6 +86,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          # must be globally unique for build x runner
           concurrency_key: bb-native-tests-${{ github.actor }}-x86
       - working-directory: ./barretenberg/cpp/
         run: earthly --no-output +test
@@ -98,7 +101,8 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_key: bb-bench-binaries-${{ github.actor }}
+          # must be globally unique for build x runner
+          concurrency_key: bb-bench-binaries-${{ github.actor }}-x86
       - name: Build and Push Binaries
         if: ${{ github.event.inputs.just_start_spot != 'true' }}
         working-directory: ./barretenberg/cpp/
@@ -122,7 +126,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
-      - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          # must be globally unique for build x runner
+          # technically not needed as we only make one GA runner, but a backup
+          concurrency_key: bb-bench-${{ github.actor }}-bench-x86
       # Use bench_mode=cache to read the pushed build above
       - name: Client IVC Bench
         working-directory: ./barretenberg/cpp/

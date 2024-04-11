@@ -16,7 +16,7 @@ concurrency:
   group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
   cancel-in-progress: true
 jobs:
-  start-arm-builder:
+  setup:
     uses: ./.github/workflows/setup-runner.yml
     with:
       runner_label: master-arm
@@ -27,24 +27,23 @@ jobs:
       ec2_instance_ttl: 40 # refreshed by jobs
     secrets: inherit
 
-  build-arm:
-    needs: start-arm-builder
+  build:
+    needs: setup
     runs-on: master-arm
     timeout-minutes: 40
     steps:
       - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
-      - {uses: ./.github/ci-setup-action, with: { dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"}}
-      # Ensure that CI only ever is running one build at a time
-      - name: Set up mutex
-        uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
+      - uses: ./.github/ci-setup-action
         with:
-          branch: gh-action-mutex-build-arm-master-${{ matrix.test }}
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          # must be globally unique for build x runner
+          concurrency_key: build-master-arm
       # prepare images locally, tagged by commit hash
       - run: earthly ./yarn-project+export-end-to-end
 
   # all the end-to-end integration tests for aztec
-  e2e-arm:
-    needs: build-arm
+  e2e:
+    needs: build
     runs-on: master-arm
     timeout-minutes: 15
     strategy:
@@ -59,7 +58,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_key: e2e-x86-${{ github.actor }}-${{ matrix.test }}
+          concurrency_key: e2e-master-arm
       # Ensure that a test only ever is running one e2e at a time
       - name: Set up mutex
         uses: ben-z/gh-action-mutex@v1.0.0-alpha.9
