@@ -172,7 +172,7 @@ export class BBNativeRollupProver implements CircuitProver {
     await Promise.all(promises);
   }
 
-  private async createProof(witnessMap: WitnessMap, circuitType: ServerProtocolArtifact): Promise<[WitnessMap, Proof]> {
+  public async createProof(witnessMap: WitnessMap, circuitType: ServerProtocolArtifact): Promise<[WitnessMap, Proof]> {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
@@ -223,7 +223,7 @@ export class BBNativeRollupProver implements CircuitProver {
     return [outputWitness, new Proof(proofBuffer)];
   }
 
-  private async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
+  public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
     await fs.mkdir(bbWorkingDirectory, { recursive: true });

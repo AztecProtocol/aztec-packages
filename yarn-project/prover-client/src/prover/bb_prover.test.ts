@@ -1,6 +1,5 @@
 import { PROVING_STATUS, makeEmptyProcessedTx } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, Fr, GlobalVariables, Header, type RootRollupPublicInputs } from '@aztec/circuits.js';
-import { makeRootRollupPublicInputs } from '@aztec/circuits.js/testing';
+import { AztecAddress, EthAddress, Fr, GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
@@ -23,7 +22,6 @@ describe('prover/bb_prover', () => {
   let directoryToCleanup: string | undefined;
 
   let blockNumber: number;
-  let rootRollupOutput: RootRollupPublicInputs;
 
   let globalVariables: GlobalVariables;
 
@@ -52,11 +50,9 @@ describe('prover/bb_prover', () => {
     globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, coinbase, feeRecipient);
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-    rootRollupOutput = makeRootRollupPublicInputs(0);
-    rootRollupOutput.header.globalVariables = globalVariables;
   }, 60_000);
 
-  afterEach(async () => {
+  afterAll(async () => {
     if (directoryToCleanup) {
       await fs.rm(directoryToCleanup, { recursive: true, force: true });
     }
@@ -101,8 +97,10 @@ describe('prover/bb_prover', () => {
 
     expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
 
-    await orchestrator.finaliseBlock();
+    const blockResult = await orchestrator.finaliseBlock();
+
+    await expect(prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
 
     await orchestrator.stop();
-  }, 600_000);
+  }, 300_000);
 });
