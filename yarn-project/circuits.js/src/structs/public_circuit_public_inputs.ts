@@ -22,7 +22,6 @@ import {
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
@@ -47,9 +46,9 @@ export class PublicCircuitPublicInputs {
      */
     public argsHash: Fr,
     /**
-     * Return values of the call.
+     * Pedersen hash of the return values of the call.
      */
-    public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
+    public returnsHash: Fr,
     /**
      * Nullifier read requests executed during the call.
      */
@@ -138,7 +137,7 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       CallContext.default(),
       Fr.ZERO,
-      makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
+      Fr.ZERO,
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.default),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest.default),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.default),
@@ -170,7 +169,7 @@ export class PublicCircuitPublicInputs {
     return [
       fields.callContext,
       fields.argsHash,
-      fields.returnValues,
+      fields.returnsHash,
       fields.nullifierReadRequests,
       fields.nullifierNonExistentReadRequests,
       fields.contractStorageUpdateRequests,
@@ -217,7 +216,7 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       reader.readObject(CallContext),
       reader.readObject(Fr),
-      reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readObject(Fr),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
@@ -242,7 +241,7 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       CallContext.fromFields(reader),
       reader.readField(),
-      reader.readFieldArray(RETURN_VALUES_LENGTH),
+      reader.readField(),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
