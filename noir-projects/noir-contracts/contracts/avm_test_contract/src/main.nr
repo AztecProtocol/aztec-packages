@@ -24,7 +24,7 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
-    use dep::aztec::prelude::Map;
+    use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::history::nullifier_inclusion::prove_nullifier_inclusion;
     use dep::aztec::protocol_types::{
@@ -35,7 +35,6 @@ contract AvmTest {
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::aztec::protocol_types::traits::ToField;
-    use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
     use dep::compressed_string::CompressedString;
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
@@ -196,37 +195,33 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn assert_unsiloed_nullifier_acvm(nullifier: Field) {
-        // ACVM requires siloed nullifier.
-        let siloed_nullifier = silo_nullifier(context.this_address(), nullifier);
-        prove_nullifier_inclusion(siloed_nullifier, context);
+    fn assert_unsiloed_nullifier_acvm(unsiloed_nullifier: Field) {
+        assert(context.nullifier_exists(unsiloed_nullifier, context.this_address()));
     }
 
     #[aztec(public-vm)]
     fn call_acvm_from_avm() -> pub Field {
-        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_acvm()"),
             [],
             GasOpts::default()
-        );
-        data_to_return[0]
+        ).deserialize_into()
     }
 
     #[aztec(public)]
     fn call_avm_from_acvm() -> pub Field {
-        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             FunctionSelector::from_signature("constant_field_avm()"),
             [],
             GasOpts::default()
-        );
-        data_to_return[0]
+        ).deserialize_into()
     }
 
     #[aztec(public-vm)]
     fn avm_to_acvm_call(selector: FunctionSelector, args: Field) {
-        context.call_public_function(context.this_address(), selector, [args], GasOpts::default());
+        context.call_public_function(context.this_address(), selector, [args], GasOpts::default()).assert_empty();
     }
 
     /************************************************************************
@@ -365,19 +360,19 @@ contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[aztec(public-vm)]
     fn nullifier_exists(nullifier: Field) -> pub bool {
-        context.nullifier_exists(nullifier)
+        context.nullifier_exists(nullifier, context.this_address())
     }
 
     #[aztec(public-vm)]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier));
+        assert(context.nullifier_exists(nullifier, context.this_address()));
     }
 
     // Use the standard context interface to emit a new nullifier
     #[aztec(public-vm)]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
-        let exists = context.nullifier_exists(nullifier);
+        let exists = context.nullifier_exists(nullifier, context.this_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 
@@ -455,17 +450,12 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
         // Nested call using standard context interface function
-        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(
+        context.call_public_function(
             context.this_address(),
             selector,
             [arg_a, arg_b],
             GasOpts::default()
-        );
-        // this explicit size in the return variable is necessary to ensure that ret_size is compile-time
-        // (ensure the data_to_return is in a HeapArray not a HeapVector)
-
-        let add_result = data_to_return[0];
-        add_result
+        ).deserialize_into()
     }
 
     // Directly call_static the external call opcode to initiate a nested call to the add function
@@ -499,14 +489,12 @@ contract AvmTest {
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
 
-        let result_data: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(
+        context.static_call_public_function(
             context.this_address(),
             selector,
             [arg_a, arg_b],
             GasOpts::default()
-        );
-
-        result_data[0]
+        ).deserialize_into()
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
@@ -515,6 +503,6 @@ contract AvmTest {
         let selector = FunctionSelector::from_signature("set_storage_single(Field)");
         let calldata: [Field; 1] = [20];
 
-        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default());
+        context.static_call_public_function(context.this_address(), selector, calldata, GasOpts::default()).assert_empty();
     }
 }
