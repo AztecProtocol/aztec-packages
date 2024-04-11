@@ -128,6 +128,10 @@ export type Fieldeable =
   | bigint
   | {
       /** Serialize to a field. */
+      toFr: () => Fr;
+    }
+  | {
+      /** Serialize to a field. */
       toField: () => Fr;
     }
   | {
@@ -187,6 +191,8 @@ export function serializeToFields(...objs: Fieldeable[]): Fr[] {
       ret.push(new Fr(obj));
     } else if ('toFields' in obj) {
       ret = [...ret, ...obj.toFields()];
+    } else if ('toFr' in obj) {
+      ret.push(obj.toFr());
     } else {
       ret.push(obj.toField());
     }

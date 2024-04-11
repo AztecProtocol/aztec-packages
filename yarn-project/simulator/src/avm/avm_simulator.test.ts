@@ -24,6 +24,7 @@ import {
 } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { Fieldeable } from '@aztec/foundation/serialize';
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
@@ -140,11 +141,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   describe.each([
     ['poseidon_hash', poseidonHash],
     ['pedersen_hash', pedersenHash],
-    ['pedersen_hash_with_index', (m: Buffer[]) => pedersenHash(m, 20)],
-  ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Buffer[]) => Fr) => {
+    ['pedersen_hash_with_index', (m: Fieldeable[]) => pedersenHash(m, 20)],
+  ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Fieldeable[]) => Fr) => {
     it(`Should execute contract function that performs ${name} hash`, async () => {
       const calldata = [new Fr(1), new Fr(2), new Fr(3)];
-      const hash = hashFunction(calldata.map(f => f.toBuffer()));
+      const hash = hashFunction(calldata);
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
       const bytecode = getAvmTestContractBytecode(name);

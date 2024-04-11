@@ -607,8 +607,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  poseidonHash(inputsBuffer: Fr[]): Fr {
-    const inArgs = [inputsBuffer].map(serializeBufferable);
+  poseidonHash(inputsBuffer: Fr[], hashIndex: number): Fr {
+    const inArgs = [inputsBuffer, hashIndex].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = this.wasm.callWasmExport(
       'poseidon_hash',
