@@ -39,6 +39,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
           # must be globally unique for build x runner
           concurrency_key: build-${{ github.actor }}-x86
       # prepare images locally, tagged by commit hash
@@ -63,6 +64,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
           # must be globally unique for build x runner
           concurrency_key: e2e-${{ github.actor }}-x86-${{ matrix.test }}
       - name: Test
@@ -86,6 +88,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
           # must be globally unique for build x runner
           concurrency_key: bb-native-tests-${{ github.actor }}-x86
       - working-directory: ./barretenberg/cpp/
@@ -101,6 +104,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
           # must be globally unique for build x runner
           concurrency_key: bb-bench-binaries-${{ github.actor }}-x86
       - name: Build and Push Binaries
@@ -129,6 +133,7 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
           # must be globally unique for build x runner
           # technically not needed as we only make one GA runner, but a backup
           concurrency_key: bb-bench-${{ github.actor }}-bench-x86
