@@ -126,7 +126,7 @@ global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE = 0xe7af8166354
 // CONTRACT INSTANCE CONSTANTS
 // sha224sum 'struct ContractInstanceDeployed'
 global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
-global DEPLOYER_CONTRACT_ADDRESS = 0x06d4e6f227dd9ff2e9e2b9e9df4fb4f650a1776499a7acc0d273f5dbb2704d59;
+global DEPLOYER_CONTRACT_ADDRESS = 0x06610573a5f05a4ed2fedb770f04c719889c646a819f5b2f3ea9ffee85b70774;
 
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.

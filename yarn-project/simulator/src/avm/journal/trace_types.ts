@@ -73,6 +73,14 @@ export type TracedL1toL2MessageCheck = {
   //endLifetime: Fr;
 };
 
+
+export type TracedUnencryptedL2Log = {
+  //callPointer: Fr;
+  logHash: Fr;
+  counter: Fr;
+  //endLifetime: Fr;
+};
+
 //export type TracedArchiveLeafCheck = {
 //  leafIndex: Fr;
 //  leaf: Fr;

@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import {
+  type TracedUnencryptedL2Log,
   type TracedL1toL2MessageCheck,
   type TracedNoteHash,
   type TracedNoteHashCheck,
@@ -21,6 +22,7 @@ export class WorldStateAccessTrace {
   public nullifierChecks: TracedNullifierCheck[] = [];
   public newNullifiers: TracedNullifier[] = [];
   public l1ToL2MessageChecks: TracedL1toL2MessageCheck[] = [];
+  public newLogsHashes: TracedUnencryptedL2Log[] = [];
 
   //public contractCalls: TracedContractCall[] = [];
   //public archiveChecks: TracedArchiveLeafCheck[] = [];
@@ -133,6 +135,15 @@ export class WorldStateAccessTrace {
     this.incrementAccessCounter();
   }
 
+  public traceNewLog(logHash: Fr) {
+    const traced: TracedUnencryptedL2Log = {
+      logHash,
+      counter: new Fr(this.accessCounter),
+    };
+    this.newLogsHashes.push(traced);
+    this.incrementAccessCounter();
+  }
+
   private incrementAccessCounter() {
     this.accessCounter++;
   }
@@ -155,6 +166,7 @@ export class WorldStateAccessTrace {
     this.nullifierChecks = this.nullifierChecks.concat(incomingTrace.nullifierChecks);
     this.newNullifiers = this.newNullifiers.concat(incomingTrace.newNullifiers);
     this.l1ToL2MessageChecks = this.l1ToL2MessageChecks.concat(incomingTrace.l1ToL2MessageChecks);
+    this.newLogsHashes = this.newLogsHashes.concat(incomingTrace.newLogsHashes);
     // it is assumed that the incoming trace was initialized with this as parent, so accept counter
     this.accessCounter = incomingTrace.accessCounter;
   }
