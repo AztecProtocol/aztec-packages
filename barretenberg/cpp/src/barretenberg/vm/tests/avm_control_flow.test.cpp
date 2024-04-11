@@ -54,11 +54,7 @@ TEST_F(AvmControlFlowTests, simpleCall)
         EXPECT_EQ(halt_row->avm_main_pc, FF(CALL_ADDRESS));
         EXPECT_EQ(halt_row->avm_main_internal_return_ptr, FF(AvmTraceBuilder::CALLSTACK_OFFSET + 1));
     }
-<<<<<<< HEAD
-    validate_trace_check_circuit(std::move(trace));
-=======
     validate_trace(std::move(trace));
->>>>>>> master
 }
 
 TEST_F(AvmControlFlowTests, simpleJump)
@@ -91,11 +87,7 @@ TEST_F(AvmControlFlowTests, simpleJump)
         EXPECT_TRUE(halt_row != trace.end());
         EXPECT_EQ(halt_row->avm_main_pc, FF(JUMP_ADDRESS));
     }
-<<<<<<< HEAD
-    validate_trace_check_circuit(std::move(trace));
-=======
     validate_trace(std::move(trace));
->>>>>>> master
 }
 
 TEST_F(AvmControlFlowTests, simpleCallAndReturn)
@@ -145,11 +137,7 @@ TEST_F(AvmControlFlowTests, simpleCallAndReturn)
         EXPECT_EQ(halt_row->avm_main_pc, FF(RETURN_ADDRESS));
     }
 
-<<<<<<< HEAD
-    validate_trace_check_circuit(std::move(trace));
-=======
     validate_trace(std::move(trace));
->>>>>>> master
 }
 
 TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
@@ -292,10 +280,6 @@ TEST_F(AvmControlFlowTests, multipleCallsAndReturns)
     EXPECT_TRUE(halt_row != trace.end());
     EXPECT_EQ(halt_row->avm_main_pc, FF(1));
 
-<<<<<<< HEAD
-    validate_trace_check_circuit(std::move(trace));
-=======
     validate_trace(std::move(trace));
->>>>>>> master
 }
 } // namespace tests_avm

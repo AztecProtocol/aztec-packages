@@ -221,9 +221,6 @@ class AvmMemOpcodeTests : public ::testing::Test {
                               Field(&Row::avm_mem_ind_op_c, 1)));
         }
 
-<<<<<<< HEAD
-        validate_trace_check_circuit(std::move(trace));
-=======
         validate_trace(std::move(trace));
     }
 
@@ -320,7 +317,6 @@ class AvmMemOpcodeTests : public ::testing::Test {
                           Field("skip_check_tag", &Row::avm_mem_skip_check_tag, 1),
                           Field("op_d", &Row::avm_mem_op_d, 1),
                           Field("ind_op_d", &Row::avm_mem_ind_op_d, 0)));
->>>>>>> master
     }
 };
 
@@ -395,11 +391,7 @@ TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
                       Field(&Row::avm_mem_r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
                       Field(&Row::avm_mem_ind_op_c, 1)));
 
-<<<<<<< HEAD
-    validate_trace_check_circuit(std::move(trace));
-=======
     validate_trace(std::move(trace));
->>>>>>> master
 }
 
 /******************************************************************************
@@ -637,11 +629,7 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputValue)
     compute_mov_indices(false);
     trace.at(main_idx).avm_main_ic = 233;
 
-<<<<<<< HEAD
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE");
-=======
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
->>>>>>> master
 }
 
 TEST_F(AvmMemOpcodeNegativeTests, indMovWrongOutputValue)
@@ -650,11 +638,7 @@ TEST_F(AvmMemOpcodeNegativeTests, indMovWrongOutputValue)
     compute_mov_indices(true);
     trace.at(main_idx).avm_main_ic = 8733;
 
-<<<<<<< HEAD
-    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE");
-=======
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "MOV_SAME_VALUE_A");
->>>>>>> master
 }
 
 // We want to test that the output tag for MOV cannot be altered.
@@ -739,8 +723,6 @@ TEST_F(AvmMemOpcodeNegativeTests, movWrongOutputTagMainTraceRead)
     trace.at(mem_c_idx).avm_mem_w_in_tag = tag_u64;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_C");
-<<<<<<< HEAD
-=======
 }
 
 /******************************************************************************
@@ -800,7 +782,6 @@ TEST_F(AvmMemOpcodeNegativeTests, cmovBSkipCheckAbuseDisableSelMovB)
     trace.at(mem_b_idx).avm_mem_sel_mov_b = 0;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
->>>>>>> master
 }
 
 } // namespace tests_avm

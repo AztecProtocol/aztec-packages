@@ -69,11 +69,7 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
     EXPECT_EQ(row->avm_mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
     EXPECT_EQ(row->avm_mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::FF)));
 
-<<<<<<< HEAD
-    validate_trace_check_circuit(std::move(trace));
-=======
     validate_trace(std::move(trace));
->>>>>>> master
 }
 
 // Testing an equality operation with a mismatched memory tag.
@@ -116,11 +112,7 @@ TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
     EXPECT_EQ(row->avm_mem_r_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U32)));
     EXPECT_EQ(row->avm_mem_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U16)));
 
-<<<<<<< HEAD
-    validate_trace_check_circuit(std::move(trace));
-=======
     validate_trace(std::move(trace));
->>>>>>> master
 }
 
 // Testing violation that m_lastAccess is a delimiter for two different addresses
