@@ -3,8 +3,6 @@ use crate::{
 };
 use dep::protocol_types::{constants::AVOID_SLOT_0_INDEX_SEPARATOR,hash::pedersen_hash, traits::{Deserialize, Serialize}};
 
-global ARRAY_UNDERLYING_MAP_SEPARATOR: Field = 6_969_696_969;
-
 struct PublicDynamicArray<T> {
   context: Context,
   map: Map<u64, T>,
@@ -26,7 +24,7 @@ impl<T> PublicDynamicArray<T> {
       storage_slot, 
       map: Map::new(
         context,
-        storage_slot + ARRAY_UNDERLYING_MAP_SEPARATOR,
+        storage_slot,
         state_var_constructor
       ) 
     }
@@ -58,7 +56,7 @@ impl<T> PublicDynamicArray<T> {
 
     // we make sure to overwrite the slot that is 1 greater than the one we are popping to make sure ret still has a value that can be read from.
     // Any subsequent pushes will overwrite the value, and we will at most have 1 dead value.
-    let derived_storage_slot = pedersen_hash([self.storage_slot + ARRAY_UNDERLYING_MAP_SEPARATOR, new_array_length + 1 + AVOID_SLOT_0_INDEX_SEPARATOR], 0);
+    let derived_storage_slot = pedersen_hash([self.storage_slot, new_array_length + 1 + AVOID_SLOT_0_INDEX_SEPARATOR], 0);
 
     storage_write(derived_storage_slot, [0; T_SERIALIZED_LEN]);
     storage_write(self.storage_slot, [new_array_length]);
@@ -73,7 +71,7 @@ impl<T> PublicDynamicArray<T> {
     let array_length = array_read[0];
     assert(index < array_length as u64, "remove must be called with index < length");
 
-    let derived_storage_slot = pedersen_hash([self.storage_slot + ARRAY_UNDERLYING_MAP_SEPARATOR, index as Field + AVOID_SLOT_0_INDEX_SEPARATOR], 0);
+    let derived_storage_slot = pedersen_hash([self.storage_slot, index as Field + AVOID_SLOT_0_INDEX_SEPARATOR], 0);
 
     storage_write(derived_storage_slot, [0; T_SERIALIZED_LEN]);
   }
