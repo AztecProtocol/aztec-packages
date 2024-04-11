@@ -29,9 +29,6 @@ on:
       aws_region:
         default: "us-east-2"
         type: string
-      ref_sha:
-        required: true
-        type: string
       ebs_cache_size_gb:
         required: true
         type: string
