@@ -292,7 +292,7 @@ fn count_opcodes_and_gates_in_program(
                 // Unconstrained functions do not matter to a backend circuit count so we pass nothing here
                 circuit_size: backend.get_exact_circuit_size(&Program {
                     functions: vec![function],
-                    unconstrained_functions: Vec::new()
+                    unconstrained_functions: Vec::new(),
                 })?,
             })
         })
