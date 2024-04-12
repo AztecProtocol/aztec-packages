@@ -1,3 +1,4 @@
+import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
 import { type ENR } from '@chainsafe/enr';
@@ -18,6 +19,11 @@ import { AztecPeerDb, type AztecPeerStore } from './service/peer_store.js';
 
 const { PRIVATE_KEY, DATA_DIR } = process.env;
 
+const logger = createDebugLogger('aztec:p2p_test_app');
+
+/**
+ * This is a test app for P2P communication.
+ */
 export class P2PTestApp {
   constructor(
     private libP2PNode: Libp2p,
@@ -26,6 +32,7 @@ export class P2PTestApp {
     private peerStore: AztecPeerStore,
     private config: P2PConfig,
     private protocolId = '/aztec/1.0.0',
+    private logger = createDebugLogger('aztec:p2p_test_app'),
   ) {}
 
   async start(): Promise<void> {
@@ -33,13 +40,13 @@ export class P2PTestApp {
       throw new Error('Node already started');
     }
 
-    console.log(`Starting P2P node on ${this.config.tcpListenIp}:${this.config.tcpListenPort}`);
-    console.log(`External: ${`/${this.config.announceHostname}/tcp/${this.config.announceHostname}`}`);
+    this.logger.info(`Starting P2P node on ${this.config.tcpListenIp}:${this.config.tcpListenPort}`);
+    this.logger.info(`External: ${`${this.config.announceHostname}/tcp/${this.config.announcePort}`}`);
 
-    this.discV5Node.on('peer:discovered', this.addPeer);
+    this.discV5Node.on('peer:discovered', (enr: ENR) => this.addPeer(enr));
 
     this.libP2PNode.addEventListener('peer:discovery', e => {
-      console.log(`Discovered peer: ${e.detail.id.toString()}`);
+      this.logger.info(`Discovered peer: ${e.detail.id.toString()}`);
     });
 
     this.libP2PNode.addEventListener('peer:connect', async e => {
@@ -64,7 +71,7 @@ export class P2PTestApp {
         });
         await stream.close();
       } catch {
-        console.error('Failed to handle incoming stream');
+        this.logger.error('Failed to handle incoming stream');
       }
       if (!msg.length) {
         console.log(`Empty message received from peer ${incoming.connection.remotePeer}`);
@@ -90,11 +97,11 @@ export class P2PTestApp {
 
     // check if peer is already known
     const peerId = peerIdFromString(peerIdStr);
-    const hasPeer = await this.libP2PNode.peerStore.has(peerId);
+    const hasPeer = await this.libP2PNode?.peerStore?.has(peerId);
 
     // add to peer store if not already known
     if (!hasPeer) {
-      console.log(`Discovered peer ${enr.peerId().toString()}. Adding to libp2p peer list`);
+      this.logger.info(`Discovered peer ${(await enr.peerId()).toString()}. Adding to libp2p peer list`);
       try {
         const stream = await this.libP2PNode.dialProtocol(peerMultiAddr, this.protocolId);
 
@@ -104,7 +111,7 @@ export class P2PTestApp {
         }
         await stream.close();
       } catch (err) {
-        console.error(`Failed to dial peer ${peerIdStr}`, err);
+        this.logger.error(`Failed to dial peer ${peerIdStr}`, err);
       }
     }
   }
@@ -133,16 +140,20 @@ export class P2PTestApp {
   }
 
   private async handleNewConnection(peerId: PeerId) {
-    console.log(`Connected to peer: ${peerId.toString()}. Sending some data.`);
-    const stream = await this.libP2PNode.dialProtocol(peerId, this.protocolId);
-    const dataToSend: Uint8Array = new Uint8Array([0x33]); // Example data
+    this.logger.info(`Connected to peer: ${peerId.toString()}. Sending some data.`);
+    try {
+      const stream = await this.libP2PNode.dialProtocol(peerId, this.protocolId);
+      const dataToSend: Uint8Array = new Uint8Array([0x33]); // Example data
 
-    await sendDataOverStream(stream, dataToSend);
-    await stream.close();
+      await sendDataOverStream(stream, dataToSend);
+      await stream.close();
+    } catch (err) {
+      this.logger.error('Failed to send data over stream', err);
+    }
   }
 
   private async handlePeerDisconnect(peerId: PeerId) {
-    console.log(`Disconnected from peer: ${peerId.toString()}`);
+    this.logger.info(`Disconnected from peer: ${peerId.toString()}`);
     // TODO: consider better judgement for removing peers, e.g. try reconnecting
     await this.peerStore.removePeer(peerId.toString());
   }
@@ -161,19 +172,19 @@ async function main() {
   const peerDb = new AztecPeerDb(AztecLmdbStore.open(DATA_DIR));
   const peerId = await createLibP2PPeerId(PRIVATE_KEY);
 
-  console.log('peerId: ', peerId.toString());
+  logger.info(`peerId: , ${peerId.toString()}`);
 
   const config = getP2PConfigEnvVars();
   const discV5 = new DiscV5Service(peerId, config);
   const node = await P2PTestApp.new(peerId, discV5, peerDb, config);
 
   await node.start();
-  console.log('LibP2P Node started');
+  logger.info('LibP2P Node started');
 
   await discV5.start();
-  console.log('DiscV5 started');
+  logger.info('DiscV5 started');
 }
 
 main().catch(err => {
-  console.error('Error in test app: ', err);
+  logger.error('Error in test app: ', err);
 });
