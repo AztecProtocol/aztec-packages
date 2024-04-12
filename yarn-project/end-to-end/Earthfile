@@ -157,8 +157,10 @@ e2e-static-calls:
   DO +E2E_TEST --test=e2e_static_calls.test.ts --e2e_mode=$e2e_mode
 
 e2e-delegate-calls:
-  ARG e2e_mode=local
-  DO +E2E_TEST --test=e2e_delegate_calls.test.ts --e2e_mode=$e2e_mode
+  LOCALLY
+  WITH DOCKER --load end-to-end=../+end-to-end
+    RUN docker run --rm -e LOG_LEVEL=silent -e DEBUG=aztec:e2e* end-to-end ./src/e2e_delegate_calls/
+  END
 
 e2e-non-contract-account:
   ARG e2e_mode=local
