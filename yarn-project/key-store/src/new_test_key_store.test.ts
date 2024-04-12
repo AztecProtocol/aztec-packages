@@ -15,7 +15,7 @@ describe('NewTestKeyStore', () => {
 
     const accountAddress = await keyStore.addAccount(sk, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x2e34847ad9019320ac89a6ec9b42fec90f94ef4162fdfdd7f5b7668e32d82655"`,
+      `"0x0ba7834252d19c4f09d29303c269f303f40ae3d2043f921ed0bf8c0709926d4e"`,
     );
 
     const masterNullifierPublicKey = await keyStore.getMasterNullifierPublicKey(accountAddress);
