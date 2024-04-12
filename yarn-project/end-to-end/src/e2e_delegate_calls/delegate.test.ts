@@ -37,14 +37,7 @@ describe('e2e_delegate_calls', () => {
 
     it("runs another contract's enqueued public function on delegator's storage", async () => {
       const sentValue = 42n;
-      await delegatorContract.methods
-        .enqueued_delegate_set_value(
-          delegatedOnContract.address,
-          delegatedOnContract.methods.public_set_value.selector,
-          [sentValue],
-        )
-        .send()
-        .wait();
+      await delegatorContract.methods.enqueued_delegate_set_value(delegatedOnContract.address, sentValue).send().wait();
 
       const delegatorValue = await delegatorContract.methods.view_public_value().simulate();
       const delegatedOnValue = await delegatedOnContract.methods.view_public_value().simulate();
@@ -55,12 +48,7 @@ describe('e2e_delegate_calls', () => {
 
     it("runs another contract's public function on delegator's storage", async () => {
       const sentValue = 42n;
-      await delegatorContract.methods
-        .public_delegate_set_value(delegatedOnContract.address, delegatedOnContract.methods.public_set_value.selector, [
-          sentValue,
-        ])
-        .send()
-        .wait();
+      await delegatorContract.methods.public_delegate_set_value(delegatedOnContract.address, sentValue).send().wait();
 
       const delegatorValue = await delegatorContract.methods.view_public_value().simulate();
       const delegatedOnValue = await delegatedOnContract.methods.view_public_value().simulate();
