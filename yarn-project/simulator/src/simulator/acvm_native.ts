@@ -97,6 +97,8 @@ export async function executeNativeCircuit(
       'output-witness',
     ];
 
+    logger.info(`Calling ACVM with ${args.join(' ')}`);
+
     const processPromise = new Promise<string>((resolve, reject) => {
       let outputWitness = Buffer.alloc(0);
       let errorBuffer = Buffer.alloc(0);
@@ -111,6 +113,7 @@ export async function executeNativeCircuit(
         if (code === 0) {
           resolve(outputWitness.toString('utf-8'));
         } else {
+          logger.error(`From ACVM: ${errorBuffer.toString('utf-8')}`);
           reject(errorBuffer.toString('utf-8'));
         }
       });
