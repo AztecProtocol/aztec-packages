@@ -29,8 +29,8 @@ impl Ssa {
 
         let mut acir_index = 0;
         let mut brillig_index = 0;
-        let id_to_index = btree_map(functions.iter().enumerate(), |(i, (id, func))| {
-            match func.runtime() {
+        let id_to_index =
+            btree_map(functions.iter().enumerate(), |(i, (id, func))| match func.runtime() {
                 RuntimeType::Acir(_) => {
                     let res = (*id, acir_index);
                     acir_index += 1;
@@ -41,8 +41,7 @@ impl Ssa {
                     brillig_index += 1;
                     res
                 }
-            }
-        });
+            });
 
         Self { functions, main_id, next_id: AtomicCounter::starting_after(max_id), id_to_index }
     }

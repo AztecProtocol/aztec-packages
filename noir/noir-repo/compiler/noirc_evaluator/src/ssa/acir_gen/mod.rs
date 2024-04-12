@@ -94,7 +94,7 @@ struct Context<'a> {
     data_bus: DataBus,
 
     // TODO: could make this a Vec as the IDs have already made to be consecutive indices
-    generated_brillig_map: &'a mut HashMap<u32, GeneratedBrillig>
+    generated_brillig_map: &'a mut HashMap<u32, GeneratedBrillig>,
 }
 
 #[derive(Clone)]
@@ -199,9 +199,12 @@ impl Ssa {
                 acirs.push(generated_acir);
             }
         }
-        
+
         // TODO: can just store the Brillig bytecode as we utilize the locations when setting acir locations
-        let brilligs = generated_brillig_map.iter().map(|(_, brillig)| BrilligBytecode { bytecode: brillig.byte_code.clone() }).collect::<Vec<_>>();
+        let brilligs = generated_brillig_map
+            .iter()
+            .map(|(_, brillig)| BrilligBytecode { bytecode: brillig.byte_code.clone() })
+            .collect::<Vec<_>>();
 
         // TODO: check whether doing this for a single circuit's return witnesses is correct.
         // We probably need it for all foldable circuits, as any circuit being folded is essentially an entry point. However, I do not know how that
@@ -226,8 +229,7 @@ impl Ssa {
                 main_func_acir.return_witnesses = distinct_return_witness;
                 // Ok(acirs)
             }
-            Distinctness::DuplicationAllowed => {}
-            // Distinctness::DuplicationAllowed => Ok(acirs),
+            Distinctness::DuplicationAllowed => {} // Distinctness::DuplicationAllowed => Ok(acirs),
         }
         Ok((acirs, brilligs))
     }
@@ -639,7 +641,9 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                let output_values = if let Some(code) = self.generated_brillig_map.get(brillig_program_id) {
+                                let output_values = if let Some(code) =
+                                    self.generated_brillig_map.get(brillig_program_id)
+                                {
                                     dbg!("got previous generated brillig");
                                     self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,

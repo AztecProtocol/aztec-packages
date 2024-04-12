@@ -4,7 +4,11 @@ use std::collections::HashMap;
 
 use acir::{
     brillig::ForeignCallResult,
-    circuit::{brillig::{Brillig, BrilligBytecode}, opcodes::BlockId, Opcode, OpcodeLocation},
+    circuit::{
+        brillig::{Brillig, BrilligBytecode},
+        opcodes::BlockId,
+        Opcode, OpcodeLocation,
+    },
     native_types::{Expression, Witness, WitnessMap},
     BlackBoxFunc, FieldElement,
 };
@@ -167,15 +171,20 @@ pub struct ACVM<'a, B: BlackBoxFunctionSolver> {
     acir_call_results: Vec<Vec<FieldElement>>,
 
     // A counter maintained through an ACVM process that determines
-    // whether the caller has resolved the bytecode of a Brillig pointer 
+    // whether the caller has resolved the bytecode of a Brillig pointer
     // brillig_call_counter: usize,
-    // Represents the bytecode pointer 
+    // Represents the bytecode pointer
     // brillig_bytecodes: Vec<
     unconstrained_functions: &'a [BrilligBytecode],
 }
 
 impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
-    pub fn new(backend: &'a B, opcodes: &'a [Opcode], initial_witness: WitnessMap, unconstrained_functions: &'a [BrilligBytecode]) -> Self {
+    pub fn new(
+        backend: &'a B,
+        opcodes: &'a [Opcode],
+        initial_witness: WitnessMap,
+        unconstrained_functions: &'a [BrilligBytecode],
+    ) -> Self {
         let status = if opcodes.is_empty() { ACVMStatus::Solved } else { ACVMStatus::InProgress };
         ACVM {
             status,
@@ -188,7 +197,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             brillig_solver: None,
             acir_call_counter: 0,
             acir_call_results: Vec::default(),
-            unconstrained_functions
+            unconstrained_functions,
         }
     }
 
@@ -390,7 +399,8 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
 
         let witness = &mut self.witness_map;
         if is_predicate_false(witness, &brillig.predicate)? {
-            return BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig.outputs).map(|_| None);
+            return BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig.outputs)
+                .map(|_| None);
         }
 
         // If we're resuming execution after resolving a foreign call then
@@ -425,29 +435,29 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
     fn solve_brillig_pointer_opcode(
         &mut self,
     ) -> Result<Option<ForeignCallWaitInfo>, OpcodeResolutionError> {
-        let Opcode::BrilligPointer(brillig_pointer) = &self.opcodes[self.instruction_pointer] else {
+        let Opcode::BrilligPointer(brillig_pointer) = &self.opcodes[self.instruction_pointer]
+        else {
             unreachable!("Not executing a Brillig opcode");
         };
 
         let witness = &mut self.witness_map;
         if is_predicate_false(witness, &brillig_pointer.predicate)? {
-            return BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig_pointer.outputs).map(|_| None);
+            return BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig_pointer.outputs)
+                .map(|_| None);
         }
 
         // If we're resuming execution after resolving a foreign call then
         // there will be a cached `BrilligSolver` to avoid recomputation.
         let mut solver: BrilligSolver<'_, B> = match self.brillig_solver.take() {
             Some(solver) => solver,
-            None => {
-                BrilligSolver::new_with_pointer(
+            None => BrilligSolver::new_with_pointer(
                 witness,
                 &self.block_solvers,
                 brillig_pointer,
                 &self.unconstrained_functions[brillig_pointer.bytecode_index as usize].bytecode,
                 self.backend,
                 self.instruction_pointer,
-            )?
-            }
+            )?,
         };
         match solver.solve()? {
             BrilligSolverStatus::ForeignCallWait(foreign_call) => {
@@ -478,7 +488,8 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         };
 
         if should_skip {
-            let resolution = BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig.outputs);
+            let resolution =
+                BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig.outputs);
             return StepResult::Status(self.handle_opcode_resolution(resolution));
         }
 

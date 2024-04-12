@@ -7,9 +7,9 @@ mod source_code_printer;
 
 use std::io::{Read, Write};
 
-use acvm::acir::circuit::brillig::BrilligBytecode;
 use ::dap::errors::ServerError;
 use ::dap::server::Server;
+use acvm::acir::circuit::brillig::BrilligBytecode;
 use acvm::BlackBoxFunctionSolver;
 use acvm::{acir::circuit::Circuit, acir::native_types::WitnessMap};
 
