@@ -160,6 +160,7 @@ yarn-project-test:
     - l1-contracts
     - noir-projects
     - barretenberg-x86_64-linux-clang
+    - noir
 
 # Runs all prover-client checks and tests.
 prover-client-test:
@@ -175,6 +176,7 @@ prover-client-test:
     - l1-contracts
     - noir-projects
     - barretenberg-x86_64-linux-clang
+    - noir
 
 # Builds all of yarn-project, with all developer dependencies.
 # Creates a runnable container used to run tests and formatting checks.
