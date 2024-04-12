@@ -10,7 +10,7 @@ describe('poseidon sync', () => {
   });
 
   it('poseidonHash', () => {
-    const result = api.poseidonHash([new Fr(4n), new Fr(8n)], 7);
+    const result = api.poseidonHash([new Fr(4n), new Fr(8n)]);
     expect(result).toMatchSnapshot();
   });
 
@@ -19,7 +19,7 @@ describe('poseidon sync', () => {
     const fields = Array.from({ length: loops * 2 }).map(() => Fr.random());
     const t = new Timer();
     for (let i = 0; i < loops; ++i) {
-      api.poseidonHash([fields[i * 2], fields[i * 2 + 1]], 0);
+      api.poseidonHash([fields[i * 2], fields[i * 2 + 1]]);
     }
     const us = t.us() / loops;
     console.log(`Executed ${loops} hashes at an average ${us}us / hash`);
