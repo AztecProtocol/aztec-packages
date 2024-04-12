@@ -70,7 +70,7 @@ runs:
       if: ${{ inputs.concurrency_key }}
       with:
         run: |
-          while [ -f "/run/${{ inputs.concurrency_key }}.lock" ]; then
+          while [ -f "/run/${{ inputs.concurrency_key }}.lock" ]; do
             sleep 10
             echo "Lock is currently held, waiting..."
           done
