@@ -97,7 +97,7 @@ export async function executeNativeCircuit(
       'output-witness',
     ];
 
-    logger.info(`Calling ACVM with ${args.join(' ')}`);
+    logger.debug(`Calling ACVM with ${args.join(' ')}`);
 
     const processPromise = new Promise<string>((resolve, reject) => {
       let outputWitness = Buffer.alloc(0);
@@ -121,6 +121,26 @@ export async function executeNativeCircuit(
 
     const duration = new Timer();
     const output = await processPromise;
+
+    const lsPromise = new Promise<void>(resolve => {
+      let outputWitness = Buffer.alloc(0);
+      let errorBuffer = Buffer.alloc(0);
+      const acvm = proc.spawn('ls', ['-lh', `${workingDirectory}`]);
+      acvm.stdout.on('data', data => {
+        outputWitness = Buffer.concat([outputWitness, data]);
+        logger.info(`From LS at ${workingDirectory}: ${outputWitness.toString('utf-8')}`);
+      });
+      acvm.stderr.on('data', data => {
+        errorBuffer = Buffer.concat([errorBuffer, data]);
+        logger.info(`Error LS at ${workingDirectory}: ${errorBuffer.toString('utf-8')}`);
+      });
+      acvm.on('close', _ => {
+        resolve();
+      });
+    });
+
+    await lsPromise;
+
     if (outputFilename) {
       const outputWitnessFileName = `${workingDirectory}/output-witness.gz`;
       try {
