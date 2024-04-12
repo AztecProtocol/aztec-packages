@@ -1249,6 +1249,8 @@ export function mapKernelCircuitPublicInputsFromNoir(inputs: KernelCircuitPublic
     mapRollupValidationRequestsFromNoir(inputs.rollup_validation_requests),
     mapCombinedAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
+    mapPartialStateReferenceFromNoir(inputs.start_state),
+    mapPartialStateReferenceFromNoir(inputs.end_state),
     mapRevertCodeFromNoir(inputs.revert_code),
   );
 }
@@ -1259,6 +1261,8 @@ export function mapKernelCircuitPublicInputsToNoir(inputs: KernelCircuitPublicIn
     rollup_validation_requests: mapRollupValidationRequestsToNoir(inputs.rollupValidationRequests),
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
+    start_state: mapPartialStateReferenceToNoir(inputs.startState),
+    end_state: mapPartialStateReferenceToNoir(inputs.endState),
     revert_code: mapRevertCodeToNoir(inputs.revertCode),
   };
 }
@@ -1429,6 +1433,7 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
     ),
     public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
     public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
+    start_state: mapPartialStateReferenceToNoir(inputs.startState),
   };
 }
 

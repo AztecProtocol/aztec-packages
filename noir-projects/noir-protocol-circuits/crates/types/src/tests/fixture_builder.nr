@@ -24,7 +24,8 @@ use crate::{
     VK_TREE_HEIGHT
 },
     hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
-    tests::fixtures, transaction::tx_context::TxContext, traits::Empty
+    partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
+    traits::Empty
 };
 
 struct FixtureBuilder {
@@ -67,6 +68,10 @@ struct FixtureBuilder {
     // Counters.
     min_revertible_side_effect_counter: u32,
     counter: u32,
+
+    // States.
+    start_state: PartialStateReference,
+    end_state: PartialStateReference,
 }
 
 impl FixtureBuilder {
@@ -101,6 +106,8 @@ impl FixtureBuilder {
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter: 0,
+            start_state: PartialStateReference::empty(),
+            end_state: PartialStateReference::empty(),
             gas_used: GasUsed::empty(),
             gas_settings: GasSettings::empty()
         }
@@ -231,6 +238,8 @@ impl FixtureBuilder {
             rollup_validation_requests,
             end,
             constants,
+            start_state: self.start_state,
+            end_state: self.end_state,
             revert_code: self.revert_code
         }
     }
@@ -431,6 +440,8 @@ impl Empty for FixtureBuilder {
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter: 0,
+            start_state: PartialStateReference::empty(),
+            end_state: PartialStateReference::empty(),
             gas_settings: GasSettings::empty(),
             gas_used: GasUsed::empty(),
         }

@@ -125,12 +125,15 @@ export class TailPhaseManager extends AbstractPhaseManager {
       publicDataHints,
     );
 
+    const currentState = await this.db.getStateReference();
+
     return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
       nullifierReadRequestHints,
       nullifierNonExistentReadRequestHints,
       publicDataHints,
       publicDataReadRequestHints,
+      currentState.partial,
     );
   }
 

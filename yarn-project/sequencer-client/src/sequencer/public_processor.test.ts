@@ -145,7 +145,6 @@ describe('public_processor', () => {
   describe('with actual circuits', () => {
     let publicKernel: PublicKernelCircuitSimulator;
     let publicDataTree: AppendOnlyTree<Fr>;
-    let header = Header.empty();
 
     const mockTxWithPartialState = (
       {
@@ -161,14 +160,12 @@ describe('public_processor', () => {
       } = {},
       seed = 1,
     ) => {
-      const tx = mockTx(seed, {
+      return mockTx(seed, {
         hasLogs,
         numberOfNonRevertiblePublicCallRequests,
         numberOfRevertiblePublicCallRequests,
         publicCallRequests,
       });
-      tx.data.constants.historicalHeader.state = header.state;
-      return tx;
     };
 
     beforeAll(async () => {
@@ -192,16 +189,16 @@ describe('public_processor', () => {
         Fr.fromBuffer(publicDataTree.getRoot(true)),
         Number(publicDataTree.getNumLeaves(true)),
       );
-      header = new Header(
-        header.lastArchive,
-        header.contentCommitment,
-        new StateReference(
-          header.state.l1ToL2MessageTree,
-          new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
-        ),
-        header.globalVariables,
-      );
 
+      const header = Header.empty();
+      const stateReference = new StateReference(
+        header.state.l1ToL2MessageTree,
+        new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
+      );
+      // Clone the whole state because somewhere down the line something is changing the public data root in header.
+      header.state = StateReference.fromBuffer(stateReference.toBuffer());
+
+      db.getStateReference.mockResolvedValue(stateReference);
       db.getSiblingPath.mockResolvedValue(publicDataTree.getSiblingPath(0n, false));
       db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
       db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(1), new Fr(0), new Fr(0), 0n));

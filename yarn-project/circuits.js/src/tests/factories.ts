@@ -537,6 +537,8 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
     makeRollupValidationRequests(seed),
     makeCombinedAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
+    makePartialStateReference(seed + 0x200),
+    makePartialStateReference(seed + 0x200),
     RevertCode.OK,
   );
 }

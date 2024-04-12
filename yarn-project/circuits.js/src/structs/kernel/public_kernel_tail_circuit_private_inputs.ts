@@ -2,6 +2,7 @@ import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type MAX_PUBLIC_DATA_HINTS } from '../../constants.gen.js';
 import { type NullifierNonExistentReadRequestHints } from '../non_existent_read_request_hints.js';
+import { type PartialStateReference } from '../partial_state_reference.js';
 import { type PublicDataHint } from '../public_data_hint.js';
 import { type PublicDataReadRequestHints } from '../public_data_read_request_hints.js';
 import { type NullifierReadRequestHints } from '../read_request_hints.js';
@@ -23,6 +24,7 @@ export class PublicKernelTailCircuitPrivateInputs {
     public readonly nullifierNonExistentReadRequestHints: NullifierNonExistentReadRequestHints,
     public readonly publicDataHints: Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>,
     public readonly publicDataReadRequestHints: PublicDataReadRequestHints,
+    public readonly startState: PartialStateReference,
   ) {}
 
   toBuffer() {
@@ -32,6 +34,7 @@ export class PublicKernelTailCircuitPrivateInputs {
       this.nullifierNonExistentReadRequestHints,
       this.publicDataHints,
       this.publicDataReadRequestHints,
+      this.startState,
     );
   }
 }

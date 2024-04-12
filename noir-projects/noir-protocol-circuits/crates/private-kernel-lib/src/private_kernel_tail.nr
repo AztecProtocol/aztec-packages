@@ -178,6 +178,15 @@ mod tests {
     }
 
     #[test]
+    unconstrained fn execution_succeeded() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        let public_inputs = builder.execute();
+
+        assert(is_empty(public_inputs.start_state));
+        assert(is_empty(public_inputs.end_state));
+    }
+
+    #[test]
     unconstrained fn native_matching_one_read_request_to_commitment_works() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
 

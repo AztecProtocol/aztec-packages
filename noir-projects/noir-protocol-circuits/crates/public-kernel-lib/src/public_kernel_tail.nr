@@ -5,12 +5,12 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::{
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-    kernel_data::PublicKernelData, side_effect::SideEffectLinkedToNoteHash
+    accumulated_data::CombinedAccumulatedData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
+    kernel_data::PublicKernelData
 },
     constants::MAX_PUBLIC_DATA_HINTS,
     merkle_tree::{conditionally_assert_check_membership, MembershipWitness},
-    utils::{arrays::array_length}
+    partial_state_reference::PartialStateReference, utils::{arrays::array_length}
 };
 
 struct PublicKernelTailCircuitPrivateInputs {
@@ -19,13 +19,10 @@ struct PublicKernelTailCircuitPrivateInputs {
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
     public_data_hints: [PublicDataHint; MAX_PUBLIC_DATA_HINTS],
     public_data_read_request_hints: PublicDataReadRequestHints,
+    start_state: PartialStateReference,
 }
 
 impl PublicKernelTailCircuitPrivateInputs {
-    fn propagate_revert_code(self, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
-        public_inputs.revert_code = self.previous_kernel.public_inputs.revert_code;
-    }
-
     fn validate_inputs(self) {
         let previous_public_inputs = self.previous_kernel.public_inputs;
         assert(previous_public_inputs.needs_setup() == false, "Previous kernel needs setup");
@@ -41,7 +38,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 
     fn validate_public_data_hints(self) {
         let public_data_hints = self.public_data_hints;
-        let public_data_tree_root = self.previous_kernel.public_inputs.constants.historical_header.state.partial.public_data_tree.root;
+        let public_data_tree_root = self.start_state.public_data_tree.root;
         for i in 0..public_data_hints.len() {
             let hint = public_data_hints[i];
             // We only need to check leaf_slot to decide if a (non-)membership check is required.
@@ -67,6 +64,15 @@ impl PublicKernelTailCircuitPrivateInputs {
         }
     }
 
+    fn propagate_accumulated_data(self) -> CombinedAccumulatedData {
+        let previous_public_inputs = self.previous_kernel.public_inputs;
+        // TODO: Sort the combined data.
+        CombinedAccumulatedData::combine(
+            previous_public_inputs.end_non_revertible,
+            previous_public_inputs.end
+        )
+    }
+
     pub fn public_kernel_tail(self) -> KernelCircuitPublicInputs {
         self.validate_inputs();
 
@@ -84,13 +90,20 @@ impl PublicKernelTailCircuitPrivateInputs {
         );
         request_processor.validate();
 
-        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
+        let end = self.propagate_accumulated_data();
 
-        self.propagate_revert_code(&mut public_inputs);
+        // TODO: update public data tree root.
+        let end_state = self.start_state;
 
-        common::initialize_emitted_end_values(self.previous_kernel, &mut public_inputs);
-
-        public_inputs.finish_tail()
+        KernelCircuitPublicInputs {
+            aggregation_object: previous_public_inputs.aggregation_object,
+            rollup_validation_requests: previous_public_inputs.validation_requests.for_rollup,
+            end,
+            constants: previous_public_inputs.constants,
+            start_state: self.start_state,
+            end_state,
+            revert_code: previous_public_inputs.revert_code
+        }
     }
 }
 
@@ -106,9 +119,8 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-        kernel_data::PublicKernelData, nullifier_leaf_preimage::NullifierLeafPreimage,
-        membership_witness::PublicDataMembershipWitness
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs, kernel_data::PublicKernelData,
+        nullifier_leaf_preimage::NullifierLeafPreimage, membership_witness::PublicDataMembershipWitness
     },
         constants::{
         MAX_NEW_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS,
@@ -118,7 +130,7 @@ mod tests {
     },
         hash::silo_nullifier, public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
-        utils::arrays::array_merge
+        partial_state_reference::PartialStateReference, utils::arrays::array_merge
     };
 
     fn build_nullifier_tree<N>() -> NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT> {
@@ -159,6 +171,7 @@ mod tests {
         public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder,
         public_data_hints: BoundedVec<PublicDataHint, MAX_PUBLIC_DATA_HINTS>,
         public_data_tree: NonEmptyMerkleTree<MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT>,
+        start_state: PartialStateReference,
     }
 
     impl PublicKernelTailCircuitPrivateInputsBuilder {
@@ -174,7 +187,8 @@ mod tests {
                 nullifier_non_existent_read_request_hints_builder,
                 public_data_read_request_hints_builder: PublicDataReadRequestHintsBuilder::new(MAX_PUBLIC_DATA_READS_PER_TX),
                 public_data_hints: BoundedVec::new(),
-                public_data_tree: NonEmptyMerkleTree::empty()
+                public_data_tree: NonEmptyMerkleTree::empty(),
+                start_state: PartialStateReference::empty()
             };
             builder.set_nullifiers_for_non_existent_read_request_hints();
             builder
@@ -190,7 +204,7 @@ mod tests {
         pub fn with_public_data_tree(&mut self) -> Self {
             let public_data_tree = build_public_data_tree();
             self.public_data_tree = public_data_tree;
-            self.previous_kernel.historical_header.state.partial.public_data_tree.root = public_data_tree.get_root();
+            self.start_state.public_data_tree.root = public_data_tree.get_root();
             *self
         }
 
@@ -299,7 +313,8 @@ mod tests {
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints(),
                 public_data_hints: self.public_data_hints.storage,
-                public_data_read_request_hints: self.public_data_read_request_hints_builder.to_hints()
+                public_data_read_request_hints: self.public_data_read_request_hints_builder.to_hints(),
+                start_state: self.start_state
             };
 
             kernel.public_kernel_tail()
