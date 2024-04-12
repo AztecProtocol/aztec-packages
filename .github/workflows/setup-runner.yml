@@ -74,6 +74,7 @@ jobs:
   setup:
     needs: start-builder
     runs-on: ${{ inputs.runner_label }}
+    if: ${{inputs.subaction != 'stop'}}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
