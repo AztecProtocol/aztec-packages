@@ -256,6 +256,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                 }
             }
         }
+        
         assert!(
             current_ret_data_idx == return_data_offset + return_data_size,
             "Brillig VM did not write the expected number of return values"
