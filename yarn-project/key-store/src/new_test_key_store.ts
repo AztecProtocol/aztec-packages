@@ -60,7 +60,12 @@ export class NewTestKeyStore implements NewKeyStore {
     const accountAddressFr = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
     const accountAddress = AztecAddress.fromField(accountAddressFr);
 
-    // We store the keys in the database
+    // We store all the public and secret keys in the database
+    await this.#keys.set(`${accountAddress.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
+    await this.#keys.set(`${accountAddress.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
+    await this.#keys.set(`${accountAddress.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
+    await this.#keys.set(`${accountAddress.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
+
     await this.#keys.set(`${accountAddress.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ivpk_m`, masterIncomingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
@@ -124,5 +129,74 @@ export class NewTestKeyStore implements NewKeyStore {
       throw new Error(`Account ${account.toString()} does not exist.`);
     }
     return Promise.resolve(Point.fromBuffer(masterTaggingPublicKeyBuffer));
+  }
+
+  /**
+   * Retrieves application nullifier secret key.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account to retrieve the application nullifier secret key for.
+   * @param app - The application address to retrieve the nullifier secret key for.
+   * @returns A Promise that resolves to the application nullifier secret key.
+   */
+  public getAppNullifierSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+    const masterNullifierSecretKeyBuffer = this.#keys.get(`${account.toString()}-nsk_m`);
+    if (!masterNullifierSecretKeyBuffer) {
+      throw new Error(`Account ${account.toString()} does not exist.`);
+    }
+    const masterNullifierSecretKey = Fr.fromBuffer(masterNullifierSecretKeyBuffer);
+
+    return Promise.resolve(poseidonHash([masterNullifierSecretKey, app], GeneratorIndex.NSK_M));
+  }
+
+  /**
+   * Retrieves application incoming viewing secret key.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account to retrieve the application incoming viewing secret key for.
+   * @param app - The application address to retrieve the incoming viewing secret key for.
+   * @returns A Promise that resolves to the application incoming viewing secret key.
+   */
+  public getAppIncomingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+    const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
+    if (!masterIncomingViewingSecretKeyBuffer) {
+      throw new Error(`Account ${account.toString()} does not exist.`);
+    }
+    const masterIncomingViewingSecretKey = Fr.fromBuffer(masterIncomingViewingSecretKeyBuffer);
+
+    return Promise.resolve(poseidonHash([masterIncomingViewingSecretKey, app], GeneratorIndex.IVSK_M));
+  }
+
+  /**
+   * Retrieves application outgoing viewing secret key.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account to retrieve the application outgoing viewing secret key for.
+   * @param app - The application address to retrieve the outgoing viewing secret key for.
+   * @returns A Promise that resolves to the application outgoing viewing secret key.
+   */
+  public getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+    const masterOutgoingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ovsk_m`);
+    if (!masterOutgoingViewingSecretKeyBuffer) {
+      throw new Error(`Account ${account.toString()} does not exist.`);
+    }
+    const masterOutgoingViewingSecretKey = Fr.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
+
+    return Promise.resolve(poseidonHash([masterOutgoingViewingSecretKey, app], GeneratorIndex.OVSK_M));
+  }
+
+  /**
+   * Retrieves application tagging secret key.
+   * @throws If the account does not exist in the key store.
+   * @param account - The account to retrieve the application tagging secret key for.
+   * @param app - The application address to retrieve the tagging secret key for.
+   * @returns A Promise that resolves to the application tagging secret key.
+   * TODO: Not sure if this func will be needed. 💣💣💣 if not
+   */
+  public getAppTaggingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+    const masterTaggingSecretKeyBuffer = this.#keys.get(`${account.toString()}-tsk_m`);
+    if (!masterTaggingSecretKeyBuffer) {
+      throw new Error(`Account ${account.toString()} does not exist.`);
+    }
+    const masterTaggingSecretKey = Fr.fromBuffer(masterTaggingSecretKeyBuffer);
+
+    return Promise.resolve(poseidonHash([masterTaggingSecretKey, app], GeneratorIndex.TSK_M));
   }
 }

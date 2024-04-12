@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
@@ -36,6 +36,29 @@ describe('NewTestKeyStore', () => {
     const masterTaggingPublicKey = await keyStore.getMasterTaggingPublicKey(accountAddress);
     expect(masterTaggingPublicKey.toString()).toMatchInlineSnapshot(
       `"0x076429010fdebfa522b053267f654a4c5daf18589915d96f7e5001d63ea2033f27f915f254560c84450aa38e93c3162be52492d05b316e75f542e3b302117360"`,
+    );
+
+    // Arbitrary app contract address
+    const appAddress = AztecAddress.fromBigInt(624n);
+
+    const appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(accountAddress, appAddress);
+    expect(appNullifierSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x17e6aa39fa3b496ab3253d366b60b21d40df6f4db145cc543896a07e81cdca57"`,
+    );
+
+    const appIncomingViewingSecretKey = await keyStore.getAppIncomingViewingSecretKey(accountAddress, appAddress);
+    expect(appIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x26802fcefb8c238ed5dc8e3e0eff8fc05f8feff9fa1dd1dc951f2bdf04fe279b"`,
+    );
+
+    const appOutgoingViewingSecretKey = await keyStore.getAppOutgoingViewingSecretKey(accountAddress, appAddress);
+    expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x1e4aaa29289f2be15c05509478aa054be9cbe16d75dbb59bdfaefc3a2df88f0b"`,
+    );
+
+    const appTaggingSecretKey = await keyStore.getAppTaggingSecretKey(accountAddress, appAddress);
+    expect(appTaggingSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x24051d8fddc0d49929a118edc68d04babe7175bd4cf0f25d83527e25c6dd591f"`,
     );
   });
 });
