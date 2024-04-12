@@ -43,22 +43,22 @@ describe('NewTestKeyStore', () => {
 
     const appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(accountAddress, appAddress);
     expect(appNullifierSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x17e6aa39fa3b496ab3253d366b60b21d40df6f4db145cc543896a07e81cdca57"`,
+      `"0x03d147a454c3b76c7293538f45de8f0cc6179219f67171bd4734507ff2f4e66b"`,
     );
 
     const appIncomingViewingSecretKey = await keyStore.getAppIncomingViewingSecretKey(accountAddress, appAddress);
     expect(appIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x26802fcefb8c238ed5dc8e3e0eff8fc05f8feff9fa1dd1dc951f2bdf04fe279b"`,
+      `"0x09d3b6af7911b5d1d81221657dab651cb1553f656c83b469d1c5bb3155c885ec"`,
     );
 
     const appOutgoingViewingSecretKey = await keyStore.getAppOutgoingViewingSecretKey(accountAddress, appAddress);
     expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x1e4aaa29289f2be15c05509478aa054be9cbe16d75dbb59bdfaefc3a2df88f0b"`,
+      `"0x25731ba98966ac7822efc31b2fe42af326f38a64be1e56b480ada4966eae2be3"`,
     );
 
     const appTaggingSecretKey = await keyStore.getAppTaggingSecretKey(accountAddress, appAddress);
     expect(appTaggingSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x24051d8fddc0d49929a118edc68d04babe7175bd4cf0f25d83527e25c6dd591f"`,
+      `"0x1b9d684ddddcf3cc36bc6925331cc321a0d9f1d2341572ec5967eea36be65c85"`,
     );
   });
 });

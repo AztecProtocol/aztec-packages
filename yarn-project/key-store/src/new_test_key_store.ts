@@ -145,7 +145,7 @@ export class NewTestKeyStore implements NewKeyStore {
     }
     const masterNullifierSecretKey = Fr.fromBuffer(masterNullifierSecretKeyBuffer);
 
-    return Promise.resolve(poseidonHash([masterNullifierSecretKey, app], GeneratorIndex.NSK_M));
+    return Promise.resolve(poseidon2Hash([masterNullifierSecretKey, app], GeneratorIndex.NSK_M));
   }
 
   /**
@@ -162,7 +162,7 @@ export class NewTestKeyStore implements NewKeyStore {
     }
     const masterIncomingViewingSecretKey = Fr.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
-    return Promise.resolve(poseidonHash([masterIncomingViewingSecretKey, app], GeneratorIndex.IVSK_M));
+    return Promise.resolve(poseidon2Hash([masterIncomingViewingSecretKey, app], GeneratorIndex.IVSK_M));
   }
 
   /**
@@ -179,7 +179,7 @@ export class NewTestKeyStore implements NewKeyStore {
     }
     const masterOutgoingViewingSecretKey = Fr.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
 
-    return Promise.resolve(poseidonHash([masterOutgoingViewingSecretKey, app], GeneratorIndex.OVSK_M));
+    return Promise.resolve(poseidon2Hash([masterOutgoingViewingSecretKey, app], GeneratorIndex.OVSK_M));
   }
 
   /**
@@ -197,6 +197,6 @@ export class NewTestKeyStore implements NewKeyStore {
     }
     const masterTaggingSecretKey = Fr.fromBuffer(masterTaggingSecretKeyBuffer);
 
-    return Promise.resolve(poseidonHash([masterTaggingSecretKey, app], GeneratorIndex.TSK_M));
+    return Promise.resolve(poseidon2Hash([masterTaggingSecretKey, app], GeneratorIndex.TSK_M));
   }
 }
