@@ -282,7 +282,7 @@ impl<'block> BrilligBlock<'block> {
                     condition,
                 );
 
-                self.brillig_context.constrain_instruction(condition, assert_message);
+                self.brillig_context.codegen_constrain(condition, assert_message);
                 self.brillig_context.deallocate_single_addr(condition);
             }
             Instruction::Allocate => {
@@ -670,7 +670,7 @@ impl<'block> BrilligBlock<'block> {
                         BrilligBinaryOp::LessThanEquals,
                     );
 
-                    self.brillig_context.constrain_instruction(condition, assert_message.clone());
+                    self.brillig_context.codegen_constrain(condition, assert_message.clone());
                     self.brillig_context.deallocate_single_addr(condition);
                     self.brillig_context.deallocate_single_addr(left);
                     self.brillig_context.deallocate_single_addr(right);
@@ -802,7 +802,7 @@ impl<'block> BrilligBlock<'block> {
         );
 
         self.brillig_context
-            .constrain_instruction(condition, Some("Array index out of bounds".to_owned()));
+            .codegen_constrain(condition, Some("Array index out of bounds".to_owned()));
 
         if should_deallocate_size {
             self.brillig_context.deallocate_single_addr(size_as_register);
@@ -1503,10 +1503,8 @@ impl<'block> BrilligBlock<'block> {
                     condition,
                     BrilligBinaryOp::LessThanEquals,
                 );
-                self.brillig_context.constrain_instruction(
-                    condition,
-                    Some("attempt to add with overflow".to_string()),
-                );
+                self.brillig_context
+                    .codegen_constrain(condition, Some("attempt to add with overflow".to_string()));
                 self.brillig_context.deallocate_single_addr(condition);
             }
             (BrilligBinaryOp::Sub, false) => {
@@ -1519,7 +1517,7 @@ impl<'block> BrilligBlock<'block> {
                     condition,
                     BrilligBinaryOp::LessThanEquals,
                 );
-                self.brillig_context.constrain_instruction(
+                self.brillig_context.codegen_constrain(
                     condition,
                     Some("attempt to subtract with overflow".to_string()),
                 );
@@ -1549,7 +1547,7 @@ impl<'block> BrilligBlock<'block> {
                             BrilligBinaryOp::UnsignedDiv,
                         );
                         ctx.binary_instruction(division, left, condition, BrilligBinaryOp::Equals);
-                        ctx.constrain_instruction(
+                        ctx.codegen_constrain(
                             condition,
                             Some("attempt to multiply with overflow".to_string()),
                         );

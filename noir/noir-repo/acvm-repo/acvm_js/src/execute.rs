@@ -231,7 +231,7 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                         unreachable!("Execution should not stop while in `InProgress` state.")
                     }
                     ACVMStatus::Failure(error) => {
-                        let (assert_message, call_stack) = match &error {
+                        let (assert_message, call_stack): (Option<&str>, _) = match &error {
                             OpcodeResolutionError::UnsatisfiedConstrain {
                                 opcode_location: ErrorLocation::Resolved(opcode_location),
                             }
@@ -242,15 +242,10 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                                 circuit.get_assert_message(*opcode_location),
                                 Some(vec![*opcode_location]),
                             ),
-                            OpcodeResolutionError::BrilligFunctionFailed { call_stack, .. } => {
-                                let failing_opcode = call_stack
-                                    .last()
-                                    .expect("Brillig error call stacks cannot be empty");
-                                (
-                                    circuit.get_assert_message(*failing_opcode),
-                                    Some(call_stack.clone()),
-                                )
-                            }
+                            OpcodeResolutionError::BrilligFunctionFailed {
+                                call_stack,
+                                message,
+                            } => (message.as_ref().map(|x| x.as_str()), Some(call_stack.clone())),
                             _ => (None, None),
                         };
 

@@ -138,4 +138,31 @@ impl BrilligContext {
 
         self.enter_section(end_section);
     }
+
+    /// Emits brillig bytecode to jump to a trap condition if `condition`
+    /// is false.
+    pub(crate) fn codegen_constrain(
+        &mut self,
+        condition: SingleAddrVariable,
+        assert_message: Option<String>,
+    ) {
+        assert!(condition.bit_size == 1);
+
+        self.codegen_if_not(condition.address, |ctx| {
+            let (revert_data_offset, revert_data_size) =
+                if let Some(assert_message) = assert_message {
+                    let bytes = assert_message.as_bytes();
+                    for (i, byte) in bytes.iter().enumerate() {
+                        ctx.const_instruction(
+                            SingleAddrVariable::new(MemoryAddress(i), 8),
+                            (*byte as usize).into(),
+                        );
+                    }
+                    (0, bytes.len())
+                } else {
+                    (0, 0)
+                };
+            ctx.trap_instruction(revert_data_offset, revert_data_size);
+        });
+    }
 }
