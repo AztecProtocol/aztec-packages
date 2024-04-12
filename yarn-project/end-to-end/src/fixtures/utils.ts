@@ -343,7 +343,11 @@ export async function setup(
     // We go via a wrapper script to ensure if the parent dies, anvil dies.
     const ethereumHostPort = await getPort();
     config.rpcUrl = `http://localhost:${ethereumHostPort}`;
-    anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+    const anvilBinary = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../scripts/anvil_kill_wrapper.sh',
+    );
+    anvil = createAnvil({ anvilBinary, port: ethereumHostPort });
     await anvil.start();
   }
 
@@ -467,12 +471,12 @@ function getJobName() {
  * @returns a logger instance for the current test.
  */
 export function getLogger() {
-  const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
-  if (!describeBlockName) {
-    const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
-    return createDebugLogger('aztec:' + name);
-  }
-  return createDebugLogger('aztec:' + describeBlockName);
+  // const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
+  // if (!describeBlockName) {
+  //   const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
+  //   return createDebugLogger('aztec:' + name);
+  // }
+  return createDebugLogger('aztec:' + 'native');
 }
 
 /**
