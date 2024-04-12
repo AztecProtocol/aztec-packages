@@ -24,17 +24,17 @@ import {
   GasSettings,
   GlobalVariables,
   Header,
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   type PrivateKernelTailCircuitPublicInputs,
   type Proof,
   type PublicCallRequest,
   PublicDataUpdateRequest,
-  makeEmptyProof,
-  MAX_ENCRYPTED_LOGS_PER_TX,
   SideEffect,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
+  makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import {

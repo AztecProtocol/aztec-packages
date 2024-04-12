@@ -73,16 +73,20 @@ export const mockTx = (
       let i = 1; // 0 used in first nullifier
       encryptedLogs.functionLogs.forEach((log, j) => {
         // ts complains if we dont check .forPublic here, even though it is defined ^
-        if (data.forPublic) data.forPublic.end.encryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
-      })
+        if (data.forPublic) {
+          data.forPublic.end.encryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
+        }
+      });
       unencryptedLogs.functionLogs.forEach((log, j) => {
-        if (data.forPublic) data.forPublic.end.unencryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
-      })
+        if (data.forPublic) {
+          data.forPublic.end.unencryptedLogsHashes[j] = new SideEffect(Fr.fromBuffer(log.hash()), new Fr(i++));
+        }
+      });
     }
   } else {
     data.forRollup!.end.newNullifiers[0] = firstNullifier.value;
-    data.forRollup!.end.encryptedLogsHash = hasLogs ?  Fr.fromBuffer(encryptedLogs.hash()) : Fr.ZERO;
-    data.forRollup!.end.unencryptedLogsHash = hasLogs ?  Fr.fromBuffer(unencryptedLogs.hash()) : Fr.ZERO;
+    data.forRollup!.end.encryptedLogsHash = hasLogs ? Fr.fromBuffer(encryptedLogs.hash()) : Fr.ZERO;
+    data.forRollup!.end.unencryptedLogsHash = hasLogs ? Fr.fromBuffer(unencryptedLogs.hash()) : Fr.ZERO;
   }
 
   const tx = new Tx(data, new Proof(Buffer.alloc(0)), encryptedLogs, unencryptedLogs, publicCallRequests);

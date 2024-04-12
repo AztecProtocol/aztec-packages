@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
 import {
-  type TracedUnencryptedL2Log,
   type TracedL1toL2MessageCheck,
   type TracedNoteHash,
   type TracedNoteHashCheck,
@@ -9,6 +8,7 @@ import {
   type TracedNullifierCheck,
   type TracedPublicStorageRead,
   type TracedPublicStorageWrite,
+  type TracedUnencryptedL2Log,
 } from './trace_types.js';
 
 export class WorldStateAccessTrace {

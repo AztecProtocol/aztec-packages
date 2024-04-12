@@ -111,14 +111,17 @@ describe('e2e_ordering', () => {
       //     in reverse order. More info in this thread: https://discourse.aztec.network/t/identifying-the-ordering-of-state-access-across-contract-calls/382/12#transition-counters-for-private-calls-2
       // NB: logs are now ordered, but due to a hack in ts
       // See sequencer-client/src/sequencer/tail_phase_manager.ts
-      it.each(['set_value_twice_with_nested_first', 'set_value_twice_with_nested_last'] as const)('orders unencrypted logs in %s', async method => {
-        const expectedOrder = expectedOrders[method];
+      it.each(['set_value_twice_with_nested_first', 'set_value_twice_with_nested_last'] as const)(
+        'orders unencrypted logs in %s',
+        async method => {
+          const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send().wait();
+          await child.methods[method]().send().wait();
 
-        // Logs are emitted in the expected order
-        await expectLogsFromLastBlockToBe(expectedOrder);
-      });
+          // Logs are emitted in the expected order
+          await expectLogsFromLastBlockToBe(expectedOrder);
+        },
+      );
     });
   });
 });

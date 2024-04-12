@@ -140,7 +140,7 @@ export async function convertAvmResults(
     newWorldState.newLogs.map(log => new UnencryptedL2Log(log.contractAddress, log.selector, log.data)),
   );
   const unencryptedLogsHashes = newWorldState.newLogsHashes.map(
-    logHash  => new SideEffect(logHash.logHash, logHash.counter),
+    logHash => new SideEffect(logHash.logHash, logHash.counter),
   );
   const newL2ToL1Messages = newWorldState.newL1Messages.map(m => new L2ToL1Message(m.recipient, m.content));
 

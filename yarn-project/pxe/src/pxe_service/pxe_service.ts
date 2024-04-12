@@ -1,6 +1,8 @@
 import {
   type AuthWitness,
   type AztecNode,
+  EncryptedFunctionL2Logs,
+  type EncryptedL2Log,
   EncryptedTxL2Logs,
   ExtendedNote,
   type FunctionCall,
@@ -18,12 +20,10 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  UnencryptedFunctionL2Logs,
+  type UnencryptedL2Log,
   UnencryptedTxL2Logs,
   isNoirCallStackUnresolved,
-  EncryptedFunctionL2Logs,
-  UnencryptedFunctionL2Logs,
-  EncryptedL2Log,
-  UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { type TxPXEProcessingStats } from '@aztec/circuit-types/stats';
 import {
@@ -36,9 +36,9 @@ import {
   type PartialAddress,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
+  type SideEffect,
   computeContractClassId,
   getContractClassFromArtifact,
-  SideEffect,
 } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
@@ -766,15 +766,15 @@ export class PXEService implements PXE {
   // See yarn-project/end-to-end/src/e2e_ordering.test.ts
   // See https://github.com/AztecProtocol/aztec-packages/issues/1641
   // Added as part of resolving #5017
-  private patchLogsOrdering(
-    execResult: ExecutionResult,
-  ) {
+  private patchLogsOrdering(execResult: ExecutionResult) {
     const encLogs = collectEncryptedLogs(execResult).flatMap(l => l.logs);
     const unencLogs = collectUnencryptedLogs(execResult).flatMap(l => l.logs);
     const getLogs = (res: ExecutionResult, enc: boolean) => {
-      const logs: SideEffect[] = enc ?
-        res.callStackItem.publicInputs.encryptedLogsHashes.concat(res.nestedExecutions.flatMap(e => getLogs(e, true))) :
-        res.callStackItem.publicInputs.unencryptedLogsHashes.concat(res.nestedExecutions.flatMap(e => getLogs(e, false)));
+      const logs: SideEffect[] = enc
+        ? res.callStackItem.publicInputs.encryptedLogsHashes.concat(res.nestedExecutions.flatMap(e => getLogs(e, true)))
+        : res.callStackItem.publicInputs.unencryptedLogsHashes.concat(
+            res.nestedExecutions.flatMap(e => getLogs(e, false)),
+          );
 
       return logs;
     };
@@ -787,30 +787,28 @@ export class PXEService implements PXE {
       } else {
         return Number(a.counter.toBigInt() - b.counter.toBigInt());
       }
-      
     };
 
     const sortedEncLogs = getLogs(execResult, true).sort(sortSEs);
     const sortedUnencLogs = getLogs(execResult, false).sort(sortSEs);
 
-    let finalEncLogs: EncryptedL2Log[] = [];
+    const finalEncLogs: EncryptedL2Log[] = [];
     sortedEncLogs.forEach((sideEffect: SideEffect) => {
       if (!sideEffect.isEmpty()) {
-        const isLog = (log: EncryptedL2Log ) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
+        const isLog = (log: EncryptedL2Log) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
         const thisLogIndex = encLogs.findIndex(isLog);
         finalEncLogs.push(encLogs[thisLogIndex]);
       }
     });
 
-    let finalUnencLogs: UnencryptedL2Log[] = [];
+    const finalUnencLogs: UnencryptedL2Log[] = [];
     sortedUnencLogs.forEach((sideEffect: SideEffect) => {
       if (!sideEffect.isEmpty()) {
-        const isLog = (log: UnencryptedL2Log ) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
+        const isLog = (log: UnencryptedL2Log) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
         const thisLogIndex = unencLogs.findIndex(isLog);
         finalUnencLogs.push(unencLogs[thisLogIndex]);
       }
     });
-
 
     const encryptedLogs = new EncryptedTxL2Logs([new EncryptedFunctionL2Logs(finalEncLogs)]);
     const unencryptedLogs = new UnencryptedTxL2Logs([new UnencryptedFunctionL2Logs(finalUnencLogs)]);

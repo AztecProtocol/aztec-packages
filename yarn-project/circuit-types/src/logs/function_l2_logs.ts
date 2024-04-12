@@ -1,9 +1,9 @@
+import { MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL } from '@aztec/circuits.js';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
 import { EncryptedL2Log } from './encrypted_l2_log.js';
 import { UnencryptedL2Log } from './unencrypted_l2_log.js';
-import { MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL } from '@aztec/circuits.js';
 
 /**
  * Data container of logs emitted in 1 function invocation (corresponds to 1 kernel iteration).
@@ -92,8 +92,9 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
    * @returns A new EncryptedFunctionL2Logs object.
    */
   public static random(numLogs: number, test = false): EncryptedFunctionL2Logs {
-    if (!test && numLogs > MAX_ENCRYPTED_LOGS_PER_CALL)
+    if (!test && numLogs > MAX_ENCRYPTED_LOGS_PER_CALL) {
       throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_ENCRYPTED_LOGS_PER_CALL})`);
+    }
     const logs: EncryptedL2Log[] = [];
     for (let i = 0; i < numLogs; i++) {
       logs.push(EncryptedL2Log.random());
@@ -144,8 +145,9 @@ export class UnencryptedFunctionL2Logs extends FunctionL2Logs<UnencryptedL2Log> 
    * @returns A new UnencryptedFunctionL2Logs object.
    */
   public static random(numLogs: number, test = false): UnencryptedFunctionL2Logs {
-    if (!test && numLogs > MAX_UNENCRYPTED_LOGS_PER_CALL)
+    if (!test && numLogs > MAX_UNENCRYPTED_LOGS_PER_CALL) {
       throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_UNENCRYPTED_LOGS_PER_CALL})`);
+    }
     const logs: UnencryptedL2Log[] = [];
     for (let i = 0; i < numLogs; i++) {
       logs.push(UnencryptedL2Log.random());

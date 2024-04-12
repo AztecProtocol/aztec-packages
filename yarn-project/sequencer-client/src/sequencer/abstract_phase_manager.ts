@@ -19,6 +19,7 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
   type PrivateKernelTailCircuitPublicInputs,
   type Proof,
@@ -38,7 +39,6 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  MAX_UNENCRYPTED_LOGS_PER_CALL,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
@@ -392,7 +392,11 @@ export abstract class AbstractPhaseManager {
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStackHashes,
-      unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, SideEffect.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
+      unencryptedLogsHashes: padArrayEnd(
+        result.unencryptedLogsHashes,
+        SideEffect.empty(),
+        MAX_UNENCRYPTED_LOGS_PER_CALL,
+      ),
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
       // TODO(@just-mitch): need better mapping from simulator to revert code.

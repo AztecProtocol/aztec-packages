@@ -1,3 +1,4 @@
+import { MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX } from '@aztec/circuits.js';
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
 
@@ -6,7 +7,6 @@ import isEqual from 'lodash.isequal';
 import { type EncryptedL2Log } from './encrypted_l2_log.js';
 import { EncryptedFunctionL2Logs, type FunctionL2Logs, UnencryptedFunctionL2Logs } from './function_l2_logs.js';
 import { type UnencryptedL2Log } from './unencrypted_l2_log.js';
-import { MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX } from '@aztec/circuits.js';
 
 /**
  * Data container of logs emitted in 1 tx.
@@ -130,8 +130,11 @@ export class UnencryptedTxL2Logs extends TxL2Logs<UnencryptedL2Log> {
    * @returns A new `TxL2Logs` object.
    */
   public static random(numCalls: number, numLogsPerCall: number): UnencryptedTxL2Logs {
-    if (numCalls * numLogsPerCall > MAX_UNENCRYPTED_LOGS_PER_TX)
-      throw new Error(`Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_UNENCRYPTED_LOGS_PER_TX})`);
+    if (numCalls * numLogsPerCall > MAX_UNENCRYPTED_LOGS_PER_TX) {
+      throw new Error(
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_UNENCRYPTED_LOGS_PER_TX})`,
+      );
+    }
     const functionLogs: UnencryptedFunctionL2Logs[] = [];
     for (let i = 0; i < numCalls; i++) {
       functionLogs.push(UnencryptedFunctionL2Logs.random(numLogsPerCall));
@@ -181,8 +184,11 @@ export class EncryptedTxL2Logs extends TxL2Logs<EncryptedL2Log> {
    * @returns A new `TxL2Logs` object.
    */
   public static random(numCalls: number, numLogsPerCall: number): EncryptedTxL2Logs {
-    if (numCalls * numLogsPerCall > MAX_ENCRYPTED_LOGS_PER_TX)
-      throw new Error(`Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_ENCRYPTED_LOGS_PER_TX})`);
+    if (numCalls * numLogsPerCall > MAX_ENCRYPTED_LOGS_PER_TX) {
+      throw new Error(
+        `Trying to create ${numCalls * numLogsPerCall} logs for one tx (max: ${MAX_ENCRYPTED_LOGS_PER_TX})`,
+      );
+    }
     const functionLogs: EncryptedFunctionL2Logs[] = [];
     for (let i = 0; i < numCalls; i++) {
       functionLogs.push(EncryptedFunctionL2Logs.random(numLogsPerCall));

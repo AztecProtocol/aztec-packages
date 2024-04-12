@@ -351,7 +351,7 @@ impl Empty for PublicContext {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            unencrypted_logs_hash: 0,
+            unencrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_preimages_length: 0,
             historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),

@@ -154,7 +154,7 @@ impl Empty for PublicCircuitPublicInputs {
             new_l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
-            unencrypted_logs_hash: 0,
+            unencrypted_logs_hashes: [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
@@ -177,6 +177,6 @@ fn empty_hash() {
     let hash = inputs.hash();
 
     // Value from public_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x083ac560a513d670a7f50f0a3052d42cb9816b7b643e62025b8278652ad637ab;
+    let test_data_empty_hash = 0x19196cde31eb3ac139c27d94aa4e3b3f4479b34f9db934d18abb15ab67b0188e;
     assert_eq(hash, test_data_empty_hash);
 }

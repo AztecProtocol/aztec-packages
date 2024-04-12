@@ -86,10 +86,10 @@ export class UnencryptedL2Log {
    * Calculates hash of serialized logs.
    * @returns Buffer containing 248 bits of information of sha256 hash.
    */
-    public hash(): Buffer {
-      const preimage = this.toBuffer();
-      return sha256Trunc(preimage);
-    }
+  public hash(): Buffer {
+    const preimage = this.toBuffer();
+    return sha256Trunc(preimage);
+  }
 
   /**
    * Crates a random log.

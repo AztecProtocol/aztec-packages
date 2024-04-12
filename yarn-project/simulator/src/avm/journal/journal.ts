@@ -9,7 +9,6 @@ import { Nullifiers } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 import { WorldStateAccessTrace } from './trace.js';
 import {
-  type TracedUnencryptedL2Log,
   type TracedL1toL2MessageCheck,
   type TracedNoteHash,
   type TracedNoteHashCheck,
@@ -17,6 +16,7 @@ import {
   type TracedNullifierCheck,
   type TracedPublicStorageRead,
   type TracedPublicStorageWrite,
+  type TracedUnencryptedL2Log,
 } from './trace_types.js';
 
 /**
@@ -213,7 +213,7 @@ export class AvmPersistableStateManager {
       Buffer.concat(log.map(f => f.toBuffer())),
     );
     this.newLogs.push(L2log);
-    this.trace.traceNewLog(Fr.fromBuffer(L2log.hash()))
+    this.trace.traceNewLog(Fr.fromBuffer(L2log.hash()));
   }
 
   /**

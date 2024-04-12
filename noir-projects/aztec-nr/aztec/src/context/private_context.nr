@@ -567,6 +567,8 @@ impl Empty for PrivateContext {
             public_call_stack_hashes : BoundedVec::new(),
             new_l2_to_l1_msgs : BoundedVec::new(),
             historical_header: Header::empty(),
+            encrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_logs_hashes: BoundedVec::new(),
             nullifier_key: Option::none(),
         }
     }

@@ -323,7 +323,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
     const taggedNote = new TaggedNote(l1NotePayload);
     const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
-    const encryptedLog = (new EncryptedL2Log(encryptedNote));
+    const encryptedLog = new EncryptedL2Log(encryptedNote);
     this.encryptedLogs.push(encryptedLog);
     return Fr.fromBuffer(encryptedLog.hash());
   }

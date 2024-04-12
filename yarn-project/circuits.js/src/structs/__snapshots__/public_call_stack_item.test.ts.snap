@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`PublicCallStackItem Computes a callstack item hash 1`] = `"0x2f97c44c0ad741af00894a1c5fa1918476a0c220914dd215650240b184ef7066"`;
+exports[`PublicCallStackItem Computes a callstack item hash 1`] = `"0x22894a56ba4f93d53d3ae4e27670028e12ed463332582d0289c19a23dd0215c2"`;
 
-exports[`PublicCallStackItem Computes a callstack item request hash 1`] = `"0x02e15f4157b5e2cb0a7ec3dfec18c6812ef16e1da319b364e5a11e337dfca414"`;
+exports[`PublicCallStackItem Computes a callstack item request hash 1`] = `"0x21be4daaf515b0c29a173aa1f14918f93b8de9c71dc77696ebe6fcaf72f24b78"`;
 
-exports[`PublicCallStackItem computes hash 1`] = `Fr<0x21300c3cc91936c352c1a8ecdf966f6deba66e7bbd05296f84f4a54530fa7530>`;
+exports[`PublicCallStackItem computes hash 1`] = `Fr<0x06f9be574f4f674b4e8cdfc9f77f8c72fe4c5b370c61d91f04a0852a5d339903>`;

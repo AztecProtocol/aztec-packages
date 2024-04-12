@@ -1,11 +1,13 @@
 import {
   CallRequest,
   Fr,
+  type MAX_ENCRYPTED_LOGS_PER_TX,
   type MAX_NEW_NOTE_HASHES_PER_TX,
   type MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  type MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHashReadRequestMembershipWitness,
   PrivateCallData,
   PrivateKernelCircuitPublicInputs,
@@ -19,8 +21,6 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  MAX_ENCRYPTED_LOGS_PER_TX,
-  MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
