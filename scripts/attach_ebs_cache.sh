@@ -27,7 +27,7 @@ fi
 # Check for existing volume
 # we don't filter by available - we want to just error if it's attached already
 # this means we are in a weird state (two spot instances running etc)
-EXISTING_VOLUME=$(aws ec2 describe-volumes
+EXISTING_VOLUME=$(aws ec2 describe-volumes \
   --region $REGION \
   --filters "Name=tag:username,Values=$EBS_CACHE_TAG-$SIZE" \
   --query "Volumes[0].VolumeId" \
