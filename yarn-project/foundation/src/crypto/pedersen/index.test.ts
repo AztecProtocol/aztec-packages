@@ -27,12 +27,12 @@ describe('pedersen', () => {
   });
 
   it('pedersen hash', () => {
-    const r = pedersenHash([1n, 1n]);
+    const r = pedersenHash([toBufferBE(1n, 32), toBufferBE(1n, 32)]);
     expect(r.toString()).toEqual('0x07ebfbf4df29888c6cd6dca13d4bb9d1a923013ddbbcbdc3378ab8845463297b');
   });
 
   it('pedersen hash with index', () => {
-    const r = pedersenHash([1n, 1n], 5);
+    const r = pedersenHash([toBufferBE(1n, 32), toBufferBE(1n, 32)], 5);
     expect(r.toString()).toEqual('0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6');
   });
 
