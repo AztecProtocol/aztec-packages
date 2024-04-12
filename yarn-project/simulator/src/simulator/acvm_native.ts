@@ -1,4 +1,5 @@
 import { randomBytes } from '@aztec/foundation/crypto';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
@@ -7,6 +8,8 @@ import * as proc from 'child_process';
 import fs from 'fs/promises';
 
 import { type SimulationProvider } from './simulation_provider.js';
+
+const logger = createDebugLogger('aztec:acvm-native');
 
 export enum ACVM_RESULT {
   SUCCESS,
@@ -116,6 +119,13 @@ export async function executeNativeCircuit(
     const duration = new Timer();
     const output = await processPromise;
     if (outputFilename) {
+      const outputWitnessFileName = `${workingDirectory}/output-witness.gz`;
+      try {
+        await fs.access(outputWitnessFileName);
+      } catch (error) {
+        logger.error(`Output witness not present at ${outputWitnessFileName}`);
+        return { status: ACVM_RESULT.FAILURE, reason: `Output witness not present at ${outputWitnessFileName}` };
+      }
       await fs.copyFile(`${workingDirectory}/output-witness.gz`, outputFilename);
     }
     const witness = parseIntoWitnessMap(output);
@@ -136,11 +146,13 @@ export class NativeACVMSimulator implements SimulationProvider {
     // Provide a unique working directory so we don't get clashes with parallel executions
     const directory = `${this.workingDirectory}/${randomBytes(8).toString('hex')}`;
 
+    logger.error(`Creating directory ${directory}`);
     await fs.mkdir(directory, { recursive: true });
 
     // Execute the circuit
     const result = await executeNativeCircuit(input, decodedBytecode, directory, this.pathToAcvm, this.witnessFilename);
 
+    logger.error(`Removing directory ${directory}`);
     await fs.rm(directory, { force: true, recursive: true });
 
     if (result.status == ACVM_RESULT.FAILURE) {

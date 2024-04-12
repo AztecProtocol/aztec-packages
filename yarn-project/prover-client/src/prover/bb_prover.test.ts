@@ -49,6 +49,7 @@ describe('prover/bb_prover', () => {
 
   afterAll(async () => {
     if (directoryToCleanup) {
+      logger.info(`Cleaning up ${directoryToCleanup}`);
       await fs.rm(directoryToCleanup, { recursive: true, force: true });
     }
   }, 5000);
