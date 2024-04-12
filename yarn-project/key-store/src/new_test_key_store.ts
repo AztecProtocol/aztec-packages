@@ -7,7 +7,6 @@ import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 /**
  * TestKeyStore is an implementation of the KeyStore interface, used for managing key pairs in a testing environment.
  * It should be utilized in testing scenarios where secure key management is not required, and ease-of-use is prioritized.
- * TODO: Potentially rename to not include 'Test' in the name.
  */
 export class NewTestKeyStore implements NewKeyStore {
   #keys: AztecMap<string, Buffer>;
