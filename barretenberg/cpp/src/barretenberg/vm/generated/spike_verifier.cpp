@@ -26,9 +26,8 @@ SpikeVerifier& SpikeVerifier::operator=(SpikeVerifier&& other) noexcept
 }
 
 using FF = SpikeFlavor::FF;
-
 // Evaluate the given public input column over the multivariate challenge points
-[[maybe_unused]] FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
+[[maybe_unused]] inline FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
 {
     Polynomial<FF> polynomial(points);
     return polynomial.evaluate_mle(challenges);

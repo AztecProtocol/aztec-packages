@@ -2,8 +2,22 @@
 include "avm_mem.pil";
 include "avm_alu.pil";
 include "avm_binary.pil";
+include "avm_environment.pil";
 
 namespace avm_main(256);
+    //===== PUBLIC INPUTS =========================================================
+    pol public kernel_inputs;
+
+    // Envrionment lookup selector opcodes
+    // NOTE: we start with an arbitrary subset of operations - just these two for now
+    // CALLER
+    pol commit sel_op_sender;
+    // ADDRESS
+    pol commit sel_op_address;
+    
+    #[LOOKUP_INTO_ENVIRONMENT]
+    // TODO: FIX not having the trailing is_public breaking compilation :(
+    avm_environment.q_environment_lookup { ia, avm_environment.environment_selector } in avm_environment.q_environment_lookup { kernel_inputs__is_public, clk };
 
     //===== CONSTANT POLYNOMIALS ==================================================
     pol constant clk(i) { i };
@@ -58,7 +72,7 @@ namespace avm_main(256);
     pol commit sel_op_lt;
     // LTE
     pol commit sel_op_lte;
-
+    
     // Helper selector to characterize an ALU chiplet selector
     pol commit alu_sel;
 

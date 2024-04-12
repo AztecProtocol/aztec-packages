@@ -14,6 +14,7 @@
 #include "avm_helper.hpp"
 #include "avm_mem_trace.hpp"
 #include "avm_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_environment_trace.hpp"
 
 namespace bb::avm_trace {
 
@@ -21,7 +22,9 @@ namespace bb::avm_trace {
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmTraceBuilder::AvmTraceBuilder()
+AvmTraceBuilder::AvmTraceBuilder(std::vector<FF> kernel_inputs)
+    // NOTE: we initialise the environment builder here as it requires public inputs
+    : env_trace_builder(kernel_inputs)
 {
     main_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -36,6 +39,7 @@ void AvmTraceBuilder::reset()
     mem_trace_builder.reset();
     alu_trace_builder.reset();
     bin_trace_builder.reset();
+    env_trace_builder.reset();
 }
 
 AvmTraceBuilder::IndirectThreeResolution AvmTraceBuilder::resolve_ind_three(
@@ -942,6 +946,64 @@ void AvmTraceBuilder::op_cmov(
     });
 }
 
+void AvmTraceBuilder::op_sender(uint32_t dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    // Get the value of op sender from the mem trace
+    FF ia_value = env_trace_builder.op_sender();
+    info("after op sender in env trace");
+
+    // TODO: the tag of sender should be a field element no?
+    AvmMemoryTag tag = AvmMemoryTag::U32;
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, ia_value, AvmMemoryTag::U0, tag);
+
+    // TODO: must i constrain r in tag to be the type of the write operation in pil?
+    // .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
+    main_trace.push_back(Row{
+        .avm_main_clk = clk,
+        .avm_environment_environment_selector = SENDER_SELECTOR,
+        .avm_environment_q_environment_lookup = 1,
+        .avm_main_ia = ia_value,
+        .avm_main_ind_a = 0,
+        .avm_main_internal_return_ptr = internal_return_ptr,
+        .avm_main_mem_idx_a = dst_offset,
+        .avm_main_mem_op_a = 1,
+        .avm_main_pc = pc++,
+        .avm_main_rwa = 1,
+        .avm_main_sel_op_sender = 1,
+        .avm_main_w_in_tag = static_cast<uint32_t>(tag),
+    });
+}
+
+void AvmTraceBuilder::op_address(uint32_t dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size());
+
+    // Get the value of op sender from the mem trace
+    FF ia_value = env_trace_builder.op_address();
+
+    // TODO: the tag of sender should be a field element no?
+    AvmMemoryTag tag = AvmMemoryTag::U32;
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, ia_value, AvmMemoryTag::U0, tag);
+
+    // TODO: must i constrain r in tag to be the type of the write operation in pil?
+    // .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
+    main_trace.push_back(Row{
+        .avm_main_clk = clk,
+        .avm_environment_environment_selector = ADDRESS_SELECTOR,
+        .avm_environment_q_environment_lookup = 1,
+        .avm_main_ia = ia_value,
+        .avm_main_ind_a = 0,
+        .avm_main_internal_return_ptr = internal_return_ptr,
+        .avm_main_mem_idx_a = dst_offset,
+        .avm_main_pc = pc++,
+        .avm_main_rwa = 1,
+        .avm_main_sel_op_address = 1,
+        .avm_main_w_in_tag = static_cast<uint32_t>(tag),
+    });
+}
+
 /**
  * @brief CALLDATACOPY opcode with direct or indirect memory access, i.e.,
  *        direct: M[dst_offset:dst_offset+copy_size] = calldata[cd_offset:cd_offset+copy_size]
@@ -1616,6 +1678,21 @@ std::vector<Row> AvmTraceBuilder::finalize()
                 bin_trace_builder.byte_length_counter[avm_in_tag + 1];
         }
     }
+
+    // Include env trace table
+    // Selector columns and lookup counts
+    // Add all of the lookup counts for the input environment
+    for (size_t i = 0; i < 2; i++) {
+        auto& dest = main_trace.at(i);
+        dest.lookup_into_environment_counts =
+            FF(env_trace_builder.environment_selector_counter[static_cast<uint32_t>(i)]);
+    }
+
+    // Add public inputs into the kernelcolumns
+    for (size_t i = 0; i < env_trace_builder.kernel_inputs.size(); i++) {
+        main_trace.at(i).avm_main_kernel_inputs__is_public = env_trace_builder.kernel_inputs.at(i);
+    }
+
     // Adding extra row for the shifted values at the top of the execution trace.
     Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_lastAccess = FF(1) };
     main_trace.insert(main_trace.begin(), first_row);

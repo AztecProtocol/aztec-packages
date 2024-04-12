@@ -13,12 +13,14 @@
 
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
+#include "barretenberg/relations/generated/avm/avm_environment.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
+#include "barretenberg/relations/generated/avm/lookup_into_environment.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_1.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_10.hpp"
@@ -129,6 +131,8 @@ template <typename FF> struct AvmFullRow {
     FF avm_byte_lookup_table_input_b{};
     FF avm_byte_lookup_table_op_id{};
     FF avm_byte_lookup_table_output{};
+    FF avm_environment_environment_selector{};
+    FF avm_environment_q_environment_lookup{};
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
     FF avm_main_bin_sel{};
@@ -147,6 +151,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_ind_op_d{};
     FF avm_main_internal_return_ptr{};
     FF avm_main_inv{};
+    FF avm_main_kernel_inputs__is_public{};
     FF avm_main_last{};
     FF avm_main_mem_idx_a{};
     FF avm_main_mem_idx_b{};
@@ -172,6 +177,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_mov_a{};
     FF avm_main_sel_mov_b{};
     FF avm_main_sel_op_add{};
+    FF avm_main_sel_op_address{};
     FF avm_main_sel_op_and{};
     FF avm_main_sel_op_div{};
     FF avm_main_sel_op_eq{};
@@ -180,6 +186,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_mul{};
     FF avm_main_sel_op_not{};
     FF avm_main_sel_op_or{};
+    FF avm_main_sel_op_sender{};
     FF avm_main_sel_op_sub{};
     FF avm_main_sel_op_xor{};
     FF avm_main_sel_rng_16{};
@@ -222,6 +229,7 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_mem_ind_d{};
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
+    FF lookup_into_environment{};
     FF incl_main_tag_err{};
     FF incl_mem_tag_err{};
     FF lookup_u8_0{};
@@ -243,6 +251,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_u16_14{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
+    FF lookup_into_environment_counts{};
     FF incl_main_tag_err_counts{};
     FF incl_mem_tag_err_counts{};
     FF lookup_u8_0_counts{};
@@ -309,8 +318,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 246;
-    static constexpr size_t num_polys = 211;
+    static constexpr size_t num_fixed_columns = 253;
+    static constexpr size_t num_polys = 218;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -404,6 +413,8 @@ class AvmCircuitBuilder {
             polys.avm_byte_lookup_table_input_b[i] = rows[i].avm_byte_lookup_table_input_b;
             polys.avm_byte_lookup_table_op_id[i] = rows[i].avm_byte_lookup_table_op_id;
             polys.avm_byte_lookup_table_output[i] = rows[i].avm_byte_lookup_table_output;
+            polys.avm_environment_environment_selector[i] = rows[i].avm_environment_environment_selector;
+            polys.avm_environment_q_environment_lookup[i] = rows[i].avm_environment_q_environment_lookup;
             polys.avm_main_alu_sel[i] = rows[i].avm_main_alu_sel;
             polys.avm_main_bin_op_id[i] = rows[i].avm_main_bin_op_id;
             polys.avm_main_bin_sel[i] = rows[i].avm_main_bin_sel;
@@ -422,6 +433,7 @@ class AvmCircuitBuilder {
             polys.avm_main_ind_op_d[i] = rows[i].avm_main_ind_op_d;
             polys.avm_main_internal_return_ptr[i] = rows[i].avm_main_internal_return_ptr;
             polys.avm_main_inv[i] = rows[i].avm_main_inv;
+            polys.avm_main_kernel_inputs__is_public[i] = rows[i].avm_main_kernel_inputs__is_public;
             polys.avm_main_last[i] = rows[i].avm_main_last;
             polys.avm_main_mem_idx_a[i] = rows[i].avm_main_mem_idx_a;
             polys.avm_main_mem_idx_b[i] = rows[i].avm_main_mem_idx_b;
@@ -447,6 +459,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_mov_a[i] = rows[i].avm_main_sel_mov_a;
             polys.avm_main_sel_mov_b[i] = rows[i].avm_main_sel_mov_b;
             polys.avm_main_sel_op_add[i] = rows[i].avm_main_sel_op_add;
+            polys.avm_main_sel_op_address[i] = rows[i].avm_main_sel_op_address;
             polys.avm_main_sel_op_and[i] = rows[i].avm_main_sel_op_and;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
             polys.avm_main_sel_op_eq[i] = rows[i].avm_main_sel_op_eq;
@@ -455,6 +468,7 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_mul[i] = rows[i].avm_main_sel_op_mul;
             polys.avm_main_sel_op_not[i] = rows[i].avm_main_sel_op_not;
             polys.avm_main_sel_op_or[i] = rows[i].avm_main_sel_op_or;
+            polys.avm_main_sel_op_sender[i] = rows[i].avm_main_sel_op_sender;
             polys.avm_main_sel_op_sub[i] = rows[i].avm_main_sel_op_sub;
             polys.avm_main_sel_op_xor[i] = rows[i].avm_main_sel_op_xor;
             polys.avm_main_sel_rng_16[i] = rows[i].avm_main_sel_rng_16;
@@ -487,6 +501,7 @@ class AvmCircuitBuilder {
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
+            polys.lookup_into_environment_counts[i] = rows[i].lookup_into_environment_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
             polys.incl_mem_tag_err_counts[i] = rows[i].incl_mem_tag_err_counts;
             polys.lookup_u8_0_counts[i] = rows[i].lookup_u8_0_counts;
@@ -622,6 +637,10 @@ class AvmCircuitBuilder {
                                                                            Avm_vm::get_relation_label_avm_binary)) {
             return false;
         }
+        if (!evaluate_relation.template operator()<Avm_vm::avm_environment<FF>>(
+                "avm_environment", Avm_vm::get_relation_label_avm_environment)) {
+            return false;
+        }
         if (!evaluate_relation.template operator()<Avm_vm::avm_main<FF>>("avm_main",
                                                                          Avm_vm::get_relation_label_avm_main)) {
             return false;
@@ -666,6 +685,10 @@ class AvmCircuitBuilder {
         }
         if (!evaluate_logderivative.template operator()<lookup_byte_operations_relation<FF>>(
                 "LOOKUP_BYTE_OPERATIONS")) {
+            return false;
+        }
+        if (!evaluate_logderivative.template operator()<lookup_into_environment_relation<FF>>(
+                "LOOKUP_INTO_ENVIRONMENT")) {
             return false;
         }
         if (!evaluate_logderivative.template operator()<incl_main_tag_err_relation<FF>>("INCL_MAIN_TAG_ERR")) {

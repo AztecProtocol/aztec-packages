@@ -80,6 +80,8 @@
     [[maybe_unused]] auto avm_byte_lookup_table_input_b = View(new_term.avm_byte_lookup_table_input_b);                \
     [[maybe_unused]] auto avm_byte_lookup_table_op_id = View(new_term.avm_byte_lookup_table_op_id);                    \
     [[maybe_unused]] auto avm_byte_lookup_table_output = View(new_term.avm_byte_lookup_table_output);                  \
+    [[maybe_unused]] auto avm_environment_environment_selector = View(new_term.avm_environment_environment_selector);  \
+    [[maybe_unused]] auto avm_environment_q_environment_lookup = View(new_term.avm_environment_q_environment_lookup);  \
     [[maybe_unused]] auto avm_main_alu_sel = View(new_term.avm_main_alu_sel);                                          \
     [[maybe_unused]] auto avm_main_bin_op_id = View(new_term.avm_main_bin_op_id);                                      \
     [[maybe_unused]] auto avm_main_bin_sel = View(new_term.avm_main_bin_sel);                                          \
@@ -98,6 +100,7 @@
     [[maybe_unused]] auto avm_main_ind_op_d = View(new_term.avm_main_ind_op_d);                                        \
     [[maybe_unused]] auto avm_main_internal_return_ptr = View(new_term.avm_main_internal_return_ptr);                  \
     [[maybe_unused]] auto avm_main_inv = View(new_term.avm_main_inv);                                                  \
+    [[maybe_unused]] auto avm_main_kernel_inputs__is_public = View(new_term.avm_main_kernel_inputs__is_public);        \
     [[maybe_unused]] auto avm_main_last = View(new_term.avm_main_last);                                                \
     [[maybe_unused]] auto avm_main_mem_idx_a = View(new_term.avm_main_mem_idx_a);                                      \
     [[maybe_unused]] auto avm_main_mem_idx_b = View(new_term.avm_main_mem_idx_b);                                      \
@@ -123,6 +126,7 @@
     [[maybe_unused]] auto avm_main_sel_mov_a = View(new_term.avm_main_sel_mov_a);                                      \
     [[maybe_unused]] auto avm_main_sel_mov_b = View(new_term.avm_main_sel_mov_b);                                      \
     [[maybe_unused]] auto avm_main_sel_op_add = View(new_term.avm_main_sel_op_add);                                    \
+    [[maybe_unused]] auto avm_main_sel_op_address = View(new_term.avm_main_sel_op_address);                            \
     [[maybe_unused]] auto avm_main_sel_op_and = View(new_term.avm_main_sel_op_and);                                    \
     [[maybe_unused]] auto avm_main_sel_op_div = View(new_term.avm_main_sel_op_div);                                    \
     [[maybe_unused]] auto avm_main_sel_op_eq = View(new_term.avm_main_sel_op_eq);                                      \
@@ -131,6 +135,7 @@
     [[maybe_unused]] auto avm_main_sel_op_mul = View(new_term.avm_main_sel_op_mul);                                    \
     [[maybe_unused]] auto avm_main_sel_op_not = View(new_term.avm_main_sel_op_not);                                    \
     [[maybe_unused]] auto avm_main_sel_op_or = View(new_term.avm_main_sel_op_or);                                      \
+    [[maybe_unused]] auto avm_main_sel_op_sender = View(new_term.avm_main_sel_op_sender);                              \
     [[maybe_unused]] auto avm_main_sel_op_sub = View(new_term.avm_main_sel_op_sub);                                    \
     [[maybe_unused]] auto avm_main_sel_op_xor = View(new_term.avm_main_sel_op_xor);                                    \
     [[maybe_unused]] auto avm_main_sel_rng_16 = View(new_term.avm_main_sel_rng_16);                                    \
@@ -173,6 +178,7 @@
     [[maybe_unused]] auto perm_main_mem_ind_d = View(new_term.perm_main_mem_ind_d);                                    \
     [[maybe_unused]] auto lookup_byte_lengths = View(new_term.lookup_byte_lengths);                                    \
     [[maybe_unused]] auto lookup_byte_operations = View(new_term.lookup_byte_operations);                              \
+    [[maybe_unused]] auto lookup_into_environment = View(new_term.lookup_into_environment);                            \
     [[maybe_unused]] auto incl_main_tag_err = View(new_term.incl_main_tag_err);                                        \
     [[maybe_unused]] auto incl_mem_tag_err = View(new_term.incl_mem_tag_err);                                          \
     [[maybe_unused]] auto lookup_u8_0 = View(new_term.lookup_u8_0);                                                    \
@@ -194,6 +200,7 @@
     [[maybe_unused]] auto lookup_u16_14 = View(new_term.lookup_u16_14);                                                \
     [[maybe_unused]] auto lookup_byte_lengths_counts = View(new_term.lookup_byte_lengths_counts);                      \
     [[maybe_unused]] auto lookup_byte_operations_counts = View(new_term.lookup_byte_operations_counts);                \
+    [[maybe_unused]] auto lookup_into_environment_counts = View(new_term.lookup_into_environment_counts);              \
     [[maybe_unused]] auto incl_main_tag_err_counts = View(new_term.incl_main_tag_err_counts);                          \
     [[maybe_unused]] auto incl_mem_tag_err_counts = View(new_term.incl_mem_tag_err_counts);                            \
     [[maybe_unused]] auto lookup_u8_0_counts = View(new_term.lookup_u8_0_counts);                                      \

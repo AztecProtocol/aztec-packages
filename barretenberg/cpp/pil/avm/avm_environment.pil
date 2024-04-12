@@ -1,0 +1,16 @@
+
+namespace avm_environment(256);
+
+    // The general pattern for environment lookups is as follows:
+    // - If we are performing an environment lookup, then we set q_environment_lookup
+    // - We can toggle what index in the 
+    pol commit environment_selector;
+    pol commit q_environment_lookup;
+
+    // Note we are currently using arbitrary opcodes for each
+    // For this demo, caller is stored at index 0
+    #[SENDER_ENVIRONMENT]
+    q_environment_lookup * avm_main.sel_op_sender * (environment_selector) = 0;
+
+    #[ADDRESS_ENVIRONMENT]
+    q_environment_lookup * avm_main.sel_op_address * (environment_selector - 1) = 0;

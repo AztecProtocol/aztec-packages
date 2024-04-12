@@ -10,6 +10,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
+#include "barretenberg/vm/avm_trace/avm_environment_trace.hpp"
 
 namespace bb::avm_trace {
 
@@ -22,7 +23,7 @@ class AvmTraceBuilder {
   public:
     static const size_t CALLSTACK_OFFSET = 896; // TODO(md): Temporary reserved area 896 - 1024
 
-    AvmTraceBuilder();
+    AvmTraceBuilder(std::vector<FF> kernel_inputs = {});
 
     std::vector<Row> finalize();
     void reset();
@@ -72,6 +73,10 @@ class AvmTraceBuilder {
     // is determined conditionally based on a conditional value determined by cond_offset.
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
+    // TODO
+    void op_sender(uint32_t dst_offset);
+    void op_address(uint32_t dst_offset);
+
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
 
@@ -116,6 +121,7 @@ class AvmTraceBuilder {
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
+    AvmEnvironmentTraceBuilder env_trace_builder;
 
     void finalise_mem_trace_lookup_counts();
 

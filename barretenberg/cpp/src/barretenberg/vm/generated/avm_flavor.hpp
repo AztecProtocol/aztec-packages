@@ -15,12 +15,14 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
+#include "barretenberg/relations/generated/avm/avm_environment.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
+#include "barretenberg/relations/generated/avm/lookup_into_environment.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_1.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_10.hpp"
@@ -69,11 +71,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 209;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 216;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 246;
+    static constexpr size_t NUM_ALL_ENTITIES = 253;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -87,6 +89,7 @@ class AvmFlavor {
                                              perm_main_mem_ind_d_relation<FF>,
                                              lookup_byte_lengths_relation<FF>,
                                              lookup_byte_operations_relation<FF>,
+                                             lookup_into_environment_relation<FF>,
                                              incl_main_tag_err_relation<FF>,
                                              incl_mem_tag_err_relation<FF>,
                                              lookup_u8_0_relation<FF>,
@@ -109,6 +112,7 @@ class AvmFlavor {
 
     using Relations = std::tuple<Avm_vm::avm_alu<FF>,
                                  Avm_vm::avm_binary<FF>,
+                                 Avm_vm::avm_environment<FF>,
                                  Avm_vm::avm_main<FF>,
                                  Avm_vm::avm_mem<FF>,
                                  perm_main_alu_relation<FF>,
@@ -123,6 +127,7 @@ class AvmFlavor {
                                  perm_main_mem_ind_d_relation<FF>,
                                  lookup_byte_lengths_relation<FF>,
                                  lookup_byte_operations_relation<FF>,
+                                 lookup_into_environment_relation<FF>,
                                  incl_main_tag_err_relation<FF>,
                                  incl_mem_tag_err_relation<FF>,
                                  lookup_u8_0_relation<FF>,
@@ -251,6 +256,8 @@ class AvmFlavor {
                               avm_byte_lookup_table_input_b,
                               avm_byte_lookup_table_op_id,
                               avm_byte_lookup_table_output,
+                              avm_environment_environment_selector,
+                              avm_environment_q_environment_lookup,
                               avm_main_alu_sel,
                               avm_main_bin_op_id,
                               avm_main_bin_sel,
@@ -269,6 +276,7 @@ class AvmFlavor {
                               avm_main_ind_op_d,
                               avm_main_internal_return_ptr,
                               avm_main_inv,
+                              avm_main_kernel_inputs__is_public,
                               avm_main_last,
                               avm_main_mem_idx_a,
                               avm_main_mem_idx_b,
@@ -294,6 +302,7 @@ class AvmFlavor {
                               avm_main_sel_mov_a,
                               avm_main_sel_mov_b,
                               avm_main_sel_op_add,
+                              avm_main_sel_op_address,
                               avm_main_sel_op_and,
                               avm_main_sel_op_div,
                               avm_main_sel_op_eq,
@@ -302,6 +311,7 @@ class AvmFlavor {
                               avm_main_sel_op_mul,
                               avm_main_sel_op_not,
                               avm_main_sel_op_or,
+                              avm_main_sel_op_sender,
                               avm_main_sel_op_sub,
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
@@ -344,6 +354,7 @@ class AvmFlavor {
                               perm_main_mem_ind_d,
                               lookup_byte_lengths,
                               lookup_byte_operations,
+                              lookup_into_environment,
                               incl_main_tag_err,
                               incl_mem_tag_err,
                               lookup_u8_0,
@@ -365,6 +376,7 @@ class AvmFlavor {
                               lookup_u16_14,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
+                              lookup_into_environment_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
                               lookup_u8_0_counts,
@@ -463,6 +475,8 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_environment_environment_selector,
+                     avm_environment_q_environment_lookup,
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
@@ -481,6 +495,7 @@ class AvmFlavor {
                      avm_main_ind_op_d,
                      avm_main_internal_return_ptr,
                      avm_main_inv,
+                     avm_main_kernel_inputs__is_public,
                      avm_main_last,
                      avm_main_mem_idx_a,
                      avm_main_mem_idx_b,
@@ -506,6 +521,7 @@ class AvmFlavor {
                      avm_main_sel_mov_a,
                      avm_main_sel_mov_b,
                      avm_main_sel_op_add,
+                     avm_main_sel_op_address,
                      avm_main_sel_op_and,
                      avm_main_sel_op_div,
                      avm_main_sel_op_eq,
@@ -514,6 +530,7 @@ class AvmFlavor {
                      avm_main_sel_op_mul,
                      avm_main_sel_op_not,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_sender,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
@@ -556,6 +573,7 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
+                     lookup_into_environment,
                      incl_main_tag_err,
                      incl_mem_tag_err,
                      lookup_u8_0,
@@ -577,6 +595,7 @@ class AvmFlavor {
                      lookup_u16_14,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
+                     lookup_into_environment_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_u8_0_counts,
@@ -680,6 +699,8 @@ class AvmFlavor {
                               avm_byte_lookup_table_input_b,
                               avm_byte_lookup_table_op_id,
                               avm_byte_lookup_table_output,
+                              avm_environment_environment_selector,
+                              avm_environment_q_environment_lookup,
                               avm_main_alu_sel,
                               avm_main_bin_op_id,
                               avm_main_bin_sel,
@@ -698,6 +719,7 @@ class AvmFlavor {
                               avm_main_ind_op_d,
                               avm_main_internal_return_ptr,
                               avm_main_inv,
+                              avm_main_kernel_inputs__is_public,
                               avm_main_last,
                               avm_main_mem_idx_a,
                               avm_main_mem_idx_b,
@@ -723,6 +745,7 @@ class AvmFlavor {
                               avm_main_sel_mov_a,
                               avm_main_sel_mov_b,
                               avm_main_sel_op_add,
+                              avm_main_sel_op_address,
                               avm_main_sel_op_and,
                               avm_main_sel_op_div,
                               avm_main_sel_op_eq,
@@ -731,6 +754,7 @@ class AvmFlavor {
                               avm_main_sel_op_mul,
                               avm_main_sel_op_not,
                               avm_main_sel_op_or,
+                              avm_main_sel_op_sender,
                               avm_main_sel_op_sub,
                               avm_main_sel_op_xor,
                               avm_main_sel_rng_16,
@@ -773,6 +797,7 @@ class AvmFlavor {
                               perm_main_mem_ind_d,
                               lookup_byte_lengths,
                               lookup_byte_operations,
+                              lookup_into_environment,
                               incl_main_tag_err,
                               incl_mem_tag_err,
                               lookup_u8_0,
@@ -794,6 +819,7 @@ class AvmFlavor {
                               lookup_u16_14,
                               lookup_byte_lengths_counts,
                               lookup_byte_operations_counts,
+                              lookup_into_environment_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
                               lookup_u8_0_counts,
@@ -929,6 +955,8 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_environment_environment_selector,
+                     avm_environment_q_environment_lookup,
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
@@ -947,6 +975,7 @@ class AvmFlavor {
                      avm_main_ind_op_d,
                      avm_main_internal_return_ptr,
                      avm_main_inv,
+                     avm_main_kernel_inputs__is_public,
                      avm_main_last,
                      avm_main_mem_idx_a,
                      avm_main_mem_idx_b,
@@ -972,6 +1001,7 @@ class AvmFlavor {
                      avm_main_sel_mov_a,
                      avm_main_sel_mov_b,
                      avm_main_sel_op_add,
+                     avm_main_sel_op_address,
                      avm_main_sel_op_and,
                      avm_main_sel_op_div,
                      avm_main_sel_op_eq,
@@ -980,6 +1010,7 @@ class AvmFlavor {
                      avm_main_sel_op_mul,
                      avm_main_sel_op_not,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_sender,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
@@ -1022,6 +1053,7 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
+                     lookup_into_environment,
                      incl_main_tag_err,
                      incl_mem_tag_err,
                      lookup_u8_0,
@@ -1043,6 +1075,7 @@ class AvmFlavor {
                      lookup_u16_14,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
+                     lookup_into_environment_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_u8_0_counts,
@@ -1178,6 +1211,8 @@ class AvmFlavor {
                      avm_byte_lookup_table_input_b,
                      avm_byte_lookup_table_op_id,
                      avm_byte_lookup_table_output,
+                     avm_environment_environment_selector,
+                     avm_environment_q_environment_lookup,
                      avm_main_alu_sel,
                      avm_main_bin_op_id,
                      avm_main_bin_sel,
@@ -1196,6 +1231,7 @@ class AvmFlavor {
                      avm_main_ind_op_d,
                      avm_main_internal_return_ptr,
                      avm_main_inv,
+                     avm_main_kernel_inputs__is_public,
                      avm_main_last,
                      avm_main_mem_idx_a,
                      avm_main_mem_idx_b,
@@ -1221,6 +1257,7 @@ class AvmFlavor {
                      avm_main_sel_mov_a,
                      avm_main_sel_mov_b,
                      avm_main_sel_op_add,
+                     avm_main_sel_op_address,
                      avm_main_sel_op_and,
                      avm_main_sel_op_div,
                      avm_main_sel_op_eq,
@@ -1229,6 +1266,7 @@ class AvmFlavor {
                      avm_main_sel_op_mul,
                      avm_main_sel_op_not,
                      avm_main_sel_op_or,
+                     avm_main_sel_op_sender,
                      avm_main_sel_op_sub,
                      avm_main_sel_op_xor,
                      avm_main_sel_rng_16,
@@ -1271,6 +1309,7 @@ class AvmFlavor {
                      perm_main_mem_ind_d,
                      lookup_byte_lengths,
                      lookup_byte_operations,
+                     lookup_into_environment,
                      incl_main_tag_err,
                      incl_mem_tag_err,
                      lookup_u8_0,
@@ -1292,6 +1331,7 @@ class AvmFlavor {
                      lookup_u16_14,
                      lookup_byte_lengths_counts,
                      lookup_byte_operations_counts,
+                     lookup_into_environment_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
                      lookup_u8_0_counts,
@@ -1412,6 +1452,8 @@ class AvmFlavor {
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_lengths_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_byte_operations_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_into_environment_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
@@ -1621,6 +1663,8 @@ class AvmFlavor {
             Base::avm_byte_lookup_table_input_b = "AVM_BYTE_LOOKUP_TABLE_INPUT_B";
             Base::avm_byte_lookup_table_op_id = "AVM_BYTE_LOOKUP_TABLE_OP_ID";
             Base::avm_byte_lookup_table_output = "AVM_BYTE_LOOKUP_TABLE_OUTPUT";
+            Base::avm_environment_environment_selector = "AVM_ENVIRONMENT_ENVIRONMENT_SELECTOR";
+            Base::avm_environment_q_environment_lookup = "AVM_ENVIRONMENT_Q_ENVIRONMENT_LOOKUP";
             Base::avm_main_alu_sel = "AVM_MAIN_ALU_SEL";
             Base::avm_main_bin_op_id = "AVM_MAIN_BIN_OP_ID";
             Base::avm_main_bin_sel = "AVM_MAIN_BIN_SEL";
@@ -1639,6 +1683,7 @@ class AvmFlavor {
             Base::avm_main_ind_op_d = "AVM_MAIN_IND_OP_D";
             Base::avm_main_internal_return_ptr = "AVM_MAIN_INTERNAL_RETURN_PTR";
             Base::avm_main_inv = "AVM_MAIN_INV";
+            Base::avm_main_kernel_inputs__is_public = "AVM_MAIN_KERNEL_INPUTS__IS_PUBLIC";
             Base::avm_main_last = "AVM_MAIN_LAST";
             Base::avm_main_mem_idx_a = "AVM_MAIN_MEM_IDX_A";
             Base::avm_main_mem_idx_b = "AVM_MAIN_MEM_IDX_B";
@@ -1664,6 +1709,7 @@ class AvmFlavor {
             Base::avm_main_sel_mov_a = "AVM_MAIN_SEL_MOV_A";
             Base::avm_main_sel_mov_b = "AVM_MAIN_SEL_MOV_B";
             Base::avm_main_sel_op_add = "AVM_MAIN_SEL_OP_ADD";
+            Base::avm_main_sel_op_address = "AVM_MAIN_SEL_OP_ADDRESS";
             Base::avm_main_sel_op_and = "AVM_MAIN_SEL_OP_AND";
             Base::avm_main_sel_op_div = "AVM_MAIN_SEL_OP_DIV";
             Base::avm_main_sel_op_eq = "AVM_MAIN_SEL_OP_EQ";
@@ -1672,6 +1718,7 @@ class AvmFlavor {
             Base::avm_main_sel_op_mul = "AVM_MAIN_SEL_OP_MUL";
             Base::avm_main_sel_op_not = "AVM_MAIN_SEL_OP_NOT";
             Base::avm_main_sel_op_or = "AVM_MAIN_SEL_OP_OR";
+            Base::avm_main_sel_op_sender = "AVM_MAIN_SEL_OP_SENDER";
             Base::avm_main_sel_op_sub = "AVM_MAIN_SEL_OP_SUB";
             Base::avm_main_sel_op_xor = "AVM_MAIN_SEL_OP_XOR";
             Base::avm_main_sel_rng_16 = "AVM_MAIN_SEL_RNG_16";
@@ -1714,6 +1761,7 @@ class AvmFlavor {
             Base::perm_main_mem_ind_d = "PERM_MAIN_MEM_IND_D";
             Base::lookup_byte_lengths = "LOOKUP_BYTE_LENGTHS";
             Base::lookup_byte_operations = "LOOKUP_BYTE_OPERATIONS";
+            Base::lookup_into_environment = "LOOKUP_INTO_ENVIRONMENT";
             Base::incl_main_tag_err = "INCL_MAIN_TAG_ERR";
             Base::incl_mem_tag_err = "INCL_MEM_TAG_ERR";
             Base::lookup_u8_0 = "LOOKUP_U8_0";
@@ -1735,6 +1783,7 @@ class AvmFlavor {
             Base::lookup_u16_14 = "LOOKUP_U16_14";
             Base::lookup_byte_lengths_counts = "LOOKUP_BYTE_LENGTHS_COUNTS";
             Base::lookup_byte_operations_counts = "LOOKUP_BYTE_OPERATIONS_COUNTS";
+            Base::lookup_into_environment_counts = "LOOKUP_INTO_ENVIRONMENT_COUNTS";
             Base::incl_main_tag_err_counts = "INCL_MAIN_TAG_ERR_COUNTS";
             Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
             Base::lookup_u8_0_counts = "LOOKUP_U8_0_COUNTS";
@@ -1849,6 +1898,8 @@ class AvmFlavor {
         Commitment avm_byte_lookup_table_input_b;
         Commitment avm_byte_lookup_table_op_id;
         Commitment avm_byte_lookup_table_output;
+        Commitment avm_environment_environment_selector;
+        Commitment avm_environment_q_environment_lookup;
         Commitment avm_main_alu_sel;
         Commitment avm_main_bin_op_id;
         Commitment avm_main_bin_sel;
@@ -1867,6 +1918,7 @@ class AvmFlavor {
         Commitment avm_main_ind_op_d;
         Commitment avm_main_internal_return_ptr;
         Commitment avm_main_inv;
+        Commitment avm_main_kernel_inputs__is_public;
         Commitment avm_main_last;
         Commitment avm_main_mem_idx_a;
         Commitment avm_main_mem_idx_b;
@@ -1892,6 +1944,7 @@ class AvmFlavor {
         Commitment avm_main_sel_mov_a;
         Commitment avm_main_sel_mov_b;
         Commitment avm_main_sel_op_add;
+        Commitment avm_main_sel_op_address;
         Commitment avm_main_sel_op_and;
         Commitment avm_main_sel_op_div;
         Commitment avm_main_sel_op_eq;
@@ -1900,6 +1953,7 @@ class AvmFlavor {
         Commitment avm_main_sel_op_mul;
         Commitment avm_main_sel_op_not;
         Commitment avm_main_sel_op_or;
+        Commitment avm_main_sel_op_sender;
         Commitment avm_main_sel_op_sub;
         Commitment avm_main_sel_op_xor;
         Commitment avm_main_sel_rng_16;
@@ -1942,6 +1996,7 @@ class AvmFlavor {
         Commitment perm_main_mem_ind_d;
         Commitment lookup_byte_lengths;
         Commitment lookup_byte_operations;
+        Commitment lookup_into_environment;
         Commitment incl_main_tag_err;
         Commitment incl_mem_tag_err;
         Commitment lookup_u8_0;
@@ -1963,6 +2018,7 @@ class AvmFlavor {
         Commitment lookup_u16_14;
         Commitment lookup_byte_lengths_counts;
         Commitment lookup_byte_operations_counts;
+        Commitment lookup_into_environment_counts;
         Commitment incl_main_tag_err_counts;
         Commitment incl_mem_tag_err_counts;
         Commitment lookup_u8_0_counts;
@@ -2078,6 +2134,10 @@ class AvmFlavor {
             avm_byte_lookup_table_input_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_byte_lookup_table_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_byte_lookup_table_output = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_environment_environment_selector =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_environment_q_environment_lookup =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_alu_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_bin_op_id = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_bin_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2096,6 +2156,8 @@ class AvmFlavor {
             avm_main_ind_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_internal_return_ptr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_kernel_inputs__is_public =
+                deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_mem_idx_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_mem_idx_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2121,6 +2183,7 @@ class AvmFlavor {
             avm_main_sel_mov_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_mov_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_add = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_address = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_and = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2129,6 +2192,7 @@ class AvmFlavor {
             avm_main_sel_op_mul = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_not = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_or = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_main_sel_op_sender = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_sub = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_op_xor = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_main_sel_rng_16 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2171,6 +2235,7 @@ class AvmFlavor {
             perm_main_mem_ind_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_lengths = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_into_environment = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2192,6 +2257,7 @@ class AvmFlavor {
             lookup_u16_14 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_lengths_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_into_environment_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2310,6 +2376,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_input_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_op_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_byte_lookup_table_output, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_environment_environment_selector, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_environment_q_environment_lookup, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_alu_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_bin_op_id, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_bin_sel, Transcript::proof_data);
@@ -2328,6 +2396,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_ind_op_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_internal_return_ptr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_inv, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_kernel_inputs__is_public, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_last, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_mem_idx_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_mem_idx_b, Transcript::proof_data);
@@ -2353,6 +2422,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_mov_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_mov_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_add, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_address, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_and, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_div, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_eq, Transcript::proof_data);
@@ -2361,6 +2431,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_sel_op_mul, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_not, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_or, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_main_sel_op_sender, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_sub, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_op_xor, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_main_sel_rng_16, Transcript::proof_data);
@@ -2403,6 +2474,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(perm_main_mem_ind_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_lengths, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_into_environment, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_0, Transcript::proof_data);
@@ -2424,6 +2496,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_u16_14, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_lengths_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_into_environment_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_0_counts, Transcript::proof_data);
