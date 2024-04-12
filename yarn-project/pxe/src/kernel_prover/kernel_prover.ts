@@ -229,7 +229,7 @@ export class KernelProver {
       await this.oracle.getContractClassIdPreimage(contractClassId);
 
     // TODO(#262): Use real acir hash
-    // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
+    // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
     // TODO
