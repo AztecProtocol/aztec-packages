@@ -1,7 +1,7 @@
 import { type NewKeyStore, type PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, Fq, Fr, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { poseidonHash, sha512ToField } from '@aztec/foundation/crypto';
+import { poseidonHash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 /**
@@ -34,29 +34,16 @@ export class NewTestKeyStore implements NewKeyStore {
   public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress> {
     // First we derive master secret keys -  we use sha512 here because this derivation will never take place
     // in a circuit
-    const masterNullifierSecretKey = sha512ToField([sk, GeneratorIndex.NSK_M]);
-    const masterIncomingViewingSecretKey = sha512ToField([sk, GeneratorIndex.IVSK_M]);
-    const masterOutgoingViewingSecretKey = sha512ToField([sk, GeneratorIndex.OVSK_M]);
-    const masterTaggingSecretKey = sha512ToField([sk, GeneratorIndex.TSK_M]);
+    const masterNullifierSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.NSK_M]);
+    const masterIncomingViewingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.IVSK_M]);
+    const masterOutgoingViewingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.OVSK_M]);
+    const masterTaggingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.TSK_M]);
 
     // Then we derive master public keys
-    // TODO: Is converting from Fr to Fq bellow an issue? Fr.MODULUS is < Fq.MODULUS so it shouldn't but should we refactor this anyway?
-    const masterNullifierPublicKey = this.curve.mul(
-      this.curve.generator(),
-      Fq.fromBuffer(masterNullifierSecretKey.toBuffer()),
-    );
-    const masterIncomingViewingPublicKey = this.curve.mul(
-      this.curve.generator(),
-      Fq.fromBuffer(masterIncomingViewingSecretKey.toBuffer()),
-    );
-    const masterOutgoingViewingPublicKey = this.curve.mul(
-      this.curve.generator(),
-      Fq.fromBuffer(masterOutgoingViewingSecretKey.toBuffer()),
-    );
-    const masterTaggingPublicKey = this.curve.mul(
-      this.curve.generator(),
-      Fq.fromBuffer(masterTaggingSecretKey.toBuffer()),
-    );
+    const masterNullifierPublicKey = this.curve.mul(this.curve.generator(), masterNullifierSecretKey);
+    const masterIncomingViewingPublicKey = this.curve.mul(this.curve.generator(), masterIncomingViewingSecretKey);
+    const masterOutgoingViewingPublicKey = this.curve.mul(this.curve.generator(), masterOutgoingViewingSecretKey);
+    const masterTaggingPublicKey = this.curve.mul(this.curve.generator(), masterTaggingSecretKey);
 
     // We hash the public keys to get the public keys hash
     const publicKeysHash = poseidonHash(
