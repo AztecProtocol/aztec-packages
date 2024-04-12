@@ -21,20 +21,20 @@ contract FPC {
     #[aztec(private)]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read_private());
-        let _res = Token::at(asset).unshield(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
+        Token::at(asset).unshield(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
         FPC::at(context.this_address()).pay_fee_with_shielded_rebate(amount, asset, secret_hash).enqueue(&mut context);
     }
 
     #[aztec(private)]
     fn fee_entrypoint_public(amount: Field, asset: AztecAddress, nonce: Field) {
-        let _void = FPC::at(context.this_address()).prepare_fee(context.msg_sender(), amount, asset, nonce).enqueue(&mut context);
-        let _void = FPC::at(context.this_address()).pay_fee(context.msg_sender(), amount, asset).enqueue(&mut context);
+        FPC::at(context.this_address()).prepare_fee(context.msg_sender(), amount, asset, nonce).enqueue(&mut context);
+        FPC::at(context.this_address()).pay_fee(context.msg_sender(), amount, asset).enqueue(&mut context);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     fn prepare_fee(from: AztecAddress, amount: Field, asset: AztecAddress, nonce: Field) {
-        let _res = Token::at(asset).transfer_public(from, context.this_address(), amount, nonce).call(&mut context);
+        Token::at(asset).transfer_public(from, context.this_address(), amount, nonce).call(&mut context);
     }
 
     #[aztec(public)]
@@ -42,14 +42,13 @@ contract FPC {
     fn pay_fee(refund_address: AztecAddress, amount: Field, asset: AztecAddress) {
         let refund = GasToken::at(storage.gas_token_address.read_public()).pay_fee(amount).call(&mut context);
         // Just do public refunds for the present
-        let _res = Token::at(asset).transfer_public(context.this_address(), refund_address, refund, 0).call(&mut context);
+        Token::at(asset).transfer_public(context.this_address(), refund_address, refund, 0).call(&mut context);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     fn pay_fee_with_shielded_rebate(amount: Field, asset: AztecAddress, secret_hash: Field) {
         let refund = GasToken::at(storage.gas_token_address.read_public()).pay_fee(amount).call(&mut context);
-
-        let _res = Token::at(asset).shield(context.this_address(), refund, secret_hash, 0).call(&mut context);
+        Token::at(asset).shield(context.this_address(), refund, secret_hash, 0).call(&mut context);
     }
 }
