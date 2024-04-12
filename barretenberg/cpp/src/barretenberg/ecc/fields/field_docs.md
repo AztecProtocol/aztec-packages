@@ -27,7 +27,7 @@ $$aR\cdot bR + k_{0,1,2,3}p \le (2p-1)^2+(2^{256}-1)p = 2^{256}p+4p^2-5p+1 \Righ
 
 
 ### Converting to and from Montgomery form
-Obviously we want to avoid using standard form division when converting between forms, so we use Montgomery form to convert to Montgomery form. If we look at a value \f$a\ mod\ p\f$ we can notice that this is the Montgomery form of \f$a\cdot R^{-1}\ mod\ p\f$, so if we want to get \f$aR\f$ from it, we need to multiply it by the Montgomery form of \f$R mod p\f$, which is \f$R\cdot R\ mod\ p\f$. So using Montgomery multiplication we compute
+Obviously we want to avoid using standard form division when converting between forms, so we use Montgomery form to convert to Montgomery form. If we look at a value \f$a\ mod\ p\f$ we can notice that this is the Montgomery form of \f$a\cdot R^{-1}\ mod\ p\f$, so if we want to get \f$aR\f$ from it, we need to multiply it by the Montgomery form of \f$R\ mod\ p\f$, which is \f$R\cdot R\ mod\ p\f$. So using Montgomery multiplication we compute
 
 $$a \cdot R^2 / R  = a\cdot R\ mod\ p$$
 
@@ -55,7 +55,7 @@ We use 9 29-bit limbs for computation (storage stays the same) and we change the
 1. 128-bit result 64*64 bit multiplication
 2. 64-bit addition with carry
 
-In the past we implemented a version with 32-bit limbs, but as a result, when we accumulated limb products, we always had to split 64-bit results of 32-bit multiplication back into 32-bit chunks. Had we not, the addition of 2 64-bit products would lose the carry flag and the result would be incorrect. There were 2 issues with this:
+In the past we implemented a version with 32-bit limbs, but as a result, when we accumulated limb products we always had to split 64-bit results of 32-bit multiplication back into 32-bit chunks. Had we not, the addition of 2 64-bit products would have lost the carry flag and the result would be incorrect. There were 2 issues with this:
 1. This spawned in a lot of masking operations
 2. We didn't use more efficient algorithms for squaring, because multiplication by 2 of intermediate products would once again overflow.
 
@@ -66,7 +66,7 @@ Most of the time field is used with uint64_t or uint256_t in our codebase, but t
 1. Converting from signed int takes the sign into account. It takes the absolute value, converts it to montgomery and then negates the result if the original value was negative
 2. Unsigned integers ( <= 64 bits) are just converted to montgomery
 3. uint256_t and uint512_t: 
-    1. Truncatee to 256 bits
+    1. Truncate to 256 bits
     2. Subtract the modulus until the value is within field
     3. Convert to montgomery
 
@@ -74,9 +74,13 @@ Conversion from field elements exists only to unsigned integers and bools. The v
 
 **N.B.** Functions for converting from uint256_t and back are not bijective, since values \f$ \ge p\f$ will be reduced.
 
+## Field parameters
+
+The field template is instantiated with field parameter classes, for example, class bb::Bn254FqParams. Each such class contains at least the modulus (in 64-bit and 29-bit form), r_inv and 2 versions of r_squared (64-bit and WASM/29-bit version). r_squared and other parameters (such as cube_root, primitive_root and coset_generators) are defined for wasm separately, becuase the values represent an element already in Montgomery form.
+
 ## Helpful python snippets
 
-Parse field parameters out of a parameter class
+Parse field parameters out of a parameter class (doesn't check and reconstitute endomorphism parameters, but checks correctness of everything else)
 ```python
 import re
 def parse_field_params(s):
@@ -88,12 +92,93 @@ def parse_field_params(s):
         else:
             value = int(line)
         return value
+
     def recover_single_value(name):
         nonlocal s
         index=s.find(name)
         if index==-1:
             raise ValueError("Couldn't find value with name "+name)
+        eq_position=s[index:].find('=')
+        line_end=s[index:].find(';')
+        return parse_number(s[index+eq_position+1:index+line_end])        
+
+    def recover_single_value_if_present(name):
+        nonlocal s
+        index=s.find(name)
+        if index==-1:
+            return None
+        eq_position=s[index:].find('=')
+        line_end=s[index:].find(';')
+        return parse_number(s[index+eq_position+1:index+line_end])   
+
+    def recover_array(name):
+        nonlocal s
+        index = s.find(name)
+        number_of_elements=int(re.findall(r'(?<='+name+r'\[)\d+',s)[0])
+        start_index=s[index:].find('{')
+        end_index=s[index:].find('}')
+        all_values=s[index+start_index+1:index+end_index]
+        result=[parse_number(x) for (i,x) in enumerate(all_values.split(',')) if i<number_of_elements]
+        return result
+
+    def recover_multiple_arrays(prefix):
+        chunk_names=re.findall(prefix+r'_\d+',s)
+        recovered=dict()
+        for name in chunk_names:
+            recovered[name]=recover_array(name)
+        return recovered
+
     def recover_element_from_parts(prefix,shift):
         """Recover a field element from its parts"""
-        chunk_names=re.findall('')
+        chunk_names=re.findall(prefix+r'_\d+',s)
+        val_dict=dict()
+        for name in chunk_names:
+            val_dict[int(name[len(prefix)+1:])]=recover_single_value(name)
+        result=0
+        for i in range(len(val_dict)):
+            result|=val_dict[i]<<(i*shift)
+        return result
+
+    def reconstruct_field_from_4_parts(arr):
+        result=0
+        for i, v in enumerate(arr):
+            result|=v<<(i*64)
+        return result
+    parameter_dictionary=dict()
+    parameter_dictionary['modulus']=recover_element_from_parts('modulus',64)
+    parameter_dictionary['r_squared']=recover_element_from_parts('r_squared',64)
+    parameter_dictionary['cube_root']=recover_element_from_parts('cube_root',64)
+    parameter_dictionary['primitive_root']=recover_element_from_parts('primitive_root',64)
+
+    parameter_dictionary['modulus_wasm']=recover_element_from_parts('modulus_wasm',29)
+    parameter_dictionary['r_squared_wasm']=recover_element_from_parts('r_squared_wasm',64)
+    parameter_dictionary['cube_root_wasm']=recover_element_from_parts('cube_root_wasm',64)
+    parameter_dictionary['primitive_root_wasm']=recover_element_from_parts('primitive_root_wasm',64)
+    parameter_dictionary={**parameter_dictionary,**recover_multiple_arrays('coset_generators')}
+    parameter_dictionary={**parameter_dictionary,**recover_multiple_arrays('coset_generators_wasm')}
+    parameter_dictionary['endo_g1_lo']=recover_single_value_if_present('endo_g1_lo')
+    parameter_dictionary['endo_g1_mid']=recover_single_value_if_present('endo_g1_mid')
+    parameter_dictionary['endo_g1_hi']=recover_single_value_if_present('endo_g1_hi')
+    parameter_dictionary['endo_g2_lo']=recover_single_value_if_present('endo_g2_lo')
+    parameter_dictionary['endo_g2_mid']=recover_single_value_if_present('endo_g2_mid')
+    parameter_dictionary['endo_minus_b1_lo']=recover_single_value_if_present('endo_minus_b1_lo')
+    parameter_dictionary['endo_minus_b1_mid']=recover_single_value_if_present('endo_minus_b1_mid')
+    parameter_dictionary['endo_b2_lo']=recover_single_value_if_present('endo_b2_lo')
+    parameter_dictionary['endo_b2_mid']=recover_single_value_if_present('endo_b2_mid')
+
+    assert(parameter_dictionary['modulus']==parameter_dictionary['modulus_wasm']) # Check modulus representations are equivalent
+    modulus=parameter_dictionary['modulus']
+    r_wasm_divided_by_r_regular=2**(261-256)
+    assert(parameter_dictionary['r_squared']==pow(2,512,modulus)) # Check r_squared
+    assert(parameter_dictionary['r_squared_wasm']==pow(2,9*29*2,modulus)) # Check r_squared_wasm
+    assert(parameter_dictionary['cube_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['cube_root_wasm'])
+    assert(pow(parameter_dictionary['cube_root']*pow(2,-256,modulus),3,modulus)==1) # Check cubic root
+    assert(pow(parameter_dictionary['cube_root_wasm']*pow(2,-29*9,modulus),3,modulus)==1) # Check cubic root for wasm
+    assert(parameter_dictionary['primitive_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['primitive_root_wasm']) # Check pritimitve roots are equivalent
+    for i in range(8):
+        regular_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_{j}'][i] for j in range(4)])
+        wasm_coset_generator=reconstruct_field_from_4_parts([parameter_dictionary[f'coset_generators_wasm_{j}'][i] for j in range(4)])
+        assert(regular_coset_generator*r_wasm_divided_by_r_regular%modulus == wasm_coset_generator)
+
+    return parameter_dictionary
 ```
