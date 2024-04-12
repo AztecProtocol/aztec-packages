@@ -169,6 +169,18 @@ pub fn update_validation_requests(public_call: PublicCallData, circuit_outputs: 
     propagate_valid_public_data_reads(public_call, circuit_outputs);
 }
 
+pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    circuit_outputs.end.gas_used = circuit_outputs.constants.gas_settings.get_gas_limits()
+        .sub(public_call.call_stack_item.public_inputs.gas_left)
+        .sub(circuit_outputs.end_non_revertible.gas_used);
+}
+
+pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    circuit_outputs.end_non_revertible.gas_used = circuit_outputs.constants.gas_settings.get_gas_limits()
+        .sub(public_call.call_stack_item.public_inputs.gas_left)
+        .sub(circuit_outputs.end.gas_used);
+}
+
 pub fn update_public_end_non_revertible_values(
     public_call: PublicCallData,
     circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder

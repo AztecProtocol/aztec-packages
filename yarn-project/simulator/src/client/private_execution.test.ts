@@ -116,6 +116,7 @@ describe('Private Execution test suite', () => {
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       packedArguments: [packedArguments],
       authWitnesses: [],
+      gasSettings: GasSettings.default(),
     });
 
     return acirSimulator.run(txRequest, artifact, contractAddress, portalContractAddress, msgSender);
@@ -797,6 +798,7 @@ describe('Private Execution test suite', () => {
 
       const transactionFee = new Fr(0);
       const gasSettings = GasSettings.empty();
+      const gasLeft = gasSettings.getInitialAvailable();
 
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
@@ -807,6 +809,7 @@ describe('Private Execution test suite', () => {
           storageContractAddress: childAddress,
           portalContractAddress: childPortalContractAddress,
           functionSelector: childSelector,
+          gasLeft,
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,
@@ -818,6 +821,7 @@ describe('Private Execution test suite', () => {
           storageContractAddress: parentAddress,
           portalContractAddress: EthAddress.ZERO,
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
+          gasLeft,
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,

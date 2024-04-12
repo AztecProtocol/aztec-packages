@@ -11,6 +11,7 @@ import {
   PublicFeePaymentMethod,
   SentTx,
 } from '@aztec/aztec.js';
+import { GasSettings } from '@aztec/circuits.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
   AppSubscriptionContract,
@@ -51,13 +52,22 @@ describe('e2e_dapp_subscription', () => {
   const PUBLICLY_MINTED_BANANAS = 500n;
   const PRIVATELY_MINTED_BANANAS = 600n;
 
-  const FEE_AMOUNT = 1n;
-  const REFUND = 2n; // intentionally overpay the gas fee. This is the expected refund.
+  const FEE_AMOUNT = 10n;
+  const REFUND = 20n; // intentionally overpay the gas fee. This is the expected refund.
   const MAX_FEE = FEE_AMOUNT + REFUND;
+
+  const GAS_SETTINGS = GasSettings.new(
+    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    new Fr(6),
+  );
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
     process.env.ENABLE_GAS ??= '1';
+
+    expect(GAS_SETTINGS.getFeeLimit().toBigInt()).toEqual(MAX_FEE);
 
     let wallets: AccountWalletWithPrivateKey[];
     let aztecNode: AztecNode;
@@ -243,12 +253,7 @@ describe('e2e_dapp_subscription', () => {
     return subscriptionContract
       .withWallet(aliceWallet)
       .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
-      .send({
-        fee: {
-          maxFee,
-          paymentMethod,
-        },
-      })
+      .send({ fee: { gasSettings: GAS_SETTINGS, paymentMethod } })
       .wait();
   }
 

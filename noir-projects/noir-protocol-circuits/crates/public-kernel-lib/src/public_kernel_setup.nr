@@ -39,6 +39,9 @@ impl PublicKernelSetupCircuitPrivateInputs {
         // validate the inputs unique to having a previous private kernel
         self.validate_inputs();
 
+        // TODO(palla/gas) Add tests for gas usage
+        common::update_non_revertible_gas_used(self.public_call, &mut public_inputs);
+
         // Pops the item from the call stack and validates it against the current execution.
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);

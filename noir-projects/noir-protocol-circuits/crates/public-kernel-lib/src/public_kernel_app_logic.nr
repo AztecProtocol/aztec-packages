@@ -35,6 +35,9 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
+        // TODO(palla/gas) Add tests for gas usage
+        common::update_revertible_gas_used(self.public_call, &mut public_inputs);
+
         if public_inputs.revert_code == 0 {
             // Pops the item from the call stack and validates it against the current execution.
             let call_request = public_inputs.end.public_call_stack.pop();
