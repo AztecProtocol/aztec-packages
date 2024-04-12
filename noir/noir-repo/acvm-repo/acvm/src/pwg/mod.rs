@@ -563,16 +563,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         self.acir_call_counter += 1;
         Ok(None)
     }
-
-    // fn solve_brillig_pointer_opcode(&mut self) -> Result<Option<BrilligPointerWaitInfo>, OpcodeResolutionError> {
-    //     if is_predicate_false(&self.witness_map, predicate)? {
-    //         // Zero out the outputs if we have a false predicate
-    //         for output in outputs {
-    //             insert_value(output, FieldElement::zero(), &mut self.witness_map)?;
-    //         }
-    //         return Ok(None);
-    //     }
-    // }
+    
 }
 
 // Returns the concrete value for a particular witness

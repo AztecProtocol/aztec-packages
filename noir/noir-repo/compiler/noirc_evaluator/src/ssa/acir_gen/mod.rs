@@ -230,7 +230,7 @@ impl Ssa {
         let mut generated_brillig_map = HashMap::default();
         for function in self.functions.values() {
             // let context = Context::new();
-            let context = Context::new_with_brillig_map(&mut generated_brillig_map);
+            let context = Context::new(&mut generated_brillig_map);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -270,33 +270,15 @@ impl Ssa {
                     .collect();
 
                 main_func_acir.return_witnesses = distinct_return_witness;
-                // Ok(acirs)
             }
-            Distinctness::DuplicationAllowed => {} // Distinctness::DuplicationAllowed => Ok(acirs),
+            Distinctness::DuplicationAllowed => {}
         }
         Ok((acirs, brilligs))
     }
 }
 
 impl<'a> Context<'a> {
-    // fn new() -> Self {
-    //     let mut acir_context = AcirContext::default();
-    //     let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
-    //     Context {
-    //         ssa_values: HashMap::default(),
-    //         current_side_effects_enabled_var,
-    //         acir_context,
-    //         initialized_arrays: HashSet::new(),
-    //         memory_blocks: HashMap::default(),
-    //         internal_memory_blocks: HashMap::default(),
-    //         internal_mem_block_lengths: HashMap::default(),
-    //         max_block_id: 0,
-    //         data_bus: DataBus::default(),
-    //         generated_brillig_map: HashMap::default(),
-    //     }
-    // }
-
-    fn new_with_brillig_map(generated_brillig_map: &mut HashMap<u32, GeneratedBrillig>) -> Context {
+    fn new(generated_brilligs: &mut HashMap<u32, GeneratedBrillig>) -> Context {
         let mut acir_context = AcirContext::default();
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
@@ -310,7 +292,7 @@ impl<'a> Context<'a> {
             internal_mem_block_lengths: HashMap::default(),
             max_block_id: 0,
             data_bus: DataBus::default(),
-            generated_brillig_map,
+            generated_brillig_map: generated_brilligs,
         }
     }
 
@@ -719,15 +701,6 @@ impl<'a> Context<'a> {
                                     self.generated_brillig_map.insert(*brillig_program_id, code);
                                     output_values
                                 };
-
-                                // let output_values = self.acir_context.brillig(
-                                //     self.current_side_effects_enabled_var,
-                                //     code,
-                                //     inputs,
-                                //     outputs,
-                                //     true,
-                                //     false,
-                                // )?;
 
                                 // Compiler sanity check
                                 assert_eq!(result_ids.len(), output_values.len(), "ICE: The number of Brillig output values should match the result ids in SSA");
