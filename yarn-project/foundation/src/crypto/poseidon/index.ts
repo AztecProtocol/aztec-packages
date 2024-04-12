@@ -6,11 +6,10 @@ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js'
 /**
  * Create a poseidon hash (field) from an array of input fields.
  * @param input - The input fields to hash.
- * @param index - The separator index to use for the hash.
  * @returns The poseidon hash.
  */
-export function poseidon2Hash(input: Fieldable[], index = 0): Fr {
-  const inputFields = serializeToFields([input, index]);
+export function poseidon2Hash(input: Fieldable[]): Fr {
+  const inputFields = serializeToFields(input);
   return Fr.fromBuffer(
     Buffer.from(
       BarretenbergSync.getSingleton()
