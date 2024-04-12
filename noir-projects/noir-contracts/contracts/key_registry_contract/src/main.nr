@@ -1,12 +1,7 @@
 contract KeyRegistry {
   use dep::aztec::{
     context::gas::GasOpts,
-    log::{
-      emit_unencrypted_log,
-      emit_unencrypted_log_from_private
-    },
     state_vars::{
-      PublicImmutable,
       SharedMutable,
       Map
     }, 
@@ -21,13 +16,9 @@ contract KeyRegistry {
         PartialAddress,
       },
       constants::{
-        DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
-        GENERATOR_INDEX__CONTRACT_ADDRESS
+        GENERATOR_INDEX__CONTRACT_ADDRESS,
+        GENERATOR_INDEX__PARTIAL_ADDRESS
       },
-      traits::{
-        Serialize,
-        Deserialize,
-      }, 
     },
   };
 
@@ -48,6 +39,7 @@ contract KeyRegistry {
     outgoing_public_key: Field,
     tagging_public_key: Field,
   ) {
+    assert((nullifier_public_key != 0) & (incoming_public_key != 0) & (outgoing_public_key != 0) & (tagging_public_key != 0));
     let nullifier_entry = storage.nullifier_public_key_registry.at(context.msg_sender());
     let incoming_entry = storage.nullifier_public_key_registry.at(context.msg_sender());
     let outgoing_entry = storage.nullifier_public_key_registry.at(context.msg_sender());
@@ -72,6 +64,7 @@ contract KeyRegistry {
     outgoing_public_key: Field,
     tagging_public_key: Field,
   ) {
+    assert((nullifier_public_key != 0) & (incoming_public_key != 0) & (outgoing_public_key != 0) & (tagging_public_key != 0));
     context.call_public_function(
       context.this_address(),
       FunctionSelector::from_signature("assert_non_membership_public((Field))"),
@@ -87,17 +80,18 @@ contract KeyRegistry {
         deployer
     );
 
+    // TODO (ek): Do it below after refactoring all public_keys_hash_elemtns
+    // let public_keys_hash = PublicKeysHash::compute(nullifier_public_key, tagging_public_key, incoming_public_key, outgoing_public_key);
+    // let address = AztecAddress::compute(public_keys_hash, partial_address);
     let public_keys_hash = pedersen_hash([
         nullifier_public_key,
         tagging_public_key,
         incoming_public_key,
         outgoing_public_key
       ],
-      0
+      GENERATOR_INDEX__PARTIAL_ADDRESS
     );
 
-    // Do it below after refactoring all public_keys_hash_elemtns
-    // let address = AztecAddress::compute(public_keys_hash, partial_address);
     let computed_address = AztecAddress::from_field(
       pedersen_hash(
           [public_keys_hash.to_field(), partial_address.to_field()],
@@ -136,5 +130,13 @@ contract KeyRegistry {
     let nullifier_key = registry_entry.get_current_value_in_private();
 
     assert(nullifier_key == 0);
+  }
+
+  #[aztec(public)]
+  fn get_nullifying_public_key(
+    address: AztecAddress
+  ) {
+    let registry_entry = storage.nullifier_public_key_registry.at(address);
+    registry_entry.get_current_value_in_public()
   }
 }
