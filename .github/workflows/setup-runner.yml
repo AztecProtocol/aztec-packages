@@ -91,5 +91,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: ./scripts/attach_ebs_cache.sh ${{ inputs.runner_label }} 128
 
+      - name: Run Docker Prune
+        # helps with not overuse space
+        run: docker system prune
+
       - name: Run Earthly Bootstrap
         run: earthly bootstrap
