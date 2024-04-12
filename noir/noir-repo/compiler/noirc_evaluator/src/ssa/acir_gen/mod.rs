@@ -684,8 +684,13 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                let output_values = if let Some(gen_index) = self.brillig_index_to_gen_index.get(brillig_program_id) {
-                                    let code = self.generated_brilligs.get(gen_index).expect("should have gen brillig");
+                                let output_values = if let Some(gen_index) =
+                                    self.brillig_index_to_gen_index.get(brillig_program_id)
+                                {
+                                    let code = self
+                                        .generated_brilligs
+                                        .get(gen_index)
+                                        .expect("should have gen brillig");
                                     self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         code,
@@ -699,7 +704,8 @@ impl<'a> Context<'a> {
                                     let arguments = self.gen_brillig_parameters(arguments, dfg);
                                     let code = self.gen_brillig_for(func, arguments, brillig)?;
 
-                                    let final_generated_index = self.generated_brilligs.len() as u32;
+                                    let final_generated_index =
+                                        self.generated_brilligs.len() as u32;
                                     let output_values = self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         &code,
@@ -710,7 +716,8 @@ impl<'a> Context<'a> {
                                         final_generated_index,
                                     )?;
 
-                                    self.brillig_index_to_gen_index.insert(*brillig_program_id, final_generated_index);
+                                    self.brillig_index_to_gen_index
+                                        .insert(*brillig_program_id, final_generated_index);
                                     self.generated_brilligs.insert(final_generated_index, code);
                                     output_values
                                 };
