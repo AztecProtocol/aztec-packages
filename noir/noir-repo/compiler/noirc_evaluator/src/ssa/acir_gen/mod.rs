@@ -133,7 +133,7 @@ struct Context<'a> {
     data_bus: DataBus,
 
     // TODO: could make this a Vec as the IDs have already made to be consecutive indices
-    generated_brillig_map: &'a mut HashMap<u32, GeneratedBrillig>,
+    generated_brilligs: &'a mut Vec<GeneratedBrillig>,
 }
 
 #[derive(Clone)]
@@ -227,10 +227,10 @@ impl Ssa {
     ) -> Result<(Vec<GeneratedAcir>, Vec<BrilligBytecode>), RuntimeError> {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
-        let mut generated_brillig_map = HashMap::default();
+        let mut generated_brilligs = Vec::new();
         for function in self.functions.values() {
             // let context = Context::new();
-            let context = Context::new(&mut generated_brillig_map);
+            let context = Context::new(&mut generated_brilligs);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -240,9 +240,9 @@ impl Ssa {
         }
 
         // TODO: can just store the Brillig bytecode as we utilize the locations when setting acir locations
-        let brilligs = generated_brillig_map
-            .iter()
-            .map(|(_, brillig)| BrilligBytecode { bytecode: brillig.byte_code.clone() })
+        let brilligs = generated_brilligs
+            .into_iter()
+            .map(|brillig| BrilligBytecode { bytecode: brillig.byte_code.clone() })
             .collect::<Vec<_>>();
 
         let brillig = vecmap(shared_context.generated_brillig, |brillig| BrilligBytecode {
@@ -282,7 +282,7 @@ impl Ssa {
 }
 
 impl<'a> Context<'a> {
-    fn new(generated_brilligs: &mut HashMap<u32, GeneratedBrillig>) -> Context {
+    fn new(generated_brilligs: &mut Vec<GeneratedBrillig>) -> Context {
         let mut acir_context = AcirContext::default();
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
@@ -296,7 +296,7 @@ impl<'a> Context<'a> {
             internal_mem_block_lengths: HashMap::default(),
             max_block_id: 0,
             data_bus: DataBus::default(),
-            generated_brillig_map: generated_brilligs,
+            generated_brilligs,
         }
     }
 
@@ -671,7 +671,6 @@ impl<'a> Context<'a> {
                                     .id_to_index
                                     .get(id)
                                     .expect("ICE: should have an associated final index");
-                                dbg!(brillig_program_id);
 
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
 
@@ -679,10 +678,8 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                let output_values = if let Some(code) =
-                                    self.generated_brillig_map.get(brillig_program_id)
-                                {
-                                    dbg!("got previous generated brillig");
+                                let output_values = if *brillig_program_id < self.generated_brilligs.len() as u32 {
+                                    let code = &self.generated_brilligs[*brillig_program_id as usize];
                                     self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         code,
@@ -695,7 +692,7 @@ impl<'a> Context<'a> {
                                 } else {
                                     let arguments = self.gen_brillig_parameters(arguments, dfg);
                                     let code = self.gen_brillig_for(func, arguments, brillig)?;
-                                    // dbg!(code.byte_code.clone());
+
                                     let output_values = self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         &code,
@@ -706,7 +703,7 @@ impl<'a> Context<'a> {
                                         *brillig_program_id,
                                     )?;
 
-                                    self.generated_brillig_map.insert(*brillig_program_id, code);
+                                    self.generated_brilligs.push(code);
                                     output_values
                                 };
 
