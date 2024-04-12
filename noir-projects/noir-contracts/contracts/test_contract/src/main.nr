@@ -72,11 +72,7 @@ contract Test {
         context.set_tx_max_block_number(max_block_number);
 
         if enqueue_public_call {
-            let _ = context.call_public_function(
-                context.this_address(),
-                FunctionSelector::from_signature("dummy_public_call()"),
-                []
-            );
+            Test::at(context.this_address()).dummy_public_call().enqueue(&mut context)
         }
     }
 

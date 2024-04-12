@@ -5,6 +5,7 @@ use dep::protocol_types::{
 
 use crate::context::private_context::PrivateContext;
 use crate::context::public_context::PublicContext;
+use crate::context::avm_context::AvmContext;
 use crate::context::gas::GasOpts;
 use crate::context::public_context::FunctionReturns;
 

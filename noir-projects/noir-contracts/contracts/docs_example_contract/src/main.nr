@@ -115,10 +115,7 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        context.call_private_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
-        ).unpack_into()
+        DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().call(&mut context)
     }
 
     #[aztec(public)]
@@ -127,10 +124,7 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        context.call_public_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
-        ).deserialize_into()
+        DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().call(&mut context)
     }
 
     #[aztec(public)]
@@ -210,12 +204,7 @@ contract DocsExample {
     fn update_legendary_card(randomness: Field, points: u8) {
         let mut new_card = CardNote::new(points, randomness, context.msg_sender());
         storage.legendary_card.replace(&mut new_card, true);
-
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]
@@ -234,11 +223,7 @@ contract DocsExample {
         storage.legendary_card.replace(&mut new_card, true);
         // docs:end:state_vars-PrivateMutableReplace
 
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]

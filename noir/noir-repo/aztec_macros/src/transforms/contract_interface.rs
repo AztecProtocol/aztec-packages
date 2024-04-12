@@ -151,7 +151,6 @@ pub fn update_fn_signatures_in_contract_interface(
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
     if let Some((name, _, file_id)) = get_contract_module_data(context, crate_id) {
-        println!("Contract module found: {}", name);
         let maybe_interface_struct =
             collect_crate_structs(crate_id, context).iter().find_map(|struct_id| {
                 let r#struct = context.def_interner.get_struct(*struct_id);
