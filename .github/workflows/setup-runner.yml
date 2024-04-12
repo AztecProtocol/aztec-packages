@@ -92,7 +92,7 @@ jobs:
         run: ./scripts/attach_ebs_cache.sh ${{ inputs.runner_label }} 128
 
       - name: Run Docker Prune
-        # helps with not overuse space
+        # helps to not overuse space
         run: docker system prune -f
 
       - name: Run Earthly Bootstrap
