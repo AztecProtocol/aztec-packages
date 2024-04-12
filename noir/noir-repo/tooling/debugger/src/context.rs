@@ -47,7 +47,7 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
     ) -> Self {
         let source_to_opcodes = build_source_to_opcode_debug_mappings(debug_artifact);
         Self {
-            // TODO: need to handle brillig in the debugger
+            // TODO: need to handle brillig pointer in the debugger
             acvm: ACVM::new(
                 blackbox_solver,
                 &circuit.opcodes,
