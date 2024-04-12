@@ -60,8 +60,8 @@ runs:
       if: ${{ inputs.concurrency_key }}
       with:
         run: |
-          while [ -f "/run/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held, waiting..." ; done
-          touch "/run/${{ inputs.concurrency_key }}.lock"
+          while [ -f "/run/${{ inputs.concurrency_key }}.lock" ]; do sleep 1 ; echo "Lock is currently held by $(cat '/run/${{ inputs.concurrency_key }}.lock'), waiting..." ; done
+          echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" > "/run/${{ inputs.concurrency_key }}.lock"
           echo "/run/${{ inputs.concurrency_key }}.lock acquired."
         post: |
           rm "/run/${{ inputs.concurrency_key }}.lock"
