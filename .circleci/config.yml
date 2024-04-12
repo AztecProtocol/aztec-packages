@@ -521,6 +521,18 @@ jobs:
           command: cond_spot_run_build yarn-project-test 64
           aztec_manifest_key: yarn-project-test
 
+  prover-client-test:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build prover-client-test 128
+          aztec_manifest_key: prover-client-test
+
   aztec-package:
     machine:
       image: default
@@ -695,7 +707,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose.yml TEST=e2e_deploy_contract.test.ts
+          command: cond_spot_run_container end-to-end 8 ./src/e2e_deploy_contract/
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
@@ -1429,6 +1441,7 @@ workflows:
       - end-to-end: *defaults_yarn_project
       - aztec-faucet: *defaults_yarn_project_pre_join
       - build-docs: *defaults_yarn_project_pre_join
+      - prover-client-test: *defaults_yarn_project
       - yarn-project-test: *defaults_yarn_project
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
       - yarn-project-arm64: *defaults_yarn_project_pre_join
@@ -1581,6 +1594,7 @@ workflows:
             - yellow-paper
             - noir-packages-tests
             - yarn-project-test
+            - prover-client-test
           <<: *defaults
 
       # Benchmark jobs.
