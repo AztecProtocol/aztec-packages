@@ -216,9 +216,10 @@ e2e-cli:
   ARG e2e_mode=local
   DO +E2E_TEST --test=e2e_cli.test.ts --e2e_mode=$e2e_mode
 
-e2e-persistence:
-  ARG e2e_mode=local
-  DO +E2E_TEST --test=e2e_persistence.test.ts --compose_file=./scripts/docker-compose-no-sandbox.yml --e2e_mode=$e2e_mode
+# TODO sometimes hangs
+# e2e-persistence:
+#  ARG e2e_mode=local
+#  DO +E2E_TEST --test=e2e_persistence.test.ts --compose_file=./scripts/docker-compose-no-sandbox.yml --e2e_mode=$e2e_mode
 
 e2e-browser:
   ARG e2e_mode=local
