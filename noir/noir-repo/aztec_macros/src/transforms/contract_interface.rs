@@ -1,10 +1,9 @@
 use noirc_frontend::{
     graph::CrateId,
-    hir_def::function::Parameters,
     macros_api::{FileId, HirContext, HirExpression, HirLiteral, HirStatement},
     parse_program,
     parser::SortedModule,
-    NoirFunction, UnresolvedTypeData,
+    NoirFunction, Type, UnresolvedTypeData,
 };
 
 use crate::utils::{
@@ -139,11 +138,11 @@ pub fn generate_contract_interface(
     Ok(())
 }
 
-fn compute_fn_signature(fn_name: &str, parameters: Parameters) -> String {
+fn compute_fn_signature(fn_name: &str, parameters: &[Type]) -> String {
     format!(
         "{}({})",
         fn_name,
-        parameters.iter().map(|(_, typ, _)| signature_of_type(typ)).collect::<Vec<_>>().join(", ")
+        parameters.iter().map(|typ| signature_of_type(typ)).collect::<Vec<_>>().join(",")
     )
 }
 
@@ -152,6 +151,7 @@ pub fn update_fn_signatures_in_contract_interface(
     context: &mut HirContext,
 ) -> Result<(), (AztecMacroError, FileId)> {
     if let Some((name, _, file_id)) = get_contract_module_data(context, crate_id) {
+        println!("Contract module found: {}", name);
         let maybe_interface_struct =
             collect_crate_structs(crate_id, context).iter().find_map(|struct_id| {
                 let r#struct = context.def_interner.get_struct(*struct_id);
@@ -173,7 +173,14 @@ pub fn update_fn_signatures_in_contract_interface(
                     continue;
                 }
 
-                let fn_signature = compute_fn_signature(name, fn_parameters.clone());
+                let fn_signature = compute_fn_signature(
+                    name,
+                    &fn_parameters
+                        .iter()
+                        .skip(1)
+                        .map(|(_, typ, _)| typ.clone())
+                        .collect::<Vec<Type>>(),
+                );
                 let hir_func = context.def_interner.function(func_id).block(&context.def_interner);
                 let call_interface_constructor_statement = context.def_interner.statement(
                     hir_func
