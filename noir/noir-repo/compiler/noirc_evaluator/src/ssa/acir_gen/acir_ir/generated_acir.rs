@@ -10,7 +10,7 @@ use crate::{
 
 use acvm::acir::{
     circuit::{
-        brillig::{Brillig as AcvmBrillig, BrilligInputs, BrilligOutputs},
+        brillig::{Brillig as AcvmBrillig, BrilligInputs, BrilligOutputs, BrilligPointer},
         opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
         OpcodeLocation,
     },
@@ -618,7 +618,7 @@ impl GeneratedAcir {
         }
     }
 
-    pub(crate) fn brillig_call(
+    pub(crate) fn brillig_pointer(
         &mut self,
         predicate: Option<Expression>,
         generated_brillig: &GeneratedBrillig,
@@ -626,24 +626,22 @@ impl GeneratedAcir {
         outputs: Vec<BrilligOutputs>,
         brillig_function_index: u32,
     ) {
-        let opcode =
-            AcirOpcode::BrilligCall { id: brillig_function_index, inputs, outputs, predicate };
+        let opcode = AcirOpcode::BrilligPointer(BrilligPointer {
+            inputs, 
+            outputs,
+            bytecode_index: brillig_function_index,
+            predicate,
+        });
         self.push_opcode(opcode);
         for (brillig_index, call_stack) in generated_brillig.locations.iter() {
             self.locations.insert(
-                OpcodeLocation::Brillig {
-                    acir_index: self.opcodes.len() - 1,
-                    brillig_index: *brillig_index,
-                },
+                OpcodeLocation::Brillig { acir_index: self.opcodes.len() - 1, brillig_index: *brillig_index },
                 call_stack.clone(),
             );
         }
         for (brillig_index, message) in generated_brillig.assert_messages.iter() {
             self.assert_messages.insert(
-                OpcodeLocation::Brillig {
-                    acir_index: self.opcodes.len() - 1,
-                    brillig_index: *brillig_index,
-                },
+                OpcodeLocation::Brillig { acir_index: self.opcodes.len() - 1, brillig_index: *brillig_index },
                 message.clone(),
             );
         }

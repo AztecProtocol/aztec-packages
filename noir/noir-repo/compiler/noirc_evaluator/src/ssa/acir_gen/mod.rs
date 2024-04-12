@@ -132,8 +132,8 @@ struct Context<'a> {
 
     data_bus: DataBus,
 
-    /// Contains state that is generated and also used across ACIR functions
-    shared_context: &'a mut SharedContext,
+    // TODO: could make this a Vec as the IDs have already made to be consecutive indices
+    generated_brillig_map: &'a mut HashMap<u32, GeneratedBrillig>
 }
 
 #[derive(Clone)]
@@ -227,9 +227,10 @@ impl Ssa {
     ) -> Result<(Vec<GeneratedAcir>, Vec<BrilligBytecode>), RuntimeError> {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
-        let mut shared_context = SharedContext::default();
+        let mut generated_brillig_map = HashMap::default();
         for function in self.functions.values() {
-            let context = Context::new(&mut shared_context);
+            // let context = Context::new();
+            let context = Context::new_with_brillig_map(&mut generated_brillig_map);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -237,6 +238,9 @@ impl Ssa {
                 acirs.push(generated_acir);
             }
         }
+        
+        // TODO: can just store the Brillig bytecode as we utilize the locations when setting acir locations
+        let brilligs = generated_brillig_map.iter().map(|(_, brillig)| BrilligBytecode { bytecode: brillig.byte_code.clone() }).collect::<Vec<_>>();
 
         let brillig = vecmap(shared_context.generated_brillig, |brillig| BrilligBytecode {
             bytecode: brillig.byte_code,
@@ -263,15 +267,34 @@ impl Ssa {
                     .collect();
 
                 main_func_acir.return_witnesses = distinct_return_witness;
+                // Ok(acirs)
             }
             Distinctness::DuplicationAllowed => {}
+            // Distinctness::DuplicationAllowed => Ok(acirs),
         }
-        Ok((acirs, brillig))
+        Ok((acirs, brilligs))
     }
 }
 
 impl<'a> Context<'a> {
-    fn new(shared_context: &'a mut SharedContext) -> Context<'a> {
+    // fn new() -> Self {
+    //     let mut acir_context = AcirContext::default();
+    //     let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
+    //     Context {
+    //         ssa_values: HashMap::default(),
+    //         current_side_effects_enabled_var,
+    //         acir_context,
+    //         initialized_arrays: HashSet::new(),
+    //         memory_blocks: HashMap::default(),
+    //         internal_memory_blocks: HashMap::default(),
+    //         internal_mem_block_lengths: HashMap::default(),
+    //         max_block_id: 0,
+    //         data_bus: DataBus::default(),
+    //         generated_brillig_map: HashMap::default(),
+    //     }
+    // }
+
+    fn new_with_brillig_map(generated_brillig_map: &mut HashMap<u32, GeneratedBrillig>) -> Context {
         let mut acir_context = AcirContext::default();
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
@@ -285,7 +308,7 @@ impl<'a> Context<'a> {
             internal_mem_block_lengths: HashMap::default(),
             max_block_id: 0,
             data_bus: DataBus::default(),
-            shared_context,
+            generated_brillig_map,
         }
     }
 
@@ -652,50 +675,55 @@ impl<'a> Context<'a> {
                                         );
                                     }
                                 }
+                                let brillig_program_id = ssa
+                                    .id_to_index
+                                    .get(id)
+                                    .expect("ICE: should have an associated final index");
+                                dbg!(brillig_program_id);
+
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
 
                                 let outputs: Vec<AcirType> = vecmap(result_ids, |result_id| {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                // Check whether we have already generated Brillig for this function
-                                // If we have, re-use the generated code to set-up the Brillig call.
-                                let output_values = if let Some(generated_pointer) =
-                                    self.shared_context.generated_brillig_pointer(id)
-                                {
-                                    let code = self
-                                        .shared_context
-                                        .generated_brillig(*generated_pointer as usize);
-                                    self.acir_context.brillig_call(
+                                let output_values = if let Some(code) = self.generated_brillig_map.get(brillig_program_id) {
+                                    dbg!("got previous generated brillig");
+                                    self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         code,
                                         inputs,
                                         outputs,
                                         true,
                                         false,
-                                        *generated_pointer,
+                                        *brillig_program_id,
                                     )?
                                 } else {
                                     let arguments = self.gen_brillig_parameters(arguments, dfg);
                                     let code = self.gen_brillig_for(func, arguments, brillig)?;
-                                    let generated_pointer =
-                                        self.shared_context.new_generated_pointer();
-                                    let output_values = self.acir_context.brillig_call(
+                                    // dbg!(code.byte_code.clone());
+                                    let output_values = self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         &code,
                                         inputs,
                                         outputs,
                                         true,
                                         false,
-                                        generated_pointer,
+                                        *brillig_program_id,
                                     )?;
-                                    self.shared_context.insert_generated_brillig(
-                                        *id,
-                                        generated_pointer,
-                                        code,
-                                    );
+
+                                    self.generated_brillig_map.insert(*brillig_program_id, code);
                                     output_values
                                 };
+
+                                // let output_values = self.acir_context.brillig(
+                                //     self.current_side_effects_enabled_var,
+                                //     code,
+                                //     inputs,
+                                //     outputs,
+                                //     true,
+                                //     false,
+                                // )?;
 
                                 // Compiler sanity check
                                 assert_eq!(result_ids.len(), output_values.len(), "ICE: The number of Brillig output values should match the result ids in SSA");
