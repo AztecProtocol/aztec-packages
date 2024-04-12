@@ -20,12 +20,6 @@ impl From<Vec<FieldElement>> for ForeignCallParam {
     }
 }
 
-impl From<(FieldElement, Vec<FieldElement>)> for ForeignCallParam {
-    fn from((len, values): (FieldElement, Vec<FieldElement>)) -> Self {
-        ForeignCallParam::Slice(len, values)
-    }
-}
-
 impl ForeignCallParam {
     pub fn fields(&self) -> Vec<FieldElement> {
         match self {
