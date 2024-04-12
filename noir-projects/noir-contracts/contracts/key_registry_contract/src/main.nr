@@ -1,6 +1,6 @@
 contract KeyRegistry {
+  use dep::std::hash::poseidon2::Poseidon2::hash as poseidon2_hash;
   use dep::aztec::{
-    avm::hash::poseidon,
     context::gas::GasOpts,
     state_vars::{
       SharedMutable,
@@ -16,8 +16,8 @@ contract KeyRegistry {
         PartialAddress,
       },
       constants::{
-        GENERATOR_INDEX__CONTRACT_ADDRESS,
-        GENERATOR_INDEX__PARTIAL_ADDRESS
+        GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+        GENERATOR_INDEX__PUBLIC_KEYS_HASH
       },
       traits::{
         Serialize,
@@ -78,21 +78,23 @@ contract KeyRegistry {
     // TODO (ek): Do it below after refactoring all public_keys_hash_elemtns
     // let public_keys_hash = PublicKeysHash::compute(nullifier_public_key, tagging_public_key, incoming_public_key, outgoing_public_key);
     // let address = AztecAddress::compute(public_keys_hash, partial_address);
-    let public_keys_hash = poseidon([
+    let public_keys_hash = poseidon2_hash([
         nullifier_public_key,
         tagging_public_key,
         incoming_public_key,
         outgoing_public_key,
-        GENERATOR_INDEX__PARTIAL_ADDRESS as Field,
+        GENERATOR_INDEX__PUBLIC_KEYS_HASH,
       ],
+      5
     );
 
     let computed_address = AztecAddress::from_field(
-      poseidon([
+      poseidon2_hash([
           public_keys_hash.to_field(),
           partial_address.to_field(),
-          GENERATOR_INDEX__CONTRACT_ADDRESS as Field,
+          GENERATOR_INDEX__CONTRACT_ADDRESS_V1 as Field,
         ],
+        3
       )
     );
 
