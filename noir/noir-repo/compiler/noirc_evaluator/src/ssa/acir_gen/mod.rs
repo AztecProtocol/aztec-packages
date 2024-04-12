@@ -93,10 +93,16 @@ struct Context<'a> {
 
     data_bus: DataBus,
 
-    // TODO: could make this a Vec as the IDs have already made to be consecutive indices
-    generated_brilligs: &'a mut BTreeMap<u32, GeneratedBrillig>,
+    /// Final list of Brillig functions which will be part of the final program
+    /// This is shared across `Context` structs as we want one list of Brillig
+    /// functions across all ACIR artifacts
+    generated_brilligs: &'a mut Vec<GeneratedBrillig>,
 
-    /// Represents the index of a function from SSA to its final index
+    // TODO: Move this into a shared context with `generated_brilligs`
+    /// Maps SSA function index -> Final generated Brillig artifact index
+    /// Represents the index of a function from SSA to its final generated index.
+    /// There can be Brillig functions specified in SSA which do not act as
+    /// entry points in ACIR (e.g. only called by other Brillig functions)
     /// We need this in case there are functions which have been specified in SSA
     /// but ultimately were not used during ACIR gen
     brillig_index_to_gen_index: BTreeMap<u32, u32>,
@@ -193,10 +199,9 @@ impl Ssa {
     ) -> Result<(Vec<GeneratedAcir>, Vec<BrilligBytecode>), RuntimeError> {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
-        let mut generated_brillig_map = BTreeMap::default();
+        let mut generated_brilligs = Vec::default();
         for function in self.functions.values() {
-            // let context = Context::new();
-            let context = Context::new(&mut generated_brillig_map);
+            let context = Context::new(&mut generated_brilligs);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -205,11 +210,8 @@ impl Ssa {
             }
         }
 
-        // TODO: can just store the Brillig bytecode as we utilize the locations when setting acir locations
-        let brilligs = generated_brillig_map
-            .values()
-            .map(|brillig| BrilligBytecode { bytecode: brillig.byte_code.clone() })
-            .collect::<Vec<_>>();
+        let brilligs =
+            vecmap(generated_brilligs, |brillig| BrilligBytecode { bytecode: brillig.byte_code });
 
         // TODO: check whether doing this for a single circuit's return witnesses is correct.
         // We probably need it for all foldable circuits, as any circuit being folded is essentially an entry point. However, I do not know how that
@@ -240,7 +242,7 @@ impl Ssa {
 }
 
 impl<'a> Context<'a> {
-    fn new(generated_brilligs: &mut BTreeMap<u32, GeneratedBrillig>) -> Context {
+    fn new(generated_brilligs: &mut Vec<GeneratedBrillig>) -> Context {
         let mut acir_context = AcirContext::default();
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
@@ -631,10 +633,7 @@ impl<'a> Context<'a> {
                                 let output_values = if let Some(gen_index) =
                                     self.brillig_index_to_gen_index.get(brillig_program_id)
                                 {
-                                    let code = self
-                                        .generated_brilligs
-                                        .get(gen_index)
-                                        .expect("should have gen brillig");
+                                    let code = &self.generated_brilligs[*gen_index as usize];
                                     self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         code,
@@ -662,7 +661,7 @@ impl<'a> Context<'a> {
 
                                     self.brillig_index_to_gen_index
                                         .insert(*brillig_program_id, final_generated_index);
-                                    self.generated_brilligs.insert(final_generated_index, code);
+                                    self.generated_brilligs.push(code);
                                     output_values
                                 };
 
