@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use acir::{
-    brillig::{ForeignCallParam, ForeignCallResult},
+    brillig::{ForeignCallParam, ForeignCallResult, Opcode as BrilligOpcode},
     circuit::{
-        brillig::{Brillig, BrilligInputs, BrilligOutputs},
+        brillig::{Brillig, BrilligInputs, BrilligOutputs, BrilligPointer},
         opcodes::BlockId,
         OpcodeLocation,
     },
@@ -46,9 +46,9 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
     /// Assigns the zero value to all outputs of the given [`Brillig`] bytecode.
     pub(super) fn zero_out_brillig_outputs(
         initial_witness: &mut WitnessMap,
-        brillig: &Brillig,
+        outputs: &[BrilligOutputs],
     ) -> Result<(), OpcodeResolutionError> {
-        for output in &brillig.outputs {
+        for output in outputs {
             match output {
                 BrilligOutputs::Simple(witness) => {
                     insert_value(witness, FieldElement::zero(), initial_witness)?;
@@ -63,6 +63,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         Ok(())
     }
 
+    // TODO: delete this old method
     /// Constructs a solver for a Brillig block given the bytecode and initial
     /// witness.
     pub(crate) fn new(
@@ -119,6 +120,66 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         // Instantiate a Brillig VM given the solved calldata
         // along with the Brillig bytecode.
         let vm = VM::new(calldata, &brillig.bytecode, vec![], bb_solver);
+        Ok(Self { vm, acir_index })
+    }
+
+    /// Constructs a solver for a Brillig block given the bytecode and initial
+    /// witness.
+    pub(crate) fn new_with_pointer(
+        initial_witness: &WitnessMap,
+        memory: &HashMap<BlockId, MemoryOpSolver>,
+        brillig_pointer: &'b BrilligPointer,
+        brillig_bytecode: &'b [BrilligOpcode],
+        bb_solver: &'b B,
+        acir_index: usize,
+    ) -> Result<Self, OpcodeResolutionError> {
+        // Set input values
+        let mut calldata: Vec<FieldElement> = Vec::new();
+        // Each input represents an expression or array of expressions to evaluate.
+        // Iterate over each input and evaluate the expression(s) associated with it.
+        // Push the results into memory.
+        // If a certain expression is not solvable, we stall the ACVM and do not proceed with Brillig VM execution.
+        for input in &brillig_pointer.inputs {
+            match input {
+                BrilligInputs::Single(expr) => match get_value(expr, initial_witness) {
+                    Ok(value) => calldata.push(value),
+                    Err(_) => {
+                        return Err(OpcodeResolutionError::OpcodeNotSolvable(
+                            OpcodeNotSolvable::ExpressionHasTooManyUnknowns(expr.clone()),
+                        ))
+                    }
+                },
+                BrilligInputs::Array(expr_arr) => {
+                    // Attempt to fetch all array input values
+                    for expr in expr_arr.iter() {
+                        match get_value(expr, initial_witness) {
+                            Ok(value) => calldata.push(value),
+                            Err(_) => {
+                                return Err(OpcodeResolutionError::OpcodeNotSolvable(
+                                    OpcodeNotSolvable::ExpressionHasTooManyUnknowns(expr.clone()),
+                                ))
+                            }
+                        }
+                    }
+                }
+                BrilligInputs::MemoryArray(block_id) => {
+                    let memory_block = memory
+                        .get(block_id)
+                        .ok_or(OpcodeNotSolvable::MissingMemoryBlock(block_id.0))?;
+                    for memory_index in 0..memory_block.block_len {
+                        let memory_value = memory_block
+                            .block_value
+                            .get(&memory_index)
+                            .expect("All memory is initialized on creation");
+                        calldata.push(*memory_value);
+                    }
+                }
+            }
+        }
+
+        // Instantiate a Brillig VM given the solved calldata
+        // along with the Brillig bytecode.
+        let vm = VM::new(calldata, brillig_bytecode, vec![], bb_solver);
         Ok(Self { vm, acir_index })
     }
 
@@ -180,13 +241,13 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
     pub(crate) fn finalize(
         self,
         witness: &mut WitnessMap,
-        brillig: &Brillig,
+        outputs: &[BrilligOutputs],
     ) -> Result<(), OpcodeResolutionError> {
         // Finish the Brillig execution by writing the outputs to the witness map
         let vm_status = self.vm.get_status();
         match vm_status {
             VMStatus::Finished { return_data_offset, return_data_size } => {
-                self.write_brillig_outputs(witness, return_data_offset, return_data_size, brillig)?;
+                self.write_brillig_outputs(witness, return_data_offset, return_data_size, outputs)?;
                 Ok(())
             }
             _ => panic!("Brillig VM has not completed execution"),
@@ -198,12 +259,12 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         witness_map: &mut WitnessMap,
         return_data_offset: usize,
         return_data_size: usize,
-        brillig: &Brillig,
+        outputs: &[BrilligOutputs],
     ) -> Result<(), OpcodeResolutionError> {
         // Write VM execution results into the witness map
         let memory = self.vm.get_memory();
         let mut current_ret_data_idx = return_data_offset;
-        for output in brillig.outputs.iter() {
+        for output in outputs.iter() {
             match output {
                 BrilligOutputs::Simple(witness) => {
                     insert_value(witness, memory[current_ret_data_idx].to_field(), witness_map)?;

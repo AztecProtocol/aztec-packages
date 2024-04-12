@@ -7,6 +7,7 @@ mod source_code_printer;
 
 use std::io::{Read, Write};
 
+use acvm::acir::circuit::brillig::BrilligBytecode;
 use ::dap::errors::ServerError;
 use ::dap::server::Server;
 use acvm::BlackBoxFunctionSolver;
@@ -22,8 +23,9 @@ pub fn debug_circuit<B: BlackBoxFunctionSolver>(
     circuit: &Circuit,
     debug_artifact: DebugArtifact,
     initial_witness: WitnessMap,
+    unconstrained_functions: &[BrilligBytecode],
 ) -> Result<Option<WitnessMap>, NargoError> {
-    repl::run(blackbox_solver, circuit, &debug_artifact, initial_witness)
+    repl::run(blackbox_solver, circuit, &debug_artifact, initial_witness, unconstrained_functions)
 }
 
 pub fn run_dap_loop<R: Read, W: Write, B: BlackBoxFunctionSolver>(

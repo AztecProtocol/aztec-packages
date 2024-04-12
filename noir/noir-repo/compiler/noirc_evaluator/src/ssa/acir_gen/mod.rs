@@ -28,6 +28,7 @@ use crate::errors::{InternalError, InternalWarning, RuntimeError, SsaReport};
 use crate::ssa::ir::function::InlineType;
 pub(crate) use acir_ir::generated_acir::GeneratedAcir;
 
+use acvm::acir::circuit::brillig::BrilligBytecode;
 use acvm::acir::native_types::Witness;
 use acvm::acir::BlackBoxFunc;
 use acvm::{
@@ -41,7 +42,7 @@ use noirc_frontend::Distinctness;
 
 /// Context struct for the acir generation pass.
 /// May be similar to the Evaluator struct in the current SSA IR.
-struct Context {
+struct Context<'a> {
     /// Maps SSA values to `AcirVar`.
     ///
     /// This is needed so that we only create a single
@@ -91,6 +92,9 @@ struct Context {
     max_block_id: u32,
 
     data_bus: DataBus,
+
+    // TODO: could make this a Vec as the IDs have already made to be consecutive indices
+    generated_brillig_map: &'a mut HashMap<u32, GeneratedBrillig>
 }
 
 #[derive(Clone)]
@@ -181,11 +185,13 @@ impl Ssa {
         self,
         brillig: &Brillig,
         abi_distinctness: Distinctness,
-    ) -> Result<Vec<GeneratedAcir>, RuntimeError> {
+    ) -> Result<(Vec<GeneratedAcir>, Vec<BrilligBytecode>), RuntimeError> {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
+        let mut generated_brillig_map = HashMap::default();
         for function in self.functions.values() {
-            let context = Context::new();
+            // let context = Context::new();
+            let context = Context::new_with_brillig_map(&mut generated_brillig_map);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -193,6 +199,9 @@ impl Ssa {
                 acirs.push(generated_acir);
             }
         }
+        
+        // TODO: can just store the Brillig bytecode as we utilize the locations when setting acir locations
+        let brilligs = generated_brillig_map.iter().map(|(_, brillig)| BrilligBytecode { bytecode: brillig.byte_code.clone() }).collect::<Vec<_>>();
 
         // TODO: check whether doing this for a single circuit's return witnesses is correct.
         // We probably need it for all foldable circuits, as any circuit being folded is essentially an entry point. However, I do not know how that
@@ -215,15 +224,34 @@ impl Ssa {
                     .collect();
 
                 main_func_acir.return_witnesses = distinct_return_witness;
-                Ok(acirs)
+                // Ok(acirs)
             }
-            Distinctness::DuplicationAllowed => Ok(acirs),
+            Distinctness::DuplicationAllowed => {}
+            // Distinctness::DuplicationAllowed => Ok(acirs),
         }
+        Ok((acirs, brilligs))
     }
 }
 
-impl Context {
-    fn new() -> Context {
+impl<'a> Context<'a> {
+    // fn new() -> Self {
+    //     let mut acir_context = AcirContext::default();
+    //     let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
+    //     Context {
+    //         ssa_values: HashMap::default(),
+    //         current_side_effects_enabled_var,
+    //         acir_context,
+    //         initialized_arrays: HashSet::new(),
+    //         memory_blocks: HashMap::default(),
+    //         internal_memory_blocks: HashMap::default(),
+    //         internal_mem_block_lengths: HashMap::default(),
+    //         max_block_id: 0,
+    //         data_bus: DataBus::default(),
+    //         generated_brillig_map: HashMap::default(),
+    //     }
+    // }
+
+    fn new_with_brillig_map(generated_brillig_map: &mut HashMap<u32, GeneratedBrillig>) -> Context {
         let mut acir_context = AcirContext::default();
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
@@ -237,6 +265,7 @@ impl Context {
             internal_mem_block_lengths: HashMap::default(),
             max_block_id: 0,
             data_bus: DataBus::default(),
+            generated_brillig_map,
         }
     }
 
@@ -598,24 +627,55 @@ impl Context {
                                         );
                                     }
                                 }
+                                let brillig_program_id = ssa
+                                    .id_to_index
+                                    .get(id)
+                                    .expect("ICE: should have an associated final index");
+                                dbg!(brillig_program_id);
 
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
-                                let arguments = self.gen_brillig_parameters(arguments, dfg);
-
-                                let code = self.gen_brillig_for(func, arguments, brillig)?;
 
                                 let outputs: Vec<AcirType> = vecmap(result_ids, |result_id| {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                let output_values = self.acir_context.brillig(
-                                    self.current_side_effects_enabled_var,
-                                    code,
-                                    inputs,
-                                    outputs,
-                                    true,
-                                    false,
-                                )?;
+                                let output_values = if let Some(code) = self.generated_brillig_map.get(brillig_program_id) {
+                                    dbg!("got previous generated brillig");
+                                    self.acir_context.brillig_pointer(
+                                        self.current_side_effects_enabled_var,
+                                        code,
+                                        inputs,
+                                        outputs,
+                                        true,
+                                        false,
+                                        *brillig_program_id,
+                                    )?
+                                } else {
+                                    let arguments = self.gen_brillig_parameters(arguments, dfg);
+                                    let code = self.gen_brillig_for(func, arguments, brillig)?;
+                                    // dbg!(code.byte_code.clone());
+                                    let output_values = self.acir_context.brillig_pointer(
+                                        self.current_side_effects_enabled_var,
+                                        &code,
+                                        inputs,
+                                        outputs,
+                                        true,
+                                        false,
+                                        *brillig_program_id,
+                                    )?;
+
+                                    self.generated_brillig_map.insert(*brillig_program_id, code);
+                                    output_values
+                                };
+
+                                // let output_values = self.acir_context.brillig(
+                                //     self.current_side_effects_enabled_var,
+                                //     code,
+                                //     inputs,
+                                //     outputs,
+                                //     true,
+                                //     false,
+                                // )?;
 
                                 // Compiler sanity check
                                 assert_eq!(result_ids.len(), output_values.len(), "ICE: The number of Brillig output values should match the result ids in SSA");
@@ -2492,7 +2552,7 @@ mod test {
 
         let ssa = builder.finish();
 
-        let acir_functions = ssa
+        let (acir_functions, _) = ssa
             .into_acir(&Brillig::default(), noirc_frontend::Distinctness::Distinct)
             .expect("Should compile manually written SSA into ACIR");
         // Expected result:
@@ -2588,7 +2648,7 @@ mod test {
 
         let ssa = builder.finish();
 
-        let acir_functions = ssa
+        let (acir_functions, _) = ssa
             .into_acir(&Brillig::default(), noirc_frontend::Distinctness::Distinct)
             .expect("Should compile manually written SSA into ACIR");
         // The expected result should look very similar to the abvoe test expect that the input witnesses of the `Call`
@@ -2679,7 +2739,7 @@ mod test {
 
         let ssa = builder.finish();
 
-        let acir_functions = ssa
+        let (acir_functions, _) = ssa
             .into_acir(&Brillig::default(), noirc_frontend::Distinctness::Distinct)
             .expect("Should compile manually written SSA into ACIR");
 

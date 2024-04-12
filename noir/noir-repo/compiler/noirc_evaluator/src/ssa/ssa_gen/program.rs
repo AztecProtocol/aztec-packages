@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, fmt::Display};
 use iter_extended::btree_map;
 
 use crate::ssa::ir::{
-    function::{Function, FunctionId},
+    function::{Function, FunctionId, RuntimeType},
     map::AtomicCounter,
 };
 
@@ -27,7 +27,22 @@ impl Ssa {
             (f.id(), f)
         });
 
-        let id_to_index = btree_map(functions.iter().enumerate(), |(i, (id, _))| (*id, i as u32));
+        let mut acir_index = 0;
+        let mut brillig_index = 0;
+        let id_to_index = btree_map(functions.iter().enumerate(), |(i, (id, func))| {
+            match func.runtime() {
+                RuntimeType::Acir(_) => {
+                    let res = (*id, acir_index);
+                    acir_index += 1;
+                    res
+                }
+                RuntimeType::Brillig => {
+                    let res = (*id, brillig_index);
+                    brillig_index += 1;
+                    res
+                }
+            }
+        });
 
         Self { functions, main_id, next_id: AtomicCounter::starting_after(max_id), id_to_index }
     }
