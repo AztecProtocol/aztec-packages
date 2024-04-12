@@ -349,13 +349,6 @@ impl PrivateContext {
             is_delegate_call
         );
 
-        let mut note_hash_read_req_count = 0;
-        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
-            if !is_empty(item.public_inputs.note_hash_read_requests[i]) {
-                note_hash_read_req_count = note_hash_read_req_count + 1;
-            }
-        }
-
         assert_eq(item.public_inputs.call_context.side_effect_counter, self.side_effect_counter);
         assert_eq(item.public_inputs.start_side_effect_counter, self.side_effect_counter);
         self.side_effect_counter = item.public_inputs.end_side_effect_counter + 1;
