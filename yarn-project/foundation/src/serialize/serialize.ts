@@ -150,10 +150,10 @@ export type Fieldable =
  * @returns A buffer list with the concatenation of all fields.
  */
 export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
-  let ret: Buffer[] = [];
+  const ret: Buffer[] = [];
   for (const obj of objs) {
     if (Array.isArray(obj)) {
-      ret = [...ret, ...serializeToBufferArray(...obj)];
+      ret.push(...serializeToBufferArray(...obj));
     } else if (Buffer.isBuffer(obj)) {
       ret.push(obj);
     } else if (typeof obj === 'boolean') {
@@ -185,16 +185,16 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
  * @returns An array of fields with the concatenation of all fields.
  */
 export function serializeToFields(...objs: Fieldable[]): Fr[] {
-  let ret: Fr[] = [];
+  const ret: Fr[] = [];
   for (const obj of objs) {
     if (Array.isArray(obj)) {
-      ret = [...ret, ...serializeToFields(...obj)];
+      ret.push(...serializeToFields(...obj));
     } else if (obj instanceof Fr) {
       ret.push(obj);
     } else if (typeof obj === 'boolean' || typeof obj === 'number' || typeof obj === 'bigint') {
       ret.push(new Fr(obj));
     } else if ('toFields' in obj) {
-      ret = [...ret, ...obj.toFields()];
+      ret.push(...obj.toFields());
     } else if ('toFr' in obj) {
       ret.push(obj.toFr());
     } else if ('toField' in obj) {
