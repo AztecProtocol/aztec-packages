@@ -70,14 +70,14 @@ runs:
       if: ${{ inputs.concurrency_key }}
       with:
         run: |
-          LOCK_FILE="/run/${{ inputs.concurrency_key }}"
-          echo "Lock is currently held, waiting..."
-          while [ -f "$LOCK_FILE" ]; then
-            sleep 1
+          while [ -f "/run/${{ inputs.concurrency_key }}.lock" ]; then
+            sleep 10
+            echo "Lock is currently held, waiting..."
           done
-          touch "$LOCK_FILE"
-          echo "$LOCK_FILE acquired."
+          touch "/run/${{ inputs.concurrency_key }}.lock"
+          echo "/run/${{ inputs.concurrency_key }}.lock acquired."
         post: |
-          LOCK_FILE="/run/${{ inputs.concurrency_key }}"
-          rm "$LOCK_FILE"
-          echo "$LOCK_FILE removed."
+          cd /run
+          LOCK_FILE=""
+          rm "/run/${{ inputs.concurrency_key }}.lock"
+          echo "/run/${{ inputs.concurrency_key }}.lock removed."
