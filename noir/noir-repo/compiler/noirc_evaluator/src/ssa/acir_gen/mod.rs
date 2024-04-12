@@ -670,8 +670,11 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                let output_values = if *brillig_program_id < self.generated_brilligs.len() as u32 {
-                                    let code = &self.generated_brilligs[*brillig_program_id as usize];
+                                let output_values = if *brillig_program_id
+                                    < self.generated_brilligs.len() as u32
+                                {
+                                    let code =
+                                        &self.generated_brilligs[*brillig_program_id as usize];
                                     self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         code,
