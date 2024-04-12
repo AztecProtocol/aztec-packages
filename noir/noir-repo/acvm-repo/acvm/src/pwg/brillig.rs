@@ -78,7 +78,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
             memory,
             &brillig.inputs,
             &brillig.bytecode,
-            bb_solver
+            bb_solver,
         )?;
         Ok(Self { vm, acir_index })
     }
@@ -98,7 +98,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
             memory,
             &brillig_pointer.inputs,
             brillig_bytecode,
-            bb_solver
+            bb_solver,
         )?;
         Ok(Self { vm, acir_index })
     }

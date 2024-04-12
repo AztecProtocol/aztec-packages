@@ -563,7 +563,6 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         self.acir_call_counter += 1;
         Ok(None)
     }
-    
 }
 
 // Returns the concrete value for a particular witness
