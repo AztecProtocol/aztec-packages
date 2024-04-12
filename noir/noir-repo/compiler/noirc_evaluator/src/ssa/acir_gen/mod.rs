@@ -137,14 +137,13 @@ struct Context<'a> {
     /// functions across all ACIR artifacts
     generated_brilligs: &'a mut Vec<GeneratedBrillig>,
 
-    // TODO: Move this into a shared context with `generated_brilligs`
     /// Maps SSA function index -> Final generated Brillig artifact index
     /// Represents the index of a function from SSA to its final generated index.
     /// There can be Brillig functions specified in SSA which do not act as
     /// entry points in ACIR (e.g. only called by other Brillig functions)
     /// We need this in case there are functions which have been specified in SSA
     /// but ultimately were not used during ACIR gen
-    brillig_index_to_gen_index: BTreeMap<u32, u32>,
+    brillig_index_to_gen_index: &'a mut BTreeMap<u32, u32>,
 }
 
 #[derive(Clone)]
@@ -239,8 +238,9 @@ impl Ssa {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
         let mut generated_brilligs = Vec::default();
+        let mut brillig_index_to_gen_index = BTreeMap::default();
         for function in self.functions.values() {
-            let context = Context::new(&mut generated_brilligs);
+            let context = Context::new(&mut generated_brilligs, &mut brillig_index_to_gen_index);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -285,7 +285,10 @@ impl Ssa {
 }
 
 impl<'a> Context<'a> {
-    fn new(generated_brilligs: &mut Vec<GeneratedBrillig>) -> Context {
+    fn new(
+        generated_brilligs: &'a mut Vec<GeneratedBrillig>,
+        brillig_index_to_gen_index: &'a mut BTreeMap<u32, u32>,
+    ) -> Context<'a> {
         let mut acir_context = AcirContext::default();
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
@@ -300,7 +303,7 @@ impl<'a> Context<'a> {
             max_block_id: 0,
             data_bus: DataBus::default(),
             generated_brilligs,
-            brillig_index_to_gen_index: BTreeMap::default(),
+            brillig_index_to_gen_index,
         }
     }
 
