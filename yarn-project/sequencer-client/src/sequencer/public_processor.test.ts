@@ -1,22 +1,19 @@
 import {
   type BlockProver,
-  EncryptedTxL2Logs,
   type FunctionCall,
   type ProcessedTx,
   PublicDataWrite,
-  SiblingPath,
   SimulationError,
-  Tx,
+  type Tx,
   UnencryptedFunctionL2Logs,
-  UnencryptedTxL2Logs,
   mockTx,
   toTxEffect,
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
+  AppendOnlyTreeSnapshot,
   type AztecAddress,
   CallContext,
-  CallRequest,
   ContractStorageUpdateRequest,
   EthAddress,
   Fr,
@@ -24,25 +21,20 @@ import {
   GasSettings,
   GlobalVariables,
   Header,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
-  type PrivateKernelTailCircuitPublicInputs,
+  PartialStateReference,
   type Proof,
   type PublicCallRequest,
-  PublicDataUpdateRequest,
+  PublicDataTreeLeafPreimage,
+  StateReference,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
-import {
-  fr,
-  makeAztecAddress,
-  makePrivateKernelTailCircuitPublicInputs,
-  makePublicCallRequest,
-  makeSelector,
-} from '@aztec/circuits.js/testing';
-import { makeTuple } from '@aztec/foundation/array';
-import { arrayNonEmptyLength, padArrayEnd, times } from '@aztec/foundation/collection';
+import { fr, makeAztecAddress, makePublicCallRequest, makeSelector } from '@aztec/circuits.js/testing';
+import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { openTmpStore } from '@aztec/kv-store/utils';
+import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import { type PublicExecution, type PublicExecutionResult, type PublicExecutor, WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
 
@@ -152,17 +144,75 @@ describe('public_processor', () => {
 
   describe('with actual circuits', () => {
     let publicKernel: PublicKernelCircuitSimulator;
+    let publicDataTree: AppendOnlyTree<Fr>;
+    let header = Header.empty();
+
+    const mockTxWithPartialState = (
+      {
+        hasLogs = false,
+        numberOfNonRevertiblePublicCallRequests = 0,
+        numberOfRevertiblePublicCallRequests = 0,
+        publicCallRequests = [],
+      }: {
+        hasLogs?: boolean;
+        numberOfNonRevertiblePublicCallRequests?: number;
+        numberOfRevertiblePublicCallRequests?: number;
+        publicCallRequests?: PublicCallRequest[];
+      } = {},
+      seed = 1,
+    ) => {
+      const tx = mockTx(seed, {
+        hasLogs,
+        numberOfNonRevertiblePublicCallRequests,
+        numberOfRevertiblePublicCallRequests,
+        publicCallRequests,
+      });
+      tx.data.constants.historicalHeader.state = header.state;
+      return tx;
+    };
+
+    beforeAll(async () => {
+      publicDataTree = await newTree(
+        StandardTree,
+        openTmpStore(),
+        new Pedersen(),
+        'PublicData',
+        Fr,
+        PUBLIC_DATA_TREE_HEIGHT,
+      );
+      // Add a default low leaf for the public data hints to be proved against.
+      const defaultLeaves = [new PublicDataTreeLeafPreimage(new Fr(1), new Fr(0), new Fr(0), 0n)].map(l =>
+        pedersenHash(l.toHashInputs()),
+      );
+      await publicDataTree.appendLeaves(defaultLeaves);
+    });
 
     beforeEach(() => {
-      const path = times(PUBLIC_DATA_TREE_HEIGHT, i => Buffer.alloc(32, i));
-      db.getSiblingPath.mockResolvedValue(new SiblingPath<number>(PUBLIC_DATA_TREE_HEIGHT, path));
+      const snap = new AppendOnlyTreeSnapshot(
+        Fr.fromBuffer(publicDataTree.getRoot(true)),
+        Number(publicDataTree.getNumLeaves(true)),
+      );
+      header = new Header(
+        header.lastArchive,
+        header.contentCommitment,
+        new StateReference(
+          header.state.l1ToL2MessageTree,
+          new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
+        ),
+        header.globalVariables,
+      );
+
+      db.getSiblingPath.mockResolvedValue(publicDataTree.getSiblingPath(0n, false));
+      db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
+      db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(1), new Fr(0), new Fr(0), 0n));
+
       publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
       processor = new PublicProcessor(
         db,
         publicExecutor,
         publicKernel,
         GlobalVariables.empty(),
-        Header.empty(),
+        header,
         publicContractsDB,
         publicWorldStateDB,
       );
@@ -175,7 +225,9 @@ describe('public_processor', () => {
       });
 
     it('runs a tx with enqueued public calls', async function () {
-      const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 2 });
+      const tx = mockTxWithPartialState({
+        numberOfRevertiblePublicCallRequests: 2,
+      });
 
       publicExecutor.simulate.mockImplementation(execution => {
         for (const request of tx.enqueuedPublicFunctionCalls) {
@@ -201,7 +253,7 @@ describe('public_processor', () => {
     });
 
     it('runs a tx with an enqueued public call with nested execution', async function () {
-      const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
+      const tx = mockTxWithPartialState({ numberOfRevertiblePublicCallRequests: 1 });
       const callRequest = tx.enqueuedPublicFunctionCalls[0];
 
       const publicExecutionResult = PublicExecutionResultBuilder.fromPublicCallRequest({
@@ -232,7 +284,7 @@ describe('public_processor', () => {
 
     it('does not attempt to overfill a block', async function () {
       const txs = Array.from([1, 2, 3], index =>
-        mockTx(index, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 }),
+        mockTxWithPartialState({ numberOfRevertiblePublicCallRequests: 1 }, index),
       );
 
       let txCount = 0;
@@ -264,7 +316,7 @@ describe('public_processor', () => {
     });
 
     it('does not send a transaction to the prover if validation fails', async function () {
-      const tx = mockTx(1, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 1 });
+      const tx = mockTxWithPartialState({ numberOfRevertiblePublicCallRequests: 1 });
 
       publicExecutor.simulate.mockImplementation(execution => {
         for (const request of tx.enqueuedPublicFunctionCalls) {
@@ -292,39 +344,20 @@ describe('public_processor', () => {
     it('rolls back app logic db updates on failed public execution, but persists setup/teardown', async function () {
       const baseContractAddressSeed = 0x200;
       const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
-      const callRequests: PublicCallRequest[] = [
+      const publicCallRequests: PublicCallRequest[] = [
         baseContractAddressSeed,
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].callContext.sideEffectCounter = 2;
+      publicCallRequests[1].callContext.sideEffectCounter = 3;
+      publicCallRequests[2].callContext.sideEffectCounter = 4;
 
-      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
-      );
-      kernelOutput.forPublic!.end.publicDataUpdateRequests = makeTuple(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
-      );
-
-      addKernelPublicCallStack(kernelOutput, {
-        setupCalls: [callRequests[0]],
-        appLogicCalls: [callRequests[2]],
-        teardownCall: callRequests[1],
+      const tx = mockTxWithPartialState({
+        numberOfNonRevertiblePublicCallRequests: 2,
+        numberOfRevertiblePublicCallRequests: 1,
+        publicCallRequests,
       });
-
-      const tx = new Tx(
-        kernelOutput,
-        proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
-        // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
-        callRequests.slice().reverse(),
-      );
 
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
@@ -334,16 +367,16 @@ describe('public_processor', () => {
       const simulatorResults: PublicExecutionResult[] = [
         // Setup
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[0],
+          request: publicCallRequests[0],
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
         }).build(),
 
         // App Logic
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[2],
+          request: publicCallRequests[2],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
@@ -351,7 +384,7 @@ describe('public_processor', () => {
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
@@ -360,10 +393,10 @@ describe('public_processor', () => {
 
         // Teardown
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[1],
+          request: publicCallRequests[1],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
             }).build(),
@@ -415,31 +448,20 @@ describe('public_processor', () => {
     it('fails a transaction that reverts in setup', async function () {
       const baseContractAddressSeed = 0x200;
       const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
-      const callRequests: PublicCallRequest[] = [
+      const publicCallRequests: PublicCallRequest[] = [
         baseContractAddressSeed,
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].callContext.sideEffectCounter = 2;
+      publicCallRequests[1].callContext.sideEffectCounter = 3;
+      publicCallRequests[2].callContext.sideEffectCounter = 4;
 
-      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-
-      addKernelPublicCallStack(kernelOutput, {
-        setupCalls: [callRequests[0]],
-        appLogicCalls: [callRequests[2]],
-        teardownCall: callRequests[1],
+      const tx = mockTxWithPartialState({
+        numberOfNonRevertiblePublicCallRequests: 2,
+        numberOfRevertiblePublicCallRequests: 1,
+        publicCallRequests,
       });
-
-      const tx = new Tx(
-        kernelOutput,
-        proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
-        // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
-        callRequests.slice().reverse(),
-      );
 
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
@@ -449,11 +471,11 @@ describe('public_processor', () => {
       const simulatorResults: PublicExecutionResult[] = [
         // Setup
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[0],
+          request: publicCallRequests[0],
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
@@ -461,7 +483,7 @@ describe('public_processor', () => {
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
@@ -470,15 +492,15 @@ describe('public_processor', () => {
 
         // App Logic
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[2],
+          request: publicCallRequests[2],
         }).build(),
 
         // Teardown
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[1],
+          request: publicCallRequests[1],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
             }).build(),
@@ -520,31 +542,20 @@ describe('public_processor', () => {
     it('fails a transaction that reverts in teardown', async function () {
       const baseContractAddressSeed = 0x200;
       const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
-      const callRequests: PublicCallRequest[] = [
+      const publicCallRequests: PublicCallRequest[] = [
         baseContractAddressSeed,
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].callContext.sideEffectCounter = 2;
+      publicCallRequests[1].callContext.sideEffectCounter = 3;
+      publicCallRequests[2].callContext.sideEffectCounter = 4;
 
-      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-
-      addKernelPublicCallStack(kernelOutput, {
-        setupCalls: [callRequests[0]],
-        appLogicCalls: [callRequests[2]],
-        teardownCall: callRequests[1],
+      const tx = mockTxWithPartialState({
+        numberOfNonRevertiblePublicCallRequests: 2,
+        numberOfRevertiblePublicCallRequests: 1,
+        publicCallRequests,
       });
-
-      const tx = new Tx(
-        kernelOutput,
-        proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
-        // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
-        callRequests.slice().reverse(),
-      );
 
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
@@ -554,11 +565,11 @@ describe('public_processor', () => {
       const simulatorResults: PublicExecutionResult[] = [
         // Setup
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[0],
+          request: publicCallRequests[0],
           contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
@@ -570,20 +581,20 @@ describe('public_processor', () => {
 
         // App Logic
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[2],
+          request: publicCallRequests[2],
         }).build(),
 
         // Teardown
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[1],
+          request: publicCallRequests[1],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
             }).build(),
@@ -624,41 +635,20 @@ describe('public_processor', () => {
     it('runs a tx with setup and teardown phases', async function () {
       const baseContractAddressSeed = 0x200;
       const baseContractAddress = makeAztecAddress(baseContractAddressSeed);
-      const callRequests: PublicCallRequest[] = [
+      const publicCallRequests: PublicCallRequest[] = [
         baseContractAddressSeed,
         baseContractAddressSeed,
         baseContractAddressSeed,
       ].map(makePublicCallRequest);
-      callRequests[0].callContext.sideEffectCounter = 2;
-      callRequests[1].callContext.sideEffectCounter = 3;
-      callRequests[2].callContext.sideEffectCounter = 4;
+      publicCallRequests[0].callContext.sideEffectCounter = 2;
+      publicCallRequests[1].callContext.sideEffectCounter = 3;
+      publicCallRequests[2].callContext.sideEffectCounter = 4;
 
-      const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
-      kernelOutput.forPublic!.end.encryptedLogsHash = Fr.ZERO;
-      kernelOutput.forPublic!.end.unencryptedLogsHash = Fr.ZERO;
-      kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
-      );
-      kernelOutput.forPublic!.end.publicDataUpdateRequests = makeTuple(
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        PublicDataUpdateRequest.empty,
-      );
-
-      addKernelPublicCallStack(kernelOutput, {
-        setupCalls: [callRequests[0]],
-        appLogicCalls: [callRequests[2]],
-        teardownCall: callRequests[1],
+      const tx = mockTxWithPartialState({
+        numberOfNonRevertiblePublicCallRequests: 2,
+        numberOfRevertiblePublicCallRequests: 1,
+        publicCallRequests,
       });
-
-      const tx = new Tx(
-        kernelOutput,
-        proof,
-        EncryptedTxL2Logs.empty(),
-        UnencryptedTxL2Logs.empty(),
-        // reverse because `enqueuedPublicFunctions` expects the last element to be the front of the queue
-        callRequests.slice().reverse(),
-      );
 
       // const baseContractAddress = makeAztecAddress(30);
       const contractSlotA = fr(0x100);
@@ -668,11 +658,11 @@ describe('public_processor', () => {
       let simulatorCallCount = 0;
       const simulatorResults: PublicExecutionResult[] = [
         // Setup
-        PublicExecutionResultBuilder.fromPublicCallRequest({ request: callRequests[0] }).build(),
+        PublicExecutionResultBuilder.fromPublicCallRequest({ request: publicCallRequests[0] }).build(),
 
         // App Logic
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[2],
+          request: publicCallRequests[2],
           contractStorageUpdateRequests: [
             new ContractStorageUpdateRequest(contractSlotA, fr(0x101)),
             new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
@@ -681,10 +671,10 @@ describe('public_processor', () => {
 
         // Teardown
         PublicExecutionResultBuilder.fromPublicCallRequest({
-          request: callRequests[1],
+          request: publicCallRequests[1],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x101)),
@@ -692,7 +682,7 @@ describe('public_processor', () => {
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
-              from: callRequests[1].contractAddress,
+              from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x102))],
             }).build(),
@@ -867,28 +857,3 @@ const makeFunctionCall = (
   selector = makeSelector(5),
   args = new Array(ARGS_LENGTH).fill(Fr.ZERO),
 ) => ({ to, functionData: new FunctionData(selector, false), args });
-
-function addKernelPublicCallStack(
-  kernelOutput: PrivateKernelTailCircuitPublicInputs,
-  calls: {
-    setupCalls: PublicCallRequest[];
-    appLogicCalls: PublicCallRequest[];
-    teardownCall: PublicCallRequest;
-  },
-) {
-  // the first two calls are non-revertible
-  // the first is for setup, the second is for teardown
-  kernelOutput.forPublic!.endNonRevertibleData.publicCallStack = padArrayEnd(
-    // this is a stack, so the first item is the last call
-    // and callRequests is in the order of the calls
-    [calls.teardownCall.toCallRequest(), ...calls.setupCalls.map(c => c.toCallRequest())],
-    CallRequest.empty(),
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  );
-
-  kernelOutput.forPublic!.end.publicCallStack = padArrayEnd(
-    calls.appLogicCalls.map(c => c.toCallRequest()),
-    CallRequest.empty(),
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  );
-}
