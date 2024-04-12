@@ -13,7 +13,7 @@ COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
-# We want the native ACVM binary
+# We want the native ACVM and BB binaries
 COPY --from=noir /usr/src/noir/noir-repo/target/release/acvm /usr/src/noir/noir-repo/target/release/acvm
 COPY --from=barretenberg /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
