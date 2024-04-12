@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/setup-runner.yml
     with:
       runner_label: master-arm
-      ebs_cache_size_gb: 128
+      ebs_cache_size_gb: 256
       runner_concurrency: 8
       subaction: ${{ github.event.inputs.runner_action || 'start' }}
       ec2_instance_type: r6g.16xlarge
