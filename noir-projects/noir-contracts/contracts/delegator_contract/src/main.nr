@@ -20,7 +20,7 @@ contract Delegator {
         owner: AztecAddress
     ) -> Field {
         // Call the target private function
-        DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context)
+        IDelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context)
     }
 
     #[aztec(private)]
@@ -54,5 +54,48 @@ contract Delegator {
 
     unconstrained fn view_public_value() -> pub Field {
         storage.current_value.read()
+    }
+
+    struct IDelegatedOn {
+            target_contract: dep::aztec::protocol_types::address::AztecAddress
+        }
+
+    impl IDelegatedOn {
+        pub fn private_set_value(
+            self,
+            new_value: Field,
+            owner: AztecAddress
+        ) -> dep::aztec::context::PrivateCallInterface<Field> {
+            let mut args_acc: [Field] = [0; 0].as_slice();
+            args_acc = args_acc.append(new_value.serialize().as_slice());
+            args_acc = args_acc.append(owner.serialize().as_slice());
+
+            let args_hash = dep::aztec::hash::hash_args(args_acc);
+            assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));
+            dep::aztec::context::PrivateCallInterface {
+                target_contract: self.target_contract,
+                selector: dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature("private_set_value(Field,(Field))"),
+                args_hash
+            }
+        }
+        pub fn public_set_value(
+            self,
+            new_value: Field
+        ) -> dep::aztec::context::PublicCallInterface<Field> {
+            let mut args_acc: [Field] = [0; 0].as_slice();
+            args_acc = args_acc.append(new_value.serialize().as_slice());
+
+            let args_hash = dep::aztec::hash::hash_args(args_acc);
+            assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));
+            dep::aztec::context::PublicCallInterface {
+                target_contract: self.target_contract,
+                selector: dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature("SELECTOR_PLACEHOLDER"),
+                args_hash
+            }
+        }
+
+        pub fn at(target_contract: dep::aztec::protocol_types::address::AztecAddress) -> Self {
+            Self { target_contract }
+        }
     }
 }

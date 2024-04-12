@@ -1,4 +1,4 @@
-#[oracle(packArguments)]
+#[oracle(packArgumentsArray)]
 fn pack_arguments_array_oracle<N>(_args: [Field; N]) -> Field {}
 
 #[oracle(packArguments)]

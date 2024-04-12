@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 pub enum ForeignCallParam {
     Single(FieldElement),
     Array(Vec<FieldElement>),
-    Slice(FieldElement, Vec<FieldElement>),
 }
 
 impl From<FieldElement> for ForeignCallParam {
@@ -32,7 +31,6 @@ impl ForeignCallParam {
         match self {
             ForeignCallParam::Single(value) => vec![*value],
             ForeignCallParam::Array(values) => values.clone(),
-            ForeignCallParam::Slice(_, values) => values.clone(),
         }
     }
 
@@ -40,7 +38,6 @@ impl ForeignCallParam {
         match self {
             ForeignCallParam::Single(value) => *value,
             ForeignCallParam::Array(_) => panic!("Expected single value, found array"),
-            ForeignCallParam::Slice(_, _) => panic!("Expected single value, found slice"),
         }
     }
 }
