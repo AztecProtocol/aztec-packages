@@ -1,7 +1,7 @@
 import { type NewKeyStore, type PublicKey } from '@aztec/circuit-types';
 import { AztecAddress, Fq, Fr, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { poseidonHash } from '@aztec/foundation/crypto';
+import { poseidonHash, sha512ToField } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 /**
@@ -32,11 +32,12 @@ export class NewTestKeyStore implements NewKeyStore {
    * @returns The account's address.
    */
   public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress> {
-    // First we derive master secret keys
-    const masterNullifierSecretKey = poseidonHash([sk], GeneratorIndex.NSK_M);
-    const masterIncomingViewingSecretKey = poseidonHash([sk], GeneratorIndex.IVSK_M);
-    const masterOutgoingViewingSecretKey = poseidonHash([sk], GeneratorIndex.OVSK_M);
-    const masterTaggingSecretKey = poseidonHash([sk], GeneratorIndex.TSK_M);
+    // First we derive master secret keys -  we use sha512 here because this derivation will never take place
+    // in a circuit
+    const masterNullifierSecretKey = sha512ToField([sk, GeneratorIndex.NSK_M]);
+    const masterIncomingViewingSecretKey = sha512ToField([sk, GeneratorIndex.IVSK_M]);
+    const masterOutgoingViewingSecretKey = sha512ToField([sk, GeneratorIndex.OVSK_M]);
+    const masterTaggingSecretKey = sha512ToField([sk, GeneratorIndex.TSK_M]);
 
     // Then we derive master public keys
     // TODO: Is converting from Fr to Fq bellow an issue? Fr.MODULUS is < Fq.MODULUS so it shouldn't but should we refactor this anyway?
