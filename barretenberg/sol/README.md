@@ -18,7 +18,7 @@ The verification key is currently generated via [Barretenberg](https://github.co
 
 ## Generating Verification Keys and Proofs
 
-Run `bootstrap.sh` to clone git submodules, download SRS and generate verification keys, relies on barretenberg already being compiled (run `./bootstrap` in `cpp`). The bootstrap will also install foundry to `./.foundry` so you can use `$PROJECT_ROOT/foundry/bin/forge` if you don't already have foundry installed.
+Run `bootstrap.sh` to clone git submodules, download SRS and generate verification keys, relies on barretenberg already being compiled (run `./bootstrap` in `cpp`). The bootstrap will also install foundry to `./.foundry` so you can use `./.foundry/bin/forge` if you don't already have foundry installed.
 
 # Tests
 
