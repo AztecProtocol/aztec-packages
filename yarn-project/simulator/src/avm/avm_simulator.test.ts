@@ -5,6 +5,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { type Fieldable } from '@aztec/foundation/serialize';
 import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -24,7 +25,6 @@ import {
 } from './fixtures/index.js';
 import { Add, CalldataCopy, Return } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
-import { Fieldable } from '@aztec/foundation/serialize';
 
 describe('AVM simulator: injected bytecode', () => {
   let calldata: Fr[];
