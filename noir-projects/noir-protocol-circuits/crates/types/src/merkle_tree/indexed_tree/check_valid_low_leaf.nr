@@ -6,9 +6,7 @@ pub fn assert_check_valid_low_leaf<LEAF_PREIMAGE>(
 ) where LEAF_PREIMAGE: IndexedTreeLeafPreimage {
     let low_key = low_leaf_preimage.get_key();
     let next_key = low_leaf_preimage.get_next_key();
-    let is_empty_leaf = (low_key == 0) & (next_key == 0);
 
-    assert(!is_empty_leaf, "Cannot check non membership against empty leaf");
     assert(low_key.lt(key), "Key is not greater than the low leaf");
     assert(key.lt(next_key) | (next_key == 0), "Key is not less than the next leaf");
 }
@@ -47,10 +45,14 @@ mod tests {
         assert_check_valid_low_leaf(key, leaf);
     }
 
-    #[test(should_fail_with="Cannot check non membership against empty leaf")]
-    fn test_assert_check_valid_low_leaf_failed_empty_leaf() {
-        let empty_leaf = TestLeafPreimage { value: 0, next_value: 0 };
-        assert_check_valid_low_leaf(0, empty_leaf);
+    #[test]
+    fn test_assert_check_empty_low_leaf() {
+        // An all-zero low leaf should be valid. It could be used as the first dummy leaf in a tree.
+        // It's not possible to prove against an empty leaf at an uninitialized index.
+        // The membership check will fail because the leaf value hash(0, 0) is not 0.
+        let key = 12;
+        let leaf = TestLeafPreimage { value: 0, next_value: 0 };
+        assert_check_valid_low_leaf(key, leaf);
     }
 
     #[test(should_fail_with="Key is not greater than the low leaf")]

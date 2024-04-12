@@ -248,11 +248,6 @@ mod tests {
         assert_check_non_membership_at_index(1, 45);
     }
 
-    #[test(should_fail_with="Cannot check non membership against empty leaf")]
-    fn test_assert_check_non_membership_failed_empty_leaf() {
-        assert_check_non_membership_at_index(4, 25);
-    }
-
     #[test(should_fail_with="Key is not greater than the low leaf")]
     fn test_assert_check_non_membership_failed_wrong_low_leaf() {
         assert_check_non_membership_at_index(3, 25);
@@ -290,11 +285,6 @@ mod tests {
     #[test(should_fail_with="Key does not match the key of the leaf preimage")]
     fn test_conditionally_assert_check_membership_exists_value_mismatch() {
         conditionally_assert_check_membership_at_index(true, 1, leaf_preimages[1].get_key() + 1);
-    }
-
-    #[test(should_fail_with="Cannot check non membership against empty leaf")]
-    fn test_conditionally_assert_check_membership_failed_not_exists_empty_leaf() {
-        conditionally_assert_check_membership_at_index(false, 4, 1);
     }
 
     #[test(should_fail_with="Key is not greater than the low leaf")]

@@ -178,16 +178,10 @@ impl BaseRollupInputs {
     }
 
     fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
-        // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
-        // Blocks all interesting usecases that read and write to the same public state in the same tx.
-        // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
-
-        // Process public data reads and public data update requests for left input
-        // validate_public_data_reads(
-        //                            self.start_public_data_tree_root,
-        //                            self.kernel_data[0].public_inputs.end.public_data_reads,
-        //                            0,
-        //                            self.new_public_data_reads_sibling_paths);
+        let kernel_state = self.kernel_data.public_inputs.end_state;
+        if !kernel_state.public_data_tree.eq(AppendOnlyTreeSnapshot::zero()) {
+            assert(kernel_state.public_data_tree.eq(self.start.public_data_tree), "Mismatch start state");
+        }
 
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
@@ -316,43 +310,6 @@ fn insert_public_data_update_requests(
         [0; PUBLIC_DATA_SUBTREE_HEIGHT],
         [0; PUBLIC_DATA_TREE_HEIGHT]
     )
-}
-
-fn validate_public_data_reads(
-    tree_root: Field,
-    public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX]
-) {
-    for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
-        let read = public_data_reads[i];
-        let low_preimage = public_data_reads_preimages[i];
-        let witness = public_data_reads_witnesses[i];
-
-        let is_low_empty = low_preimage.is_empty();
-        let is_exact = low_preimage.slot == read.leaf_slot;
-
-        let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
-        let is_next_greater_than = full_field_less_than(read.leaf_slot, low_preimage.next_slot);
-        let is_in_range = is_less_than_slot
-            & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
-
-        if (!read.is_empty()) {
-            assert(!is_low_empty, "public data read is not empty but low preimage is empty");
-            if is_in_range {
-                assert_eq(read.value, 0, "low leaf for public data read is in range but value is not zero");
-            } else {
-                assert(is_exact, "low leaf for public data read is invalid");
-                assert_eq(read.value, low_preimage.value, "low leaf for public data has different value");
-            }
-            assert_check_membership(
-                low_preimage.hash(),
-                witness.leaf_index,
-                witness.sibling_path,
-                tree_root
-            );
-        }
-    }
 }
 
 #[test]

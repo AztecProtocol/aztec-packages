@@ -32,7 +32,6 @@ import {
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';
 import { fr, makeAztecAddress, makePublicCallRequest, makeSelector } from '@aztec/circuits.js/testing';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import { type PublicExecution, type PublicExecutionResult, type PublicExecutor, WASMSimulator } from '@aztec/simulator';
@@ -176,12 +175,8 @@ describe('public_processor', () => {
         'PublicData',
         Fr,
         PUBLIC_DATA_TREE_HEIGHT,
+        1, // Add a default low leaf for the public data hints to be proved against.
       );
-      // Add a default low leaf for the public data hints to be proved against.
-      const defaultLeaves = [new PublicDataTreeLeafPreimage(new Fr(1), new Fr(0), new Fr(0), 0n)].map(l =>
-        pedersenHash(l.toHashInputs()),
-      );
-      await publicDataTree.appendLeaves(defaultLeaves);
     });
 
     beforeEach(() => {
@@ -195,13 +190,13 @@ describe('public_processor', () => {
         header.state.l1ToL2MessageTree,
         new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),
       );
-      // Clone the whole state because somewhere down the line something is changing the public data root in header.
+      // Clone the whole state because somewhere down the line (AbstractPhaseManager) the public data root is modified in the referenced header directly :/
       header.state = StateReference.fromBuffer(stateReference.toBuffer());
 
       db.getStateReference.mockResolvedValue(stateReference);
       db.getSiblingPath.mockResolvedValue(publicDataTree.getSiblingPath(0n, false));
       db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
-      db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(1), new Fr(0), new Fr(0), 0n));
+      db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
 
       publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
       processor = new PublicProcessor(
