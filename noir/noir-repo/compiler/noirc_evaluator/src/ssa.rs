@@ -14,9 +14,7 @@ use crate::{
     errors::{RuntimeError, SsaReport},
 };
 use acvm::acir::{
-    circuit::{
-        brillig::BrilligBytecode, Circuit, ExpressionWidth, Program as AcirProgram, PublicInputs,
-    },
+    circuit::{brillig::BrilligBytecode, Circuit, ExpressionWidth, Program as AcirProgram, PublicInputs},
     native_types::Witness,
 };
 
@@ -104,7 +102,10 @@ pub struct SsaProgramArtifact {
 
 impl SsaProgramArtifact {
     fn new(unconstrained_functions: Vec<BrilligBytecode>) -> Self {
-        let program = AcirProgram { functions: Vec::default(), unconstrained_functions };
+        let program = AcirProgram {
+            functions: Vec::default(),
+            unconstrained_functions,
+        };
         Self {
             program,
             debug: Vec::default(),
@@ -146,7 +147,7 @@ pub fn create_program(
     let func_sigs = program.function_signatures.clone();
 
     let recursive = program.recursive;
-    let (generated_acirs, generated_brillig) = optimize_into_acir(
+    let (generated_acirs, brillig_bytecode) = optimize_into_acir(
         program,
         enable_ssa_logging,
         enable_brillig_logging,
@@ -159,7 +160,7 @@ pub fn create_program(
         "The generated ACIRs should match the supplied function signatures"
     );
 
-    let mut program_artifact = SsaProgramArtifact::new(generated_brillig);
+    let mut program_artifact = SsaProgramArtifact::new(brillig_bytecode);
     // For setting up the ABI we need separately specify main's input and return witnesses
     let mut is_main = true;
     for (acir, func_sig) in generated_acirs.into_iter().zip(func_sigs) {

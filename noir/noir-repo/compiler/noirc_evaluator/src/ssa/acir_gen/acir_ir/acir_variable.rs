@@ -1554,8 +1554,7 @@ impl AcirContext {
         Ok(outputs_var)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn brillig_call(
+    pub(crate) fn brillig_pointer(
         &mut self,
         predicate: AcirVar,
         generated_brillig: &GeneratedBrillig,
@@ -1565,7 +1564,8 @@ impl AcirContext {
         unsafe_return_values: bool,
         brillig_function_index: u32,
     ) -> Result<Vec<AcirValue>, RuntimeError> {
-        let brillig_inputs = try_vecmap(inputs, |i| -> Result<_, InternalError> {
+        // TODO: move this to its own method
+        let b_inputs = try_vecmap(inputs, |i| -> Result<_, InternalError> {
             match i {
                 AcirValue::Var(var, _) => Ok(BrilligInputs::Single(self.var_to_expression(var)?)),
                 AcirValue::Array(vars) => {
@@ -1588,36 +1588,30 @@ impl AcirContext {
         // the entire program will be replaced with witness constraints to its outputs.
         if attempt_execution {
             if let Some(brillig_outputs) =
-                self.execute_brillig(&generated_brillig.byte_code, &brillig_inputs, &outputs)
+                self.execute_brillig(&generated_brillig.byte_code, &b_inputs, &outputs)
             {
                 return Ok(brillig_outputs);
             }
         }
 
         // Otherwise we must generate ACIR for it and execute at runtime.
-        let mut brillig_outputs = Vec::new();
+        let mut b_outputs = Vec::new();
         let outputs_var = vecmap(outputs, |output| match output {
             AcirType::NumericType(_) => {
                 let witness_index = self.acir_ir.next_witness_index();
-                brillig_outputs.push(BrilligOutputs::Simple(witness_index));
+                b_outputs.push(BrilligOutputs::Simple(witness_index));
                 let var = self.add_data(AcirVarData::Witness(witness_index));
                 AcirValue::Var(var, output.clone())
             }
             AcirType::Array(element_types, size) => {
                 let (acir_value, witnesses) = self.brillig_array_output(&element_types, size);
-                brillig_outputs.push(BrilligOutputs::Array(witnesses));
+                b_outputs.push(BrilligOutputs::Array(witnesses));
                 acir_value
             }
         });
         let predicate = self.var_to_expression(predicate)?;
 
-        self.acir_ir.brillig_call(
-            Some(predicate),
-            generated_brillig,
-            brillig_inputs,
-            brillig_outputs,
-            brillig_function_index,
-        );
+        self.acir_ir.brillig_pointer(Some(predicate), &generated_brillig, b_inputs, b_outputs, brillig_function_index);
 
         fn range_constraint_value(
             context: &mut AcirContext,

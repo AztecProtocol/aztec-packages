@@ -31,19 +31,22 @@ impl Ssa {
             (f.id(), f)
         });
 
-        let entry_point_to_generated_index = btree_map(
-            functions
-                .iter()
-                .filter(|(_, func)| {
-                    let runtime = func.runtime();
-                    match func.runtime() {
-                        RuntimeType::Acir(_) => runtime.is_entry_point() || func.id() == main_id,
-                        RuntimeType::Brillig => false,
-                    }
-                })
-                .enumerate(),
-            |(i, (id, _))| (*id, i as u32),
-        );
+        let mut acir_index = 0;
+        let mut brillig_index = 0;
+        let id_to_index = btree_map(functions.iter().enumerate(), |(i, (id, func))| {
+            match func.runtime() {
+                RuntimeType::Acir(_) => {
+                    let res = (*id, acir_index);
+                    acir_index += 1;
+                    res
+                }
+                RuntimeType::Brillig => {
+                    let res = (*id, brillig_index);
+                    brillig_index += 1;
+                    res
+                }
+            }
+        });
 
         Self {
             functions,
