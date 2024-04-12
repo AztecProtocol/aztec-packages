@@ -175,7 +175,6 @@ export class BBNativeRollupProver implements CircuitProver {
   public async createProof(witnessMap: WitnessMap, circuitType: ServerProtocolArtifact): Promise<[WitnessMap, Proof]> {
     // Create random directory to be used for temp files
     const bbWorkingDirectory = `${this.config.bbWorkingDirectory}/${randomBytes(8).toString('hex')}`;
-    logger.info(`Creating directory ${bbWorkingDirectory}`);
     await fs.mkdir(bbWorkingDirectory, { recursive: true });
 
     await fs.access(bbWorkingDirectory);

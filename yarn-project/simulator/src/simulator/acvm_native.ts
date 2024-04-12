@@ -121,35 +121,9 @@ export async function executeNativeCircuit(
 
     const duration = new Timer();
     const output = await processPromise;
-
-    const lsPromise = new Promise<void>(resolve => {
-      let outputWitness = Buffer.alloc(0);
-      let errorBuffer = Buffer.alloc(0);
-      const acvm = proc.spawn('ls', ['-lh', `${workingDirectory}`]);
-      acvm.stdout.on('data', data => {
-        outputWitness = Buffer.concat([outputWitness, data]);
-        logger.info(`From LS at ${workingDirectory}: ${outputWitness.toString('utf-8')}`);
-      });
-      acvm.stderr.on('data', data => {
-        errorBuffer = Buffer.concat([errorBuffer, data]);
-        logger.info(`Error LS at ${workingDirectory}: ${errorBuffer.toString('utf-8')}`);
-      });
-      acvm.on('close', _ => {
-        resolve();
-      });
-    });
-
-    await lsPromise;
-
     if (outputFilename) {
       const outputWitnessFileName = `${workingDirectory}/output-witness.gz`;
-      try {
-        await fs.access(outputWitnessFileName);
-      } catch (error) {
-        logger.error(`Output witness not present at ${outputWitnessFileName}`);
-        return { status: ACVM_RESULT.FAILURE, reason: `Output witness not present at ${outputWitnessFileName}` };
-      }
-      await fs.copyFile(`${workingDirectory}/output-witness.gz`, outputFilename);
+      await fs.copyFile(outputWitnessFileName, outputFilename);
     }
     const witness = parseIntoWitnessMap(output);
     return { status: ACVM_RESULT.SUCCESS, witness, duration: duration.ms() };
@@ -169,13 +143,11 @@ export class NativeACVMSimulator implements SimulationProvider {
     // Provide a unique working directory so we don't get clashes with parallel executions
     const directory = `${this.workingDirectory}/${randomBytes(8).toString('hex')}`;
 
-    logger.error(`Creating directory ${directory}`);
     await fs.mkdir(directory, { recursive: true });
 
     // Execute the circuit
     const result = await executeNativeCircuit(input, decodedBytecode, directory, this.pathToAcvm, this.witnessFilename);
 
-    logger.error(`Removing directory ${directory}`);
     await fs.rm(directory, { force: true, recursive: true });
 
     if (result.status == ACVM_RESULT.FAILURE) {

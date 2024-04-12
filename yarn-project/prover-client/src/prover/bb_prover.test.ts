@@ -49,7 +49,6 @@ describe('prover/bb_prover', () => {
 
   afterAll(async () => {
     if (directoryToCleanup) {
-      logger.info(`Cleaning up ${directoryToCleanup}`);
       await fs.rm(directoryToCleanup, { recursive: true, force: true });
     }
   }, 5000);
@@ -63,7 +62,11 @@ describe('prover/bb_prover', () => {
       baseRollupInputs.push(await buildBaseRollupInput(tx, globalVariables, builderDb));
     }
     logger.verbose('Proving base rollups');
-    await Promise.all(baseRollupInputs.map(inputs => prover.getBaseRollupProof(inputs)));
+    const proofOutputs = await Promise.all(baseRollupInputs.map(inputs => prover.getBaseRollupProof(inputs)));
+    logger.verbose('Verifying base rollups');
+    await expect(
+      Promise.all(proofOutputs.map(output => prover.verifyProof('BaseRollupArtifact', output[1]))),
+    ).resolves.not.toThrow();
   }, 600_000);
 
   it('proves all circuits', async () => {
