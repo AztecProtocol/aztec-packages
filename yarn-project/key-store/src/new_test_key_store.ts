@@ -1,5 +1,5 @@
 import { type NewKeyStore, type PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, Fr, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
+import { AztecAddress, Fr, GeneratorIndex, GrumpkinScalar, type PartialAddress, Point } from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
@@ -143,9 +143,11 @@ export class NewTestKeyStore implements NewKeyStore {
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(`Account ${account.toString()} does not exist.`);
     }
-    const masterNullifierSecretKey = Fr.fromBuffer(masterNullifierSecretKeyBuffer);
+    const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);
 
-    return Promise.resolve(poseidon2Hash([masterNullifierSecretKey, app], GeneratorIndex.NSK_M));
+    return Promise.resolve(
+      poseidon2Hash([masterNullifierSecretKey.high, masterNullifierSecretKey.low, app], GeneratorIndex.NSK_M),
+    );
   }
 
   /**
@@ -160,9 +162,14 @@ export class NewTestKeyStore implements NewKeyStore {
     if (!masterIncomingViewingSecretKeyBuffer) {
       throw new Error(`Account ${account.toString()} does not exist.`);
     }
-    const masterIncomingViewingSecretKey = Fr.fromBuffer(masterIncomingViewingSecretKeyBuffer);
+    const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
-    return Promise.resolve(poseidon2Hash([masterIncomingViewingSecretKey, app], GeneratorIndex.IVSK_M));
+    return Promise.resolve(
+      poseidon2Hash(
+        [masterIncomingViewingSecretKey.high, masterIncomingViewingSecretKey.low, app],
+        GeneratorIndex.IVSK_M,
+      ),
+    );
   }
 
   /**
@@ -177,9 +184,14 @@ export class NewTestKeyStore implements NewKeyStore {
     if (!masterOutgoingViewingSecretKeyBuffer) {
       throw new Error(`Account ${account.toString()} does not exist.`);
     }
-    const masterOutgoingViewingSecretKey = Fr.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
+    const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
 
-    return Promise.resolve(poseidon2Hash([masterOutgoingViewingSecretKey, app], GeneratorIndex.OVSK_M));
+    return Promise.resolve(
+      poseidon2Hash(
+        [masterOutgoingViewingSecretKey.high, masterOutgoingViewingSecretKey.low, app],
+        GeneratorIndex.OVSK_M,
+      ),
+    );
   }
 
   /**
@@ -195,8 +207,10 @@ export class NewTestKeyStore implements NewKeyStore {
     if (!masterTaggingSecretKeyBuffer) {
       throw new Error(`Account ${account.toString()} does not exist.`);
     }
-    const masterTaggingSecretKey = Fr.fromBuffer(masterTaggingSecretKeyBuffer);
+    const masterTaggingSecretKey = GrumpkinScalar.fromBuffer(masterTaggingSecretKeyBuffer);
 
-    return Promise.resolve(poseidon2Hash([masterTaggingSecretKey, app], GeneratorIndex.TSK_M));
+    return Promise.resolve(
+      poseidon2Hash([masterTaggingSecretKey.high, masterTaggingSecretKey.low, app], GeneratorIndex.TSK_M),
+    );
   }
 }
