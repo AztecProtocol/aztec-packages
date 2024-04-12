@@ -146,7 +146,7 @@ export class NewTestKeyStore implements NewKeyStore {
     const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);
 
     return Promise.resolve(
-      poseidon2Hash([masterNullifierSecretKey.high, masterNullifierSecretKey.low, app], GeneratorIndex.NSK_M),
+      poseidon2Hash([masterNullifierSecretKey.high, masterNullifierSecretKey.low, app, GeneratorIndex.NSK_M]),
     );
   }
 
@@ -165,10 +165,12 @@ export class NewTestKeyStore implements NewKeyStore {
     const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
     return Promise.resolve(
-      poseidon2Hash(
-        [masterIncomingViewingSecretKey.high, masterIncomingViewingSecretKey.low, app],
+      poseidon2Hash([
+        masterIncomingViewingSecretKey.high,
+        masterIncomingViewingSecretKey.low,
+        app,
         GeneratorIndex.IVSK_M,
-      ),
+      ]),
     );
   }
 
@@ -187,10 +189,12 @@ export class NewTestKeyStore implements NewKeyStore {
     const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
 
     return Promise.resolve(
-      poseidon2Hash(
-        [masterOutgoingViewingSecretKey.high, masterOutgoingViewingSecretKey.low, app],
+      poseidon2Hash([
+        masterOutgoingViewingSecretKey.high,
+        masterOutgoingViewingSecretKey.low,
+        app,
         GeneratorIndex.OVSK_M,
-      ),
+      ]),
     );
   }
 
@@ -210,7 +214,7 @@ export class NewTestKeyStore implements NewKeyStore {
     const masterTaggingSecretKey = GrumpkinScalar.fromBuffer(masterTaggingSecretKeyBuffer);
 
     return Promise.resolve(
-      poseidon2Hash([masterTaggingSecretKey.high, masterTaggingSecretKey.low, app], GeneratorIndex.TSK_M),
+      poseidon2Hash([masterTaggingSecretKey.high, masterTaggingSecretKey.low, app, GeneratorIndex.TSK_M]),
     );
   }
 }
