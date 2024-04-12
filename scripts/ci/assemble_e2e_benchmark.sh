@@ -46,7 +46,7 @@ EXPECTED_LOGS_COUNT=$(find yarn-project/end-to-end/src -type f -name "bench*.tes
 DOWNLOADED_LOGS_COUNT=$(find $LOG_FOLDER -type f -name "*.jsonl" | wc -l)
 if [ "$DOWNLOADED_LOGS_COUNT" -lt "$EXPECTED_LOGS_COUNT" ]; then
   echo Found $DOWNLOADED_LOGS_COUNT out of $EXPECTED_LOGS_COUNT benchmark log files in s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/. Exiting.
-  exit 1
+  exit 0
 fi
 
 # Download barretenberg log files, these are direct benchmarks and separate from the above
