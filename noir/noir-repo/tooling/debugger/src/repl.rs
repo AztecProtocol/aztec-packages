@@ -48,7 +48,15 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
         } else {
             DebugCommandResult::Ok
         };
-        Self { context, blackbox_solver, circuit, debug_artifact, initial_witness, last_result, unconstrained_functions }
+        Self {
+            context,
+            blackbox_solver,
+            circuit,
+            debug_artifact,
+            initial_witness,
+            last_result,
+            unconstrained_functions,
+        }
     }
 
     pub fn show_current_vm_status(&self) {
@@ -368,8 +376,13 @@ pub fn run<B: BlackBoxFunctionSolver>(
     initial_witness: WitnessMap,
     unconstrained_functions: &[BrilligBytecode],
 ) -> Result<Option<WitnessMap>, NargoError> {
-    let context =
-        RefCell::new(ReplDebugger::new(blackbox_solver, circuit, debug_artifact, initial_witness, unconstrained_functions));
+    let context = RefCell::new(ReplDebugger::new(
+        blackbox_solver,
+        circuit,
+        debug_artifact,
+        initial_witness,
+        unconstrained_functions,
+    ));
     let ref_context = &context;
 
     ref_context.borrow().show_current_vm_status();

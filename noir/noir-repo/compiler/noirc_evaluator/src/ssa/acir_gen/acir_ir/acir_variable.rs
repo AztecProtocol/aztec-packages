@@ -1611,7 +1611,13 @@ impl AcirContext {
         });
         let predicate = self.var_to_expression(predicate)?;
 
-        self.acir_ir.brillig_pointer(Some(predicate), &generated_brillig, b_inputs, b_outputs, brillig_function_index);
+        self.acir_ir.brillig_pointer(
+            Some(predicate),
+            &generated_brillig,
+            b_inputs,
+            b_outputs,
+            brillig_function_index,
+        );
 
         fn range_constraint_value(
             context: &mut AcirContext,
