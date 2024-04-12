@@ -11,6 +11,13 @@ INSTANCE_ID=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 # TODO also mount various other aspects of docker image metadata
 
 # Check for existing mount, assume we can continue if existing
+if mount | grep -q "/var/lib/docker/volumes type ext4"; then
+  echo "Detected mount existing on /var/lib/docker/volumes. This is our old mount."
+  echo "Run the stop spot workflow https://github.com/AztecProtocol/aztec-packages/actions/workflows/stop-spot.yml and rerun all steps in this workflow."
+  exit 0
+fi
+
+# Check for existing mount, assume we can continue if existing
 if mount | grep -q "/var/lib/docker type ext4"; then
   echo "Detected mount existing on /var/lib/docker already"
   echo "Continuing..."
