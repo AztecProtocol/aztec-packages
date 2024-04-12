@@ -67,13 +67,30 @@ After generating a proof for a private function circuit, that proof (and associa
 
 ### `CallContext`
 
-| Field                      | Type           | Description                                                                                                                                                                               |
-| -------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `msg_sender`               | `AztecAddress` | Address of the caller contract.                                                                                                                                                           |
-| `storage_contract_address` | `AztecAddress` | Address of the contract against which all state changes will be stored. (It is not called `contract_address`, because in the context of delegate calls, that would be an ambiguous name.) |
-| `portal_contract_address`  | `AztecAddress` | Address of the portal contract to the storage contract.                                                                                                                                   |
-| `is_delegate_call`         | `bool`         | A flag indicating whether the call is a [delegate call](../calls/delegate-calls.md).                                                                                                      |
-| `is_static_call`           | `bool`         | A flag indicating whether the call is a [static call](../calls/static-calls.md).                                                                                                          |
+| Field                      | Type                          | Description                                                                                                                                                                               |
+| -------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `msg_sender`               | `AztecAddress`                | Address of the caller contract.                                                                                                                                                           |
+| `storage_contract_address` | `AztecAddress`                | Address of the contract against which all state changes will be stored. (It is not called `contract_address`, because in the context of delegate calls, that would be an ambiguous name.) |
+| `portal_contract_address`  | `AztecAddress`                | Address of the portal contract to the storage contract.                                                                                                                                   |
+| `is_delegate_call`         | `bool`                        | A flag indicating whether the call is a [delegate call](../calls/delegate-calls.md).                                                                                                      |
+| `is_static_call`           | `bool`                        | A flag indicating whether the call is a [static call](../calls/static-calls.md).                                                                                                          |
+| `gas_settings`             | [`GasSettings`](#gassettings) | Limits and max fees per each gas dimension.                                                                                                                                               |
+| `transaction_fee`          | `field`                       | Accumulated transaction fee, only set during teardown phase.                                                                                                                              |
+
+### `GasSettings`
+
+| Field                   | Type    | Description                                                          |
+| ----------------------- | ------- | -------------------------------------------------------------------- |
+| `da.gas_limit`          | `u32`   | Total limit for DA gas for the transaction.                          |
+| `da.teardown_gas_limit` | `u32`   | Limit for DA gas specific to the teardown phase.                     |
+| `da.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of DA gas. |
+| `l1.gas_limit`          | `u32`   | Total limit for L1 gas for the transaction.                          |
+| `l1.teardown_gas_limit` | `u32`   | Limit for L1 gas specific to the teardown phase.                     |
+| `l1.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of L1 gas. |
+| `l2.gas_limit`          | `u32`   | Total limit for L2 gas for the transaction.                          |
+| `l2.teardown_gas_limit` | `u32`   | Limit for L2 gas specific to the teardown phase.                     |
+| `l2.max_fee_per_gas`    | `field` | Maximum amount that the sender is willing to pay per unit of L2 gas. |
+| `inclusion_fee`         | `field` | Flat fee the user pays for inclusion.                                |
 
 ### `NoteHash`
 
@@ -167,3 +184,7 @@ After generating a proof for a private function circuit, that proof (and associa
 | `public_data_tree_root`       | `field` | Root of the public data tree.                                                                   |
 | `archive_tree_root`           | `field` | Root of the state roots tree archived at the block prior to when the transaction was assembled. |
 | `global_variables_hash`       | `field` | Hash of the previous global variables.                                                          |
+
+<!-- Does a private function need access to the entire block header? Or could we get away with just exposing the archive tree root? -->
+<!-- What does "previous" mean, in "hash of the previous global variables"? -->
+<!-- Should read_requests convey which block number they would like to read from? -->

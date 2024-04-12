@@ -1,7 +1,6 @@
 import {
   type AccountWallet,
   AztecAddress,
-  type CompleteAddress,
   Fr,
   INITIAL_L2_BLOCK_NUM,
   type PXE,
@@ -27,7 +26,6 @@ describe('e2e_inclusion_proofs_contract', () => {
   let pxe: PXE;
   let teardown: () => Promise<void>;
   let wallets: AccountWallet[];
-  let accounts: CompleteAddress[];
 
   let contract: InclusionProofsContract;
   let deploymentBlockNumber: number;
@@ -35,7 +33,7 @@ describe('e2e_inclusion_proofs_contract', () => {
   const contractAddressSalt = Fr.random();
 
   beforeAll(async () => {
-    ({ pxe, teardown, wallets, accounts } = await setup(1));
+    ({ pxe, teardown, wallets } = await setup(1));
 
     const receipt = await InclusionProofsContract.deploy(wallets[0], publicValue).send({ contractAddressSalt }).wait();
     contract = receipt.contract;
@@ -48,7 +46,7 @@ describe('e2e_inclusion_proofs_contract', () => {
     let owner: AztecAddress;
 
     beforeAll(() => {
-      owner = accounts[0].address;
+      owner = wallets[0].getAddress();
     });
 
     describe('proves note existence and its nullifier non-existence and nullifier non-existence failure case', () => {
@@ -148,7 +146,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
     it('proves note validity (note commitment inclusion and nullifier non-inclusion)', async () => {
       // Owner of a note
-      const owner = accounts[0].address;
+      const owner = wallets[0].getAddress();
       let noteCreationBlockNumber: number;
       {
         // Create a note
@@ -224,10 +222,9 @@ describe('e2e_inclusion_proofs_contract', () => {
     });
 
     it('proves existence of a nullifier in public context', async () => {
-      const block = await pxe.getBlock(deploymentBlockNumber);
-      const nullifier = block?.body.txEffects[0].nullifiers[0];
-
-      await contract.methods.test_nullifier_inclusion_from_public(nullifier!).send().wait();
+      const unsiloedNullifier = new Fr(123456789n);
+      await contract.methods.push_nullifier_public(unsiloedNullifier).send().wait();
+      await contract.methods.test_nullifier_inclusion_from_public(unsiloedNullifier).send().wait();
     });
 
     it('nullifier existence failure case', async () => {
@@ -267,7 +264,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
     it('proves public deployment of a contract', async () => {
       // Publicly deploy another contract (so we don't test on the same contract)
-      const initArgs = [accounts[0], 42n];
+      const initArgs = [wallets[0].getAddress(), 42n];
       const instance = getContractInstanceFromDeployParams(StatefulTestContractArtifact, { constructorArgs: initArgs });
       await (await registerContractClass(wallets[0], StatefulTestContractArtifact)).send().wait();
       const receipt = await deployInstance(wallets[0], instance).send().wait();
@@ -277,7 +274,7 @@ describe('e2e_inclusion_proofs_contract', () => {
 
     it('proves initialization of a contract', async () => {
       // Initialize (but not deploy) a test contract
-      const receipt = await StatefulTestContract.deploy(wallets[0], accounts[0], 42n)
+      const receipt = await StatefulTestContract.deploy(wallets[0], wallets[0].getAddress(), 42n)
         .send({ skipClassRegistration: true, skipPublicDeployment: true })
         .wait();
 

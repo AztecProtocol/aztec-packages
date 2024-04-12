@@ -16,13 +16,14 @@ contract DocsExample {
     use dep::aztec::prelude::{
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
-        PrivateSet, SharedImmutable
+        PrivateSet, SharedImmutable, Deserialize
     };
     use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
     // how to import methods from other files/folders within your workspace
     use crate::options::create_account_card_getter_options;
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
 
+    #[aztec(storage)]
     struct Storage {
         // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
@@ -114,11 +115,10 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let ret = context.call_private_function_no_args(
+        context.call_private_function_no_args(
             context.this_address(),
             FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
-        );
-        Leader::deserialize([ret[0], ret[1]])
+        ).unpack_into()
     }
 
     #[aztec(public)]
@@ -127,11 +127,10 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let ret = context.call_public_function_no_args(
+        context.call_public_function_no_args(
             context.this_address(),
             FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
-        );
-        Leader::deserialize([ret[0], ret[1]])
+        ).deserialize_into()
     }
 
     #[aztec(public)]
@@ -194,12 +193,14 @@ contract DocsExample {
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     unconstrained fn read_note(amount: Field, comparator: u8) -> pub [Option<CardNote>; 10] {
-        let options = NoteViewerOptions::new().select(
-            CardNote::properties().points,
-            amount,
-            Option::some(comparator)
+        let mut options = NoteViewerOptions::new();
+        let notes = storage.set.view_notes(
+            options.select(
+                CardNote::properties().points,
+                amount,
+                Option::some(comparator)
+            )
         );
-        let notes = storage.set.view_notes(options);
 
         notes
     }
@@ -338,7 +339,9 @@ contract DocsExample {
         // ************************************************************
         // Return values are pushed into the context
         // docs:start:context-example-context-return
-        context.return_values.push(result);
+        let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
+        return_hasher.add(result);
+        context.set_return_hash(return_hasher);
         // docs:end:context-example-context-return
 
         // The context is returned to be consumed by the kernel circuit!

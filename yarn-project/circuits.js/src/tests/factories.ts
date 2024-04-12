@@ -103,7 +103,6 @@ import {
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
-  RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   ReadRequestContext,
@@ -126,6 +125,9 @@ import {
   packBytecode,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
+import { GasFees } from '../structs/gas_fees.js';
+import { DimensionGasSettings, GasSettings } from '../structs/gas_settings.js';
+import { GasUsed } from '../structs/gas_used.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
@@ -169,7 +171,20 @@ export function makeTxContext(seed: number): TxContext {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4), makeGasSettings(seed + 5));
+}
+
+export function makeGasSettings(seed = 1) {
+  return new GasSettings(
+    makeDimensionGasSettings(seed),
+    makeDimensionGasSettings(seed + 1),
+    makeDimensionGasSettings(seed + 2),
+    fr(seed + 3),
+  );
+}
+
+export function makeDimensionGasSettings(seed = 1) {
+  return new DimensionGasSettings(seed, seed + 1, fr(seed + 2));
 }
 
 /**
@@ -287,13 +302,8 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
   const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
 
   return new CombinedAccumulatedData(
-    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, sideEffectFromNumber, seed + 0x120, SideEffect.empty),
-    tupleGenerator(
-      MAX_NEW_NULLIFIERS_PER_TX,
-      sideEffectLinkedFromNumber,
-      seed + 0x200,
-      SideEffectLinkedToNoteHash.empty,
-    ),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600, Fr.zero),
     fr(seed + 0x700), // encrypted logs hash
     fr(seed + 0x800), // unencrypted logs hash
@@ -305,7 +315,12 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
       seed + 0xd00,
       PublicDataUpdateRequest.empty,
     ),
+    makeGasUsed(seed + 0xe00),
   );
+}
+
+export function makeGasUsed(seed = 1) {
+  return new GasUsed(seed, seed + 1, seed + 2);
 }
 
 /**
@@ -336,6 +351,7 @@ export function makePublicAccumulatedData(seed = 1, full = false): PublicAccumul
       PublicDataUpdateRequest.empty,
     ),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
+    makeGasUsed(seed + 0x600),
   );
 }
 
@@ -362,6 +378,7 @@ export function makePrivateAccumulatedData(seed = 1, full = false) {
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.empty),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
+    makeGasUsed(seed + 0x600),
   );
 }
 
@@ -394,6 +411,8 @@ export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddr
     false,
     false,
     0,
+    makeGasSettings(seed + 4),
+    fr(seed + 5),
   );
 }
 
@@ -413,7 +432,7 @@ export function makePublicCircuitPublicInputs(
   return new PublicCircuitPublicInputs(
     makeCallContext(seed, storageContractAddress),
     fr(seed + 0x100),
-    tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200, Fr.zero),
+    fr(seed + 0x200),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.empty),
     tupleGenerator(
@@ -537,6 +556,8 @@ export function makePublicCallRequest(seed = 1): PublicCallRequest {
     isStaticCall: false,
     isDelegateCall: false,
     sideEffectCounter: 0,
+    gasSettings: makeGasSettings(seed + 4),
+    transactionFee: fr(seed + 5),
   });
   return new PublicCallRequest(
     makeAztecAddress(seed),
@@ -868,9 +889,11 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       true,
       true,
       0,
+      makeGasSettings(seed + 4),
+      fr(seed + 5),
     ),
     argsHash: fr(seed + 0x100),
-    returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
+    returnsHash: fr(seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
     noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
     nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
@@ -912,6 +935,7 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
       fr(seed + 3),
       EthAddress.fromField(fr(seed + 4)),
       AztecAddress.fromField(fr(seed + 5)),
+      makeGasFees(seed + 6),
     );
   }
   return new GlobalVariables(
@@ -921,7 +945,12 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
     fr(seed + 3),
     EthAddress.fromField(fr(seed + 4)),
     AztecAddress.fromField(fr(seed + 5)),
+    makeGasFees(seed + 6),
   );
+}
+
+export function makeGasFees(seed = 1) {
+  return new GasFees(fr(seed), fr(seed + 1), fr(seed + 2));
 }
 
 /**

@@ -1,8 +1,8 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
-    combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
+    gas_settings::GasSettings, combined_constant_data::CombinedConstantData,
+    private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
@@ -22,6 +22,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         public_inputs.constants = CombinedConstantData {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
+            gas_settings: GasSettings::empty(), // TODO(palla/gas-in-circuits)
         };
         public_inputs.min_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.min_revertible_side_effect_counter;
     }
@@ -77,7 +78,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         self.initialize_end_values(&mut public_inputs);
 
@@ -180,15 +181,6 @@ mod tests {
 
         let expected_unencrypted_logs_hash = compute_logs_hash(0, unencrypted_logs_hash);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_return_values() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        builder.private_call.public_inputs.return_values.extend_from_array([0, 9123]);
-
-        builder.failed();
     }
 
     #[test(should_fail_with = "invalid array")]
@@ -400,7 +392,7 @@ mod tests {
     #[test]
     fn propagate_max_block_number_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
-        builder.private_call.request_max_block_number(42);
+        builder.private_call.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);

@@ -1,7 +1,7 @@
 use crate::{
     address::AztecAddress, abis::function_data::FunctionData,
     constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH}, hash::pedersen_hash,
-    traits::{Hash, Serialize, Deserialize}, transaction::tx_context::TxContext, utils::reader::Reader
+    traits::{Hash, Serialize, Deserialize, Empty}, transaction::tx_context::TxContext, utils::reader::Reader
 };
 
 struct TxRequest {
@@ -9,6 +9,17 @@ struct TxRequest {
     args_hash: Field,
     tx_context: TxContext,
     function_data: FunctionData,
+}
+
+impl Empty for TxRequest {
+    fn empty() -> Self {
+        TxRequest {
+            origin: AztecAddress::empty(),
+            args_hash: 0,
+            tx_context: TxContext::empty(),
+            function_data: FunctionData::empty()
+        }
+    }
 }
 
 impl Eq for TxRequest {
@@ -67,8 +78,7 @@ mod tests {
 
     #[test]
     fn serialization_of_empty() {
-        // Assuming a zeroed initialization for simplicity
-        let request: TxRequest = dep::std::unsafe::zeroed();
+        let request = TxRequest::empty();
         let serialized = request.serialize();
         let deserialized = TxRequest::deserialize(serialized);
         assert(request.eq(deserialized));
@@ -80,10 +90,10 @@ mod tests {
             origin: AztecAddress::from_field(1),
             args_hash: 3,
             tx_context: TxContext { is_fee_payment_tx: false, is_rebate_payment_tx: false, chain_id: 0, version: 0 },
-            function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_private: true, is_transpiled: false }
+            function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_private: true }
         };
         // Value from tx_request.test.ts "compute hash" test
-        let test_data_tx_request_hash = 0x08e435f993536fd7a9d6faabfc03a18c4314a54d3d90d15a15275fcfe77bc5a3;
+        let test_data_tx_request_hash = 0x20af6f595c396494f1177fa196d17e98d55a2416b28c262b76e78a36d6c01daa;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

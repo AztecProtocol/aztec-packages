@@ -1,11 +1,4 @@
-import {
-  type AztecAddress,
-  type AztecNode,
-  type CompleteAddress,
-  type DebugLogger,
-  Fr,
-  type Wallet,
-} from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, type DebugLogger, Fr, type Wallet } from '@aztec/aztec.js';
 import { PendingNoteHashesContract } from '@aztec/noir-contracts.js/PendingNoteHashes';
 
 import { setup } from './fixtures/utils.js';
@@ -19,9 +12,8 @@ describe('e2e_pending_note_hashes_contract', () => {
   let contract: PendingNoteHashesContract;
 
   beforeEach(async () => {
-    let accounts: CompleteAddress[];
-    ({ teardown, aztecNode, accounts, wallet, logger } = await setup(2));
-    owner = accounts[0].address;
+    ({ teardown, aztecNode, wallet, logger } = await setup(2));
+    owner = wallet.getAddress();
   }, 100_000);
 
   afterEach(() => teardown());
@@ -50,7 +42,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
     // 0th nullifier should be nonzero (txHash), all others should be zero (should be squashed)
     for (let n = 0; n < exceptFirstFew + 1; n++) {
-      logger(`Expecting nullifier ${n} to be nonzero`);
+      logger.info(`Expecting nullifier ${n} to be nonzero`);
       expect(nullifierArray[n]).not.toEqual(Fr.ZERO); // 0th nullifier is txHash
     }
     for (let n = exceptFirstFew + 1; n < nullifierArray.length; n++) {
@@ -59,9 +51,9 @@ describe('e2e_pending_note_hashes_contract', () => {
   };
 
   const deployContract = async () => {
-    logger(`Deploying L2 contract...`);
+    logger.debug(`Deploying L2 contract...`);
     contract = await PendingNoteHashesContract.deploy(wallet).send().deployed();
-    logger('L2 contract deployed');
+    logger.info(`L2 contract deployed at ${contract.address}`);
     return contract;
   };
 

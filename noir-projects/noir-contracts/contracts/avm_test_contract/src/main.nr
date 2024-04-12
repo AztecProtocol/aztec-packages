@@ -24,38 +24,26 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
-    use dep::aztec::prelude::Map;
-    use dep::aztec::state_vars::{PublicImmutable, PublicMutable};
+    use dep::aztec::prelude::{Map, Deserialize};
+    use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
+    use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
-    use dep::aztec::protocol_types::traits::ToField;
-    use dep::aztec::protocol_types::constants::RETURN_VALUES_LENGTH;
     use dep::compressed_string::CompressedString;
 
     // avm lib
     use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
 
+    #[aztec(storage)]
     struct Storage {
         single: PublicMutable<Field>,
         list: PublicMutable<Note>,
         map: Map<AztecAddress, PublicMutable<u32>>,
-        immutable: PublicImmutable<Field>,
     }
 
     /************************************************************************
      * Storage
      ************************************************************************/
-    // FIX: calls unsupported getNullifierMembershipWitness.
-    // #[aztec(public-vm)]
-    // #[aztec(initializer)]
-    // fn constructor() {
-    //     storage.immutable.initialize(42);
-    // }
-
-    unconstrained fn view_storage_immutable() -> pub Field {
-        storage.immutable.read()
-    }
-
     unconstrained fn view_storage_single() -> pub Field {
         storage.single.read()
     }
@@ -182,6 +170,28 @@ contract AvmTest {
     }
 
     /************************************************************************
+     * Contract instance
+     ************************************************************************/
+    #[aztec(public-vm)]
+    fn test_get_contract_instance_raw() {
+        let fields = get_contract_instance_internal_avm(context.this_address());
+        assert(fields.len() == 7);
+        assert(fields[0] == 0x1);
+        assert(fields[1] == 0x123);
+        assert(fields[2] == 0x456);
+        assert(fields[3] == 0x789);
+        assert(fields[4] == 0x101112);
+        assert(fields[5] == 0x131415);
+        assert(fields[6] == 0x161718);
+    }
+
+    #[aztec(public-vm)]
+    fn test_get_contract_instance() {
+        let ci = get_contract_instance_avm(context.this_address());
+        assert(ci.is_some());
+    }
+
+    /************************************************************************
      * AvmContext functions
      ************************************************************************/
     #[aztec(public-vm)]
@@ -287,14 +297,19 @@ contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[aztec(public-vm)]
     fn nullifier_exists(nullifier: Field) -> pub bool {
-        context.nullifier_exists(nullifier)
+        context.nullifier_exists(nullifier, context.this_address())
+    }
+
+    #[aztec(public-vm)]
+    fn assert_nullifier_exists(nullifier: Field) {
+        assert(context.nullifier_exists(nullifier, context.this_address()));
     }
 
     // Use the standard context interface to emit a new nullifier
     #[aztec(public-vm)]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_new_nullifier(nullifier, 0);
-        let exists = context.nullifier_exists(nullifier);
+        let exists = context.nullifier_exists(nullifier, context.this_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 
@@ -314,80 +329,5 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
         context.message_portal(recipient, content)
-    }
-
-    // Directly call the external call opcode to initiate a nested call to the add function
-    #[aztec(public-vm)]
-    fn raw_nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
-        let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
-
-        // Nested call
-        let results = context.call_public_function_raw(gas, context.this_address(), selector, [arg_a, arg_b]);
-        let data_to_return: [Field; 1] = results.0;
-        // this explicit size   ^ is necessary to ensure that ret_size is compile-time
-        // (ensure the data_to_return is in a HeapArray not a HeapVector)
-        let success: u8 = results.1;
-
-        assert(success == 1, "Call failed");
-
-        let add_result = data_to_return[0];
-        add_result
-    }
-
-    // Use the `call_public_function` wrapper to initiate a nested call to the add function
-    #[aztec(public-vm)]
-    fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
-        let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
-
-        // Nested call using standard context interface function
-        let data_to_return: [Field; RETURN_VALUES_LENGTH] = context.call_public_function(context.this_address(), selector, [arg_a, arg_b]);
-        // this explicit size   ^ is necessary to ensure that ret_size is compile-time
-        // (ensure the data_to_return is in a HeapArray not a HeapVector)
-
-        let add_result = data_to_return[0];
-        add_result
-    }
-
-    // Directly call_static the external call opcode to initiate a nested call to the add function
-    #[aztec(public-vm)]
-    fn raw_nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub (Field, u8) {
-        let selector = FunctionSelector::from_signature("add_args_return(Field,Field)").to_field();
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
-
-        let (result_data, success): ([Field; 1], u8) = context.static_call_public_function_raw(gas, context.this_address(), selector, [arg_a, arg_b]);
-
-        (result_data[0], success)
-    }
-
-    // Directly call_static `set_storage_single`. Should fail since it's accessing storage.
-    #[aztec(public-vm)]
-    fn raw_nested_static_call_to_set_storage() -> pub u8 {
-        let selector = FunctionSelector::from_signature("set_storage_single(Field)").to_field();
-        let gas = [/*l1_gas*/42, /*l2_gas*/24, /*da_gas*/420];
-        let calldata: [Field; 1] = [20];
-
-        let (_data_to_return, success): ([Field; 0], u8) = context.static_call_public_function_raw(gas, context.this_address(), selector, calldata);
-
-        success
-    }
-
-    // Indirectly call_static the external call opcode to initiate a nested call to the add function
-    #[aztec(public-vm)]
-    fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
-        let selector = FunctionSelector::from_signature("add_args_return(Field,Field)");
-
-        let result_data: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, [arg_a, arg_b]);
-
-        result_data[0]
-    }
-
-    // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
-    #[aztec(public-vm)]
-    fn nested_static_call_to_set_storage() {
-        let selector = FunctionSelector::from_signature("set_storage_single(Field)");
-        let calldata: [Field; 1] = [20];
-
-        let _resultData: [Field; RETURN_VALUES_LENGTH] = context.static_call_public_function(context.this_address(), selector, calldata);
     }
 }

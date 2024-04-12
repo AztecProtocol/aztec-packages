@@ -84,9 +84,6 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                     BinaryIntOp::Xor => AvmOpcode::XOR,
                     BinaryIntOp::Shl => AvmOpcode::SHL,
                     BinaryIntOp::Shr => AvmOpcode::SHR,
-                    _ => panic!(
-                        "Transpiler doesn't know how to process {:?}", brillig_instr
-                    ),
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
@@ -241,6 +238,20 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
         }
     }
 
+    // TEMPORARY: Add a "magic number" instruction to the end of the program.
+    // This makes it possible to know that the bytecode corresponds to the AVM.
+    // We are adding a MOV instruction that moves a value to itself.
+    // This should therefore not affect the program's execution.
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::MOV,
+        indirect: Some(ALL_DIRECT),
+        operands: vec![
+            AvmOperand::U32 { value: 0x18ca },
+            AvmOperand::U32 { value: 0x18ca },
+        ],
+        ..Default::default()
+    });
+
     dbg_print_avm_program(&avm_instrs);
 
     // Constructing bytecode from instructions
@@ -286,6 +297,9 @@ fn handle_foreign_call(
         }
         "avmOpcodePoseidon" => {
             handle_single_field_hash_instruction(avm_instrs, function, destinations, inputs)
+        }
+        "avmOpcodeGetContractInstance" => {
+            handle_get_contract_instance(avm_instrs, destinations, inputs)
         }
         "storageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "storageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
@@ -509,10 +523,14 @@ fn handle_nullifier_exists(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    if destinations.len() != 1 || inputs.len() != 1 {
-        panic!("Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 1 input, got {} and {}", destinations.len(), inputs.len());
+    if destinations.len() != 1 || inputs.len() != 2 {
+        panic!("Transpiler expects ForeignCall::CHECKNULLIFIEREXISTS to have 1 destinations and 2 inputs, got {} and {}", destinations.len(), inputs.len());
     }
     let nullifier_offset_operand = match &inputs[0] {
+        ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
+        _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
+    };
+    let address_offset_operand = match &inputs[1] {
         ValueOrArray::MemoryAddress(offset) => offset.to_usize() as u32,
         _ => panic!("Transpiler does not know how to handle ForeignCall::EMITNOTEHASH with HeapArray/Vector inputs"),
     };
@@ -526,6 +544,9 @@ fn handle_nullifier_exists(
         operands: vec![
             AvmOperand::U32 {
                 value: nullifier_offset_operand,
+            },
+            AvmOperand::U32 {
+                value: address_offset_operand,
             },
             AvmOperand::U32 {
                 value: exists_offset_operand,
@@ -778,6 +799,9 @@ fn handle_getter_instruction(
         "avmOpcodeVersion" => AvmOpcode::VERSION,
         "avmOpcodeBlockNumber" => AvmOpcode::BLOCKNUMBER,
         "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
+        "avmOpcodeL1GasLeft" => AvmOpcode::L1GASLEFT,
+        "avmOpcodeL2GasLeft" => AvmOpcode::L2GASLEFT,
+        "avmOpcodeDaGasLeft" => AvmOpcode::DAGASLEFT,
         // "callStackDepth" => AvmOpcode::CallStackDepth,
         _ => panic!(
             "Transpiler doesn't know how to process ForeignCall function {:?}",
@@ -949,6 +973,42 @@ fn handle_storage_write(
             },
             AvmOperand::U32 {
                 value: slot_offset as u32,
+            },
+        ],
+        ..Default::default()
+    })
+}
+
+/// Emit a GETCONTRACTINSTANCE opcode
+fn handle_get_contract_instance(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 1);
+    assert!(destinations.len() == 1);
+
+    let address_offset_maybe = inputs[0];
+    let address_offset = match address_offset_maybe {
+        ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
+        _ => panic!("GETCONTRACTINSTANCE address should be a single value"),
+    };
+
+    let dest_offset_maybe = destinations[0];
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::HeapArray(HeapArray { pointer, .. }) => pointer.0,
+        _ => panic!("GETCONTRACTINSTANCE destination should be an array"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::GETCONTRACTINSTANCE,
+        indirect: Some(FIRST_OPERAND_INDIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: address_offset as u32,
+            },
+            AvmOperand::U32 {
+                value: dest_offset as u32,
             },
         ],
         ..Default::default()

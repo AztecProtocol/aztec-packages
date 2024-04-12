@@ -128,9 +128,7 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         line: i64,
     ) -> Option<OpcodeLocation> {
         let line = line as usize;
-        let Some(line_to_opcodes) = self.source_to_opcodes.get(file_id) else {
-            return None;
-        };
+        let line_to_opcodes = self.source_to_opcodes.get(file_id)?;
         let found_index = match line_to_opcodes.binary_search_by(|x| x.0.cmp(&line)) {
             Ok(index) => {
                 // move backwards to find the first opcode which matches the line
@@ -515,7 +513,11 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
 
     pub(super) fn write_brillig_memory(&mut self, ptr: usize, value: FieldElement, bit_size: u32) {
         if let Some(solver) = self.brillig_solver.as_mut() {
-            solver.write_memory_at(ptr, MemoryValue::new(value, bit_size));
+            solver.write_memory_at(
+                ptr,
+                MemoryValue::new_checked(value, bit_size)
+                    .expect("Invalid value for the given bit size"),
+            );
         }
     }
 
@@ -631,7 +633,6 @@ fn build_source_to_opcode_debug_mappings(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context::{DebugCommandResult, DebugContext};
 
     use crate::foreign_calls::DefaultDebugForeignCallExecutor;
     use acvm::{
@@ -647,8 +648,6 @@ mod tests {
             BinaryFieldOp, HeapValueType, MemoryAddress, Opcode as BrilligOpcode, ValueOrArray,
         },
     };
-    use nargo::artifacts::debug::DebugArtifact;
-    use std::collections::BTreeMap;
 
     #[test]
     fn test_resolve_foreign_calls_stepping_into_brillig() {

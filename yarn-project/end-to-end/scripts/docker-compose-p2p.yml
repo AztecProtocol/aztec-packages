@@ -7,7 +7,7 @@ services:
       - '8545'
 
   p2p-bootstrap:
-    image: aztecprotocol/aztec:latest
+    image: aztecprotocol/aztec:${AZTEC_DOCKER_TAG:-latest}
     command: 'start --p2p-bootstrap'
     expose:
       - '40400'
@@ -20,7 +20,7 @@ services:
       PEER_ID_PRIVATE_KEY: '0a260024080112205ea53185db2e52dae74d0d4d6cadc494174810d0a713cd09b0ac517c38bc781e1224080112205ea53185db2e52dae74d0d4d6cadc494174810d0a713cd09b0ac517c38bc781e1a44080112402df8b977f356c6e34fa021c9647973234dff4df706c185794405aafb556723cf5ea53185db2e52dae74d0d4d6cadc494174810d0a713cd09b0ac517c38bc781e'
 
   end-to-end:
-    image: aztecprotocol/end-to-end:latest
+    image: aztecprotocol/end-to-end:${AZTEC_DOCKER_TAG:-latest}
     environment:
       BENCHMARK: true
       DEBUG: ${DEBUG:-'aztec:*'}
@@ -37,6 +37,10 @@ services:
       P2P_NAT_ENABLED: 'false'
       P2P_ENABLED: 'true'
       BOOTSTRAP_NODES: '/ip4/p2p-bootstrap/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
-    command: ${TEST:-./src/e2e_p2p_network.test.ts}
+    entrypoint: >
+      sh -c '
+        while ! nc -z sandbox 8080; do sleep 1; done;
+        yarn test ${TEST:-./src/e2e_deploy_contract.test.ts}
+      '
     volumes:
       - ../log:/usr/src/yarn-project/end-to-end/log:rw

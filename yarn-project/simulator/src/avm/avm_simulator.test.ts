@@ -5,11 +5,13 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js';
+import { type Fieldable } from '@aztec/foundation/serialize';
+import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 import { strict as assert } from 'assert';
 
+import { isAvmBytecode } from '../public/transitional_adaptors.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import { TypeTag } from './avm_memory_types.js';
 import { AvmSimulator } from './avm_simulator.js';
@@ -37,6 +39,10 @@ describe('AVM simulator: injected bytecode', () => {
     ]);
   });
 
+  it('Should not be recognized as AVM bytecode (magic missing)', () => {
+    expect(!isAvmBytecode(bytecode));
+  });
+
   it('Should execute bytecode that performs basic addition', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
     const { l2GasLeft: initialL2GasLeft } = AvmMachineState.fromState(context.machineState);
@@ -44,7 +50,7 @@ describe('AVM simulator: injected bytecode', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
-    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 350);
+    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 680);
   });
 
   it('Should halt if runs out of gas', async () => {
@@ -73,6 +79,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
+  });
+
+  it('Should be recognized as AVM bytecode (magic present)', () => {
+    const bytecode = getAvmTestContractBytecode('add_args_return');
+    expect(isAvmBytecode(bytecode));
   });
 
   it('U128 addition', async () => {
@@ -130,11 +141,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   describe.each([
     ['poseidon_hash', poseidonHash],
     ['pedersen_hash', pedersenHash],
-    ['pedersen_hash_with_index', (m: Buffer[]) => pedersenHash(m, 20)],
-  ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Buffer[]) => Fr) => {
+    ['pedersen_hash_with_index', (m: Fieldable[]) => pedersenHash(m, 20)],
+  ])('Hashes with field returned in noir contracts', (name: string, hashFunction: (data: Fieldable[]) => Fr) => {
     it(`Should execute contract function that performs ${name} hash`, async () => {
       const calldata = [new Fr(1), new Fr(2), new Fr(3)];
-      const hash = hashFunction(calldata.map(f => f.toBuffer()));
+      const hash = hashFunction(calldata);
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
       const bytecode = getAvmTestContractBytecode(name);
@@ -327,7 +338,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(results.reverted).toBe(false);
 
-      expect(context.persistableState.flush().newNoteHashes).toEqual([utxo]);
+      expect(context.persistableState.flush().newNoteHashes).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          noteHash: utxo,
+        }),
+      ]);
     });
 
     it(`Emit nullifier (should be traced)`, async () => {
@@ -340,7 +356,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(results.reverted).toBe(false);
 
-      expect(context.persistableState.flush().newNullifiers).toEqual([utxo]);
+      expect(context.persistableState.flush().newNullifiers).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          nullifier: utxo,
+        }),
+      ]);
     });
 
     it(`Nullifier exists (it does not)`, async () => {
@@ -356,8 +377,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Nullifier existence check should be in trace
       const trace = context.persistableState.flush();
-      expect(trace.nullifierChecks.length).toEqual(1);
-      expect(trace.nullifierChecks[0].exists).toEqual(false);
+      expect(trace.nullifierChecks).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          nullifier: utxo,
+          exists: false,
+          counter: expect.any(Fr),
+          isPending: false,
+          leafIndex: expect.any(Fr),
+        }),
+      ]);
     });
 
     it(`Nullifier exists (it does)`, async () => {
@@ -377,8 +406,16 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Nullifier existence check should be in trace
       const trace = context.persistableState.flush();
-      expect(trace.nullifierChecks.length).toEqual(1);
-      expect(trace.nullifierChecks[0].exists).toEqual(true);
+      expect(trace.nullifierChecks).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          nullifier: utxo,
+          exists: true,
+          counter: expect.any(Fr),
+          isPending: false,
+          leafIndex: expect.any(Fr),
+        }),
+      ]);
     });
 
     it(`Emits a nullifier and checks its existence`, async () => {
@@ -392,9 +429,22 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.reverted).toBe(false);
       // Nullifier existence check should be in trace
       const trace = context.persistableState.flush();
-      expect(trace.newNullifiers).toEqual([utxo]);
-      expect(trace.nullifierChecks.length).toEqual(1);
-      expect(trace.nullifierChecks[0].exists).toEqual(true);
+      expect(trace.newNullifiers).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          nullifier: utxo,
+        }),
+      ]);
+      expect(trace.nullifierChecks).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          nullifier: utxo,
+          exists: true,
+          counter: expect.any(Fr),
+          isPending: true,
+          leafIndex: expect.any(Fr),
+        }),
+      ]);
     });
 
     it(`Emits same nullifier twice (should fail)`, async () => {
@@ -407,7 +457,12 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       expect(results.reverted).toBe(true);
       // Only the first nullifier should be in the trace, second one failed to add
-      expect(context.persistableState.flush().newNullifiers).toEqual([utxo]);
+      expect(context.persistableState.flush().newNullifiers).toEqual([
+        expect.objectContaining({
+          storageAddress: context.environment.storageAddress,
+          nullifier: utxo,
+        }),
+      ]);
     });
   });
 
@@ -450,96 +505,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     });
   });
 
-  describe('Nested external calls', () => {
-    it(`Nested call`, async () => {
-      const calldata: Fr[] = [new Fr(1), new Fr(2)];
-      const callBytecode = getAvmTestContractBytecode('raw_nested_call_to_add');
-      const addBytecode = getAvmTestContractBytecode('add_args_return');
-      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValueOnce(Promise.resolve(addBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.revertReason).toBeUndefined();
-      expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(3)]);
-    });
-
-    it(`Nested call through the old interface`, async () => {
-      const calldata: Fr[] = [new Fr(1), new Fr(2)];
-      const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
-      const addBytecode = getAvmTestContractBytecode('add_args_return');
-      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValueOnce(Promise.resolve(addBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(3)]);
-    });
-
-    it(`Nested static call`, async () => {
-      const calldata: Fr[] = [new Fr(1), new Fr(2)];
-      const callBytecode = getAvmTestContractBytecode('raw_nested_static_call_to_add');
-      const addBytecode = getAvmTestContractBytecode('add_args_return');
-      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValueOnce(Promise.resolve(addBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([/*result=*/ new Fr(3), /*success=*/ new Fr(1)]);
-    });
-
-    it(`Nested static call which modifies storage`, async () => {
-      const callBytecode = getAvmTestContractBytecode('raw_nested_static_call_to_set_storage');
-      const nestedBytecode = getAvmTestContractBytecode('set_storage_single');
-      const context = initContext();
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValueOnce(Promise.resolve(nestedBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.reverted).toBe(false); // The outer call should not revert.
-      expect(results.output).toEqual([new Fr(0)]); // The inner call should have reverted.
-    });
-
-    it(`Nested static call (old interface)`, async () => {
-      const calldata: Fr[] = [new Fr(1), new Fr(2)];
-      const callBytecode = getAvmTestContractBytecode('nested_static_call_to_add');
-      const addBytecode = getAvmTestContractBytecode('add_args_return');
-      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValueOnce(Promise.resolve(addBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([/*result=*/ new Fr(3)]);
-    });
-
-    it(`Nested static call which modifies storage (old interface)`, async () => {
-      const callBytecode = getAvmTestContractBytecode('nested_static_call_to_set_storage');
-      const nestedBytecode = getAvmTestContractBytecode('set_storage_single');
-      const context = initContext();
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValueOnce(Promise.resolve(nestedBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.reverted).toBe(true); // The outer call should revert.
-    });
-  });
-
   describe('Storage accesses', () => {
     it('Should set value in storage (single)', async () => {
       const slot = 1n;
@@ -562,9 +527,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(adminSlotValue).toEqual(value);
 
       // Tracing
-      const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
-      const slotTrace = storageTrace.get(slot);
-      expect(slotTrace).toEqual([value]);
+      expect(worldState.storageWrites).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot),
+          value: value,
+        }),
+      ]);
     });
 
     it('Should read value in storage (single)', async () => {
@@ -588,9 +557,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Tracing
       const worldState = context.persistableState.flush();
-      const storageTrace = worldState.storageReads.get(address.toBigInt())!;
-      const slotTrace = storageTrace.get(slot);
-      expect(slotTrace).toEqual([value]);
+      expect(worldState.storageReads).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot),
+          value: value,
+          exists: true,
+        }),
+      ]);
     });
 
     it('Should set and read a value from storage (single)', async () => {
@@ -610,14 +584,21 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Test read trace
       const worldState = context.persistableState.flush();
-      const storageReadTrace = worldState.storageReads.get(address.toBigInt())!;
-      const slotReadTrace = storageReadTrace.get(slot);
-      expect(slotReadTrace).toEqual([value]);
-
-      // Test write trace
-      const storageWriteTrace = worldState.storageWrites.get(address.toBigInt())!;
-      const slotWriteTrace = storageWriteTrace.get(slot);
-      expect(slotWriteTrace).toEqual([value]);
+      expect(worldState.storageReads).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot),
+          value: value,
+          exists: true,
+        }),
+      ]);
+      expect(worldState.storageWrites).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot),
+          value: value,
+        }),
+      ]);
     });
 
     it('Should set a value in storage (list)', async () => {
@@ -640,9 +621,18 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(storageSlot.get(slot + 1n)).toEqual(calldata[1]);
 
       // Tracing
-      const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
-      expect(storageTrace.get(slot)).toEqual([calldata[0]]);
-      expect(storageTrace.get(slot + 1n)).toEqual([calldata[1]]);
+      expect(worldState.storageWrites).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot),
+          value: calldata[0],
+        }),
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot + 1n),
+          value: calldata[1],
+        }),
+      ]);
     });
 
     it('Should read a value in storage (list)', async () => {
@@ -668,9 +658,20 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Tracing
       const worldState = context.persistableState.flush();
-      const storageTrace = worldState.storageReads.get(address.toBigInt())!;
-      expect(storageTrace.get(slot)).toEqual([values[0]]);
-      expect(storageTrace.get(slot + 1n)).toEqual([values[1]]);
+      expect(worldState.storageReads).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot),
+          value: values[0],
+          exists: true,
+        }),
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slot + 1n),
+          value: values[1],
+          exists: true,
+        }),
+      ]);
     });
 
     it('Should set a value in storage (map)', async () => {
@@ -693,8 +694,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(storageSlot.get(slotNumber)).toEqual(value);
 
       // Tracing
-      const storageTrace = worldState.storageWrites.get(address.toBigInt())!;
-      expect(storageTrace.get(slotNumber)).toEqual([value]);
+      expect(worldState.storageWrites).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slotNumber),
+          value: value,
+        }),
+      ]);
     });
 
     it('Should read-add-set a value in storage (map)', async () => {
@@ -717,10 +723,21 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(storageSlot.get(slotNumber)).toEqual(value);
 
       // Tracing
-      const storageReadTrace = worldState.storageReads.get(address.toBigInt())!;
-      expect(storageReadTrace.get(slotNumber)).toEqual([new Fr(0)]);
-      const storageWriteTrace = worldState.storageWrites.get(address.toBigInt())!;
-      expect(storageWriteTrace.get(slotNumber)).toEqual([value]);
+      expect(worldState.storageReads).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slotNumber),
+          value: Fr.ZERO,
+          exists: false,
+        }),
+      ]);
+      expect(worldState.storageWrites).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          slot: new Fr(slotNumber),
+          value: value,
+        }),
+      ]);
     });
 
     it('Should read value in storage (map)', async () => {
@@ -743,14 +760,164 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       // Tracing
       const worldState = context.persistableState.flush();
-      const storageTrace = worldState.storageReads.get(address.toBigInt())!;
-      expect([...storageTrace.values()]).toEqual([[value]]);
+      expect(worldState.storageReads).toEqual([
+        expect.objectContaining({
+          storageAddress: address,
+          // slot depends on pedersen hash of key, etc.
+          value: value,
+          exists: true,
+        }),
+      ]);
+    });
+  });
+
+  describe('Contract', () => {
+    it(`GETCONTRACTINSTANCE deserializes correctly`, async () => {
+      const context = initContext();
+      const contractInstance = {
+        address: AztecAddress.random(),
+        version: 1 as const,
+        salt: new Fr(0x123),
+        deployer: AztecAddress.fromBigInt(0x456n),
+        contractClassId: new Fr(0x789),
+        initializationHash: new Fr(0x101112),
+        portalContractAddress: EthAddress.fromField(new Fr(0x131415)),
+        publicKeysHash: new Fr(0x161718),
+      };
+
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getContractInstance')
+        .mockReturnValue(Promise.resolve(contractInstance));
+      const bytecode = getAvmTestContractBytecode('test_get_contract_instance_raw');
+      const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+      expect(results.reverted).toBe(false);
+    });
+  });
+
+  describe('Nested external calls', () => {
+    it(`Nested call succeeds`, async () => {
+      const calldata: Fr[] = [new Fr(1), new Fr(2)];
+      const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_call_to_add');
+      const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(addBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.revertReason).toBeUndefined();
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(3)]);
+    });
+
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5625): gas not plumbed through correctly in nested calls.
+    // it(`Nested call with not enough gas`, async () => {
+    //   const gas = [/*l1=*/ 10000, /*l2=*/ 20, /*da=*/ 10000].map(g => new Fr(g));
+    //   const calldata: Fr[] = [new Fr(1), new Fr(2), ...gas];
+    //   const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_call_to_add_with_gas');
+    //   const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
+    //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+    //   jest
+    //     .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+    //     .mockReturnValue(Promise.resolve(addBytecode));
+
+    //   const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+    //   // Outer frame should not revert, but inner should, so the forwarded return value is 0
+    //   expect(results.revertReason).toBeUndefined();
+    //   expect(results.reverted).toBe(false);
+    //   expect(results.output).toEqual([new Fr(0)]);
+    // });
+
+    it(`Nested call through the old interface`, async () => {
+      const calldata: Fr[] = [new Fr(1), new Fr(2)];
+      const callBytecode = getAvmNestedCallsTestContractBytecode('nested_call_to_add');
+      const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(addBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([new Fr(3)]);
+    });
+
+    it(`Nested static call`, async () => {
+      const calldata: Fr[] = [new Fr(1), new Fr(2)];
+      const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_static_call_to_add');
+      const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(addBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([/*result=*/ new Fr(3), /*success=*/ new Fr(1)]);
+    });
+
+    it(`Nested static call which modifies storage`, async () => {
+      const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_static_call_to_set_storage');
+      const nestedBytecode = getAvmNestedCallsTestContractBytecode('set_storage_single');
+      const context = initContext();
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(nestedBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(false); // The outer call should not revert.
+      expect(results.output).toEqual([new Fr(0)]); // The inner call should have reverted.
+    });
+
+    it(`Nested static call (old interface)`, async () => {
+      const calldata: Fr[] = [new Fr(1), new Fr(2)];
+      const callBytecode = getAvmNestedCallsTestContractBytecode('nested_static_call_to_add');
+      const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
+      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(addBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(false);
+      expect(results.output).toEqual([/*result=*/ new Fr(3)]);
+    });
+
+    it(`Nested static call which modifies storage (old interface)`, async () => {
+      const callBytecode = getAvmNestedCallsTestContractBytecode('nested_static_call_to_set_storage');
+      const nestedBytecode = getAvmNestedCallsTestContractBytecode('set_storage_single');
+      const context = initContext();
+      jest
+        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
+        .mockReturnValue(Promise.resolve(nestedBytecode));
+
+      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
+
+      expect(results.reverted).toBe(true); // The outer call should revert.
+      // TODO(fcarreiro): revertReason lost in translation between results.
+      // expect(results.revertReason).toEqual(/StaticCallStorageAlterError/);
     });
   });
 });
 
 function getAvmTestContractBytecode(functionName: string): Buffer {
   const artifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+  assert(
+    !!artifact?.bytecode,
+    `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
+  );
+  return artifact.bytecode;
+}
+
+function getAvmNestedCallsTestContractBytecode(functionName: string): Buffer {
+  const artifact = AvmNestedCallsTestContractArtifact.functions.find(f => f.name === functionName)!;
   assert(
     !!artifact?.bytecode,
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,

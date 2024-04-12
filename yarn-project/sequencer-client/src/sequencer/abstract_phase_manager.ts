@@ -31,7 +31,6 @@ import {
   PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   PublicKernelData,
-  RETURN_VALUES_LENGTH,
   ReadRequest,
   RevertCode,
   SideEffect,
@@ -42,7 +41,7 @@ import {
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import {
-  type ABIType,
+  type AbiType,
   type DecodedReturn,
   type FunctionArtifact,
   type ProcessReturnValues,
@@ -127,11 +126,18 @@ export abstract class AbstractPhaseManager {
     publicInputs: PrivateKernelTailCircuitPublicInputs,
     enqueuedPublicFunctionCalls: PublicCallRequest[],
   ): Record<PublicKernelPhase, PublicCallRequest[]> {
+    const data = publicInputs.forPublic;
+    if (!data) {
+      return {
+        [PublicKernelPhase.SETUP]: [],
+        [PublicKernelPhase.APP_LOGIC]: [],
+        [PublicKernelPhase.TEARDOWN]: [],
+        [PublicKernelPhase.TAIL]: [],
+      };
+    }
     const publicCallsStack = enqueuedPublicFunctionCalls.slice().reverse();
-    const nonRevertibleCallStack = publicInputs.forPublic!.endNonRevertibleData.publicCallStack.filter(
-      i => !i.isEmpty(),
-    );
-    const revertibleCallStack = publicInputs.forPublic!.end.publicCallStack.filter(i => !i.isEmpty());
+    const nonRevertibleCallStack = data.endNonRevertibleData.publicCallStack.filter(i => !i.isEmpty());
+    const revertibleCallStack = data.end.publicCallStack.filter(i => !i.isEmpty());
 
     const callRequestsStack = publicCallsStack
       .map(call => call.toCallRequest())
@@ -230,15 +236,11 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
-        // NOTE: temporary glue to incorporate avm execution calls.
-        const simulator = (execution: PublicExecution, globalVariables: GlobalVariables) =>
-          execution.functionData.isTranspiled
-            ? this.publicExecutor.simulateAvm(execution, globalVariables, sideEffectCounter)
-            : this.publicExecutor.simulate(execution, globalVariables, sideEffectCounter);
 
-        const result = isExecutionRequest ? await simulator(current, this.globalVariables) : current;
+        const result = isExecutionRequest
+          ? await this.publicExecutor.simulate(current, this.globalVariables, sideEffectCounter)
+          : current;
 
         const functionSelector = result.execution.functionData.selector.toString();
         if (result.reverted && !PhaseIsRevertible[this.phase]) {
@@ -283,15 +285,13 @@ export abstract class AbstractPhaseManager {
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
 
-          // Padding as the AVM is not always returning the expected return size (4)
-          // which is expected by the kernel.
-          const paddedReturn = padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH);
-
           // TODO(#5450) Need to use the proper return values here
-          const returnTypes: ABIType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
+          const returnTypes: AbiType[] = [
+            { kind: 'array', length: result.returnValues.length, type: { kind: 'field' } },
+          ];
           const mockArtifact = { returnTypes } as any as FunctionArtifact;
 
-          currentReturn = decodeReturnValues(mockArtifact, paddedReturn);
+          currentReturn = decodeReturnValues(mockArtifact, result.returnValues);
         }
       }
       // HACK(#1622): Manually patches the ordering of public state actions
@@ -371,7 +371,7 @@ export abstract class AbstractPhaseManager {
       newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, L2ToL1Message.empty(), MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       startSideEffectCounter: result.startSideEffectCounter,
       endSideEffectCounter: result.endSideEffectCounter,
-      returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
+      returnsHash: computeVarArgsHash(result.returnValues),
       nullifierReadRequests: padArrayEnd(
         result.nullifierReadRequests,
         ReadRequest.empty(),

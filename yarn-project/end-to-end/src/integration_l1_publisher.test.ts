@@ -12,13 +12,14 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
+  PROVING_STATUS,
   type ProcessedTx,
-  type ProvingSuccess,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
 } from '@aztec/circuit-types';
 import {
   EthAddress,
+  GasFees,
   type Header,
   KernelCircuitPublicInputs,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -27,9 +28,8 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
-  SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
-import { fr, makeNewSideEffect, makeNewSideEffectLinkedToNoteHash, makeProof } from '@aztec/circuits.js/testing';
+import { fr, makeProof } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -142,6 +142,7 @@ describe('L1Publisher integration', () => {
       l2QueueSize: 10,
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    await worldStateSynchronizer.start();
     builder = await TxProver.new({}, worldStateSynchronizer, new WASMSimulator());
     l2Proof = Buffer.alloc(0);
 
@@ -179,14 +180,9 @@ describe('L1Publisher integration', () => {
 
     const processedTx = makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, makeNewSideEffect, seed + 0x100);
-    processedTx.data.end.newNullifiers = makeTuple(
-      MAX_NEW_NULLIFIERS_PER_TX,
-      makeNewSideEffectLinkedToNoteHash,
-      seed + 0x200,
-    );
-    processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] =
-      SideEffectLinkedToNoteHash.empty();
+    processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100);
+    processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
+    processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
     processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
     processedTx.data.end.unencryptedLogsHash = Fr.fromBuffer(processedTx.unencryptedLogs.hash());
@@ -273,6 +269,11 @@ describe('L1Publisher integration', () => {
             version: Number(block.header.globalVariables.version.toBigInt()),
             coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
             feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
+            gasFees: {
+              feePerDaGas: block.header.globalVariables.gasFees.feePerDaGas.toNumber(),
+              feePerL1Gas: block.header.globalVariables.gasFees.feePerL1Gas.toNumber(),
+              feePerL2Gas: block.header.globalVariables.gasFees.feePerL2Gas.toNumber(),
+            },
           },
           lastArchive: {
             nextAvailableLeafIndex: block.header.lastArchive.nextAvailableLeafIndex,
@@ -387,11 +388,16 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
+        GasFees.empty(),
       );
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages, makeEmptyProcessedTx());
       const result = await ticket.provingPromise;
-      const block = (result as ProvingSuccess).block;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      const blockResult = await builder.finaliseBlock();
+      const block = blockResult.block;
       prevHeader = block.header;
+      blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
+      blockSource.getBlocks.mockResolvedValueOnce([block]);
 
       const newL2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
@@ -477,11 +483,16 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
         coinbase,
         feeRecipient,
+        GasFees.empty(),
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages, makeEmptyProcessedTx());
       const result = await blockTicket.provingPromise;
-      const block = (result as ProvingSuccess).block;
+      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+      const blockResult = await builder.finaliseBlock();
+      const block = blockResult.block;
       prevHeader = block.header;
+      blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
+      blockSource.getBlocks.mockResolvedValueOnce([block]);
 
       writeJson(`empty_block_${i}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 

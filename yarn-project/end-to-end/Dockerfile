@@ -5,14 +5,13 @@ FROM --platform=linux/amd64 aztecprotocol/noir-projects as noir-projects
 FROM aztecprotocol/noir as noir
 
 FROM node:18.19.0 as builder
-RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
+RUN apt update && apt install -y jq curl perl git && rm -rf /var/lib/apt/lists/* && apt-get clean
 
 # Copy in portalled packages.
 COPY --from=bb.js /usr/src/barretenberg/ts /usr/src/barretenberg/ts
 COPY --from=noir-packages /usr/src/noir/packages /usr/src/noir/packages
 COPY --from=contracts /usr/src/l1-contracts /usr/src/l1-contracts
 COPY --from=noir-projects /usr/src/noir-projects /usr/src/noir-projects
-# We want the native ACVM binary
 COPY --from=noir /usr/src/noir/noir-repo/target/release/acvm /usr/src/noir/noir-repo/target/release/acvm
 
 WORKDIR /usr/src/yarn-project
@@ -38,9 +37,13 @@ RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
 # We no longer need these
 RUN rm -rf /usr/src/noir-projects /usr/src/l1-contracts
 
+# Anvil. Hacky, but can't be bothered handling foundry image as we're moving to earthly.
+RUN curl -L https://foundry.paradigm.xyz | bash
+RUN /root/.foundry/bin/foundryup --version nightly-de33b6af53005037b463318d2628b5cfcaf39916 && mkdir -p /usr/src/foundry/bin && cp /root/.foundry/bin/anvil /usr/src/foundry/bin/anvil
+
 # Create minimal image.
 FROM node:18.19.1-slim
-RUN apt-get update && apt-get install jq gnupg wget -y && \
+RUN apt-get update && apt-get install jq gnupg wget netcat-openbsd -y && \
     wget --quiet --output-document=- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /etc/apt/trusted.gpg.d/google-archive.gpg && \
     sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
     apt-get update && \
