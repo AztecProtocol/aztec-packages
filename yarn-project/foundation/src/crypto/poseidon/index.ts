@@ -8,7 +8,7 @@ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js'
  * @param input - The input fields to hash.
  * @param index - The separator index to use for the hash.
  * @returns The poseidon hash.
- * TODO(#5714): enable index once the barretenberg API supports it
+ * TODO(#5714): enable index once barretenberg API supports it
  */
 export function poseidonHash(input: Fieldable[], _index = 0): Fr {
   const inputFields = serializeToFields(input);
