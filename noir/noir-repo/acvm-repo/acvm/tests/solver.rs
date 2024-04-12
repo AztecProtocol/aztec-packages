@@ -105,7 +105,8 @@ fn inversion_brillig_oracle_equivalence() {
     ])
     .into();
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
     // use the partial witness generation solver with our acir program
     let solver_status = acvm.solve();
 
@@ -242,7 +243,8 @@ fn double_inversion_brillig_oracle() {
     ])
     .into();
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
 
     // use the partial witness generation solver with our acir program
     let solver_status = acvm.solve();
@@ -371,7 +373,8 @@ fn oracle_dependent_execution() {
     let witness_assignments =
         BTreeMap::from([(w_x, FieldElement::from(2u128)), (w_y, FieldElement::from(2u128))]).into();
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
 
     // use the partial witness generation solver with our acir program
     let solver_status = acvm.solve();
@@ -475,7 +478,8 @@ fn brillig_oracle_predicate() {
     ])
     .into();
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, witness_assignments, &unconstrained_functions);
     let solver_status = acvm.solve();
     assert_eq!(solver_status, ACVMStatus::Solved, "should be fully solved");
 
@@ -637,7 +641,8 @@ fn memory_operations() {
 
     let opcodes = vec![init, read_op, expression];
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(&StubbedBlackBoxSolver, &opcodes, initial_witness, &unconstrained_functions);
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, initial_witness, &unconstrained_functions);
     let solver_status = acvm.solve();
     assert_eq!(solver_status, ACVMStatus::Solved);
     let witness_map = acvm.finalize();
