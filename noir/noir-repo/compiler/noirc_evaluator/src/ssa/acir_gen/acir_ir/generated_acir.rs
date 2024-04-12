@@ -627,7 +627,7 @@ impl GeneratedAcir {
         brillig_function_index: u32,
     ) {
         let opcode = AcirOpcode::BrilligPointer(BrilligPointer {
-            inputs, 
+            inputs,
             outputs,
             bytecode_index: brillig_function_index,
             predicate,
@@ -635,13 +635,19 @@ impl GeneratedAcir {
         self.push_opcode(opcode);
         for (brillig_index, call_stack) in generated_brillig.locations.iter() {
             self.locations.insert(
-                OpcodeLocation::Brillig { acir_index: self.opcodes.len() - 1, brillig_index: *brillig_index },
+                OpcodeLocation::Brillig {
+                    acir_index: self.opcodes.len() - 1,
+                    brillig_index: *brillig_index,
+                },
                 call_stack.clone(),
             );
         }
         for (brillig_index, message) in generated_brillig.assert_messages.iter() {
             self.assert_messages.insert(
-                OpcodeLocation::Brillig { acir_index: self.opcodes.len() - 1, brillig_index: *brillig_index },
+                OpcodeLocation::Brillig {
+                    acir_index: self.opcodes.len() - 1,
+                    brillig_index: *brillig_index,
+                },
                 message.clone(),
             );
         }
