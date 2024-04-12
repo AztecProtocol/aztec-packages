@@ -18,7 +18,7 @@ namespace bb {
 
 template <typename FF> struct SpikeFullRow {
     FF Spike_first{};
-    FF Spike_kernel_inputs__is_public{};
+    FF Spike_kernel_inputs{};
     FF Spike_x{};
 };
 
@@ -50,7 +50,7 @@ class SpikeCircuitBuilder {
 
         for (size_t i = 0; i < rows.size(); i++) {
             polys.Spike_first[i] = rows[i].Spike_first;
-            polys.Spike_kernel_inputs__is_public[i] = rows[i].Spike_kernel_inputs__is_public;
+            polys.Spike_kernel_inputs[i] = rows[i].Spike_kernel_inputs;
             polys.Spike_x[i] = rows[i].Spike_x;
         }
 

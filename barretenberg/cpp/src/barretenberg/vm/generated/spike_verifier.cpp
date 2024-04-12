@@ -5,9 +5,9 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm/generated/spike_flavor.hpp"
 
 namespace bb {
+
 SpikeVerifier::SpikeVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
 {}
@@ -25,14 +25,10 @@ SpikeVerifier& SpikeVerifier::operator=(SpikeVerifier&& other) noexcept
     return *this;
 }
 
-using FF = SpikeVerifier::FF;
+using FF = SpikeFlavor::FF;
 
-// Evaluations are the evaluations of the polynomial over the boolean hypercube
-// The multivariate challenge is the challenge in each variable of the polynomial
-// This challenge is generated during the sumcheck protocol
-//
-// TODO: Using the current evaluate_mle implementation is inefficient
-FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
+// Evaluate the given public input column over the multivariate challenge points
+[[maybe_unused]] FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challenges)
 {
     Polynomial<FF> polynomial(points);
     return polynomial.evaluate_mle(challenges);
@@ -42,8 +38,7 @@ FF evaluate_public_input_column(std::vector<FF> points, std::vector<FF> challeng
  * @brief This function verifies an Spike Honk proof for given program settings.
  *
  */
-// bool SpikeVerifier::verify_proof(const HonkProof& proof, PublicInputColumns public_inputs)
-bool SpikeVerifier::verify_proof(const HonkProof& proof, std::vector<FF> public_inputs)
+bool SpikeVerifier::verify_proof(const HonkProof& proof, const std::vector<FF>& public_inputs)
 {
     using Flavor = SpikeFlavor;
     using FF = Flavor::FF;
@@ -67,8 +62,8 @@ bool SpikeVerifier::verify_proof(const HonkProof& proof, std::vector<FF> public_
     }
 
     // Get commitments to VM wires
-    commitments.Spike_kernel_inputs__is_public =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_kernel_inputs__is_public);
+    commitments.Spike_kernel_inputs =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_kernel_inputs);
     commitments.Spike_x = transcript->template receive_from_prover<Commitment>(commitment_labels.Spike_x);
 
     // Get commitments to inverses
@@ -92,17 +87,8 @@ bool SpikeVerifier::verify_proof(const HonkProof& proof, std::vector<FF> public_
         return false;
     }
 
-    // Compute the public inputs evaluations, and verify that they match the claimed evaluations
-    // This is performed later in the verifier such that we can use the same evalutaions that are computed
-    // during sumcheck and confirmed during zeromorph
-    // A more optimal implementation would avoid the prover having to compute the commitment to the public inputs
-    // and compute them at a different challenge earlier in the program
-    // This would require a change in our zeromorph implementation where it assumes all evaluations were made
-    // at the same challenge point.
-    // TODO: document this design choice in a github issue
-
     FF public_column_evaluation = evaluate_public_input_column(public_inputs, multivariate_challenge);
-    if (public_column_evaluation != claimed_evaluations.Spike_kernel_inputs__is_public) {
+    if (public_column_evaluation != claimed_evaluations.Spike_kernel_inputs) {
         return false;
     }
 
