@@ -1,7 +1,7 @@
 //! This file holds the pass to convert from Noir's SSA IR to ACIR.
 mod acir_ir;
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fmt::Debug;
 
 use self::acir_ir::acir_variable::{AcirContext, AcirType, AcirVar};
@@ -94,7 +94,12 @@ struct Context<'a> {
     data_bus: DataBus,
 
     // TODO: could make this a Vec as the IDs have already made to be consecutive indices
-    generated_brilligs: &'a mut Vec<GeneratedBrillig>,
+    generated_brilligs: &'a mut BTreeMap<u32, GeneratedBrillig>,
+
+    /// Represents the index of a function from SSA to its final index
+    /// We need this in case there are functions which have been specified in SSA
+    /// but ultimately were not used during ACIR gen
+    brillig_index_to_gen_index: BTreeMap<u32, u32>,
 }
 
 #[derive(Clone)]
@@ -188,10 +193,10 @@ impl Ssa {
     ) -> Result<(Vec<GeneratedAcir>, Vec<BrilligBytecode>), RuntimeError> {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
-        let mut generated_brilligs = Vec::new();
+        let mut generated_brillig_map = BTreeMap::default();
         for function in self.functions.values() {
             // let context = Context::new();
-            let context = Context::new(&mut generated_brilligs);
+            let context = Context::new(&mut generated_brillig_map);
             if let Some(mut generated_acir) =
                 context.convert_ssa_function(&self, function, brillig)?
             {
@@ -201,8 +206,8 @@ impl Ssa {
         }
 
         // TODO: can just store the Brillig bytecode as we utilize the locations when setting acir locations
-        let brilligs = generated_brilligs
-            .into_iter()
+        let brilligs = generated_brillig_map
+            .values()
             .map(|brillig| BrilligBytecode { bytecode: brillig.byte_code.clone() })
             .collect::<Vec<_>>();
 
@@ -235,7 +240,7 @@ impl Ssa {
 }
 
 impl<'a> Context<'a> {
-    fn new(generated_brilligs: &mut Vec<GeneratedBrillig>) -> Context {
+    fn new(generated_brilligs: &mut BTreeMap<u32, GeneratedBrillig>) -> Context {
         let mut acir_context = AcirContext::default();
         let current_side_effects_enabled_var = acir_context.add_constant(FieldElement::one());
 
@@ -250,6 +255,7 @@ impl<'a> Context<'a> {
             max_block_id: 0,
             data_bus: DataBus::default(),
             generated_brilligs,
+            brillig_index_to_gen_index: BTreeMap::default(),
         }
     }
 
@@ -622,11 +628,8 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                let output_values = if *brillig_program_id
-                                    < self.generated_brilligs.len() as u32
-                                {
-                                    let code =
-                                        &self.generated_brilligs[*brillig_program_id as usize];
+                                let output_values = if let Some(gen_index) = self.brillig_index_to_gen_index.get(brillig_program_id) {
+                                    let code = self.generated_brilligs.get(gen_index).expect("should have gen brillig");
                                     self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         code,
@@ -634,12 +637,13 @@ impl<'a> Context<'a> {
                                         outputs,
                                         true,
                                         false,
-                                        *brillig_program_id,
+                                        *gen_index,
                                     )?
                                 } else {
                                     let arguments = self.gen_brillig_parameters(arguments, dfg);
                                     let code = self.gen_brillig_for(func, arguments, brillig)?;
 
+                                    let final_generated_index = self.generated_brilligs.len() as u32;
                                     let output_values = self.acir_context.brillig_pointer(
                                         self.current_side_effects_enabled_var,
                                         &code,
@@ -647,10 +651,11 @@ impl<'a> Context<'a> {
                                         outputs,
                                         true,
                                         false,
-                                        *brillig_program_id,
+                                        final_generated_index,
                                     )?;
 
-                                    self.generated_brilligs.push(code);
+                                    self.brillig_index_to_gen_index.insert(*brillig_program_id, final_generated_index);
+                                    self.generated_brilligs.insert(final_generated_index, code);
                                     output_values
                                 };
 
