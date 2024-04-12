@@ -241,6 +241,10 @@ template <typename Flavor> class SumcheckProverRound {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
+        /*
+        Here we'd have something like:
+        if (Relation::is_active(row_idx)) { Relation::accumulate... }
+        */
         Relation::accumulate(
             std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
 
