@@ -126,6 +126,7 @@ export type Fieldable =
   | boolean
   | number
   | bigint
+  | Buffer
   | {
       /**
        * Serialize to a field.
