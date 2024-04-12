@@ -18,12 +18,6 @@ impl ToField for PartialAddress {
     }
 }
 
-impl FromField for PartialAddress {
-    fn from_field(value: Field) -> Self {
-        PartialAddress { inner: value }
-    }
-}
-
 impl Serialize<AZTEC_ADDRESS_LENGTH> for PartialAddress {
     fn serialize(self: Self) -> [Field; AZTEC_ADDRESS_LENGTH] {
         [self.to_field()]
@@ -32,7 +26,7 @@ impl Serialize<AZTEC_ADDRESS_LENGTH> for PartialAddress {
 
 impl Deserialize<AZTEC_ADDRESS_LENGTH> for PartialAddress {
     fn deserialize(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
-        FromField::from_field(fields[0])
+       PartialAddress { inner: fields[0] }
     }
 }
 
