@@ -1,5 +1,6 @@
 contract KeyRegistry {
   use dep::aztec::{
+    avm::hash::poseidon,
     context::gas::GasOpts,
     state_vars::{
       SharedMutable,
@@ -8,7 +9,6 @@ contract KeyRegistry {
     protocol_types::{
       abis::function_selector::FunctionSelector,
       contract_class_id::ContractClassId,
-      hash::pedersen_hash,
       address::{
         AztecAddress,
         EthAddress,
@@ -70,7 +70,7 @@ contract KeyRegistry {
       FunctionSelector::from_signature("assert_non_membership_public((Field))"),
       [address.to_field()],
       GasOpts::default()
-    );
+    ).assert_empty();
 
     let partial_address = PartialAddress::compute(
         contract_class_id,
@@ -83,19 +83,21 @@ contract KeyRegistry {
     // TODO (ek): Do it below after refactoring all public_keys_hash_elemtns
     // let public_keys_hash = PublicKeysHash::compute(nullifier_public_key, tagging_public_key, incoming_public_key, outgoing_public_key);
     // let address = AztecAddress::compute(public_keys_hash, partial_address);
-    let public_keys_hash = pedersen_hash([
+    let public_keys_hash = poseidon([
         nullifier_public_key,
         tagging_public_key,
         incoming_public_key,
-        outgoing_public_key
+        outgoing_public_key,
+        GENERATOR_INDEX__PARTIAL_ADDRESS as Field,
       ],
-      GENERATOR_INDEX__PARTIAL_ADDRESS
     );
 
     let computed_address = AztecAddress::from_field(
-      pedersen_hash(
-          [public_keys_hash.to_field(), partial_address.to_field()],
-          GENERATOR_INDEX__CONTRACT_ADDRESS
+      poseidon([
+          public_keys_hash.to_field(),
+          partial_address.to_field(),
+          GENERATOR_INDEX__CONTRACT_ADDRESS as Field,
+        ],
       )
     );
 
