@@ -1,7 +1,7 @@
 import { type NewKeyStore, type PublicKey } from '@aztec/circuit-types';
 import { AztecAddress, Fr, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { poseidonHash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
+import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 /**
@@ -46,7 +46,7 @@ export class NewTestKeyStore implements NewKeyStore {
     const masterTaggingPublicKey = this.curve.mul(this.curve.generator(), masterTaggingSecretKey);
 
     // We hash the public keys to get the public keys hash
-    const publicKeysHash = poseidonHash(
+    const publicKeysHash = poseidon2Hash(
       [
         masterNullifierPublicKey,
         masterIncomingViewingPublicKey,
@@ -57,9 +57,9 @@ export class NewTestKeyStore implements NewKeyStore {
     );
 
     // We hash the partial address and the public keys hash to get the account address
-    // TODO: Should GeneratorIndex.CONTRACT_ADDRESS be removed given that we introduced CONTRACT_ADDRESS_V1?
-    // TODO: Move the following line to AztecAddress class?
-    const accountAddressFr = poseidonHash([partialAddress, publicKeysHash], GeneratorIndex.CONTRACT_ADDRESS_V1);
+    // TODO(#5726): Should GeneratorIndex.CONTRACT_ADDRESS be removed given that we introduced CONTRACT_ADDRESS_V1?
+    // TODO(#5726): Move the following line to AztecAddress class?
+    const accountAddressFr = poseidon2Hash([partialAddress, publicKeysHash], GeneratorIndex.CONTRACT_ADDRESS_V1);
     const accountAddress = AztecAddress.fromField(accountAddressFr);
 
     // We store the keys in the database
