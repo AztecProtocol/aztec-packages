@@ -142,7 +142,7 @@ fn compute_fn_signature(fn_name: &str, parameters: &[Type]) -> String {
     format!(
         "{}({})",
         fn_name,
-        parameters.iter().map(|typ| signature_of_type(typ)).collect::<Vec<_>>().join(",")
+        parameters.iter().map(signature_of_type).collect::<Vec<_>>().join(",")
     )
 }
 
