@@ -361,7 +361,7 @@ mod tests {
             assert_messages: Default::default(),
             recursive: false,
         };
-        let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
+        let program = Program { functions: vec![circuit], unconstrained_functions: Vec::new() };
 
         fn read_write(program: Program) -> (Program, Program) {
             let bytes = Program::serialize_program(&program);
@@ -395,7 +395,7 @@ mod tests {
             assert_messages: Default::default(),
             recursive: false,
         };
-        let program = Program { functions: vec![circuit], unconstrained_functions: vec![] };
+        let program = Program { functions: vec![circuit], unconstrained_functions: Vec::new() };
 
         let json = serde_json::to_string_pretty(&program).unwrap();
 
