@@ -32,7 +32,7 @@ pub fn collect_crate_structs(crate_id: &CrateId, context: &HirContext) -> Vec<St
                 })
                 .collect()
         })
-        .unwrap_or(vec![])
+        .unwrap_or_default()
 }
 
 pub fn collect_crate_functions(crate_id: &CrateId, context: &HirContext) -> Vec<FuncId> {

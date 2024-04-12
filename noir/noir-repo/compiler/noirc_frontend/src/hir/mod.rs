@@ -203,7 +203,7 @@ impl Context<'_, '_> {
             .iter()
             .find_map(|dep| {
                 if &dep.crate_id == target_crate_id {
-                    return Some(vec![dep.name.to_string()]);
+                    Some(vec![dep.name.to_string()])
                 } else {
                     None
                 }
@@ -214,7 +214,7 @@ impl Context<'_, '_> {
                         self.find_dependencies_bfs(&dep.crate_id, target_crate_id)
                     {
                         path.insert(0, dep.name.to_string());
-                        return Some(path);
+                        Some(path)
                     } else {
                         None
                     }

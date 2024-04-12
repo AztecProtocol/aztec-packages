@@ -269,7 +269,7 @@ pub fn assign_storage_slots(
         let maybe_storage_struct =
             collect_crate_structs(crate_id, context).iter().find_map(|struct_id| {
                 let r#struct = context.def_interner.get_struct(*struct_id);
-                let attributes = context.def_interner.struct_attributes(&struct_id);
+                let attributes = context.def_interner.struct_attributes(struct_id);
                 if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)"))
                     && r#struct.borrow().id.krate() == *crate_id
                 {

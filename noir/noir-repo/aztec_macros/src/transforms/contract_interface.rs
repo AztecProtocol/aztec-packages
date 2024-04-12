@@ -33,7 +33,7 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
 
     let parameters = func.parameters();
 
-    let args_hash = if parameters.len() > 0 {
+    let args_hash = if parameters.is_empty() {
         let call_args = func
             .parameters()
             .iter()
