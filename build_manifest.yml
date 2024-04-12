@@ -163,7 +163,8 @@ yarn-project-test:
 
 # Runs all prover-client checks and tests.
 prover-client-test:
-  buildDir: prover-client
+  buildDir: yarn-project
+  projectDir: yarn-project/prover-client
   dockerfile: Dockerfile.test
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
