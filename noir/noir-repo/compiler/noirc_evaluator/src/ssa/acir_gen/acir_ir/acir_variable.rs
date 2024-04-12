@@ -1554,6 +1554,7 @@ impl AcirContext {
         Ok(outputs_var)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn brillig_pointer(
         &mut self,
         predicate: AcirVar,
@@ -1613,7 +1614,7 @@ impl AcirContext {
 
         self.acir_ir.brillig_pointer(
             Some(predicate),
-            &generated_brillig,
+            generated_brillig,
             b_inputs,
             b_outputs,
             brillig_function_index,
