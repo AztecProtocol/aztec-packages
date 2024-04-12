@@ -62,11 +62,7 @@ contract TokenBlacklist {
         // docs:start:get_and_update_private
         SlowTree::at(storage.slow_update.read_private()).update_at_private(user.to_field(), roles).call(&mut context);
         // docs:end:get_and_update_private
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("_init_slow_tree((Field))"),
-            [context.msg_sender().to_field()]
-        );
+        TokenBlacklist::at(context.this_address())._init_slow_tree(context.msg_sender()).enqueue(&mut context);
     }
 
     #[aztec(public)]
@@ -78,7 +74,7 @@ contract TokenBlacklist {
     #[aztec(private)]
     fn update_roles(user: AztecAddress, roles: Field) {
         // docs:start:slowmap_at
-        let slow = SlowTree::at(storage.slow_update.read_public());
+        let slow = SlowTree::at(storage.slow_update.read_private());
         // docs:end:slowmap_at
         let role = slow.read_at(context.msg_sender().to_field()).call(&mut context);
 
