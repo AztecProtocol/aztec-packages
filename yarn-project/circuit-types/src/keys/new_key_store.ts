@@ -76,14 +76,4 @@ export interface NewKeyStore {
    * @returns A Promise that resolves to the application outgoing viewing secret key.
    */
   getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr>;
-
-  /**
-   * Retrieves application tagging secret key.
-   * @throws If the account does not exist in the key store.
-   * @param account - The account to retrieve the application tagging secret key for.
-   * @param app - The application address to retrieve the tagging secret key for.
-   * @returns A Promise that resolves to the application tagging secret key.
-   * TODO: Not sure if this func will be needed. 💣💣💣 if not
-   */
-  getAppTaggingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr>;
 }

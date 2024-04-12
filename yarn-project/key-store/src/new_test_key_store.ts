@@ -197,24 +197,4 @@ export class NewTestKeyStore implements NewKeyStore {
       ]),
     );
   }
-
-  /**
-   * Retrieves application tagging secret key.
-   * @throws If the account does not exist in the key store.
-   * @param account - The account to retrieve the application tagging secret key for.
-   * @param app - The application address to retrieve the tagging secret key for.
-   * @returns A Promise that resolves to the application tagging secret key.
-   * TODO: Not sure if this func will be needed. 💣💣💣 if not
-   */
-  public getAppTaggingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
-    const masterTaggingSecretKeyBuffer = this.#keys.get(`${account.toString()}-tsk_m`);
-    if (!masterTaggingSecretKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
-    }
-    const masterTaggingSecretKey = GrumpkinScalar.fromBuffer(masterTaggingSecretKeyBuffer);
-
-    return Promise.resolve(
-      poseidon2Hash([masterTaggingSecretKey.high, masterTaggingSecretKey.low, app, GeneratorIndex.TSK_M]),
-    );
-  }
 }

@@ -55,10 +55,5 @@ describe('NewTestKeyStore', () => {
     expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
       `"0x2639b26510f9d30b7e173d301b263b246b7a576186be1f44cd7c86bc06773f8a"`,
     );
-
-    const appTaggingSecretKey = await keyStore.getAppTaggingSecretKey(accountAddress, appAddress);
-    expect(appTaggingSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x13b400d2fccab28a04a4df9fe541d242e6b518d03137ef0ffa57c3d98cc56e67"`,
-    );
   });
 });
