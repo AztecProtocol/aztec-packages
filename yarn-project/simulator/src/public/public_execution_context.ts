@@ -1,12 +1,9 @@
-import {
-  type NullifierMembershipWitness,
-  UnencryptedFunctionL2Logs,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
+import { UnencryptedFunctionL2Logs, type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   CallContext,
   FunctionData,
   type FunctionSelector,
+  GasSettings,
   type GlobalVariables,
   type Header,
 } from '@aztec/circuits.js';
@@ -217,6 +214,8 @@ export class PublicExecutionContext extends TypedOracle {
       isDelegateCall,
       isStaticCall,
       sideEffectCounter,
+      transactionFee: Fr.ZERO, // TODO(palla/gas-in-circuits)
+      gasSettings: GasSettings.empty(), // TODO(palla/gas-in-circuits)
     });
 
     const nestedExecution: PublicExecution = {
@@ -254,16 +253,6 @@ export class PublicExecutionContext extends TypedOracle {
     this.log.debug(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
 
     return childExecutionResult.returnValues;
-  }
-
-  public async getNullifierMembershipWitness(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    if (!this.header.globalVariables.blockNumber.equals(new Fr(blockNumber))) {
-      throw new Error(`Public execution oracle can only access nullifier membership witnesses for the current block`);
-    }
-    return await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
   }
 
   public async checkNullifierExists(nullifier: Fr): Promise<boolean> {
