@@ -1,22 +1,23 @@
-import { PROVING_STATUS, type PublicKernelRequest, PublicKernelType } from '@aztec/circuit-types';
-import { type GlobalVariables } from '@aztec/circuits.js';
-import {
-  makePublicKernelCircuitPrivateInputs,
-  makePublicKernelTailCircuitPrivateInputs,
-} from '@aztec/circuits.js/testing';
+import { PROVING_STATUS, PublicKernelType, mockTx } from '@aztec/circuit-types';
+import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import {
+  type ContractsDataSourcePublicDB,
+  PublicExecutionResultBuilder,
+  type PublicExecutor,
+  type PublicKernelCircuitSimulator,
+  PublicProcessor,
+  RealPublicKernelCircuitSimulator,
+  WASMSimulator,
+  type WorldStatePublicDB,
+} from '@aztec/simulator';
+import { type MerkleTreeOperations, MerkleTrees, TreeInfo } from '@aztec/world-state';
 
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 
-import {
-  getConfig,
-  getSimulationProvider,
-  makeBloatedProcessedTx,
-  makeEmptyProcessedTestTx,
-  makeGlobals,
-} from '../mocks/fixtures.js';
+import { getConfig, getSimulationProvider, makeEmptyProcessedTestTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
@@ -26,13 +27,20 @@ const logger = createDebugLogger('aztec:orchestrator-test');
 
 describe('prover/orchestrator', () => {
   let builder: ProvingOrchestrator;
+  let db: MockProxy<MerkleTreeOperations>;
   let builderDb: MerkleTreeOperations;
+  let publicExecutor: MockProxy<PublicExecutor>;
+  let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
+  let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
+  let publicKernel: PublicKernelCircuitSimulator;
+  let processor: PublicProcessor;
 
   let prover: TestCircuitProver;
 
   let blockNumber: number;
 
   let globalVariables: GlobalVariables;
+  let root: Buffer;
 
   beforeEach(async () => {
     blockNumber = 3;
@@ -51,7 +59,23 @@ describe('prover/orchestrator', () => {
 
   describe('blocks with public functions', () => {
     beforeEach(async () => {
+      publicExecutor = mock<PublicExecutor>();
+      db = mock<MerkleTreeOperations>();
+      root = Buffer.alloc(32, 5);
+      db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
+      publicContractsDB = mock<ContractsDataSourcePublicDB>();
+      publicWorldStateDB = mock<WorldStatePublicDB>();
       builder = await ProvingOrchestrator.new(builderDb, prover);
+      publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
+      processor = new PublicProcessor(
+        db,
+        publicExecutor,
+        publicKernel,
+        GlobalVariables.empty(),
+        Header.empty(),
+        publicContractsDB,
+        publicWorldStateDB,
+      );
     });
 
     afterEach(async () => {
@@ -59,28 +83,29 @@ describe('prover/orchestrator', () => {
     });
 
     it('builds a block with a transaction with public functions', async () => {
-      const tx = await makeBloatedProcessedTx(builderDb, 1);
-      const setup: PublicKernelRequest = {
-        type: PublicKernelType.SETUP,
-        inputs: makePublicKernelCircuitPrivateInputs(2),
-      };
+      const tx = mockTx(1000, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 2 });
+      tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
 
-      const app: PublicKernelRequest = {
-        type: PublicKernelType.APP_LOGIC,
-        inputs: makePublicKernelCircuitPrivateInputs(3),
-      };
+      publicExecutor.simulate.mockImplementation(execution => {
+        for (const request of tx.enqueuedPublicFunctionCalls) {
+          if (execution.contractAddress.equals(request.contractAddress)) {
+            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
+            // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
+            return Promise.resolve(result);
+          }
+        }
+        throw new Error(`Unexpected execution request: ${execution}`);
+      });
 
-      const teardown: PublicKernelRequest = {
-        type: PublicKernelType.TEARDOWN,
-        inputs: makePublicKernelCircuitPrivateInputs(4),
-      };
-
-      const tail: PublicKernelRequest = {
-        type: PublicKernelType.TAIL,
-        inputs: makePublicKernelTailCircuitPrivateInputs(5),
-      };
-
-      tx.publicKernelRequests = [setup, app, teardown, tail];
+      const [processed, _] = await processor.process([tx], 1, undefined);
+      for (const tx of processed) {
+        for (const nullifier of tx.data.end.newNullifiers) {
+          logger.info(`Nullifier ${nullifier.toString()}`);
+        }
+        for (const request of tx.publicKernelRequests) {
+          logger.info(`Kernel Request ${PublicKernelType[request.type]}`);
+        }
+      }
 
       // This will need to be a 2 tx block
       const blockTicket = await builder.startNewBlock(
@@ -90,7 +115,9 @@ describe('prover/orchestrator', () => {
         await makeEmptyProcessedTestTx(builderDb),
       );
 
-      await builder.addNewTx(tx);
+      for (const processedTx of processed) {
+        await builder.addNewTx(processedTx);
+      }
 
       //  we need to complete the block as we have not added a full set of txs
       await builder.setBlockCompleted();
