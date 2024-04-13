@@ -73,7 +73,7 @@ address_crh(
 }
 ```
 
-The `public_keys` array can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined in the [keys section](./keys.mdx). For example:
+The `public_keys` array can vary depending on the format of keys used by the address, but it is suggested it includes the master keys defined in the [keys section](./keys.md). For example:
 
 ```rust
 let public_keys_hash: Field = poseidon2(

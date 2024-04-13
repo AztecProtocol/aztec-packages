@@ -18,8 +18,8 @@ It's easiest to take a look at this first:
 
 Within the app, we can prove links between:
 
-- the user's [$\nskapp$](../keys.mdx#app-siloed-nullifier-secret-key) and their [$\Nkapp$](../keys.mdx#app-siloed-nullifier-key); and between
-- the user's [$\Npkm$](../keys.mdx#master-nullifier-public-key) and their [$\address$](../address.md).
+- the user's [$\nskapp$](../keys.md#app-siloed-nullifier-secret-key) and their [$\Nkapp$](../keys.md#app-siloed-nullifier-key); and between
+- the user's [$\Npkm$](../keys.md#master-nullifier-public-key) and their [$\address$](../address.md).
 
 The link that's missing is to prove that $\Npkm$ relates to $\nskapp$. To compute this missing link requires the $\nskm$, which MUST NOT be passed into an app circuit, and may only be passed into a kernel circuit. See the next ['Within the kernel circuit'](#within-the-kernel-circuit) section for details of this logic.
 
