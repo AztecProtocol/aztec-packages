@@ -16,10 +16,16 @@
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../world-state"
     },
     {
       "path": "../kv-store"
@@ -29,9 +35,6 @@
     },
     {
       "path": "../noir-contracts.js"
-    },
-    {
-      "path": "../noir-protocol-circuits-types"
     }
   ],
   "include": ["src"]
