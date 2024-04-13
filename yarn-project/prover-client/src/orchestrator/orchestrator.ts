@@ -366,6 +366,28 @@ export class ProvingOrchestrator {
     this.jobQueue.put(provingJob);
   }
 
+  private proveNextPublicFunction(provingState: ProvingState | undefined, txIndex: number, nextFunctionIndex: number) {
+    if (!provingState?.verifyState()) {
+      logger.debug(`Not executing public function, state invalid`);
+      return Promise.resolve();
+    }
+    const request = provingState.getPublicFunction(txIndex, nextFunctionIndex);
+    if (!request) {
+      // TODO(@Phil): Properly encapsulate this stuff
+      const tx = provingState.allTxs[txIndex];
+      const inputs = provingState.baseRollupInputs[txIndex];
+      const treeSnapshots = provingState.txTreeSnapshots[txIndex];
+      this.enqueueJob(provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
+        this.runBaseRollup(provingState, BigInt(txIndex), tx, inputs, treeSnapshots),
+      );
+      return Promise.resolve();
+    }
+    this.enqueueJob(provingState, PROVING_JOB_TYPE.PUBLIC_KERNEL, () =>
+      this.proveNextPublicFunction(provingState, txIndex, nextFunctionIndex + 1),
+    );
+    return Promise.resolve();
+  }
+
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction
   private async prepareBaseRollupInputs(
     provingState: ProvingState | undefined,
