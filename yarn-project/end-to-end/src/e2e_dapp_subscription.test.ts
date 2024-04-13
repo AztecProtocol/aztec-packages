@@ -21,11 +21,7 @@ import {
 } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { jest } from '@jest/globals';
-
 import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts, setup } from './fixtures/utils.js';
-
-jest.setTimeout(100_000);
 
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';
@@ -61,11 +57,12 @@ describe('e2e_dapp_subscription', () => {
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
+    process.env.ENABLE_GAS ??= '1';
 
     let wallets: AccountWalletWithPrivateKey[];
     let aztecNode: AztecNode;
     let deployL1ContractsValues: DeployL1Contracts;
-    ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3));
+    ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3, {}, {}, true));
 
     await publicDeployAccounts(wallets[0], wallets);
 

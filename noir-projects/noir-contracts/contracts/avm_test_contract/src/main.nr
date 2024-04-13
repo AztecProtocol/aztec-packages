@@ -31,9 +31,6 @@ contract AvmTest {
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::compressed_string::CompressedString;
 
-    // avm lib
-    use dep::aztec::avm::hash::{keccak256, poseidon, sha256};
-
     #[aztec(storage)]
     struct Storage {
         single: PublicMutable<Field>,
@@ -145,28 +142,28 @@ contract AvmTest {
      * Hashing functions
      ************************************************************************/
     #[aztec(public-vm)]
-    fn keccak_hash(data: [Field; 3]) -> pub [Field; 2] {
-        keccak256(data)
+    fn keccak_hash(data: [u8; 10]) -> pub [u8; 32] {
+        dep::std::hash::keccak256(data, data.len() as u32)
     }
 
     #[aztec(public-vm)]
-    fn poseidon_hash(data: [Field; 3]) -> pub Field {
-        poseidon(data)
+    fn poseidon2_hash(data: [Field; 10]) -> pub Field {
+        dep::std::hash::poseidon2::Poseidon2::hash(data, data.len())
     }
 
     #[aztec(public-vm)]
-    fn sha256_hash(data: [Field; 3]) -> pub [Field; 2] {
-        sha256(data)
+    fn sha256_hash(data: [u8; 10]) -> pub [u8; 32] {
+        dep::std::hash::sha256(data)
     }
 
     #[aztec(public-vm)]
-    fn pedersen_hash(data: [Field; 3]) -> pub Field {
+    fn pedersen_hash(data: [Field; 10]) -> pub Field {
         dep::std::hash::pedersen_hash(data)
     }
 
     #[aztec(public-vm)]
-    fn pedersen_hash_with_index(data: [Field; 3]) -> pub Field {
-        dep::std::hash::pedersen_hash_with_separator(data, 20)
+    fn pedersen_hash_with_index(data: [Field; 10]) -> pub Field {
+        dep::std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
     }
 
     /************************************************************************
