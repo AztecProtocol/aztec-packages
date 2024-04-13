@@ -1,12 +1,15 @@
 /* eslint-disable require-await */
+import { PublicKernelNonTailRequest, PublicKernelTailRequest } from '@aztec/circuit-types';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type ParityPublicInputs,
   type PreviousRollupData,
   Proof,
+  PublicKernelCircuitPublicInputs,
   RollupTypes,
   type RootParityInputs,
   type RootRollupInputs,
@@ -254,5 +257,12 @@ export class BBNativeRollupProver implements CircuitProver {
         ? 'BaseRollupArtifact'
         : 'MergeRollupArtifact';
     await this.verifyProof(circuitType, proof);
+  }
+
+  getPublicKernelProof(_: PublicKernelNonTailRequest): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
+    throw new Error('Method not implemented.');
+  }
+  getPublicTailProof(_: PublicKernelTailRequest): Promise<[KernelCircuitPublicInputs, Proof]> {
+    throw new Error('Method not implemented.');
   }
 }

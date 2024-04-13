@@ -1,4 +1,11 @@
-import { type L2Block, type MerkleTreeId, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
+import {
+  type L2Block,
+  type MerkleTreeId,
+  type ProcessedTx,
+  type ProvingResult,
+  type PublicKernelRequest,
+  PublicKernelType,
+} from '@aztec/circuit-types';
 import {
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
@@ -18,11 +25,95 @@ export type MergeRollupInputData = {
   proofs: [Proof | undefined, Proof | undefined];
 };
 
+export type TreeSnapshots = Map<MerkleTreeId, AppendOnlyTreeSnapshot>;
+
 enum PROVING_STATE_LIFECYCLE {
   PROVING_STATE_CREATED,
   PROVING_STATE_FULL,
   PROVING_STATE_RESOLVED,
   PROVING_STATE_REJECTED,
+}
+
+export enum TX_PROVING_CODE {
+  NOT_READY,
+  READY,
+  COMPLETED,
+}
+
+export type PublicFunction = {
+  vmProof: Proof | undefined;
+  previousProofType: PublicKernelType;
+  previousKernelProof: Proof | undefined;
+  publicKernelRequest: PublicKernelRequest;
+};
+
+export class TxProvingState {
+  private publicFunctions: PublicFunction[] = [];
+
+  constructor(
+    public readonly processedTx: ProcessedTx,
+    public readonly baseRollupInputs: BaseRollupInputs,
+    public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
+  ) {
+    let previousKernelProof: Proof | undefined = processedTx.proof;
+    let previousProofType = PublicKernelType.NON_PUBLIC;
+    for (const kernelRequest of processedTx.publicKernelRequests) {
+      const publicFunction: PublicFunction = {
+        vmProof: undefined,
+        previousProofType,
+        previousKernelProof,
+        publicKernelRequest: kernelRequest,
+      };
+      this.publicFunctions.push(publicFunction);
+      previousKernelProof = undefined;
+      previousProofType = kernelRequest.type;
+    }
+  }
+
+  public getNextPublicKernelFromKernel(
+    provenIndex: number,
+    proof: Proof,
+    kernelRequest: PublicKernelRequest,
+  ): { code: TX_PROVING_CODE; function: PublicFunction | undefined } {
+    const nextKernelIndex = provenIndex + 1;
+    if (nextKernelIndex >= this.publicFunctions.length) {
+      // The next kernel index is greater than our set of functions, we are done
+      return { code: TX_PROVING_CODE.COMPLETED, function: undefined };
+    }
+
+    // There is more work to do, are we ready?
+    const nextFunction = this.publicFunctions[nextKernelIndex];
+    nextFunction.previousKernelProof = proof;
+    nextFunction.previousProofType = kernelRequest.type;
+    if (nextFunction.vmProof === undefined) {
+      // The VM proof for the next function is not ready
+      return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
+    }
+
+    // The VM proof is ready, we can continue
+    return { code: TX_PROVING_CODE.READY, function: nextFunction };
+  }
+
+  public getNextPublicKernelFromVMProof(
+    provenIndex: number,
+    proof: Proof,
+  ): { code: TX_PROVING_CODE; function: PublicFunction | undefined } {
+    const provenFunction = this.publicFunctions[provenIndex];
+    provenFunction.vmProof = proof;
+
+    if (provenFunction.previousKernelProof === undefined) {
+      // The previous kernel is not yet ready
+      return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
+    }
+    // The previous kernel is ready so we can prove this kernel
+    return { code: TX_PROVING_CODE.READY, function: provenFunction };
+  }
+
+  public getPublicVMInputs() {
+    //TODO(@PhilWindle) Update when we integrate the VM
+    // Temporary until we have actual inputs, but this gives us the number of functions in the transaction
+    return this.publicFunctions.map(_ => undefined);
+  }
 }
 
 /**
@@ -38,9 +129,7 @@ export class ProvingState {
   public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
-  private txs: ProcessedTx[] = [];
-  public baseRollupInputs: BaseRollupInputs[] = [];
-  public txTreeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>[] = [];
+  private txs: TxProvingState[] = [];
   constructor(
     public readonly totalNumTxs: number,
     private completionCallback: (result: ProvingResult) => void,
@@ -63,7 +152,7 @@ export class ProvingState {
     return this.baseMergeLevel;
   }
 
-  public addNewTx(tx: ProcessedTx) {
+  public addNewTx(tx: TxProvingState) {
     this.txs.push(tx);
     if (this.txs.length === this.totalNumTxs) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
@@ -123,6 +212,10 @@ export class ProvingState {
     return true;
   }
 
+  public getTxProvingState(txIndex: number) {
+    return this.txs[txIndex];
+  }
+
   public getMergeInputs(indexOfMerge: number) {
     return this.mergeRollupInputs[indexOfMerge];
   }
@@ -141,21 +234,6 @@ export class ProvingState {
 
   public areRootParityInputsReady() {
     return this.rootParityInputs.findIndex(p => !p) === -1;
-  }
-
-  public txHasPublicFunctions(index: number) {
-    return index >= 0 && this.txs.length > index && this.txs[index].publicKernelRequests.length;
-  }
-
-  public getPublicFunction(txIndex: number, nextIndex: number) {
-    if (txIndex < 0 || txIndex >= this.txs.length) {
-      return undefined;
-    }
-    const tx = this.txs[txIndex];
-    if (nextIndex < 0 || nextIndex >= tx.publicKernelRequests.length) {
-      return undefined;
-    }
-    return tx.publicKernelRequests[nextIndex];
   }
 
   public cancel() {

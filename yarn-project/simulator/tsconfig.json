@@ -19,6 +19,9 @@
       "path": "../types"
     },
     {
+      "path": "../protocol-contracts"
+    },
+    {
       "path": "../kv-store"
     },
     {
@@ -26,6 +29,9 @@
     },
     {
       "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
     }
   ],
   "include": ["src"]

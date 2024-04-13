@@ -7,3 +7,6 @@ export {
   collectPublicDataUpdateRequests,
 } from './execution.js';
 export { PublicExecutor } from './executor.js';
+export { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
+export * from './public_executor.js';
+export * from './abstract_phase_manager.js';
