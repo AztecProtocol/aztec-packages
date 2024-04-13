@@ -9,7 +9,6 @@ use crate::{
 }
 };
 use dep::protocol_types::{
-    hash::{sha256_to_field, compute_call_logs_hash},
     abis::{
     call_context::CallContext, function_data::FunctionData, function_selector::FunctionSelector,
     max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
