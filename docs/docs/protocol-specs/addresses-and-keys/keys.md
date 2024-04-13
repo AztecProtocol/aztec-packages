@@ -7,10 +7,6 @@ description: Specification for default privacy keys format and derivation, and n
 
 <!-- @dev: if you want to import the preamble, remember to make the importing file a `.mdx` file. -->
 
-import LatexPreamble from "../../katex-macros.md";
-
-<LatexPreamble />;
-
 ## Cheat Sheet
 
 The protocol does not enforce the usage of any of the following keys, and does not enforce the keys to conform to a particular length or algorithm. Users are expected to pick a set of keys valid for the encryption and tagging precompile they choose for their account.

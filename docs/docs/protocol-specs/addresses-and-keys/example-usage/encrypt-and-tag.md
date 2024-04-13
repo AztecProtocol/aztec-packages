@@ -1,8 +1,3 @@
-<!-- @dev: if you want to import the preamble, remember to make the importing file a `.mdx` file. -->
-
-import LatexPreamble from "../../../katex-macros.md";
-<LatexPreamble />;
-
 ## Encrypt and tag an incoming message
 
 Bob wants to send Alice a private message, e.g. the contents of a note, which we'll refer to as the $\plaintext$. Bob and Alice are using a "tag hopping" scheme to help with note discovery. Let's assume they've already handshaked to establish a shared secret $\sharedsecret_{m,tagging}^{Bob \rightarrow Alice}$, from which a sequence of tags $\tagg_{m,i}^{Bob \rightarrow Alice}$ can be derived.

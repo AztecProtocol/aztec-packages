@@ -1,8 +1,3 @@
-<!-- @dev: if you want to import the preamble, remember to make the importing file a `.mdx` file. -->
-
-import LatexPreamble from "../../../katex-macros.md";
-<LatexPreamble />;
-
 ## Deriving diversified public keys
 
 A diversified public key can be derived from Alice's keys, to enhance Alice's transaction privacy. If Alice's counterparties' databases are compromised, it enables Alice to retain privacy from such leakages. Diversified public keys are used for generating diversified addresses.

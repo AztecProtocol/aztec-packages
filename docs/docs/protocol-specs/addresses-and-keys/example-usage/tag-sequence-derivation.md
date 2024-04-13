@@ -1,8 +1,3 @@
-<!-- @dev: if you want to import the preamble, remember to make this importing file a `.mdx` file. -->
-
-import LatexPreamble from "../../../katex-macros.md";
-<LatexPreamble />;
-
 # Handshaking for tag-hopping
 
 Deriving a sequence of tags for tag-hopping.

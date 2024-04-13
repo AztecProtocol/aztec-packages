@@ -1,8 +1,3 @@
-<!-- @dev: if you want to import the preamble, remember to make the importing file a `.mdx` file. -->
-
-import LatexPreamble from "../../../katex-macros.md";
-<LatexPreamble />;
-
 ## Deriving a nullifier within an app contract
 
 Let's assume a developer wants a nullifier of a note to be derived as:

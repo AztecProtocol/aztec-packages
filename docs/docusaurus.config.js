@@ -7,9 +7,7 @@ const math = require("remark-math");
 const katex = require("rehype-katex");
 const path = require("path");
 const fs = require("fs");
-
-// required for katex
-let macros = {};
+const macros = require("./src/katex-macros.js");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
