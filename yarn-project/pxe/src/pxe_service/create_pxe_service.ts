@@ -3,6 +3,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
+import { AztecMemStore } from '@aztec/kv-store/mem';
 import { initStoreForRollup } from '@aztec/kv-store/utils';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
@@ -37,11 +38,11 @@ export async function createPXEService(
   const keyStorePath = config.dataDirectory ? join(config.dataDirectory, 'pxe_key_store') : undefined;
   const l1Contracts = await aztecNode.getL1ContractAddresses();
 
-  const keyStore = new TestKeyStore(
-    new Grumpkin(),
-    await initStoreForRollup(AztecLmdbStore.open(keyStorePath), l1Contracts.rollupAddress),
-  );
-  const db = new KVPxeDatabase(await initStoreForRollup(AztecLmdbStore.open(pxeDbPath), l1Contracts.rollupAddress));
+  const keyStoreDb = keyStorePath ? AztecLmdbStore.open(keyStorePath) : new AztecMemStore();
+  const pxeDb = pxeDbPath ? AztecLmdbStore.open(pxeDbPath) : new AztecMemStore();
+
+  const keyStore = new TestKeyStore(new Grumpkin(), await initStoreForRollup(keyStoreDb, l1Contracts.rollupAddress));
+  const db = new KVPxeDatabase(await initStoreForRollup(pxeDb, l1Contracts.rollupAddress));
 
   const server = new PXEService(keyStore, aztecNode, db, config, logSuffix);
   for (const contract of [
