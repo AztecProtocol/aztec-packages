@@ -1,15 +1,15 @@
 /* eslint-disable require-await */
-import { PublicKernelNonTailRequest, PublicKernelTailRequest } from '@aztec/circuit-types';
+import { type PublicKernelNonTailRequest, type PublicKernelTailRequest } from '@aztec/circuit-types';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
-  KernelCircuitPublicInputs,
+  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type ParityPublicInputs,
   type PreviousRollupData,
   Proof,
-  PublicKernelCircuitPublicInputs,
+  type PublicKernelCircuitPublicInputs,
   RollupTypes,
   type RootParityInputs,
   type RootRollupInputs,

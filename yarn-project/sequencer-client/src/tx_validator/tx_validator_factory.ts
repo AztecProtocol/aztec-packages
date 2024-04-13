@@ -1,6 +1,7 @@
 import { type AllowedFunction, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
 import { type EthAddress, type GlobalVariables } from '@aztec/circuits.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { WorldStateDB, WorldStatePublicDB } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -9,7 +10,6 @@ import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
-import { WorldStateDB, WorldStatePublicDB } from '@aztec/simulator';
 
 export class TxValidatorFactory {
   constructor(

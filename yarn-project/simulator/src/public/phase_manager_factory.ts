@@ -5,11 +5,11 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { AppLogicPhaseManager } from './app_logic_phase_manager.js';
+import { type ContractsDataSourcePublicDB } from './public_executor.js';
+import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { SetupPhaseManager } from './setup_phase_manager.js';
 import { TailPhaseManager } from './tail_phase_manager.js';
 import { TeardownPhaseManager } from './teardown_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_executor.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 export class PhaseDidNotChangeError extends Error {
   constructor(phase: PublicKernelPhase) {

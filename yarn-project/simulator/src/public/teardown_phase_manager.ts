@@ -7,6 +7,7 @@ import {
 } from '@aztec/circuits.js';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
+
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { type ContractsDataSourcePublicDB } from './public_executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';

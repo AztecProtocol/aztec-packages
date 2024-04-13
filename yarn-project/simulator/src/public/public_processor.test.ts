@@ -7,11 +7,11 @@ import {
   SiblingPath,
   SimulationError,
   Tx,
+  type TxValidator,
   UnencryptedFunctionL2Logs,
   UnencryptedTxL2Logs,
   mockTx,
   toTxEffect,
-  type TxValidator,
 } from '@aztec/circuit-types';
 import {
   ARGS_LENGTH,
@@ -50,10 +50,10 @@ import { type MerkleTreeOperations, type TreeInfo } from '@aztec/world-state';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { PublicProcessor } from './public_processor.js';
 import { type ContractsDataSourcePublicDB, type WorldStatePublicDB } from './public_executor.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
