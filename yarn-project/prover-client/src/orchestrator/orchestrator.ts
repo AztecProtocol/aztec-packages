@@ -417,8 +417,8 @@ export class ProvingOrchestrator {
     }
     if (!inputs.kernelData.publicInputs.end.unencryptedLogsHash.toBuffer().equals(tx.unencryptedLogs.hash())) {
       throw new Error(
-        `Unencrypted logs hash mismatch: ${inputs.kernelData.publicInputs.end.encryptedLogsHash} === ${Fr.fromBuffer(
-          tx.encryptedLogs.hash(),
+        `Unencrypted logs hash mismatch: ${inputs.kernelData.publicInputs.end.unencryptedLogsHash} === ${Fr.fromBuffer(
+          tx.unencryptedLogs.hash(),
         )}`,
       );
     }
