@@ -42,9 +42,8 @@ export abstract class FunctionL2Logs<TLog extends UnencryptedL2Log | EncryptedL2
    * @returns Buffer containing 248 bits of information of sha256 hash.
    */
   public hash(): Buffer {
-    // TODO(Miranda): docs
-    // Remove first 4 bytes that are occupied by length which is not part of the preimage in contracts and L2Blocks
-    // const preimage = this.toBuffer().subarray(4);
+    // Truncated SHA hash of the concatenation of the hash of each inner log
+    // Changed in resolving #5017 to mimic logs hashing in kernels
     const preimage = Buffer.concat(this.logs.map(l => l.hash()));
     return sha256Trunc(preimage);
   }

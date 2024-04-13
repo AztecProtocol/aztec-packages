@@ -79,7 +79,7 @@ mod tests {
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
+        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, accumulate_sha256},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
     };
@@ -235,6 +235,38 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
+    }
+
+    #[test]
+    fn logs_are_handled_as_expected() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        // Logs for the previous call stack.
+        let prev_encrypted_logs_hash = 80;
+        let prev_encrypted_log_preimages_length = 13;
+        let prev_unencrypted_logs_hash = 956;
+        let prev_unencrypted_log_preimages_length = 24;
+        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.set_unencrypted_logs(
+            prev_unencrypted_logs_hash,
+            prev_unencrypted_log_preimages_length
+        );
+        // Logs for the current call stack.
+        let unencrypted_logs_hash = 26;
+        let unencrypted_log_preimages_length = 50;
+        builder.previous_kernel.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
+
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        );
+
+        let expected_encrypted_logs_hash = accumulate_sha256([0, prev_encrypted_logs_hash]);
+        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
+        let mut expected_unencrypted_logs_hash = accumulate_sha256([0, prev_unencrypted_logs_hash]);
+        expected_unencrypted_logs_hash = accumulate_sha256([expected_unencrypted_logs_hash, unencrypted_logs_hash]);
+        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
     #[test]

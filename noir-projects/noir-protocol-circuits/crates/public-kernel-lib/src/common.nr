@@ -206,7 +206,7 @@ pub fn update_public_end_values(public_call: PublicCallData, circuit_outputs: &m
     propagate_new_note_hashes(public_call, circuit_outputs);
 
     propagate_new_l2_to_l1_messages(public_call, circuit_outputs);
-
+    propagate_new_unencrypted_logs(public_call, circuit_outputs);
     propagate_valid_public_data_update_requests(public_call, circuit_outputs);
 }
 
@@ -420,11 +420,11 @@ fn propagate_new_l2_to_l1_messages(public_call: PublicCallData, public_inputs: &
     }
     public_inputs.end.new_l2_to_l1_msgs.extend_from_bounded_vec(new_l2_to_l1_msgs_to_insert);
 }
-    // TODO(Miranda): Add desc and remove acc fn once tested
+
 pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
-    // let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
-    // TODO(Miranda): silo logs here
+    // TODO(Miranda): silo logs here once we have finalised struct
     let mut new_logs_to_insert : BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
         let new_log = new_logs[i];
@@ -436,35 +436,6 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
     public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
     public_inputs.end.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
 }
-
-/**
- * @brief Accumulates unencrypted logs hashes and lengths.
- * @param The type of kernel input
- * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
- * @param circuit_outputs The circuit outputs to be populated
- * @note See the following thread if not clear:
- *       https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426
- * @note Used by public kernels which had previous iterations.
- */
-// pub fn accumulate_unencrypted_logs(
-//     public_call: PublicCallData,
-//     previous_unencrypted_logs_hash: Field,
-//     previous_unencrypted_log_preimages_length: Field,
-//     public_inputs: &mut PublicKernelCircuitPublicInputsBuilder
-// ) {
-//     let public_call_public_inputs = public_call.call_stack_item.public_inputs;
-
-//     let current_unencrypted_logs_hash = public_call_public_inputs.unencrypted_logs_hash;
-//     public_inputs.end.unencrypted_logs_hash = accumulate_sha256([
-//         previous_unencrypted_logs_hash,
-//         current_unencrypted_logs_hash,
-//     ]);
-
-//     // Add log preimages lengths from current iteration to accumulated lengths
-//     let current_unencrypted_log_preimages_length = public_call_public_inputs.unencrypted_log_preimages_length;
-//     public_inputs.end.unencrypted_log_preimages_length =
-//         previous_unencrypted_log_preimages_length + current_unencrypted_log_preimages_length;
-// }
 
 /**
  * @brief Validates that the call stack item for this circuit iteration is at the top of the call stack

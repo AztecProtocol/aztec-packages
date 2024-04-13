@@ -331,11 +331,23 @@ impl FixtureBuilder {
     }
 
     pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        self.encrypted_logs_hashes.push(side_effect);
+        self.encrypted_log_preimages_length += preimages_length;
+    }
+
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        self.unencrypted_logs_hashes.push(side_effect);
+        self.unencrypted_log_preimages_length += preimages_length;
+    }
+
+    pub fn set_encrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
         self.encrypted_logs_hash = hash;
         self.encrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+    pub fn set_unencrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
         self.unencrypted_logs_hash = hash;
         self.unencrypted_log_preimages_length = preimages_length;
     }

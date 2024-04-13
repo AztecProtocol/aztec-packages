@@ -1,4 +1,10 @@
-import { type Tx, UnencryptedFunctionL2Logs, type UnencryptedL2Log, type PublicKernelRequest, PublicKernelType } from '@aztec/circuit-types';
+import {
+  type PublicKernelRequest,
+  PublicKernelType,
+  type Tx,
+  UnencryptedFunctionL2Logs,
+  type UnencryptedL2Log,
+} from '@aztec/circuit-types';
 import {
   Fr,
   type GlobalVariables,

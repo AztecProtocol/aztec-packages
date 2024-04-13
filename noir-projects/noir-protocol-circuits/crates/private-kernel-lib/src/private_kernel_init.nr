@@ -123,7 +123,7 @@ mod tests {
         address::{AztecAddress, EthAddress, compute_initialization_hash},
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_accumulated_logs_hash, compute_call_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
+        hash::stdlib_recursion_verification_key_compress_native_vk,
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
         utils::arrays::array_length
@@ -158,12 +158,10 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
         // Logs for the private call.
-        let encrypted_logs_hash = 16;
         let encrypted_log_preimages_length = 100;
-        let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
-        builder.private_call.set_encrypted_logs(encrypted_logs_hash, encrypted_log_preimages_length);
-        builder.private_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
+        builder.private_call.set_encrypted_logs(16, encrypted_log_preimages_length);
+        builder.private_call.set_unencrypted_logs(26, unencrypted_log_preimages_length);
 
         let public_inputs = builder.execute();
 
@@ -174,14 +172,6 @@ mod tests {
         // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
         assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
         assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length);
-
-        // Logs hashes should be a sha256 hash of a 0 value (the previous log hash) and the `(un)encrypted_logs_hash` from private input
-        // TODO(Miranda): fill in test values
-        // let expected_encrypted_logs_hash = compute_accumulated_logs_hash(0, compute_call_logs_hash(builder.private_call.public_inputs.encrypted_logs_hashes.storage));
-        // assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
-
-        // let expected_unencrypted_logs_hash = compute_accumulated_logs_hash(0, compute_call_logs_hash(builder.private_call.public_inputs.unencrypted_logs_hashes.storage));
-        // assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
     #[test(should_fail_with = "invalid array")]
@@ -252,6 +242,20 @@ mod tests {
             [
             L2ToL1Message::empty(),
             L2ToL1Message { recipient: EthAddress::from_field(6), content: 9123 }
+        ]
+        );
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "invalid array")]
+    fn input_validation_malformed_arrays_logs() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        builder.private_call.public_inputs.encrypted_logs_hashes.extend_from_array(
+            [
+            SideEffect { value: 0, counter: 0 },
+            SideEffect { value: 9123, counter: 1 }
         ]
         );
 

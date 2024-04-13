@@ -17,7 +17,7 @@ use dep::types::{
 },
     hash::{
     compute_l2_to_l1_hash, pedersen_hash, private_functions_root_from_siblings,
-    silo_note_hash, silo_nullifier, stdlib_recursion_verification_key_compress_native_vk, compute_accumulated_logs_hash, compute_call_logs_hash,
+    silo_note_hash, silo_nullifier, stdlib_recursion_verification_key_compress_native_vk,
 },
     merkle_tree::check_membership,
     utils::{arrays::{array_length, array_to_bounded_vec, validate_array}},
@@ -39,7 +39,6 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     validate_array(app_public_inputs.new_l2_to_l1_msgs);
     validate_array(app_public_inputs.encrypted_logs_hashes);
     validate_array(app_public_inputs.unencrypted_logs_hashes);
-    // encrypted_logs_hash and unencrypted_logs_hash have their own integrity checks.
 }
 
 // Validate all read requests against the historical note hash tree root.

@@ -47,7 +47,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
 
-        //TODO(Miranda): move this inside a common fn?
+        //TODO(4712): Once logs are part of non-revertible set, move inside the above call
         common::propagate_new_unencrypted_logs(self.public_call, &mut public_inputs);
 
         public_inputs.finish()
@@ -447,16 +447,15 @@ mod tests {
         );
 
         let public_inputs = builder.execute();
-
+        
         assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
         assert_eq(
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
-        // TODO(Miranda): fill in test values
-        // assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
 
-        // let expected_unencrypted_logs_hash = compute_accumulated_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        // assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test]
