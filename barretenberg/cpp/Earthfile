@@ -234,6 +234,7 @@ test-clang-format:
     RUN ./format.sh check
 
 test:
+    BUILD +test-clang-format
     BUILD ./srs_db/+build # prefetch
     FROM +source
     COPY --dir +test-binaries/build build
