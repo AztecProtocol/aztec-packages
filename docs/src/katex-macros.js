@@ -72,9 +72,9 @@ module.exports = {
   "\\plaintext": "\\color{red}{\\text{plaintext}}\\color{black}{}",
   "\\ciphertext": "\\color{green}{\\text{ciphertext}}\\color{black}{}",
   "\\ciphertextheader":
-    "\\color{green}{\\text{ciphertext_header}}\\color{black}{}",
+    "\\color{green}{\\text{ciphertext\\_header}}\\color{black}{}",
   "\\payload": "\\color{green}{\\text{payload}}\\color{black}{}",
 
   "\\tagg": "\\color{green}{\\text{tag}}\\color{black}{}",
-  "\\Taghs": "\\color{green}{\\text{Tag}_{hs}}\\color{black}{}",
+  "\\Taghs": "\\color{green}{\\text{Tag}\\_{hs}}\\color{black}{}",
 };
