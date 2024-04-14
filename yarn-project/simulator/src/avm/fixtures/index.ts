@@ -1,5 +1,5 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { GlobalVariables, Header, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { GasFees, GlobalVariables, Header, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -17,6 +17,7 @@ import {
 import { AvmContext } from '../avm_context.js';
 import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
+import { Field, Uint8 } from '../avm_memory_types.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 
@@ -87,6 +88,7 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
     overrides?.timestamp ?? Fr.zero(),
     overrides?.coinbase ?? EthAddress.ZERO,
     overrides?.feeRecipient ?? AztecAddress.zero(),
+    overrides?.gasFees ?? GasFees.empty(),
   );
 }
 
@@ -134,4 +136,12 @@ export function anyAvmContextInputs() {
     tv.push(expect.any(Fr));
   }
   return tv;
+}
+
+export function randomMemoryBytes(length: number): Uint8[] {
+  return [...Array(length)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
+}
+
+export function randomMemoryFields(length: number): Field[] {
+  return [...Array(length)].map(_ => new Field(Fr.random()));
 }

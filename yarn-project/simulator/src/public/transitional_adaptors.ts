@@ -5,6 +5,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FunctionData,
+  GasSettings,
   type GlobalVariables,
   type Header,
   L2ToL1Message,
@@ -20,7 +21,7 @@ import { AvmContractCallResults } from '../avm/avm_message_call_result.js';
 import { type JournalData } from '../avm/journal/journal.js';
 import { Mov } from '../avm/opcodes/memory.js';
 import { createSimulationError } from '../common/errors.js';
-import { PackedArgsCache, SideEffectCounter } from '../index.js';
+import { PackedValuesCache, SideEffectCounter } from '../index.js';
 import { type PublicExecution, type PublicExecutionResult } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
 
@@ -65,6 +66,8 @@ export function createPublicExecutionContext(avmContext: AvmContext, calldata: F
     isDelegateCall: avmContext.environment.isDelegateCall,
     isStaticCall: avmContext.environment.isStaticCall,
     sideEffectCounter: sideEffectCounter,
+    gasSettings: GasSettings.empty(), // TODO(palla/gas-in-circuits)
+    transactionFee: Fr.ZERO, // TODO(palla/gas-in-circuits)
   });
   const functionData = new FunctionData(avmContext.environment.temporaryFunctionSelector, /*isPrivate=*/ false);
   const execution: PublicExecution = {
@@ -73,7 +76,7 @@ export function createPublicExecutionContext(avmContext: AvmContext, calldata: F
     args: calldata,
     functionData,
   };
-  const packedArgs = PackedArgsCache.create([]);
+  const packedArgs = PackedValuesCache.create([]);
 
   const context = new PublicExecutionContext(
     execution,

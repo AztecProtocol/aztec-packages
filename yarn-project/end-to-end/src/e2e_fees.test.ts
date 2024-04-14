@@ -54,7 +54,7 @@ describe('e2e_fees', () => {
   let bananaPrivateBalances: BalancesFn;
 
   beforeAll(async () => {
-    const { wallets: _wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3);
+    const { wallets: _wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3, {}, {}, true);
     wallets = _wallets;
 
     logFunctionSignatures(BananaCoin.artifact, logger);

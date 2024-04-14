@@ -12,7 +12,7 @@ namespace bb {
 class perm_main_mem_b_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 6;
+    constexpr static size_t COLUMNS_PER_SET = 8;
 
     /**
      * @brief If this method returns true on a row of values, then the inverse polynomial at this index. Otherwise the
@@ -56,12 +56,16 @@ class perm_main_mem_b_permutation_settings {
                                      in.avm_main_rwb,
                                      in.avm_main_r_in_tag,
                                      in.avm_main_w_in_tag,
+                                     in.avm_main_sel_mov_b,
+                                     in.avm_main_sel_cmov,
                                      in.avm_mem_clk,
                                      in.avm_mem_addr,
                                      in.avm_mem_val,
                                      in.avm_mem_rw,
                                      in.avm_mem_r_in_tag,
-                                     in.avm_mem_w_in_tag);
+                                     in.avm_mem_w_in_tag,
+                                     in.avm_mem_sel_mov_b,
+                                     in.avm_mem_sel_cmov);
     }
 
     /**
@@ -94,12 +98,16 @@ class perm_main_mem_b_permutation_settings {
                                      in.avm_main_rwb,
                                      in.avm_main_r_in_tag,
                                      in.avm_main_w_in_tag,
+                                     in.avm_main_sel_mov_b,
+                                     in.avm_main_sel_cmov,
                                      in.avm_mem_clk,
                                      in.avm_mem_addr,
                                      in.avm_mem_val,
                                      in.avm_mem_rw,
                                      in.avm_mem_r_in_tag,
-                                     in.avm_mem_w_in_tag);
+                                     in.avm_mem_w_in_tag,
+                                     in.avm_mem_sel_mov_b,
+                                     in.avm_mem_sel_cmov);
     }
 };
 

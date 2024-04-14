@@ -21,6 +21,7 @@ import {
   EthAddress,
   Fr,
   FunctionData,
+  GasSettings,
   GlobalVariables,
   Header,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -115,6 +116,7 @@ describe('public_processor', () => {
         unencryptedLogs: tx.unencryptedLogs,
         isEmpty: false,
         revertReason: undefined,
+        publicKernelRequests: [],
       };
 
       // Jest is complaining that the two objects are not equal, but they are.
@@ -793,7 +795,17 @@ class PublicExecutionResultBuilder {
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, 0),
+      callContext: new CallContext(
+        from,
+        tx.to,
+        EthAddress.ZERO,
+        tx.functionData.selector,
+        false,
+        false,
+        0,
+        GasSettings.empty(),
+        Fr.ZERO,
+      ),
       contractAddress: tx.to,
       functionData: tx.functionData,
       args: tx.args,

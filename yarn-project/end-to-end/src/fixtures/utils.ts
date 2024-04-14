@@ -29,6 +29,7 @@ import {
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
@@ -78,7 +79,6 @@ const {
   TEMP_DIR = '/tmp',
   ACVM_BINARY_PATH = '',
   ACVM_WORKING_DIRECTORY = '',
-  ENABLE_GAS = '',
 } = process.env;
 
 const getAztecUrl = () => {
@@ -222,6 +222,7 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
+  enableGas: boolean,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
@@ -259,7 +260,7 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  if (['1', 'true'].includes(ENABLE_GAS)) {
+  if (enableGas) {
     const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
     // this contract might already have been deployed
     // the following function is idempotent
@@ -325,18 +326,34 @@ export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
+  enableGas = false,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
 
   let anvil: Anvil | undefined;
 
+  // spawn an anvil instance if one isn't already running
+  // and we're not connecting to a remote PXE
   if (!config.rpcUrl) {
+    if (PXE_URL) {
+      throw new Error(
+        `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+      );
+    }
+
     // Start anvil.
     // We go via a wrapper script to ensure if the parent dies, anvil dies.
-    const ethereumHostPort = await getPort();
-    config.rpcUrl = `http://localhost:${ethereumHostPort}`;
-    const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
-    await anvil.start();
+    anvil = await retry(
+      async () => {
+        const ethereumHostPort = await getPort();
+        config.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+        const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+        await anvil.start();
+        return anvil;
+      },
+      'Start anvil',
+      makeBackoff([5, 5, 5]),
+    );
   }
 
   // Enable logging metrics to a local file named after the test suite
@@ -357,7 +374,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts);
+    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
@@ -380,7 +397,8 @@ export async function setup(
   logger.verbose('Creating a pxe...');
   const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
-  if (['1', 'true'].includes(ENABLE_GAS)) {
+  if (enableGas) {
+    logger.verbose('Deploying gas token...');
     await deployCanonicalGasToken(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
     );
