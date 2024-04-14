@@ -360,7 +360,9 @@ describe('public_processor', () => {
         // Setup
         PublicExecutionResultBuilder.fromPublicCallRequest({
           request: publicCallRequests[0],
-          contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
+          contractStorageUpdateRequests: [
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11, baseContractAddress),
+          ],
         }).build(),
 
         // App Logic
@@ -371,8 +373,8 @@ describe('public_processor', () => {
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
-                new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 14, baseContractAddress),
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
@@ -390,7 +392,9 @@ describe('public_processor', () => {
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
-              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 12, baseContractAddress),
+              ],
             }).build(),
           ],
         }).build(),
@@ -464,14 +468,16 @@ describe('public_processor', () => {
         // Setup
         PublicExecutionResultBuilder.fromPublicCallRequest({
           request: publicCallRequests[0],
-          contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
+          contractStorageUpdateRequests: [
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11, baseContractAddress),
+          ],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
-                new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 13, baseContractAddress),
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
@@ -494,7 +500,9 @@ describe('public_processor', () => {
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
-              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 14, baseContractAddress),
+              ],
             }).build(),
           ],
         }).build(),
@@ -558,14 +566,16 @@ describe('public_processor', () => {
         // Setup
         PublicExecutionResultBuilder.fromPublicCallRequest({
           request: publicCallRequests[0],
-          contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x101))],
+          contractStorageUpdateRequests: [
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11, baseContractAddress),
+          ],
           nestedExecutions: [
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x102)),
-                new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 12, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 13, baseContractAddress),
               ],
             }).build(),
           ],
@@ -588,7 +598,9 @@ describe('public_processor', () => {
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
-              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x201))],
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 14, baseContractAddress),
+              ],
             }).build(),
           ],
         }).build(),
@@ -656,8 +668,8 @@ describe('public_processor', () => {
         PublicExecutionResultBuilder.fromPublicCallRequest({
           request: publicCallRequests[2],
           contractStorageUpdateRequests: [
-            new ContractStorageUpdateRequest(contractSlotA, fr(0x101)),
-            new ContractStorageUpdateRequest(contractSlotB, fr(0x151)),
+            new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 14, baseContractAddress),
+            new ContractStorageUpdateRequest(contractSlotB, fr(0x151), 15, baseContractAddress),
           ],
         }).build(),
 
@@ -669,14 +681,16 @@ describe('public_processor', () => {
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
-                new ContractStorageUpdateRequest(contractSlotA, fr(0x101)),
-                new ContractStorageUpdateRequest(contractSlotC, fr(0x201)),
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11, baseContractAddress),
+                new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 12, baseContractAddress),
               ],
             }).build(),
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
-              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotA, fr(0x102))],
+              contractStorageUpdateRequests: [
+                new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13, baseContractAddress),
+              ],
             }).build(),
           ],
         }).build(),
