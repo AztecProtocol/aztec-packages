@@ -227,7 +227,7 @@ export class ProvingOrchestrator {
 
     logger.info(`Received transaction: ${tx.hash}`);
 
-    await this.startTransaction(tx);
+    await this.startTransaction(tx, this.provingState);
   }
 
   /**
@@ -245,7 +245,7 @@ export class ProvingOrchestrator {
       } empty transactions`,
     );
     for (let i = this.provingState.transactionsReceived; i < this.provingState.totalNumTxs; i++) {
-      await this.startTransaction(this.provingState.emptyTx);
+      await this.startTransaction(this.provingState.emptyTx, this.provingState);
     }
   }
 
@@ -311,22 +311,23 @@ export class ProvingOrchestrator {
   /**
    * Starts the proving process for the given transaction and adds it to our state
    * @param tx - The transaction whose proving we wish to commence
+   * @param provingState - The proving state being worked on
    */
-  private async startTransaction(tx: ProcessedTx) {
-    const txInputs = await this.prepareBaseRollupInputs(this.provingState, tx);
+  private async startTransaction(tx: ProcessedTx, provingState: ProvingState) {
+    const txInputs = await this.prepareBaseRollupInputs(provingState, tx);
     if (!txInputs) {
       // This should not be possible
       throw new Error(`Unable to add padding transaction, preparing base inputs failed`);
     }
     const [inputs, treeSnapshots] = txInputs;
     const txProvingState = new TxProvingState(tx, inputs, treeSnapshots);
-    const txIndex = this.provingState!.addNewTx(txProvingState);
+    const txIndex = provingState.addNewTx(txProvingState);
     const numPublicKernels = txProvingState.getNumPublicKernels();
     if (!numPublicKernels) {
       // no public functions, go straight to the base rollup
       logger.debug(`Enqueueing base rollup for tx ${txIndex}`);
-      this.enqueueJob(this.provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
-        this.runBaseRollup(this.provingState, BigInt(txIndex), txProvingState),
+      this.enqueueJob(provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
+        this.runBaseRollup(provingState, BigInt(txIndex), txProvingState),
       );
       return;
     }
@@ -334,9 +335,7 @@ export class ProvingOrchestrator {
     // Rather than handle the Kernel Tail as a special case here, we will just handle it inside executeVM
     for (let i = 0; i < numPublicKernels; i++) {
       logger.debug(`Enqueueing public VM ${i} for tx ${txIndex}`);
-      this.enqueueJob(this.provingState, PROVING_JOB_TYPE.PUBLIC_VM, () =>
-        this.executeVM(this.provingState, txIndex, i),
-      );
+      this.enqueueJob(provingState, PROVING_JOB_TYPE.PUBLIC_VM, () => this.executeVM(provingState, txIndex, i));
     }
   }
 
