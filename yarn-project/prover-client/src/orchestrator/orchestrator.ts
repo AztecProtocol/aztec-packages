@@ -579,7 +579,7 @@ export class ProvingOrchestrator {
   }
 
   /**
-   * Stores the inputs tyo a merge/root circuit and enqueues the circuit if ready
+   * Stores the inputs to a merge/root circuit and enqueues the circuit if ready
    * @param provingState - The proving state being operated on
    * @param currentLevel - The level of the merge/root circuit
    * @param currentIndex - The index of the merge/root circuit
