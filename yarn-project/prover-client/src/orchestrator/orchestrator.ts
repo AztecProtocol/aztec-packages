@@ -75,6 +75,11 @@ enum PROMISE_RESULT {
   OPERATIONS,
 }
 
+const KernelTYpesWithoutFunctions: Set<PublicKernelType> = new Set<PublicKernelType>([
+  PublicKernelType.NON_PUBLIC,
+  PublicKernelType.TAIL,
+]);
+
 /**
  * Enums and structs to communicate the type of work required in each request.
  */
@@ -624,7 +629,7 @@ export class ProvingOrchestrator {
     const publicFunction = txProvingState.getPublicFunctionState(functionIndex);
 
     // Prove the VM if this is a kernel that requires one
-    if (publicFunction.publicKernelRequest.type !== PublicKernelType.TAIL) {
+    if (!KernelTYpesWithoutFunctions.has(publicFunction.publicKernelRequest.type)) {
       // Just sleep for a small amount of time
       await sleep(Math.random() * 10 + 10);
       logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
