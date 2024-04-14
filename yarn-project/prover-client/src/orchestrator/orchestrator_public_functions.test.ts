@@ -38,6 +38,7 @@ describe('prover/orchestrator', () => {
   let prover: TestCircuitProver;
 
   let blockNumber: number;
+  let testCount = 1;
 
   let globalVariables: GlobalVariables;
   let root: Buffer;
@@ -82,51 +83,57 @@ describe('prover/orchestrator', () => {
       await builder.stop();
     });
 
-    it('builds a block with a transaction with public functions', async () => {
-      const tx = mockTx(1000, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 2 });
-      tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
+    it.each([
+      [0, 4],
+      [1, 0],
+      [2, 0],
+      [1, 5],
+      [2, 4],
+      [8, 1],
+    ] as const)(
+      'builds an L2 block with %i non-revertible and %i revertible calls',
+      async (numberOfNonRevertiblePublicCallRequests: number, numberOfRevertiblePublicCallRequests: number) => {
+        const tx = mockTx(1000 * testCount++, {
+          numberOfNonRevertiblePublicCallRequests,
+          numberOfRevertiblePublicCallRequests,
+        });
+        tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
 
-      publicExecutor.simulate.mockImplementation(execution => {
-        for (const request of tx.enqueuedPublicFunctionCalls) {
-          if (execution.contractAddress.equals(request.contractAddress)) {
-            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
-            // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
-            return Promise.resolve(result);
+        publicExecutor.simulate.mockImplementation(execution => {
+          for (const request of tx.enqueuedPublicFunctionCalls) {
+            if (execution.contractAddress.equals(request.contractAddress)) {
+              const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
+              // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
+              return Promise.resolve(result);
+            }
           }
+          throw new Error(`Unexpected execution request: ${execution}`);
+        });
+
+        const [processed, _] = await processor.process([tx], 1, undefined);
+
+        // This will need to be a 2 tx block
+        const blockTicket = await builder.startNewBlock(
+          2,
+          globalVariables,
+          [],
+          await makeEmptyProcessedTestTx(builderDb),
+        );
+
+        for (const processedTx of processed) {
+          await builder.addNewTx(processedTx);
         }
-        throw new Error(`Unexpected execution request: ${execution}`);
-      });
 
-      const [processed, _] = await processor.process([tx], 1, undefined);
-      for (const tx of processed) {
-        for (const nullifier of tx.data.end.newNullifiers) {
-          logger.info(`Nullifier ${nullifier.toString()}`);
-        }
-        for (const request of tx.publicKernelRequests) {
-          logger.info(`Kernel Request ${PublicKernelType[request.type]}`);
-        }
-      }
+        //  we need to complete the block as we have not added a full set of txs
+        await builder.setBlockCompleted();
 
-      // This will need to be a 2 tx block
-      const blockTicket = await builder.startNewBlock(
-        2,
-        globalVariables,
-        [],
-        await makeEmptyProcessedTestTx(builderDb),
-      );
+        const result = await blockTicket.provingPromise;
+        expect(result.status).toBe(PROVING_STATUS.SUCCESS);
+        const finalisedBlock = await builder.finaliseBlock();
 
-      for (const processedTx of processed) {
-        await builder.addNewTx(processedTx);
-      }
-
-      //  we need to complete the block as we have not added a full set of txs
-      await builder.setBlockCompleted();
-
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await builder.finaliseBlock();
-
-      expect(finalisedBlock.block.number).toEqual(blockNumber);
-    }, 60_000);
+        expect(finalisedBlock.block.number).toEqual(blockNumber);
+      },
+      60_000,
+    );
   });
 });

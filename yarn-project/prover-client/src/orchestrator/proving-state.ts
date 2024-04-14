@@ -109,10 +109,15 @@ export class TxProvingState {
     return { code: TX_PROVING_CODE.READY, function: provenFunction };
   }
 
-  public getPublicVMInputs() {
-    //TODO(@PhilWindle) Update when we integrate the VM
-    // Temporary until we have actual inputs, but this gives us the number of functions in the transaction
-    return this.publicFunctions.map(_ => undefined);
+  public getPublicFunctionState(functionIndex: number) {
+    if (functionIndex < 0 || functionIndex >= this.publicFunctions.length) {
+      throw new Error(`Requested public function index was out of bounds`);
+    }
+    return this.publicFunctions[functionIndex];
+  }
+
+  public getNumPublicKernels() {
+    return this.publicFunctions.length;
   }
 }
 

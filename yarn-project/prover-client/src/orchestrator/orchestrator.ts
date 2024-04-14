@@ -320,8 +320,8 @@ export class ProvingOrchestrator {
     const [inputs, treeSnapshots] = txInputs;
     const txProvingState = new TxProvingState(tx, inputs, treeSnapshots);
     const txIndex = this.provingState!.addNewTx(txProvingState);
-    const vmInputs = txProvingState.getPublicVMInputs();
-    if (!vmInputs.length) {
+    const numPublicKernels = txProvingState.getNumPublicKernels();
+    if (!numPublicKernels) {
       // no public functions, go straight to the base rollup
       logger.debug(`Enqueueing base rollup for tx ${txIndex}`);
       this.enqueueJob(this.provingState, PROVING_JOB_TYPE.BASE_ROLLUP, () =>
@@ -330,7 +330,8 @@ export class ProvingOrchestrator {
       return;
     }
     // Enqueue all of the VM proving requests
-    for (let i = 0; i < vmInputs.length; i++) {
+    // Rather than handle the Kernel Tail as a special case here, we will just handle it inside executeVM
+    for (let i = 0; i < numPublicKernels; i++) {
       logger.debug(`Enqueueing public VM ${i} for tx ${txIndex}`);
       this.enqueueJob(this.provingState, PROVING_JOB_TYPE.PUBLIC_VM, () =>
         this.executeVM(this.provingState, txIndex, i),
@@ -604,17 +605,22 @@ export class ProvingOrchestrator {
       logger.debug(`Not running VM circuit as state is no longer valid`);
       return;
     }
-    // Just sleep for a small amount of time
-    await sleep(Math.random() * 10 + 10);
+
+    const txProvingState = provingState.getTxProvingState(txIndex);
+    const publicFunction = txProvingState.getPublicFunctionState(functionIndex);
+
+    // Prove the VM if this is a kernel that requires one
+    if (publicFunction.publicKernelRequest.type !== PublicKernelType.TAIL) {
+      // Just sleep for a small amount of time
+      await sleep(Math.random() * 10 + 10);
+      logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
+    }
 
     if (!provingState?.verifyState()) {
       logger.debug(`Not continuing after VM circuit as state is no longer valid`);
       return;
     }
 
-    logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
-
-    const txProvingState = provingState.getTxProvingState(txIndex);
     const kernelRequest = txProvingState.getNextPublicKernelFromVMProof(functionIndex, makeEmptyProof());
     if (kernelRequest.code === TX_PROVING_CODE.READY) {
       if (kernelRequest.function === undefined) {
