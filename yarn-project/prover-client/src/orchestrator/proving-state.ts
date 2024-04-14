@@ -1,15 +1,7 @@
-import {
-  type L2Block,
-  type MerkleTreeId,
-  type ProcessedTx,
-  type ProvingResult,
-  type PublicKernelRequest,
-  PublicKernelType,
-} from '@aztec/circuit-types';
+import { type L2Block, type MerkleTreeId, type ProcessedTx, type ProvingResult } from '@aztec/circuit-types';
 import {
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
-  type BaseRollupInputs,
   type Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -19,6 +11,8 @@ import {
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
+
+import { type TxProvingState } from './tx-proving-state.js';
 
 export type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
@@ -32,93 +26,6 @@ enum PROVING_STATE_LIFECYCLE {
   PROVING_STATE_FULL,
   PROVING_STATE_RESOLVED,
   PROVING_STATE_REJECTED,
-}
-
-export enum TX_PROVING_CODE {
-  NOT_READY,
-  READY,
-  COMPLETED,
-}
-
-export type PublicFunction = {
-  vmProof: Proof | undefined;
-  previousProofType: PublicKernelType;
-  previousKernelProof: Proof | undefined;
-  publicKernelRequest: PublicKernelRequest;
-};
-
-export class TxProvingState {
-  private publicFunctions: PublicFunction[] = [];
-
-  constructor(
-    public readonly processedTx: ProcessedTx,
-    public readonly baseRollupInputs: BaseRollupInputs,
-    public readonly treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
-  ) {
-    let previousKernelProof: Proof | undefined = processedTx.proof;
-    let previousProofType = PublicKernelType.NON_PUBLIC;
-    for (const kernelRequest of processedTx.publicKernelRequests) {
-      const publicFunction: PublicFunction = {
-        vmProof: undefined,
-        previousProofType,
-        previousKernelProof,
-        publicKernelRequest: kernelRequest,
-      };
-      this.publicFunctions.push(publicFunction);
-      previousKernelProof = undefined;
-      previousProofType = kernelRequest.type;
-    }
-  }
-
-  public getNextPublicKernelFromKernel(
-    provenIndex: number,
-    proof: Proof,
-    kernelRequest: PublicKernelRequest,
-  ): { code: TX_PROVING_CODE; function: PublicFunction | undefined } {
-    const nextKernelIndex = provenIndex + 1;
-    if (nextKernelIndex >= this.publicFunctions.length) {
-      // The next kernel index is greater than our set of functions, we are done
-      return { code: TX_PROVING_CODE.COMPLETED, function: undefined };
-    }
-
-    // There is more work to do, are we ready?
-    const nextFunction = this.publicFunctions[nextKernelIndex];
-    nextFunction.previousKernelProof = proof;
-    nextFunction.previousProofType = kernelRequest.type;
-    if (nextFunction.vmProof === undefined) {
-      // The VM proof for the next function is not ready
-      return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
-    }
-
-    // The VM proof is ready, we can continue
-    return { code: TX_PROVING_CODE.READY, function: nextFunction };
-  }
-
-  public getNextPublicKernelFromVMProof(
-    provenIndex: number,
-    proof: Proof,
-  ): { code: TX_PROVING_CODE; function: PublicFunction | undefined } {
-    const provenFunction = this.publicFunctions[provenIndex];
-    provenFunction.vmProof = proof;
-
-    if (provenFunction.previousKernelProof === undefined) {
-      // The previous kernel is not yet ready
-      return { code: TX_PROVING_CODE.NOT_READY, function: undefined };
-    }
-    // The previous kernel is ready so we can prove this kernel
-    return { code: TX_PROVING_CODE.READY, function: provenFunction };
-  }
-
-  public getPublicFunctionState(functionIndex: number) {
-    if (functionIndex < 0 || functionIndex >= this.publicFunctions.length) {
-      throw new Error(`Requested public function index was out of bounds`);
-    }
-    return this.publicFunctions[functionIndex];
-  }
-
-  public getNumPublicKernels() {
-    return this.publicFunctions.length;
-  }
 }
 
 /**
@@ -149,14 +56,13 @@ export class ProvingState {
     this.rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
   }
 
-  public get baseMergeLevel() {
+  // Returns the number of levels of merge rollups
+  public get numMergeLevels() {
     return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
   }
 
-  public get numMergeLevels() {
-    return this.baseMergeLevel;
-  }
-
+  // Adds a transaction to the proving state, returns it's index
+  // Will update the proving life cycle if this is the last transaction
   public addNewTx(tx: TxProvingState) {
     this.txs.push(tx);
     if (this.txs.length === this.totalNumTxs) {
@@ -165,22 +71,27 @@ export class ProvingState {
     return this.txs.length - 1;
   }
 
+  // Returns the number of received transactions
   public get transactionsReceived() {
     return this.txs.length;
   }
 
+  // Returns the final set of root parity inputs
   public get finalRootParityInput() {
     return this.finalRootParityInputs;
   }
 
+  // Sets the final set of root parity inputs
   public set finalRootParityInput(input: RootParityInput | undefined) {
     this.finalRootParityInputs = input;
   }
 
+  // Returns the set of root parity inputs
   public get rootParityInput() {
     return this.rootParityInputs;
   }
 
+  // Returns true if this proving state is still valid, false otherwise
   public verifyState() {
     return (
       this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED ||
@@ -188,14 +99,23 @@ export class ProvingState {
     );
   }
 
+  // Returns true if we are still able to accept transactions, false otherwise
   public isAcceptingTransactions() {
     return this.provingStateLifecycle === PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
   }
 
+  // Returns the complete set of transaction proving state objects
   public get allTxs() {
     return this.txs;
   }
 
+  /**
+   * Stores the inputs to a merge circuit and determines if the circuit is ready to be executed
+   * @param mergeInputs - The inputs to store
+   * @param indexWithinMerge - The index in the set of inputs to this merge circuit
+   * @param indexOfMerge - The global index of this merge circuit
+   * @returns True if the merge circuit is ready to be executed, false otherwise
+   */
   public storeMergeInputs(
     mergeInputs: [BaseOrMergeRollupPublicInputs, Proof],
     indexWithinMerge: number,
@@ -217,14 +137,17 @@ export class ProvingState {
     return true;
   }
 
+  // Returns a specific transaction proving state
   public getTxProvingState(txIndex: number) {
     return this.txs[txIndex];
   }
 
+  // Returns a set of merge rollup inputs
   public getMergeInputs(indexOfMerge: number) {
     return this.mergeRollupInputs[indexOfMerge];
   }
 
+  // Returns true if we have sufficient inputs to execute the root rollup
   public isReadyForRootRollup() {
     return !(
       this.mergeRollupInputs[0] === undefined ||
@@ -233,18 +156,23 @@ export class ProvingState {
     );
   }
 
+  // Stores a set of root parity inputs at the given index
   public setRootParityInputs(inputs: RootParityInput, index: number) {
     this.rootParityInputs[index] = inputs;
   }
 
+  // Returns true if we have sufficient root parity inputs to execute the root parity circuit
   public areRootParityInputsReady() {
     return this.rootParityInputs.findIndex(p => !p) === -1;
   }
 
+  // Attempts to reject the proving state promise with a reason of 'cancelled'
   public cancel() {
     this.reject('Proving cancelled');
   }
 
+  // Attempts to reject the proving state promise with the given reason
+  // Does nothing if not in a valid state
   public reject(reason: string) {
     if (!this.verifyState()) {
       return;
@@ -253,6 +181,8 @@ export class ProvingState {
     this.rejectionCallback(reason);
   }
 
+  // Attempts to resolve the proving state promise with the given result
+  // Does nothing if not in a valid state
   public resolve(result: ProvingResult) {
     if (!this.verifyState()) {
       return;

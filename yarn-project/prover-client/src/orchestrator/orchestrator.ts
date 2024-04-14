@@ -3,7 +3,6 @@ import {
   L2Block,
   MerkleTreeId,
   type ProcessedTx,
-  type PublicKernelRequest,
   PublicKernelType,
   type TxEffect,
   toTxEffect,
@@ -52,13 +51,8 @@ import {
   validateRootOutput,
   validateTx,
 } from './block-building-helpers.js';
-import {
-  type MergeRollupInputData,
-  ProvingState,
-  TX_PROVING_CODE,
-  type TreeSnapshots,
-  TxProvingState,
-} from './proving-state.js';
+import { type MergeRollupInputData, ProvingState, type TreeSnapshots } from './proving-state.js';
+import { TX_PROVING_CODE, TxProvingState } from './tx-proving-state.js';
 
 const logger = createDebugLogger('aztec:prover:proving-orchestrator');
 
@@ -114,17 +108,20 @@ export class ProvingOrchestrator {
     private maxConcurrentJobs = MAX_CONCURRENT_JOBS,
   ) {}
 
+  // Constructs and starts a new orchestrator
   public static async new(db: MerkleTreeOperations, prover: CircuitProver) {
     const orchestrator = new ProvingOrchestrator(db, prover);
     await orchestrator.start();
     return Promise.resolve(orchestrator);
   }
 
+  // Starts the proving job queue
   public start() {
     this.jobProcessPromise = this.processJobQueue();
     return Promise.resolve();
   }
 
+  // Stops the proving job queue
   public async stop() {
     this.stopped = true;
     this.jobQueue.cancel();
@@ -311,6 +308,10 @@ export class ProvingOrchestrator {
     return blockResult;
   }
 
+  /**
+   * Starts the proving process for the given transaction and adds it to our state
+   * @param tx - The transaction whose proving we wish to commence
+   */
   private async startTransaction(tx: ProcessedTx) {
     const txInputs = await this.prepareBaseRollupInputs(this.provingState, tx);
     if (!txInputs) {
@@ -439,7 +440,7 @@ export class ProvingOrchestrator {
   }
 
   // Executes the merge rollup circuit and stored the output as intermediate state for the parent merge/root circuit
-  // Executes the next level of merge if all inputs are available
+  // Enqueues the next level of merge if all inputs are available
   private async runMergeRollup(
     provingState: ProvingState | undefined,
     level: bigint,
@@ -577,6 +578,13 @@ export class ProvingOrchestrator {
     this.enqueueJob(provingState, PROVING_JOB_TYPE.ROOT_ROLLUP, () => this.runRootRollup(provingState));
   }
 
+  /**
+   * Stores the inputs tyo a merge/root circuit and enqueues the circuit if ready
+   * @param provingState - The proving state being operated on
+   * @param currentLevel - The level of the merge/root circuit
+   * @param currentIndex - The index of the merge/root circuit
+   * @param mergeInputData - The inputs to be stored
+   */
   private storeAndExecuteNextMergeLevel(
     provingState: ProvingState,
     currentLevel: bigint,
@@ -600,6 +608,13 @@ export class ProvingOrchestrator {
     }
   }
 
+  /**
+   * Executes the VM circuit for a public function, will enqueue the corresponding kernel if the
+   * previous kernel is ready
+   * @param provingState - The proving state being operated on
+   * @param txIndex - The index of the transaction being proven
+   * @param functionIndex - The index of the function/kernel being proven
+   */
   private async executeVM(provingState: ProvingState | undefined, txIndex: number, functionIndex: number) {
     if (!provingState?.verifyState()) {
       logger.debug(`Not running VM circuit as state is no longer valid`);
@@ -627,24 +642,28 @@ export class ProvingOrchestrator {
         // Should not be possible
         throw new Error(`Error occurred, public function request undefined after VM proof completed`);
       }
-      const functionRequest = kernelRequest.function;
       logger.debug(`Enqueuing kernel from VM for tx ${txIndex}, function ${functionIndex}`);
       this.enqueueJob(provingState, PROVING_JOB_TYPE.PUBLIC_KERNEL, () =>
-        this.executePublicKernel(provingState, txIndex, functionIndex, functionRequest.publicKernelRequest),
+        this.executePublicKernel(provingState, txIndex, functionIndex),
       );
     }
   }
 
-  private async executePublicKernel(
-    provingState: ProvingState | undefined,
-    txIndex: number,
-    functionIndex: number,
-    kernelRequest: PublicKernelRequest,
-  ) {
+  /**
+   * Executes the kernel circuit for a public function, will enqueue the next kernel circuit if it's VM is already proven
+   * or the base rollup circuit if there are no more kernels to be proven
+   * @param provingState - The proving state being operated on
+   * @param txIndex - The index of the transaction being proven
+   * @param functionIndex - The index of the function/kernel being proven
+   */
+  private async executePublicKernel(provingState: ProvingState | undefined, txIndex: number, functionIndex: number) {
     if (!provingState?.verifyState()) {
       logger.debug(`Not running public kernel circuit as state is no longer valid`);
       return;
     }
+
+    const txProvingState = provingState.getTxProvingState(txIndex);
+    const kernelRequest = txProvingState.getPublicFunctionState(functionIndex).publicKernelRequest;
 
     // We may need to use the public inputs produced here instead of those coming from the sequencer
     const [_, proof] =
@@ -659,8 +678,7 @@ export class ProvingOrchestrator {
 
     logger.debug(`Proven ${PublicKernelType[kernelRequest.type]} at index ${functionIndex} for tx index ${txIndex}`);
 
-    const txProvingState = provingState.getTxProvingState(txIndex);
-    const nextKernelRequest = txProvingState.getNextPublicKernelFromKernel(functionIndex, proof, kernelRequest);
+    const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(functionIndex, proof);
     // What's the status of the next kernel?
     if (nextKernelRequest.code === TX_PROVING_CODE.NOT_READY) {
       // Must be waiting on a VM proof
@@ -679,10 +697,9 @@ export class ProvingOrchestrator {
       // Should not be possible
       throw new Error(`Error occurred, public function request undefined after kernel proof completed`);
     }
-    const nextFunctionRequest = nextKernelRequest.function;
     logger.debug(`Enqueuing kernel from kernel for tx ${txIndex}, function ${functionIndex + 1}`);
     this.enqueueJob(provingState, PROVING_JOB_TYPE.PUBLIC_KERNEL, () =>
-      this.executePublicKernel(provingState, txIndex, functionIndex + 1, nextFunctionRequest.publicKernelRequest),
+      this.executePublicKernel(provingState, txIndex, functionIndex + 1),
     );
   }
 

@@ -1,4 +1,4 @@
-import { PROVING_STATUS, PublicKernelType, mockTx } from '@aztec/circuit-types';
+import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
 import { GlobalVariables, Header } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -12,7 +12,7 @@ import {
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
-import { type MerkleTreeOperations, MerkleTrees, TreeInfo } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees, type TreeInfo } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
