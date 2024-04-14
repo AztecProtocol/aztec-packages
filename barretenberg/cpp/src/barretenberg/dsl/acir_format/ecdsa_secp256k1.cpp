@@ -153,11 +153,10 @@ void create_ecdsa_k1_verify_constraints(Builder& builder,
 template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaSecp256k1Constraint const& input)
 {
 
-    std::vector<uint32_t> pub_x_indices_;
-    std::vector<uint32_t> pub_y_indices_;
-    std::vector<uint32_t> signature_;
-    std::vector<uint32_t> message_indices_;
-    signature_.resize(64);
+    std::array<uint32_t, 32> pub_x_indices_;
+    std::array<uint32_t, 32> pub_y_indices_;
+    std::array<uint32_t, 32> signature_;
+    std::array<uint32_t, 32> message_indices_;
 
     // Create a valid signature with a valid public key
     crypto::ecdsa_key_pair<secp256k1_ct::fr, secp256k1_ct::g1> account;
@@ -179,9 +178,9 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
         uint32_t y_wit = builder.add_variable(pub_y_value.slice(248 - i * 8, 256 - i * 8));
         uint32_t r_wit = builder.add_variable(signature.r[i]);
         uint32_t s_wit = builder.add_variable(signature.s[i]);
-        message_indices_.emplace_back(m_wit);
-        pub_x_indices_.emplace_back(x_wit);
-        pub_y_indices_.emplace_back(y_wit);
+        message_indices_[i] = m_wit;
+        pub_x_indices_[i] = x_wit;
+        pub_y_indices_[i] = y_wit;
         signature_[i] = r_wit;
         signature_[i + 32] = s_wit;
     }
