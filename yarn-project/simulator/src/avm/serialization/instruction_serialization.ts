@@ -26,7 +26,6 @@ export enum Opcode {
   // Execution environment
   ADDRESS,
   STORAGEADDRESS,
-  ORIGIN,
   SENDER,
   PORTAL,
   FEEPERL1GAS,
