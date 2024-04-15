@@ -618,7 +618,7 @@ impl GeneratedAcir {
         }
     }
 
-    pub(crate) fn brillig_pointer(
+    pub(crate) fn brillig_call(
         &mut self,
         predicate: Option<Expression>,
         generated_brillig: &GeneratedBrillig,

@@ -665,24 +665,26 @@ impl<'a> Context<'a> {
                                         );
                                     }
                                 }
-                                let brillig_ssa_id = *ssa
-                                    .id_to_index
-                                    .get(id)
-                                    .expect("ICE: should have an associated final index");
-
                                 let inputs = vecmap(arguments, |arg| self.convert_value(*arg, dfg));
 
                                 let outputs: Vec<AcirType> = vecmap(result_ids, |result_id| {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
+                                let brillig_ssa_id = *ssa
+                                    .id_to_index
+                                    .get(id)
+                                    .expect("ICE: should have an associated final index");
+
+                                // Check whether we have already generated Brillig for this function
+                                // If we have, re-use the generated code to set-up the brillig call.
                                 let output_values = if let Some(generated_pointer) =
                                     self.shared_context.generated_brillig_pointer(brillig_ssa_id)
                                 {
                                     let code = self
                                         .shared_context
                                         .generated_brillig(*generated_pointer as usize);
-                                    self.acir_context.brillig_pointer(
+                                    self.acir_context.brillig_call(
                                         self.current_side_effects_enabled_var,
                                         code,
                                         inputs,
@@ -696,7 +698,7 @@ impl<'a> Context<'a> {
                                     let code = self.gen_brillig_for(func, arguments, brillig)?;
                                     let generated_pointer =
                                         self.shared_context.new_generated_pointer();
-                                    let output_values = self.acir_context.brillig_pointer(
+                                    let output_values = self.acir_context.brillig_call(
                                         self.current_side_effects_enabled_var,
                                         &code,
                                         inputs,
