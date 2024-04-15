@@ -1,0 +1,79 @@
+# This sysbox container can be used to provide a full development environment.
+# It's more advanced than devbox in that it uses nestybox's sysbox container runtime to provide more of a vm experience.
+# It's used primarily by internal aztec developers who have sysboxes running on a powerful underlying mainframe.
+# It provides better isolation and security guarantees than a plain devbox.
+FROM aztecprotocol/basebox
+
+###################### START OF STOCK NESTYBOX SYSTEMD CONTAINER ###############################
+#
+# Systemd installation
+#
+RUN apt-get update &&                            \
+    apt-get install -y --no-install-recommends   \
+            systemd                              \
+            systemd-sysv                         \
+            libsystemd0                          \
+            ca-certificates                      \
+            dbus                                 \
+            iptables                             \
+            iproute2                             \
+            kmod                                 \
+            locales                              \
+            sudo                                 \
+            udev &&                              \
+                                                 \
+    # Prevents journald from reading kernel messages from /dev/kmsg
+    echo "ReadKMsg=no" >> /etc/systemd/journald.conf &&               \
+                                                                      \
+    # Housekeeping
+    apt-get clean -y &&                                               \
+    rm -rf                                                            \
+       /var/cache/debconf/*                                           \
+       /var/lib/apt/lists/*                                           \
+       /var/log/*                                                     \
+       /tmp/*                                                         \
+       /var/tmp/*                                                     \
+       /usr/share/local/* &&                                          \
+                                                                      \
+    # Create default 'ubuntu/ubuntu' user
+    echo "ubuntu:ubuntu" | chpasswd && adduser ubuntu sudo
+
+# Disable systemd services/units that are unnecessary within a container.
+RUN systemctl mask systemd-udevd.service \
+                   systemd-udevd-kernel.socket \
+                   systemd-udevd-control.socket \
+                   systemd-modules-load.service \
+                   sys-kernel-debug.mount \
+                   sys-kernel-tracing.mount
+
+# Make use of stopsignal (instead of sigterm) to stop systemd containers.
+STOPSIGNAL SIGRTMIN+3
+
+# Set systemd as entrypoint.
+ENTRYPOINT [ "/sbin/init", "--log-level=err" ]
+
+###################### END OF STOCK NESTYBOX SYSTEMD CONTAINER ###############################
+
+# Install docker.
+RUN curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh \
+    # Add user "ubuntu" to the Docker group
+    && usermod -a -G docker ubuntu
+ADD https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker /etc/bash_completion.d/docker.sh
+
+# Install sshd.
+RUN apt install --no-install-recommends -y openssh-server \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir /home/ubuntu/.ssh \
+    && chown ubuntu:ubuntu /home/ubuntu/.ssh \
+    && echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDagCvr/+CA1jmFaJf+e9+Kw6iwfhvaKOpfbGEl5zLgB+rum5L4Kga6Jow1gLQeMnAHfqc2IgpsU4t04c8PYApAt8AWNDL+KxMiFytfjKfJ2DZJA73CYkFnkfnMtU+ki+JG9dAHd6m7ShtCSzE5n6EDO2yWCVWQfqE3dcnpwrymSWkJYrbxzeOixiNZ4f1nD9ddvFvTWGB4l+et5SWgeIaYgJYDqTI2teRt9ytJiDGrCWXs9olHsCZOL6TEJPUQmNekwBkjMAZ4TmbBMjwbUlIxOpW2UxzlONcNn7IlRcGQg0Gdbkpo/zOlCNXsvacvnphDk5vKKaQj+aQiG916LU5P charlie@aztecprotocol.com' >> /home/ubuntu/.ssh/authorized_keys \
+    && echo 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDb5OVc+9S9nXx3/34F7eLVXjoPgQ3YHSdlfhTb8WflAGmpKJTLxtAYngtDBvhKofH5HrjPPkBWxOHP9KOTo0jxUQSr0suMpggLLOHuIrCszJKXIVi7whnQ4p2RHyzyS2ANwmpxWZmYxfgamzYst9JIvQYJgAPjTFweKBsG/Lc03knJ/qgz9BHqDSZHweMTnhv1dJNhZRKy1Lxyl/CjXKF374i8qbzVWJMeDgLEH6C84vCeaH89KMmM9J0+T31uEqxzIhZxNmRz9v+x6cQAVJtGi9OIveGT9qUQwKXZsk6/zorzxV+NiIvTWHxIn9epX/FUjgUmb/jFvpbEjDkbIngj adomurad@localhost.localdomain' >> /home/ubuntu/.ssh/authorized_keys \
+    && echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFKlUeOh9DyAL85NJ10LE+nyfi8oYm+CwxQ9JMaB6H+t root@mainframe' >> /home/ubuntu/.ssh/authorized_keys \
+    && chown ubuntu:ubuntu /home/ubuntu/.ssh/authorized_keys
+
+# Install google authenticator for setting up 2fa.
+RUN apt update && apt install -y libpam-google-authenticator
+
+# sudo group can sudo without password.
+RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+EXPOSE 22

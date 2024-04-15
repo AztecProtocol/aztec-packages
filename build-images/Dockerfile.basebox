@@ -1,0 +1,59 @@
+# We want to produce two downstream images, devbox and sysbox. This image is the base image each.
+# It contains a host of tools that developers need to build aztec.
+FROM aztecprotocol/build
+RUN yes | unminimize
+
+# Install stuff devs need.
+RUN apt update && \
+    apt install -y \
+        zsh \
+        fzf \
+        libfuse2 \
+        iproute2 \
+        iputils-ping \
+        telnet \
+        lsb-release \
+        tmux \
+        vim \
+        software-properties-common \
+        gnupg \
+        htop \
+        parallel \
+        cgroup-tools \
+        neovim \
+        sudo \
+        clangd-16 \
+        man \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Install earthly.
+RUN wget https://github.com/earthly/earthly/releases/latest/download/earthly-linux-$(dpkg --print-architecture) -O /usr/local/bin/earthly && \
+    chmod +x /usr/local/bin/earthly
+
+# Install gh (github cli).
+RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg > /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+    && apt update \
+    && apt install gh -y
+
+# Install gt (graphite).
+RUN npm install -g @withgraphite/graphite-cli@stable
+
+# Install aws cli.
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" && \
+    unzip awscliv2.zip && \
+    ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
+    rm -rf aws awscliv2.zip
+
+# Install terraform.
+RUN curl -fsSL https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_linux_$(dpkg --print-architecture).zip -o terraform.zip \
+    && unzip terraform.zip -d /usr/local/bin \
+    && chmod +x /usr/local/bin/terraform \
+    && rm terraform.zip
+
+# fzf seems to not install this file for some reason.
+COPY ./key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh
+
+# Set lang explicitly. Ensures tmux shows unicode symbols.
+RUN echo "LANG=C.UTF-8" >> /etc/environment
