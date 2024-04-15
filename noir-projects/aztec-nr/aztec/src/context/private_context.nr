@@ -29,7 +29,8 @@ use dep::protocol_types::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     grumpkin_private_key::GrumpkinPrivateKey, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader, traits::{is_empty, Deserialize, Empty}
+    messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
+    traits::{is_empty, Deserialize, Empty}
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -192,6 +193,7 @@ impl PrivateContext {
             chain_id: self.inputs.private_global_variables.chain_id,
             version: self.inputs.private_global_variables.version
         };
+
         priv_circuit_pub_inputs
     }
 
@@ -391,8 +393,6 @@ impl PrivateContext {
                 item.public_inputs.call_context.msg_sender.eq(self.inputs.call_context.storage_contract_address)
             );
         }
-
-        // crate::oracle::debug_log::debug_log_array_with_prefix("Private call stack item", item.serialize());
 
         self.private_call_stack_hashes.push(item.hash());
 
