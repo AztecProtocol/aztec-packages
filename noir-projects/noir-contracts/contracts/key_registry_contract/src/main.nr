@@ -88,6 +88,12 @@ contract KeyRegistry {
       5
     );
 
+    dep::aztec::oracle::debug_log::debug_log_array_with_prefix("public keys hash", [public_keys_hash]);
+    dep::aztec::oracle::debug_log::debug_log_array_with_prefix("nullifier", [nullifier_public_key]);
+    dep::aztec::oracle::debug_log::debug_log_array_with_prefix("incoming", [incoming_public_key]);
+    dep::aztec::oracle::debug_log::debug_log_array_with_prefix("outgoing", [outgoing_public_key]);
+    dep::aztec::oracle::debug_log::debug_log_array_with_prefix("tagging", [tagging_public_key]);
+
     let computed_address = AztecAddress::from_field(
       poseidon2_hash([
           partial_address.to_field(),

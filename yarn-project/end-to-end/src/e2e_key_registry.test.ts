@@ -19,12 +19,6 @@ describe('SharedMutablePrivateGetter', () => {
 
   let teardown: () => Promise<void>;
 
-  // const delay = async (blocks: number) => {
-  //   for (let i = 0; i < blocks; i++) {
-  //     await authContract.methods.get_authorized().send().wait();
-  //   }
-  // };
-
   beforeAll(async () => {
     ({ teardown, wallet, pxe } = await setup(2));
     stateVarsContract = await StateVarsContract.deploy(wallet).send().deployed();
@@ -33,38 +27,44 @@ describe('SharedMutablePrivateGetter', () => {
 
   afterAll(() => teardown());
 
-  it('should generate keys', async () => {
-    const partialAddress = new Fr(69);
-
-    const masterNullifierPublicKey = new Fr(12);
-    const masterIncomingViewingPublicKey = new Fr(34);
-    const masterOutgoingViewingPublicKey = new Fr(56);
-    const masterTaggingPublicKey = new Fr(78);
-
-    const publicKeysHash = poseidon2Hash([
-      masterNullifierPublicKey,
-      masterIncomingViewingPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-      GeneratorIndex.PUBLIC_KEYS_HASH,
-    ]);
-
-    // We hash the partial address and the public keys hash to get the account address
-    // TODO(#5726): Should GeneratorIndex.CONTRACT_ADDRESS be removed given that we introduced CONTRACT_ADDRESS_V1?
-    // TODO(#5726): Move the following line to AztecAddress class?
-    const accountAddressFr = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
-    
-    await keyRegistry
-      .withWallet(wallet)
-      .methods.register(AztecAddress.fromField(accountAddressFr), partialAddress, {
-        nullifier_public_key: masterNullifierPublicKey,
-        incoming_public_key: masterIncomingViewingPublicKey,
-        outgoing_public_key: masterOutgoingViewingPublicKey,
-        tagging_public_key: masterTaggingPublicKey,
-      })
-      .send()
-      .wait();
+  describe('normal flow', () => {
+    it('should generate keys', async () => {
+      const partialAddress = new Fr(69);
+  
+      const masterNullifierPublicKey = new Fr(12);
+      const masterIncomingViewingPublicKey = new Fr(34);
+      const masterOutgoingViewingPublicKey = new Fr(56);
+      const masterTaggingPublicKey = new Fr(78);
+  
+      const publicKeysHash = poseidon2Hash([
+        masterNullifierPublicKey,
+        masterIncomingViewingPublicKey,
+        masterOutgoingViewingPublicKey,
+        masterTaggingPublicKey,
+        GeneratorIndex.PUBLIC_KEYS_HASH,
+      ]);
+  
+      console.log(publicKeysHash);
+  
+      // We hash the partial address and the public keys hash to get the account address
+      // TODO(#5726): Should GeneratorIndex.CONTRACT_ADDRESS be removed given that we introduced CONTRACT_ADDRESS_V1?
+      // TODO(#5726): Move the following line to AztecAddress class?
+      const accountAddressFr = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
+      
+      await keyRegistry
+        .withWallet(wallet)
+        .methods.register(AztecAddress.fromField(accountAddressFr), partialAddress, {
+          nullifier_public_key: masterNullifierPublicKey,
+          incoming_public_key: masterIncomingViewingPublicKey,
+          outgoing_public_key: masterOutgoingViewingPublicKey,
+          tagging_public_key: masterTaggingPublicKey,
+        })
+        .send()
+        .wait();
+    });
   });
+
+
 
   // it('checks authorized from auth contract from state vars contract', async () => {
   //   await delay(5);
