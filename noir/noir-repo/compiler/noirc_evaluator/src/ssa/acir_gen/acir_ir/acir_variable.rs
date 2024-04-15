@@ -1565,7 +1565,6 @@ impl AcirContext {
         unsafe_return_values: bool,
         brillig_function_index: u32,
     ) -> Result<Vec<AcirValue>, RuntimeError> {
-        // TODO: move this to its own method
         let b_inputs = try_vecmap(inputs, |i| -> Result<_, InternalError> {
             match i {
                 AcirValue::Var(var, _) => Ok(BrilligInputs::Single(self.var_to_expression(var)?)),
