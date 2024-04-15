@@ -51,6 +51,7 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/key-store": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",

@@ -38,8 +38,8 @@ export class ViewDataOracle extends TypedOracle {
    * Return the nullifier key pair of an account to use in a specific contract.
    * @param account - The account address of the nullifier key.
    */
-  public getNullifierKeyPair(account: AztecAddress) {
-    return this.db.getNullifierKeyPair(account, this.contractAddress);
+  public getNullifierKeys(account: AztecAddress) {
+    return this.db.getNullifierKeys(account, this.contractAddress);
   }
 
   /**

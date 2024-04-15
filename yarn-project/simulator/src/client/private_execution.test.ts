@@ -51,7 +51,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { type KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
+import { type NullifierKeys, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { type DBOracle } from './db_oracle.js';
@@ -76,8 +76,8 @@ describe('Private Execution test suite', () => {
   let recipient: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
-  let ownerNullifierKeyPair: KeyPair;
-  let recipientNullifierKeyPair: KeyPair;
+  let ownerNullifierKeyPair: NullifierKeys;
+  let recipientNullifierKeyPair: NullifierKeys;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -188,17 +188,17 @@ describe('Private Execution test suite', () => {
   beforeEach(() => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeyPair.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
+    oracle.getNullifierKeys.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
       if (accountAddress.equals(ownerCompleteAddress.address)) {
         return Promise.resolve({
-          publicKey: ownerNullifierKeyPair.publicKey,
-          secretKey: computeSiloedNullifierSecretKey(ownerNullifierKeyPair.secretKey, contractAddress),
+          masterNullifierPublicKey: ownerNullifierKeyPair.publicKey,
+          appNullifierSecretKey: computeSiloedNullifierSecretKey(ownerNullifierKeyPair.secretKey, contractAddress),
         });
       }
       if (accountAddress.equals(recipientCompleteAddress.address)) {
         return Promise.resolve({
-          publicKey: recipientNullifierKeyPair.publicKey,
-          secretKey: computeSiloedNullifierSecretKey(recipientNullifierKeyPair.secretKey, contractAddress),
+          masterNullifierPublicKey: recipientNullifierKeyPair.publicKey,
+          appNullifierSecretKey: computeSiloedNullifierSecretKey(recipientNullifierKeyPair.secretKey, contractAddress),
         });
       }
       throw new Error(`Unknown address ${accountAddress}`);

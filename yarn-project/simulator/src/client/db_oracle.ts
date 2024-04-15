@@ -12,7 +12,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-import { type KeyPair, type NoteData } from '../acvm/index.js';
+import { type NullifierKeys, type NoteData } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db.js';
 
 /**
@@ -75,7 +75,7 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to the nullifier key pair.
    * @throws An Error if the input address does not match the account address of the key pair.
    */
-  getNullifierKeyPair(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<KeyPair>;
+  getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
