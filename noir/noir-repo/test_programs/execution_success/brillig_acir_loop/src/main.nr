@@ -1,8 +1,7 @@
 fn main(x: Field, y: pub Field) {
-    // foo(x, y);
     for _ in 0..4 {
         foo(x, y);
-        // check_values(x, y);
+        check_values(x, y);
     }
 }
 
