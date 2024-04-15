@@ -8,6 +8,47 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Contract interfaces
+
+It is now possible to import contracts on another contracts and use their automatic interfaces to perform calls. The interfaces have the same name as the contract, and are automatically exported. Parameters are automatically serialized (using the `Serialize<N>` trait) and return values are automatically deserialized (using the `Deserialize<N>` trait).
+
+```diff
+- context.call_public_function(
+-   storage.gas_token_address.read_private(),
+-   FunctionSelector::from_signature("pay_fee(Field)"),
+-   [42]
+- );
+-
+- context.call_public_function(
+-   storage.gas_token_address.read_private(),
+-   FunctionSelector::from_signature("pay_fee(Field)"),
+-   [42]
+- );
+-
+- let _ = context.call_private_function(
+-           storage.subscription_token_address.read_private(),
+-           FunctionSelector::from_signature("transfer((Field),(Field),Field,Field)"),
+-           [
+-            context.msg_sender().to_field(), 
+-            storage.subscription_recipient_address.read_private().to_field(), 
+-            storage.subscription_price.read_private(), 
+-            nonce
+-           ]
+-  );
++ use dep::gas_token::GasToken; 
++ use dep::token::Token;
++
++ ...
++ // Public call from public land
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).call(&mut context);
++ // Public call from private land
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).enqueue(&mut context);
++ // Private call from private land
++ Token::at(asset).transfer(context.msg_sender(), storage.subscription_recipient_address.read_private(), amount, nonce).call(&mut context);
+```
+
+It is also possible to use these automatic interfaces from the local contract, and thus enqueue public calls from private without having to rely on low level `context` calls.
+
 ### [Aztec.nr] Rename max block number setter
 
 The `request_max_block_number` function has been renamed to `set_tx_max_block_number` to better reflect that it is not a getter, and that the setting is transaction-wide.
