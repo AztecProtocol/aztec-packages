@@ -37,6 +37,14 @@ const runPty = async (command, { success: exitSuccess, error }) => {
   }
 };
 
+async function installSandbox() {
+  await runPty("echo y | bash -i <(curl -s install.aztec.network); exit\n", {
+      success: "The Sandbox is installed!",
+      error:
+        "Failed to install the Sandbox. Please visit the docs at https://docs.aztec.network",
+    });
+}
+
 function findOutUserVersion() {
   /**
    * We know user has docker installed.
@@ -76,7 +84,7 @@ function findOutUserVersion() {
   return sandboxVersion;
 }
 
-export async function sandboxInstallOrUpdate() {
+export async function sandboxInstallOrUpdate({ skipQuestion }) {
   // Checking for docker
   try {
     execSync("docker info >/dev/null 2>&1");
@@ -90,24 +98,20 @@ export async function sandboxInstallOrUpdate() {
   // Let's get which version of the sandbox the user has installed
   const sandboxVersion = findOutUserVersion();
 
+  if (skipQuestion) {
+    await installSandbox(); return
+  }
   // Base case is that the user doesn't have the sandbox installed
   if (sandboxVersion == null) {
-    const answer = await confirm({
-      message:
-        "Seems like you don't have the Aztec Sandbox installed. Do you want to install it?",
-      default: true,
-    });
-
-    if (answer) {
-      await runPty(
-        "echo y | bash -i <(curl -s install.aztec.network); exit\n",
-        {
-          success: "The Sandbox is installed!",
-          error:
-            "Failed to install the Sandbox. Please visit the docs at https://docs.aztec.network",
-        },
-      );
-    }
+   
+      const answer = await confirm({
+        message:
+          "Seems like you don't have the Aztec Sandbox installed. Do you want to install it?",
+        default: true,
+      });
+      if (answer) {
+        await installSandbox();
+      }
   } else if (
     // Another situation is where the sandbox matches the stable version (i.e. 0.24.0) or master
     (sandboxVersion === latestStable || sandboxVersion === "master") &&

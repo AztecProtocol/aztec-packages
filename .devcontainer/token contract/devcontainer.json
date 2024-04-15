@@ -1,0 +1,15 @@
+{
+  "image": "node:lts-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "cd boxes && yarn && npx . -t contract -n token_contract -s",
+  "customizations": {
+    "vscode": {
+      "settings": {},
+      "extensions": ["noir-lang.vscode-noir"]
+    }
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/root/workspace,type=bind",
+  "workspaceFolder": "/root/workspace"
+}
