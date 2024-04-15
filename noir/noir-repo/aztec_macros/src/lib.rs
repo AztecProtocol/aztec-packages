@@ -90,7 +90,7 @@ fn transform_module(
 ) -> Result<bool, AztecMacroError> {
     let mut has_transformed_module = false;
 
-    // Check for a user defined storage stru
+    // Check for a user defined storage struct
 
     let maybe_storage_struct_name = check_for_storage_definition(module)?;
     let storage_defined = maybe_storage_struct_name.is_some();
@@ -100,6 +100,8 @@ fn transform_module(
             generate_storage_implementation(module, &storage_struct_name)?;
         }
         // Make sure we're only generating the storage layout for the root crate
+        // In case we got a contract importing other contracts for their interface, we
+        // don't want to generate the storage layout for them
         if crate_id == context.root_crate_id() {
             generate_storage_layout(module, storage_struct_name)?;
         }
