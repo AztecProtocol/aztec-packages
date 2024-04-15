@@ -29,11 +29,18 @@ impl Ssa {
 
         let mut acir_index = 0;
         let mut brillig_index = 0;
-        let id_to_index =
-            btree_map(functions.iter().enumerate(), |(_, (id, func))| match func.runtime() {
+        let id_to_index = btree_map(functions.iter().enumerate(), |(_, (id, func))| {
+            let runtime = func.runtime();
+            match func.runtime() {
                 RuntimeType::Acir(_) => {
                     let res = (*id, acir_index);
-                    acir_index += 1;
+                    // Any non-entry point ACIR function will be inlined into main
+                    // so we do not want to increment on it. Otherwise we can possibly
+                    // have ACIR function pointers that are larger than the total number of
+                    // functions in a program.
+                    if runtime.is_entry_point() || *id == main_id {
+                        acir_index += 1;
+                    }
                     res
                 }
                 RuntimeType::Brillig => {
@@ -41,7 +48,8 @@ impl Ssa {
                     brillig_index += 1;
                     res
                 }
-            });
+            }
+        });
 
         Self { functions, main_id, next_id: AtomicCounter::starting_after(max_id), id_to_index }
     }
