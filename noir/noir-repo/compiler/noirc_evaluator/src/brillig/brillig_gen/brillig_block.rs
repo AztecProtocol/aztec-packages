@@ -5,7 +5,7 @@ use crate::brillig::brillig_ir::{
     BrilligBinaryOp, BrilligContext, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
 use crate::ssa::ir::dfg::CallStack;
-use crate::ssa::ir::instruction::{ConstrainError, UserDefinedError};
+use crate::ssa::ir::instruction::{ConstrainError, UserDefinedConstrainError};
 use crate::ssa::ir::{
     basic_block::{BasicBlock, BasicBlockId},
     dfg::DataFlowGraph,
@@ -251,10 +251,10 @@ impl<'block> BrilligBlock<'block> {
                 let (has_revert_data, static_assert_message) = if let Some(error) = assert_message {
                     match error.as_ref() {
                         ConstrainError::Intrinsic(string) => (false, Some(string.clone())),
-                        ConstrainError::UserDefined(UserDefinedError::Static(string)) => {
+                        ConstrainError::UserDefined(UserDefinedConstrainError::Static(string)) => {
                             (true, Some(string.clone()))
                         }
-                        ConstrainError::UserDefined(UserDefinedError::Dynamic(
+                        ConstrainError::UserDefined(UserDefinedConstrainError::Dynamic(
                             call_instruction,
                         )) => {
                             let Instruction::Call { func, arguments } = call_instruction else {
@@ -288,7 +288,7 @@ impl<'block> BrilligBlock<'block> {
                 );
                 if has_revert_data {
                     self.brillig_context
-                        .codegen_constrain_with_revertdata(condition, static_assert_message);
+                        .codegen_constrain_with_revert_data(condition, static_assert_message);
                 } else {
                     self.brillig_context.codegen_constrain(condition, static_assert_message);
                 }

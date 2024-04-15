@@ -10,7 +10,8 @@ use super::{
     basic_block::BasicBlockId,
     function::Function,
     instruction::{
-        ConstrainError, Instruction, InstructionId, TerminatorInstruction, UserDefinedError,
+        ConstrainError, Instruction, InstructionId, TerminatorInstruction,
+        UserDefinedConstrainError,
     },
     value::ValueId,
 };
@@ -204,10 +205,10 @@ fn display_constrain_error(
 ) -> Result {
     match error {
         ConstrainError::Intrinsic(assert_message_string)
-        | ConstrainError::UserDefined(UserDefinedError::Static(assert_message_string)) => {
+        | ConstrainError::UserDefined(UserDefinedConstrainError::Static(assert_message_string)) => {
             writeln!(f, "{assert_message_string:?}")
         }
-        ConstrainError::UserDefined(UserDefinedError::Dynamic(assert_message_call)) => {
+        ConstrainError::UserDefined(UserDefinedConstrainError::Dynamic(assert_message_call)) => {
             display_instruction_inner(function, assert_message_call, f)
         }
     }

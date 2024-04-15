@@ -256,7 +256,6 @@ pub fn brillig_to_avm(brillig: &Brillig) -> Vec<u8> {
                 revert_data_offset,
                 revert_data_size,
             } => {
-                // TODO(https://github.com/noir-lang/noir/issues/3113): Trap should support return data
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::REVERT,
                     indirect: Some(ALL_DIRECT),

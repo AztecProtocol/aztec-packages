@@ -140,8 +140,8 @@ impl BrilligContext {
     }
 
     /// Emits brillig bytecode to jump to a trap condition if `condition`
-    /// is false.
-    pub(crate) fn codegen_constrain_with_revertdata(
+    /// is false. The trap will include the given message as revert data.
+    pub(crate) fn codegen_constrain_with_revert_data(
         &mut self,
         condition: SingleAddrVariable,
         assert_message: Option<String>,

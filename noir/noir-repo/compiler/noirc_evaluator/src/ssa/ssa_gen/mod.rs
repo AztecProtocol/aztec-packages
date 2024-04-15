@@ -30,7 +30,7 @@ use super::{
     ir::{
         function::RuntimeType,
         instruction::{
-            BinaryOp, ConstrainError, Instruction, TerminatorInstruction, UserDefinedError,
+            BinaryOp, ConstrainError, Instruction, TerminatorInstruction, UserDefinedConstrainError,
         },
         types::Type,
         value::ValueId,
@@ -709,9 +709,9 @@ impl<'a> FunctionContext<'a> {
         if let ast::Expression::Literal(ast::Literal::Str(assert_message)) =
             assert_message_expr.as_ref()
         {
-            return Ok(Some(Box::new(ConstrainError::UserDefined(UserDefinedError::Static(
-                assert_message.to_string(),
-            )))));
+            return Ok(Some(Box::new(ConstrainError::UserDefined(
+                UserDefinedConstrainError::Static(assert_message.to_string()),
+            ))));
         }
 
         let ast::Expression::Call(call) = assert_message_expr.as_ref() else {
@@ -737,7 +737,7 @@ impl<'a> FunctionContext<'a> {
         }
 
         let instr = Instruction::Call { func, arguments };
-        Ok(Some(Box::new(ConstrainError::UserDefined(UserDefinedError::Dynamic(instr)))))
+        Ok(Some(Box::new(ConstrainError::UserDefined(UserDefinedConstrainError::Dynamic(instr)))))
     }
 
     fn codegen_assign(&mut self, assign: &ast::Assign) -> Result<Values, RuntimeError> {
