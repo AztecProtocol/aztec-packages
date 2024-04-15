@@ -129,7 +129,7 @@ import {
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
 import { Gas } from '../structs/gas.js';
 import { GasFees } from '../structs/gas_fees.js';
-import { DimensionGasSettings, GasSettings } from '../structs/gas_settings.js';
+import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
