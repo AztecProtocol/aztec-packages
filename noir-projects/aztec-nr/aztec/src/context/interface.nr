@@ -31,8 +31,8 @@ trait PublicContextInterface {
     fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field);
     fn message_portal(&mut self, recipient: EthAddress, content: Field);
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress);
-    fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]);
-    fn accumulate_unencrypted_logs<T>(&mut self, log: T);
+    fn emit_unencrypted_log<T>(&mut self, log: T);
+    fn push_unencrypted_log(&mut self, log_hash: Field);
     fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,

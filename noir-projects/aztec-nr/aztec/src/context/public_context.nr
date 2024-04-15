@@ -131,14 +131,6 @@ impl PublicContext {
         self.return_hash = returns_hasher.hash();
     }
 
-
-    fn push_unencrypted_log(&mut self, log_hash: Field) {
-        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
-        self.unencrypted_logs_hashes.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
     pub fn finish(self) -> PublicCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let unencrypted_log_preimages_length = 0;
@@ -288,15 +280,18 @@ impl PublicContextInterface for PublicContext {
         self.push_new_nullifier(nullifier, 0)
     }
 
-    fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
+    fn emit_unencrypted_log<T>(&mut self, log: T) {
         let _void1 = self;
         let _void2 = log;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+        // Once we hash inside circuits, this replaces push_unencrypted_log
+        // For now we need an oracle to get the hash
     }
 
-    fn accumulate_unencrypted_logs<T>(&mut self, log: T) {
-        let _void1 = self;
-        let _void2 = log;
+    fn push_unencrypted_log(&mut self, log_hash: Field) {
+        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
+        self.unencrypted_logs_hashes.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 

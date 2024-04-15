@@ -263,22 +263,10 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
-    pub fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
-        let _void1 = self.inputs;
-        let _void2 = log;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
     pub fn push_encrypted_log(&mut self, log_hash: Field) {
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.encrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
-    pub fn accumulate_unencrypted_logs<T>(&mut self, log: T) {
-        let _void1 = self.inputs;
-        let _void2 = log;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 
