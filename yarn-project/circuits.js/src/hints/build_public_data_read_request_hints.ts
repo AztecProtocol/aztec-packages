@@ -37,7 +37,7 @@ export function buildPublicDataReadRequestHints(
       if (!publicDataHints[hintIndex].value.equals(rr.value)) {
         throw new Error('Value being read does not match existing public data or pending writes.');
       }
-      builder.addSettledReadRequest(i, hintIndex);
+      builder.addLeafDataReadRequest(i, hintIndex);
     }
   }
 

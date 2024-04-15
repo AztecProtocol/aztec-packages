@@ -1,4 +1,4 @@
-use crate::reset::{mutable_data_read_request::SettledDataHint};
+use crate::reset::{mutable_data_read_request::LeafDataHint};
 use dep::types::{
     abis::membership_witness::PublicDataMembershipWitness,
     public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage
@@ -12,7 +12,7 @@ struct PublicDataHint {
     leaf_preimage: PublicDataTreeLeafPreimage,
 }
 
-impl SettledDataHint for PublicDataHint {
+impl LeafDataHint for PublicDataHint {
     fn leaf_slot(self) -> Field {
         self.leaf_slot
     }

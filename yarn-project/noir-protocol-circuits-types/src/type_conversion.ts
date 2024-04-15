@@ -31,6 +31,7 @@ import {
   KernelCircuitPublicInputs,
   type KernelData,
   type L2ToL1Message,
+  type LeafDataReadHint,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -95,7 +96,6 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   RootRollupPublicInputs,
-  type SettledDataReadHint,
   type SettledReadHint,
   SideEffect,
   SideEffectLinkedToNoteHash,
@@ -173,13 +173,13 @@ import {
   type StorageUpdateRequest as StorageUpdateRequestNoir,
 } from './types/public_kernel_setup_types.js';
 import {
+  type LeafDataReadHint as LeafDataReadHintNoir,
   type NullifierNonExistentReadRequestHints as NullifierNonExistentReadRequestHintsNoir,
   type NullifierNonMembershipHint as NullifierNonMembershipHintNoir,
   type PublicDataHint as PublicDataHintNoir,
   type PublicDataReadRequestHints as PublicDataReadRequestHintsNoir,
   type PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
   type PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
-  type SettledDataReadHint as SettledDataReadHintNoir,
 } from './types/public_kernel_tail_types.js';
 import {
   type ArchiveRootMembershipWitness as ArchiveRootMembershipWitnessNoir,
@@ -929,10 +929,10 @@ function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
   };
 }
 
-function mapSettledDataReadHintToNoir(hint: SettledDataReadHint): SettledDataReadHintNoir {
+function mapLeafDataReadHintToNoir(hint: LeafDataReadHint): LeafDataReadHintNoir {
   return {
     read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    settled_data_hint_index: mapNumberToNoir(hint.settledDataHintIndex),
+    data_hint_index: mapNumberToNoir(hint.dataHintIndex),
   };
 }
 
@@ -988,7 +988,7 @@ function mapPublicDataReadRequestHintsToNoir(hints: PublicDataReadRequestHints):
   return {
     read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
     pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
-    settled_read_hints: mapTuple(hints.settledReadHints, mapSettledDataReadHintToNoir),
+    leaf_data_read_hints: mapTuple(hints.leafDataReadHints, mapLeafDataReadHintToNoir),
   };
 }
 

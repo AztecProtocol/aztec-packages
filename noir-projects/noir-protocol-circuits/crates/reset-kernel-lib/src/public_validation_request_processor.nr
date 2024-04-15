@@ -121,7 +121,7 @@ impl<N> PublicValidationRequestProcessor<N> {
             self.pending_public_data_writes,
             self.public_data_hints,
             hints.pending_read_hints,
-            hints.settled_read_hints
+            hints.leaf_data_read_hints
         );
     }
 }

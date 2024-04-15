@@ -4,20 +4,20 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { MAX_PUBLIC_DATA_READS_PER_TX } from '../constants.gen.js';
 import { PendingReadHint, ReadRequestState, ReadRequestStatus } from './read_request_hints.js';
 
-export class SettledDataReadHint {
-  constructor(public readRequestIndex: number, public settledDataHintIndex: number) {}
+export class LeafDataReadHint {
+  constructor(public readRequestIndex: number, public dataHintIndex: number) {}
 
   static nada(readRequestLen: number) {
-    return new SettledDataReadHint(readRequestLen, 0);
+    return new LeafDataReadHint(readRequestLen, 0);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new SettledDataReadHint(reader.readNumber(), reader.readNumber());
+    return new LeafDataReadHint(reader.readNumber(), reader.readNumber());
   }
 
   toBuffer() {
-    return serializeToBuffer(this.readRequestIndex, this.settledDataHintIndex);
+    return serializeToBuffer(this.readRequestIndex, this.dataHintIndex);
   }
 }
 
@@ -25,7 +25,7 @@ export class PublicDataReadRequestHints {
   constructor(
     public readRequestStatuses: Tuple<ReadRequestStatus, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
     public pendingReadHints: Tuple<PendingReadHint, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
-    public settledReadHints: Tuple<SettledDataReadHint, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
+    public leafDataReadHints: Tuple<LeafDataReadHint, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {}
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -33,25 +33,25 @@ export class PublicDataReadRequestHints {
     return new PublicDataReadRequestHints(
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, ReadRequestStatus),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PendingReadHint),
-      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, SettledDataReadHint),
+      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, LeafDataReadHint),
     );
   }
 
   toBuffer() {
-    return serializeToBuffer(this.readRequestStatuses, this.pendingReadHints, this.settledReadHints);
+    return serializeToBuffer(this.readRequestStatuses, this.pendingReadHints, this.leafDataReadHints);
   }
 }
 
 export class PublicDataReadRequestHintsBuilder {
   private hints: PublicDataReadRequestHints;
   private numPendingReadHints = 0;
-  private numSettledReadHints = 0;
+  private numLeafDataReadHints = 0;
 
   constructor() {
     this.hints = new PublicDataReadRequestHints(
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, ReadRequestStatus.nada),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => PendingReadHint.nada(MAX_PUBLIC_DATA_READS_PER_TX)),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => SettledDataReadHint.nada(MAX_PUBLIC_DATA_READS_PER_TX)),
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => LeafDataReadHint.nada(MAX_PUBLIC_DATA_READS_PER_TX)),
     );
   }
 
@@ -68,16 +68,16 @@ export class PublicDataReadRequestHintsBuilder {
     this.numPendingReadHints++;
   }
 
-  addSettledReadRequest(readRequestIndex: number, settledDataHintIndex: number) {
+  addLeafDataReadRequest(readRequestIndex: number, leafDataDataHintIndex: number) {
     this.hints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(
       ReadRequestState.SETTLED,
-      this.numSettledReadHints,
+      this.numLeafDataReadHints,
     );
-    this.hints.settledReadHints[this.numSettledReadHints] = new SettledDataReadHint(
+    this.hints.leafDataReadHints[this.numLeafDataReadHints] = new LeafDataReadHint(
       readRequestIndex,
-      settledDataHintIndex,
+      leafDataDataHintIndex,
     );
-    this.numSettledReadHints++;
+    this.numLeafDataReadHints++;
   }
 
   toHints() {

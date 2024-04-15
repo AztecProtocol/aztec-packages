@@ -9,12 +9,12 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '../constants.gen.js';
 import {
+  LeafDataReadHint,
   PendingReadHint,
   PublicDataHint,
   PublicDataRead,
   PublicDataUpdateRequest,
   ReadRequestStatus,
-  SettledDataReadHint,
 } from '../structs/index.js';
 import { buildPublicDataReadRequestHints } from './build_public_data_read_request_hints.js';
 
@@ -22,7 +22,7 @@ describe('buildPublicDataReadRequestHints', () => {
   let publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>;
   let expectedStatuses: Tuple<ReadRequestStatus, typeof MAX_PUBLIC_DATA_READS_PER_TX>;
   let expectedPendingHints: Tuple<PendingReadHint, typeof MAX_PUBLIC_DATA_READS_PER_TX>;
-  let expectedSettledHints: Tuple<SettledDataReadHint, typeof MAX_PUBLIC_DATA_READS_PER_TX>;
+  let expectedLeafDataHints: Tuple<LeafDataReadHint, typeof MAX_PUBLIC_DATA_READS_PER_TX>;
 
   const makePublicDataWrite = (leafSlot: number, value: number) =>
     new PublicDataUpdateRequest(new Fr(leafSlot), new Fr(value));
@@ -35,8 +35,8 @@ describe('buildPublicDataReadRequestHints', () => {
   const makePublicDataRead = (leafSlot: number, value: number) => new PublicDataRead(new Fr(leafSlot), new Fr(value));
   const makePendingHint = (readRequestIndex: number, hintIndex: number) =>
     new PendingReadHint(readRequestIndex, hintIndex);
-  const makeSettledHint = (readRequestIndex: number, hintIndex: number) =>
-    new SettledDataReadHint(readRequestIndex, hintIndex);
+  const makeLeafDataHint = (readRequestIndex: number, hintIndex: number) =>
+    new LeafDataReadHint(readRequestIndex, hintIndex);
 
   const publicDataUpdateRequests = padArrayEnd(
     [makePublicDataWrite(55, 5555), makePublicDataWrite(77, 7777), makePublicDataWrite(99, 9999)],
@@ -63,7 +63,7 @@ describe('buildPublicDataReadRequestHints', () => {
     const hints = buildHints();
     expect(hints.readRequestStatuses).toEqual(expectedStatuses);
     expect(hints.pendingReadHints).toEqual(expectedPendingHints);
-    expect(hints.settledReadHints).toEqual(expectedSettledHints);
+    expect(hints.leafDataReadHints).toEqual(expectedLeafDataHints);
   };
 
   beforeEach(() => {
@@ -72,8 +72,8 @@ describe('buildPublicDataReadRequestHints', () => {
     expectedPendingHints = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () =>
       PendingReadHint.nada(MAX_PUBLIC_DATA_READS_PER_TX),
     );
-    expectedSettledHints = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () =>
-      SettledDataReadHint.nada(MAX_PUBLIC_DATA_READS_PER_TX),
+    expectedLeafDataHints = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () =>
+      LeafDataReadHint.nada(MAX_PUBLIC_DATA_READS_PER_TX),
     );
   });
 
@@ -104,10 +104,10 @@ describe('buildPublicDataReadRequestHints', () => {
     expectedStatuses[1] = ReadRequestStatus.settled(1);
     expectedStatuses[2] = ReadRequestStatus.settled(2);
     expectedStatuses[3] = ReadRequestStatus.settled(3);
-    expectedSettledHints[0] = makeSettledHint(0, 2);
-    expectedSettledHints[1] = makeSettledHint(1, 4);
-    expectedSettledHints[2] = makeSettledHint(2, 3);
-    expectedSettledHints[3] = makeSettledHint(3, 0);
+    expectedLeafDataHints[0] = makeLeafDataHint(0, 2);
+    expectedLeafDataHints[1] = makeLeafDataHint(1, 4);
+    expectedLeafDataHints[2] = makeLeafDataHint(2, 3);
+    expectedLeafDataHints[3] = makeLeafDataHint(3, 0);
 
     buildAndCheckHints();
   });
@@ -130,10 +130,10 @@ describe('buildPublicDataReadRequestHints', () => {
     expectedPendingHints[0] = makePendingHint(1, 0);
     expectedPendingHints[1] = makePendingHint(4, 2);
     expectedPendingHints[2] = makePendingHint(5, 1);
-    expectedSettledHints[0] = makeSettledHint(0, 3);
-    expectedSettledHints[1] = makeSettledHint(2, 4);
-    expectedSettledHints[2] = makeSettledHint(3, 0);
-    expectedSettledHints[3] = makeSettledHint(6, 0);
+    expectedLeafDataHints[0] = makeLeafDataHint(0, 3);
+    expectedLeafDataHints[1] = makeLeafDataHint(2, 4);
+    expectedLeafDataHints[2] = makeLeafDataHint(3, 0);
+    expectedLeafDataHints[3] = makeLeafDataHint(6, 0);
 
     buildAndCheckHints();
   });
