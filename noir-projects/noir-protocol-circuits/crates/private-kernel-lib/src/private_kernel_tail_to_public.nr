@@ -170,7 +170,7 @@ mod tests {
                 sorted_new_nullifiers_indexes,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
-                master_nullifier_secret_key: GrumpkinPrivateKey::empty(),
+                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
             };
             kernel.execute()
         }

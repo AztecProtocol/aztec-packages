@@ -61,9 +61,9 @@ impl PrivateValidationRequestProcessor {
         for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX {
             let request = requests[i];
             if !is_empty(request) {
-                let master_secret_key = self.master_nullifier_secret_keys[i];
+                let master_nullifier_secret_key = self.master_nullifier_secret_keys[i];
                 // First we check that derived public key matches master nullifier public key
-                let derived_nullifier_public_key = master_secret_key.derive_public_key();
+                let derived_nullifier_public_key = master_nullifier_secret_key.derive_public_key();
                 assert(
                     derived_nullifier_public_key.eq(request.master_nullifier_public_key), "Cannot derive master nullifier public key from the secret key."
                 );
@@ -71,7 +71,7 @@ impl PrivateValidationRequestProcessor {
                 // Then we check that siloing the master secret key with the contract address gives the app secret key
 
                 let app_nullifier_secret_key_preimage = [
-                    self.master_nullifier_secret_key.high, self.master_nullifier_secret_key.low, request.contract_address.to_field(), GENERATOR_INDEX__NSK_M
+                    master_nullifier_secret_key.high, master_nullifier_secret_key.low, request.contract_address.to_field(), GENERATOR_INDEX__NSK_M
                 ];
                 let derived_app_nullifier_secret_key = dep::std::hash::poseidon2::Poseidon2::hash(app_nullifier_secret_key_preimage, app_nullifier_secret_key_preimage.len());
                 assert(

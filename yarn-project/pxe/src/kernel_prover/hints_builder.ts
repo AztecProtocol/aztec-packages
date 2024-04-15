@@ -136,7 +136,7 @@ export class HintsBuilder {
     return hints;
   }
 
-  async getMasterNullifierSecretKey(
+  async getMasterNullifierSecretKeys(
     nullifierKeyValidationRequests: Tuple<
       NullifierKeyValidationRequestContext,
       typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
