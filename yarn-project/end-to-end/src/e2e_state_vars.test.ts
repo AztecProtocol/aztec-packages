@@ -20,7 +20,7 @@ describe('e2e_state_vars', () => {
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
-    ({ teardown, wallet, pxe} = await setup(2));
+    ({ teardown, wallet, pxe } = await setup(2));
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
   }, 30_000);
 
@@ -228,20 +228,27 @@ describe('e2e_state_vars', () => {
         await authContract.methods.get_authorized().send().wait();
       }
     };
-  
+
     beforeAll(async () => {
       stateVarsContract = await StateVarsContract.deploy(wallet).send().deployed();
       authContract = await AuthContract.deploy(wallet, wallet.getAddress()).send().deployed();
     }, 30_000);
 
     it('should set authorized in auth contract', async () => {
-      await authContract.withWallet(wallet).methods.set_authorized(AztecAddress.fromField(new Fr(6969696969))).send().wait();
+      await authContract
+        .withWallet(wallet)
+        .methods.set_authorized(AztecAddress.fromField(new Fr(6969696969)))
+        .send()
+        .wait();
     });
 
     it('checks authorized from auth contract from state vars contract', async () => {
       await delay(5);
 
-      const { txHash } = await stateVarsContract.methods.test_shared_mutable_private_getter(authContract.address, 2).send().wait();
+      const { txHash } = await stateVarsContract.methods
+        .test_shared_mutable_private_getter(authContract.address, 2)
+        .send()
+        .wait();
 
       const rawLogs = await pxe.getUnencryptedLogs({ txHash });
       expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(6969696969));
