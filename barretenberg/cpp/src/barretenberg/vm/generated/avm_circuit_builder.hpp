@@ -13,7 +13,7 @@
 
 #include "barretenberg/relations/generated/avm/avm_alu.hpp"
 #include "barretenberg/relations/generated/avm/avm_binary.hpp"
-#include "barretenberg/relations/generated/avm/avm_environment.hpp"
+#include "barretenberg/relations/generated/avm/avm_kernel.hpp"
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
 #include "barretenberg/relations/generated/avm/avm_mem.hpp"
 #include "barretenberg/relations/generated/avm/incl_main_tag_err.hpp"
@@ -131,8 +131,9 @@ template <typename FF> struct AvmFullRow {
     FF avm_byte_lookup_table_input_b{};
     FF avm_byte_lookup_table_op_id{};
     FF avm_byte_lookup_table_output{};
-    FF avm_environment_environment_selector{};
-    FF avm_environment_q_environment_lookup{};
+    FF avm_kernel_kernel_inputs__is_public{};
+    FF avm_kernel_kernel_sel{};
+    FF avm_kernel_q_public_input_kernel_add_to_table{};
     FF avm_main_alu_sel{};
     FF avm_main_bin_op_id{};
     FF avm_main_bin_sel{};
@@ -151,7 +152,6 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_ind_op_d{};
     FF avm_main_internal_return_ptr{};
     FF avm_main_inv{};
-    FF avm_main_kernel_inputs__is_public{};
     FF avm_main_last{};
     FF avm_main_mem_idx_a{};
     FF avm_main_mem_idx_b{};
@@ -163,6 +163,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_mem_op_d{};
     FF avm_main_op_err{};
     FF avm_main_pc{};
+    FF avm_main_q_kernel_lookup{};
     FF avm_main_r_in_tag{};
     FF avm_main_rwa{};
     FF avm_main_rwb{};
@@ -179,15 +180,25 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_sel_op_add{};
     FF avm_main_sel_op_address{};
     FF avm_main_sel_op_and{};
+    FF avm_main_sel_op_block_number{};
+    FF avm_main_sel_op_chain_id{};
+    FF avm_main_sel_op_coinbase{};
     FF avm_main_sel_op_div{};
     FF avm_main_sel_op_eq{};
+    FF avm_main_sel_op_fee_per_da_gas{};
+    FF avm_main_sel_op_fee_per_l1_gas{};
+    FF avm_main_sel_op_fee_per_l2_gas{};
+    FF avm_main_sel_op_function_selector{};
     FF avm_main_sel_op_lt{};
     FF avm_main_sel_op_lte{};
     FF avm_main_sel_op_mul{};
     FF avm_main_sel_op_not{};
     FF avm_main_sel_op_or{};
+    FF avm_main_sel_op_portal{};
     FF avm_main_sel_op_sender{};
     FF avm_main_sel_op_sub{};
+    FF avm_main_sel_op_timestamp{};
+    FF avm_main_sel_op_version{};
     FF avm_main_sel_op_xor{};
     FF avm_main_sel_rng_16{};
     FF avm_main_sel_rng_8{};
@@ -318,8 +329,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 253;
-    static constexpr size_t num_polys = 218;
+    static constexpr size_t num_fixed_columns = 264;
+    static constexpr size_t num_polys = 229;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -413,8 +424,10 @@ class AvmCircuitBuilder {
             polys.avm_byte_lookup_table_input_b[i] = rows[i].avm_byte_lookup_table_input_b;
             polys.avm_byte_lookup_table_op_id[i] = rows[i].avm_byte_lookup_table_op_id;
             polys.avm_byte_lookup_table_output[i] = rows[i].avm_byte_lookup_table_output;
-            polys.avm_environment_environment_selector[i] = rows[i].avm_environment_environment_selector;
-            polys.avm_environment_q_environment_lookup[i] = rows[i].avm_environment_q_environment_lookup;
+            polys.avm_kernel_kernel_inputs__is_public[i] = rows[i].avm_kernel_kernel_inputs__is_public;
+            polys.avm_kernel_kernel_sel[i] = rows[i].avm_kernel_kernel_sel;
+            polys.avm_kernel_q_public_input_kernel_add_to_table[i] =
+                rows[i].avm_kernel_q_public_input_kernel_add_to_table;
             polys.avm_main_alu_sel[i] = rows[i].avm_main_alu_sel;
             polys.avm_main_bin_op_id[i] = rows[i].avm_main_bin_op_id;
             polys.avm_main_bin_sel[i] = rows[i].avm_main_bin_sel;
@@ -433,7 +446,6 @@ class AvmCircuitBuilder {
             polys.avm_main_ind_op_d[i] = rows[i].avm_main_ind_op_d;
             polys.avm_main_internal_return_ptr[i] = rows[i].avm_main_internal_return_ptr;
             polys.avm_main_inv[i] = rows[i].avm_main_inv;
-            polys.avm_main_kernel_inputs__is_public[i] = rows[i].avm_main_kernel_inputs__is_public;
             polys.avm_main_last[i] = rows[i].avm_main_last;
             polys.avm_main_mem_idx_a[i] = rows[i].avm_main_mem_idx_a;
             polys.avm_main_mem_idx_b[i] = rows[i].avm_main_mem_idx_b;
@@ -445,6 +457,7 @@ class AvmCircuitBuilder {
             polys.avm_main_mem_op_d[i] = rows[i].avm_main_mem_op_d;
             polys.avm_main_op_err[i] = rows[i].avm_main_op_err;
             polys.avm_main_pc[i] = rows[i].avm_main_pc;
+            polys.avm_main_q_kernel_lookup[i] = rows[i].avm_main_q_kernel_lookup;
             polys.avm_main_r_in_tag[i] = rows[i].avm_main_r_in_tag;
             polys.avm_main_rwa[i] = rows[i].avm_main_rwa;
             polys.avm_main_rwb[i] = rows[i].avm_main_rwb;
@@ -461,15 +474,25 @@ class AvmCircuitBuilder {
             polys.avm_main_sel_op_add[i] = rows[i].avm_main_sel_op_add;
             polys.avm_main_sel_op_address[i] = rows[i].avm_main_sel_op_address;
             polys.avm_main_sel_op_and[i] = rows[i].avm_main_sel_op_and;
+            polys.avm_main_sel_op_block_number[i] = rows[i].avm_main_sel_op_block_number;
+            polys.avm_main_sel_op_chain_id[i] = rows[i].avm_main_sel_op_chain_id;
+            polys.avm_main_sel_op_coinbase[i] = rows[i].avm_main_sel_op_coinbase;
             polys.avm_main_sel_op_div[i] = rows[i].avm_main_sel_op_div;
             polys.avm_main_sel_op_eq[i] = rows[i].avm_main_sel_op_eq;
+            polys.avm_main_sel_op_fee_per_da_gas[i] = rows[i].avm_main_sel_op_fee_per_da_gas;
+            polys.avm_main_sel_op_fee_per_l1_gas[i] = rows[i].avm_main_sel_op_fee_per_l1_gas;
+            polys.avm_main_sel_op_fee_per_l2_gas[i] = rows[i].avm_main_sel_op_fee_per_l2_gas;
+            polys.avm_main_sel_op_function_selector[i] = rows[i].avm_main_sel_op_function_selector;
             polys.avm_main_sel_op_lt[i] = rows[i].avm_main_sel_op_lt;
             polys.avm_main_sel_op_lte[i] = rows[i].avm_main_sel_op_lte;
             polys.avm_main_sel_op_mul[i] = rows[i].avm_main_sel_op_mul;
             polys.avm_main_sel_op_not[i] = rows[i].avm_main_sel_op_not;
             polys.avm_main_sel_op_or[i] = rows[i].avm_main_sel_op_or;
+            polys.avm_main_sel_op_portal[i] = rows[i].avm_main_sel_op_portal;
             polys.avm_main_sel_op_sender[i] = rows[i].avm_main_sel_op_sender;
             polys.avm_main_sel_op_sub[i] = rows[i].avm_main_sel_op_sub;
+            polys.avm_main_sel_op_timestamp[i] = rows[i].avm_main_sel_op_timestamp;
+            polys.avm_main_sel_op_version[i] = rows[i].avm_main_sel_op_version;
             polys.avm_main_sel_op_xor[i] = rows[i].avm_main_sel_op_xor;
             polys.avm_main_sel_rng_16[i] = rows[i].avm_main_sel_rng_16;
             polys.avm_main_sel_rng_8[i] = rows[i].avm_main_sel_rng_8;
@@ -637,8 +660,8 @@ class AvmCircuitBuilder {
                                                                            Avm_vm::get_relation_label_avm_binary)) {
             return false;
         }
-        if (!evaluate_relation.template operator()<Avm_vm::avm_environment<FF>>(
-                "avm_environment", Avm_vm::get_relation_label_avm_environment)) {
+        if (!evaluate_relation.template operator()<Avm_vm::avm_kernel<FF>>("avm_kernel",
+                                                                           Avm_vm::get_relation_label_avm_kernel)) {
             return false;
         }
         if (!evaluate_relation.template operator()<Avm_vm::avm_main<FF>>("avm_main",

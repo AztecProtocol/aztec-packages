@@ -14,7 +14,7 @@
 #include "avm_helper.hpp"
 #include "avm_mem_trace.hpp"
 #include "avm_trace.hpp"
-#include "barretenberg/vm/avm_trace/avm_environment_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 
 namespace bb::avm_trace {
 
@@ -22,9 +22,9 @@ namespace bb::avm_trace {
  * @brief Constructor of a trace builder of AVM. Only serves to set the capacity of the
  *        underlying traces.
  */
-AvmTraceBuilder::AvmTraceBuilder(std::vector<FF> kernel_inputs)
+AvmTraceBuilder::AvmTraceBuilder(std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs)
     // NOTE: we initialise the environment builder here as it requires public inputs
-    : env_trace_builder(kernel_inputs)
+    : kernel_trace_builder(kernel_inputs)
 {
     main_trace.reserve(AVM_TRACE_SIZE);
 }
@@ -39,7 +39,7 @@ void AvmTraceBuilder::reset()
     mem_trace_builder.reset();
     alu_trace_builder.reset();
     bin_trace_builder.reset();
-    env_trace_builder.reset();
+    kernel_trace_builder.reset();
 }
 
 AvmTraceBuilder::IndirectThreeResolution AvmTraceBuilder::resolve_ind_three(
@@ -946,62 +946,95 @@ void AvmTraceBuilder::op_cmov(
     });
 }
 
-void AvmTraceBuilder::op_sender(uint32_t dst_offset)
+// Helper function to add kernel lookup operations into the main trace
+Row AvmTraceBuilder::create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size());
 
     // Get the value of op sender from the mem trace
-    FF ia_value = env_trace_builder.op_sender();
-    info("after op sender in env trace");
-
     // TODO: the tag of sender should be a field element no?
-    AvmMemoryTag tag = AvmMemoryTag::U32;
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, ia_value, AvmMemoryTag::U0, tag);
+    AvmMemoryTag r_tag = AvmMemoryTag::U0;
+    AvmMemoryTag w_tag = AvmMemoryTag::U32; // THIS WAS U32
+    mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, value, r_tag, w_tag);
 
     // TODO: must i constrain r in tag to be the type of the write operation in pil?
     // .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
-    main_trace.push_back(Row{
+    return Row{
         .avm_main_clk = clk,
-        .avm_environment_environment_selector = SENDER_SELECTOR,
-        .avm_environment_q_environment_lookup = 1,
-        .avm_main_ia = ia_value,
+        .avm_kernel_kernel_sel = selector,
+        .avm_main_ia = value,
         .avm_main_ind_a = 0,
         .avm_main_internal_return_ptr = internal_return_ptr,
         .avm_main_mem_idx_a = dst_offset,
         .avm_main_mem_op_a = 1,
         .avm_main_pc = pc++,
+        .avm_main_q_kernel_lookup = 1,
         .avm_main_rwa = 1,
-        .avm_main_sel_op_sender = 1,
-        .avm_main_w_in_tag = static_cast<uint32_t>(tag),
-    });
+        .avm_main_w_in_tag = static_cast<uint32_t>(w_tag),
+    };
+}
+
+void AvmTraceBuilder::op_sender(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_sender();
+    Row row = create_kernel_lookup_opcode(dst_offset, SENDER_SELECTOR, ia_value);
+    row.avm_main_sel_op_sender = FF(1);
+
+    main_trace.push_back(row);
 }
 
 void AvmTraceBuilder::op_address(uint32_t dst_offset)
 {
-    auto const clk = static_cast<uint32_t>(main_trace.size());
+    FF ia_value = kernel_trace_builder.op_address();
+    Row row = create_kernel_lookup_opcode(dst_offset, ADDRESS_SELECTOR, ia_value);
+    row.avm_main_sel_op_address = FF(1);
 
-    // Get the value of op sender from the mem trace
-    FF ia_value = env_trace_builder.op_address();
+    main_trace.push_back(row);
+}
 
-    // TODO: the tag of sender should be a field element no?
-    AvmMemoryTag tag = AvmMemoryTag::U32;
-    mem_trace_builder.write_into_memory(clk, IntermRegister::IA, dst_offset, ia_value, AvmMemoryTag::U0, tag);
+void AvmTraceBuilder::op_portal(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_portal();
+    Row row = create_kernel_lookup_opcode(dst_offset, PORTAL_SELECTOR, ia_value);
+    row.avm_main_sel_op_portal = FF(1);
 
-    // TODO: must i constrain r in tag to be the type of the write operation in pil?
-    // .avm_main_r_in_tag = FF(static_cast<uint32_t>(in_tag)),
-    main_trace.push_back(Row{
-        .avm_main_clk = clk,
-        .avm_environment_environment_selector = ADDRESS_SELECTOR,
-        .avm_environment_q_environment_lookup = 1,
-        .avm_main_ia = ia_value,
-        .avm_main_ind_a = 0,
-        .avm_main_internal_return_ptr = internal_return_ptr,
-        .avm_main_mem_idx_a = dst_offset,
-        .avm_main_pc = pc++,
-        .avm_main_rwa = 1,
-        .avm_main_sel_op_address = 1,
-        .avm_main_w_in_tag = static_cast<uint32_t>(tag),
-    });
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_function(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_function();
+    Row row = create_kernel_lookup_opcode(dst_offset, FUNCTION_SELECTOR, ia_value);
+    row.avm_main_sel_op_function_selector = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_fee_per_da_gas(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_fee_per_da_gas();
+    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_DA_GAS_SELECTOR, ia_value);
+    row.avm_main_sel_op_fee_per_da_gas = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_fee_per_l1_gas(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_fee_per_l1_gas();
+    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_L1_GAS_SELECTOR, ia_value);
+    row.avm_main_sel_op_fee_per_l1_gas = FF(1);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_fee_per_l2_gas(uint32_t dst_offset)
+{
+    FF ia_value = kernel_trace_builder.op_fee_per_l2_gas();
+    Row row = create_kernel_lookup_opcode(dst_offset, FEE_PER_L2_GAS_SELECTOR, ia_value);
+    row.avm_main_sel_op_fee_per_l2_gas = FF(1);
+
+    main_trace.push_back(row);
 }
 
 /**
@@ -1679,18 +1712,32 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
 
+    // TODO: pub public inputs inside a function?
     // Include env trace table
     // Selector columns and lookup counts
     // Add all of the lookup counts for the input environment
-    for (size_t i = 0; i < 2; i++) {
-        auto& dest = main_trace.at(i);
+    // TODO: this index will have to move with the hardcoded public inputs
+
+    // Add public inputs into the kernel column
+    // edge case: If the number of public inputs is more than the trace then we pad to its size
+    if (main_trace.size() < kernel_trace_builder.kernel_inputs.size()) {
+        auto diff = kernel_trace_builder.kernel_inputs.size() - main_trace.size();
+        for (size_t i = 0; i < diff; ++i) {
+            main_trace.push_back(Row{});
+        }
+    }
+    auto kernel_inputs_size = std::min(main_trace.size(), kernel_trace_builder.kernel_inputs.size());
+
+    // We add the lookup counts in the index of the kernel inputs selectors that are active
+    for (uint32_t selector_index : KERNEL_INPUTS_SELECTORS) {
+        auto& dest = main_trace.at(selector_index);
         dest.lookup_into_environment_counts =
-            FF(env_trace_builder.environment_selector_counter[static_cast<uint32_t>(i)]);
+            FF(kernel_trace_builder.kernel_selector_counter[static_cast<uint32_t>(selector_index)]);
+        dest.avm_kernel_q_public_input_kernel_add_to_table = FF(1);
     }
 
-    // Add public inputs into the kernelcolumns
-    for (size_t i = 0; i < env_trace_builder.kernel_inputs.size(); i++) {
-        main_trace.at(i).avm_main_kernel_inputs__is_public = env_trace_builder.kernel_inputs.at(i);
+    for (size_t i = 0; i < kernel_inputs_size; i++) {
+        main_trace.at(i).avm_kernel_kernel_inputs__is_public = kernel_trace_builder.kernel_inputs.at(i);
     }
 
     // Adding extra row for the shifted values at the top of the execution trace.

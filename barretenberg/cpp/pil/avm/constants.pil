@@ -1,0 +1,10 @@
+
+namespace constants(256);
+
+    pol SENDER_SELECTOR = 0;
+    pol ADDRESS_SELECTOR = 1;
+    pol PORTAL_SELECTOR = 2;
+    pol FUNCTION_SELECTOR = 3;
+    pol FEE_PER_DA_GAS_SELECTOR = 9;
+    pol FEE_PER_L1_GAS_SELECTOR = 11;
+    pol FEE_PER_L2_GAS_SELECTOR = 13;

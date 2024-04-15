@@ -7,7 +7,7 @@ namespace tests_avm {
  *
  * @param trace The execution trace
  */
-void validate_trace_check_circuit(std::vector<Row>&& trace, std::vector<FF> public_inputs)
+void validate_trace_check_circuit(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs)
 {
     validate_trace(std::move(trace), public_inputs, false);
 };
@@ -18,7 +18,7 @@ void validate_trace_check_circuit(std::vector<Row>&& trace, std::vector<FF> publ
  *
  * @param trace The execution trace
  */
-void validate_trace(std::vector<Row>&& trace, std::vector<FF> public_inputs, bool with_proof)
+void validate_trace(std::vector<Row>&& trace, std::array<FF, KERNEL_INPUTS_LENGTH> public_inputs, bool with_proof)
 {
     auto circuit_builder = AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
@@ -30,7 +30,12 @@ void validate_trace(std::vector<Row>&& trace, std::vector<FF> public_inputs, boo
         auto proof = prover.construct_proof();
 
         auto verifier = composer.create_verifier(circuit_builder);
-        bool verified = verifier.verify_proof(proof, public_inputs);
+
+        // TODO: hacky copy for now, maybe change the verify proof type?
+        std::vector<FF> pub_inputs;
+        std::copy(public_inputs.begin(), public_inputs.end(), pub_inputs.data());
+
+        bool verified = verifier.verify_proof(proof, pub_inputs);
 
         EXPECT_TRUE(verified);
     }

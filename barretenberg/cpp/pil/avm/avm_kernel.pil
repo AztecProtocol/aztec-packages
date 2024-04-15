@@ -1,0 +1,42 @@
+include "avm_main.pil";
+include "constants.pil";
+
+namespace avm_kernel(256);
+    pol public kernel_inputs;
+    pol commit kernel_sel;
+
+    // The general pattern for environment lookups is as follows:
+    // - If we are performing an environment lookup, then we set q_environment_lookup
+    // - We can toggle what index in the 
+
+    // Note we are currently using arbitrary opcodes for each
+    // For this demo, caller is stored at index 0
+    #[SENDER_KERNEL]
+    avm_main.sel_op_sender * (kernel_sel - constants.SENDER_SELECTOR) = 0;
+
+    #[ADDRESS_KERNEL]
+    avm_main.sel_op_address * (kernel_sel - constants.ADDRESS_SELECTOR) = 0;
+
+    #[PORTAL_KERNEL]
+    avm_main.sel_op_portal * (kernel_sel - constants.PORTAL_SELECTOR) = 0;
+
+    #[FUNCTION_KERNEL]
+    avm_main.sel_op_function_selector * (kernel_sel - constants.FUNCTION_SELECTOR) = 0;
+
+    #[FEE_DA_GAS_KERNEL]
+    avm_main.sel_op_fee_per_da_gas  * (kernel_sel - constants.FEE_PER_DA_GAS_SELECTOR) = 0;
+
+    #[FEE_L1_GAS_KERNEL]
+    avm_main.sel_op_fee_per_l1_gas * (kernel_sel - constants.FEE_PER_L1_GAS_SELECTOR) = 0;
+
+    #[FEE_L2_GAS_KERNEL]
+    avm_main.sel_op_fee_per_l2_gas  * (kernel_sel - constants.FEE_PER_L2_GAS_SELECTOR) = 0;
+
+    // TODO: temporarily have a column to add the public inputs to a lookup table
+    // NOTE: WE SHOULD NOT NEED THIS - every thing in the column will be added to the table
+    // We should be able to have this always be on
+    pol commit q_public_input_kernel_add_to_table;
+
+    #[LOOKUP_INTO_ENVIRONMENT]
+    // TODO: FIX not having the trailing is_public breaking compilation :(
+    avm_main.q_kernel_lookup { avm_main.ia, kernel_sel } in q_public_input_kernel_add_to_table { kernel_inputs__is_public, avm_main.clk };

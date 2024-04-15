@@ -1,6 +1,9 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# Temp, increase this flag to enable vm compilation
+set(CMAKE_CXX_FLAGS "-fbracket-depth=512")
+
 # Enable the following warnings project wide.
 # If any compilation issues arise in the future, they should not be silenced here but rather in the
 # module's own CMakeLists.txt by adding conditional compilation flags like the following

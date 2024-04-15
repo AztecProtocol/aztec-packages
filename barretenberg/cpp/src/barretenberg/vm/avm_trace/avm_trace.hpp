@@ -8,9 +8,10 @@
 #include "avm_instructions.hpp"
 #include "avm_mem_trace.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "constants.hpp"
 
 #include "barretenberg/relations/generated/avm/avm_main.hpp"
-#include "barretenberg/vm/avm_trace/avm_environment_trace.hpp"
+#include "barretenberg/vm/avm_trace/avm_kernel_trace.hpp"
 
 namespace bb::avm_trace {
 
@@ -23,7 +24,7 @@ class AvmTraceBuilder {
   public:
     static const size_t CALLSTACK_OFFSET = 896; // TODO(md): Temporary reserved area 896 - 1024
 
-    AvmTraceBuilder(std::vector<FF> kernel_inputs = {});
+    AvmTraceBuilder(std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs = {});
 
     std::vector<Row> finalize();
     void reset();
@@ -76,6 +77,11 @@ class AvmTraceBuilder {
     // TODO
     void op_sender(uint32_t dst_offset);
     void op_address(uint32_t dst_offset);
+    void op_portal(uint32_t dst_offset);
+    void op_function(uint32_t dst_offset);
+    void op_fee_per_da_gas(uint32_t dst_offset);
+    void op_fee_per_l1_gas(uint32_t dst_offset);
+    void op_fee_per_l2_gas(uint32_t dst_offset);
 
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
@@ -121,8 +127,10 @@ class AvmTraceBuilder {
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
-    AvmEnvironmentTraceBuilder env_trace_builder;
+    AvmKernelTraceBuilder kernel_trace_builder;
 
+    // TODO: rename???
+    Row create_kernel_lookup_opcode(uint32_t dst_offset, uint32_t selector, FF value);
     void finalise_mem_trace_lookup_counts();
 
     IndirectThreeResolution resolve_ind_three(

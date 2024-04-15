@@ -80,8 +80,10 @@
     [[maybe_unused]] auto avm_byte_lookup_table_input_b = View(new_term.avm_byte_lookup_table_input_b);                \
     [[maybe_unused]] auto avm_byte_lookup_table_op_id = View(new_term.avm_byte_lookup_table_op_id);                    \
     [[maybe_unused]] auto avm_byte_lookup_table_output = View(new_term.avm_byte_lookup_table_output);                  \
-    [[maybe_unused]] auto avm_environment_environment_selector = View(new_term.avm_environment_environment_selector);  \
-    [[maybe_unused]] auto avm_environment_q_environment_lookup = View(new_term.avm_environment_q_environment_lookup);  \
+    [[maybe_unused]] auto avm_kernel_kernel_inputs__is_public = View(new_term.avm_kernel_kernel_inputs__is_public);    \
+    [[maybe_unused]] auto avm_kernel_kernel_sel = View(new_term.avm_kernel_kernel_sel);                                \
+    [[maybe_unused]] auto avm_kernel_q_public_input_kernel_add_to_table =                                              \
+        View(new_term.avm_kernel_q_public_input_kernel_add_to_table);                                                  \
     [[maybe_unused]] auto avm_main_alu_sel = View(new_term.avm_main_alu_sel);                                          \
     [[maybe_unused]] auto avm_main_bin_op_id = View(new_term.avm_main_bin_op_id);                                      \
     [[maybe_unused]] auto avm_main_bin_sel = View(new_term.avm_main_bin_sel);                                          \
@@ -100,7 +102,6 @@
     [[maybe_unused]] auto avm_main_ind_op_d = View(new_term.avm_main_ind_op_d);                                        \
     [[maybe_unused]] auto avm_main_internal_return_ptr = View(new_term.avm_main_internal_return_ptr);                  \
     [[maybe_unused]] auto avm_main_inv = View(new_term.avm_main_inv);                                                  \
-    [[maybe_unused]] auto avm_main_kernel_inputs__is_public = View(new_term.avm_main_kernel_inputs__is_public);        \
     [[maybe_unused]] auto avm_main_last = View(new_term.avm_main_last);                                                \
     [[maybe_unused]] auto avm_main_mem_idx_a = View(new_term.avm_main_mem_idx_a);                                      \
     [[maybe_unused]] auto avm_main_mem_idx_b = View(new_term.avm_main_mem_idx_b);                                      \
@@ -112,6 +113,7 @@
     [[maybe_unused]] auto avm_main_mem_op_d = View(new_term.avm_main_mem_op_d);                                        \
     [[maybe_unused]] auto avm_main_op_err = View(new_term.avm_main_op_err);                                            \
     [[maybe_unused]] auto avm_main_pc = View(new_term.avm_main_pc);                                                    \
+    [[maybe_unused]] auto avm_main_q_kernel_lookup = View(new_term.avm_main_q_kernel_lookup);                          \
     [[maybe_unused]] auto avm_main_r_in_tag = View(new_term.avm_main_r_in_tag);                                        \
     [[maybe_unused]] auto avm_main_rwa = View(new_term.avm_main_rwa);                                                  \
     [[maybe_unused]] auto avm_main_rwb = View(new_term.avm_main_rwb);                                                  \
@@ -128,15 +130,25 @@
     [[maybe_unused]] auto avm_main_sel_op_add = View(new_term.avm_main_sel_op_add);                                    \
     [[maybe_unused]] auto avm_main_sel_op_address = View(new_term.avm_main_sel_op_address);                            \
     [[maybe_unused]] auto avm_main_sel_op_and = View(new_term.avm_main_sel_op_and);                                    \
+    [[maybe_unused]] auto avm_main_sel_op_block_number = View(new_term.avm_main_sel_op_block_number);                  \
+    [[maybe_unused]] auto avm_main_sel_op_chain_id = View(new_term.avm_main_sel_op_chain_id);                          \
+    [[maybe_unused]] auto avm_main_sel_op_coinbase = View(new_term.avm_main_sel_op_coinbase);                          \
     [[maybe_unused]] auto avm_main_sel_op_div = View(new_term.avm_main_sel_op_div);                                    \
     [[maybe_unused]] auto avm_main_sel_op_eq = View(new_term.avm_main_sel_op_eq);                                      \
+    [[maybe_unused]] auto avm_main_sel_op_fee_per_da_gas = View(new_term.avm_main_sel_op_fee_per_da_gas);              \
+    [[maybe_unused]] auto avm_main_sel_op_fee_per_l1_gas = View(new_term.avm_main_sel_op_fee_per_l1_gas);              \
+    [[maybe_unused]] auto avm_main_sel_op_fee_per_l2_gas = View(new_term.avm_main_sel_op_fee_per_l2_gas);              \
+    [[maybe_unused]] auto avm_main_sel_op_function_selector = View(new_term.avm_main_sel_op_function_selector);        \
     [[maybe_unused]] auto avm_main_sel_op_lt = View(new_term.avm_main_sel_op_lt);                                      \
     [[maybe_unused]] auto avm_main_sel_op_lte = View(new_term.avm_main_sel_op_lte);                                    \
     [[maybe_unused]] auto avm_main_sel_op_mul = View(new_term.avm_main_sel_op_mul);                                    \
     [[maybe_unused]] auto avm_main_sel_op_not = View(new_term.avm_main_sel_op_not);                                    \
     [[maybe_unused]] auto avm_main_sel_op_or = View(new_term.avm_main_sel_op_or);                                      \
+    [[maybe_unused]] auto avm_main_sel_op_portal = View(new_term.avm_main_sel_op_portal);                              \
     [[maybe_unused]] auto avm_main_sel_op_sender = View(new_term.avm_main_sel_op_sender);                              \
     [[maybe_unused]] auto avm_main_sel_op_sub = View(new_term.avm_main_sel_op_sub);                                    \
+    [[maybe_unused]] auto avm_main_sel_op_timestamp = View(new_term.avm_main_sel_op_timestamp);                        \
+    [[maybe_unused]] auto avm_main_sel_op_version = View(new_term.avm_main_sel_op_version);                            \
     [[maybe_unused]] auto avm_main_sel_op_xor = View(new_term.avm_main_sel_op_xor);                                    \
     [[maybe_unused]] auto avm_main_sel_rng_16 = View(new_term.avm_main_sel_rng_16);                                    \
     [[maybe_unused]] auto avm_main_sel_rng_8 = View(new_term.avm_main_sel_rng_8);                                      \
