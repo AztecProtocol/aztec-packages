@@ -1,15 +1,15 @@
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-import { keccak, pedersenHash, poseidonHash, sha256 } from '@aztec/foundation/crypto';
+import { keccak256, pedersenHash, poseidon2Permutation, sha256 } from '@aztec/foundation/crypto';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field } from '../avm_memory_types.js';
+import { Field, Uint8 } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
 export class Poseidon2 extends Instruction {
   static type: string = 'POSEIDON2';
-  static readonly opcode: Opcode = Opcode.POSEIDON;
+  static readonly opcode: Opcode = Opcode.POSEIDON2;
+  static readonly stateSize = 4;
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
@@ -17,34 +17,28 @@ export class Poseidon2 extends Instruction {
     OperandType.UINT8,
     OperandType.UINT32,
     OperandType.UINT32,
-    OperandType.UINT32,
   ];
 
-  constructor(
-    private indirect: number,
-    private dstOffset: number,
-    private messageOffset: number,
-    private messageSize: number,
-  ) {
+  constructor(private indirect: number, private inputStateOffset: number, private outputStateOffset: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: this.messageSize, writes: 1, indirect: this.indirect };
+    const memoryOperations = { reads: Poseidon2.stateSize, writes: Poseidon2.stateSize, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    // We hash a set of field elements
-    const [dstOffset, messageOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.dstOffset, this.messageOffset],
+    const [inputOffset, outputOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.inputStateOffset, this.outputStateOffset],
       memory,
     );
 
-    // Memory pointer will be indirect
-    const hashData = memory.getSlice(messageOffset, this.messageSize);
-
-    const hash = poseidonHash(hashData);
-    memory.set(dstOffset, new Field(hash));
+    const inputState = memory.getSlice(inputOffset, Poseidon2.stateSize);
+    const outputState = poseidon2Permutation(inputState);
+    memory.setSlice(
+      outputOffset,
+      outputState.map(word => new Field(word)),
+    );
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
@@ -68,33 +62,28 @@ export class Keccak extends Instruction {
     private indirect: number,
     private dstOffset: number,
     private messageOffset: number,
-    private messageSize: number,
+    private messageSizeOffset: number,
   ) {
     super();
   }
 
-  // Note hash output is 32 bytes, so takes up two fields
+  // pub fn keccak256(input: [u8], message_size: u32) -> [u8; 32]
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: this.messageSize, writes: 2, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
-
-    // We hash a set of field elements
-    const [dstOffset, messageOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.dstOffset, this.messageOffset],
+    const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.dstOffset, this.messageOffset, this.messageSizeOffset],
       memory,
     );
+    const messageSize = memory.get(messageSizeOffset).toNumber();
+    const memoryOperations = { reads: messageSize + 1, writes: 32, indirect: this.indirect };
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const hashData = memory.getSlice(messageOffset, this.messageSize).map(word => word.toBuffer());
+    const messageData = Buffer.concat(memory.getSlice(messageOffset, messageSize).map(word => word.toBuffer()));
+    const hashBuffer = keccak256(messageData);
 
-    const hash = keccak(Buffer.concat(hashData));
-
-    // Split output into two fields
-    const high = new Field(toBigIntBE(hash.subarray(0, 16)));
-    const low = new Field(toBigIntBE(hash.subarray(16, 32)));
-
-    memory.set(dstOffset, high);
-    memory.set(dstOffset + 1, low);
+    // We need to convert the hashBuffer because map doesn't work as expected on an Uint8Array (Buffer).
+    const res = [...hashBuffer].map(byte => new Uint8(byte));
+    memory.setSlice(dstOffset, res);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
@@ -118,33 +107,28 @@ export class Sha256 extends Instruction {
     private indirect: number,
     private dstOffset: number,
     private messageOffset: number,
-    private messageSize: number,
+    private messageSizeOffset: number,
   ) {
     super();
   }
 
-  // Note hash output is 32 bytes, so takes up two fields
+  // pub fn sha256_slice(input: [u8]) -> [u8; 32]
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: this.messageSize, writes: 2, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
-
-    const [dstOffset, messageOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.dstOffset, this.messageOffset],
+    const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.dstOffset, this.messageOffset, this.messageSizeOffset],
       memory,
     );
+    const messageSize = memory.get(messageSizeOffset).toNumber();
+    const memoryOperations = { reads: messageSize + 1, writes: 32, indirect: this.indirect };
+    context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    // We hash a set of field elements
-    const hashData = memory.getSlice(messageOffset, this.messageSize).map(word => word.toBuffer());
+    const messageData = Buffer.concat(memory.getSlice(messageOffset, messageSize).map(word => word.toBuffer()));
+    const hashBuffer = sha256(messageData);
 
-    const hash = sha256(Buffer.concat(hashData));
-
-    // Split output into two fields
-    const high = new Field(toBigIntBE(hash.subarray(0, 16)));
-    const low = new Field(toBigIntBE(hash.subarray(16, 32)));
-
-    memory.set(dstOffset, high);
-    memory.set(dstOffset + 1, low);
+    // We need to convert the hashBuffer because map doesn't work as expected on an Uint8Array (Buffer).
+    const res = [...hashBuffer].map(byte => new Uint8(byte));
+    memory.setSlice(dstOffset, res);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
