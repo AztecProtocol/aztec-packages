@@ -55,9 +55,9 @@ contract KeyRegistry {
   #[aztec(storage)]
   struct Storage {
     nullifier_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    incoming_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    outgoing_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
-    tagging_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    // incoming_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    // outgoing_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
+    // tagging_public_key_registry: Map<AztecAddress, SharedMutable<Field, KEY_ROTATION_DELAY>>,
   }
 
   #[aztec(public)]
@@ -73,7 +73,7 @@ contract KeyRegistry {
       tagging_public_key
     } = public_keys;
 
-    assert((nullifier_public_key != 0) & (incoming_public_key != 0) & (outgoing_public_key != 0) & (tagging_public_key != 0));
+    assert((nullifier_public_key != 0) & (incoming_public_key != 0) & (outgoing_public_key != 0) & (tagging_public_key != 0), "All keys must be non-zero");
 
     // TODO (ek): Do it below after refactoring all public_keys_hash_elemtns
     // let public_keys_hash = PublicKeysHash::compute(nullifier_public_key, tagging_public_key, incoming_public_key, outgoing_public_key);
@@ -98,16 +98,16 @@ contract KeyRegistry {
       )
     );
 
-    assert(computed_address.eq(address));
+    assert(computed_address.eq(address), "Computed address does not match supplied address");
 
-    let nullifier_entry = storage.nullifier_public_key_registry.at(address);
-    let incoming_entry = storage.nullifier_public_key_registry.at(address);
-    let outgoing_entry = storage.nullifier_public_key_registry.at(address);
-    let tagging_entry = storage.nullifier_public_key_registry.at(address);
+    let nullifier_key_registry = storage.nullifier_public_key_registry.at(address);
+    // let incoming_entry = storage.nullifier_public_key_registry.at(address);
+    // let outgoing_entry = storage.nullifier_public_key_registry.at(address);
+    // let tagging_entry = storage.nullifier_public_key_registry.at(address);
 
-    nullifier_entry.schedule_value_change(nullifier_public_key);
-    incoming_entry.schedule_value_change(incoming_public_key);
-    outgoing_entry.schedule_value_change(outgoing_public_key);
-    tagging_entry.schedule_value_change(tagging_public_key);
+    nullifier_key_registry.schedule_value_change(nullifier_public_key);
+    // incoming_entry.schedule_value_change(incoming_public_key);
+    // outgoing_entry.schedule_value_change(outgoing_public_key);
+    // tagging_entry.schedule_value_change(tagging_public_key);
   }
 }
