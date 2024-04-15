@@ -28,6 +28,36 @@ TEST(Pedersen, CommitmentWithZero)
     EXPECT_EQ(r, expected);
 }
 
+TEST(Pedersen, CommitmentAdditionWithZero)
+{
+    auto x = pedersen_commitment::Fq::one();
+    auto y = pedersen_commitment::Fq::zero();
+    auto rx = pedersen_commitment::commit_native({ x });
+    auto ry = pedersen_commitment::commit_native({ y });
+    auto r = rx + ry;
+
+    EXPECT_EQ(r, rx);
+}
+
+TEST(Pedersen, CommitmentAddition)
+{
+    auto two = pedersen_commitment::Fq::one() + pedersen_commitment::Fq::one();
+    auto h_two = pedersen_commitment::commit_native({ two });
+    auto h_one = pedersen_commitment::commit_native({ pedersen_commitment::Fq::one() });
+
+    EXPECT_EQ(h_two, h_one + h_one);
+}
+
+TEST(Pedersen, CommitmentSubtraction)
+{
+    auto two = pedersen_commitment::Fq::one() + pedersen_commitment::Fq::one();
+    auto h_two = pedersen_commitment::commit_native({ two });
+    auto h_one = pedersen_commitment::commit_native({ pedersen_commitment::Fq::one() });
+
+    EXPECT_EQ(h_two, h_one + h_one);
+    EXPECT_EQ(h_one, h_two + (-h_one));
+}
+
 TEST(Pedersen, CommitmentProf)
 {
     GTEST_SKIP() << "Skipping mini profiler.";
