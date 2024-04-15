@@ -173,20 +173,14 @@ export function makeTxContext(seed: number): TxContext {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4), makeGasSettings(seed + 5));
+  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4), makeGasSettings());
 }
 
-export function makeGasSettings(seed = 1) {
-  return new GasSettings(
-    makeDimensionGasSettings(seed),
-    makeDimensionGasSettings(seed + 1),
-    makeDimensionGasSettings(seed + 2),
-    fr(seed + 3),
-  );
-}
-
-export function makeDimensionGasSettings(seed = 1) {
-  return new DimensionGasSettings(seed + 1, seed, fr(seed + 2));
+/**
+ * Creates a default instance of gas settings. No seed value is used to ensure we allocate a sensible amount of gas for testing.
+ */
+export function makeGasSettings() {
+  return GasSettings.default();
 }
 
 /**
@@ -405,16 +399,17 @@ export function makeAggregationObject(seed = 1): AggregationObject {
  * @returns A call context.
  */
 export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContext>> = {}): CallContext {
+  const gasSettings = makeGasSettings();
   return CallContext.from({
     msgSender: makeAztecAddress(seed),
     storageContractAddress: makeAztecAddress(seed + 1),
     portalContractAddress: makeEthAddress(seed + 2),
     functionSelector: makeSelector(seed + 3),
-    gasLeft: makeGas(seed + 4),
+    gasLeft: gasSettings.getLimits(),
     isStaticCall: false,
     isDelegateCall: false,
     sideEffectCounter: 0,
-    gasSettings: makeGasSettings(seed + 5),
+    gasSettings,
     transactionFee: fr(seed + 6),
     ...overrides,
   });
@@ -839,7 +834,7 @@ export function makeTxRequest(seed = 1): TxRequest {
     functionData: new FunctionData(makeSelector(seed + 0x100), true),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
-    gasSettings: makeGasSettings(seed + 0x500),
+    gasSettings: makeGasSettings(),
   });
 }
 

@@ -797,7 +797,7 @@ describe('Private Execution test suite', () => {
       const functionData = FunctionData.fromAbi(childContractArtifact);
 
       const transactionFee = new Fr(0);
-      const gasSettings = GasSettings.empty();
+      const gasSettings = GasSettings.default();
       const gasLeft = gasSettings.getInitialAvailable();
 
       const publicCallRequest = PublicCallRequest.from({

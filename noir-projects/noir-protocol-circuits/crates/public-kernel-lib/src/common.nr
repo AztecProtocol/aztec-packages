@@ -170,12 +170,40 @@ pub fn update_validation_requests(public_call: PublicCallData, circuit_outputs: 
 }
 
 pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    // dep::types::debug_log::debug_log_format(
+    //     "Updating revertible gas: limit.da={0} limit.l1={1} limit.l2={2} left.da={3} left.l1={4} left.l2={5} used.da={6} used.l1={7} used.l2={8}",
+    //     [
+    //     circuit_outputs.constants.gas_settings.get_gas_limits().da_gas as Field,
+    //     circuit_outputs.constants.gas_settings.get_gas_limits().l1_gas as Field,
+    //     circuit_outputs.constants.gas_settings.get_gas_limits().l2_gas as Field,
+    //     public_call.call_stack_item.public_inputs.gas_left.da_gas as Field,
+    //     public_call.call_stack_item.public_inputs.gas_left.l1_gas as Field,
+    //     public_call.call_stack_item.public_inputs.gas_left.l2_gas as Field,
+    //     circuit_outputs.end_non_revertible.gas_used.da_gas as Field,
+    //     circuit_outputs.end_non_revertible.gas_used.l1_gas as Field,
+    //     circuit_outputs.end_non_revertible.gas_used.l2_gas as Field
+    // ]
+    // );
     circuit_outputs.end.gas_used = circuit_outputs.constants.gas_settings.get_gas_limits()
         .sub(public_call.call_stack_item.public_inputs.gas_left)
         .sub(circuit_outputs.end_non_revertible.gas_used);
 }
 
 pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    // dep::types::debug_log::debug_log_format(
+    //     "Updating non-revertible gas: limit.da={0} limit.l1={1} limit.l2={2} left.da={3} left.l1={4} left.l2={5} used.da={6} used.l1={7} used.l2={8}",
+    //     [
+    //     circuit_outputs.constants.gas_settings.get_gas_limits().da_gas as Field,
+    //     circuit_outputs.constants.gas_settings.get_gas_limits().l1_gas as Field,
+    //     circuit_outputs.constants.gas_settings.get_gas_limits().l2_gas as Field,
+    //     public_call.call_stack_item.public_inputs.gas_left.da_gas as Field,
+    //     public_call.call_stack_item.public_inputs.gas_left.l1_gas as Field,
+    //     public_call.call_stack_item.public_inputs.gas_left.l2_gas as Field,
+    //     circuit_outputs.end.gas_used.da_gas as Field,
+    //     circuit_outputs.end.gas_used.l1_gas as Field,
+    //     circuit_outputs.end.gas_used.l2_gas as Field
+    // ]
+    // );
     circuit_outputs.end_non_revertible.gas_used = circuit_outputs.constants.gas_settings.get_gas_limits()
         .sub(public_call.call_stack_item.public_inputs.gas_left)
         .sub(circuit_outputs.end.gas_used);
