@@ -11,10 +11,11 @@ import {
   type Header,
   type KernelCircuitPublicInputs,
   MAX_NEW_NOTE_HASHES_PER_TX,
+  type MAX_UNENCRYPTED_LOGS_PER_TX,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
-  type SideEffect,
+  SideEffect,
   makeEmptyProof,
   mergeAccumulatedData,
   sortByCounter,
@@ -78,6 +79,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
+    // Temporary hack. Should sort them in the tail circuit.
+    previousOutput.end.unencryptedLogsHashes = this.sortLogsHashes<typeof MAX_UNENCRYPTED_LOGS_PER_TX>(
+      previousOutput.end.unencryptedLogsHashes,
+    );
     const [inputs, output] = await this.simulate(previousOutput, previousProof);
 
     // Temporary hack. Should sort them in the tail circuit.
@@ -121,6 +126,12 @@ export class TailPhaseManager extends AbstractPhaseManager {
       Fr,
       N
     >;
+  }
+
+  private sortLogsHashes<N extends number>(unencryptedLogsHashes: Tuple<SideEffect, N>): Tuple<SideEffect, N> {
+    return sortByCounter(unencryptedLogsHashes.map(n => ({ ...n, counter: n.counter.toNumber() }))).map(
+      h => new SideEffect(h.value, new Fr(h.counter)),
+    ) as Tuple<SideEffect, N>;
   }
 
   // As above, this is a hack for unencrypted logs ordering, now they are sorted. Since the public kernel
