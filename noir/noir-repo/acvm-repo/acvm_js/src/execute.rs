@@ -246,7 +246,7 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                                 call_stack,
                                 message,
                             } => {
-                                let revert_message = message.as_ref().map(|x| x.as_str());
+                                let revert_message = message.as_ref().map(String::as_str);
                                 let failing_opcode = call_stack
                                     .last()
                                     .expect("Brillig error call stacks cannot be empty");
