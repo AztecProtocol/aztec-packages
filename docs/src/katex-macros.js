@@ -17,9 +17,9 @@ module.exports = {
   "\\classid": "\\color{green}{classid}\\color{black}{}",
 
   "\\nskapp": "\\color{red}{nsk_{app}}\\color{black}{}",
-  "\\tskapp": "\\color{red}{tsk_{app}}color{black}{}",
-  "\\ivskapp": "\\color{red}{ivsk_{app}}color{black}{}",
-  "\\ovskapp": "\\color{red}{ovsk_{app}}color{black}{}",
+  "\\tskapp": "\\color{red}{tsk_{app}}\\color{black}{}",
+  "\\ivskapp": "\\color{red}{ivsk_{app}}\\color{black}{}",
+  "\\ovskapp": "\\color{red}{ovsk_{app}}\\color{black}{}",
 
   "\\Nkapp": "\\color{orange}{Nk_{app}}\\color{black}{}",
 
