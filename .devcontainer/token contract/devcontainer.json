@@ -3,7 +3,8 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "postCreateCommand": "cd boxes && yarn && npx . -t contract -n token_contract -s",
+  "onCreateCommand": "cd boxes && yarn",
+  "postCreateCommand": "cd boxes && (nohup npx . -t contract -n token_contract -s &) && bash",
   "customizations": {
     "vscode": {
       "settings": {},

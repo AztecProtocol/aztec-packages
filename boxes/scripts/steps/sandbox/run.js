@@ -34,6 +34,8 @@ export async function sandboxRun({ skipQuestion }) {
     }
     info("Starting the sandbox... This might take a few minutes.");
     info(`Go and explore the boilerplate code while you wait!`);
-    execSync(`$HOME/.aztec/bin/aztec sandbox`, { stdio: "inherit" });
+    execSync(`$HOME/.aztec/bin/aztec sandbox`, {
+      stdio: "inherit",
+    });
   }
 }
