@@ -539,6 +539,7 @@ impl GeneratedAcir {
         Ok(())
     }
 
+    // TODO: Delete this method once we remove the `Brillig` opcode
     pub(crate) fn brillig(
         &mut self,
         predicate: Option<Expression>,
