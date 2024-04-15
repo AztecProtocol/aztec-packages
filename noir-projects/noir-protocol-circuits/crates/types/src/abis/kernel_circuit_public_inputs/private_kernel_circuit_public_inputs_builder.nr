@@ -1,6 +1,7 @@
 use crate::{
     abis::{
     accumulated_data::PrivateAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
+    gas_settings::GasSettings,
     kernel_circuit_public_inputs::{
     kernel_circuit_public_inputs::KernelCircuitPublicInputs,
     private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -8,8 +9,7 @@ use crate::{
 },
     validation_requests::validation_requests_builder::ValidationRequestsBuilder
 },
-mocked::AggregationObject,
-traits::Empty
+    mocked::AggregationObject, traits::Empty
 };
 
 struct PrivateKernelCircuitPublicInputsBuilder {
@@ -41,8 +41,12 @@ impl PrivateKernelCircuitPublicInputsBuilder {
         }
     }
 
-    pub fn finish_to_public(self, min_revertible_side_effect_counter: u32) -> PublicKernelCircuitPublicInputs {
-        let (end_non_revertible, end) = self.end.split_to_public(min_revertible_side_effect_counter);
+    pub fn finish_to_public(
+        self,
+        min_revertible_side_effect_counter: u32,
+        gas_settings: GasSettings
+    ) -> PublicKernelCircuitPublicInputs {
+        let (end_non_revertible, end) = self.end.split_to_public(min_revertible_side_effect_counter, gas_settings);
 
         PublicKernelCircuitPublicInputs {
             aggregation_object: self.aggregation_object,

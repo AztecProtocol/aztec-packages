@@ -1781,7 +1781,7 @@ PrivateKernelTailCircuitPublicInputs {
       "encryptedLogPreimagesLength": Fr<0x000000000000000000000000000000000000000000000000000000000000013c>,
       "encryptedLogsHash": Fr<0x006b84c144df926035cff13e0fb09ba4d9a3ee630a19e337070937cebe54a142>,
       "gasUsed": Gas {
-        "daGas": 0,
+        "daGas": 7744,
         "l1Gas": 0,
         "l2Gas": 0,
       },

@@ -150,11 +150,11 @@ export class DimensionGasSettings {
   }
 
   static default() {
-    return new DimensionGasSettings(1e9, 1e8, Fr.ONE);
+    return new DimensionGasSettings(1e9, 1e3, Fr.ONE);
   }
 
   static simulation() {
-    return new DimensionGasSettings(1e9, 1e8, Fr.ONE);
+    return new DimensionGasSettings(1e9, 1e3, Fr.ONE);
   }
 
   getFeeLimit() {

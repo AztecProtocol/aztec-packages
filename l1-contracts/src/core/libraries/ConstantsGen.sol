@@ -62,6 +62,9 @@ library Constants {
   uint256 internal constant PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH = 35;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
   uint256 internal constant L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
+  uint256 internal constant DA_GAS_PER_BYTE = 16;
+  uint256 internal constant FIXED_DA_GAS = 512;
+  uint256 internal constant DA_BYTES_PER_FIELD = 32;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 64;
   uint256 internal constant ARGS_HASH_CHUNK_COUNT = 64;

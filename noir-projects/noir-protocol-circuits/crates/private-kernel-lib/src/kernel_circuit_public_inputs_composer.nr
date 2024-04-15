@@ -86,7 +86,8 @@ impl KernelCircuitPublicInputsComposer {
 
     pub fn finish_to_public(self) -> PublicKernelCircuitPublicInputs {
         let min_revertible_side_effect_counter = self.previous_kernel.public_inputs.min_revertible_side_effect_counter;
-        self.public_inputs.finish_to_public(min_revertible_side_effect_counter)
+        let gas_settings = self.previous_kernel.public_inputs.constants.gas_settings;
+        self.public_inputs.finish_to_public(min_revertible_side_effect_counter, gas_settings)
     }
 
     fn silo_values(&mut self) {

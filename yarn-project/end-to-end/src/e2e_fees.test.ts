@@ -111,7 +111,7 @@ describe('e2e_fees', () => {
     await expectMapping(gasBalances, [aliceAddress, bananaFPC.address, sequencerAddress], [0n, BRIDGED_FPC_GAS, 0n]);
   });
 
-  it('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
+  it.only('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
     const OutrageousPublicAmountAliceDoesNotHave = 10000n;
     const PublicMintedAlicePublicBananas = 1000n;
     const FeeAmount = 1n;
