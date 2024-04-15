@@ -226,15 +226,20 @@ export class NewTestKeyStore implements NewKeyStore {
    * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
    */
   public getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey: PublicKey): Promise<GrumpkinPrivateKey> {
-    const allMapValues = Array.from(this.#keys.values());
-    const masterNullifierSecretKeyBuffer = allMapValues.find(value =>
-      value.equals(masterNullifierPublicKey.toBuffer()),
-    );
-    if (!masterNullifierSecretKeyBuffer) {
-      throw new Error(
-        `Could not find master nullifier secret key for public key ${masterNullifierPublicKey.toString()}`,
-      );
+    // We iterate over the map keys to find the account address that corresponds to the provided public key
+    for (const [key, value] of this.#keys.entries()) {
+      if (value.equals(masterNullifierPublicKey.toBuffer())) {
+        // We extract the account address from the map key
+        const accountAddress = key.split('-')[0];
+        // We fetch the secret key and return it
+        const masterNullifierSecretKeyBuffer = this.#keys.get(`${accountAddress.toString()}-nsk_m`);
+        if (!masterNullifierSecretKeyBuffer) {
+          throw new Error(`Could not find master nullifier secret key for account ${accountAddress.toString()}`);
+        }
+        return Promise.resolve(GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer));
+      }
     }
-    return Promise.resolve(GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer));
+
+    throw new Error(`Could not find master nullifier secret key for public key ${masterNullifierPublicKey.toString()}`);
   }
 }

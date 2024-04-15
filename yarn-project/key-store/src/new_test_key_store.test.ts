@@ -65,7 +65,7 @@ describe('NewTestKeyStore', () => {
     // Manages to find master nullifer secret key for pub key
     const masterNullifierSecretKey = await keyStore.getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey);
     expect(masterNullifierSecretKey.toString()).toMatchInlineSnapshot(
-      `"0x2ef5d15dd65d29546680ab72846fb071f41cb9f2a0212215e6c560e29df4ff65"`,
+      `"0x0fde74d5e504c73b58aad420dd72590fc6004571411e7f77c45378714195a52b"`,
     );
   });
 });
