@@ -116,8 +116,8 @@ impl std::fmt::Display for Opcode {
             }
             // We keep the display for a BrilligCall and circuit Call separate as they
             // are distinct in their functionality and we should maintain this separation for debugging.
-            Opcode::BrilligCall { inputs, outputs, bytecode_index, predicate } => {
-                write!(f, "BRILLIG CALL func {}: ", bytecode_index)?;
+            Opcode::BrilligCall { id, inputs, outputs, predicate } => {
+                write!(f, "BRILLIG CALL func {}: ", id)?;
                 if let Some(pred) = predicate {
                     writeln!(f, "PREDICATE = {pred}")?;
                 }
