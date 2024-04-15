@@ -55,5 +55,17 @@ describe('NewTestKeyStore', () => {
     expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
       `"0x2639b26510f9d30b7e173d301b263b246b7a576186be1f44cd7c86bc06773f8a"`,
     );
+
+    // Returned accounts are as expected
+    const accounts = await keyStore.getAccounts();
+    expect(accounts.toString()).toMatchInlineSnapshot(
+      `"0x0ba7834252d19c4f09d29303c269f303f40ae3d2043f921ed0bf8c0709926d4e"`,
+    );
+
+    // Manages to find master nullifer secret key for pub key
+    const masterNullifierSecretKey = await keyStore.getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey);
+    expect(masterNullifierSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x2ef5d15dd65d29546680ab72846fb071f41cb9f2a0212215e6c560e29df4ff65"`,
+    );
   });
 });

@@ -1,5 +1,13 @@
 import { type NewKeyStore, type PublicKey } from '@aztec/circuit-types';
-import { AztecAddress, Fr, GeneratorIndex, GrumpkinScalar, type PartialAddress, Point } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  Fr,
+  GeneratorIndex,
+  type GrumpkinPrivateKey,
+  GrumpkinScalar,
+  type PartialAddress,
+  Point,
+} from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
@@ -73,6 +81,17 @@ export class NewTestKeyStore implements NewKeyStore {
 
     // At last, we return the newly derived account address
     return Promise.resolve(accountAddress);
+  }
+
+  /**
+   * Retrieves addresses of accounts stored in the key store.
+   * @returns A Promise that resolves to an array of account addresses.
+   */
+  public getAccounts(): Promise<AztecAddress[]> {
+    const allMapKeys = Array.from(this.#keys.keys());
+    // We return account addresses based on the map keys that end with '-nsk_m'
+    const accounts = allMapKeys.filter(key => key.endsWith('-nsk_m')).map(key => key.split('-')[0]);
+    return Promise.resolve(accounts.map(account => AztecAddress.fromString(account)));
   }
 
   /**
@@ -196,5 +215,26 @@ export class NewTestKeyStore implements NewKeyStore {
         GeneratorIndex.OVSK_M,
       ]),
     );
+  }
+
+  /**
+   * Retrieves the master nullifier secret key (nsk_m) corresponding to the specified master nullifier public key
+   * (Npk_m).
+   * @throws If the provided public key is not associated with any of the registered accounts.
+   * @param masterNullifierPublicKey - The master nullifier public key to get secret key for.
+   * @returns A Promise that resolves to the master nullifier secret key.
+   * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
+   */
+  public getMasterNullifierSecretKeyForPublicKey(masterNullifierPublicKey: PublicKey): Promise<GrumpkinPrivateKey> {
+    const allMapValues = Array.from(this.#keys.values());
+    const masterNullifierSecretKeyBuffer = allMapValues.find(value =>
+      value.equals(masterNullifierPublicKey.toBuffer()),
+    );
+    if (!masterNullifierSecretKeyBuffer) {
+      throw new Error(
+        `Could not find master nullifier secret key for public key ${masterNullifierPublicKey.toString()}`,
+      );
+    }
+    return Promise.resolve(GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer));
   }
 }
