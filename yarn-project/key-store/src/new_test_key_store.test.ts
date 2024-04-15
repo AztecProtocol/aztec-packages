@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
@@ -15,10 +15,9 @@ describe('NewTestKeyStore', () => {
 
     const accountAddress = await keyStore.addAccount(sk, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x2e34847ad9019320ac89a6ec9b42fec90f94ef4162fdfdd7f5b7668e32d82655"`,
+      `"0x0ba7834252d19c4f09d29303c269f303f40ae3d2043f921ed0bf8c0709926d4e"`,
     );
 
-    // TODO(#5714): The keys are currently the same here because separator is currently ignored in poseidon
     const masterNullifierPublicKey = await keyStore.getMasterNullifierPublicKey(accountAddress);
     expect(masterNullifierPublicKey.toString()).toMatchInlineSnapshot(
       `"0x2ef5d15dd65d29546680ab72846fb071f41cb9f2a0212215e6c560e29df4ff650ce764818364b376be92dc2f49577fe440e64a16012584f7c4ee94f7edbc323a"`,
@@ -37,6 +36,24 @@ describe('NewTestKeyStore', () => {
     const masterTaggingPublicKey = await keyStore.getMasterTaggingPublicKey(accountAddress);
     expect(masterTaggingPublicKey.toString()).toMatchInlineSnapshot(
       `"0x076429010fdebfa522b053267f654a4c5daf18589915d96f7e5001d63ea2033f27f915f254560c84450aa38e93c3162be52492d05b316e75f542e3b302117360"`,
+    );
+
+    // Arbitrary app contract address
+    const appAddress = AztecAddress.fromBigInt(624n);
+
+    const appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(accountAddress, appAddress);
+    expect(appNullifierSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x230a44dfe7cfec7a735c89f7289c5cb5d2c3dc0bf5d3505917fd2476f67873a8"`,
+    );
+
+    const appIncomingViewingSecretKey = await keyStore.getAppIncomingViewingSecretKey(accountAddress, appAddress);
+    expect(appIncomingViewingSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x0084c92262407236c992dcea10cf3406a642074cad6c6034d2990ffb073207a7"`,
+    );
+
+    const appOutgoingViewingSecretKey = await keyStore.getAppOutgoingViewingSecretKey(accountAddress, appAddress);
+    expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
+      `"0x2639b26510f9d30b7e173d301b263b246b7a576186be1f44cd7c86bc06773f8a"`,
     );
   });
 });
