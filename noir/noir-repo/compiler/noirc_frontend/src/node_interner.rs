@@ -936,7 +936,7 @@ impl NodeInterner {
                     None
                 }
             })
-            .collect::<Vec<_>>()
+            .collect()
     }
 
     pub fn get_trait(&self, id: TraitId) -> &Trait {

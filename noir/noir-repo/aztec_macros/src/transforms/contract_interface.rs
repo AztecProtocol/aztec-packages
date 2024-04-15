@@ -59,7 +59,7 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
             .collect::<Vec<_>>()
             .join("");
         format!(
-            "let mut args_acc: [Field] = [0; 0].as_slice();
+            "let mut args_acc: [Field] = &[];
             {}
             let args_hash = dep::aztec::hash::hash_args(args_acc);
             assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));",

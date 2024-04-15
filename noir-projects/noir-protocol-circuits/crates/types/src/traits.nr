@@ -58,6 +58,7 @@ impl ToField for U128 {
 }
 impl<N> ToField for str<N> {
     fn to_field(self) -> Field {
+        assert(N < 32, "String doesn't fit in a field, consider using Serialize instead");
         field_from_bytes(self.as_bytes(), true)
     }
 }
