@@ -89,7 +89,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
   private async simulate(
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
-): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
+  ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
     const inputs = await this.buildPrivateInputs(previousOutput, previousProof);
     return [inputs, await this.publicKernel.publicKernelCircuitTail(inputs)];
   }
