@@ -11,7 +11,7 @@ struct Gas {
 }
 
 impl Gas {
-    fn new(da_gas: u32, l1_gas: u32, l2_gas: u32) -> Self {
+    pub fn new(da_gas: u32, l1_gas: u32, l2_gas: u32) -> Self {
         Self { da_gas, l1_gas, l2_gas }
     }
 
