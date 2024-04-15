@@ -152,20 +152,20 @@ jobs:
         timeout-minutes: 15
         run: earthly --no-output +bench-ultra-honk --bench_mode=cache
 
-  # # Post actions, deploy and summarize logs
-  # aztec-bench-summary:
-  #   runs-on: ${{ github.actor }}
-  #  # IMPORTANT security flaw if we don't need 'check-run-condition'
-  #   needs: e2e-x86
-  #   concurrency:
-  #     group: aztec-bench-summary-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
-  #     cancel-in-progress: true
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-  #       with:
-  #         ref: ${{ github.event.pull_request.head.sha }}
+  # Post actions, deploy and summarize logs
+  aztec-bench-summary:
+    runs-on: ${{ github.actor }}
+   # IMPORTANT security flaw if we don't need 'check-run-condition'
+    needs: e2e-x86
+    concurrency:
+      group: aztec-bench-summary-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}-x86
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
-  #     - name: "Assemble benchmark summary from uploaded logs"
-  #         command: ./scripts/ci/assemble_e2e_benchmark_earthly.sh
+      - name: "Assemble benchmark summary from uploaded logs"
+          command: ./scripts/ci/assemble_e2e_benchmark_earthly.sh
 
