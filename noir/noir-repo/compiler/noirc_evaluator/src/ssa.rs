@@ -38,8 +38,8 @@ pub mod ssa_gen;
 /// Optimize the given program by converting it into SSA
 /// form and performing optimizations there. When finished,
 /// convert the final SSA into an ACIR program and return it.
-/// An ACIR program is made up of both ACIR functions
-/// and Brillig functions for unconstrained execution.
+/// An ACIR program is made up both separate ACIR functions
+/// and separate Brillig functions for unconstrained execution.
 pub(crate) fn optimize_into_acir(
     program: Program,
     print_passes: bool,
@@ -146,7 +146,7 @@ pub fn create_program(
     let func_sigs = program.function_signatures.clone();
 
     let recursive = program.recursive;
-    let (generated_acirs, brillig_bytecode) = optimize_into_acir(
+    let (generated_acirs, generated_brilligs) = optimize_into_acir(
         program,
         enable_ssa_logging,
         enable_brillig_logging,
@@ -159,7 +159,7 @@ pub fn create_program(
         "The generated ACIRs should match the supplied function signatures"
     );
 
-    let mut program_artifact = SsaProgramArtifact::new(brillig_bytecode);
+    let mut program_artifact = SsaProgramArtifact::new(generated_brilligs);
     // For setting up the ABI we need separately specify main's input and return witnesses
     let mut is_main = true;
     for (acir, func_sig) in generated_acirs.into_iter().zip(func_sigs) {
