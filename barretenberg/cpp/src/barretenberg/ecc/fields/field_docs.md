@@ -182,3 +182,9 @@ def parse_field_params(s):
 
     return parameter_dictionary
 ```
+
+Convert value from python to string for easy addition to bb's tests:
+```python
+def to_ff(value):
+	print ("FF(uint256_t{"+','.join(["0x%xUL"%((value>>(i*64))&((1<<64)-1))for i in range(4)])+"})")
+```
