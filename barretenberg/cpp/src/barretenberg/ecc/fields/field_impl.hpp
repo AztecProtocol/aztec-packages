@@ -454,7 +454,7 @@ template <class T> void field<T>::batch_invert_parallel(std::span<field> coeffs)
     }
     accumulator = accumulator.invert();
     // Deconstruct 1 inverse into separate thread accumulator inverses
-    for (size_t i = num_cpus - 1; i < num_cpus; i++) {
+    for (size_t i = num_cpus - 1; i < num_cpus; i--) {
         accumulator_inverses[i] *= accumulator;
         accumulator *= accumulators[i];
     }
