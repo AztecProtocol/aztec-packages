@@ -1,8 +1,8 @@
 import { keccak256, pedersenHash, sha256 } from '@aztec/foundation/crypto';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
-import { initContext } from '../fixtures/index.js';
+import { Field, type Uint8, Uint32 } from '../avm_memory_types.js';
+import { initContext, randomMemoryBytes, randomMemoryFields } from '../fixtures/index.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { Keccak, Pedersen, Poseidon2, Sha256 } from './hashing.js';
 
@@ -88,7 +88,7 @@ describe('Hashing Opcodes', () => {
     });
 
     it('Should hash correctly - direct', async () => {
-      const args = [...Array(10)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
+      const args = randomMemoryBytes(10);
       const indirect = 0;
       const messageOffset = 0;
       const messageSizeOffset = 15;
@@ -107,7 +107,7 @@ describe('Hashing Opcodes', () => {
     });
 
     it('Should hash correctly - indirect', async () => {
-      const args = [...Array(10)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
+      const args = randomMemoryBytes(10);
       const indirect = new Addressing([
         /*dstOffset=*/ AddressingMode.INDIRECT,
         /*messageOffset*/ AddressingMode.INDIRECT,
@@ -143,13 +143,13 @@ describe('Hashing Opcodes', () => {
         1, // indirect
         ...Buffer.from('12345678', 'hex'), // dstOffset
         ...Buffer.from('23456789', 'hex'), // messageOffset
-        ...Buffer.from('3456789a', 'hex'), // hashSize
+        ...Buffer.from('3456789a', 'hex'), // messageSizeOffset
       ]);
       const inst = new Sha256(
         /*indirect=*/ 1,
         /*dstOffset=*/ 0x12345678,
         /*messageOffset=*/ 0x23456789,
-        /*hashSize=*/ 0x3456789a,
+        /*messageSizeOffset=*/ 0x3456789a,
       );
 
       expect(Sha256.deserialize(buf)).toEqual(inst);
@@ -157,47 +157,51 @@ describe('Hashing Opcodes', () => {
     });
 
     it('Should hash correctly - direct', async () => {
-      const args = [new Field(1n), new Field(2n), new Field(3n)];
-      const messageOffset = 0;
+      const args = randomMemoryBytes(10);
       const indirect = 0;
+      const messageOffset = 0;
+      const messageSizeOffset = 15;
+      const dstOffset = 20;
+      context.machineState.memory.set(messageSizeOffset, new Uint32(args.length));
       context.machineState.memory.setSlice(messageOffset, args);
 
-      const dstOffset = 3;
+      await new Sha256(indirect, dstOffset, messageOffset, messageSizeOffset).execute(context);
 
-      const inputBuffer = Buffer.concat(args.map(field => field.toBuffer()));
+      const resultBuffer = Buffer.concat(
+        context.machineState.memory.getSliceAs<Uint8>(dstOffset, 32).map(byte => byte.toBuffer()),
+      );
+      const inputBuffer = Buffer.concat(args.map(byte => byte.toBuffer()));
       const expectedHash = sha256(inputBuffer);
-      await new Sha256(indirect, dstOffset, messageOffset, args.length).execute(context);
-
-      const result = context.machineState.memory.getSliceAs<Field>(dstOffset, 2);
-      const combined = Buffer.concat([result[0].toBuffer().subarray(16, 32), result[1].toBuffer().subarray(16, 32)]);
-
-      expect(combined).toEqual(expectedHash);
+      expect(resultBuffer).toEqual(expectedHash);
     });
 
     it('Should hash correctly - indirect', async () => {
-      const args = [new Field(1n), new Field(2n), new Field(3n)];
+      const args = randomMemoryBytes(10);
       const indirect = new Addressing([
         /*dstOffset=*/ AddressingMode.INDIRECT,
         /*messageOffset*/ AddressingMode.INDIRECT,
+        /*messageSizeOffset*/ AddressingMode.INDIRECT,
       ]).toWire();
       const messageOffset = 0;
-      const argsLocation = 4;
-
+      const messageOffsetReal = 10;
+      const messageSizeOffset = 1;
+      const messageSizeOffsetReal = 100;
       const dstOffset = 2;
-      const readLocation = 6;
+      const dstOffsetReal = 30;
+      context.machineState.memory.set(messageOffset, new Uint32(messageOffsetReal));
+      context.machineState.memory.set(dstOffset, new Uint32(dstOffsetReal));
+      context.machineState.memory.set(messageSizeOffset, new Uint32(messageSizeOffsetReal));
+      context.machineState.memory.set(messageSizeOffsetReal, new Uint32(args.length));
+      context.machineState.memory.setSlice(messageOffsetReal, args);
 
-      context.machineState.memory.set(messageOffset, new Uint32(argsLocation));
-      context.machineState.memory.set(dstOffset, new Uint32(readLocation));
-      context.machineState.memory.setSlice(argsLocation, args);
+      await new Sha256(indirect, dstOffset, messageOffset, messageSizeOffset).execute(context);
 
-      const inputBuffer = Buffer.concat(args.map(field => field.toBuffer()));
+      const resultBuffer = Buffer.concat(
+        context.machineState.memory.getSliceAs<Uint8>(dstOffsetReal, 32).map(byte => byte.toBuffer()),
+      );
+      const inputBuffer = Buffer.concat(args.map(byte => byte.toBuffer()));
       const expectedHash = sha256(inputBuffer);
-      await new Sha256(indirect, dstOffset, messageOffset, args.length).execute(context);
-
-      const result = context.machineState.memory.getSliceAs<Field>(readLocation, 2);
-      const combined = Buffer.concat([result[0].toBuffer().subarray(16, 32), result[1].toBuffer().subarray(16, 32)]);
-
-      expect(combined).toEqual(expectedHash);
+      expect(resultBuffer).toEqual(expectedHash);
     });
   });
 
@@ -224,10 +228,10 @@ describe('Hashing Opcodes', () => {
     });
 
     it('Should hash correctly - direct', async () => {
-      const args = [new Field(1n), new Field(2n), new Field(3n)];
+      const args = randomMemoryFields(10);
       const messageOffset = 0;
-      const sizeOffset = 10;
-      const genIndexOffset = 20;
+      const sizeOffset = 20;
+      const genIndexOffset = 30;
       const indirect = 0;
       const genIndex = 20;
 
@@ -245,7 +249,7 @@ describe('Hashing Opcodes', () => {
     });
 
     it('Should hash correctly - indirect', async () => {
-      const args = [new Field(1n), new Field(2n), new Field(3n)];
+      const args = randomMemoryFields(10);
       const indirect = new Addressing([
         /*genIndexOffset=*/ AddressingMode.DIRECT,
         /*dstOffset=*/ AddressingMode.DIRECT,
@@ -253,9 +257,9 @@ describe('Hashing Opcodes', () => {
         /*messageSizeOffset*/ AddressingMode.INDIRECT,
       ]).toWire();
       const messageOffset = 0;
-      const sizeOffset = 10;
+      const sizeOffset = 20;
       const realLocation = 4;
-      const realSizeLocation = 20;
+      const realSizeLocation = 21;
       const genIndexOffset = 50;
 
       context.machineState.memory.set(messageOffset, new Uint32(realLocation));
