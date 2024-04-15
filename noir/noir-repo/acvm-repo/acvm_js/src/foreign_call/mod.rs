@@ -8,7 +8,7 @@ mod outputs;
 
 #[wasm_bindgen(typescript_custom_section)]
 const FOREIGN_CALL_HANDLER: &'static str = r#"
-export type ForeignCallInput = string[] 
+export type ForeignCallInput = string[]
 export type ForeignCallOutput = string | string[]
 
 /**
