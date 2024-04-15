@@ -1127,9 +1127,9 @@ struct Opcode {
     };
 
     struct BrilligCall {
+        uint32_t id;
         std::vector<Program::BrilligInputs> inputs;
         std::vector<Program::BrilligOutputs> outputs;
-        uint32_t bytecode_index;
         std::optional<Program::Expression> predicate;
 
         friend bool operator==(const BrilligCall&, const BrilligCall&);
@@ -7503,13 +7503,13 @@ namespace Program {
 
 inline bool operator==(const Opcode::BrilligCall& lhs, const Opcode::BrilligCall& rhs)
 {
+    if (!(lhs.id == rhs.id)) {
+        return false;
+    }
     if (!(lhs.inputs == rhs.inputs)) {
         return false;
     }
     if (!(lhs.outputs == rhs.outputs)) {
-        return false;
-    }
-    if (!(lhs.bytecode_index == rhs.bytecode_index)) {
         return false;
     }
     if (!(lhs.predicate == rhs.predicate)) {
@@ -7542,9 +7542,9 @@ template <typename Serializer>
 void serde::Serializable<Program::Opcode::BrilligCall>::serialize(const Program::Opcode::BrilligCall& obj,
                                                                   Serializer& serializer)
 {
+    serde::Serializable<decltype(obj.id)>::serialize(obj.id, serializer);
     serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
-    serde::Serializable<decltype(obj.bytecode_index)>::serialize(obj.bytecode_index, serializer);
     serde::Serializable<decltype(obj.predicate)>::serialize(obj.predicate, serializer);
 }
 
@@ -7554,9 +7554,9 @@ Program::Opcode::BrilligCall serde::Deserializable<Program::Opcode::BrilligCall>
     Deserializer& deserializer)
 {
     Program::Opcode::BrilligCall obj;
+    obj.id = serde::Deserializable<decltype(obj.id)>::deserialize(deserializer);
     obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
-    obj.bytecode_index = serde::Deserializable<decltype(obj.bytecode_index)>::deserialize(deserializer);
     obj.predicate = serde::Deserializable<decltype(obj.predicate)>::deserialize(deserializer);
     return obj;
 }
