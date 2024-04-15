@@ -12,7 +12,7 @@ import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-import { type NullifierKeys, type NoteData } from '../acvm/index.js';
+import { type NoteData, type NullifierKeys } from '../acvm/index.js';
 import { type CommitmentsDB } from '../public/db.js';
 
 /**

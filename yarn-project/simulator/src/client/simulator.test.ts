@@ -1,20 +1,20 @@
-import { KeyStore, Note, type AztecNode } from '@aztec/circuit-types';
+import { type AztecNode, CompleteAddress, type KeyStore, Note } from '@aztec/circuit-types';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
 import {
   ABIParameterVisibility,
-  getFunctionArtifact,
   type FunctionArtifactWithDebugMetadata,
+  getFunctionArtifact,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-
-import { mock, type MockProxy } from 'jest-mock-extended';
-
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
+import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+
+import { type MockProxy, mock } from 'jest-mock-extended';
+
 import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -28,7 +28,9 @@ describe('Simulator', () => {
   // const owner = ownerCompleteAddress.address;
   // const ownerNullifierSecretKey = Point.random();
   // const ownerNullifierPublicKey = Fr.random();
-  
+
+  // TODO(benesjan): this address is incorrect
+  let ownerCompleteAddress: CompleteAddress;
   let keyStore: KeyStore;
   let owner: AztecAddress;
   let contractAddress: AztecAddress;
@@ -40,6 +42,14 @@ describe('Simulator', () => {
 
     owner = await keyStore.createAccount();
     contractAddress = AztecAddress.random();
+
+    // We disabled the AztecAddress preimage check in oracle to get it working
+    const randomPartialAddress = Fr.random();
+    ownerCompleteAddress = new CompleteAddress(
+      owner,
+      await keyStore.getMasterIncomingViewingPublicKey(owner),
+      randomPartialAddress,
+    );
 
     appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(owner, contractAddress);
 
@@ -71,10 +81,7 @@ describe('Simulator', () => {
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
       // TODO(benesjan): all the pedersen hashes in notes should be replaced with poseidon2
-      const innerNullifier = pedersenHash([
-        uniqueSiloedNoteHash,
-        appNullifierSecretKey,
-      ]);
+      const innerNullifier = pedersenHash([uniqueSiloedNoteHash, appNullifierSecretKey]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 

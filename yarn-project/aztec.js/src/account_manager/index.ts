@@ -36,7 +36,7 @@ export class AccountManager {
 
   constructor(
     private pxe: PXE,
-    private encryptionPrivateKey: GrumpkinPrivateKey,
+    private secretKey: GrumpkinPrivateKey,
     private accountContract: AccountContract,
     salt?: Salt,
   ) {
@@ -45,7 +45,7 @@ export class AccountManager {
 
   protected getEncryptionPublicKey() {
     if (!this.encryptionPublicKey) {
-      this.encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
+      this.encryptionPublicKey = generatePublicKey(this.secretKey);
     }
     return this.encryptionPublicKey;
   }
@@ -67,7 +67,7 @@ export class AccountManager {
    */
   public getCompleteAddress(): CompleteAddress {
     if (!this.completeAddress) {
-      const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
+      const encryptionPublicKey = generatePublicKey(this.secretKey);
       const instance = this.getInstance();
       this.completeAddress = CompleteAddress.fromPublicKeyAndInstance(encryptionPublicKey, instance);
     }
@@ -81,7 +81,7 @@ export class AccountManager {
    */
   public getInstance(): ContractInstanceWithAddress {
     if (!this.instance) {
-      const encryptionPublicKey = generatePublicKey(this.encryptionPrivateKey);
+      const encryptionPublicKey = generatePublicKey(this.secretKey);
       this.instance = getContractInstanceFromDeployParams(this.accountContract.getContractArtifact(), {
         constructorArgs: this.accountContract.getDeploymentArgs(),
         salt: this.salt,
@@ -98,7 +98,7 @@ export class AccountManager {
    */
   public async getWallet(): Promise<AccountWalletWithPrivateKey> {
     const entrypoint = await this.getAccount();
-    return new AccountWalletWithPrivateKey(this.pxe, entrypoint, this.encryptionPrivateKey, this.salt);
+    return new AccountWalletWithPrivateKey(this.pxe, entrypoint, this.secretKey, this.salt);
   }
 
   /**
@@ -199,6 +199,6 @@ export class AccountManager {
 
   async #register(): Promise<void> {
     const completeAddress = this.getCompleteAddress();
-    await this.pxe.registerAccount(this.encryptionPrivateKey, completeAddress.partialAddress);
+    await this.pxe.registerAccount(this.secretKey, completeAddress.partialAddress);
   }
 }

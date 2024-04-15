@@ -72,8 +72,8 @@ export abstract class BaseWallet implements Wallet {
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
   }
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    return this.pxe.registerAccount(privKey, partialAddress);
+  registerAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+    return this.pxe.registerAccount(sk, partialAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);

@@ -7,6 +7,7 @@ import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
  * a constant public and private key pair. It provides methods for creating a random instance of the key pair,
  * retrieving the public key, getting the private key. This class ensures the persistence and consistency of
  * the generated keys, making it suitable for cryptographic operations where constant key pairs are required.
+ * TODO(benesjan): NUKE?
  */
 export class ConstantKeyPair implements KeyPair {
   /**

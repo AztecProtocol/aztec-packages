@@ -65,7 +65,7 @@ export interface PXE {
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress>;
+  registerAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to

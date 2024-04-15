@@ -129,9 +129,13 @@ describe('Synchronizer', () => {
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
     const keyStore = new TestKeyStore(new Grumpkin(), openTmpStore());
     const addAddress = async (startingBlockNum: number) => {
-      const privateKey = GrumpkinScalar.random();
-      await keyStore.addAccount(privateKey);
-      const completeAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(privateKey, Fr.random());
+      
+      const secretKey = Fr.random();
+      const partialAddress = Fr.random();
+      const accountAddress = await keyStore.addAccount(secretKey, partialAddress);
+      const masterIncomingViewingPublicKey = await keyStore.getMasterIncomingViewingPublicKey(accountAddress);
+
+      const completeAddress = new CompleteAddress(accountAddress, masterIncomingViewingPublicKey, partialAddress);
       await database.addCompleteAddress(completeAddress);
       synchronizer.addAccount(completeAddress.publicKey, keyStore, startingBlockNum);
       return completeAddress;

@@ -242,4 +242,28 @@ export class NewTestKeyStore implements NewKeyStore {
 
     throw new Error(`Could not find master nullifier secret key for public key ${masterNullifierPublicKey.toString()}`);
   }
+
+  /**
+   * Retrieves the master incoming viewing secret key (ivsk_m) corresponding to the specified master incoming viewing
+   * public key (Ivpk_m).
+   * @throws If the provided public key is not associated with any of the registered accounts.
+   * @param masterIncomingViewingPublicKey - The master nullifier public key to get secret key for.
+   * @returns A Promise that resolves to the master nullifier secret key.
+   * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
+   * TODO(benesjan): will need to be updated once we have app siloing of viewing keys
+   */
+  public getMasterIncomingViewingSecretKeyForPublicKey(
+    masterIncomingViewingPublicKey: PublicKey,
+  ): Promise<GrumpkinPrivateKey> {
+    const allMapValues = Array.from(this.#keys.values());
+    const masterIncomingViewingSecretKeyBuffer = allMapValues.find(value =>
+      value.equals(masterIncomingViewingPublicKey.toBuffer()),
+    );
+    if (!masterIncomingViewingSecretKeyBuffer) {
+      throw new Error(
+        `Could not find master incoming viewing secret key for public key ${masterIncomingViewingPublicKey.toString()}`,
+      );
+    }
+    return Promise.resolve(GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer));
+  }
 }

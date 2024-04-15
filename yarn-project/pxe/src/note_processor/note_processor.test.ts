@@ -125,7 +125,7 @@ describe('Note Processor', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     simulator = mock<AcirSimulator>();
-    keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
+    keyStore.getMasterIncomingViewingSecretKeyForPublicKey.mockResolvedValue(owner.getPrivateKey());
     noteProcessor = new NoteProcessor(
       owner.getPublicKey(),
       keyStore,
