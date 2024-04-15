@@ -1,5 +1,5 @@
-import { type Wallet } from '@aztec/aztec.js';
-import { DocsExampleContract } from '@aztec/noir-contracts.js';
+import { AztecAddress, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AuthContract, DocsExampleContract, StateVarsContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -8,6 +8,7 @@ import { setup } from './fixtures/utils.js';
 const TIMEOUT = 100_000;
 
 describe('e2e_state_vars', () => {
+  let pxe: PXE;
   jest.setTimeout(TIMEOUT);
 
   let wallet: Wallet;
@@ -19,7 +20,7 @@ describe('e2e_state_vars', () => {
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
-    ({ teardown, wallet } = await setup());
+    ({ teardown, wallet, pxe } = await setup(2));
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
   }, 30_000);
 
@@ -215,6 +216,42 @@ describe('e2e_state_vars', () => {
       const { points, randomness } = await contract.methods.view_imm_card().simulate();
       expect(points).toEqual(POINTS);
       expect(randomness).toEqual(RANDOMNESS);
+    });
+  });
+
+  describe('SharedMutablePrivateGetter', () => {
+    let authContract: AuthContract;
+    let stateVarsContract: StateVarsContract;
+
+    const delay = async (blocks: number) => {
+      for (let i = 0; i < blocks; i++) {
+        await authContract.methods.get_authorized().send().wait();
+      }
+    };
+
+    beforeAll(async () => {
+      stateVarsContract = await StateVarsContract.deploy(wallet).send().deployed();
+      authContract = await AuthContract.deploy(wallet, wallet.getAddress()).send().deployed();
+    }, 30_000);
+
+    it('should set authorized in auth contract', async () => {
+      await authContract
+        .withWallet(wallet)
+        .methods.set_authorized(AztecAddress.fromField(new Fr(6969696969)))
+        .send()
+        .wait();
+    });
+
+    it('checks authorized from auth contract from state vars contract', async () => {
+      await delay(5);
+
+      const { txHash } = await stateVarsContract.methods
+        .test_shared_mutable_private_getter(authContract.address, 2)
+        .send()
+        .wait();
+
+      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
+      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(6969696969));
     });
   });
 });
