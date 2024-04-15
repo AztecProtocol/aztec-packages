@@ -47,6 +47,8 @@ export class KernelCircuitPublicInputs {
       this.rollupValidationRequests,
       this.end,
       this.constants,
+      this.startState,
+      this.endState,
       this.revertCode,
     );
   }
