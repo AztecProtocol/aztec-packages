@@ -172,7 +172,9 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                                 [revert_data_offset..(revert_data_offset + revert_data_size)]
                                 .iter()
                                 .map(|memory_value| {
-                                    memory_value.try_into().expect("Assert message character is not a byte")
+                                    memory_value
+                                        .try_into()
+                                        .expect("Assert message character is not a byte")
                                 })
                                 .collect();
                             Some(
