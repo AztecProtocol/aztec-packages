@@ -79,12 +79,11 @@ impl PublicKernelTailCircuitPrivateInputs {
         self.validate_public_data_hints();
 
         let previous_public_inputs = self.previous_kernel.public_inputs;
-        let nullifier_tree_root = previous_public_inputs.constants.historical_header.state.partial.nullifier_tree.root;
         let request_processor = PublicValidationRequestProcessor::new(
             previous_public_inputs,
             self.nullifier_read_request_hints,
             self.nullifier_non_existent_read_request_hints,
-            nullifier_tree_root,
+            self.start_state.nullifier_tree.root,
             self.public_data_read_request_hints,
             self.public_data_hints
         );
@@ -196,8 +195,10 @@ mod tests {
 
         pub fn with_nullifier_tree(&mut self) -> Self {
             let nullifier_tree = build_nullifier_tree();
-            self.previous_kernel.historical_header.state.partial.nullifier_tree.root = nullifier_tree.get_root();
             self.nullifier_non_existent_read_request_hints_builder.set_nullifier_tree(nullifier_tree);
+            let tree_root = nullifier_tree.get_root();
+            self.start_state.nullifier_tree.root = tree_root;
+            self.previous_kernel.historical_header.state.partial.nullifier_tree.root = tree_root;
             *self
         }
 
