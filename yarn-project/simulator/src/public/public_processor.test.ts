@@ -13,7 +13,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   ContractStorageUpdateRequest,
-  Fr,
   GlobalVariables,
   Header,
   MAX_ENCRYPTED_LOGS_PER_TX,
