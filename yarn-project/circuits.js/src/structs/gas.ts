@@ -52,6 +52,10 @@ export class Gas {
     return new Gas(this.daGas - other.daGas, this.l1Gas - other.l1Gas, this.l2Gas - other.l2Gas);
   }
 
+  mul(scalar: number) {
+    return new Gas(Math.ceil(this.daGas * scalar), Math.ceil(this.l1Gas * scalar), Math.ceil(this.l2Gas * scalar));
+  }
+
   toFields() {
     return serializeToFields(this.daGas, this.l1Gas, this.l2Gas);
   }

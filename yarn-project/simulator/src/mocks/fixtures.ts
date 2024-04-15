@@ -132,7 +132,7 @@ export class PublicExecutionResultBuilder {
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
       revertReason: this._revertReason,
-      gasLeft: this._execution.callContext.gasLeft,
+      gasLeft: this._execution.callContext.gasLeft.mul(0.9),
     };
   }
 }
