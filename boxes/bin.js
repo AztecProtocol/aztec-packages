@@ -107,6 +107,10 @@ if (optsKeys.length % 2) {
 }
 
 program.action(async (options) => {
+<<<<<<< HEAD
+=======
+  console.log(options)
+>>>>>>> 550a5ec5a2 (chore: adding wait-for-sandbox.sh script)
   const { projectType, projectName, skipSandbox } = options;
   // SETUP: Initialize global variables
   await init(options);

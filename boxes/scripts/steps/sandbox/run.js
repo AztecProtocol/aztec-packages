@@ -2,7 +2,7 @@ import confirm from "@inquirer/confirm";
 import { execSync } from "child_process";
 import axios from "axios";
 
-export async function sandboxRun({ skipQuestion }) {
+export async function sandboxRun() {
   spinner.text = "Trying to reach the sandbox...";
 
   try {
@@ -28,6 +28,7 @@ export async function sandboxRun({ skipQuestion }) {
       message:
         "Sandbox can't be reached on localhost:8080. Do you want to start it?",
       default: true,
+<<<<<<< HEAD
     });
     if (answer) {
       info("Starting the sandbox... This might take a few minutes.");
@@ -40,6 +41,15 @@ export async function sandboxRun({ skipQuestion }) {
     info(`Go and explore the boilerplate code while you wait!`);
     execSync(`$HOME/.aztec/bin/aztec sandbox`, {
       stdio: "inherit",
+=======
+>>>>>>> 550a5ec5a2 (chore: adding wait-for-sandbox.sh script)
     });
+    if (answer) {
+      info("Starting the sandbox... This might take a few minutes.");
+      info(`Go and explore the boilerplate code while you wait!`);
+      execSync(`$HOME/.aztec/bin/aztec sandbox`, {
+        stdio: "inherit",
+      });
+    }
   }
 }
