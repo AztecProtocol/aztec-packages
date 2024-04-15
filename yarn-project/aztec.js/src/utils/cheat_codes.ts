@@ -1,7 +1,7 @@
 import { type Note, type PXE } from '@aztec/circuit-types';
 import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak, pedersenHash } from '@aztec/foundation/crypto';
+import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import fs from 'fs';
@@ -90,7 +90,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error mining: ${res.error.message}`);
     }
-    this.logger(`Mined ${numberOfBlocks} blocks`);
+    this.logger.info(`Mined ${numberOfBlocks} blocks`);
   }
 
   /**
@@ -102,7 +102,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     }
-    this.logger(`Set next block timestamp to ${timestamp}`);
+    this.logger.info(`Set next block timestamp to ${timestamp}`);
   }
 
   /**
@@ -116,7 +116,7 @@ export class EthCheatCodes {
     }
     const jsonContent = JSON.stringify(res.result);
     fs.writeFileSync(`${fileName}.json`, jsonContent, 'utf8');
-    this.logger(`Dumped state to ${fileName}`);
+    this.logger.info(`Dumped state to ${fileName}`);
   }
 
   /**
@@ -129,7 +129,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error loading state: ${res.error.message}`);
     }
-    this.logger(`Loaded state from ${fileName}`);
+    this.logger.info(`Loaded state from ${fileName}`);
   }
 
   /**
@@ -155,7 +155,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
     }
-    this.logger(`Set storage for contract ${contract} at ${slot} to ${value}`);
+    this.logger.info(`Set storage for contract ${contract} at ${slot} to ${value}`);
   }
 
   /**
@@ -167,7 +167,7 @@ export class EthCheatCodes {
   public keccak256(baseSlot: bigint, key: bigint): bigint {
     // abi encode (removing the 0x) - concat key and baseSlot (both padded to 32 bytes)
     const abiEncoded = toHex(key, true).substring(2) + toHex(baseSlot, true).substring(2);
-    return toBigIntBE(keccak(Buffer.from(abiEncoded, 'hex')));
+    return toBigIntBE(keccak256(Buffer.from(abiEncoded, 'hex')));
   }
 
   /**
@@ -179,7 +179,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error impersonating ${who}: ${res.error.message}`);
     }
-    this.logger(`Impersonating ${who}`);
+    this.logger.info(`Impersonating ${who}`);
   }
 
   /**
@@ -191,7 +191,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
     }
-    this.logger(`Stopped impersonating ${who}`);
+    this.logger.info(`Stopped impersonating ${who}`);
   }
 
   /**
@@ -204,7 +204,7 @@ export class EthCheatCodes {
     if (res.error) {
       throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
     }
-    this.logger(`Set bytecode for ${contract} to ${bytecode}`);
+    this.logger.info(`Set bytecode for ${contract} to ${bytecode}`);
   }
 
   /**

@@ -42,7 +42,6 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -157,7 +156,6 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
                                   .blake2s_constraints = {},
                                   .blake3_constraints = {},
                                   .keccak_constraints = {},
-                                  .keccak_var_constraints = {},
                                   .keccak_permutations = {},
                                   .pedersen_constraints = {},
                                   .pedersen_hash_constraints = {},
@@ -224,7 +222,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
                                   .blake2s_constraints = {},
                                   .blake3_constraints = {},
                                   .keccak_constraints = {},
-                                  .keccak_var_constraints = {},
                                   .keccak_permutations = {},
                                   .pedersen_constraints = {},
                                   .pedersen_hash_constraints = {},
@@ -318,7 +315,6 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -384,7 +380,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
     HashInput input3;
     input3.witness = 2;
     input3.num_bits = 8;
-    KeccakVarConstraint keccak;
+    KeccakConstraint keccak;
     keccak.inputs = { input1, input2, input3 };
     keccak.var_message_size = 3;
     keccak.result = { 4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
@@ -430,8 +426,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
-        .keccak_var_constraints = { keccak },
+        .keccak_constraints = { keccak },
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -477,7 +472,6 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
                                   .blake2s_constraints = {},
                                   .blake3_constraints = {},
                                   .keccak_constraints = {},
-                                  .keccak_var_constraints = {},
                                   .keccak_permutations = { keccak_permutation },
                                   .pedersen_constraints = {},
                                   .pedersen_hash_constraints = {},

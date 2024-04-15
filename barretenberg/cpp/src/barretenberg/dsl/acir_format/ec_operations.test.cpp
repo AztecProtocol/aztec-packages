@@ -61,7 +61,6 @@ TEST_F(EcOperations, TestECOperations)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},

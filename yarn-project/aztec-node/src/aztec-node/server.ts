@@ -51,13 +51,8 @@ import { initStoreForRollup, openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { AztecKVTxPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { DummyProver, TxProver } from '@aztec/prover-client';
-import {
-  type GlobalVariableBuilder,
-  PublicProcessorFactory,
-  SequencerClient,
-  getGlobalVariableBuilder,
-} from '@aztec/sequencer-client';
-import { WASMSimulator } from '@aztec/simulator';
+import { type GlobalVariableBuilder, SequencerClient, getGlobalVariableBuilder } from '@aztec/sequencer-client';
+import { PublicProcessorFactory, WASMSimulator } from '@aztec/simulator';
 import {
   type ContractClassPublic,
   type ContractDataSource,
@@ -102,7 +97,7 @@ export class AztecNodeService implements AztecNode {
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
       `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
       `Availability Oracle: ${config.l1Contracts.availabilityOracleAddress.toString()}`;
-    this.log(message);
+    this.log.info(message);
   }
 
   /**
@@ -704,10 +699,10 @@ export class AztecNodeService implements AztecNode {
 
     // using a snapshot could be less efficient than using the committed db
     if (blockNumber === 'latest' || blockNumber === blockSyncedTo) {
-      this.log(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+      this.log.debug(`Using committed db for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getCommitted();
     } else if (blockNumber < blockSyncedTo) {
-      this.log(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+      this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
       return this.worldStateSynchronizer.getSnapshot(blockNumber);
     } else {
       throw new Error(`Block ${blockNumber} not yet synced`);

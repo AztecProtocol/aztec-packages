@@ -233,7 +233,7 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntAdd expects two register arguments and one result register"
                 )
             }
         }
@@ -250,7 +250,7 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntSub expects two register arguments and one result register"
                 )
             }
         }
@@ -267,7 +267,7 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntMul expects two register arguments and one result register"
                 )
             }
         }
@@ -284,7 +284,7 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntDiv expects two register arguments and one result register"
                 )
             }
         }
@@ -301,7 +301,7 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntFromLeBytes expects two register arguments and one result register"
                 )
             }
         }
@@ -317,7 +317,7 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: EmbeddedCurveAdd expects two register arguments and one array result"
+                    "ICE: BigIntToLeBytes expects one register argument and one array result"
                 )
             }
         }

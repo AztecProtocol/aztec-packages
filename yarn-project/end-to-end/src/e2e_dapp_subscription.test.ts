@@ -10,7 +10,6 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   SentTx,
-  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
@@ -22,11 +21,7 @@ import {
 } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { jest } from '@jest/globals';
-
 import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts, setup } from './fixtures/utils.js';
-
-jest.setTimeout(100_000);
 
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';
@@ -62,17 +57,14 @@ describe('e2e_dapp_subscription', () => {
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
+    process.env.ENABLE_GAS ??= '1';
 
     let wallets: AccountWalletWithPrivateKey[];
     let aztecNode: AztecNode;
     let deployL1ContractsValues: DeployL1Contracts;
-    ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3));
+    ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3, {}, {}, true));
 
     await publicDeployAccounts(wallets[0], wallets);
-
-    await aztecNode.setConfig({
-      allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
-    });
 
     // this should be a SignerlessWallet but that can't call public functions directly
     gasTokenContract = await GasTokenContract.at(
@@ -125,7 +117,7 @@ describe('e2e_dapp_subscription', () => {
       [aliceAddress, sequencerAddress, subscriptionContract.address, bananaFPC.address],
       [0n, 0n, INITIAL_GAS_BALANCE, INITIAL_GAS_BALANCE],
     );
-  });
+  }, 180_000);
 
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     /**
@@ -209,7 +201,7 @@ describe('e2e_dapp_subscription', () => {
   it('should call dapp subscription entrypoint', async () => {
     const dappPayload = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
     const action = counterContract.methods.increment(bobAddress).request();
-    const txExReq = await dappPayload.createTxExecutionRequest([action]);
+    const txExReq = await dappPayload.createTxExecutionRequest({ calls: [action] });
     const tx = await pxe.proveTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     await sentTx.wait();
@@ -263,7 +255,7 @@ describe('e2e_dapp_subscription', () => {
   async function dappIncrement() {
     const dappEntrypoint = new DefaultDappEntrypoint(aliceAddress, aliceWallet, subscriptionContract.address);
     const action = counterContract.methods.increment(bobAddress).request();
-    const txExReq = await dappEntrypoint.createTxExecutionRequest([action]);
+    const txExReq = await dappEntrypoint.createTxExecutionRequest({ calls: [action] });
     const tx = await pxe.proveTx(txExReq, true);
     const sentTx = new SentTx(pxe, pxe.sendTx(tx));
     return sentTx.wait();

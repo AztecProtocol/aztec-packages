@@ -1,9 +1,13 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, emit_unencrypted_log};
+    use dep::aztec::prelude::{
+        AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, emit_unencrypted_log,
+        Deserialize
+    };
 
     use dep::aztec::{
-        context::{PublicContext, Context}, protocol_types::{abis::{call_context::CallContext}},
+        context::{PublicContext, Context, gas::GasOpts},
+        protocol_types::{abis::{call_context::CallContext}},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
     };
     use dep::value_note::value_note::ValueNote;
@@ -91,7 +95,12 @@ contract Child {
     #[aztec(public)]
     fn set_value_twice_with_nested_first() {
         let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _ret = context.call_public_function(context.this_address(), pub_set_value_selector, [10]);
+        let _result: Field = context.call_public_function(
+            context.this_address(),
+            pub_set_value_selector,
+            [10],
+            GasOpts::default()
+        ).deserialize_into();
 
         storage.current_value.write(20);
         emit_unencrypted_log(&mut context, 20);
@@ -103,6 +112,11 @@ contract Child {
         emit_unencrypted_log(&mut context, 20);
 
         let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _ret = context.call_public_function(context.this_address(), pub_set_value_selector, [10]);
+        let _result: Field = context.call_public_function(
+            context.this_address(),
+            pub_set_value_selector,
+            [10],
+            GasOpts::default()
+        ).deserialize_into();
     }
 }

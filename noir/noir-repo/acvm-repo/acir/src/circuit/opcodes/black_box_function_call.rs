@@ -10,12 +10,6 @@ pub struct FunctionInput {
     pub num_bits: u32,
 }
 
-impl FunctionInput {
-    pub fn dummy() -> Self {
-        Self { witness: Witness(0), num_bits: 0 }
-    }
-}
-
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BlackBoxFuncCall {
     AND {
@@ -83,10 +77,6 @@ pub enum BlackBoxFuncCall {
         outputs: (Witness, Witness),
     },
     Keccak256 {
-        inputs: Vec<FunctionInput>,
-        outputs: Vec<Witness>,
-    },
-    Keccak256VariableLength {
         inputs: Vec<FunctionInput>,
         /// This is the number of bytes to take
         /// from the input. Note: if `var_message_size`
@@ -184,7 +174,6 @@ impl BlackBoxFuncCall {
             BlackBoxFuncCall::FixedBaseScalarMul { .. } => BlackBoxFunc::FixedBaseScalarMul,
             BlackBoxFuncCall::EmbeddedCurveAdd { .. } => BlackBoxFunc::EmbeddedCurveAdd,
             BlackBoxFuncCall::Keccak256 { .. } => BlackBoxFunc::Keccak256,
-            BlackBoxFuncCall::Keccak256VariableLength { .. } => BlackBoxFunc::Keccak256,
             BlackBoxFuncCall::Keccakf1600 { .. } => BlackBoxFunc::Keccakf1600,
             BlackBoxFuncCall::RecursiveAggregation { .. } => BlackBoxFunc::RecursiveAggregation,
             BlackBoxFuncCall::BigIntAdd { .. } => BlackBoxFunc::BigIntAdd,
@@ -206,7 +195,6 @@ impl BlackBoxFuncCall {
         match self {
             BlackBoxFuncCall::Blake2s { inputs, .. }
             | BlackBoxFuncCall::Blake3 { inputs, .. }
-            | BlackBoxFuncCall::Keccak256 { inputs, .. }
             | BlackBoxFuncCall::Keccakf1600 { inputs, .. }
             | BlackBoxFuncCall::PedersenCommitment { inputs, .. }
             | BlackBoxFuncCall::PedersenHash { inputs, .. }
@@ -280,7 +268,7 @@ impl BlackBoxFuncCall {
                 inputs.extend(hashed_message.iter().copied());
                 inputs
             }
-            BlackBoxFuncCall::Keccak256VariableLength { inputs, var_message_size, .. } => {
+            BlackBoxFuncCall::Keccak256 { inputs, var_message_size, .. } => {
                 let mut inputs = inputs.clone();
                 inputs.push(*var_message_size);
                 inputs
@@ -305,9 +293,8 @@ impl BlackBoxFuncCall {
         match self {
             BlackBoxFuncCall::Blake2s { outputs, .. }
             | BlackBoxFuncCall::Blake3 { outputs, .. }
-            | BlackBoxFuncCall::Keccak256 { outputs, .. }
             | BlackBoxFuncCall::Keccakf1600 { outputs, .. }
-            | BlackBoxFuncCall::Keccak256VariableLength { outputs, .. }
+            | BlackBoxFuncCall::Keccak256 { outputs, .. }
             | BlackBoxFuncCall::Poseidon2Permutation { outputs, .. }
             | BlackBoxFuncCall::Sha256Compression { outputs, .. } => outputs.to_vec(),
             BlackBoxFuncCall::AND { output, .. }
