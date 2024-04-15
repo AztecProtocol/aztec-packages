@@ -337,9 +337,10 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                 Ok(Some(foreign_call)) => return self.wait_for_foreign_call(foreign_call),
                 res => res.map(|_| ()),
             },
-            Opcode::BrilligCall { .. } => {
-                todo!("implement brillig pointer handling");
-            }
+            Opcode::BrilligCall { .. } => match self.solve_brillig_call_opcode() {
+                Ok(Some(foreign_call)) => return self.wait_for_foreign_call(foreign_call),
+                res => res.map(|_| ()),
+            },
             Opcode::Call { .. } => match self.solve_call_opcode() {
                 Ok(Some(input_values)) => return self.wait_for_acir_call(input_values),
                 res => res.map(|_| ()),
@@ -430,15 +431,15 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
     fn solve_brillig_pointer_opcode(
         &mut self,
     ) -> Result<Option<ForeignCallWaitInfo>, OpcodeResolutionError> {
-        let Opcode::BrilligPointer(brillig_pointer) = &self.opcodes[self.instruction_pointer]
+        let Opcode::BrilligCall { id, inputs, outputs, predicate } =
+            &self.opcodes[self.instruction_pointer]
         else {
             unreachable!("Not executing a Brillig opcode");
         };
 
         let witness = &mut self.witness_map;
-        if is_predicate_false(witness, &brillig_pointer.predicate)? {
-            return BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig_pointer.outputs)
-                .map(|_| None);
+        if is_predicate_false(witness, &predicate)? {
+            return BrilligSolver::<B>::zero_out_brillig_outputs(witness, outputs).map(|_| None);
         }
 
         // If we're resuming execution after resolving a foreign call then
@@ -465,7 +466,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             }
             BrilligSolverStatus::Finished => {
                 // Write execution outputs
-                solver.finalize(witness, &brillig_pointer.outputs)?;
+                solver.finalize(witness, outputs)?;
                 Ok(None)
             }
         }

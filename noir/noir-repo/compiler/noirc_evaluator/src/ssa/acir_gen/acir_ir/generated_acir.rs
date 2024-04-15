@@ -10,7 +10,7 @@ use crate::{
 
 use acvm::acir::{
     circuit::{
-        brillig::{Brillig as AcvmBrillig, BrilligInputs, BrilligOutputs, BrilligPointer},
+        brillig::{Brillig as AcvmBrillig, BrilligInputs, BrilligOutputs},
         opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
         OpcodeLocation,
     },
@@ -626,12 +626,8 @@ impl GeneratedAcir {
         outputs: Vec<BrilligOutputs>,
         brillig_function_index: u32,
     ) {
-        let opcode = AcirOpcode::BrilligPointer(BrilligPointer {
-            inputs,
-            outputs,
-            bytecode_index: brillig_function_index,
-            predicate,
-        });
+        let opcode =
+            AcirOpcode::BrilligCall { id: brillig_function_index, inputs, outputs, predicate };
         self.push_opcode(opcode);
         for (brillig_index, call_stack) in generated_brillig.locations.iter() {
             self.locations.insert(
