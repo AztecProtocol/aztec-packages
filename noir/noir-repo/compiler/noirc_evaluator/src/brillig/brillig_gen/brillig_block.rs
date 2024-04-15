@@ -5,7 +5,7 @@ use crate::brillig::brillig_ir::{
     BrilligBinaryOp, BrilligContext, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
 };
 use crate::ssa::ir::dfg::CallStack;
-use crate::ssa::ir::instruction::ConstrainError;
+use crate::ssa::ir::instruction::{ConstrainError, UserDefinedError};
 use crate::ssa::ir::{
     basic_block::{BasicBlock, BasicBlockId},
     dfg::DataFlowGraph,
@@ -248,10 +248,15 @@ impl<'block> BrilligBlock<'block> {
                 self.convert_ssa_binary(binary, dfg, result_var);
             }
             Instruction::Constrain(lhs, rhs, assert_message) => {
-                let assert_message = if let Some(error) = assert_message {
+                let (has_revert_data, static_assert_message) = if let Some(error) = assert_message {
                     match error.as_ref() {
-                        ConstrainError::Static(string) => Some(string.clone()),
-                        ConstrainError::Dynamic(call_instruction) => {
+                        ConstrainError::Intrinsic(string) => (false, Some(string.clone())),
+                        ConstrainError::UserDefined(UserDefinedError::Static(string)) => {
+                            (true, Some(string.clone()))
+                        }
+                        ConstrainError::UserDefined(UserDefinedError::Dynamic(
+                            call_instruction,
+                        )) => {
                             let Instruction::Call { func, arguments } = call_instruction else {
                                 unreachable!("expected a call instruction")
                             };
@@ -264,11 +269,11 @@ impl<'block> BrilligBlock<'block> {
 
                             // Dynamic assert messages are handled in the generated function call.
                             // We then don't need to attach one to the constrain instruction.
-                            None
+                            (false, None)
                         }
                     }
                 } else {
-                    None
+                    (false, None)
                 };
 
                 let condition = SingleAddrVariable {
@@ -281,8 +286,12 @@ impl<'block> BrilligBlock<'block> {
                     dfg,
                     condition,
                 );
-
-                self.brillig_context.codegen_constrain(condition, assert_message);
+                if has_revert_data {
+                    self.brillig_context
+                        .codegen_constrain_with_revertdata(condition, static_assert_message);
+                } else {
+                    self.brillig_context.codegen_constrain(condition, static_assert_message);
+                }
                 self.brillig_context.deallocate_single_addr(condition);
             }
             Instruction::Allocate => {

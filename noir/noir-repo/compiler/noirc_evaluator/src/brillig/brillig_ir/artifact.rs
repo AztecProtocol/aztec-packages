@@ -21,6 +21,7 @@ pub(crate) enum BrilligParameter {
 pub(crate) struct GeneratedBrillig {
     pub(crate) byte_code: Vec<BrilligOpcode>,
     pub(crate) locations: BTreeMap<OpcodeLocation, CallStack>,
+    pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -28,6 +29,8 @@ pub(crate) struct GeneratedBrillig {
 /// It includes the bytecode of the function and all the metadata that allows linking with other functions.
 pub(crate) struct BrilligArtifact {
     pub(crate) byte_code: Vec<BrilligOpcode>,
+    /// A map of bytecode positions to assertion messages
+    pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
     /// The set of jumps that need to have their locations
     /// resolved.
     unresolved_jumps: Vec<(JumpInstructionPosition, UnresolvedJumpLocation)>,
@@ -72,7 +75,11 @@ impl BrilligArtifact {
     /// Resolves all jumps and generates the final bytecode
     pub(crate) fn finish(mut self) -> GeneratedBrillig {
         self.resolve_jumps();
-        GeneratedBrillig { byte_code: self.byte_code, locations: self.locations }
+        GeneratedBrillig {
+            byte_code: self.byte_code,
+            locations: self.locations,
+            assert_messages: self.assert_messages,
+        }
     }
 
     /// Gets the first unresolved function call of this artifact.
@@ -133,6 +140,10 @@ impl BrilligArtifact {
         for (position_in_bytecode, label_id) in &obj.unresolved_external_call_labels {
             self.unresolved_external_call_labels
                 .push((position_in_bytecode + offset, label_id.clone()));
+        }
+
+        for (position_in_bytecode, message) in &obj.assert_messages {
+            self.assert_messages.insert(position_in_bytecode + offset, message.clone());
         }
 
         for (position_in_bytecode, call_stack) in obj.locations.iter() {
@@ -245,5 +256,10 @@ impl BrilligArtifact {
 
     pub(crate) fn set_call_stack(&mut self, call_stack: CallStack) {
         self.call_stack = call_stack;
+    }
+
+    pub(crate) fn add_assert_message_to_last_opcode(&mut self, message: String) {
+        let position = self.index_of_next_opcode() - 1;
+        self.assert_messages.insert(position, message);
     }
 }

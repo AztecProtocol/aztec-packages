@@ -141,7 +141,7 @@ impl BrilligContext {
 
     /// Emits brillig bytecode to jump to a trap condition if `condition`
     /// is false.
-    pub(crate) fn codegen_constrain(
+    pub(crate) fn codegen_constrain_with_revertdata(
         &mut self,
         condition: SingleAddrVariable,
         assert_message: Option<String>,
@@ -163,6 +163,23 @@ impl BrilligContext {
                     (0, 0)
                 };
             ctx.trap_instruction(revert_data_offset, revert_data_size);
+        });
+    }
+
+    /// Emits brillig bytecode to jump to a trap condition if `condition`
+    /// is false.
+    pub(crate) fn codegen_constrain(
+        &mut self,
+        condition: SingleAddrVariable,
+        assert_message: Option<String>,
+    ) {
+        assert!(condition.bit_size == 1);
+
+        self.codegen_if_not(condition.address, |ctx| {
+            ctx.trap_instruction(0, 0);
+            if let Some(assert_message) = assert_message {
+                ctx.obj.add_assert_message_to_last_opcode(assert_message);
+            }
         });
     }
 }

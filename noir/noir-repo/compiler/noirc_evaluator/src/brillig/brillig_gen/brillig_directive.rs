@@ -53,6 +53,7 @@ pub(crate) fn directive_invert() -> GeneratedBrillig {
             },
             BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 1 },
         ],
+        assert_messages: Default::default(),
         locations: Default::default(),
     }
 }
@@ -110,6 +111,7 @@ pub(crate) fn directive_quotient(bit_size: u32) -> GeneratedBrillig {
                 },
                 BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
             ],
+            assert_messages: Default::default(),
             locations: Default::default(),
         }
     } else {
@@ -162,6 +164,7 @@ pub(crate) fn directive_quotient(bit_size: u32) -> GeneratedBrillig {
                 },
                 BrilligOpcode::Stop { return_data_offset: 0, return_data_size: 2 },
             ],
+            assert_messages: Default::default(),
             locations: Default::default(),
         }
     }

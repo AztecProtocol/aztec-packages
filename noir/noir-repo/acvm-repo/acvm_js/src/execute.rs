@@ -245,7 +245,16 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                             OpcodeResolutionError::BrilligFunctionFailed {
                                 call_stack,
                                 message,
-                            } => (message.as_ref().map(|x| x.as_str()), Some(call_stack.clone())),
+                            } => {
+                                let revert_message = message.as_ref().map(|x| x.as_str());
+                                let failing_opcode = call_stack
+                                    .last()
+                                    .expect("Brillig error call stacks cannot be empty");
+                                (
+                                    revert_message.or(circuit.get_assert_message(*failing_opcode)),
+                                    Some(call_stack.clone()),
+                                )
+                            }
                             _ => (None, None),
                         };
 

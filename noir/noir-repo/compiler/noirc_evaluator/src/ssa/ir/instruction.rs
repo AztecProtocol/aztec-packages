@@ -341,9 +341,9 @@ impl Instruction {
                 let lhs = f(*lhs);
                 let rhs = f(*rhs);
                 let assert_message = assert_message.as_ref().map(|error| match error.as_ref() {
-                    ConstrainError::Dynamic(call_instr) => {
+                    ConstrainError::UserDefined(UserDefinedError::Dynamic(call_instr)) => {
                         let new_instr = call_instr.map_values(f);
-                        Box::new(ConstrainError::Dynamic(new_instr))
+                        Box::new(ConstrainError::UserDefined(UserDefinedError::Dynamic(new_instr)))
                     }
                     _ => error.clone(),
                 });
@@ -405,7 +405,9 @@ impl Instruction {
                 f(*lhs);
                 f(*rhs);
                 if let Some(error) = assert_error.as_ref() {
-                    if let ConstrainError::Dynamic(call_instr) = error.as_ref() {
+                    if let ConstrainError::UserDefined(UserDefinedError::Dynamic(call_instr)) =
+                        error.as_ref()
+                    {
                         call_instr.for_each_value(f);
                     }
                 }
@@ -591,6 +593,14 @@ impl Instruction {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub(crate) enum ConstrainError {
     // These are errors which have been hardcoded during SSA gen
+    Intrinsic(String),
+    // These are errors issued by the user
+    UserDefined(UserDefinedError),
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub(crate) enum UserDefinedError {
+    // These are errors which come from static strings specified by a Noir program
     Static(String),
     // These are errors which come from runtime expressions specified by a Noir program
     // We store an `Instruction` as we want this Instruction to be atomic in SSA with
@@ -600,7 +610,7 @@ pub(crate) enum ConstrainError {
 
 impl From<String> for ConstrainError {
     fn from(value: String) -> Self {
-        ConstrainError::Static(value)
+        ConstrainError::Intrinsic(value)
     }
 }
 
