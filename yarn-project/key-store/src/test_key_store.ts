@@ -255,15 +255,22 @@ export class NewTestKeyStore implements NewKeyStore {
   public getMasterIncomingViewingSecretKeyForPublicKey(
     masterIncomingViewingPublicKey: PublicKey,
   ): Promise<GrumpkinPrivateKey> {
-    const allMapValues = Array.from(this.#keys.values());
-    const masterIncomingViewingSecretKeyBuffer = allMapValues.find(value =>
-      value.equals(masterIncomingViewingPublicKey.toBuffer()),
-    );
-    if (!masterIncomingViewingSecretKeyBuffer) {
-      throw new Error(
-        `Could not find master incoming viewing secret key for public key ${masterIncomingViewingPublicKey.toString()}`,
-      );
+    // We iterate over the map keys to find the account address that corresponds to the provided public key
+    for (const [key, value] of this.#keys.entries()) {
+      if (value.equals(masterIncomingViewingPublicKey.toBuffer())) {
+        // We extract the account address from the map key
+        const accountAddress = key.split('-')[0];
+        // We fetch the secret key and return it
+        const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${accountAddress.toString()}-ivsk_m`);
+        if (!masterIncomingViewingSecretKeyBuffer) {
+          throw new Error(`Could not find master incoming viewing secret key for account ${accountAddress.toString()}`);
+        }
+        return Promise.resolve(GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer));
+      }
     }
-    return Promise.resolve(GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer));
+
+    throw new Error(
+      `Could not find master incoming viewing secret key for public key ${masterIncomingViewingPublicKey.toString()}`,
+    );
   }
 }
