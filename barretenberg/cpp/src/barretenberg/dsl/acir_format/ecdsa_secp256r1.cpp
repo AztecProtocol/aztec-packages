@@ -90,7 +90,7 @@ template <typename Builder> void dummy_ecdsa_constraint(Builder& builder, EcdsaS
 
     std::array<uint32_t, 32> pub_x_indices_;
     std::array<uint32_t, 32> pub_y_indices_;
-    std::array<uint32_t, 32> signature_;
+    std::array<uint32_t, 64> signature_;
     std::array<uint32_t, 32> message_indices_;
 
     // Create a valid signature with a valid public key
