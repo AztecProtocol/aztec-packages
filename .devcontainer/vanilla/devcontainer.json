@@ -1,0 +1,17 @@
+{
+  "name": "Vanilla JS/TS",
+  "image": "node:lts-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "onCreateCommand": "curl -s install.aztec.network | NON_INTERACTIVE=1 BIN_PATH=/usr/local/bin bash -s && echo 'y' | npx create-aztec-app -t app -n vanilla -s && cd vanilla && yarn",
+  "postAttachCommand": "(nohup /usr/local/bin/aztec sandbox &) && cd vanilla",
+  "customizations": {
+    "vscode": {
+      "settings": {},
+      "extensions": ["noir-lang.vscode-noir"]
+    }
+  },
+  "workspaceMount": "source=${localWorkspaceFolder}/.devcontainer/vanilla,target=/root/workspace,type=bind",
+  "workspaceFolder": "/root/workspace"
+}

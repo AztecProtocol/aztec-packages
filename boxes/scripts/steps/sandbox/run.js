@@ -2,7 +2,7 @@ import confirm from "@inquirer/confirm";
 import { execSync } from "child_process";
 import axios from "axios";
 
-export async function sandboxRun({ skipQuestion }) {
+export async function sandboxRun() {
   spinner.text = "Trying to reach the sandbox...";
 
   try {
@@ -24,18 +24,17 @@ export async function sandboxRun({ skipQuestion }) {
     process.exit(0);
   } catch (error) {
     spinner.fail();
-    if (!skipQuestion) {
-      const answer = await confirm({
-        message:
-          "Sandbox can't be reached on localhost:8080. Do you want to start it?",
-        default: true,
-      });
-      if (answer) process.exit(0);
-    }
-    info("Starting the sandbox... This might take a few minutes.");
-    info(`Go and explore the boilerplate code while you wait!`);
-    execSync(`$HOME/.aztec/bin/aztec sandbox`, {
-      stdio: "inherit",
+    const answer = await confirm({
+      message:
+        "Sandbox can't be reached on localhost:8080. Do you want to start it?",
+      default: true,
     });
+    if (answer) {
+      info("Starting the sandbox... This might take a few minutes.");
+      info(`Go and explore the boilerplate code while you wait!`);
+      execSync(`$HOME/.aztec/bin/aztec sandbox`, {
+        stdio: "inherit",
+      });
+    }
   }
 }

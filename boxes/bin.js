@@ -86,7 +86,7 @@ const init = async ({ debug, github_token, version }) => {
 program.option("-d, --debug", "output extra debugging");
 program.option("-gh, --github_token <github_token>", "a github token");
 program.option("-v, --version <version>", "a version number or master tag");
-program.option("-s, --sandbox", "install and run sandbox after cloning");
+program.option("-s, --skip-sandbox", "install and run sandbox after cloning");
 
 program.option(
   "-t, --project-type <projectType>",
@@ -107,11 +107,14 @@ if (optsKeys.length % 2) {
 }
 
 program.action(async (options) => {
-  const { projectType, projectName, sandbox } = options;
+  console.log(options)
+  const { projectType, projectName, skipSandbox } = options;
   // SETUP: Initialize global variables
   await init(options);
   // STEP 1: Choose the boilerplate
   await chooseProject({ projectType, projectName });
+
+  if (skipSandbox) return;
   // STEP 2: Install the Sandbox
   await sandboxInstallOrUpdate({ skipQuestion: sandbox });
   // STEP 3: Running the Sandbox
