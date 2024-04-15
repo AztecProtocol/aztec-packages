@@ -807,18 +807,6 @@ jobs:
             echo "Deploying docs"
             docs/deploy_netlify.sh $BRANCH $PULL_REQUEST
 
-  yellow-paper:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build yellow paper"
-          command: build yellow-paper
-          aztec_manifest_key: yellow-paper
-
   e2e-join:
     docker:
       - image: cimg/base:2023.09
@@ -869,6 +857,7 @@ jobs:
           command: |
             should_deploy || exit 0
             deploy_terraform_services iac/mainnet-fork mainnet-fork mainnet-fork aws_efs_file_system.aztec_mainnet_fork_data_store
+            ./iac/scripts/wait_for_fork
       - run:
           name: "Release canary to NPM: bb.js"
           command: |
@@ -1072,8 +1061,6 @@ workflows:
 
       - mainnet-fork: *defaults
 
-      - yellow-paper: *defaults
-
       - noir-projects:
           requires:
             - avm-transpiler
@@ -1177,7 +1164,6 @@ workflows:
             - guides-up-quick-start
             - boxes-vanilla
             - boxes-react
-            - yellow-paper
             - noir-packages-tests
             - yarn-project-test
             - prover-client-test
