@@ -759,35 +759,35 @@ jobs:
           aztec_manifest_key: end-to-end
     <<: *defaults_e2e_test
 
-  bench-publish-rollup:
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Benchmark"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-          aztec_manifest_key: end-to-end
-    <<: *defaults_e2e_test
+  # bench-publish-rollup:
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Benchmark"
+  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+  #         aztec_manifest_key: end-to-end
+  #   <<: *defaults_e2e_test
 
-  bench-process-history:
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Benchmark"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-          aztec_manifest_key: end-to-end
-    <<: *defaults_e2e_test
+  # bench-process-history:
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Benchmark"
+  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+  #         aztec_manifest_key: end-to-end
+  #   <<: *defaults_e2e_test
 
-  bench-tx-size:
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Benchmark"
-          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_tx_size_fees.test.ts ENABLE_GAS=1 DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-          aztec_manifest_key: end-to-end
-    <<: *defaults_e2e_test
+  # bench-tx-size:
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Benchmark"
+  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_tx_size_fees.test.ts ENABLE_GAS=1 DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+  #         aztec_manifest_key: end-to-end
+  #   <<: *defaults_e2e_test
 
   build-docs:
     machine:
@@ -807,18 +807,6 @@ jobs:
             echo "Deploying docs"
             docs/deploy_netlify.sh $BRANCH $PULL_REQUEST
 
-  yellow-paper:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build yellow paper"
-          command: build yellow-paper
-          aztec_manifest_key: yellow-paper
-
   e2e-join:
     docker:
       - image: cimg/base:2023.09
@@ -837,15 +825,15 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  bench-summary:
-    machine:
-      image: default
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Assemble benchmark summary from uploaded logs"
-          command: ./scripts/ci/assemble_e2e_benchmark.sh
+  # bench-summary:
+  #   machine:
+  #     image: default
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Assemble benchmark summary from uploaded logs"
+  #         command: ./scripts/ci/assemble_e2e_benchmark.sh
 
   # Deploy & release jobs.
   deploy-and-release:
@@ -869,6 +857,7 @@ jobs:
           command: |
             should_deploy || exit 0
             deploy_terraform_services iac/mainnet-fork mainnet-fork mainnet-fork aws_efs_file_system.aztec_mainnet_fork_data_store
+            ./iac/scripts/wait_for_fork
       - run:
           name: "Release canary to NPM: bb.js"
           command: |
@@ -1072,8 +1061,6 @@ workflows:
 
       - mainnet-fork: *defaults
 
-      - yellow-paper: *defaults
-
       - noir-projects:
           requires:
             - avm-transpiler
@@ -1177,22 +1164,21 @@ workflows:
             - guides-up-quick-start
             - boxes-vanilla
             - boxes-react
-            - yellow-paper
             - noir-packages-tests
             - yarn-project-test
             - prover-client-test
           <<: *defaults
 
       # Benchmark jobs.
-      - bench-publish-rollup: *e2e_test
-      - bench-process-history: *e2e_test
-      - bench-tx-size: *e2e_test
-      - bench-summary:
-          requires:
-            - bench-publish-rollup
-            - bench-process-history
-            - bench-tx-size
-          <<: *defaults
+      # - bench-publish-rollup: *e2e_test
+      # - bench-process-history: *e2e_test
+      # - bench-tx-size: *e2e_test
+      # - bench-summary:
+      #     requires:
+      #       - bench-publish-rollup
+      #       - bench-process-history
+      #       - bench-tx-size
+      #     <<: *defaults
 
       # Production releases.
       - deploy-and-release: *defaults_deploy
