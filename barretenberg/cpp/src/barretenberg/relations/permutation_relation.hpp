@@ -111,12 +111,11 @@ template <typename FF_> class UltraPermutationRelationImpl {
 
             // witness degree: deg 5 - deg 5 = deg 5
             // total degree: deg 9 - deg 10 = deg 10
-            Accumulator numerator = compute_grand_product_numerator<Accumulator>(in, params);
-            Accumulator denominator = compute_grand_product_denominator<Accumulator>(in, params);
-            Accumulator contribution = (((z_perm + lagrange_first) * numerator) -
-                                        ((z_perm_shift + lagrange_last * public_input_delta) * denominator));
-
-            std::get<0>(accumulators) += contribution * scaling_factor;
+            std::get<0>(accumulators) +=
+                (((z_perm + lagrange_first) * compute_grand_product_numerator<Accumulator>(in, params)) -
+                 ((z_perm_shift + lagrange_last * public_input_delta) *
+                  compute_grand_product_denominator<Accumulator>(in, params))) *
+                scaling_factor;
         }();
 
         // Contribution (2)
@@ -125,9 +124,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
             using View = typename Accumulator::View;
             auto z_perm_shift = View(in.z_perm_shift);
             auto lagrange_last = View(in.lagrange_last);
-
-            // Accumulator contribution = lagrange_last * z_perm_shift;
-            // info("contribution_2 = ", contribution);
 
             std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
         }();

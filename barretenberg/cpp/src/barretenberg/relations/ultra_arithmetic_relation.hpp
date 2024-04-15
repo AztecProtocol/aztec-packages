@@ -21,18 +21,6 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         return !(in.q_arith.value_at(0).is_zero() && in.q_arith.value_at(1).is_zero());
     }
 
-    /*
-    Each relation has a length log_n std::vector<std::pair> active_range of pairs {start, end} that describes the active
-    range for the relation. The is_active method takes a row index and a round index and checks if: row_idx >=
-    active_range[round_idx].start && row_idx < active_range[round_idx].end
-
-    This is actually a lot of duplication across all relations so we'd probably want the relation to own the ranges but
-    then just perform the check from SumcheckRound directly via a is_active(Relation) type method. The only semi icky
-    thing here is that we need to explicitly set the range for each relation in a function. Something like:
-
-    set_active_ranges
-    */
-
     /**
      * @brief Expression for the Ultra Arithmetic gate.
      * @details This relation encapsulates several idenitities, toggled by the value of q_arith in [0, 1, 2, 3, ...].
