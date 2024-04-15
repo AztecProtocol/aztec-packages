@@ -33,12 +33,13 @@ void create_ecdsa_r1_verify_constraints(Builder& builder,
     using secp256r1_ct = bb::stdlib::secp256r1<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
+    using byte_array_ct = bb::stdlib::byte_array<Builder>;
 
     if (has_valid_witness_assignments == false) {
         dummy_ecdsa_constraint(builder, input);
     }
 
-    auto new_sig = ecdsa_convert_signature(builder, input.signature);
+    byte_array_ct new_sig = ecdsa_convert_signature(builder, input.signature);
 
     auto message = ecdsa_array_of_bytes_to_byte_array(builder, input.hashed_message);
     auto pub_key_x_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, input.pub_x_indices);
