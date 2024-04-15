@@ -176,7 +176,7 @@ class ECCVMTranscriptBuilder {
             }
         }
 
-        FF::batch_invert(&inverse_trace[0], inverse_trace.size());
+        FF::batch_invert_parallel(&inverse_trace[0], inverse_trace.size());
         for (size_t i = 0; i < inverse_trace.size(); ++i) {
             transcript_state[i + 1].collision_check = inverse_trace[i];
         }
