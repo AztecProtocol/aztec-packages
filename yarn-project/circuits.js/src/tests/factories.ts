@@ -57,6 +57,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_DATA_HINTS,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
@@ -98,7 +99,9 @@ import {
   PublicCallRequest,
   PublicCallStackItem,
   PublicCircuitPublicInputs,
+  PublicDataHint,
   PublicDataRead,
+  PublicDataReadRequestHintsBuilder,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -805,6 +808,9 @@ export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernel
     makePublicKernelData(seed),
     NullifierReadRequestHintsBuilder.empty(),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
+    makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
+    PublicDataReadRequestHintsBuilder.empty(),
+    makePartialStateReference(seed + 0x200),
   );
 }
 

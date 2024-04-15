@@ -29,7 +29,7 @@ use dep::types::{
 },
     mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
     public_data_tree_leaf::PublicDataTreeLeaf,
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
     utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
 };
 
@@ -65,6 +65,8 @@ impl BaseRollupInputs {
             self.kernel_data.public_inputs.constants.tx_context.version
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
         );
+
+        self.validate_kernel_start_state();
 
         let rollup_validation_requests = self.kernel_data.public_inputs.rollup_validation_requests;
 
@@ -177,12 +179,22 @@ impl BaseRollupInputs {
         calculate_subtree_root(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
-    fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
-        let kernel_state = self.kernel_data.public_inputs.end_state;
-        if !kernel_state.public_data_tree.eq(AppendOnlyTreeSnapshot::zero()) {
-            assert(kernel_state.public_data_tree.eq(self.start.public_data_tree), "Mismatch start state");
+    fn validate_kernel_start_state(self) {
+        let kernel_state = self.kernel_data.public_inputs.start_state;
+        if !is_empty(kernel_state) {
+            assert(
+                kernel_state.note_hash_tree.eq(self.start.note_hash_tree), "Mismatch start state for note hash tree"
+            );
+            assert(
+                kernel_state.nullifier_tree.eq(self.start.nullifier_tree), "Mismatch start state for nullifier tree"
+            );
+            assert(
+                kernel_state.public_data_tree.eq(self.start.public_data_tree), "Mismatch start state for public data tree"
+            );
         }
+    }
 
+    fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
             self.kernel_data.public_inputs.end.public_data_update_requests.map(
