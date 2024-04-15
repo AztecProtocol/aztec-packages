@@ -38,8 +38,11 @@ template <typename FF_> class LookupRelationImpl {
      */
     template <typename AllEntities> inline static bool is_active(const AllEntities& in)
     {
-        (void)in;
-        return true;
+        bool is_lookup = !(in.q_lookup.value_at(0).is_zero() && in.q_lookup.value_at(1).is_zero());
+        bool is_data = !(in.sorted_accum.value_at(0) == in.sorted_accum_shift.value_at(0) &&
+                         in.sorted_accum.value_at(1) == in.sorted_accum_shift.value_at(1));
+        bool is_final_value = !(in.lagrange_last.value_at(0).is_zero() && in.lagrange_last.value_at(1).is_zero());
+        return is_lookup || is_data || is_final_value;
     }
 
     /**

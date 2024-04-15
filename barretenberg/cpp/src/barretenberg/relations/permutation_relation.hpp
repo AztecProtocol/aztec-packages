@@ -115,22 +115,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
             Accumulator denominator = compute_grand_product_denominator<Accumulator>(in, params);
             Accumulator contribution = (((z_perm + lagrange_first) * numerator) -
                                         ((z_perm_shift + lagrange_last * public_input_delta) * denominator));
-            info("");
-            // info("w_l = ", in.w_l);
-            // info("w_r = ", in.w_r);
-            // info("w_o = ", in.w_o);
-            // info("w_4 = ", in.w_4);
-            // info("sigma_1 = ", in.sigma_1);
-            // info("sigma_2 = ", in.sigma_2);
-            // info("sigma_3 = ", in.sigma_3);
-            // info("sigma_4 = ", in.sigma_4);
-            // info("id_1 = ", in.id_1);
-            // info("id_2 = ", in.id_2);
-            // info("id_3 = ", in.id_3);
-            // info("id_4 = ", in.id_4);
-            info("z_perm = ", z_perm);
-            info("z_perm_shift = ", z_perm_shift);
-            info("contribution = ", contribution);
+
             std::get<0>(accumulators) += contribution * scaling_factor;
         }();
 

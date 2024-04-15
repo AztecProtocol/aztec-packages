@@ -111,8 +111,8 @@ TEST_F(UltraHonkComposerTests, Toy)
 
     // auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(builder);
-    info("num_gates = ", builder.get_num_gates());
-    info("circuit_size = ", prover.instance->proving_key.circuit_size);
+    // info("num_gates = ", builder.get_num_gates());
+    // info("circuit_size = ", prover.instance->proving_key.circuit_size);
     // size_t idx = 0;
     // for (auto& coeff : prover.instance->proving_key.sigma_1) {
     //     info("idx = ", idx);
@@ -127,11 +127,16 @@ TEST_F(UltraHonkComposerTests, Toy)
     // }
 
     for (size_t idx = 0; idx < prover.instance->proving_key.circuit_size; ++idx) {
-        info("idx = ", idx);
-        info("val1 = ", prover.instance->proving_key.w_l[idx]);
-        info("val2 = ", prover.instance->proving_key.w_r[idx]);
-        info("val3 = ", prover.instance->proving_key.w_o[idx]);
-        info("val4 = ", prover.instance->proving_key.w_4[idx]);
+        // info("idx = ", idx);
+        // info("q_lookup = ", prover.instance->proving_key.q_lookup[idx]);
+        // info("table_1 = ", prover.instance->proving_key.table_1[idx]);
+        // info("table_2 = ", prover.instance->proving_key.table_2[idx]);
+        // info("table_3 = ", prover.instance->proving_key.table_3[idx]);
+        // info("table_4 = ", prover.instance->proving_key.table_4[idx]);
+        // info("val1 = ", prover.instance->proving_key.w_l[idx]);
+        // info("val2 = ", prover.instance->proving_key.w_r[idx]);
+        // info("val3 = ", prover.instance->proving_key.w_o[idx]);
+        // info("val4 = ", prover.instance->proving_key.w_4[idx]);
         // info("val1 = ", prover.instance->proving_key.sigma_1[idx]);
         // info("val1 = ", prover.instance->proving_key.id_1[idx]);
         // info("val2 = ", prover.instance->proving_key.sigma_2[idx]);
