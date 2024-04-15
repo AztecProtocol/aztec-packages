@@ -268,12 +268,6 @@ impl Instruction {
             | DecrementRc { .. }
             | RangeCheck { .. } => false,
 
-            // These can have different behavior depending on the EnableSideEffectsIf context.
-            // Enabling constant folding for these potentially enables replacing an enabled
-            // array get with one that was disabled. See
-            // https://github.com/noir-lang/noir/pull/4716#issuecomment-2047846328.
-            ArrayGet { .. } | ArraySet { .. } => false,
-
             Call { func, .. } => match dfg[*func] {
                 Value::Intrinsic(intrinsic) => !intrinsic.has_side_effects(),
                 _ => false,
