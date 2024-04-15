@@ -31,7 +31,7 @@ impl Hash for PublicCallStackItem {
 impl PublicCallStackItem {
     fn as_execution_request(self) -> Self {
         let public_inputs = self.public_inputs;
-        let mut request_public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+        let mut request_public_inputs = PublicCircuitPublicInputs::empty();
         request_public_inputs.call_context = public_inputs.call_context;
         request_public_inputs.args_hash = public_inputs.args_hash;
 
@@ -58,9 +58,9 @@ mod tests {
     #[test]
     fn compute_call_stack_item_request_hash() {
         let contract_address = AztecAddress::from_field(1);
-        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false, is_transpiled: false };
+        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false };
 
-        let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+        let mut public_inputs = PublicCircuitPublicInputs::empty();
         public_inputs.new_note_hashes[0] = SideEffect{
             value: 1,
             counter: 0,
@@ -69,16 +69,16 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: true, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item request hash" test
-        let test_data_call_stack_item_request_hash = 0x09bd19d3ebcda705ab1ed598db287340aed3efda0ad3bbbf3296737bda731fa9;
+        let test_data_call_stack_item_request_hash = 0x151bc9ee42eb63112fb2a350dcaa33c4c4b81cc37ded8773e785f47029f35983;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_request_hash);
     }
 
     #[test]
     fn compute_call_stack_item_hash() {
         let contract_address = AztecAddress::from_field(1);
-        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false, is_transpiled: false };
+        let function_data = FunctionData { selector: FunctionSelector::from_u32(2), is_private: false };
 
-        let mut public_inputs: PublicCircuitPublicInputs = dep::std::unsafe::zeroed();
+        let mut public_inputs = PublicCircuitPublicInputs::empty();
         public_inputs.new_note_hashes[0] = SideEffect{
             value: 1,
             counter: 0,
@@ -87,7 +87,7 @@ mod tests {
         let call_stack_item = PublicCallStackItem { contract_address, public_inputs, is_execution_request: false, function_data };
 
         // Value from public_call_stack_item.test.ts "Computes a callstack item hash" test
-        let test_data_call_stack_item_hash = 0x1fe20dd657d73941763bf8437471ac000be6efcb046895014b1a84b5aaf55905;
+        let test_data_call_stack_item_hash = 0x1a7b9d0cd965f512a3b3ed70333198a2a69bd4f9e70be68379c54e68a7b07a4c;
         assert_eq(call_stack_item.hash(), test_data_call_stack_item_hash);
     }
 }

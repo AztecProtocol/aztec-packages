@@ -1,4 +1,3 @@
-mod avm;
 mod context;
 mod deploy;
 mod hash;
@@ -11,4 +10,5 @@ mod note;
 mod oracle;
 mod state_vars;
 mod prelude;
+mod public_storage;
 use dep::protocol_types;

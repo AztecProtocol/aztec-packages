@@ -1,20 +1,20 @@
 import {
   EncryptedL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
-  FromLogType,
-  GetUnencryptedLogsResponse,
-  L2BlockL2Logs,
-  LogFilter,
+  type FromLogType,
+  type GetUnencryptedLogsResponse,
+  type L2BlockL2Logs,
+  type LogFilter,
   LogId,
   LogType,
   UnencryptedL2BlockL2Logs,
-  UnencryptedL2Log,
+  type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
-import { BlockStore } from './block_store.js';
+import { type BlockStore } from './block_store.js';
 
 /**
  * A store for logs
@@ -131,7 +131,7 @@ export class LogStore {
         const txLogs = unencryptedLogsInBlock.txLogs[txIndex].unrollLogs();
         maxLogsHit = this.#accumulateLogs(logs, blockNumber, txIndex, txLogs, filter);
         if (maxLogsHit) {
-          this.#log(`Max logs hit at block ${blockNumber}`);
+          this.#log.debug(`Max logs hit at block ${blockNumber}`);
           break loopOverBlocks;
         }
       }

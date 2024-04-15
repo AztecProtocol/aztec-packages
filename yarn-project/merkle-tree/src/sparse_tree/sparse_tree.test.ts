@@ -1,12 +1,13 @@
 import { SiblingPath } from '@aztec/circuit-types';
-import { randomBigInt, randomBytes } from '@aztec/foundation/crypto';
+import { randomBigInt } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecKVStore } from '@aztec/kv-store';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { Hasher } from '@aztec/types/interfaces';
+import { type Hasher } from '@aztec/types/interfaces';
 
 import { INITIAL_LEAF, newTree } from '../index.js';
-import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import { type UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { loadTree } from '../load_tree.js';
 import { Pedersen } from '../pedersen.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
@@ -71,11 +72,11 @@ describe('SparseTreeSpecific', () => {
     expect(tree.getNumLeaves(false)).toEqual(0n);
 
     // Insert a leaf
-    await tree.updateLeaf(randomBytes(32), randomIndex);
+    await tree.updateLeaf(Fr.random().toBuffer(), randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(1n);
 
     // Update a leaf
-    await tree.updateLeaf(randomBytes(32), randomIndex);
+    await tree.updateLeaf(Fr.random().toBuffer(), randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(1n);
   });
 
@@ -90,7 +91,7 @@ describe('SparseTreeSpecific', () => {
     expect(tree.getNumLeaves(false)).toEqual(0n);
 
     // Insert a leaf
-    await tree.updateLeaf(randomBytes(32), randomIndex);
+    await tree.updateLeaf(Fr.random().toBuffer(), randomIndex);
     expect(tree.getNumLeaves(true)).toEqual(1n);
 
     // Delete a leaf
@@ -110,7 +111,7 @@ describe('SparseTreeSpecific', () => {
 
     // Insert leaf at index 3
     let level1LeftHash: Buffer;
-    const leafAtIndex3 = randomBytes(32);
+    const leafAtIndex3 = Fr.random().toBuffer();
     {
       await tree.updateLeaf(leafAtIndex3, 3n);
       expect(tree.getNumLeaves(true)).toEqual(1n);
@@ -126,7 +127,7 @@ describe('SparseTreeSpecific', () => {
     // Insert leaf at index 6
     let level1RightHash: Buffer;
     {
-      const leafAtIndex6 = randomBytes(32);
+      const leafAtIndex6 = Fr.random().toBuffer();
       await tree.updateLeaf(leafAtIndex6, 6n);
       expect(tree.getNumLeaves(true)).toEqual(2n);
       const level2Hash = pedersen.hash(leafAtIndex6, INITIAL_LEAF);
@@ -139,7 +140,7 @@ describe('SparseTreeSpecific', () => {
     }
 
     // Insert leaf at index 2
-    const leafAtIndex2 = randomBytes(32);
+    const leafAtIndex2 = Fr.random().toBuffer();
     {
       await tree.updateLeaf(leafAtIndex2, 2n);
       expect(tree.getNumLeaves(true)).toEqual(3n);
@@ -154,7 +155,7 @@ describe('SparseTreeSpecific', () => {
 
     // Updating leaf at index 3
     {
-      const updatedLeafAtIndex3 = randomBytes(32);
+      const updatedLeafAtIndex3 = Fr.random().toBuffer();
       await tree.updateLeaf(updatedLeafAtIndex3, 3n);
       expect(tree.getNumLeaves(true)).toEqual(3n);
       const level2Hash = pedersen.hash(leafAtIndex2, updatedLeafAtIndex3);
@@ -175,12 +176,12 @@ describe('SparseTreeSpecific', () => {
     const db = openTmpStore();
     const tree = await createDb(db, pedersen, 'test', depth);
 
-    const leaves = Array.from({ length: 1000 }).map(() => randomBytes(32));
+    const leaves = Array.from({ length: 1000 }).map(() => Fr.random().toBuffer());
     const indices = Array.from({ length: 1000 }).map(() => randomBigInt(BigInt(maxIndex)));
 
     const start = Date.now();
     await Promise.all(leaves.map((leaf, i) => tree.updateLeaf(leaf, indices[i])));
     const end = Date.now();
-    log(`Inserting 1000 leaves at random positions for depth 254 took ${end - start}ms`);
+    log.info(`Inserting 1000 leaves at random positions for depth 254 took ${end - start}ms`);
   }, 300_000);
 });

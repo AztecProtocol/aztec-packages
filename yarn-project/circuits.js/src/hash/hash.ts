@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -61,7 +61,7 @@ export function hashVK(vkBuf: Buffer) {
  * @returns A commitment nonce.
  */
 export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
-  return pedersenHash([nullifierZero, numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.NOTE_HASH_NONCE);
+  return pedersenHash([nullifierZero, commitmentIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**

@@ -1,21 +1,22 @@
-import { KeyPair, KeyStore, PublicKey } from '@aztec/circuit-types';
+import { type KeyPair, type KeyStore, type PublicKey } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  GrumpkinPrivateKey,
+  type AztecAddress,
+  type GrumpkinPrivateKey,
   GrumpkinScalar,
   Point,
   computeNullifierSecretKey,
   computeSiloedNullifierSecretKey,
   derivePublicKey,
 } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { AztecKVStore, AztecMap } from '@aztec/kv-store';
+import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 import { ConstantKeyPair } from './key_pair.js';
 
 /**
  * TestKeyStore is an implementation of the KeyStore interface, used for managing key pairs in a testing environment.
  * It should be utilized in testing scenarios where secure key management is not required, and ease-of-use is prioritized.
+ * TODO(#5627): 💣💣💣
  */
 export class TestKeyStore implements KeyStore {
   #keys: AztecMap<string, Buffer>;

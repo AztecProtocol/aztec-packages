@@ -1,25 +1,19 @@
-#include "eccvm_circuit_builder.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/eccvm/eccvm_trace_checker.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
+using G1 = bb::g1;
+using Fr = typename G1::Fr;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
-
-template <typename Flavor> class ECCVMCircuitBuilderTests : public ::testing::Test {};
-
-using FlavorTypes = ::testing::Types<ECCVMFlavor>;
 } // namespace
 
-TYPED_TEST_SUITE(ECCVMCircuitBuilderTests, FlavorTypes);
-
-TYPED_TEST(ECCVMCircuitBuilderTests, BaseCase)
+TEST(ECCVMCircuitBuilderTests, BaseCase)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     auto generators = G1::derive_generators("test generators", 3);
     typename G1::element a = generators[0];
     typename G1::element b = generators[1];
@@ -35,24 +29,22 @@ TYPED_TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->mul_accumulate(b, y);
     op_queue->add_accumulate(a);
     op_queue->mul_accumulate(b, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->add_accumulate(c);
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
     op_queue->mul_accumulate(b, x);
     op_queue->mul_accumulate(c, x);
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, Add)
+TEST(ECCVMCircuitBuilderTests, Add)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -60,16 +52,13 @@ TYPED_TEST(ECCVMCircuitBuilderTests, Add)
 
     op_queue->add_accumulate(a);
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, Mul)
+TEST(ECCVMCircuitBuilderTests, Mul)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -78,16 +67,13 @@ TYPED_TEST(ECCVMCircuitBuilderTests, Mul)
 
     op_queue->mul_accumulate(a, x);
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, ShortMul)
+TEST(ECCVMCircuitBuilderTests, ShortMul)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -100,19 +86,15 @@ TYPED_TEST(ECCVMCircuitBuilderTests, ShortMul)
     Fr x = small_x;
 
     op_queue->mul_accumulate(a, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, EqFails)
+TEST(ECCVMCircuitBuilderTests, EqFails)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
-    using ECCVMOperation = eccvm::VMOperation<G1>;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -121,36 +103,26 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EqFails)
 
     op_queue->mul_accumulate(a, x);
     // Tamper with the eq op such that the expected value is incorect
-    op_queue->raw_ops.emplace_back(ECCVMOperation{ .add = false,
-                                                   .mul = false,
-                                                   .eq = true,
-                                                   .reset = true,
-                                                   .base_point = a,
-                                                   .z1 = 0,
-                                                   .z2 = 0,
-                                                   .mul_scalar_full = 0 });
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    op_queue->add_erroneous_equality_op_for_testing();
+
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, false);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, EmptyRow)
+TEST(ECCVMCircuitBuilderTests, EmptyRow)
 {
-    using Flavor = TypeParam;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
-    op_queue->empty_row();
+    op_queue->empty_row_for_testing();
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
+TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -158,19 +130,16 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
-    op_queue->empty_row();
-    op_queue->eq();
+    op_queue->empty_row_for_testing();
+    op_queue->eq_and_reset();
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, EndWithEq)
+TEST(ECCVMCircuitBuilderTests, EndWithEq)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -178,18 +147,15 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithEq)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, EndWithAdd)
+TEST(ECCVMCircuitBuilderTests, EndWithAdd)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -197,19 +163,16 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithAdd)
     Fr x = Fr::random_element(&engine);
 
     op_queue->mul_accumulate(a, x);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->add_accumulate(a);
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, EndWithMul)
+TEST(ECCVMCircuitBuilderTests, EndWithMul)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -217,19 +180,16 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithMul)
     Fr x = Fr::random_element(&engine);
 
     op_queue->add_accumulate(a);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
 
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, EndWithNoop)
+TEST(ECCVMCircuitBuilderTests, EndWithNoop)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
     std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
     auto generators = G1::derive_generators("test generators", 3);
@@ -237,21 +197,17 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithNoop)
     Fr x = Fr::random_element(&engine);
 
     op_queue->add_accumulate(a);
-    op_queue->eq();
+    op_queue->eq_and_reset();
     op_queue->mul_accumulate(a, x);
 
-    op_queue->empty_row();
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    op_queue->empty_row_for_testing();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }
 
-TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
+TEST(ECCVMCircuitBuilderTests, MSM)
 {
-    using Flavor = TypeParam;
-    using G1 = typename Flavor::CycleGroup;
-    using Fr = typename G1::Fr;
-
     static constexpr size_t max_num_msms = 9;
     auto generators = G1::derive_generators("test generators", max_num_msms);
 
@@ -265,17 +221,16 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
             expected += (points[i] * scalars[i]);
             op_queue->mul_accumulate(points[i], scalars[i]);
         }
-        op_queue->eq();
+        op_queue->eq_and_reset();
     };
 
     // single msms
     for (size_t j = 1; j < max_num_msms; ++j) {
-        using Flavor = TypeParam;
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
         compute_msms(j, op_queue);
-        ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-        bool result = circuit.check_circuit();
+        ECCVMCircuitBuilder circuit{ op_queue };
+        bool result = ECCVMTraceChecker::check(circuit);
         EXPECT_EQ(result, true);
     }
     // chain msms
@@ -284,7 +239,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
     for (size_t j = 1; j < 9; ++j) {
         compute_msms(j, op_queue);
     }
-    ECCVMCircuitBuilder<Flavor> circuit{ op_queue };
-    bool result = circuit.check_circuit();
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit);
     EXPECT_EQ(result, true);
 }

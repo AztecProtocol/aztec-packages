@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/circuits.js';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { addCodegenCommanderAction } from '@aztec/noir-compiler/cli';
 
@@ -475,7 +475,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     )
     .action(async (contractArtifactFile: string) => {
       const { inspectContract } = await import('./cmds/inspect_contract.js');
-      await inspectContract(contractArtifactFile, debugLogger, log);
+      await inspectContract(contractArtifactFile, log);
     });
 
   program

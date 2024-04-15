@@ -17,6 +17,7 @@ contract AppSubscription {
 
     use crate::subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN};
 
+    #[aztec(storage)]
     struct Storage {
         // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
         // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
@@ -42,13 +43,6 @@ contract AppSubscription {
 
         note.remaining_txs -= 1;
         storage.subscriptions.at(user_address).replace(&mut note, true);
-
-        context.call_public_function(
-            storage.gas_token_address.read_private(),
-            FunctionSelector::from_signature("check_balance(Field)"),
-            // max gas limit in Gas tokens
-            [42]
-        );
 
         context.call_public_function(
             storage.gas_token_address.read_private(),

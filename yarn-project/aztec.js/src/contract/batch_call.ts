@@ -1,7 +1,7 @@
-import { FunctionCall, TxExecutionRequest } from '@aztec/circuit-types';
+import { type FunctionCall, type TxExecutionRequest } from '@aztec/circuit-types';
 
-import { Wallet } from '../account/index.js';
-import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
+import { type Wallet } from '../account/index.js';
+import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
@@ -17,7 +17,10 @@ export class BatchCall extends BaseContractInteraction {
    */
   public async create(opts?: SendMethodOptions): Promise<TxExecutionRequest> {
     if (!this.txRequest) {
-      this.txRequest = await this.wallet.createTxExecutionRequest(this.calls, opts?.fee);
+      this.txRequest = await this.wallet.createTxExecutionRequest({
+        calls: this.calls,
+        fee: opts?.fee,
+      });
     }
     return this.txRequest;
   }

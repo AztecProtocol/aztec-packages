@@ -59,6 +59,7 @@ pub enum AvmOpcode {
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
     HEADERMEMBER,
+    GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
     // External calls
@@ -69,7 +70,7 @@ pub enum AvmOpcode {
     REVERT,
     // Gadgets
     KECCAK,
-    POSEIDON,
+    POSEIDON2,
     SHA256,   // temp - may be removed, but alot of contracts rely on it
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
 }
@@ -148,6 +149,7 @@ impl AvmOpcode {
             // Accrued Substate
             AvmOpcode::EMITUNENCRYPTEDLOG => "EMITUNENCRYPTEDLOG",
             AvmOpcode::SENDL2TOL1MSG => "SENDL2TOL1MSG",
+            AvmOpcode::GETCONTRACTINSTANCE => "GETCONTRACTINSTANCE",
 
             // Control Flow - Contract Calls
             AvmOpcode::CALL => "CALL",
@@ -158,7 +160,7 @@ impl AvmOpcode {
 
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
-            AvmOpcode::POSEIDON => "POSEIDON",
+            AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256 => "SHA256 ",
             AvmOpcode::PEDERSEN => "PEDERSEN",
         }

@@ -1,37 +1,68 @@
-
 VERSION 0.8
 
-# requires first saving the images locally with ../+build-end-to-end
+# requires first saving the images locally with ../+export-end-to-end
 
-# run lcoally, used for our mainly x86 jobs
-E2E_TEST_FROM_DOCKERHUB:
+# run locally and build
+E2E_TEST_LOCAL:
   FUNCTION
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG enable_gas=""
+  ARG debug="aztec:*"
   LOCALLY
   ENV ENABLE_GAS=$enable_gas
-  ENV TEST=$test.test.ts
-  # Locally, we do not use WITH DOCKER as we have had issues with earthly copying big images
-  RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
+  ENV TEST=$test
+  ENV DEBUG=$debug
+  WITH DOCKER \
+    --load aztecprotocol/aztec:latest=../+aztec \
+    --load aztecprotocol/end-to-end:latest=../+end-to-end \
+    --load aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest=../../foundry/+build
+    # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+    RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
+  END
 
-# run on satellite, used for our few ARM jobs (means github runner doesn't need to be ARM)
+# run locally and take from cache, used for our mainly x86 jobs
+E2E_TEST_FROM_CACHE:
+  FUNCTION
+  ARG test
+  ARG compose_file=./scripts/docker-compose.yml
+  ARG enable_gas=""
+  ARG debug="aztec:*"
+  ARG aztec_docker_tag
+  LOCALLY
+  ENV ENABLE_GAS=$enable_gas
+  ENV TEST=$test
+  ENV DEBUG=$debug
+  ENV AZTEC_DOCKER_TAG=$aztec_docker_tag
+  # need a different project name for each to run in parallel
+  LET project_name=$(echo $test | sed 's/\./_/g')
+  IF docker compose > /dev/null 2>&1
+    LET CMD="docker compose"
+  ELSE
+    LET CMD="docker-compose"
+  END
+  # In CI we do not use WITH DOCKER as we have had issues with earthly copying big images
+  RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
+
+# run on satellite and build, used for our few ARM jobs (means github runner doesn't need to be ARM)
 E2E_TEST_FROM_BUILD:
   FUNCTION
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG enable_gas=""
+  ARG debug="aztec:*"
   FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
   ENV ENABLE_GAS=$enable_gas
-  ENV TEST=$test.test.ts
+  ENV TEST=$test
+  ENV DEBUG=$debug
   COPY $compose_file $compose_file
-  # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_DOCKERHUB
+  # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_CACHE
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
-    --load aztecprotocol/end-to-end:latest=../+end-to-end-minimal \
-    --load ghcr.io/foundry-rs/foundry:nightly-de33b6af53005037b463318d2628b5cfcaf39916=../../foundry/+get
-      # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-      RUN docker compose -f $compose_file up --exit-code-from=sandbox --force-recreate
+    --load aztecprotocol/end-to-end:latest=../+end-to-end \
+    --load aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest=../../foundry/+build
+    # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
+    RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
 
 E2E_TEST:
@@ -39,122 +70,76 @@ E2E_TEST:
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG enable_gas=""
-  ARG e2e_build=false
+  ARG e2e_mode=local
+  ARG debug="aztec:*"
   LOCALLY
-  IF [ $e2e_build = true ]
-    DO +E2E_TEST_FROM_BUILD --test=$test --compose_file=$compose_file --enable_gas=$enable_gas
+  IF [ $e2e_mode = local ]
+    DO +E2E_TEST_LOCAL --test=$test --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
+  ELSE IF [ $e2e_mode = cache ]
+    DO +E2E_TEST_FROM_CACHE --test=$test --aztec_docker_tag=$(git rev-parse HEAD) --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
   ELSE
-    DO +E2E_TEST_FROM_DOCKERHUB --test=$test --compose_file=$compose_file --enable_gas=$enable_gas
+    DO +E2E_TEST_FROM_BUILD --test=$test --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
   END
 
-# we could use a parameterized target, but these just print cleaner in earthly log
-e2e-block-building:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_block_building --e2e_build=$e2e_build
+# Define e2e tests
+e2e-tests:
+  FROM ../+end-to-end
+  RUN yarn test ./src/e2e
 
-e2e-nested-contract:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_nested_contract --e2e_build=$e2e_build
-
-e2e-static-calls:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_static_calls --e2e_build=$e2e_build
-
-e2e-state-vars:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_state_vars --e2e_build=$e2e_build
-
-e2e-delegate-calls:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_delegate_calls --e2e_build=$e2e_build
-
-e2e-non-contract-account:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_non_contract_account --e2e_build=$e2e_build
-
-e2e-cross-chain-messaging:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_cross_chain_messaging --e2e_build=$e2e_build
-
-e2e-crowdfunding-and-claim:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_crowdfunding_and_claim --e2e_build=$e2e_build
-
-e2e-public-cross-chain-messaging:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_public_cross_chain_messaging --e2e_build=$e2e_build
-
-e2e-public-to-private-messaging:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_public_to_private_messaging --e2e_build=$e2e_build
-
-e2e-account-contracts:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_account_contracts --e2e_build=$e2e_build
-
-e2e-escrow-contract:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_escrow_contract --e2e_build=$e2e_build
-
-e2e-inclusion-proofs-contract:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_inclusion_proofs_contract --e2e_build=$e2e_build
-
-e2e-pending-note-hashes-contract:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_pending_note_hashes_contract --e2e_build=$e2e_build
-
-e2e-ordering:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_ordering --e2e_build=$e2e_build
+e2e-sandbox-example:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=e2e_sandbox_example.test.ts --e2e_mode=$e2e_mode
 
 uniswap-trade-on-l1-from-l2:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2 --e2e_build=$e2e_build
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2.test.ts --e2e_mode=$e2e_mode
 
 integration-l1-publisher:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=integration_l1_publisher --e2e_build=$e2e_build
-
-e2e-cli:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_cli --e2e_build=$e2e_build
-
-e2e-persistence:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_persistence --compose_file=./scripts/docker-compose-no-sandbox.yml --e2e_build=$e2e_build
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=integration_l1_publisher.test.ts --e2e_mode=$e2e_mode
 
 e2e-browser:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_aztec_js_browser --e2e_build=$e2e_build
-
-e2e-card-game:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_card_game --e2e_build=$e2e_build
-
-e2e-avm-simulator:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_avm_simulator --e2e_build=$e2e_build
-
-e2e-fees:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_fees --enable_gas=1 --e2e_build=$e2e_build
-
-e2e-dapp-subscription:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=e2e_dapp_subscription --enable_gas=1 --e2e_build=$e2e_build
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=e2e_aztec_js_browser.test.ts --e2e_mode=$e2e_mode
 
 pxe:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=pxe --e2e_build=$e2e_build
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=pxe.test.ts --e2e_mode=$e2e_mode
 
 cli-docs-sandbox:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=cli_docs_sandbox --e2e_build=$e2e_build
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=cli_docs_sandbox.test.ts --e2e_mode=$e2e_mode
 
 e2e-docs-examples:
-  ARG e2e_build=false
-  DO +E2E_TEST --test=docs_examples --e2e_build=$e2e_build
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=docs_examples.test.ts --e2e_mode=$e2e_mode
 
-# all:
-#   for stability, instead of an 'all' target in Earthly, use `make all`
+guides-writing-an-account-contract:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=guides/writing_an_account_contract.test.ts --e2e_mode=$e2e_mode
+
+guides-dapp-testing:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=guides/dapp_testing.test.ts --e2e_mode=$e2e_mode
+
+# TODO intermittent failure
+# guides-sample-dapp:
+#  ARG e2e_mode=local
+#  DO +E2E_TEST --test=sample-dapp --e2e_mode=$e2e_mode
+
+# TODO currently hangs for hour+
+# guides-up-quick-start:
+#   ARG e2e_mode=local
+#   DO +E2E_TEST --test=guides/up_quick_start.test.ts --e2e_mode=$e2e_mode
+
+bench-publish-rollup:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml
+
+bench-process-history:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml
+
+bench-tx-size:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml

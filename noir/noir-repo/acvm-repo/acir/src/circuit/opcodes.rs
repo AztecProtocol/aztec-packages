@@ -39,6 +39,8 @@ pub enum Opcode {
         inputs: Vec<Witness>,
         /// Outputs of the function call
         outputs: Vec<Witness>,
+        /// Predicate of the circuit execution - indicates if it should be skipped
+        predicate: Option<Expression>,
     },
 }
 
@@ -97,10 +99,13 @@ impl std::fmt::Display for Opcode {
                 write!(f, "INIT ")?;
                 write!(f, "(id: {}, len: {}) ", block_id.0, init.len())
             }
-            Opcode::Call { id, inputs, outputs } => {
+            Opcode::Call { id, inputs, outputs, predicate } => {
                 write!(f, "CALL func {}: ", id)?;
-                writeln!(f, "inputs: {:?}", inputs)?;
-                writeln!(f, "outputs: {:?}", outputs)
+                if let Some(pred) = predicate {
+                    writeln!(f, "PREDICATE = {pred}")?;
+                }
+                write!(f, "inputs: {:?}, ", inputs)?;
+                write!(f, "outputs: {:?}", outputs)
             }
         }
     }

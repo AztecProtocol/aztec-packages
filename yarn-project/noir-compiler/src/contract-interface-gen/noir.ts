@@ -1,11 +1,11 @@
 import {
-  ABIParameter,
-  ABIVariable,
-  ContractArtifact,
-  FunctionArtifact,
+  type ABIParameter,
+  type ABIVariable,
+  type ContractArtifact,
+  type FunctionArtifact,
   FunctionSelector,
   FunctionType,
-  StructType,
+  type StructType,
 } from '@aztec/foundation/abi';
 import { times } from '@aztec/foundation/collection';
 
@@ -27,10 +27,20 @@ function isPrivateCall(functionType: FunctionType) {
  * @param functionType - Type of the function.
  * @returns A code string.
  */
-function generateCallStatement(selector: FunctionSelector, functionType: FunctionType) {
+function generateCallStatement(
+  selector: FunctionSelector,
+  functionType: FunctionType,
+  callingContext: 'private' | 'public',
+) {
   const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
+  const args = [
+    'self.address',
+    `FunctionSelector::from_field(${selector.toString()})`,
+    'serialized_args',
+    ...(callingContext === 'private' ? [] : ['GasOpts::default()']),
+  ];
   return `
-    context.${callMethod}(self.address, FunctionSelector::from_field(0x${selector.toString()}), serialized_args)`;
+    context.${callMethod}(${args.join(', ')})`;
 }
 
 /**
@@ -142,15 +152,17 @@ function generateFunctionInterface(functionData: FunctionArtifact, kind: 'privat
   const { name, parameters } = functionData;
   const selector = FunctionSelector.fromNameAndParameters(name, parameters);
   const serialization = generateSerialization(parameters);
-  const contextType = kind === 'private' ? '&mut PrivateContext' : 'PublicContext';
-  const callStatement = generateCallStatement(selector, functionData.functionType);
+  const contextType = kind === 'private' ? '&mut PrivateContext' : '&mut PublicContext';
+  const callStatement = generateCallStatement(selector, functionData.functionType, kind);
   const allParams = ['self', `context: ${contextType}`, ...parameters.map(p => generateParameter(p, functionData))];
   const isPrivate = isPrivateCall(functionData.functionType);
   const isSync = (isPrivate && kind === 'private') || (!isPrivate && kind === 'public');
-  const retType = isSync ? `-> [Field; RETURN_VALUES_LENGTH] ` : ``;
+  // TODO: When return typing data is available in the artifact, we can instead codegen the concrete return type for public and private.
+  const generics = !isPrivate && isSync ? `<RETURN_LENGTH>` : ``;
+  const retType = isPrivate ? `-> PackedReturns` : isSync ? `-> FunctionReturns<RETURN_LENGTH> ` : ``;
 
   return `
-  pub fn ${name}(
+  pub fn ${name}${generics}(
     ${allParams.join(',\n    ')}
   ) ${retType}{
 ${serialization}
@@ -165,11 +177,10 @@ ${callStatement}
  */
 function generateStaticImports() {
   return `use dep::std;
-use dep::aztec::context::{ PrivateContext, PublicContext };
+use dep::aztec::context::{ PrivateContext, PublicContext, PackedReturns, FunctionReturns, gas::GasOpts };
 use dep::aztec::protocol_types::{
   address::AztecAddress,
   abis::function_selector::FunctionSelector,
-  constants::RETURN_VALUES_LENGTH,
 };`;
 }
 

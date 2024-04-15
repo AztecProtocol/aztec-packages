@@ -1,9 +1,9 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
-    combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
-    kernel_circuit_public_inputs::{PrivateKernelInnerCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
+    gas_settings::GasSettings, combined_constant_data::CombinedConstantData,
+    private_kernel::private_call_data::PrivateCallData,
+    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
@@ -22,6 +22,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         public_inputs.constants = CombinedConstantData {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
+            gas_settings: GasSettings::empty(), // TODO(palla/gas-in-circuits)
         };
         public_inputs.min_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.min_revertible_side_effect_counter;
     }
@@ -76,9 +77,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // https://github.com/AztecProtocol/aztec-packages/issues/660
     }
 
-    pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelInnerCircuitPublicInputs {
-        let mut public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
-        public_inputs.is_private = true;
+    pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         self.initialize_end_values(&mut public_inputs);
 
@@ -107,7 +107,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         public_inputs.aggregation_object = updated_aggregation_object;
 
-        public_inputs.to_inner()
+        public_inputs.finish()
     }
 }
 
@@ -115,7 +115,7 @@ mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -142,7 +142,7 @@ mod tests {
             PrivateKernelInitInputsBuilder { tx_request, private_call }
         }
 
-        pub fn execute(self) -> PrivateKernelInnerCircuitPublicInputs {
+        pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let kernel = PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call: self.private_call.finish() };
 
             kernel.native_private_kernel_circuit_initial()
@@ -181,15 +181,6 @@ mod tests {
 
         let expected_unencrypted_logs_hash = compute_logs_hash(0, unencrypted_logs_hash);
         assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_return_values() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        builder.private_call.public_inputs.return_values.extend_from_array([0, 9123]);
-
-        builder.failed();
     }
 
     #[test(should_fail_with = "invalid array")]
@@ -401,7 +392,7 @@ mod tests {
     #[test]
     fn propagate_max_block_number_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
-        builder.private_call.request_max_block_number(42);
+        builder.private_call.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);

@@ -1,16 +1,16 @@
 /* eslint-disable no-console */
-import * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
-import * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
-import * as AztecAccountsTesting from '@aztec/accounts/testing';
+import type * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
+import type * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
+import type * as AztecAccountsTesting from '@aztec/accounts/testing';
 import * as AztecJs from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { contractArtifactToBuffer } from '@aztec/types/abi';
 
-import { Server } from 'http';
+import { type Server } from 'http';
 import Koa from 'koa';
 import serve from 'koa-static';
 import path, { dirname } from 'path';
-import { Browser, Page, launch } from 'puppeteer';
+import { type Browser, type Page, launch } from 'puppeteer';
 
 declare global {
   /**
@@ -91,14 +91,14 @@ export const browserTestSuite = (
       });
       page = await browser.newPage();
       page.on('console', msg => {
-        pageLogger(msg.text());
+        pageLogger.info(msg.text());
       });
       page.on('pageerror', err => {
         pageLogger.error(err.toString());
       });
       await page.goto(`${webServerURL}/index.html`);
       while (!(await page.evaluate(() => !!window.AztecJs))) {
-        pageLogger('Waiting for window.AztecJs...');
+        pageLogger.verbose('Waiting for window.AztecJs...');
         await AztecJs.sleep(1000);
       }
     }, 120_000);
@@ -168,7 +168,7 @@ export const browserTestSuite = (
           const [wallet] = await getDeployedTestAccountsWallets(pxe);
           const owner = wallet.getCompleteAddress().address;
           const contract = await Contract.at(AztecAddress.fromString(contractAddress), TokenContractArtifact, wallet);
-          const balance = await contract.methods.balance_of_private(owner).view({ from: owner });
+          const balance = await contract.methods.balance_of_private(owner).simulate({ from: owner });
           return balance;
         },
         pxeURL,
@@ -199,7 +199,7 @@ export const browserTestSuite = (
             .send()
             .wait();
           console.log(`Transferred ${transferAmount} tokens to new Account`);
-          return await contract.methods.balance_of_private(receiverAddress).view({ from: receiverAddress });
+          return await contract.methods.balance_of_private(receiverAddress).simulate({ from: receiverAddress });
         },
         pxeURL,
         (await getTokenAddress()).toString(),

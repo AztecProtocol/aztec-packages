@@ -1,13 +1,13 @@
 import {
   AztecAddress,
-  ContractInstanceWithAddress,
+  type ContractInstanceWithAddress,
   EthAddress,
-  Fr,
-  Point,
+  type Fr,
+  type Point,
   getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { computeContractAddressFromInstance, computePublicKeysHash } from '@aztec/circuits.js/contract';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { getContractArtifact } from '../utils.js';
@@ -24,7 +24,7 @@ export async function addContract(
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
-  const artifact = await getContractArtifact(contractArtifactPath, log);
+  const artifact = await getContractArtifact(contractArtifactPath);
   const instance: ContractInstanceWithAddress = {
     version: 1,
     salt,

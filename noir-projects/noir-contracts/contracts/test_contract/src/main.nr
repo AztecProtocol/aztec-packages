@@ -7,7 +7,7 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}, hash::hash_args
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}
     };
     // docs:start:unencrypted_import
     use dep::aztec::prelude::emit_unencrypted_log;
@@ -15,7 +15,7 @@ contract Test {
 
     use dep::aztec::{
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
-        hash::{pedersen_hash, compute_secret_hash},
+        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
@@ -31,11 +31,12 @@ contract Test {
     use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::ValueNote;
 
-    #[event]
+    #[aztec(event)]
     struct ExampleEvent {
         value: Field,
     }
 
+    #[aztec(storage)]
     struct Storage {
         example_constant: PrivateImmutable<FieldNote>,
         example_set: PrivateSet<FieldNote>,
@@ -67,10 +68,8 @@ contract Test {
     }
 
     #[aztec(private)]
-    fn request_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
-        // docs:start:request-max-block-number
-        context.request_max_block_number(max_block_number);
-        // docs:end:request-max-block-number
+    fn set_tx_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
+        context.set_tx_max_block_number(max_block_number);
 
         if enqueue_public_call {
             let _ = context.call_public_function(
@@ -192,24 +191,26 @@ contract Test {
         a_struct: DummyNote,
         a_deep_struct: DeepStruct
     ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut args = BoundedVec::new();
-        args.push(a_field);
-        args.push(a_bool as Field);
-        args.push(a_number as Field);
-        args.extend_from_array(an_array);
-        args.push(a_struct.amount);
-        args.push(a_struct.secret_hash);
-        args.push(a_deep_struct.a_field);
-        args.push(a_deep_struct.a_bool as Field);
-        args.push(a_deep_struct.a_note.amount);
-        args.push(a_deep_struct.a_note.secret_hash);
+        let mut args = ArgsHasher::new();
+        args.add(a_field);
+        args.add(a_bool as Field);
+        args.add(a_number as Field);
+        args.add_multiple(an_array);
+        args.add(a_struct.amount);
+        args.add(a_struct.secret_hash);
+        args.add(a_deep_struct.a_field);
+        args.add(a_deep_struct.a_bool as Field);
+        args.add(a_deep_struct.a_note.amount);
+        args.add(a_deep_struct.a_note.secret_hash);
         for note in a_deep_struct.many_notes {
-            args.push(note.amount);
-            args.push(note.secret_hash);
+            args.add(note.amount);
+            args.add(note.secret_hash);
         }
-        let args_hash = hash_args(args);
+        let args_hash = args.hash();
         let mut context = PrivateContext::new(inputs, args_hash);
-        context.return_values.push(args_hash);
+        let mut returns = ArgsHasher::new();
+        returns.add(args_hash);
+        context.set_return_hash(returns);
         context.finish()
     }
 
@@ -339,7 +340,10 @@ contract Test {
         block_number: Field,
         timestamp: u64,
         coinbase: EthAddress,
-        fee_recipient: AztecAddress
+        fee_recipient: AztecAddress,
+        fee_per_da_gas: Field,
+        fee_per_l1_gas: Field,
+        fee_per_l2_gas: Field
     ) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");
@@ -347,6 +351,9 @@ contract Test {
         assert(context.timestamp() == timestamp, "Invalid timestamp");
         assert(context.coinbase() == coinbase, "Invalid coinbase");
         assert(context.fee_recipient() == fee_recipient, "Invalid fee recipient");
+        assert(context.fee_per_da_gas() == fee_per_da_gas, "Invalid fee per da gas");
+        assert(context.fee_per_l1_gas() == fee_per_l1_gas, "Invalid fee per l1 gas");
+        assert(context.fee_per_l2_gas() == fee_per_l2_gas, "Invalid fee per l2 gas");
     }
 
     #[aztec(private)]
@@ -369,7 +376,8 @@ contract Test {
     fn consume_note_from_secret(secret: Field) {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
-        let options = NoteGetterOptions::new().select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         notes_set.remove(note);

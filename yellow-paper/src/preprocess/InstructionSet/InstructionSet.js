@@ -912,11 +912,12 @@ context.worldStateAccessTrace.newNoteHashes.append(
         ],
         "Args": [
             {"name": "nullifierOffset", "description": "memory offset of the unsiloed nullifier"},
+            {"name": "addressOffset", "description": "memory offset of the storage address"},
             {"name": "existsOffset", "description": "memory offset specifying where to store operation's result (whether the nullifier exists)"},
         ],
         "Expression": `
-exists = context.worldState.nullifiers.has(
-    hash(context.environment.storageAddress, M[nullifierOffset])
+exists = pendingNullifiers.has(M[addressOffset], M[nullifierOffset]) || context.worldState.nullifiers.has(
+    hash(M[addressOffset], M[nullifierOffset])
 )
 M[existsOffset] = exists
 `,
@@ -926,6 +927,7 @@ context.worldStateAccessTrace.nullifierChecks.append(
     TracedNullifierCheck {
         callPointer: context.environment.callPointer,
         nullifier: M[nullifierOffset],
+        storageAddress: M[addressOffset],
         exists: exists, // defined above
         counter: ++context.worldStateAccessTrace.accessCounter,
     }
@@ -1037,6 +1039,34 @@ context.worldStateAccessTrace.archiveChecks.append(
 T[existsOffset] = u8
 T[dstOffset] = field
 `,
+    },
+    {
+        "id": "getcontractinstance",
+        "Name": "`GETCONTRACTINSTANCE`",
+        "Category": "Other",
+        "Flags": [
+            {"name": "indirect", "description": INDIRECT_FLAG_DESCRIPTION},
+        ],
+        "Args": [
+            {"name": "addressOffset", "description": "memory offset of the contract instance address"},
+            {"name": "dstOffset", "description": "location to write the contract instance information to"},
+        ],
+        "Expression": `
+M[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE+1] = [
+    instance_found_in_address,
+    instance.salt ?? 0,
+    instance.deployer ?? 0,
+    instance.contractClassId ?? 0,
+    instance.initializationHash ?? 0,
+    instance.portalContractAddress ?? 0,
+    instance.publicKeysHash ?? 0,
+]
+`,
+        "Summary": "Copies contract instance data to memory",
+        "Tag checks": "",
+        "Tag updates": "T[dstOffset:dstOffset+CONTRACT_INSTANCE_SIZE+1] = field",
+        "Additional AVM circuit checks": "TO-DO",
+        "Triggers downstream circuit operations": "TO-DO",
     },
     {
         "id": "emitunencryptedlog",

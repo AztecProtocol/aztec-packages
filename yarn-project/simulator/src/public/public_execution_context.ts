@@ -1,15 +1,22 @@
-import { NullifierMembershipWitness, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
-import { CallContext, FunctionData, FunctionSelector, GlobalVariables, Header } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { UnencryptedFunctionL2Logs, type UnencryptedL2Log } from '@aztec/circuit-types';
+import {
+  CallContext,
+  FunctionData,
+  type FunctionSelector,
+  GasSettings,
+  type GlobalVariables,
+  type Header,
+} from '@aztec/circuits.js';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractInstance } from '@aztec/types/contracts';
+import { type ContractInstance } from '@aztec/types/contracts';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
-import { PackedArgsCache, SideEffectCounter } from '../common/index.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
-import { PublicExecution, PublicExecutionResult, checkValidStaticCall } from './execution.js';
+import { type PackedValuesCache, type SideEffectCounter } from '../common/index.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
+import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { executePublicFunction } from './executor.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 
@@ -26,13 +33,13 @@ export class PublicExecutionContext extends TypedOracle {
      * Data for this execution.
      */
     public readonly execution: PublicExecution,
-    private readonly header: Header,
-    private readonly globalVariables: GlobalVariables,
-    private readonly packedArgsCache: PackedArgsCache,
+    public readonly header: Header,
+    public readonly globalVariables: GlobalVariables,
+    private readonly packedValuesCache: PackedValuesCache,
     private readonly sideEffectCounter: SideEffectCounter,
-    private readonly stateDb: PublicStateDB,
-    private readonly contractsDb: PublicContractsDB,
-    private readonly commitmentsDb: CommitmentsDB,
+    public readonly stateDb: PublicStateDB,
+    public readonly contractsDb: PublicContractsDB,
+    public readonly commitmentsDb: CommitmentsDB,
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -88,7 +95,23 @@ export class PublicExecutionContext extends TypedOracle {
    * @param args - Arguments to pack
    */
   public packArguments(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedArgsCache.pack(args));
+    return Promise.resolve(this.packedValuesCache.pack(args));
+  }
+
+  /**
+   * Pack the given returns.
+   * @param returns - Returns to pack
+   */
+  public packReturns(returns: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.packedValuesCache.pack(returns));
+  }
+
+  /**
+   * Unpack the given returns.
+   * @param returnsHash - Returns hash to unpack
+   */
+  public unpackReturns(returnsHash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
   }
 
   /**
@@ -110,7 +133,7 @@ export class PublicExecutionContext extends TypedOracle {
   public emitUnencryptedLog(log: UnencryptedL2Log) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
-    this.log(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
+    this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
   /**
@@ -134,7 +157,7 @@ export class PublicExecutionContext extends TypedOracle {
       const storageSlot = new Fr(startStorageSlot.value + BigInt(i));
       const sideEffectCounter = this.sideEffectCounter.count();
       const value = await this.storageActions.read(storageSlot, sideEffectCounter);
-      this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${value.toString()}`);
+      this.log.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value.toString()}`);
       values.push(value);
     }
     return values;
@@ -153,7 +176,7 @@ export class PublicExecutionContext extends TypedOracle {
       const sideEffectCounter = this.sideEffectCounter.count();
       this.storageActions.write(storageSlot, newValue, sideEffectCounter);
       await this.stateDb.storageWrite(this.execution.callContext.storageContractAddress, storageSlot, newValue);
-      this.log(`Oracle storage write: slot=${storageSlot.toString()} value=${newValue.toString()}`);
+      this.log.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${newValue.toString()}`);
       newValues.push(newValue);
     }
     return newValues;
@@ -176,18 +199,13 @@ export class PublicExecutionContext extends TypedOracle {
   ) {
     isStaticCall = isStaticCall || this.execution.callContext.isStaticCall;
 
-    const args = this.packedArgsCache.unpack(argsHash);
-    this.log(`Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`);
+    const args = this.packedValuesCache.unpack(argsHash);
+    this.log.verbose(
+      `Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`,
+    );
 
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
-
-    const acir = await this.contractsDb.getBytecode(targetContractAddress, functionSelector);
-    if (!acir) {
-      throw new Error(`Bytecode not found for ${targetContractAddress}:${functionSelector}`);
-    }
-
-    const functionData = new FunctionData(functionSelector, false);
-
+    const functionData = new FunctionData(functionSelector, /*isPrivate=*/ false);
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
@@ -196,6 +214,8 @@ export class PublicExecutionContext extends TypedOracle {
       isDelegateCall,
       isStaticCall,
       sideEffectCounter,
+      transactionFee: Fr.ZERO, // TODO(palla/gas-in-circuits)
+      gasSettings: GasSettings.empty(), // TODO(palla/gas-in-circuits)
     });
 
     const nestedExecution: PublicExecution = {
@@ -209,7 +229,7 @@ export class PublicExecutionContext extends TypedOracle {
       nestedExecution,
       this.header,
       this.globalVariables,
-      this.packedArgsCache,
+      this.packedValuesCache,
       this.sideEffectCounter,
       this.stateDb,
       this.contractsDb,
@@ -217,7 +237,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.log,
     );
 
-    const childExecutionResult = await executePublicFunction(context, acir, true /** nested */);
+    const childExecutionResult = await executePublicFunction(context, /*nested=*/ true);
 
     if (isStaticCall) {
       checkValidStaticCall(
@@ -230,19 +250,14 @@ export class PublicExecutionContext extends TypedOracle {
     }
 
     this.nestedExecutions.push(childExecutionResult);
-    this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
+    this.log.debug(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
 
     return childExecutionResult.returnValues;
   }
 
-  public async getNullifierMembershipWitness(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    if (!this.header.globalVariables.blockNumber.equals(new Fr(blockNumber))) {
-      throw new Error(`Public execution oracle can only access nullifier membership witnesses for the current block`);
-    }
-    return await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
+  public async checkNullifierExists(nullifier: Fr): Promise<boolean> {
+    const witness = await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
+    return !!witness;
   }
 
   public async getContractInstance(address: AztecAddress): Promise<ContractInstance> {

@@ -1,9 +1,10 @@
-import { AztecNode, L1ToL2Message, Note, PackedArguments, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecNode, type L1ToL2Message, Note, PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
   FunctionData,
+  GasSettings,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
@@ -21,7 +22,7 @@ import {
 import { computeCommitmentNonce, computeMessageSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
-  FunctionArtifact,
+  type FunctionArtifact,
   FunctionSelector,
   encodeArguments,
   getFunctionArtifact,
@@ -33,10 +34,10 @@ import { times } from '@aztec/foundation/collection';
 import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,
@@ -47,13 +48,13 @@ import {
 } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
-import { MockProxy, mock } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
+import { type KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { DBOracle } from './db_oracle.js';
+import { type DBOracle } from './db_oracle.js';
 import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -106,7 +107,7 @@ describe('Private Execution test suite', () => {
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
-    const packedArguments = PackedArguments.fromArgs(encodeArguments(artifact, args));
+    const packedArguments = PackedValues.fromValues(encodeArguments(artifact, args));
     const functionData = FunctionData.fromAbi(artifact);
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
@@ -431,7 +432,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(ChildContractArtifact, 'value');
       const result = await runSimulator({ args: [initialValue], artifact });
 
-      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(initialValue + privateIncrement));
+      expect(result.returnValues).toEqual([initialValue + privateIncrement]);
     });
 
     it('parent should call child', async () => {
@@ -444,17 +445,18 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(childArtifact));
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
-      logger(`Parent deployed at ${parentAddress.toShortString()}`);
-      logger(`Calling child function ${childSelector.toString()} at ${childAddress.toShortString()}`);
+      logger.info(`Parent deployed at ${parentAddress.toShortString()}`);
+      logger.info(`Calling child function ${childSelector.toString()} at ${childAddress.toShortString()}`);
 
       const args = [childAddress, childSelector];
       const result = await runSimulator({ args, artifact: parentArtifact });
 
-      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
+      expect(result.returnValues).toEqual([privateIncrement]);
+
       expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([childAddress, childSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
+      expect(result.nestedExecutions[0].returnValues).toEqual([privateIncrement]);
 
       // check that Aztec.nr calculated the call stack item hash like cpp does
       const expectedCallStackItemHash = result.nestedExecutions[0].callStackItem.hash();
@@ -480,10 +482,10 @@ describe('Private Execution test suite', () => {
     });
 
     it('test function should be directly callable', async () => {
-      logger(`Calling testCodeGen function`);
+      logger.info(`Calling testCodeGen function`);
       const result = await runSimulator({ args, artifact: testCodeGenArtifact });
 
-      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
+      expect(result.returnValues).toEqual([argsHash.toBigInt()]);
     });
 
     it('test function should be callable through autogenerated interface', async () => {
@@ -497,15 +499,15 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifact.mockResolvedValue(testCodeGenArtifact);
       oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
 
-      logger(`Calling importer main function`);
+      logger.info(`Calling importer main function`);
       const args = [testAddress];
       const result = await runSimulator({ args, artifact: parentArtifact });
 
-      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
+      expect(result.returnValues).toEqual([argsHash.toBigInt()]);
       expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([testAddress, testCodeGenSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([testAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
+      expect(result.nestedExecutions[0].returnValues).toEqual([argsHash.toBigInt()]);
     });
   });
 
@@ -793,6 +795,9 @@ describe('Private Execution test suite', () => {
       // Alter function data to match the manipulated oracle
       const functionData = FunctionData.fromAbi(childContractArtifact);
 
+      const transactionFee = new Fr(0);
+      const gasSettings = GasSettings.empty();
+
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
         functionData: functionData,
@@ -805,6 +810,8 @@ describe('Private Execution test suite', () => {
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,
+          transactionFee,
+          gasSettings,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
@@ -814,6 +821,8 @@ describe('Private Execution test suite', () => {
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,
+          transactionFee,
+          gasSettings,
         }),
       });
 
@@ -886,8 +895,7 @@ describe('Private Execution test suite', () => {
       const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.noteHashReadRequests)[0];
       expect(readRequest).toEqual(innerNoteHash);
 
-      const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
-      expect(gotNoteValue).toEqual(amountToTransfer);
+      expect(result.returnValues).toEqual([amountToTransfer]);
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
       const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
@@ -962,8 +970,7 @@ describe('Private Execution test suite', () => {
       const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];
       expect(readRequest.value).toEqual(innerNoteHash);
 
-      const gotNoteValue = execGetThenNullify.callStackItem.publicInputs.returnValues[0].value;
-      expect(gotNoteValue).toEqual(amountToTransfer);
+      expect(execGetThenNullify.returnValues).toEqual([amountToTransfer]);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
       const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
@@ -1011,7 +1018,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
+      expect(result.returnValues).toEqual([pubKey.x.toBigInt(), pubKey.y.toBigInt()]);
     });
   });
 
@@ -1040,7 +1047,7 @@ describe('Private Execution test suite', () => {
       // Overwrite the oracle return value
       oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
       const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual(portalContractAddress.toField().value);
+      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
     });
 
     it('this_address should return the current context address', async () => {
@@ -1052,7 +1059,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], contractAddress });
-      expect(result.returnValues).toEqual(contractAddress.toField().value);
+      expect(result.returnValues).toEqual([contractAddress.toField().toBigInt()]);
     });
 
     it("this_portal_address should return the current context's portal address", async () => {
@@ -1064,7 +1071,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], portalContractAddress });
-      expect(result.returnValues).toEqual(portalContractAddress.toField().value);
+      expect(result.returnValues).toEqual([portalContractAddress.toField().toBigInt()]);
     });
   });
 
