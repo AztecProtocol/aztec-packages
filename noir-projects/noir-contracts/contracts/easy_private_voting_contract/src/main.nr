@@ -27,8 +27,8 @@ contract EasyPrivateVoting {
     // docs:start:cast_vote
     #[aztec(private)] // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
-        let secret = context.request_nullifier_secret_key(context.msg_sender()); // get secret key of caller of function
-        let nullifier = dep::std::hash::pedersen_hash([context.msg_sender().to_field(), secret.low, secret.high]); // compute nullifier with this secret key so others can't descrypt it
+        let secret = context.request_app_nullifier_secret_key(context.msg_sender()); // get secret key of caller of function
+        let nullifier = dep::std::hash::pedersen_hash([context.msg_sender().to_field(), secret]); // compute nullifier with this secret key so others can't descrypt it
         context.push_new_nullifier(nullifier, 0); // push nullifier
         context.call_public_function(
             context.this_address(),

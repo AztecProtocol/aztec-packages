@@ -153,8 +153,8 @@ global HEADER_LENGTH: u64 = 23; // 2 for last_archive + 4 for content commitment
 global L1_TO_L2_MESSAGE_LENGTH: u64 = 6;
 global L2_TO_L1_MESSAGE_LENGTH: u64 = 2;
 global MAX_BLOCK_NUMBER_LENGTH: u64 = 2; // 1 for the option flag, 1 for the value
-global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
-global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
+global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 3;
+global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 4;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
 global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 221;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.

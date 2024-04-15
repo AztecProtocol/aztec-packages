@@ -136,7 +136,7 @@ export class HintsBuilder {
     return hints;
   }
 
-  async getMasterNullifierSecretKeys(
+  async getMasterNullifierSecretKey(
     nullifierKeyValidationRequests: Tuple<
       NullifierKeyValidationRequestContext,
       typeof MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
@@ -148,7 +148,7 @@ export class HintsBuilder {
       if (request.isEmpty()) {
         break;
       }
-      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
+      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey);
     }
     return keys;
   }

@@ -3,7 +3,7 @@ use dep::types::{
     abis::{side_effect::{SideEffect, SideEffectLinkedToNoteHash}, validation_requests::ValidationRequests},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GENERATOR_INDEX__NSK_M
 },
     grumpkin_private_key::GrumpkinPrivateKey, keys::compute_siloed_nullifier_secret_key,
     traits::is_empty
@@ -62,14 +62,20 @@ impl PrivateValidationRequestProcessor {
             let request = requests[i];
             if !is_empty(request) {
                 let master_secret_key = self.master_nullifier_secret_keys[i];
-                let computed_public_key = master_secret_key.derive_public_key();
+                // First we check that derived public key matches master nullifier public key
+                let derived_nullifier_public_key = master_secret_key.derive_public_key();
                 assert(
-                    computed_public_key.eq(request.public_key), "Cannot derive nullifier public key from the master key."
+                    derived_nullifier_public_key.eq(request.master_nullifier_public_key), "Cannot derive master nullifier public key from the secret key."
                 );
 
-                let computed_secret_key = compute_siloed_nullifier_secret_key(master_secret_key, request.contract_address);
+                // Then we check that siloing the master secret key with the contract address gives the app secret key
+
+                let app_nullifier_secret_key_preimage = [
+                    self.master_nullifier_secret_key.high, self.master_nullifier_secret_key.low, request.contract_address.to_field(), GENERATOR_INDEX__NSK_M
+                ];
+                let derived_app_nullifier_secret_key = dep::std::hash::poseidon2::Poseidon2::hash(app_nullifier_secret_key_preimage, app_nullifier_secret_key_preimage.len());
                 assert(
-                    computed_secret_key.eq(request.secret_key), "Cannot derive siloed secret key from the master key."
+                    derived_app_nullifier_secret_key.eq(request.app_nullifier_secret_key), "Cannot derive app nullifier secret key from the secret key."
                 );
             }
         }

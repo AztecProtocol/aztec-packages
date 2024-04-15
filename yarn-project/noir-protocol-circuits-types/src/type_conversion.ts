@@ -119,7 +119,6 @@ import {
   type GasFees as GasFeesNoir,
   type GasSettings as GasSettingsNoir,
   type GasUsed as GasUsedNoir,
-  type GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   type L2ToL1Message as L2ToL1MessageNoir,
   type MaxBlockNumber as MaxBlockNumberNoir,
   type AztecAddress as NoirAztecAddress,
@@ -149,6 +148,7 @@ import { type PrivateKernelInnerCircuitPrivateInputs as PrivateKernelInnerCircui
 import { type PrivateKernelTailToPublicCircuitPrivateInputs as PrivateKernelTailToPublicCircuitPrivateInputsNoir } from './types/private_kernel_tail_to_public_types.js';
 import {
   type CombinedAccumulatedData as CombinedAccumulatedDataNoir,
+  type GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   type NullifierReadRequestHints as NullifierReadRequestHintsNoir,
   type NullifierSettledReadHint as NullifierSettledReadHintNoir,
   type PendingReadHint as PendingReadHintNoir,
@@ -646,8 +646,8 @@ export function mapNullifierKeyValidationRequestToNoir(
   request: NullifierKeyValidationRequest,
 ): NullifierKeyValidationRequestNoir {
   return {
-    public_key: mapPointToNoir(request.publicKey),
-    secret_key: mapGrumpkinPrivateKeyToNoir(request.secretKey),
+    master_nullifier_public_key: mapPointToNoir(request.masterNullifierPublicKey),
+    app_nullifier_secret_key: mapFieldToNoir(request.appNullifierSecretKey),
   };
 }
 
@@ -660,8 +660,8 @@ export function mapNullifierKeyValidationRequestFromNoir(
   request: NullifierKeyValidationRequestNoir,
 ): NullifierKeyValidationRequest {
   return new NullifierKeyValidationRequest(
-    mapPointFromNoir(request.public_key),
-    mapGrumpkinPrivateKeyFromNoir(request.secret_key),
+    mapPointFromNoir(request.master_nullifier_public_key),
+    mapFieldFromNoir(request.app_nullifier_secret_key),
   );
 }
 
@@ -674,8 +674,8 @@ export function mapNullifierKeyValidationRequestContextToNoir(
   request: NullifierKeyValidationRequestContext,
 ): NullifierKeyValidationRequestContextNoir {
   return {
-    public_key: mapPointToNoir(request.publicKey),
-    secret_key: mapGrumpkinPrivateKeyToNoir(request.secretKey),
+    master_nullifier_public_key: mapPointToNoir(request.masterNullifierPublicKey),
+    app_nullifier_secret_key: mapFieldToNoir(request.appNullifierSecretKey),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
@@ -689,8 +689,8 @@ export function mapNullifierKeyValidationRequestContextFromNoir(
   request: NullifierKeyValidationRequestContextNoir,
 ): NullifierKeyValidationRequestContext {
   return new NullifierKeyValidationRequestContext(
-    mapPointFromNoir(request.public_key),
-    mapGrumpkinPrivateKeyFromNoir(request.secret_key),
+    mapPointFromNoir(request.master_nullifier_public_key),
+    mapFieldFromNoir(request.app_nullifier_secret_key),
     mapAztecAddressFromNoir(request.contract_address),
   );
 }
