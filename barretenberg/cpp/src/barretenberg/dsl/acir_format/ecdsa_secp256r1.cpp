@@ -39,9 +39,9 @@ void create_ecdsa_r1_verify_constraints(Builder& builder,
         dummy_ecdsa_constraint(builder, input);
     }
 
-    byte_array_ct new_sig = ecdsa_convert_signature(builder, input.signature);
+    auto new_sig = ecdsa_convert_signature(builder, input.signature);
 
-    auto message = ecdsa_array_of_bytes_to_byte_array(builder, input.hashed_message);
+    byte_array_ct message = ecdsa_array_of_bytes_to_byte_array(builder, input.hashed_message);
     auto pub_key_x_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, input.pub_x_indices);
     auto pub_key_y_byte_arr = ecdsa_array_of_bytes_to_byte_array(builder, input.pub_y_indices);
 
