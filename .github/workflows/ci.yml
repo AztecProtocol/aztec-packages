@@ -96,7 +96,8 @@ jobs:
       - name: "Native Prover Tests"
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 25
-        run: earthly --no-output +test
+        # limit our parallelism to half our cores
+        run: earthly --no-output +test --hardware_concurrency=64
 
   # push benchmarking binaries to dockerhub registry
   bb-bench-binaries:
