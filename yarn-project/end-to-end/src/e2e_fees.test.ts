@@ -112,7 +112,7 @@ describe('e2e_fees', () => {
   it('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
     const OutrageousPublicAmountAliceDoesNotHave = 10000n;
     const PublicMintedAlicePublicBananas = 1000n;
-    const FeeAmount = 10n;
+    const FeeAmount = 1n;
 
     const [initialAlicePrivateBananas, initialFPCPrivateBananas] = await bananaPrivateBalances(
       aliceAddress,
@@ -218,9 +218,11 @@ describe('e2e_fees', () => {
 
     beforeEach(async () => {
       FeeAmount = 1n;
-      RefundAmount = 2n;
-      MaxFee = FeeAmount + RefundAmount;
+      MaxFee = 30n;
+      RefundAmount = MaxFee - FeeAmount;
       RefundSecret = Fr.random();
+
+      expect(gasSettings.getFeeLimit().toBigInt()).toEqual(MaxFee);
 
       [
         [InitialAlicePrivateBananas, InitialBobPrivateBananas, InitialFPCPrivateBananas],

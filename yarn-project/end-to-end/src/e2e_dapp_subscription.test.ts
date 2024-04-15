@@ -52,8 +52,8 @@ describe('e2e_dapp_subscription', () => {
   const PUBLICLY_MINTED_BANANAS = 500n;
   const PRIVATELY_MINTED_BANANAS = 600n;
 
-  const FEE_AMOUNT = 10n;
-  const REFUND = 20n; // intentionally overpay the gas fee. This is the expected refund.
+  const FEE_AMOUNT = 1n;
+  const REFUND = 29n; // intentionally overpay the gas fee. This is the expected refund.
   const MAX_FEE = FEE_AMOUNT + REFUND;
 
   const GAS_SETTINGS = GasSettings.new(
