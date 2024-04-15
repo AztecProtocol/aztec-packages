@@ -1184,15 +1184,15 @@ workflows:
           <<: *defaults
 
       # Benchmark jobs.
-      - bench-publish-rollup: *e2e_test
-      - bench-process-history: *e2e_test
-      - bench-tx-size: *e2e_test
-      - bench-summary:
-          requires:
-            - bench-publish-rollup
-            - bench-process-history
-            - bench-tx-size
-          <<: *defaults
+      # - bench-publish-rollup: *e2e_test
+      # - bench-process-history: *e2e_test
+      # - bench-tx-size: *e2e_test
+      # - bench-summary:
+      #     requires:
+      #       - bench-publish-rollup
+      #       - bench-process-history
+      #       - bench-tx-size
+      #     <<: *defaults
 
       # Production releases.
       - deploy-and-release: *defaults_deploy
