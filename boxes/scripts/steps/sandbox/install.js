@@ -84,7 +84,7 @@ function findOutUserVersion() {
   return sandboxVersion;
 }
 
-export async function sandboxInstallOrUpdate() {
+export async function sandboxInstallOrUpdate({ skipQuestion }) {
   // Checking for docker
   try {
     execSync("docker info >/dev/null 2>&1");
@@ -98,6 +98,10 @@ export async function sandboxInstallOrUpdate() {
   // Let's get which version of the sandbox the user has installed
   const sandboxVersion = findOutUserVersion();
 
+  if (skipQuestion) {
+    await installSandbox();
+    return;
+  }
   // Base case is that the user doesn't have the sandbox installed
   if (sandboxVersion == null) {
     const answer = await confirm({

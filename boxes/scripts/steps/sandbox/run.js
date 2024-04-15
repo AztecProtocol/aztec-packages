@@ -2,7 +2,7 @@ import confirm from "@inquirer/confirm";
 import { execSync } from "child_process";
 import axios from "axios";
 
-export async function sandboxRun() {
+export async function sandboxRun({ skipQuestion }) {
   spinner.text = "Trying to reach the sandbox...";
 
   try {
@@ -36,5 +36,8 @@ export async function sandboxRun() {
         stdio: "inherit",
       });
     }
+    info("Starting the sandbox... This might take a few minutes.");
+    info(`Go and explore the boilerplate code while you wait!`);
+    execSync(`$HOME/.aztec/bin/aztec sandbox`, { stdio: "inherit" });
   }
 }
