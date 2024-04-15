@@ -31,6 +31,17 @@ template <typename FF_> class LookupRelationImpl {
         4, // grand product construction sub-relation
         0  // left-shiftable polynomial sub-relation
     };
+
+    /**
+     * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
+     *
+     */
+    template <typename AllEntities> inline static bool is_active(const AllEntities& in)
+    {
+        (void)in;
+        return true;
+    }
+
     /**
      * @brief Get the grand product polynomial object (either from the proving key or AllEntities depending on context)
      *

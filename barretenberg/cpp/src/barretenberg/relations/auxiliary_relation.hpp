@@ -50,6 +50,15 @@ template <typename FF_> class AuxiliaryRelationImpl {
     };
 
     /**
+     * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
+     *
+     */
+    template <typename AllEntities> inline static bool is_active(const AllEntities& in)
+    {
+        return !(in.q_aux.value_at(0).is_zero() && in.q_aux.value_at(1).is_zero());
+    }
+
+    /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The following explanation is reproduced from the Plonk analog 'plookup_auxiliary_widget':
      * Adds contributions for identities associated with several custom gates:

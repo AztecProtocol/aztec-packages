@@ -17,6 +17,20 @@ template <typename FF_> class UltraPermutationRelationImpl {
         0  // left-shiftable polynomial sub-relation
     };
 
+    /**
+     * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
+     *
+     */
+    template <typename AllEntities> inline static bool is_active([[maybe_unused]] const AllEntities& in)
+    {
+        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
+        // non-trivial copy constraints.
+        bool no_permutation = in.z_perm.value_at(0) == in.z_perm_shift.value_at(0) &&
+                              in.z_perm.value_at(1) == in.z_perm_shift.value_at(1);
+        bool not_final_value = in.lagrange_last.value_at(0).is_zero() && in.lagrange_last.value_at(1).is_zero();
+        return !(no_permutation && not_final_value);
+    }
+
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
@@ -114,8 +128,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
             // info("id_2 = ", in.id_2);
             // info("id_3 = ", in.id_3);
             // info("id_4 = ", in.id_4);
-            // info("numerator = ", numerator);
-            // info("denominator = ", denominator);
+            info("z_perm = ", z_perm);
+            info("z_perm_shift = ", z_perm_shift);
             info("contribution = ", contribution);
             std::get<0>(accumulators) += contribution * scaling_factor;
         }();
@@ -126,6 +140,9 @@ template <typename FF_> class UltraPermutationRelationImpl {
             using View = typename Accumulator::View;
             auto z_perm_shift = View(in.z_perm_shift);
             auto lagrange_last = View(in.lagrange_last);
+
+            // Accumulator contribution = lagrange_last * z_perm_shift;
+            // info("contribution_2 = ", contribution);
 
             std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
         }();

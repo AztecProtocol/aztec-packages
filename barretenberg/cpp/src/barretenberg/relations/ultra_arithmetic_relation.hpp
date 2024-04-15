@@ -12,6 +12,15 @@ template <typename FF_> class UltraArithmeticRelationImpl {
         5  // secondary arithmetic sub-relation
     };
 
+    /**
+     * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
+     *
+     */
+    template <typename AllEntities> inline static bool is_active(const AllEntities& in)
+    {
+        return !(in.q_arith.value_at(0).is_zero() && in.q_arith.value_at(1).is_zero());
+    }
+
     /*
     Each relation has a length log_n std::vector<std::pair> active_range of pairs {start, end} that describes the active
     range for the relation. The is_active method takes a row index and a round index and checks if: row_idx >=
