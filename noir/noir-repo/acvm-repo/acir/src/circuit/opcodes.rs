@@ -1,5 +1,5 @@
 use super::{
-    brillig::{Brillig, BrilligPointer},
+    brillig::{Brillig, BrilligInputs, BrilligOutputs},
     directives::Directive,
 };
 use crate::native_types::{Expression, Witness};
@@ -21,7 +21,6 @@ pub enum Opcode {
     BlackBoxFuncCall(BlackBoxFuncCall),
     Directive(Directive),
     Brillig(Brillig),
-    BrilligPointer(BrilligPointer),
     /// Atomic operation on a block of memory
     MemoryOp {
         block_id: BlockId,
@@ -32,6 +31,18 @@ pub enum Opcode {
     MemoryInit {
         block_id: BlockId,
         init: Vec<Witness>,
+    },
+    /// Calls to unconstrained functions
+    BrilligCall {
+        /// Id for the function being called. It is the responsibility of the executor
+        /// to fetch the appropriate Brillig bytecode from this id.
+        id: u32,
+        /// Inputs to the function call
+        inputs: Vec<BrilligInputs>,
+        /// Outputs to the function call
+        outputs: Vec<BrilligOutputs>,
+        /// Predicate of the Brillig execution - indicates if it should be skipped
+        predicate: Option<Expression>,
     },
     /// Calls to functions represented as a separate circuit. A call opcode allows us
     /// to build a call stack when executing the outer-most circuit.
@@ -83,11 +94,6 @@ impl std::fmt::Display for Opcode {
                 writeln!(f, "outputs: {:?}", brillig.outputs)?;
                 writeln!(f, "{:?}", brillig.bytecode)
             }
-            Opcode::BrilligPointer(brillig) => {
-                write!(f, "BRILLIG {:?}: ", brillig.bytecode_index)?;
-                writeln!(f, "inputs: {:?}", brillig.inputs)?;
-                writeln!(f, "outputs: {:?}", brillig.outputs)
-            }
             Opcode::MemoryOp { block_id, op, predicate } => {
                 write!(f, "MEM ")?;
                 if let Some(pred) = predicate {
@@ -107,6 +113,16 @@ impl std::fmt::Display for Opcode {
             Opcode::MemoryInit { block_id, init } => {
                 write!(f, "INIT ")?;
                 write!(f, "(id: {}, len: {}) ", block_id.0, init.len())
+            }
+            // We keep the display for a BrilligCall and circuit Call separate as they
+            // are distinct in their functionality and we should maintain this separation for debugging.
+            Opcode::BrilligCall { id, inputs, outputs, predicate } => {
+                write!(f, "BRILLIG CALL func {}: ", id)?;
+                if let Some(pred) = predicate {
+                    writeln!(f, "PREDICATE = {pred}")?;
+                }
+                write!(f, "inputs: {:?}, ", inputs)?;
+                write!(f, "outputs: {:?}", outputs)
             }
             Opcode::Call { id, inputs, outputs, predicate } => {
                 write!(f, "CALL func {}: ", id)?;

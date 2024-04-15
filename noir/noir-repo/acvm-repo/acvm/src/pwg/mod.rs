@@ -337,7 +337,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                 Ok(Some(foreign_call)) => return self.wait_for_foreign_call(foreign_call),
                 res => res.map(|_| ()),
             },
-            Opcode::BrilligPointer(_) => match self.solve_brillig_pointer_opcode() {
+            Opcode::BrilligCall { .. }=> match self.solve_brillig_call_opcode() {
                 Ok(Some(foreign_call)) => return self.wait_for_foreign_call(foreign_call),
                 res => res.map(|_| ()),
             },
@@ -428,16 +428,16 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         }
     }
 
-    fn solve_brillig_pointer_opcode(
+    fn solve_brillig_call_opcode(
         &mut self,
     ) -> Result<Option<ForeignCallWaitInfo>, OpcodeResolutionError> {
-        let Opcode::BrilligPointer(brillig_pointer) = &self.opcodes[self.instruction_pointer]
+        let Opcode::BrilligCall { id, inputs, outputs, predicate } = &self.opcodes[self.instruction_pointer]
         else {
             unreachable!("Not executing a Brillig opcode");
         };
 
         let witness = &mut self.witness_map;
-        if is_predicate_false(witness, &brillig_pointer.predicate)? {
+        if is_predicate_false(witness, &predicate)? {
             return BrilligSolver::<B>::zero_out_brillig_outputs(witness, &brillig_pointer.outputs)
                 .map(|_| None);
         }
@@ -446,11 +446,11 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         // there will be a cached `BrilligSolver` to avoid recomputation.
         let mut solver: BrilligSolver<'_, B> = match self.brillig_solver.take() {
             Some(solver) => solver,
-            None => BrilligSolver::new_with_pointer(
+            None => BrilligSolver::new_call(
                 witness,
                 &self.block_solvers,
-                brillig_pointer,
-                &self.unconstrained_functions[brillig_pointer.bytecode_index as usize].bytecode,
+                inputs,
+                &self.unconstrained_functions[*id as usize].bytecode,
                 self.backend,
                 self.instruction_pointer,
             )?,

@@ -85,10 +85,10 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
 
     /// Constructs a solver for a Brillig block given the bytecode and initial
     /// witness.
-    pub(crate) fn new_with_pointer(
+    pub(crate) fn new_call(
         initial_witness: &WitnessMap,
         memory: &HashMap<BlockId, MemoryOpSolver>,
-        brillig_pointer: &'b BrilligPointer,
+        inputs: &'b [BrilligInputs],
         brillig_bytecode: &'b [BrilligOpcode],
         bb_solver: &'b B,
         acir_index: usize,
