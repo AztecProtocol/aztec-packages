@@ -14,7 +14,7 @@ if [ -f /run/.ebs-cache-mounted ] ; then
   WAIT_INTERVAL=10  # Interval between checks in seconds
   elapsed_time=0
   # Check for existing mount, assume we can continue if existing
-  while ! mount | grep -q "/var/lib/docker/volumes type ext4"; do
+  while ! mount | grep -q "/var/lib/docker type ext4"; do
     echo "Someone already marked as mounting, waiting for them..."
     if [ $elapsed_time -ge $MAX_WAIT_TIME ]; then
       echo "Cache mount did not become available within $MAX_WAIT_TIME seconds... race condition?"
