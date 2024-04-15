@@ -24,7 +24,7 @@ export class Gas {
 
   /** Returns large enough gas amounts for testing purposes. */
   static test() {
-    return new Gas(1e12, 1e12, 1e12);
+    return new Gas(1e9, 1e9, 1e9);
   }
 
   isEmpty() {

@@ -22,11 +22,7 @@ impl GasSettings {
     }
 
     fn get_gas_limits(self) -> Gas {
-        Gas {
-            da_gas: self.da.gas_limit as Field,
-            l1_gas: self.l1.gas_limit as Field,
-            l2_gas: self.l2.gas_limit as Field
-        }
+        Gas { da_gas: self.da.gas_limit, l1_gas: self.l1.gas_limit, l2_gas: self.l2.gas_limit }
     }
 }
 

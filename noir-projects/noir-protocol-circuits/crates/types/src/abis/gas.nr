@@ -5,13 +5,13 @@ use crate::{
 };
 
 struct Gas {
-    da_gas: Field,
-    l1_gas: Field,
-    l2_gas: Field,
+    da_gas: u32,
+    l1_gas: u32,
+    l2_gas: u32,
 }
 
 impl Gas {
-    fn new(da_gas: Field, l1_gas: Field, l2_gas: Field) -> Self {
+    fn new(da_gas: u32, l1_gas: u32, l2_gas: u32) -> Self {
         Self { da_gas, l1_gas, l2_gas }
     }
 
@@ -34,13 +34,13 @@ impl Gas {
 
 impl Serialize<GAS_LENGTH> for Gas {
     fn serialize(self) -> [Field; GAS_LENGTH] {
-        [self.da_gas, self.l1_gas, self.l2_gas]
+        [self.da_gas as Field, self.l1_gas as Field, self.l2_gas as Field]
     }
 }
 
 impl Deserialize<GAS_LENGTH> for Gas {
     fn deserialize(serialized: [Field; GAS_LENGTH]) -> Gas {
-        Gas::new(serialized[0], serialized[1], serialized[2])
+        Gas::new(serialized[0] as u32, serialized[1] as u32, serialized[2] as u32)
     }
 }
 
