@@ -266,8 +266,7 @@ contract Lending {
     }
 
     unconstrained fn get_asset(asset_id: Field) -> pub Asset {
-        let res: Asset = storage.assets.at(asset_id).read();
-        res
+        storage.assets.at(asset_id).read()
     }
 
     unconstrained fn get_position(owner: AztecAddress) -> pub Position {

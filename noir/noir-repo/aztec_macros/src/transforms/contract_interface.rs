@@ -12,6 +12,32 @@ use crate::utils::{
     hir_utils::{collect_crate_structs, get_contract_module_data, signature_of_type},
 };
 
+// Generates the stubs for contract functions as low level calls using <visibility>CallInterface, turning
+//  #[aztec(public)] // also private
+//  fn a_function(first_arg: Field, second_arg: Struct, third_arg: [Field; 4]) -> Field {
+//      ...
+//  }
+//
+// into
+//
+// pub fn a_function(self, first_arg: Field, second_arg: Struct, third_arg: [Field; 4]) -> PublicCallInterface {
+//   let mut args_acc: [Field] = &[];
+//   args_acc = args_acc.append(first_arg.serialize().as_slice());
+//   args_acc = args_acc.append(second_arg.serialize().as_slice());
+//   let hash_third_arg = third_arg.map(|x: Field| x.serialize());
+//   for i in 0..third_arg.len() {
+//     args_acc = args_acc.append(third_arg[i].serialize().as_slice());
+//   }
+//   let args_hash = dep::aztec::hash::hash_args(args_acc);
+//   assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));
+//   PublicCallInterface {
+//     target_contract: self.target_contract,
+//     selector: FunctionSelector::from_signature("SELECTOR_PLACEHOLDER"),
+//     args_hash
+//   }
+// }
+//
+// The selector placeholder has to be replaced with the actual function signature after type checking in the next macro pass
 pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
     let fn_name = func.name().to_string();
     let fn_parameters = func
@@ -92,6 +118,9 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
     )
 }
 
+// Generates the contract interface as a struct with an `at` function that holds the stubbed functions and provides
+// them with a target contract address. The struct has the same name as the contract (which is technically a module)
+// so imports look nice. The `at` function is also exposed as a contract library method for external use.
 pub fn generate_contract_interface(
     module: &mut SortedModule,
     module_name: &str,
@@ -146,6 +175,10 @@ fn compute_fn_signature(fn_name: &str, parameters: &[Type]) -> String {
     )
 }
 
+// Updates the function signatures in the contract interface with the actual ones, replacing the placeholder.
+// This is done by locating the contract interface struct, its functions (stubs) and assuming the last statement of each
+// is the constructor for a <visibility>CallInterface. This constructor has a selector field that holds a
+// FunctionSelector::from_signature function that receives the signature as a string literal.
 pub fn update_fn_signatures_in_contract_interface(
     crate_id: &CrateId,
     context: &mut HirContext,
