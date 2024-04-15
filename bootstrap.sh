@@ -63,7 +63,6 @@ git submodule update --init --recursive
 PROJECTS=(
   barretenberg
   noir
-  foundry
   l1-contracts
   avm-transpiler
   noir-projects

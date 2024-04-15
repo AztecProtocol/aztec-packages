@@ -31,9 +31,6 @@ fi
 # Download ignition transcripts.
 (cd ./srs_db && ./download_ignition.sh 0)
 
-# Install wasi-sdk.
-./scripts/install-wasi-sdk.sh
-
 # Attempt to just pull artefacts from CI and exit on success.
 [ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 

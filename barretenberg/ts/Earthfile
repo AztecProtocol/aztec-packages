@@ -12,11 +12,9 @@ RUN yarn --immutable
 # other source files
 COPY --dir src *.json *.js *.cjs .
 
-# copy over wasm build from cpp folder
-COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
-COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
-COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
-COPY ../cpp/+preset-wasm/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+# copy over wasm builds from cpp folder
+COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm
+COPY ../cpp/+preset-wasm/bin/barretenberg.wasm /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm
 
 esm:
     RUN yarn build:esm
