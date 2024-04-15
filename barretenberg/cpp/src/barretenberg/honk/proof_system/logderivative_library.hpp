@@ -33,29 +33,42 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
     auto lookup_relation = Relation();
 
     auto& inverse_polynomial = lookup_relation.template get_inverse_polynomial(polynomials);
-    for (size_t i = 0; i < circuit_size; ++i) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
-        auto row = polynomials.get_row(i);
-        bool has_inverse = lookup_relation.operation_exists_at_row(row);
-        if (!has_inverse) {
-            continue;
-        }
-        FF denominator = 1;
-        bb::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
-            auto denominator_term =
-                lookup_relation.template compute_read_term<Accumulator, read_index>(row, relation_parameters);
-            denominator *= denominator_term;
-        });
-        bb::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
-            auto denominator_term =
-                lookup_relation.template compute_write_term<Accumulator, write_index>(row, relation_parameters);
-            denominator *= denominator_term;
-        });
-        inverse_polynomial[i] = denominator;
-    };
+
+    // Compute the mask for easy division modulo circuit size
+    size_t mask = (size_t(1) << numeric::get_msb(circuit_size)) - 1;
+    // Run for each index in parallel
+    run_loop_in_parallel(circuit_size, [&](size_t start, size_t end) {
+        for (size_t i = start; i < end; ++i) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
+            constexpr size_t randomising_prime =
+                2147483647; // This is used to randomly split the vector between threads
+
+            // This product creates a pseudorandom map, which allows us to break up sequential reads where 1 thread
+            // could be stuck with doing all the work, if the slow indices are all bunched together
+            auto actual_i = (i * randomising_prime) & mask;
+
+            auto row = polynomials.get_row(actual_i);
+            bool has_inverse = lookup_relation.operation_exists_at_row(row);
+            if (!has_inverse) {
+                continue;
+            }
+            FF denominator = 1;
+            bb::constexpr_for<0, READ_TERMS, 1>([&]<size_t read_index> {
+                auto denominator_term =
+                    lookup_relation.template compute_read_term<Accumulator, read_index>(row, relation_parameters);
+                denominator *= denominator_term;
+            });
+            bb::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t write_index> {
+                auto denominator_term =
+                    lookup_relation.template compute_write_term<Accumulator, write_index>(row, relation_parameters);
+                denominator *= denominator_term;
+            });
+            inverse_polynomial[actual_i] = denominator;
+        };
+    });
 
     // todo might be inverting zero in field bleh bleh
-    FF::batch_invert(inverse_polynomial);
+    FF::batch_invert_parallel(inverse_polynomial);
 }
 
 /**

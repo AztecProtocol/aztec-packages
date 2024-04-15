@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
+#include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -394,12 +395,83 @@ template <class T> constexpr field<T> field<T>::invert() const noexcept
     }
     return pow(modulus_minus_two);
 }
-
+template <class T> void field<T>::batch_invert_parallel(field* coeffs, const size_t n) noexcept
+{
+    batch_invert_parallel(std::span{ coeffs, n });
+}
 template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) noexcept
 {
     batch_invert(std::span{ coeffs, n });
 }
 
+/**
+ * @brief A method for inverting a bunch of coefficients using parallelisation
+ *
+ *@details We often used batch inversion while already in parallel threads, however sometimes when constructing
+ *witnesses, we operate in serialized mode. At that point it is better to use this function
+ *
+ * @tparam T
+ * @param coeffs
+ */
+template <class T> void field<T>::batch_invert_parallel(std::span<field> coeffs) noexcept
+{
+    const size_t n = coeffs.size();
+
+    auto temporaries_ptr = std::static_pointer_cast<field[]>(get_mem_slab(n * sizeof(field)));
+    auto skipped_ptr = std::static_pointer_cast<bool[]>(get_mem_slab(n));
+    auto num_cpus = get_num_cpus();
+    auto accumulators_ptr = std::static_pointer_cast<field[]>(get_mem_slab(num_cpus * sizeof(field)));
+    auto accumulator_inverses_ptr = std::static_pointer_cast<field[]>(get_mem_slab(num_cpus * sizeof(field)));
+    auto temporaries = temporaries_ptr.get();
+    auto* skipped = skipped_ptr.get();
+    auto* accumulators = accumulators_ptr.get();
+    auto* accumulator_inverses = accumulator_inverses_ptr.get();
+
+    // Preallocate thread accumulators
+    for (size_t i = 0; i < num_cpus; i++) {
+        accumulators[i] = one();
+    }
+    // Each thread has its own index and computes a separate product accumulator
+    run_loop_in_parallel_with_index(n, [&](size_t start, size_t end, size_t index) {
+        field accumulator = one();
+        for (size_t i = start; i < end; ++i) {
+            temporaries[i] = accumulator;
+            if (coeffs[i].is_zero()) {
+                skipped[i] = true;
+            } else {
+                skipped[i] = false;
+                accumulator *= coeffs[i];
+            }
+        }
+        accumulators[index] = accumulator;
+    });
+
+    auto accumulator = one();
+    // Accumulate thread accumulators into 1 accumulator
+    for (size_t i = 0; i < num_cpus; i++) {
+        accumulator_inverses[i] = accumulator;
+        accumulator *= accumulators[i];
+    }
+    accumulator = accumulator.invert();
+    // Deconstruct 1 inverse into separate thread accumulator inverses
+    for (size_t i = num_cpus - 1; i < num_cpus; i++) {
+        accumulator_inverses[i] *= accumulator;
+        accumulator *= accumulators[i];
+    }
+
+    // Recompute inverses from separate inverses of thread product accumulators
+    run_loop_in_parallel_with_index(n, [&](size_t start, size_t end, size_t index) {
+        auto local_accumulator = accumulator_inverses[index];
+        field T0;
+        for (size_t i = end - 1; i >= start && i < end; --i) {
+            if (!skipped[i]) {
+                T0 = local_accumulator * temporaries[i];
+                local_accumulator *= coeffs[i];
+                coeffs[i] = T0;
+            }
+        }
+    });
+}
 template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::batch_invert");

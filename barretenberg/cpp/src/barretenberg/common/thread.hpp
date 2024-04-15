@@ -28,6 +28,9 @@ void parallel_for(size_t num_iterations, const std::function<void(size_t)>& func
 void run_loop_in_parallel(size_t num_points,
                           const std::function<void(size_t, size_t)>& func,
                           size_t no_multhreading_if_less_or_equal = 0);
+void run_loop_in_parallel_with_index(size_t num_points,
+                                     const std::function<void(size_t, size_t, size_t)>& func,
+                                     size_t no_multhreading_if_less_or_equal = 0);
 
 template <typename FunctionType>
     requires(std::is_same_v<FunctionType, std::function<void(size_t, size_t)>> ||

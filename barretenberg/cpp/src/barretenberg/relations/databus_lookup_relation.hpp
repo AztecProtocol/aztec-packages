@@ -189,26 +189,41 @@ template <typename FF_> class DatabusLookupRelationImpl {
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
         bool is_read = false;
         bool nonzero_read_count = false;
-        for (size_t i = 0; i < circuit_size; ++i) {
-            // Determine if the present row contains a databus operation
-            auto& q_busread = polynomials.q_busread[i];
-            if constexpr (bus_idx == 0) { // calldata
-                is_read = q_busread == 1 && polynomials.q_l[i] == 1;
-                nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
+        // Compute the product of the read and write terms for each row
+
+        // Compute the mask for easy division modulo circuit size
+        size_t mask = (size_t(1) << numeric::get_msb(circuit_size)) - 1;
+
+        // Run for each index in parallel
+        run_loop_in_parallel(circuit_size, [&](size_t start, size_t end) {
+            for (size_t iterative_i = start; iterative_i < end; iterative_i++) {
+                constexpr size_t randomising_prime =
+                    2147483647; // This is used to randomly split the vector between threads
+
+                // This product creates a pseudorandom map, which allows us to break up sequential reads where 1 thread
+                // could be stuck with doing all the work, if the slow indices are all bunched together
+                auto i = (iterative_i * randomising_prime) & mask;
+
+                // Determine if the present row contains a databus operation
+                auto& q_busread = polynomials.q_busread[i];
+                if constexpr (bus_idx == 0) { // calldata
+                    is_read = q_busread == 1 && polynomials.q_l[i] == 1;
+                    nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
+                }
+                if constexpr (bus_idx == 1) { // return data
+                    is_read = q_busread == 1 && polynomials.q_r[i] == 1;
+                    nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
+                }
+                // We only compute the inverse if this row contains a read gate or data that has been read
+                if (is_read || nonzero_read_count) {
+                    auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
+                    inverse_polynomial[i] = compute_read_term<FF>(row, relation_parameters) *
+                                            compute_write_term<FF, bus_idx>(row, relation_parameters);
+                }
             }
-            if constexpr (bus_idx == 1) { // return data
-                is_read = q_busread == 1 && polynomials.q_r[i] == 1;
-                nonzero_read_count = polynomials.return_data_read_counts[i] > 0;
-            }
-            // We only compute the inverse if this row contains a read gate or data that has been read
-            if (is_read || nonzero_read_count) {
-                auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                inverse_polynomial[i] = compute_read_term<FF>(row, relation_parameters) *
-                                        compute_write_term<FF, bus_idx>(row, relation_parameters);
-            }
-        }
+        });
         // Compute inverse polynomial I in place by inverting the product at each row
-        FF::batch_invert(inverse_polynomial);
+        FF::batch_invert_parallel(inverse_polynomial);
     };
 
     /**

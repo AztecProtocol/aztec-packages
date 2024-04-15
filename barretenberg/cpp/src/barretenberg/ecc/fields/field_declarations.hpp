@@ -252,6 +252,8 @@ template <class Params_> struct alignas(32) field {
     constexpr field invert() const noexcept;
     static void batch_invert(std::span<field> coeffs) noexcept;
     static void batch_invert(field* coeffs, size_t n) noexcept;
+    static void batch_invert_parallel(field* coeffs, size_t n) noexcept;
+    static void batch_invert_parallel(std::span<field> coeffs) noexcept;
     /**
      * @brief Compute square root of the field element.
      *

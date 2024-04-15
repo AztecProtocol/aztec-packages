@@ -360,6 +360,31 @@ TEST(fr, BatchInvert)
     }
 }
 
+TEST(fr, BatchInvertParallel)
+{
+    size_t n = 10;
+    std::vector<fr> coeffs(n);
+    std::vector<fr> inverses(n);
+    fr one = fr::one();
+    for (size_t i = 0; i < n; ++i) {
+        coeffs[i] = fr::random_element();
+        fr::__copy(coeffs[i], inverses[i]);
+    }
+    fr::batch_invert_parallel(&inverses[0], n);
+
+    for (size_t i = 0; i < n; ++i) {
+        coeffs[i] *= inverses[i];
+        coeffs[i] -= one;
+    }
+
+    for (size_t i = 0; i < n; ++i) {
+        EXPECT_EQ(coeffs[i].data[0], 0UL);
+        EXPECT_EQ(coeffs[i].data[1], 0UL);
+        EXPECT_EQ(coeffs[i].data[2], 0UL);
+        EXPECT_EQ(coeffs[i].data[3], 0UL);
+    }
+}
+
 TEST(fr, MultiplicativeGenerator)
 {
     EXPECT_EQ(fr::multiplicative_generator(), fr(5));
