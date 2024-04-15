@@ -4,6 +4,7 @@ barretenberg_module(
     stdlib_sha256
     stdlib_keccak
     stdlib_poseidon2
+    stdlib_ecdsa
     crypto_merkle_tree
     stdlib_schnorr
 )
