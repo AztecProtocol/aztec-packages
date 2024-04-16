@@ -24,7 +24,7 @@ jobs:
       ebs_cache_size_gb: 256
       runner_concurrency: 50
       subaction: ${{ github.event.inputs.runner_action || 'start' }}
-      ec2_instance_type: m6a.48xlarge
+      ec2_instance_type: m6a.32xlarge
       ec2_ami_id: ami-04d8422a9ba4de80f
       ec2_instance_ttl: 40 # refreshed by jobs
     secrets: inherit
@@ -46,7 +46,6 @@ jobs:
         timeout-minutes: 40
         run: earthly ./yarn-project+export-end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
-      # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of end-to-end jobs
         id: e2e_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
