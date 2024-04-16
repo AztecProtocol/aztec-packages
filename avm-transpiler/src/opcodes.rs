@@ -101,7 +101,6 @@ impl AvmOpcode {
             // Execution Environment
             AvmOpcode::ADDRESS => "ADDRESS",
             AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
-            AvmOpcode::ORIGIN => "ORIGIN",
             AvmOpcode::SENDER => "SENDER",
             AvmOpcode::PORTAL => "PORTAL",
             AvmOpcode::FEEPERL1GAS => "FEEPERL1GAS",
