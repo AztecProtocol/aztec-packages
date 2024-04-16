@@ -243,13 +243,13 @@ template <typename Flavor> class SumcheckProverRound {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
         // Check if the relation is skippable to speed up accumulation
-        if constexpr (!isSkippable<Relation, decltype(extended_edges)>) {
+        if constexpr (!isSkippable<Relation, decltype(extended_edges), decltype(relation_parameters)>) {
             // If not, accumulate normally
             Relation::accumulate(
                 std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
         } else {
             // If so, only compute the contribution if the relation is active
-            if (Relation::is_active(extended_edges)) {
+            if (Relation::is_active(extended_edges, relation_parameters)) {
                 Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
                                      extended_edges,
                                      relation_parameters,

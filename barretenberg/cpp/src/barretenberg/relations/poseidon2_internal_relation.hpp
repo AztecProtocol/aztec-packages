@@ -19,7 +19,8 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
      * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
      *
      */
-    template <typename AllEntities> inline static bool is_active(const AllEntities& in)
+    template <typename AllEntities, typename Parameters>
+    inline static bool is_active(const AllEntities& in, [[maybe_unused]] const Parameters& params)
     {
         return !(in.q_poseidon2_internal.value_at(0).is_zero() && in.q_poseidon2_internal.value_at(1).is_zero());
     }

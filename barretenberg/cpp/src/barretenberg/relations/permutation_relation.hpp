@@ -21,14 +21,14 @@ template <typename FF_> class UltraPermutationRelationImpl {
      * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
      *
      */
-    template <typename AllEntities> inline static bool is_active([[maybe_unused]] const AllEntities& in)
+    template <typename AllEntities, typename Parameters>
+    inline static bool is_active(const AllEntities& in, [[maybe_unused]] const Parameters& params)
     {
         // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
         // non-trivial copy constraints.
-        bool no_permutation = in.z_perm.value_at(0) == in.z_perm_shift.value_at(0) &&
-                              in.z_perm.value_at(1) == in.z_perm_shift.value_at(1);
-        bool not_final_value = in.lagrange_last.value_at(0).is_zero() && in.lagrange_last.value_at(1).is_zero();
-        return !(no_permutation && not_final_value);
+        bool non_trivial_permutation = !(in.z_perm.value_at(0) == in.z_perm_shift.value_at(0) &&
+                                         in.z_perm.value_at(1) == in.z_perm_shift.value_at(1));
+        return non_trivial_permutation;
     }
 
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }

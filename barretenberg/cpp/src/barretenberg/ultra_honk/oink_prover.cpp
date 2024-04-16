@@ -135,6 +135,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
+    relation_parameters.gamma_by_one_plus_beta = gamma * (beta + 1);
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
         proving_key.compute_logderivative_inverse(relation_parameters);
@@ -158,6 +159,12 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 
     witness_commitments.z_perm = commitment_key->commit(proving_key.z_perm);
     witness_commitments.z_lookup = commitment_key->commit(proving_key.z_lookup);
+
+    for (size_t i = 0; i < proving_key.circuit_size; ++i) {
+        info("proving_key.z_lookup = ", proving_key.z_lookup[i]);
+        info("z_lookup*(1+beta)gamma = ",
+             proving_key.z_lookup[i] * (FF(1) + relation_parameters.beta) * relation_parameters.gamma);
+    }
 
     transcript->send_to_verifier(domain_separator + commitment_labels.z_perm, witness_commitments.z_perm);
     transcript->send_to_verifier(domain_separator + commitment_labels.z_lookup, witness_commitments.z_lookup);

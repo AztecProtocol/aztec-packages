@@ -119,10 +119,10 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_part
  * @tparam Relation The relation type
  * @tparam AllEntities The type containing UnivariateViews with witness and selector values
  */
-template <typename Relation, typename AllEntities>
-concept isSkippable = requires(const AllEntities& input) {
+template <typename Relation, typename AllEntities, typename Parameters>
+concept isSkippable = requires(const AllEntities& input, const Parameters& params) {
                           {
-                              Relation::is_active(input)
+                              Relation::is_active(input, params)
                               } -> std::same_as<bool>;
                       };
 

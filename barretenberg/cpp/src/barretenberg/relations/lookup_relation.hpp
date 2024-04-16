@@ -36,14 +36,15 @@ template <typename FF_> class LookupRelationImpl {
      * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
      *
      */
-    template <typename AllEntities> inline static bool is_active([[maybe_unused]] const AllEntities& in)
+    template <typename AllEntities, typename Parameters>
+    inline static bool is_active(const AllEntities& in, [[maybe_unused]] const Parameters& params)
     {
-        // bool is_lookup = !(in.q_lookup.value_at(0).is_zero() && in.q_lookup.value_at(1).is_zero());
-        // bool is_data = !(in.sorted_accum.value_at(0) == in.sorted_accum_shift.value_at(0) &&
-        //                  in.sorted_accum.value_at(1) == in.sorted_accum_shift.value_at(1));
-        // bool is_final_value = !(in.lagrange_last.value_at(0).is_zero() && in.lagrange_last.value_at(1).is_zero());
-        // return is_lookup || is_data || is_final_value;
-        return true;
+        // From the definition of the lookup grand product, if the inputs are trivial, Z_lookup is updated as
+        // Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the contribution of the given
+        // inputs will be the zero polynomial.
+        bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * params.gamma_by_one_plus_beta &&
+                           in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * params.gamma_by_one_plus_beta);
+        return is_active;
     }
 
     /**
@@ -129,7 +130,22 @@ template <typename FF_> class LookupRelationImpl {
         auto tmp = (q_lookup * wire_accum + gamma);                               // deg 3 or 4
         tmp *= (table_accum + table_accum_shift * beta + gamma_by_one_plus_beta); // 1 or 3
         tmp *= one_plus_beta;                                                     // deg 0 or 1
-        return tmp;                                                               // deg 4 or 8
+
+        if constexpr (std::is_same_v<Accumulator, bb::fr>) {
+            auto term_A = q_lookup * wire_accum + gamma;
+            auto term_B = table_accum + table_accum_shift * beta + gamma_by_one_plus_beta;
+            if (term_A == gamma) {
+                info("A is const!");
+            } else {
+                info("A nope!");
+            }
+            if (term_B == gamma_by_one_plus_beta) {
+                info("B is const!");
+            } else {
+                info("B nope!");
+            }
+        }
+        return tmp; // deg 4 or 8
     }
 
     /**
@@ -160,6 +176,15 @@ template <typename FF_> class LookupRelationImpl {
         auto s_accum_shift = View(in.sorted_accum_shift);
 
         auto tmp = (s_accum + s_accum_shift * beta + gamma_by_one_plus_beta); // 1 or 2
+
+        if constexpr (std::is_same_v<Accumulator, bb::fr>) {
+            auto term_C = tmp;
+            if (term_C == gamma_by_one_plus_beta) {
+                info("C is const!");
+            } else {
+                info("C nope!");
+            }
+        }
         return tmp;
     }
 
