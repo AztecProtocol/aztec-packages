@@ -78,7 +78,6 @@ export const GasCosts: Record<Opcode, Gas | typeof DynamicGasCost> = {
   // Execution environment
   [Opcode.ADDRESS]: TemporaryDefaultGasCost,
   [Opcode.STORAGEADDRESS]: TemporaryDefaultGasCost,
-  [Opcode.ORIGIN]: TemporaryDefaultGasCost,
   [Opcode.SENDER]: TemporaryDefaultGasCost,
   [Opcode.PORTAL]: TemporaryDefaultGasCost,
   [Opcode.FEEPERL1GAS]: TemporaryDefaultGasCost,
@@ -127,7 +126,7 @@ export const GasCosts: Record<Opcode, Gas | typeof DynamicGasCost> = {
   [Opcode.REVERT]: TemporaryDefaultGasCost,
   // Gadgets
   [Opcode.KECCAK]: TemporaryDefaultGasCost,
-  [Opcode.POSEIDON]: TemporaryDefaultGasCost,
+  [Opcode.POSEIDON2]: TemporaryDefaultGasCost,
   [Opcode.SHA256]: TemporaryDefaultGasCost, // temp - may be removed, but alot of contracts rely on i: TemporaryDefaultGasCost,
   [Opcode.PEDERSEN]: TemporaryDefaultGasCost, // temp - may be removed, but alot of contracts rely on i: TemporaryDefaultGasCost,t
 };

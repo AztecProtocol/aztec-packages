@@ -8,6 +8,7 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
+import { GasSettings } from '@aztec/circuits.js';
 import { FPCContract, GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
@@ -28,7 +29,7 @@ describe('benchmarks/tx_size_fees', () => {
 
   // setup the environment
   beforeAll(async () => {
-    const { wallets, aztecNode, deployL1ContractsValues } = await setup(3);
+    const { wallets, aztecNode, deployL1ContractsValues } = await setup(3, {}, {}, true);
 
     gasPortalAddress = deployL1ContractsValues.l1ContractAddresses.gasPortalAddress;
 
@@ -69,14 +70,7 @@ describe('benchmarks/tx_size_fees', () => {
     const paymentMethod = await createPaymentMethod();
     const tx = await token.methods
       .transfer(aliceWallet.getAddress(), bobAddress, 1n, 0)
-      .send({
-        fee: paymentMethod
-          ? {
-              maxFee: 3n,
-              paymentMethod,
-            }
-          : undefined,
-      })
+      .send({ fee: paymentMethod ? { gasSettings: GasSettings.empty(), paymentMethod } : undefined })
       .wait();
 
     expect(tx.status).toEqual(TxStatus.MINED);

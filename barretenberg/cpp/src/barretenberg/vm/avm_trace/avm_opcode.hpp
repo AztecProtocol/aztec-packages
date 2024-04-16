@@ -40,7 +40,6 @@ enum class OpCode : uint8_t {
     // Execution Environment
     ADDRESS,
     STORAGEADDRESS,
-    ORIGIN,
     SENDER,
     PORTAL,
     FEEPERL1GAS,
@@ -98,7 +97,10 @@ enum class OpCode : uint8_t {
 
     // Gadgets
     KECCAK,
-    POSEIDON,
+    POSEIDON2,
+
+    // Sentinel
+    LAST_OPCODE_SENTINEL,
 };
 
 class Bytecode {

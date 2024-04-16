@@ -118,7 +118,7 @@ global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE = 0xe7af8166354
 // CONTRACT INSTANCE CONSTANTS
 // sha224sum 'struct ContractInstanceDeployed'
 global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE = 0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
-global DEPLOYER_CONTRACT_ADDRESS = 0x1df42e0457430b8d294d920181cc72ae0e3c5f8afd8d62d461bd26773cfdf3c1;
+global DEPLOYER_CONTRACT_ADDRESS = 0x2d8e7aedc70b65d49e6aa0794d8d12721896c177e87126701f6e60d184358e74;
 
 // NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
 // Some are defined here because Noir doesn't yet support globals referencing other globals yet.
@@ -136,11 +136,11 @@ global VIEW_NOTE_ORACLE_RETURN_LENGTH: u64 = 212;
 
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 global AZTEC_ADDRESS_LENGTH = 1;
-global CALL_CONTEXT_LENGTH: u64 = 18; // 8 + GAS_SETTINGS_LENGTH
+global CALL_CONTEXT_LENGTH: u64 = 21; // 8 + GAS_SETTINGS_LENGTH + GAS_LENGTH
 global GAS_SETTINGS_LENGTH: u64 = 10; // 1 + 3 * DIMENSION_GAS_SETTINGS_LENGTH
 global DIMENSION_GAS_SETTINGS_LENGTH: u64 = 3;
 global GAS_FEES_LENGTH: u64 = 3;
-global GAS_USED_LENGTH: u64 = 3;
+global GAS_LENGTH: u64 = 3;
 global CONTENT_COMMITMENT_LENGTH: u64 = 4;
 global CONTRACT_INSTANCE_LENGTH: u64 = 6;
 global CONTRACT_STORAGE_READ_LENGTH: u64 = 2;
@@ -156,18 +156,18 @@ global MAX_BLOCK_NUMBER_LENGTH: u64 = 2; // 1 for the option flag, 1 for the val
 global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 4;
 global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 5;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 221;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 224;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 218;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 221;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 209;
+global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 215;
 global STATE_REFERENCE_LENGTH: u64 = 8; // 2 for snap + 8 for partial
 global TX_CONTEXT_DATA_LENGTH: u64 = 4;
-global TX_REQUEST_LENGTH: u64 = 8; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH
+global TX_REQUEST_LENGTH: u64 = 18; // 2 + TX_CONTEXT_DATA_LENGTH + FUNCTION_DATA_LENGTH + GAS_SETTINGS_LENGTH
 
-global ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH: Field = 22; // 2 + FUNCTION_DATA_LENGTH + CALL_CONTEXT_LENGTH
+global ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH: Field = 25; // 2 + FUNCTION_DATA_LENGTH + CALL_CONTEXT_LENGTH
 global GET_NOTES_ORACLE_RETURN_LENGTH: u64 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
 global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: Field = 2048;
@@ -193,8 +193,6 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
  * | MID       | 8 < n ≤ 16                    | 32 < hash_index ≤ 40 |
  * | HIGH      | 16 < n ≤ 48                   | 40 < hash_index ≤ 48 |
  * +-----------+-------------------------------+----------------------+
- *
- * Note: When modifying, modify `GeneratorIndexPacker` in packer.hpp accordingly.
  */
 // Indices with size ≤ 8
 global GENERATOR_INDEX__NOTE_HASH = 1;
@@ -238,3 +236,10 @@ global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS = 43;
 global GENERATOR_INDEX__FUNCTION_ARGS = 44;
 global GENERATOR_INDEX__AUTHWIT_INNER = 45;
 global GENERATOR_INDEX__AUTHWIT_OUTER = 46;
+// Key related generators follow
+global GENERATOR_INDEX__NSK_M = 47;
+global GENERATOR_INDEX__IVSK_M = 48;
+global GENERATOR_INDEX__OVSK_M = 49;
+global GENERATOR_INDEX__TSK_M = 50;
+global GENERATOR_INDEX__PUBLIC_KEYS_HASH = 51;
+global GENERATOR_INDEX__CONTRACT_ADDRESS_V1 = 52;
