@@ -94,10 +94,10 @@ More about versions [here](https://docs.aztec.network/developers/versions-updati
 Inside the Crowdfunding contract definition, use the dependency that defines the address type `AztecAddress`
 
 ```rust
-use dep::aztec::{protocol_types::{address::AztecAddress}};
+use dep::aztec::protocol_types::address::AztecAddress;
 ```
 
-The brackets are present since we'll be adding more dependencies of `aztec` and of the `protocol_types`.
+The `aztec::protocol_types` can be browsed [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
 
 #### Storage
 
@@ -110,6 +110,8 @@ There is an additional type, `ValueNote` that we will use later, so also include
 ```rust
 use dep::value_note::value_note::ValueNote;
 ```
+
+This dependency is from the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr)
 
 Now complete the initializer by setting the storage variables with the parameters:
 
@@ -138,20 +140,20 @@ Since donations are private, they will have the user's private context which has
 
 ```rust
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
-
-    //...
+  //...
 }
 ```
 
-From the private context we call `call_public_function` (more [here](https://docs.aztec.network/developers/contracts/references/aztec-nr/aztec/context/private_context#call_public_function)). Passing the address of the contract and the function signature (name and param types).
+From the private context we call `call_public_function` (defined in [private_context.nr](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/aztec/src/context) ~[here](https://docs.aztec.network/developers/contracts/references/aztec-nr/aztec/context/private_context#call_public_function)~). Passing the address of the contract and the function signature (name and param types).
 
-We've not yet added the FunctionSelector type, so do that now
+We've not yet added the `FunctionSelector` type, so do that now
 
 ```rust
 use dep::aztec::{protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector}};
 ```
 
-To see
+Like before, you can find the `FunctionSelector`, and other `aztec::protocol_types` [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
+
 
 #### Simplified interface for tokens
 
