@@ -3,7 +3,7 @@ VERSION 0.8
 deps:
     # Prefetch targets to not wait for +deps, and activate --cache-hint's (only done through BUILD).
     BUILD ../barretenberg/ts/+build
-    BUILD ../noir/+packages/packages
+    BUILD ../noir/+packages
     LOCALLY
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
