@@ -88,10 +88,10 @@ impl From<CompiledAcirContract> for TranspiledContract {
                 );
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
-                let brillig = extract_brillig_from_acir(&acir_program.functions[0].opcodes);
+                let brillig_bytecode = extract_brillig_from_acir_program(&acir_program);
 
                 // Transpile to AVM
-                let avm_bytecode = brillig_to_avm(brillig);
+                let avm_bytecode = brillig_to_avm(brillig_bytecode);
 
                 // Push modified function entry to ABI
                 functions.push(AvmOrAcirContractFunction::Avm(AvmContractFunction {
