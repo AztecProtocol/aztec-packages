@@ -1,5 +1,5 @@
-use acvm::acir::circuit::{OpcodeLocation, Program, ResolvedOpcodeLocation};
 use acvm::acir::circuit::brillig::BrilligBytecode;
+use acvm::acir::circuit::{OpcodeLocation, Program, ResolvedOpcodeLocation};
 use acvm::acir::native_types::WitnessStack;
 use acvm::brillig_vm::brillig::ForeignCallResult;
 use acvm::pwg::{ACVMStatus, ErrorLocation, OpcodeNotSolvable, OpcodeResolutionError, ACVM};
@@ -58,7 +58,12 @@ impl<'a, B: BlackBoxFunctionSolver, F: ForeignCallExecutor> ProgramExecutor<'a, 
     #[tracing::instrument(level = "trace", skip_all)]
     fn execute_circuit(&mut self, initial_witness: WitnessMap) -> Result<WitnessMap, NargoError> {
         let circuit = &self.functions[self.current_function_index];
-        let mut acvm = ACVM::new(self.blackbox_solver, &circuit.opcodes, initial_witness, self.unconstrained_functions);
+        let mut acvm = ACVM::new(
+            self.blackbox_solver,
+            &circuit.opcodes,
+            initial_witness,
+            self.unconstrained_functions,
+        );
 
         // This message should be resolved by a nargo foreign call only when we have an unsatisfied assertion.
         let mut assert_message: Option<String> = None;
@@ -198,8 +203,12 @@ pub fn execute_program<B: BlackBoxFunctionSolver, F: ForeignCallExecutor>(
     blackbox_solver: &B,
     foreign_call_executor: &mut F,
 ) -> Result<WitnessStack, NargoError> {
-    let mut executor =
-        ProgramExecutor::new(&program.functions, &program.unconstrained_functions, blackbox_solver, foreign_call_executor);
+    let mut executor = ProgramExecutor::new(
+        &program.functions,
+        &program.unconstrained_functions,
+        blackbox_solver,
+        foreign_call_executor,
+    );
     let main_witness = executor.execute_circuit(initial_witness)?;
     executor.witness_stack.push(0, main_witness);
 
