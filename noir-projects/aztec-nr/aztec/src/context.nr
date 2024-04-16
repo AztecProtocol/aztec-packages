@@ -9,7 +9,7 @@ mod gas;
 
 use interface::{
     ContextInterface, PrivateCallInterface, PublicCallInterface, PrivateVoidCallInterface,
-    PublicVoidCallInterface
+    PublicVoidCallInterface, AvmCallInterface, AvmVoidCallInterface
 };
 use private_context::PrivateContext;
 use private_context::PackedReturns;

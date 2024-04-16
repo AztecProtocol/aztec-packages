@@ -158,8 +158,7 @@ fn transform_module(
             } else {
                 "Public"
             };
-            stubs
-                .push(stub_function(if fn_type == "Private" { "Private" } else { "Public" }, func));
+            stubs.push(stub_function(fn_type, func));
 
             export_fn_abi(&mut module.types, func)?;
             transform_function(

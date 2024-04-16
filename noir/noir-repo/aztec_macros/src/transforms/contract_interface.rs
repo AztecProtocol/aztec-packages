@@ -57,65 +57,84 @@ pub fn stub_function(aztec_visibility: &str, func: &NoirFunction) -> String {
     let fn_selector = format!("dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature(\"{}\")", SELECTOR_PLACEHOLDER);
 
     let parameters = func.parameters();
-
-    let args_hash = if !parameters.is_empty() {
-        let call_args = func
-            .parameters()
-            .iter()
-            .map(|arg| {
-                let param_name = arg.pattern.name_ident().0.contents.clone();
-                match &arg.typ.typ {
-                    UnresolvedTypeData::Array(_, typ) => {
-                        format!(
-                            "let hash_{0} = {0}.map(|x: {1}| x.serialize());
-                        for i in 0..{0}.len() {{
-                            args_acc = args_acc.append(hash_{0}[i].as_slice());
-                        }}\n",
-                            param_name, typ.typ
-                        )
-                    }
-                    _ => {
-                        format!(
-                            "args_acc = args_acc.append({}.serialize().as_slice());\n",
-                            param_name
-                        )
-                    }
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("");
-        format!(
-            "let mut args_acc: [Field] = &[];
-            {}
-            let args_hash = dep::aztec::hash::hash_args(args_acc);
-            assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));",
-            call_args
-        )
-    } else {
-        "let args_hash = 0;".to_string()
-    };
     let is_void = if matches!(fn_return_type.typ, UnresolvedTypeData::Unit) { "Void" } else { "" };
-
-    let fn_body = format!(
-        "{}
-            dep::aztec::context::{}{}CallInterface {{
-                target_contract: self.target_contract,
-                selector: {},
-                args_hash,
-            }}",
-        args_hash, aztec_visibility, is_void, fn_selector,
-    );
     let return_type_hint = if is_void == "Void" {
         "".to_string()
     } else {
         format!("<{}>", fn_return_type.typ.to_string().replace("plain::", ""))
     };
-    format!(
-        "pub fn {}(self, {}) -> dep::aztec::context::{}{}CallInterface{} {{
+    let call_args = parameters
+        .iter()
+        .map(|arg| {
+            let param_name = arg.pattern.name_ident().0.contents.clone();
+            match &arg.typ.typ {
+                UnresolvedTypeData::Array(_, typ) => {
+                    format!(
+                        "let hash_{0} = {0}.map(|x: {1}| x.serialize());
+                for i in 0..{0}.len() {{
+                    args_acc = args_acc.append(hash_{0}[i].as_slice());
+                }}\n",
+                        param_name, typ.typ
+                    )
+                }
+                _ => {
+                    format!("args_acc = args_acc.append({}.serialize().as_slice());\n", param_name)
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    if aztec_visibility != "Avm" {
+        let args_hash = if !parameters.is_empty() {
+            format!(
+                "let mut args_acc: [Field] = &[];
                 {}
+                let args_hash = dep::aztec::hash::hash_args(args_acc);
+                assert(args_hash == dep::aztec::oracle::arguments::pack_arguments(args_acc));",
+                call_args
+            )
+        } else {
+            "let args_hash = 0;".to_string()
+        };
+
+        let fn_body = format!(
+            "{}
+                dep::aztec::context::{}{}CallInterface {{
+                    target_contract: self.target_contract,
+                    selector: {},
+                    args_hash,
+                }}",
+            args_hash, aztec_visibility, is_void, fn_selector,
+        );
+        format!(
+            "pub fn {}(self, {}) -> dep::aztec::context::{}{}CallInterface{} {{
+                    {}
+                }}",
+            fn_name, fn_parameters, aztec_visibility, is_void, return_type_hint, fn_body
+        )
+    } else {
+        let args = format!(
+            "let mut args_acc: [Field] = &[];
+            {}
+            ",
+            call_args
+        );
+        let fn_body = format!(
+            "{}
+            dep::aztec::context::Avm{}CallInterface {{
+                target_contract: self.target_contract,
+                selector: {},
+                args: args_acc,
             }}",
-        fn_name, fn_parameters, aztec_visibility, is_void, return_type_hint, fn_body
-    )
+            args, is_void, fn_selector,
+        );
+        format!(
+            "pub fn {}(self, {}) -> dep::aztec::context::Avm{}CallInterface{} {{
+                    {}
+            }}",
+            fn_name, fn_parameters, is_void, return_type_hint, fn_body
+        )
+    }
 }
 
 // Generates the contract interface as a struct with an `at` function that holds the stubbed functions and provides
