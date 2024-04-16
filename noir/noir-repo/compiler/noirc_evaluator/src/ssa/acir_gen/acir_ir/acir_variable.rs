@@ -1588,7 +1588,7 @@ impl AcirContext {
         // the entire program will be replaced with witness constraints to its outputs.
         if attempt_execution {
             if let Some(brillig_outputs) =
-                self.execute_brillig(&generated_brillig.byte_code, &b_inputs, &outputs)
+                self.execute_brillig(&generated_brillig.byte_code, &brillig_inputs, &outputs)
             {
                 return Ok(brillig_outputs);
             }
