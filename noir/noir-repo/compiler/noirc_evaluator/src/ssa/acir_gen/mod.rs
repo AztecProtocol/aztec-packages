@@ -49,16 +49,15 @@ struct SharedContext {
     generated_brillig: Vec<GeneratedBrillig>,
 
     /// Maps SSA function index -> Final generated Brillig artifact index.
-    /// Represents the index of a function from SSA to its final generated index.
     /// There can be Brillig functions specified in SSA which do not act as
     /// entry points in ACIR (e.g. only called by other Brillig functions)
     /// This mapping is necessary to use the correct function pointer for a Brillig call.
-    brillig_generated_func_pointers: BTreeMap<u32, u32>,
+    brillig_generated_func_pointers: BTreeMap<FunctionId, u32>,
 }
 
 impl SharedContext {
-    fn generated_brillig_pointer(&self, ssa_func_index: u32) -> Option<&u32> {
-        self.brillig_generated_func_pointers.get(&ssa_func_index)
+    fn generated_brillig_pointer(&self, func_id: &FunctionId) -> Option<&u32> {
+        self.brillig_generated_func_pointers.get(func_id)
     }
 
     fn generated_brillig(&self, func_pointer: usize) -> &GeneratedBrillig {
@@ -67,11 +66,11 @@ impl SharedContext {
 
     fn insert_generated_brillig(
         &mut self,
-        ssa_func_index: u32,
+        func_id: FunctionId,
         generated_pointer: u32,
         code: GeneratedBrillig,
     ) {
-        self.brillig_generated_func_pointers.insert(ssa_func_index, generated_pointer);
+        self.brillig_generated_func_pointers.insert(func_id, generated_pointer);
         self.generated_brillig.push(code);
     }
 
@@ -239,7 +238,7 @@ impl Ssa {
             }
         }
 
-        let brilligs = vecmap(shared_context.generated_brillig, |brillig| BrilligBytecode {
+        let brillig = vecmap(shared_context.generated_brillig, |brillig| BrilligBytecode {
             bytecode: brillig.byte_code,
         });
 
@@ -271,7 +270,7 @@ impl Ssa {
             }
             Distinctness::DuplicationAllowed => {}
         }
-        Ok((acirs, brilligs))
+        Ok((acirs, brillig))
     }
 }
 
@@ -630,7 +629,7 @@ impl<'a> Context<'a> {
                                         sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
                                     });
 
-                                let acir_function_id = ssa
+                                let acir_program_id = ssa
                                     .entry_point_to_generated_index
                                     .get(id)
                                     .expect("ICE: should have an associated final index");
@@ -663,15 +662,10 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
-                                let brillig_ssa_id = *ssa
-                                    .id_to_index
-                                    .get(id)
-                                    .expect("ICE: should have an associated final index");
-
                                 // Check whether we have already generated Brillig for this function
                                 // If we have, re-use the generated code to set-up the Brillig call.
                                 let output_values = if let Some(generated_pointer) =
-                                    self.shared_context.generated_brillig_pointer(brillig_ssa_id)
+                                    self.shared_context.generated_brillig_pointer(id)
                                 {
                                     let code = self
                                         .shared_context
@@ -700,7 +694,7 @@ impl<'a> Context<'a> {
                                         generated_pointer,
                                     )?;
                                     self.shared_context.insert_generated_brillig(
-                                        brillig_ssa_id,
+                                        *id,
                                         generated_pointer,
                                         code,
                                     );
