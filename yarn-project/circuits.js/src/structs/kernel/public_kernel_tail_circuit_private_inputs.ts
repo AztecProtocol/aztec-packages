@@ -1,12 +1,15 @@
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type MAX_PUBLIC_DATA_HINTS } from '../../constants.gen.js';
-import { type NullifierNonExistentReadRequestHints } from '../non_existent_read_request_hints.js';
-import { type PartialStateReference } from '../partial_state_reference.js';
-import { type PublicDataHint } from '../public_data_hint.js';
-import { type PublicDataReadRequestHints } from '../public_data_read_request_hints.js';
-import { type NullifierReadRequestHints } from '../read_request_hints.js';
-import { type PublicKernelData } from './public_kernel_data.js';
+import { MAX_PUBLIC_DATA_HINTS } from '../../constants.gen.js';
+import {
+  type NullifierNonExistentReadRequestHints,
+  nullifierNonExistentReadRequestHintsFromBuffer,
+} from '../non_existent_read_request_hints.js';
+import { PartialStateReference } from '../partial_state_reference.js';
+import { PublicDataHint } from '../public_data_hint.js';
+import { PublicDataReadRequestHints } from '../public_data_read_request_hints.js';
+import { type NullifierReadRequestHints, nullifierReadRequestHintsFromBuffer } from '../read_request_hints.js';
+import { PublicKernelData } from './public_kernel_data.js';
 
 export class PublicKernelTailCircuitPrivateInputs {
   constructor(
@@ -36,5 +39,21 @@ export class PublicKernelTailCircuitPrivateInputs {
       this.publicDataReadRequestHints,
       this.startState,
     );
+  }
+
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    return new PublicKernelTailCircuitPrivateInputs(
+      reader.readObject(PublicKernelData),
+      nullifierReadRequestHintsFromBuffer(reader),
+      nullifierNonExistentReadRequestHintsFromBuffer(reader),
+      reader.readArray(MAX_PUBLIC_DATA_HINTS, PublicDataHint),
+      reader.readObject(PublicDataReadRequestHints),
+      reader.readObject(PartialStateReference),
+    );
+  }
+
+  clone() {
+    return PublicKernelTailCircuitPrivateInputs.fromBuffer(this.toBuffer());
   }
 }
