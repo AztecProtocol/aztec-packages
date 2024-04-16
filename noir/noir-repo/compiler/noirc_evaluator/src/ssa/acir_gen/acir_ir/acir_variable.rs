@@ -1569,10 +1569,9 @@ impl AcirContext {
             match i {
                 AcirValue::Var(var, _) => Ok(BrilligInputs::Single(self.var_to_expression(var)?)),
                 AcirValue::Array(vars) => {
-                    let mut var_expressions: Vec<Expression> = Vec::new();
-                    for var in vars {
-                        self.brillig_array_input(&mut var_expressions, var)?;
-                    }
+                    let var_expressions = try_vecmap(vars, |var| {
+                        self.brillig_array_input(&mut var_expressions, var)
+                    })?;
                     Ok(BrilligInputs::Array(var_expressions))
                 }
                 AcirValue::DynamicArray(AcirDynamicArray { block_id, .. }) => {
