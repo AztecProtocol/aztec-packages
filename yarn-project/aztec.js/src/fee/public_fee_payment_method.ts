@@ -1,12 +1,12 @@
-import { FunctionCall } from '@aztec/circuit-types';
-import { FunctionData } from '@aztec/circuits.js';
+import { type FunctionCall } from '@aztec/circuit-types';
+import { FunctionData, type GasSettings } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
-import { AccountWallet } from '../wallet/account_wallet.js';
-import { FeePaymentMethod } from './fee_payment_method.js';
+import { type AccountWallet } from '../wallet/account_wallet.js';
+import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -16,16 +16,16 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
     /**
      * The asset used to pay the fee.
      */
-    private asset: AztecAddress,
+    protected asset: AztecAddress,
     /**
      * Address which will hold the fee payment.
      */
-    private paymentContract: AztecAddress,
+    protected paymentContract: AztecAddress,
 
     /**
      * An auth witness provider to authorize fee payments
      */
-    private wallet: AccountWallet,
+    protected wallet: AccountWallet,
   ) {}
 
   /**
@@ -46,31 +46,33 @@ export class PublicFeePaymentMethod implements FeePaymentMethod {
 
   /**
    * Creates a function call to pay the fee in the given asset.
-   * @param maxFee - The maximum fee to be paid in the given asset.
+   * @param gasSettings - The gas settings.
    * @returns The function call to pay the fee.
    */
-  getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
+  getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
-        false,
-        false,
-        false,
-      ),
-      to: this.asset,
-    });
+    const maxFee = gasSettings.getFeeLimit();
+    const messageHash = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)'),
+          false,
+        ),
+        to: this.asset,
+      },
+    );
 
     return Promise.resolve([
-      this.wallet.setPublicAuth(messageHash, true).request(),
+      this.wallet.setPublicAuthWit(messageHash, true).request(),
       {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
           FunctionSelector.fromSignature('fee_entrypoint_public(Field,(Field),Field)'),
-          false,
           true,
-          false,
         ),
         args: [maxFee, this.asset, nonce],
       },

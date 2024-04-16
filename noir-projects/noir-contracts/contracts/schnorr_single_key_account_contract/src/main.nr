@@ -7,12 +7,8 @@ contract SchnorrSingleKeyAccount {
     use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
 
     use crate::{util::recover_address, auth_oracle::get_auth_witness};
-    use dep::aztec::oracle::debug_log::debug_log_format;
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
-
-    #[aztec(private)]
-    fn constructor() {}
 
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]

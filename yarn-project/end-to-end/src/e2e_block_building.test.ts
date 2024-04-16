@@ -1,20 +1,21 @@
 import {
-  AztecNode,
+  type AztecAddress,
+  type AztecNode,
   BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
-  DebugLogger,
+  type DebugLogger,
   Fr,
-  PXE,
-  SentTx,
-  TxReceipt,
+  type PXE,
+  type SentTx,
+  type TxReceipt,
   TxStatus,
-  Wallet,
-  isContractDeployed,
+  type Wallet,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { setup } from './fixtures/utils.js';
@@ -28,7 +29,7 @@ describe('e2e_block_building', () => {
   let teardown: () => Promise<void>;
 
   describe('multi-txs block', () => {
-    const artifact = TestContractArtifact;
+    const artifact = StatefulTestContractArtifact;
 
     beforeAll(async () => {
       ({
@@ -49,30 +50,30 @@ describe('e2e_block_building', () => {
       const TX_COUNT = 8;
       await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
-      const methods = times(TX_COUNT, () => deployer.deploy());
+      const methods = times(TX_COUNT, i => deployer.deploy(owner.getCompleteAddress().address, i));
       for (let i = 0; i < TX_COUNT; i++) {
         await methods[i].create({
           contractAddressSalt: new Fr(BigInt(i + 1)),
           skipClassRegistration: true,
           skipPublicDeployment: true,
         });
-        await methods[i].simulate({});
+        await methods[i].prove({});
       }
 
       // Send them simultaneously to be picked up by the sequencer
       const txs = await Promise.all(methods.map(method => method.send()));
-      logger(`Txs sent with hashes: `);
+      logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
-        logger(` ${await tx.getTxHash()}`);
+        logger.info(` ${await tx.getTxHash()}`);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
       const receipts = await Promise.all(txs.map(tx => tx.wait()));
-      expect(receipts.map(r => r.status)).toEqual(times(TX_COUNT, () => TxStatus.MINED));
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got deployed
-      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(pxe, r.contract.address)));
+      const isContractDeployed = async (address: AztecAddress) => !!(await pxe.getContractInstance(address));
+      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     }, 60_000);
 
@@ -94,8 +95,8 @@ describe('e2e_block_building', () => {
         [minter.getCompleteAddress(), true],
       );
 
-      await deployer.simulate({});
-      await callInteraction.simulate({
+      await deployer.prove({});
+      await callInteraction.prove({
         // we have to skip simulation of public calls simulation is done on individual transactions
         // and the tx deploying the contract might go in the same block as this one
         skipPublicSimulation: true,
@@ -110,61 +111,78 @@ describe('e2e_block_building', () => {
     }, 60_000);
   });
 
-  // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502
-  describe('double-spends on the same block', () => {
+  describe('double-spends', () => {
     let contract: TestContract;
     let teardown: () => Promise<void>;
 
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
       contract = await TestContract.deploy(owner).send().deployed();
-      logger(`Test contract deployed at ${contract.address}`);
+      logger.info(`Test contract deployed at ${contract.address}`);
     }, 100_000);
 
     afterAll(() => teardown());
 
-    it('drops tx with private nullifier already emitted on the same block', async () => {
-      const nullifier = Fr.random();
-      const calls = times(2, () => contract.methods.emit_nullifier(nullifier));
-      for (const call of calls) {
-        await call.simulate();
-      }
-      const [tx1, tx2] = calls.map(call => call.send());
-      await expectXorTx(tx1, tx2);
-    }, 30_000);
+    // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502
+    describe('in the same block', () => {
+      it('drops tx with private nullifier already emitted on the same block', async () => {
+        const nullifier = Fr.random();
+        const calls = times(2, () => contract.methods.emit_nullifier(nullifier));
+        for (const call of calls) {
+          await call.prove();
+        }
+        const [tx1, tx2] = calls.map(call => call.send());
+        await expectXorTx(tx1, tx2);
+      }, 30_000);
 
-    it('drops tx with public nullifier already emitted on the same block', async () => {
-      const secret = Fr.random();
-      const calls = times(2, () => contract.methods.create_nullifier_public(140n, secret));
-      for (const call of calls) {
-        await call.simulate();
-      }
-      const [tx1, tx2] = calls.map(call => call.send());
-      await expectXorTx(tx1, tx2);
-    }, 30_000);
+      it('drops tx with public nullifier already emitted on the same block', async () => {
+        const secret = Fr.random();
+        const calls = times(2, () => contract.methods.create_nullifier_public(140n, secret));
+        for (const call of calls) {
+          await call.prove();
+        }
+        const [tx1, tx2] = calls.map(call => call.send());
+        await expectXorTx(tx1, tx2);
+      }, 30_000);
 
-    it('drops tx with two equal nullifiers', async () => {
-      const nullifier = Fr.random();
-      const calls = times(2, () => contract.methods.emit_nullifier(nullifier).request());
-      await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrowError(/dropped/);
-    }, 30_000);
+      it('drops tx with two equal nullifiers', async () => {
+        const nullifier = Fr.random();
+        const calls = times(2, () => contract.methods.emit_nullifier(nullifier).request());
+        await expect(new BatchCall(owner, calls).send().wait()).rejects.toThrow(/dropped/);
+      }, 30_000);
 
-    it('drops tx with private nullifier already emitted from public on the same block', async () => {
-      const secret = Fr.random();
-      // See yarn-project/simulator/src/public/index.test.ts 'Should be able to create a nullifier from the public context'
-      const emittedPublicNullifier = pedersenHash([new Fr(140), secret].map(a => a.toBuffer()));
+      it('drops tx with private nullifier already emitted from public on the same block', async () => {
+        const secret = Fr.random();
+        // See yarn-project/simulator/src/public/index.test.ts 'Should be able to create a nullifier from the public context'
+        const emittedPublicNullifier = pedersenHash([new Fr(140), secret]);
 
-      const calls = [
-        contract.methods.create_nullifier_public(140n, secret),
-        contract.methods.emit_nullifier(emittedPublicNullifier),
-      ];
+        const calls = [
+          contract.methods.create_nullifier_public(140n, secret),
+          contract.methods.emit_nullifier(emittedPublicNullifier),
+        ];
 
-      for (const call of calls) {
-        await call.simulate();
-      }
-      const [tx1, tx2] = calls.map(call => call.send());
-      await expectXorTx(tx1, tx2);
-    }, 30_000);
+        for (const call of calls) {
+          await call.prove();
+        }
+        const [tx1, tx2] = calls.map(call => call.send());
+        await expectXorTx(tx1, tx2);
+      }, 30_000);
+    });
+
+    describe('across blocks', () => {
+      it('drops a tx that tries to spend a nullifier already emitted on a previous block', async () => {
+        const secret = Fr.random();
+        const emittedPublicNullifier = pedersenHash([new Fr(140), secret]);
+
+        await expect(contract.methods.create_nullifier_public(140n, secret).send().wait()).resolves.toEqual(
+          expect.objectContaining({
+            status: TxStatus.MINED,
+          }),
+        );
+
+        await expect(contract.methods.emit_nullifier(emittedPublicNullifier).send().wait()).rejects.toThrow(/dropped/);
+      });
+    });
   });
 });
 

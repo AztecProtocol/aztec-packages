@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -20,11 +20,23 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Curve = typename Flavor::Curve;
+    using PCS = typename Flavor::PCS;
     using ProverInstance = ProverInstance_<Flavor>;
     using Instance = ProverInstance;
     using Transcript = typename Flavor::Transcript;
-    using RelationSeparator = typename Flavor::RelationSeparator;
+    using ZeroMorph = ZeroMorphProver_<PCS>;
+
+    std::shared_ptr<Instance> instance;
+
+    std::shared_ptr<Transcript> transcript;
+
+    bb::RelationParameters<FF> relation_parameters;
+
+    Polynomial quotient_W;
+
+    SumcheckOutput<Flavor> sumcheck_output;
+
+    std::shared_ptr<CommitmentKey> commitment_key;
 
     explicit UltraProver_(const std::shared_ptr<Instance>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
@@ -41,22 +53,6 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     HonkProof& export_proof();
     HonkProof& construct_proof();
-
-    std::shared_ptr<Instance> instance;
-
-    std::shared_ptr<Transcript> transcript;
-
-    bb::RelationParameters<FF> relation_parameters;
-
-    CommitmentLabels commitment_labels;
-
-    Polynomial quotient_W;
-
-    SumcheckOutput<Flavor> sumcheck_output;
-
-    std::shared_ptr<CommitmentKey> commitment_key;
-
-    using ZeroMorph = ZeroMorphProver_<Curve>;
 
   private:
     HonkProof proof;

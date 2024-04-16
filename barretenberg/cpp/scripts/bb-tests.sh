@@ -18,6 +18,7 @@ TESTS=(
   sumcheck_tests
   eccvm_tests
   translator_vm_tests
+  plonk_honk_shared_tests
   protogalaxy_tests
   ultra_honk_tests
   goblin_tests
@@ -38,9 +39,8 @@ TESTS=(
   plonk_tests
   polynomials_tests
   srs_tests
-  vm_tests
 )
-TESTS_STR="${TESTS[@]}"
+TESTS_STR="${TESTS[@]/#/./bin/}"
 
 docker run --rm -t $IMAGE_URI /bin/sh -c "\
   set -xe; \
@@ -48,4 +48,4 @@ docker run --rm -t $IMAGE_URI /bin/sh -c "\
   srs_db/download_ignition.sh 1; \
   srs_db/download_grumpkin.sh; \
   cd build; \
-  for BIN in $TESTS_STR; do ./bin/\$BIN; done"
+  echo $TESTS_STR | xargs gtest-parallel/gtest-parallel --worker=32;"

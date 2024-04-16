@@ -1,23 +1,23 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
-  AccountWalletWithPrivateKey,
-  AztecAddress,
-  AztecNode,
+  type AccountWalletWithPrivateKey,
+  type AztecAddress,
+  type AztecNode,
   BatchCall,
   CheatCodes,
-  CompleteAddress,
-  ContractMethod,
-  DebugLogger,
-  DeployL1Contracts,
+  type ContractMethod,
+  type DebugLogger,
+  type DeployL1Contracts,
+  EncryptedL2BlockL2Logs,
   EthCheatCodes,
-  L1ContractArtifactsForDeployment,
-  L2BlockL2Logs,
+  type L1ContractArtifactsForDeployment,
   LogType,
-  PXE,
-  SentTx,
-  Wallet,
+  type PXE,
+  type SentTx,
+  SignerlessWallet,
+  type Wallet,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
@@ -27,32 +27,42 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import {
   AvailabilityOracleAbi,
   AvailabilityOracleBytecode,
+  GasPortalAbi,
+  GasPortalBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
   OutboxBytecode,
+  PortalERC20Abi,
+  PortalERC20Bytecode,
   RegistryAbi,
   RegistryBytecode,
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
-import { PXEService, PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { SequencerClient } from '@aztec/sequencer-client';
+import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { type SequencerClient } from '@aztec/sequencer-client';
 
+import { type Anvil, createAnvil } from '@viem/anvil';
 import * as fs from 'fs/promises';
+import getPort from 'get-port';
 import * as path from 'path';
 import {
-  Account,
-  Chain,
-  HDAccount,
-  HttpTransport,
-  PrivateKeyAccount,
+  type Account,
+  type Chain,
+  type HDAccount,
+  type HttpTransport,
+  type PrivateKeyAccount,
   createPublicClient,
   createWalletClient,
+  getContract,
   http,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -82,12 +92,17 @@ const getACVMConfig = async (logger: DebugLogger) => {
       ? ACVM_BINARY_PATH
       : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../noir/', NOIR_RELEASE_DIR)}/acvm`;
     await fs.access(expectedAcvmPath, fs.constants.R_OK);
-    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${TEMP_DIR}/acvm`;
+    const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
+    const acvmWorkingDirectory = ACVM_WORKING_DIRECTORY ? ACVM_WORKING_DIRECTORY : `${tempWorkingDirectory}/acvm`;
     await fs.mkdir(acvmWorkingDirectory, { recursive: true });
-    logger(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
-    return { acvmWorkingDirectory, expectedAcvmPath };
+    logger.info(`Using native ACVM binary at ${expectedAcvmPath} with working directory ${acvmWorkingDirectory}`);
+    return {
+      acvmWorkingDirectory,
+      expectedAcvmPath,
+      directoryToCleanup: ACVM_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+    };
   } catch (err) {
-    logger(`Native ACVM not available, error: ${err}`);
+    logger.error(`Native ACVM not available, error: ${err}`);
     return undefined;
   }
 };
@@ -118,9 +133,38 @@ export const setupL1Contracts = async (
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
+    gasToken: {
+      contractAbi: PortalERC20Abi,
+      contractBytecode: PortalERC20Bytecode,
+    },
+    gasPortal: {
+      contractAbi: GasPortalAbi,
+      contractBytecode: GasPortalBytecode,
+    },
   };
-  return await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
+
+  const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts);
+  await initGasBridge(l1Data);
+
+  return l1Data;
 };
+
+async function initGasBridge({ walletClient, l1ContractAddresses }: DeployL1Contracts) {
+  const gasPortal = getContract({
+    address: l1ContractAddresses.gasPortalAddress.toString(),
+    abi: GasPortalAbi,
+    client: walletClient,
+  });
+
+  await gasPortal.write.initialize(
+    [
+      l1ContractAddresses.registryAddress.toString(),
+      l1ContractAddresses.gasTokenAddress.toString(),
+      getCanonicalGasTokenAddress(l1ContractAddresses.gasPortalAddress).toString(),
+    ],
+    {} as any,
+  );
+}
 
 /**
  * Sets up Private eXecution Environment (PXE).
@@ -144,10 +188,6 @@ export async function setupPXEService(
    */
   pxe: PXE;
   /**
-   * The accounts created by the PXE.
-   */
-  accounts: CompleteAddress[];
-  /**
    * The wallets to be used.
    */
   wallets: AccountWalletWithPrivateKey[];
@@ -163,7 +203,6 @@ export async function setupPXEService(
 
   return {
     pxe,
-    accounts: await pxe.getRegisteredAccounts(),
     wallets,
     logger,
   };
@@ -183,24 +222,24 @@ async function setupWithRemoteEnvironment(
   config: AztecNodeConfig,
   logger: DebugLogger,
   numberOfAccounts: number,
-  deployProtocolContracts = false,
+  enableGas: boolean,
 ) {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
-  logger(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
+  logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
-  logger(`Creating PXE client to remote host ${PXE_URL}`);
+  logger.verbose(`Creating PXE client to remote host ${PXE_URL}`);
   const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], true));
   await waitForPXE(pxeClient, logger);
-  logger('JSON RPC client connected to PXE');
-  logger(`Retrieving contract addresses from ${PXE_URL}`);
+  logger.verbose('JSON RPC client connected to PXE');
+  logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
-  logger('PXE created, constructing available wallets from already registered accounts...');
+  logger.verbose('PXE created, constructing available wallets from already registered accounts...');
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
 
   if (wallets.length < numberOfAccounts) {
     const numNewAccounts = numberOfAccounts - wallets.length;
-    logger(`Deploying ${numNewAccounts} accounts...`);
+    logger.verbose(`Deploying ${numNewAccounts} accounts...`);
     wallets.push(...(await createAccounts(pxeClient, numNewAccounts)));
   }
 
@@ -221,8 +260,13 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  if (deployProtocolContracts) {
-    await deployPublicProtocolContracts(wallets[0]);
+  if (enableGas) {
+    const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
+    // this contract might already have been deployed
+    // the following function is idempotent
+    await deployCanonicalGasToken(
+      new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+    );
   }
 
   return {
@@ -246,9 +290,6 @@ type SetupOptions = {
   stateLoad?: string;
   /** Previously deployed contracts on L1 */
   deployL1ContractsValues?: DeployL1Contracts;
-
-  /** Deploy protocol contracts */
-  deployProtocolContracts?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -261,8 +302,6 @@ export type EndToEndContext = {
   pxe: PXE;
   /** Return values from deployL1Contracts function. */
   deployL1ContractsValues: DeployL1Contracts;
-  /** The accounts created by the PXE. */
-  accounts: CompleteAddress[];
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
   /** The first wallet to be used. */
@@ -287,8 +326,35 @@ export async function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
+  enableGas = false,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
+
+  let anvil: Anvil | undefined;
+
+  // spawn an anvil instance if one isn't already running
+  // and we're not connecting to a remote PXE
+  if (!config.rpcUrl) {
+    if (PXE_URL) {
+      throw new Error(
+        `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+      );
+    }
+
+    // Start anvil.
+    // We go via a wrapper script to ensure if the parent dies, anvil dies.
+    anvil = await retry(
+      async () => {
+        const ethereumHostPort = await getPort();
+        config.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+        const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+        await anvil.start();
+        return anvil;
+      },
+      'Start anvil',
+      makeBackoff([5, 5, 5]),
+    );
+  }
 
   // Enable logging metrics to a local file named after the test suite
   if (isMetricsLoggingRequested()) {
@@ -308,7 +374,7 @@ export async function setup(
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, opts.deployProtocolContracts);
+    return await setupWithRemoteEnvironment(hdAccount, config, logger, numberOfAccounts, enableGas);
   }
 
   const deployL1ContractsValues =
@@ -317,7 +383,7 @@ export async function setup(
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
-  logger('Creating and synching an aztec node...');
+  logger.verbose('Creating and synching an aztec node...');
 
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
@@ -328,12 +394,14 @@ export async function setup(
   const aztecNode = await AztecNodeService.createAndSync(config);
   const sequencer = aztecNode.getSequencer();
 
-  const { pxe, accounts, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
+  logger.verbose('Creating a pxe...');
+  const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
 
-  if (opts.deployProtocolContracts) {
-    // this should be a neutral wallet, but the SignerlessWallet only accepts a single function call
-    // and this needs two: one to register the class and another to deploy the instance
-    await deployPublicProtocolContracts(wallets[0]);
+  if (enableGas) {
+    logger.verbose('Deploying gas token...');
+    await deployCanonicalGasToken(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+    );
   }
 
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxe!);
@@ -345,13 +413,20 @@ export async function setup(
     if (pxe instanceof PXEService) {
       await pxe?.stop();
     }
+
+    if (acvmConfig?.directoryToCleanup) {
+      // remove the temp directory created for the acvm
+      logger.verbose(`Cleaning up ACVM temp directory ${acvmConfig.directoryToCleanup}`);
+      await fs.rm(acvmConfig.directoryToCleanup, { recursive: true, force: true });
+    }
+
+    await anvil?.stop();
   };
 
   return {
     aztecNode,
     pxe,
     deployL1ContractsValues,
-    accounts,
     config,
     wallet: wallets[0],
     wallets,
@@ -368,8 +443,8 @@ export async function setup(
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
  */
-export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: (CompleteAddress | AztecAddress)[]) {
-  const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
+export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: Wallet[]) {
+  const accountAddressesToDeploy = accountsToDeploy.map(a => a.getAddress());
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
   const batch = new BatchCall(sender, [
     (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
@@ -410,16 +485,6 @@ export function getLogger() {
   return createDebugLogger('aztec:' + describeBlockName);
 }
 
-// docs:start:delay
-/**
- * Sleep for a given number of milliseconds.
- * @param ms - the number of milliseconds to sleep for
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise<void>(resolve => setTimeout(resolve, ms));
-}
-// docs:end:delay
-
 /**
  * Checks the number of encrypted logs in the last block is as expected.
  * @param aztecNode - The instance of aztec node for retrieving the logs.
@@ -436,7 +501,7 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
   }
   const l2BlockNum = await aztecNode.getBlockNumber();
   const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
-  const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
+  const unrolledLogs = EncryptedL2BlockL2Logs.unrollLogs(encryptedLogs);
   expect(unrolledLogs.length).toBe(numEncryptedLogs);
 };
 
@@ -479,9 +544,9 @@ export function getBalancesFn(
   logger: any,
 ): (...addresses: AztecAddress[]) => Promise<bigint[]> {
   const balances = async (...addresses: AztecAddress[]) => {
-    const b = await Promise.all(addresses.map(address => method(address).view()));
+    const b = await Promise.all(addresses.map(address => method(address).simulate()));
     const debugString = `${symbol} balances: ${addresses.map((address, i) => `${address}: ${b[i]}`).join(', ')}`;
-    logger(debugString);
+    logger.verbose(debugString);
     return b;
   };
 
@@ -503,9 +568,10 @@ export async function expectMapping<K, V>(
 /**
  * Deploy the protocol contracts to a running instance.
  */
-export async function deployPublicProtocolContracts(deployer: Wallet) {
+export async function deployCanonicalGasToken(deployer: Wallet) {
   // "deploy" the Gas token as it contains public functions
-  const canonicalGasToken = getCanonicalGasToken();
+  const gasPortalAddress = (await deployer.getNodeInfo()).l1ContractAddresses.gasPortalAddress;
+  const canonicalGasToken = getCanonicalGasToken(gasPortalAddress);
 
   if (await deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)) {
     return;
@@ -513,7 +579,7 @@ export async function deployPublicProtocolContracts(deployer: Wallet) {
 
   await new BatchCall(deployer, [
     (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
-    deployInstance(deployer, canonicalGasToken.instance, { universalDeploy: true }).request(),
+    deployInstance(deployer, canonicalGasToken.instance).request(),
   ])
     .send()
     .wait();

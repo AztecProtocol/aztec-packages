@@ -1,6 +1,10 @@
 #pragma once
 
 #include "avm_common.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include <array>
+#include <unordered_map>
 
 namespace bb::avm_trace {
 
@@ -15,6 +19,8 @@ class AvmAluTraceBuilder {
         bool alu_op_mul = false;
         bool alu_op_not = false;
         bool alu_op_eq = false;
+        bool alu_op_lt = false;
+        bool alu_op_lte = false;
 
         bool alu_ff_tag = false;
         bool alu_u8_tag = false;
@@ -32,12 +38,22 @@ class AvmAluTraceBuilder {
         uint8_t alu_u8_r0{};
         uint8_t alu_u8_r1{};
 
-        std::array<uint16_t, 8> alu_u16_reg{};
-
-        uint64_t alu_u64_r0{};
+        std::array<uint16_t, 15> alu_u16_reg{};
 
         FF alu_op_eq_diff_inv{};
+
+        // Comparison Operation
+        bool borrow = false;
+
+        std::vector<FF> hi_lo_limbs{};
+        bool p_a_borrow = false;
+        bool p_b_borrow = false;
+        uint8_t cmp_rng_ctr = 0;
+        bool rng_chk_sel = false;
     };
+
+    std::array<std::unordered_map<uint8_t, uint32_t>, 2> u8_range_chk_counters;
+    std::array<std::unordered_map<uint16_t, uint32_t>, 15> u16_range_chk_counters;
 
     AvmAluTraceBuilder();
     void reset();
@@ -48,8 +64,16 @@ class AvmAluTraceBuilder {
     FF op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
     FF op_not(FF const& a, AvmMemoryTag in_tag, uint32_t clk);
     FF op_eq(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_lte(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+
+    bool is_range_check_required() const;
 
   private:
     std::vector<AluTraceEntry> alu_trace;
+    bool range_checked_required = false;
+
+    template <typename T> std::tuple<uint8_t, uint8_t, std::array<uint16_t, 15>> to_alu_slice_registers(T a);
+    std::vector<AluTraceEntry> cmp_range_check_helper(AluTraceEntry row, std::vector<uint256_t> hi_lo_limbs);
 };
 } // namespace bb::avm_trace

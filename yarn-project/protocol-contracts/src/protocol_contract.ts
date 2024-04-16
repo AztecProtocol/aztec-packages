@@ -1,12 +1,12 @@
 import {
-  AztecAddress,
+  type AztecAddress,
   EthAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 /** Represents a canonical contract in the protocol. */
 export interface ProtocolContract {
@@ -24,19 +24,18 @@ export interface ProtocolContract {
 export function getCanonicalProtocolContract(
   artifact: ContractArtifact,
   salt: Fr | number | bigint,
-  initArgs: any[] = [],
+  constructorArgs: any[] = [],
   publicKey: Point = Point.ZERO,
-  portalContractAddress = EthAddress.ZERO,
+  portalAddress = EthAddress.ZERO,
 ): ProtocolContract {
   // TODO(@spalladino): This computes the contract class from the artifact twice.
   const contractClass = getContractClassFromArtifact(artifact);
-  const instance = getContractInstanceFromDeployParams(
-    artifact,
-    initArgs,
-    new Fr(salt),
+  const instance = getContractInstanceFromDeployParams(artifact, {
+    constructorArgs,
+    salt: new Fr(salt),
     publicKey,
-    portalContractAddress,
-  );
+    portalAddress,
+  });
   return {
     instance,
     contractClass,

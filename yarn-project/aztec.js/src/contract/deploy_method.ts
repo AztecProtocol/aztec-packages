@@ -1,22 +1,23 @@
-import { FunctionCall, PublicKey, Tx, TxExecutionRequest } from '@aztec/circuit-types';
+import { type FunctionCall, type PublicKey, type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
   computePartialAddress,
   getContractClassFromArtifact,
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
-import { ContractArtifact, FunctionArtifact } from '@aztec/foundation/abi';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
+import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { Wallet } from '../account/index.js';
+import { type Wallet } from '../account/index.js';
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
-import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
+import { type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
+import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
 import { type Contract } from './contract.js';
-import { ContractBase } from './contract_base.js';
+import { type ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 
@@ -33,8 +34,10 @@ export type DeployOptions = {
   universalDeploy?: boolean;
   /** Skip contract class registration. */
   skipClassRegistration?: boolean;
-  /** Skip public deployment and only initialize the contract. */
+  /** Skip public deployment, instead just privately initialize the contract. */
   skipPublicDeployment?: boolean;
+  /** Skip contract initialization. */
+  skipInitialization?: boolean;
 } & SendMethodOptions;
 
 // TODO(@spalladino): Add unit tests for this class!
@@ -48,7 +51,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   private instance?: ContractInstanceWithAddress = undefined;
 
   /** Constructor function to call. */
-  private constructorArtifact: FunctionArtifact;
+  private constructorArtifact: FunctionArtifact | undefined;
+
+  /** Cached call to request() */
+  private functionCalls?: ExecutionRequestInit;
 
   private log = createDebugLogger('aztec:js:deploy_method');
 
@@ -58,14 +64,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     private artifact: ContractArtifact,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
-    constructorName: string = 'constructor',
+    constructorNameOrArtifact?: string | FunctionArtifact,
   ) {
     super(wallet);
-    const constructorArtifact = artifact.functions.find(f => f.name === constructorName);
-    if (!constructorArtifact) {
-      throw new Error('Cannot find constructor in the artifact.');
-    }
-    this.constructorArtifact = constructorArtifact;
+    this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
   }
 
   /**
@@ -81,7 +83,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     if (!this.txRequest) {
       this.txRequest = await this.wallet.createTxExecutionRequest(await this.request(options));
       // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-      await this.pxe.addContracts([{ artifact: this.artifact, instance: this.instance! }]);
+      await this.pxe.registerContract({ artifact: this.artifact, instance: this.instance! });
     }
     return this.txRequest;
   }
@@ -94,10 +96,23 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @remarks This method does not have the same return type as the `request` in the ContractInteraction object,
    * it returns a promise for an array instead of a function call directly.
    */
-  public async request(options: DeployOptions = {}): Promise<FunctionCall[]> {
-    const { address } = this.getInstance(options);
-    const constructorCall = new ContractFunctionInteraction(this.wallet, address, this.constructorArtifact, this.args);
-    return [...(await this.getDeploymentFunctionCalls(options)), constructorCall.request()];
+  public async request(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
+    if (!this.functionCalls) {
+      const deployment = await this.getDeploymentFunctionCalls(options);
+      const bootstrap = await this.getInitializeFunctionCalls(options);
+
+      if (deployment.calls.length + bootstrap.calls.length === 0) {
+        throw new Error(`No function calls needed to deploy contract ${this.artifact.name}`);
+      }
+
+      this.functionCalls = {
+        calls: [...deployment.calls, ...bootstrap.calls],
+        authWitnesses: [...(deployment.authWitnesses ?? []), ...(bootstrap.authWitnesses ?? [])],
+        packedArguments: [...(deployment.packedArguments ?? []), ...(bootstrap.packedArguments ?? [])],
+        fee: options.fee,
+      };
+    }
+    return this.functionCalls;
   }
 
   /**
@@ -105,7 +120,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns A function call array with potentially requests to the class registerer and instance deployer.
    */
-  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<FunctionCall[]> {
+  protected async getDeploymentFunctionCalls(options: DeployOptions = {}): Promise<ExecutionRequestInit> {
     const calls: FunctionCall[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
@@ -123,11 +138,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     // Register the contract class if it hasn't been published already.
     if (!options.skipClassRegistration) {
       if (await this.pxe.isContractClassPubliclyRegistered(contractClass.id)) {
-        this.log(
+        this.log.debug(
           `Skipping registration of already registered contract class ${contractClass.id.toString()} for ${instance.address.toString()}`,
         );
       } else {
-        this.log(
+        this.log.info(
           `Creating request for registering contract class ${contractClass.id.toString()} as part of deployment for ${instance.address.toString()}`,
         );
         calls.push((await registerContractClass(this.wallet, this.artifact)).request());
@@ -136,10 +151,34 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     // Deploy the contract via the instance deployer.
     if (!options.skipPublicDeployment) {
-      calls.push(deployInstance(this.wallet, instance, { universalDeploy: options.universalDeploy }).request());
+      calls.push(deployInstance(this.wallet, instance).request());
     }
 
-    return calls;
+    return {
+      calls,
+    };
+  }
+
+  /**
+   * Returns the calls necessary to initialize the contract.
+   * @param options - Deployment options.
+   * @returns - An array of function calls.
+   */
+  protected getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
+    const { address } = this.getInstance(options);
+    const calls: FunctionCall[] = [];
+    if (this.constructorArtifact && !options.skipInitialization) {
+      const constructorCall = new ContractFunctionInteraction(
+        this.wallet,
+        address,
+        this.constructorArtifact,
+        this.args,
+      );
+      calls.push(constructorCall.request());
+    }
+    return Promise.resolve({
+      calls,
+    });
   }
 
   /**
@@ -152,7 +191,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
-    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, this.getInstance(options));
+    const instance = this.getInstance(options);
+    this.log.debug(
+      `Sent deployment tx of ${this.artifact.name} contract with deployment address ${instance.address.toString()}`,
+    );
+    return new DeploySentTx(this.pxe, txHashPromise, this.postDeployCtor, instance);
   }
 
   /**
@@ -163,21 +206,25 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public getInstance(options: DeployOptions = {}): ContractInstanceWithAddress {
     if (!this.instance) {
-      const portalContract = options.portalContract ?? EthAddress.ZERO;
-      const contractAddressSalt = options.contractAddressSalt ?? Fr.random();
-      const deployParams = [this.artifact, this.args, contractAddressSalt, this.publicKey, portalContract] as const;
-      this.instance = getContractInstanceFromDeployParams(...deployParams);
+      this.instance = getContractInstanceFromDeployParams(this.artifact, {
+        constructorArgs: this.args,
+        salt: options.contractAddressSalt,
+        portalAddress: options.portalContract,
+        publicKey: this.publicKey,
+        constructorArtifact: this.constructorArtifact,
+        deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
+      });
     }
     return this.instance;
   }
 
   /**
-   * Simulate the request.
+   * Prove the request.
    * @param options - Deployment options.
-   * @returns The simulated tx.
+   * @returns The proven tx.
    */
-  public simulate(options: DeployOptions): Promise<Tx> {
-    return super.simulate(options);
+  public prove(options: DeployOptions): Promise<Tx> {
+    return super.prove(options);
   }
 
   /** Return this deployment address. */

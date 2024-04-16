@@ -1,6 +1,7 @@
 use crate::{
     abis::{
-    call_context::CallContext, call_request::{CallerContext, CallRequest}, function_data::FunctionData,
+    gas_settings::GasSettings, gas::Gas, call_context::CallContext,
+    call_request::{CallerContext, CallRequest}, function_data::FunctionData,
     public_call_data::PublicCallData, public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs
 },
@@ -10,7 +11,7 @@ use crate::{
 };
 use crate::constants::{
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
 };
 
 struct PublicCallDataBuilder {
@@ -42,7 +43,10 @@ impl PublicCallDataBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            start_side_effect_counter: 0,  // needed?
+            side_effect_counter: 0,  // needed?
+            gas_settings: GasSettings::empty(),
+            transaction_fee: 0,
+            gas_left: Gas::empty(),
         };
 
         PublicCallDataBuilder {
@@ -50,7 +54,7 @@ impl PublicCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            public_call_stack: dep::std::unsafe::zeroed(),
+            public_call_stack: BoundedVec::new(),
             proof: Proof {},
             portal_contract_address,
             bytecode_hash: contract_function.acir_hash
@@ -62,15 +66,6 @@ impl PublicCallDataBuilder {
         self.public_inputs.call_context.storage_contract_address = fixtures::contracts::parent_contract.address;
         self.public_inputs.call_context.portal_contract_address = fixtures::contracts::parent_contract.portal_contract_address;
         self.public_inputs.call_context.msg_sender = fixtures::MSG_SENDER;
-        *self
-    }
-
-    pub fn is_internal_call(&mut self) -> Self {
-        self.function_data.is_internal = true;
-        self.public_inputs.call_context.msg_sender = self.contract_address;
-        let contract_function = fixtures::contract_functions::default_internal_public_function;
-        self.function_data = contract_function.data;
-        self.bytecode_hash = contract_function.acir_hash;
         *self
     }
 
@@ -156,7 +151,7 @@ impl PublicCallDataBuilder {
         }
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         self.public_inputs.unencrypted_logs_hash = hash;
         self.public_inputs.unencrypted_log_preimages_length = preimages_length;
     }

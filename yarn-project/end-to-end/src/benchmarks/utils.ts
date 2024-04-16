@@ -1,24 +1,25 @@
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import {
-  AztecNode,
+  type AztecNode,
   BatchCall,
-  GrumpkinScalar,
+  type GrumpkinScalar,
   INITIAL_L2_BLOCK_NUM,
-  PXE,
-  PartialAddress,
-  SentTx,
+  type PXE,
+  type PartialAddress,
+  type SentTx,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
+import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
 import { join } from 'path';
 
-import { EndToEndContext, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 /**
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
@@ -26,7 +27,7 @@ import { EndToEndContext, setup } from '../fixtures/utils.js';
 export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
   const context = await setup(1, { ...opts });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
-  context.logger(`Deployed benchmarking contract at ${contract.address}`);
+  context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   return { context, contract, sequencer };
 }
@@ -37,9 +38,8 @@ export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
  * @returns A path to a created dir.
  */
 export function makeDataDirectory(index: number) {
-  const random = Math.random().toString().slice(2);
   const testName = expect.getState().currentTestName!.split(' ')[0].replaceAll('/', '_');
-  const db = join('data', testName, index.toString(), random);
+  const db = join('data', testName, index.toString(), `${randomInt(99)}`);
   mkdirpSync(db);
   return db;
 }
@@ -88,7 +88,7 @@ export async function sendTxs(
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
-  await Promise.all(calls.map(call => call.simulate({ skipPublicSimulation: true })));
+  await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   const sentTxs = calls.map(call => call.send());
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
@@ -111,7 +111,7 @@ export async function waitNewPXESynced(
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
   const pxe = await createPXEService(node, { l2BlockPollingIntervalMS: 100, l2StartingBlock: startingBlock });
-  await pxe.addContracts([contract]);
+  await pxe.registerContract(contract);
   await retryUntil(() => pxe.isGlobalStateSynchronized(), 'pxe-global-sync');
   return pxe;
 }

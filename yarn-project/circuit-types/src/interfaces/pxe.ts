@@ -1,18 +1,23 @@
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { NodeInfo } from '@aztec/types/interfaces';
+import {
+  type AztecAddress,
+  type CompleteAddress,
+  type Fr,
+  type GrumpkinPrivateKey,
+  type PartialAddress,
+} from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { AuthWitness } from '../auth_witness.js';
-import { ContractData, ExtendedContractData } from '../contract_data.js';
-import { L2Block } from '../l2_block.js';
-import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
-import { ExtendedNote } from '../notes/index.js';
-import { NoteFilter } from '../notes/note_filter.js';
-import { Tx, TxHash, TxReceipt } from '../tx/index.js';
-import { TxEffect } from '../tx_effect.js';
-import { TxExecutionRequest } from '../tx_execution_request.js';
-import { DeployedContract } from './deployed-contract.js';
-import { SyncStatus } from './sync-status.js';
+import { type AuthWitness } from '../auth_witness.js';
+import { type L2Block } from '../l2_block.js';
+import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
+import { type ExtendedNote } from '../notes/index.js';
+import { type NoteFilter } from '../notes/note_filter.js';
+import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
+import { type TxEffect } from '../tx_effect.js';
+import { type TxExecutionRequest } from '../tx_execution_request.js';
+import { type SyncStatus } from './sync-status.js';
 
 // docs:start:pxe-interface
 /**
@@ -35,6 +40,13 @@ export interface PXE {
    * deserialized and processed by the account contract.
    */
   addAuthWitness(authWitness: AuthWitness): Promise<void>;
+
+  /**
+   * Fetches the serialized auth witness for a given message hash or returns undefined if not found.
+   * @param messageHash - The hash of the message for which to get the auth witness.
+   * @returns The serialized auth witness for the given message hash.
+   */
+  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
 
   /**
    * Adding a capsule to the capsule dispenser.
@@ -100,14 +112,21 @@ export interface PXE {
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
+   * Registers a contract class in the PXE without registering any associated contract instance with it.
+   *
+   * @param artifact - The build artifact for the contract class.
+   */
+  registerContractClass(artifact: ContractArtifact): Promise<void>;
+
+  /**
    * Adds deployed contracts to the PXE Service. Deployed contract information is used to access the
    * contract code when simulating local transactions. This is automatically called by aztec.js when
    * deploying a contract. Dapps that wish to interact with contracts already deployed should register
    * these contracts in their users' PXE Service through this method.
    *
-   * @param contracts - An array of DeployedContract objects containing contract ABI, address, and portal contract.
+   * @param contract - A contract instance to register, with an optional artifact which can be omitted if the contract class has already been registered.
    */
-  addContracts(contracts: DeployedContract[]): Promise<void>;
+  registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }): Promise<void>;
 
   /**
    * Retrieves the addresses of contracts added to this PXE Service.
@@ -126,11 +145,32 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+
+  /**
+   * Simulates a transaction based on the provided preauthenticated execution request.
+   * This will run a local simulation of private execution (and optionally of public as well), assemble
+   * the zero-knowledge proof for the private execution, and return the transaction object along
+   * with simulation results (return values).
+   *
+   *
+   * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
+   * In that case, the transaction returned is only potentially ready to be sent to the network for execution.
+   *
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param simulatePublic - Whether to simulate the public part of the transaction.
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @returns A simulated transaction object that includes a transaction that is potentially ready
+   * to be sent to the network for execution, along with public and private return values.
+   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
+   */
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
-   * @param tx - The transaction as created via `simulateTx`.
+   * @param tx - The transaction as created via `proveTx`.
    * @returns A hash of the transaction, used to identify it.
    */
   sendTx(tx: Tx): Promise<TxHash>;
@@ -210,23 +250,6 @@ export interface PXE {
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
 
   /**
-   * Gets the extended contract data for this contract. Extended contract data includes the address,
-   * portal contract address on L1, public functions, partial address, and encryption public key.
-   *
-   * @param contractAddress - The contract's address.
-   * @returns The extended contract data if found.
-   */
-  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
-
-  /**
-   * Gets the portal contract address on L1 for the given contract.
-   *
-   * @param contractAddress - The contract's address.
-   * @returns The contract's portal address if found.
-   */
-  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
-
-  /**
    * Gets unencrypted logs based on the provided filter.
    * @param filter - The filter to apply to the logs.
    * @returns The requested logs.
@@ -297,5 +320,12 @@ export interface PXE {
    * @param id - Identifier of the class.
    */
   isContractClassPubliclyRegistered(id: Fr): Promise<boolean>;
+
+  /**
+   * Queries the node to check whether the contract instance with the given address has been publicly deployed,
+   * regardless of whether this PXE knows about the contract or not.
+   * TODO(@spalladino): Same notes as above.
+   */
+  isContractPubliclyDeployed(address: AztecAddress): Promise<boolean>;
 }
 // docs:end:pxe-interface

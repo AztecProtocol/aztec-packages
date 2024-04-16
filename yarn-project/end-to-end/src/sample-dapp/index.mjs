@@ -20,7 +20,7 @@ async function showPrivateBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPrivateBalances
-    const balance = await token.methods.balance_of_private(account.address).view();
+    const balance = await token.methods.balance_of_private(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
   // docs:end:showPrivateBalances
@@ -79,7 +79,7 @@ async function showPublicBalances(pxe) {
 
   for (const account of accounts) {
     // highlight-next-line:showPublicBalances
-    const balance = await token.methods.balance_of_public(account.address).view();
+    const balance = await token.methods.balance_of_public(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
   // docs:end:showPublicBalances
@@ -103,7 +103,7 @@ async function mintPublicFunds(pxe) {
   // docs:start:showLogs
   const blockNumber = await pxe.getBlockNumber();
   const logs = (await pxe.getUnencryptedLogs(blockNumber, 1)).logs;
-  const textLogs = logs.map(extendedLog => extendedLog.log.data.toString('ascii'));
+  const textLogs = logs.map(extendedLog => extendedLog.toHumanReadable().slice(0, 200));
   for (const log of textLogs) console.log(`Log emitted: ${log}`);
   // docs:end:showLogs
 }

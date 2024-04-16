@@ -3,11 +3,13 @@ contract BoxReact {
 
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
+    #[aztec(storage)]
     struct Storage {
         numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
     }
 
     #[aztec(private)]
+    #[aztec(initializer)]
     fn constructor(number: Field, owner: AztecAddress) {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);

@@ -1,17 +1,17 @@
 import { getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
-  FunctionArtifact,
+  type FunctionArtifact,
   FunctionSelector,
   decodeFunctionSignature,
   decodeFunctionSignatureWithParameterNames,
 } from '@aztec/foundation/abi';
 import { sha256 } from '@aztec/foundation/crypto';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type LogFn } from '@aztec/foundation/log';
 
 import { getContractArtifact } from '../utils.js';
 
-export async function inspectContract(contractArtifactFile: string, debugLogger: DebugLogger, log: LogFn) {
-  const contractArtifact = await getContractArtifact(contractArtifactFile, debugLogger);
+export async function inspectContract(contractArtifactFile: string, log: LogFn) {
+  const contractArtifact = await getContractArtifact(contractArtifactFile);
   const contractFns = contractArtifact.functions.filter(f => f.name !== 'compute_note_hash_and_nullifier');
   if (contractFns.length === 0) {
     log(`No functions found for contract ${contractArtifact.name}`);
@@ -35,8 +35,8 @@ function logFunction(fn: FunctionArtifact, log: LogFn) {
   const signatureWithParameterNames = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
   const signature = decodeFunctionSignature(fn.name, fn.parameters);
   const selector = FunctionSelector.fromSignature(signature);
-  const bytecodeSize = Buffer.from(fn.bytecode, 'base64').length;
-  const bytecodeHash = sha256(Buffer.from(fn.bytecode, 'base64')).toString('hex');
+  const bytecodeSize = fn.bytecode.length;
+  const bytecodeHash = sha256(fn.bytecode).toString('hex');
   log(
     `${fn.functionType} ${signatureWithParameterNames} \n\tfunction signature: ${signature}\n\tselector: ${selector}\n\tbytecode: ${bytecodeSize} bytes (sha256 ${bytecodeHash})`,
   );

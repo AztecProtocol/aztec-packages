@@ -1,7 +1,7 @@
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { IndexedTreeLeaf, IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 /**
  * Class containing the data of a preimage of a single leaf in the public data tree.
@@ -64,7 +64,7 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
     return new PublicDataTreeLeafPreimage(Fr.ZERO, Fr.ZERO, Fr.ZERO, 0n);
   }
 
-  static fromBuffer(buffer: Buffer): PublicDataTreeLeafPreimage {
+  static fromBuffer(buffer: Buffer | BufferReader): PublicDataTreeLeafPreimage {
     const reader = BufferReader.asReader(buffer);
     const slot = Fr.fromBuffer(reader);
     const value = Fr.fromBuffer(reader);

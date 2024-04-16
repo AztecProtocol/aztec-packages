@@ -17,9 +17,12 @@ In this guide, you will
 
 ## Install Docker
 
-See [this page of the Docker docs](https://docs.docker.com/get-docker/) for instructions on how to install Docker Desktop for your operating system.
+Aztec tooling requires the Docker daemon to be running, and this is easily achieved via Docker Desktop. See [this page of the Docker docs](https://docs.docker.com/get-docker/) for instructions on how to install Docker Desktop for your operating system.
+Note: if installing via Docker Desktop, you do NOT need to keep the application open at all times (just Docker daemon).
 
-Once you have Docker installed, make sure it is running by opening the Docker Desktop application.
+Installing and running the Docker daemon can also be achieved by installing Docker Engine, see [these instructions](https://docs.docker.com/engine/install/).
+
+However installed, ensure Docker daemon is running. See [start Docker daemon](https://docs.docker.com/config/daemon/start/).
 
 ### Note on Linux
 
@@ -38,6 +41,9 @@ To install the latest Sandbox version, run:
 ```bash
 bash -i <(curl -s install.aztec.network)
 ```
+
+> If Docker has been installed on your linux server but you encounter the error "Docker is not running. Please start Docker and try again". If you're encountering this issue, it's likely because Docker is running with root user privileges. In such cases, consider [managing Docker as a non-root user](https://docs.docker.com/engine/install/linux-postinstall/#manage-docker-as-a-non-root-user) to resolve the problem.
+
 
 This will install the following:
 
@@ -98,3 +104,5 @@ Congratulations! You are all set up with the Aztec sandbox!
 To deploy and interact with a contract using Aztec.js, go to the [next page](aztecnr-getting-started.md).
 
 You can also dig more into the sandbox and CLI [here](../sandbox/main.md).
+
+To learn more about writing contracts, consider jumping to the [tutorials section](../tutorials/main.md).

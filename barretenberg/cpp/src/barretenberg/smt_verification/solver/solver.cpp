@@ -10,7 +10,7 @@ namespace smt_solver {
  * */
 bool Solver::check()
 {
-    cvc5::Result result = this->s.checkSat();
+    cvc5::Result result = this->solver.checkSat();
     this->checked = true;
     this->cvc_result = result;
 
@@ -41,7 +41,7 @@ std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<st
     }
     std::unordered_map<std::string, std::string> resulting_model;
     for (auto& term : terms) {
-        cvc5::Term val = this->s.getValue(term.second);
+        cvc5::Term val = this->solver.getValue(term.second);
         std::string str_val;
         if (val.isIntegerValue()) {
             str_val = val.getIntegerValue();
@@ -76,7 +76,7 @@ std::unordered_map<std::string, std::string> Solver::model(std::vector<cvc5::Ter
     }
     std::unordered_map<std::string, std::string> resulting_model;
     for (auto& term : terms) {
-        cvc5::Term val = this->s.getValue(term);
+        cvc5::Term val = this->solver.getValue(term);
         std::string str_val;
         if (val.isIntegerValue()) {
             str_val = val.getIntegerValue();
@@ -112,6 +112,9 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
     if (term.getKind() == cvc5::Kind::CONST_INTEGER) {
         return term.getIntegerValue();
     }
+    if (term.getKind() == cvc5::Kind::CONST_BITVECTOR) {
+        return term.getBitVectorValue();
+    }
     if (term.getKind() == cvc5::Kind::CONST_BOOLEAN) {
         std::vector<std::string> bool_res = { "false", "true" };
         return bool_res[static_cast<size_t>(term.getBooleanValue())];
@@ -120,22 +123,27 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
     std::string res;
     std::string op;
     bool child_parenthesis = true;
+    bool back = false;
     switch (term.getKind()) {
     case cvc5::Kind::ADD:
     case cvc5::Kind::FINITE_FIELD_ADD:
+    case cvc5::Kind::BITVECTOR_ADD:
         op = " + ";
         child_parenthesis = false;
         break;
     case cvc5::Kind::SUB:
+    case cvc5::Kind::BITVECTOR_SUB:
         op = " - ";
         child_parenthesis = false;
         break;
     case cvc5::Kind::NEG:
     case cvc5::Kind::FINITE_FIELD_NEG:
+    case cvc5::Kind::BITVECTOR_NEG:
         res = "-";
         break;
     case cvc5::Kind::MULT:
     case cvc5::Kind::FINITE_FIELD_MULT:
+    case cvc5::Kind::BITVECTOR_MULT:
         op = " * ";
         break;
     case cvc5::Kind::EQUAL:
@@ -143,22 +151,49 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
         child_parenthesis = false;
         break;
     case cvc5::Kind::LT:
+    case cvc5::Kind::BITVECTOR_ULT:
         op = " < ";
         break;
     case cvc5::Kind::GT:
+    case cvc5::Kind::BITVECTOR_UGT:
         op = " > ";
         break;
     case cvc5::Kind::LEQ:
+    case cvc5::Kind::BITVECTOR_ULE:
         op = " <= ";
         break;
     case cvc5::Kind::GEQ:
+    case cvc5::Kind::BITVECTOR_UGE:
         op = " >= ";
         break;
     case cvc5::Kind::XOR:
+    case cvc5::Kind::BITVECTOR_XOR:
         op = " ^ ";
+        break;
+    case cvc5::Kind::BITVECTOR_OR:
+        op = " | ";
         break;
     case cvc5::Kind::OR:
         op = " || ";
+        break;
+    case cvc5::Kind::BITVECTOR_AND:
+        op = " & ";
+        break;
+    case cvc5::Kind::BITVECTOR_SHL:
+        back = true;
+        op = " << " + term.getOp()[0].toString();
+        break;
+    case cvc5::Kind::BITVECTOR_LSHR:
+        back = true;
+        op = " >> " + term.getOp()[0].toString();
+        break;
+    case cvc5::Kind::BITVECTOR_ROTATE_LEFT:
+        back = true;
+        op = " ><< " + term.getOp()[0].toString();
+        break;
+    case cvc5::Kind::BITVECTOR_ROTATE_RIGHT:
+        back = true;
+        op = " >>< " + term.getOp()[0].toString();
         break;
     case cvc5::Kind::AND:
         op = " && ";
@@ -187,6 +222,9 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
     }
 
     res = res + stringify_term(child, child_parenthesis);
+    if (back) {
+        res += op;
+    }
     if (parenthesis) {
         return "(" + res + ")";
     }
@@ -199,7 +237,7 @@ std::string stringify_term(const cvc5::Term& term, bool parenthesis)
  * */
 void Solver::print_assertions() const
 {
-    for (auto& t : this->s.getAssertions()) {
+    for (auto& t : this->solver.getAssertions()) {
         info(stringify_term(t));
     }
 }

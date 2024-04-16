@@ -1,6 +1,4 @@
-#include "barretenberg/benchmark/ultra_bench/mock_proofs.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/flavor/ultra.hpp"
+#include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
 #include "barretenberg/plonk/composer/standard_composer.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/plonk/proof_system/widgets/random_widgets/permutation_widget.hpp"
@@ -9,6 +7,8 @@
 #include "barretenberg/plonk/proof_system/widgets/transition_widgets/genperm_sort_widget.hpp"
 #include "barretenberg/plonk/proof_system/widgets/transition_widgets/plookup_arithmetic_widget.hpp"
 #include "barretenberg/plonk/proof_system/widgets/transition_widgets/plookup_auxiliary_widget.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 // The widgets are implemented in a non-uniform way where the transition widgets provide a per-row execution function
 // `accumulate_contribution` while the random widgets do not. Defining this preprocessor variable allows to derive a
@@ -39,7 +39,7 @@ BasicPlonkKeyAndTranscript get_plonk_key_and_transcript()
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto inner_composer = plonk::UltraComposer();
     auto builder = typename plonk::UltraComposer::CircuitBuilder();
-    bb::mock_proofs::generate_basic_arithmetic_circuit(builder, 16);
+    bb::mock_circuits::generate_basic_arithmetic_circuit(builder, 16);
     UltraProver inner_prover = inner_composer.create_prover(builder);
 #ifdef GET_PER_ROW_TIME
     if (!(inner_prover.key->circuit_size == WIDGET_BENCH_TEST_CIRCUIT_SIZE)) {

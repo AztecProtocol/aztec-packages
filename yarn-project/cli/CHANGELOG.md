@@ -1,5 +1,128 @@
 # Changelog
 
+## [0.34.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.33.0...aztec-cli-v0.34.0) (2024-04-10)
+
+
+### Miscellaneous
+
+* Reduce log verbosity in local e2e tests ([#5622](https://github.com/AztecProtocol/aztec-packages/issues/5622)) ([c496a10](https://github.com/AztecProtocol/aztec-packages/commit/c496a105eac3b78e53b7d42d4a64e88e3a4759a5))
+
+## [0.33.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.32.1...aztec-cli-v0.33.0) (2024-04-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* contract_abi-exports ([#5386](https://github.com/AztecProtocol/aztec-packages/issues/5386))
+
+### Features
+
+* **avm:** Integrate AVM with initializers ([#5469](https://github.com/AztecProtocol/aztec-packages/issues/5469)) ([59799f2](https://github.com/AztecProtocol/aztec-packages/commit/59799f273addec01eb0cdea365fe72bcbc8d9493))
+* Contract_abi-exports ([#5386](https://github.com/AztecProtocol/aztec-packages/issues/5386)) ([745d522](https://github.com/AztecProtocol/aztec-packages/commit/745d5229db86b2188f52ab7ccc8f568aef8f5797))
+* Jest fast transpile. no more ts-jest. ([#5530](https://github.com/AztecProtocol/aztec-packages/issues/5530)) ([1912802](https://github.com/AztecProtocol/aztec-packages/commit/19128024292a91d0f947f397ab1b0dc2cd7ef7aa))
+
+
+### Bug Fixes
+
+* Update CLI & terraforms with new contract addresses ([#5553](https://github.com/AztecProtocol/aztec-packages/issues/5553)) ([eb73d20](https://github.com/AztecProtocol/aztec-packages/commit/eb73d20e825f3e18acfb68a2b0b7d3501f39e52d))
+
+## [0.32.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.32.0...aztec-cli-v0.32.1) (2024-04-02)
+
+
+### Miscellaneous
+
+* Explicit type imports ([#5519](https://github.com/AztecProtocol/aztec-packages/issues/5519)) ([2a217de](https://github.com/AztecProtocol/aztec-packages/commit/2a217de4da2031a9f3913a657a4b39201f4483bf))
+
+## [0.32.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.31.0...aztec-cli-v0.32.0) (2024-03-27)
+
+
+### Miscellaneous
+
+* **aztec-cli:** Synchronize aztec-packages versions
+
+## [0.31.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.30.1...aztec-cli-v0.31.0) (2024-03-26)
+
+
+### Features
+
+* Capture broadcasted functions in node ([#5353](https://github.com/AztecProtocol/aztec-packages/issues/5353)) ([bc05db2](https://github.com/AztecProtocol/aztec-packages/commit/bc05db26c864c9a9dae43f149814e082cdcfd7df))
+
+
+### Bug Fixes
+
+* **cli:** Support initializers not named constructor in cli ([#5397](https://github.com/AztecProtocol/aztec-packages/issues/5397)) ([85f14c5](https://github.com/AztecProtocol/aztec-packages/commit/85f14c5dc84c46910b8de498472959fa561d593c))
+
+## [0.30.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.30.0...aztec-cli-v0.30.1) (2024-03-20)
+
+
+### Miscellaneous
+
+* **aztec-cli:** Synchronize aztec-packages versions
+
+## [0.30.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.29.0...aztec-cli-v0.30.0) (2024-03-19)
+
+
+### Features
+
+* Allow registering contract classes in PXE ([#5291](https://github.com/AztecProtocol/aztec-packages/issues/5291)) ([b811207](https://github.com/AztecProtocol/aztec-packages/commit/b811207bad691f519b31a6391967b9215a9e17d3)), closes [#4055](https://github.com/AztecProtocol/aztec-packages/issues/4055)
+
+
+### Miscellaneous
+
+* Add gas portal to l1 contract addresses ([#5265](https://github.com/AztecProtocol/aztec-packages/issues/5265)) ([640c89a](https://github.com/AztecProtocol/aztec-packages/commit/640c89a04d7b780795d40e239be3b3db73a16923)), closes [#5022](https://github.com/AztecProtocol/aztec-packages/issues/5022)
+
+## [0.29.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.28.1...aztec-cli-v0.29.0) (2024-03-18)
+
+
+### Features
+
+* Use deployer in address computation ([#5201](https://github.com/AztecProtocol/aztec-packages/issues/5201)) ([258ff4a](https://github.com/AztecProtocol/aztec-packages/commit/258ff4a00208be8695e2e59aecc14d6a92eaac1c))
+
+
+### Miscellaneous
+
+* Delete ContractData ([#5258](https://github.com/AztecProtocol/aztec-packages/issues/5258)) ([e516f9b](https://github.com/AztecProtocol/aztec-packages/commit/e516f9b94d1fbdc126a9d0d7d79c571d61914980))
+* Delete ExtendedContractData struct ([#5248](https://github.com/AztecProtocol/aztec-packages/issues/5248)) ([8ae0c13](https://github.com/AztecProtocol/aztec-packages/commit/8ae0c13ceaf8a1f3db09d0e61f0a3781c8926ca6))
+* Removing redundant receipts check ([#5271](https://github.com/AztecProtocol/aztec-packages/issues/5271)) ([5ab07fb](https://github.com/AztecProtocol/aztec-packages/commit/5ab07fb8b395b6edbda6167845c7ea864e9395a3))
+
+## [0.28.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.28.0...aztec-cli-v0.28.1) (2024-03-14)
+
+
+### Miscellaneous
+
+* **aztec-cli:** Synchronize aztec-packages versions
+
+## [0.28.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.27.2...aztec-cli-v0.28.0) (2024-03-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* Support contracts with no constructor ([#5175](https://github.com/AztecProtocol/aztec-packages/issues/5175))
+
+### Features
+
+* Support contracts with no constructor ([#5175](https://github.com/AztecProtocol/aztec-packages/issues/5175)) ([df7fa32](https://github.com/AztecProtocol/aztec-packages/commit/df7fa32f34e790231e091c38a4a6e84be5407763))
+
+## [0.27.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.27.1...aztec-cli-v0.27.2) (2024-03-13)
+
+
+### Miscellaneous
+
+* **aztec-cli:** Synchronize aztec-packages versions
+
+## [0.27.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.27.0...aztec-cli-v0.27.1) (2024-03-12)
+
+
+### Miscellaneous
+
+* **aztec-cli:** Synchronize aztec-packages versions
+
+## [0.27.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.26.6...aztec-cli-v0.27.0) (2024-03-12)
+
+
+### Miscellaneous
+
+* Remove old contract deployment flow ([#4970](https://github.com/AztecProtocol/aztec-packages/issues/4970)) ([6d15947](https://github.com/AztecProtocol/aztec-packages/commit/6d1594736e96cd744ea691a239fcd3a46bdade60))
+
 ## [0.26.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-cli-v0.26.5...aztec-cli-v0.26.6) (2024-03-08)
 
 

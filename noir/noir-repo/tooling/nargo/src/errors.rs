@@ -64,8 +64,12 @@ impl NargoError {
             ExecutionError::SolvingError(error) => match error {
                 OpcodeResolutionError::IndexOutOfBounds { .. }
                 | OpcodeResolutionError::OpcodeNotSolvable(_)
-                | OpcodeResolutionError::UnsatisfiedConstrain { .. } => None,
-                OpcodeResolutionError::BrilligFunctionFailed { message, .. } => Some(message),
+                | OpcodeResolutionError::UnsatisfiedConstrain { .. }
+                | OpcodeResolutionError::AcirMainCallAttempted { .. }
+                | OpcodeResolutionError::AcirCallOutputsMismatch { .. } => None,
+                OpcodeResolutionError::BrilligFunctionFailed { message, .. } => {
+                    message.as_ref().map(|s| s.as_str())
+                }
                 OpcodeResolutionError::BlackBoxFunctionFailed(_, reason) => Some(reason),
             },
         }

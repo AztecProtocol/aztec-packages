@@ -2,7 +2,7 @@ use crate::{
     crate::address::{eth_address::EthAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
     constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS},
     contract_class_id::ContractClassId, hash::pedersen_hash, grumpkin_point::GrumpkinPoint,
-    traits::{Empty, ToField, Serialize, Deserialize}, utils
+    traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils
 };
 
 // Aztec address
@@ -30,6 +30,12 @@ impl ToField for AztecAddress {
     }
 }
 
+impl FromField for AztecAddress {
+    fn from_field(value: Field) -> AztecAddress {
+        AztecAddress { inner: value }
+    }
+}
+
 impl Serialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     fn serialize(self: Self) -> [Field; AZTEC_ADDRESS_LENGTH] {
         [self.to_field()]
@@ -38,7 +44,7 @@ impl Serialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
 
 impl Deserialize<AZTEC_ADDRESS_LENGTH> for AztecAddress {
     fn deserialize(fields: [Field; AZTEC_ADDRESS_LENGTH]) -> Self {
-        AztecAddress::from_field(fields[0])
+        FromField::from_field(fields[0])
     }
 }
 
@@ -47,16 +53,13 @@ impl AztecAddress {
         Self { inner: 0 }
     }
 
-    pub fn from_field(field: Field) -> Self {
-        Self { inner: field }
-    }
-
     pub fn compute_from_public_key(
         pub_key: GrumpkinPoint,
         contract_class_id: ContractClassId,
         salt: Field,
         initialization_hash: Field,
-        portal_contract_address: EthAddress
+        portal_contract_address: EthAddress,
+        deployer: AztecAddress
     ) -> AztecAddress {
         AztecAddress::compute(
             PublicKeysHash::compute(pub_key),
@@ -64,7 +67,8 @@ impl AztecAddress {
                 contract_class_id,
                 salt,
                 initialization_hash,
-                portal_contract_address
+                portal_contract_address,
+                deployer
             )
         )
     }
@@ -99,16 +103,19 @@ fn compute_address() {
     let contract_class_id = ContractClassId::from_field(4);
     let initialization_hash = 5;
     let portal_contract_address = EthAddress::from_field(6);
+    let deployer = AztecAddress::from_field(7);
 
     let address = AztecAddress::compute_from_public_key(
         point,
         contract_class_id,
         contract_address_salt,
         initialization_hash,
-        portal_contract_address
+        portal_contract_address,
+        deployer
     );
 
-    assert(address.to_field() == 0x2fd71a4f0742364f194dd16d0ae32d2f47845ddc7f5d328f37d4148b565c4123);
+    let expected_computed_address_from_preimage = 0x027ea2b41ced2ec9a98305984e96dd28518536a4628883ccdc06e38aa8997220;
+    assert(address.to_field() == expected_computed_address_from_preimage);
 }
 
 #[test]
@@ -117,5 +124,18 @@ fn compute_address_from_partial_and_pubkey() {
     let partial_address = PartialAddress::from_field(3);
 
     let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
-    assert(address.to_field() == 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197);
+    let expected_computed_address_from_partial_and_pubkey = 0x0447f893197175723deb223696e2e96dbba1e707ee8507766373558877e74197;
+    assert(address.to_field() == expected_computed_address_from_partial_and_pubkey);
+}
+
+#[test]
+fn from_field_to_field() {
+    let address = AztecAddress { inner: 37 };
+    assert_eq(FromField::from_field(address.to_field()), address);
+}
+
+#[test]
+fn serde() {
+    let address = AztecAddress { inner: 37 };
+    assert_eq(Deserialize::deserialize(address.serialize()), address);
 }

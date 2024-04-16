@@ -1,13 +1,20 @@
 import {
-  ABIParameter,
-  ABIParameterVisibility,
-  ABIType,
-  ContractArtifact,
-  FunctionArtifact,
+  type ABIParameter,
+  type ABIParameterVisibility,
+  type AbiType,
+  type ContractArtifact,
+  type FunctionArtifact,
   FunctionType,
 } from '@aztec/foundation/abi';
 
-import { NoirCompiledContract } from '../noir/index.js';
+import {
+  AZTEC_INITIALIZER_ATTRIBUTE,
+  AZTEC_INTERNAL_ATTRIBUTE,
+  AZTEC_PRIVATE_ATTRIBUTE,
+  AZTEC_PUBLIC_ATTRIBUTE,
+  AZTEC_PUBLIC_VM_ATTRIBUTE,
+  type NoirCompiledContract,
+} from '../noir/index.js';
 import { mockVerificationKey } from './mocked_keys.js';
 
 /**
@@ -16,8 +23,21 @@ import { mockVerificationKey } from './mocked_keys.js';
  * @returns A buffer.
  */
 export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
-  // TODO(@spalladino): More efficient serialization
-  return Buffer.from(JSON.stringify(artifact), 'utf8');
+  return Buffer.from(
+    JSON.stringify(artifact, (key, value) => {
+      if (
+        key === 'bytecode' &&
+        value !== null &&
+        typeof value === 'object' &&
+        value.type === 'Buffer' &&
+        Array.isArray(value.data)
+      ) {
+        return Buffer.from(value.data).toString('base64');
+      }
+      return value;
+    }),
+    'utf-8',
+  );
 }
 
 /**
@@ -26,8 +46,12 @@ export function contractArtifactToBuffer(artifact: ContractArtifact): Buffer {
  * @returns Deserialized artifact.
  */
 export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
-  // TODO(@spalladino): More efficient serialization
-  return JSON.parse(buffer.toString('utf8')) as ContractArtifact;
+  return JSON.parse(buffer.toString('utf-8'), (key, value) => {
+    if (key === 'bytecode' && typeof value === 'string') {
+      return Buffer.from(value, 'base64');
+    }
+    return value;
+  });
 }
 
 /**
@@ -39,9 +63,7 @@ export function loadContractArtifact(input: NoirCompiledContract): ContractArtif
   if (isContractArtifact(input)) {
     return input;
   }
-  const contractArtifact = generateContractArtifact(input);
-  validateContractArtifact(contractArtifact);
-  return contractArtifact;
+  return generateContractArtifact(input);
 }
 
 /**
@@ -98,8 +120,13 @@ type NoirCompiledContractFunction = NoirCompiledContract['functions'][number];
  * @returns Function artifact.
  */
 function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArtifact {
-  const functionType = fn.function_type.toLowerCase() as FunctionType;
-  const isInternal = fn.is_internal;
+  if (fn.custom_attributes === undefined) {
+    throw new Error(
+      `No custom attributes found for contract function ${fn.name}. Try rebuilding the contract with the latest nargo version.`,
+    );
+  }
+  const functionType = getFunctionType(fn);
+  const isInternal = fn.custom_attributes.includes(AZTEC_INTERNAL_ATTRIBUTE);
 
   // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
   let parameters = fn.abi.parameters.map(generateFunctionParameter);
@@ -108,7 +135,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
   }
 
   // If the function is secret, the return is the public inputs, which should be omitted
-  let returnTypes: ABIType[] = [];
+  let returnTypes: AbiType[] = [];
   if (functionType !== 'secret' && fn.abi.return_type) {
     returnTypes = [fn.abi.return_type.abi_type];
   }
@@ -117,12 +144,29 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction): FunctionArt
     name: fn.name,
     functionType,
     isInternal,
+    isInitializer: fn.custom_attributes.includes(AZTEC_INITIALIZER_ATTRIBUTE),
     parameters,
     returnTypes,
-    bytecode: fn.bytecode,
+    bytecode: Buffer.from(fn.bytecode, 'base64'),
     verificationKey: mockVerificationKey,
     debugSymbols: fn.debug_symbols,
   };
+}
+
+function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
+  if (fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE)) {
+    return FunctionType.SECRET;
+  } else if (
+    fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE) ||
+    fn.custom_attributes.includes(AZTEC_PUBLIC_VM_ATTRIBUTE)
+  ) {
+    return FunctionType.OPEN;
+  } else if (fn.is_unconstrained) {
+    return FunctionType.UNCONSTRAINED;
+  } else {
+    // Default to a private function (see simple_macro_example_expanded for an example of this behavior)
+    return FunctionType.SECRET;
+  }
 }
 
 /**
@@ -138,15 +182,6 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
   return firstParam?.type.kind === 'struct' && firstParam.type.path.includes('ContextInputs');
 }
 
-/** Validates contract artifact instance, throwing on error. */
-function validateContractArtifact(contract: ContractArtifact) {
-  const constructorArtifact = contract.functions.find(({ name }) => name === 'constructor');
-  if (constructorArtifact === undefined) {
-    throw new Error('Contract must have a constructor function');
-  }
-  return contract;
-}
-
 /**
  * Given a Nargo output generates an Aztec-compatible contract artifact.
  * @param compiled - Noir build output.
@@ -156,7 +191,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
   return {
     name: contract.name,
     functions: contract.functions.map(generateFunctionArtifact),
-    events: contract.events,
+    outputs: contract.outputs,
     fileMap: contract.file_map,
     aztecNrVersion,
   };

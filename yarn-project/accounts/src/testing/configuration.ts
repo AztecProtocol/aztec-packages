@@ -1,6 +1,6 @@
 import { generatePublicKey } from '@aztec/aztec.js';
-import { AccountWalletWithPrivateKey } from '@aztec/aztec.js/wallet';
-import { PXE } from '@aztec/circuit-types';
+import { type AccountWalletWithPrivateKey } from '@aztec/aztec.js/wallet';
+import { type PXE } from '@aztec/circuit-types';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { getSchnorrAccount } from '../schnorr/index.js';
@@ -66,8 +66,9 @@ export async function deployInitialTestAccounts(pxe: PXE) {
         contractAddressSalt: x.account.salt,
         skipClassRegistration: true,
         skipPublicDeployment: true,
+        universalDeploy: true,
       });
-      await deployMethod.simulate({});
+      await deployMethod.prove({});
       return deployMethod;
     }),
   );

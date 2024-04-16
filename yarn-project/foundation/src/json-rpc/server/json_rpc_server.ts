@@ -6,9 +6,9 @@ import compress from 'koa-compress';
 import Router from 'koa-router';
 
 import { createDebugLogger } from '../../log/index.js';
-import { JsonClassConverterInput, StringClassConverterInput } from '../class_converter.js';
+import { type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { convertBigintsInObj } from '../convert.js';
-import { ClassMaps, JsonProxy } from './json_proxy.js';
+import { type ClassMaps, JsonProxy } from './json_proxy.js';
 
 /**
  * JsonRpcServer.
@@ -73,7 +73,7 @@ export class JsonRpcServer {
     app.use(compress({ br: false } as any));
     app.use(
       bodyParser({
-        jsonLimit: '10mb',
+        jsonLimit: '50mb',
         enableTypes: ['json'],
         detectJSON: () => true,
       }),

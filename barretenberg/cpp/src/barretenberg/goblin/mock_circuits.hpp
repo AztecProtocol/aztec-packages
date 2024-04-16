@@ -6,16 +6,15 @@
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
-#include "barretenberg/flavor/goblin_ultra.hpp"
-#include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib/honk_recursion/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
 class GoblinMockCircuits {
@@ -30,12 +29,16 @@ class GoblinMockCircuits {
     using Flavor = bb::GoblinUltraFlavor;
     using RecursiveFlavor = bb::GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    using KernelInput = Goblin::AccumulationOutput;
     using VerifierInstance = bb::VerifierInstance_<Flavor>;
     using RecursiveVerifierInstance = ::bb::stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveVerifierInstance>;
     using VerificationKey = Flavor::VerificationKey;
     static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
+
+    struct KernelInput {
+        HonkProof proof;
+        std::shared_ptr<Flavor::VerificationKey> verification_key;
+    };
 
     /**
      * @brief Information required by the verifier to verify a folding round besides the previous accumulator.
@@ -45,58 +48,6 @@ class GoblinMockCircuits {
         std::shared_ptr<VerificationKey>
             inst_vk; // Verification key of the instance to be folded (note: this would be a vector if k > 1 )
     };
-
-    /**
-     * @brief Populate a builder with a specified number of arithmetic gates; includes a PI
-     *
-     * @param builder
-     * @param num_gates
-     */
-    static void construct_arithmetic_circuit(GoblinUltraBuilder& builder, size_t log_num_gates = 0)
-    {
-        size_t num_gates = 1 << log_num_gates;
-        // For good measure, include a gate with some public inputs
-        {
-            FF a = FF::random_element();
-            FF b = FF::random_element();
-            FF c = FF::random_element();
-            FF d = a + b + c;
-            uint32_t a_idx = builder.add_public_variable(a);
-            uint32_t b_idx = builder.add_variable(b);
-            uint32_t c_idx = builder.add_variable(c);
-            uint32_t d_idx = builder.add_variable(d);
-
-            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
-        }
-
-        // Add arbitrary arithmetic gates to obtain a total of num_gates-many gates
-        FF a = FF::random_element();
-        FF b = FF::random_element();
-        FF c = FF::random_element();
-        FF d = a + b + c;
-        uint32_t a_idx = builder.add_variable(a);
-        uint32_t b_idx = builder.add_variable(b);
-        uint32_t c_idx = builder.add_variable(c);
-        uint32_t d_idx = builder.add_variable(d);
-
-        for (size_t i = 0; i < num_gates - 1; ++i) {
-            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
-        }
-    }
-
-    /**
-     * @brief Populate a builder with some arbitrary goblinized ECC ops
-     *
-     * @param builder
-     */
-    static void construct_goblin_ecc_op_circuit(GoblinUltraBuilder& builder)
-    {
-        // Add a mul accum op and an equality op
-        auto point = Point::one() * FF::random_element();
-        auto scalar = FF::random_element();
-        builder.queue_ecc_mul_accum(point, scalar);
-        builder.queue_ecc_eq();
-    }
 
     /**
      * @brief Populate a builder with some arbitrary but nontrivial constraints
@@ -109,10 +60,9 @@ class GoblinMockCircuits {
      */
     static void construct_mock_function_circuit(GoblinUltraBuilder& builder, bool large = false)
     {
-        BB_OP_COUNT_TIME();
         // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
         // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
-        const size_t NUM_ITERATIONS_LARGE = 13; // results in circuit size 2^19 (521327 gates)
+        const size_t NUM_ITERATIONS_LARGE = 12; // results in circuit size 2^19 (502238 gates)
         const size_t NUM_ITERATIONS_MEDIUM = 3; // results in circuit size 2^17 (124843 gates)
         const size_t NUM_ITERATIONS = large ? NUM_ITERATIONS_LARGE : NUM_ITERATIONS_MEDIUM;
 
@@ -120,10 +70,12 @@ class GoblinMockCircuits {
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS); // min gates: ~41k
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS);  // min gates: ~29k
 
-        // Note: its not clear whether goblin ops will be supported for function circuits initially but currently
-        // UGH can only be used if some op gates are included so for now we'll assume each function circuit has
-        // some.
-        construct_goblin_ecc_op_circuit(builder);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
+        // function circuit because we cannot support zero commtiments. While the builder handles this at
+        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other UGH
+        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
+        // folding where the absense of goblin ecc ops will result in zero commitments.
+        MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
     /**
@@ -143,11 +95,12 @@ class GoblinMockCircuits {
         bb::GoblinUltraCircuitBuilder builder{ op_queue };
 
         // Add some goblinized ecc ops
-        construct_goblin_ecc_op_circuit(builder);
+        MockCircuits::construct_goblin_ecc_op_circuit(builder);
 
         op_queue->set_size_data();
 
         // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
+        bb::srs::init_crs_factory("../srs_db/ignition");
         auto commitment_key = CommitmentKey(op_queue->get_current_size());
         std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
         size_t idx = 0;
@@ -163,11 +116,8 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_initial_circuit(GoblinUltraBuilder& builder)
+    static void construct_simple_circuit(GoblinUltraBuilder& builder)
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/800) Testing cleanup
-        perform_op_queue_interactions_for_mock_first_circuit(builder.op_queue);
-
         // Add some arbitrary ecc op gates
         for (size_t i = 0; i < 3; ++i) {
             auto point = Point::random_element();
@@ -178,7 +128,7 @@ class GoblinMockCircuits {
         // queues the result of the preceding ECC
         builder.queue_ecc_eq(); // should be eq and reset
 
-        construct_arithmetic_circuit(builder, 1 << 10);
+        MockCircuits::construct_arithmetic_circuit(builder);
     }
 
     /**
@@ -233,7 +183,6 @@ class GoblinMockCircuits {
         const VerifierFoldData& kernel,
         std::shared_ptr<VerifierInstance>& prev_kernel_accum)
     {
-        BB_OP_COUNT_TIME();
         using GURecursiveFlavor = GoblinUltraRecursiveFlavor_<GoblinUltraBuilder>;
         using RecursiveVerifierInstances =
             bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;

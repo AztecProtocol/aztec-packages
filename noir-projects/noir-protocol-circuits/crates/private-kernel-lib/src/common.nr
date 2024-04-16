@@ -1,12 +1,11 @@
 use dep::std;
 use dep::types::{
     abis::{
-    call_request::CallRequest, accumulated_data::CombinedAccumulatedData, function_data::FunctionData,
+    call_request::CallRequest, accumulated_data::PrivateAccumulatedData,
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsBuilder,
-    membership_witness::NoteHashReadRequestMembershipWitness,
+    max_block_number::MaxBlockNumber, membership_witness::NoteHashReadRequestMembershipWitness,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData,
-    kernel_data::{PrivateKernelInnerData, PrivateKernelTailData},
+    private_kernel::private_call_data::PrivateCallData, kernel_data::PrivateKernelData,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
@@ -16,13 +15,11 @@ use dep::types::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL
 },
-    grumpkin_private_key::GrumpkinPrivateKey,
     hash::{
-    compute_constructor_hash, compute_l2_to_l1_hash, compute_logs_hash,
-    compute_new_contract_address_hash, function_tree_root_from_siblings, pedersen_hash,
-    private_functions_root_from_siblings, root_from_sibling_path, silo_note_hash, silo_nullifier,
-    stdlib_recursion_verification_key_compress_native_vk
+    compute_l2_to_l1_hash, compute_logs_hash, private_functions_root_from_siblings, silo_note_hash,
+    silo_nullifier, stdlib_recursion_verification_key_compress_native_vk
 },
+    merkle_tree::check_membership,
     utils::{arrays::{array_length, array_to_bounded_vec, validate_array}},
     traits::{is_empty, is_empty_array}
 };
@@ -32,7 +29,6 @@ pub fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
     // In addition, some of the following arrays (new_note_hashes, etc...) are passed
     // to extend_from_array_to_array() routines which rely on the passed arrays to be well-formed.
 
-    validate_array(app_public_inputs.return_values);
     validate_array(app_public_inputs.note_hash_read_requests);
     validate_array(app_public_inputs.nullifier_read_requests);
     validate_array(app_public_inputs.nullifier_key_validation_requests);
@@ -72,8 +68,14 @@ pub fn validate_note_hash_read_requests(
         // but we use the leaf index as a placeholder to detect a 'pending note read'.
 
         if (read_request != 0) & (witness.is_transient == false) {
-            let root_for_read_request = root_from_sibling_path(read_request, witness.leaf_index, witness.sibling_path);
-            assert(root_for_read_request == historical_note_hash_tree_root, "note hash tree root mismatch");
+            assert(
+                check_membership(
+                    read_request,
+                    witness.leaf_index,
+                    witness.sibling_path,
+                    historical_note_hash_tree_root
+                ), "note hash tree root mismatch"
+            );
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?
         }
@@ -81,19 +83,21 @@ pub fn validate_note_hash_read_requests(
 }
 
 pub fn initialize_end_values(
-    previous_kernel: PrivateKernelInnerData,
+    previous_kernel: PrivateKernelData,
     public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
 ) {
     public_inputs.constants = previous_kernel.public_inputs.constants;
     public_inputs.min_revertible_side_effect_counter = previous_kernel.public_inputs.min_revertible_side_effect_counter;
 
+    let start = previous_kernel.public_inputs.validation_requests;
+    public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
+    public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
+    public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
+    public_inputs.validation_requests.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
+
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:
     let start = previous_kernel.public_inputs.end;
-
-    public_inputs.end.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
-    public_inputs.end.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
-    public_inputs.end.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
 
     public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
     public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
@@ -175,6 +179,9 @@ pub fn update_end_values(
 
     let storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
 
+    // Update the max block number if the private call requested a lower one.
+    public_inputs.validation_requests.max_block_number = MaxBlockNumber::min(public_inputs.validation_requests.max_block_number, private_call_public_inputs.max_block_number);
+
     // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
     let read_requests = private_call_public_inputs.note_hash_read_requests;
@@ -189,14 +196,14 @@ pub fn update_end_values(
             )
         }
     }
-    public_inputs.end.note_hash_read_requests.extend_from_bounded_vec(siloed_read_requests);
+    public_inputs.validation_requests.note_hash_read_requests.extend_from_bounded_vec(siloed_read_requests);
 
     // Nullifier read request.
     let nullifier_read_requests = private_call_public_inputs.nullifier_read_requests;
     for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL {
         let request = nullifier_read_requests[i];
         if !is_empty(request) {
-            public_inputs.end.nullifier_read_requests.push(request.to_context(storage_contract_address));
+            public_inputs.validation_requests.nullifier_read_requests.push(request.to_context(storage_contract_address));
         }
     }
 
@@ -205,7 +212,7 @@ pub fn update_end_values(
     for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL {
         let request = nullifier_key_validation_requests[i];
         if !is_empty(request) {
-            public_inputs.end.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
+            public_inputs.validation_requests.nullifier_key_validation_requests.push(request.to_context(storage_contract_address));
         }
     }
 
@@ -336,7 +343,7 @@ pub fn contract_logic(private_call: PrivateCallData) {
     assert(computed_address.eq(contract_address), "computed contract address does not match expected one");
 }
 
-pub fn validate_previous_kernel_values(end: CombinedAccumulatedData) {
+pub fn validate_previous_kernel_values(end: PrivateAccumulatedData) {
     assert(end.new_nullifiers[0].value != 0, "The 0th nullifier in the accumulated nullifier array is zero");
 }
 
@@ -347,13 +354,6 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
     );
 
     let call_context = call_stack_item.public_inputs.call_context;
-
-    // Ensures that if the function is internal, only the contract itself can call it.
-    if call_stack_item.function_data.is_internal {
-        assert(
-            call_context.msg_sender.eq(call_context.storage_contract_address), "call is internal but msg_sender is not self"
-        );
-    }
 
     if call_context.is_delegate_call {
         let caller_context = request.caller_context;
@@ -376,29 +376,4 @@ pub fn validate_call_against_request(private_call: PrivateCallData, request: Cal
             call_context.storage_contract_address.eq(call_stack_item.contract_address), "call stack storage address does not match expected contract address"
         );
     }
-}
-
-fn field_to_grumpkin_private_key(val: Field) -> GrumpkinPrivateKey {
-    let bytes = val.to_be_bytes(32);
-    let mut v = 1;
-    let mut high = 0;
-    let mut low = 0;
-
-    for i in 0..16 {
-        high = high + (bytes[15 - i] as Field) * v;
-        low = low + (bytes[16 + 15 - i] as Field) * v;
-        v = v * 256;
-    }
-
-    GrumpkinPrivateKey { high, low }
-}
-
-pub fn compute_siloed_nullifier_secret_key(secret_key: GrumpkinPrivateKey, contract_address: AztecAddress) -> GrumpkinPrivateKey {
-    // TODO: Temporary hack. Should replace it with a secure way to derive the secret key.
-    // Match the way keys are derived in circuits.js/src/keys/index.ts
-    let hash = pedersen_hash(
-        [secret_key.high, secret_key.low, contract_address.to_field()],
-        0
-    );
-    field_to_grumpkin_private_key(hash)
 }

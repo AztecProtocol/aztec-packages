@@ -1,10 +1,8 @@
 use base64::Engine;
 use log::info;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use acvm::acir::circuit::Circuit;
-use noirc_driver::ContractFunctionType;
+use acvm::acir::circuit::Program;
 
 use crate::transpile::brillig_to_avm;
 use crate::utils::extract_brillig_from_acir;
@@ -17,7 +15,7 @@ pub struct TranspiledContract {
     pub name: String,
     // Functions can be ACIR or AVM
     pub functions: Vec<AvmOrAcirContractFunction>,
-    pub events: serde_json::Value,
+    pub outputs: serde_json::Value,
     pub file_map: serde_json::Value,
     //pub warnings: serde_json::Value,
 }
@@ -30,7 +28,7 @@ pub struct CompiledAcirContract {
     pub noir_version: String,
     pub name: String,
     pub functions: Vec<AcirContractFunction>,
-    pub events: serde_json::Value,
+    pub outputs: serde_json::Value,
     pub file_map: serde_json::Value,
     //pub warnings: serde_json::Value,
 }
@@ -40,8 +38,8 @@ pub struct CompiledAcirContract {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AvmContractFunction {
     pub name: String,
-    pub function_type: ContractFunctionType,
-    pub is_internal: bool,
+    pub is_unconstrained: bool,
+    pub custom_attributes: Vec<String>,
     pub abi: serde_json::Value,
     pub bytecode: String, // base64
     pub debug_symbols: serde_json::Value,
@@ -52,14 +50,14 @@ pub struct AvmContractFunction {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AcirContractFunction {
     pub name: String,
-    pub function_type: ContractFunctionType,
-    pub is_internal: bool,
+    pub is_unconstrained: bool,
+    pub custom_attributes: Vec<String>,
     pub abi: serde_json::Value,
     #[serde(
-        serialize_with = "Circuit::serialize_circuit_base64",
-        deserialize_with = "Circuit::deserialize_circuit_base64"
+        serialize_with = "Program::serialize_program_base64",
+        deserialize_with = "Program::deserialize_program_base64"
     )]
-    pub bytecode: Circuit,
+    pub bytecode: Program,
     pub debug_symbols: serde_json::Value,
 }
 
@@ -78,20 +76,19 @@ impl From<CompiledAcirContract> for TranspiledContract {
     fn from(contract: CompiledAcirContract) -> Self {
         let mut functions = Vec::new();
 
-        // Note, in aztec_macros/lib.rs, avm_ prefix is pushed to function names with the #[aztec(public-vm)] tag
-        let re = Regex::new(r"avm_.*$").unwrap();
         for function in contract.functions {
             // TODO(4269): once functions are tagged for transpilation to AVM, check tag
-            if function.function_type == ContractFunctionType::Open
-                && re.is_match(function.name.as_str())
+            if function
+                .custom_attributes
+                .contains(&"aztec(public-vm)".to_string())
             {
                 info!(
                     "Transpiling AVM function {} on contract {}",
                     function.name, contract.name
                 );
                 // Extract Brillig Opcodes from acir
-                let acir_circuit = function.bytecode.clone();
-                let brillig = extract_brillig_from_acir(&acir_circuit.opcodes);
+                let acir_program = function.bytecode;
+                let brillig = extract_brillig_from_acir(&acir_program.functions[0].opcodes);
 
                 // Transpile to AVM
                 let avm_bytecode = brillig_to_avm(brillig);
@@ -99,8 +96,8 @@ impl From<CompiledAcirContract> for TranspiledContract {
                 // Push modified function entry to ABI
                 functions.push(AvmOrAcirContractFunction::Avm(AvmContractFunction {
                     name: function.name,
-                    function_type: function.function_type,
-                    is_internal: function.is_internal,
+                    is_unconstrained: function.is_unconstrained,
+                    custom_attributes: function.custom_attributes,
                     abi: function.abi,
                     bytecode: base64::prelude::BASE64_STANDARD.encode(avm_bytecode),
                     debug_symbols: function.debug_symbols,
@@ -115,7 +112,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
             noir_version: contract.noir_version,
             name: contract.name,
             functions, // some acir, some transpiled avm functions
-            events: contract.events,
+            outputs: contract.outputs,
             file_map: contract.file_map,
             //warnings: contract.warnings,
         }

@@ -1,12 +1,12 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/library/grand_product_delta.hpp"
-#include "barretenberg/proof_system/plookup_tables/fixed_base/fixed_base.hpp"
-#include "barretenberg/proof_system/plookup_tables/types.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -70,17 +70,17 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
-    auto proving_key = instance->proving_key;
+    auto& proving_key = instance->proving_key;
 
-    for (auto& poly : proving_key->get_selectors()) {
+    for (auto& poly : proving_key.get_selectors()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key->get_table_polynomials()) {
+    for (auto& poly : proving_key.get_table_polynomials()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key->get_wires()) {
+    for (auto& poly : proving_key.get_wires()) {
         ensure_non_zero(poly);
     }
 }

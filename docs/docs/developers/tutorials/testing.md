@@ -88,7 +88,7 @@ This debug information will be populated in the transaction receipt. You can log
 
 If a note doesn't appear when you expect it to, check the visible notes returned by the debug options. See the following example for reference on how it's done in the token contract tests.
 
-#include_code debug /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+#include_code debug /yarn-project/end-to-end/src/e2e_token_contract/minting.test.ts typescript
 
 If the note appears in the visible notes and it contains the expected values there is probably an issue with how you fetch the notes. Check that the note getter (or note viewer) parameters are set correctly. If the note doesn't appear, ensure that you have emitted the corresponding encrypted log (usually by passing in a `broadcast = true` param to the `create_note` function). You can also check the Sandbox logs to see if the `emitEncryptedLog` was emitted. Run `export DEBUG="aztec:\*" before spinning up sandbox to see all the logs.
 
@@ -130,7 +130,7 @@ Keep in mind that public function calls behave as in EVM blockchains, in that th
 
 #### A public call fails on the sequencer
 
-We can ignore a local simulation error for a public function via the `skipPublicSimulation`. This will submit a failing call to the sequencer, who will include the transaction, but without any side effects from our application logic.
+We can ignore a local simulation error for a public function via the `skipPublicSimulation`. This will submit a failing call to the sequencer, who will include the transaction, but without any side effects from our application logic. Requesting the receipt for the transaction will also show it has a reverted status.
 
 #include_code pub-reverted /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
@@ -138,13 +138,9 @@ We can ignore a local simulation error for a public function via the `skipPublic
 WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5fab3ea923f: Assertion failed: Balance too low.
 ```
 
-:::info
-Presently, the transaction is included, but no additional information is included in the block to mark it as reverted. This will change in the near future.
-:::
-
 ### State
 
-We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().view()`. Bear in mind that directly accessing contract storage will break any kind of encapsulation.
+We can check private or public state directly rather than going through view-only methods, as we did in the initial example by calling `token.methods.balance().simulate()`. Bear in mind that directly accessing contract storage will break any kind of encapsulation.
 
 To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../contracts/writing_contracts/storage/main.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../sandbox/references/cheat_codes.md) utility class:
 

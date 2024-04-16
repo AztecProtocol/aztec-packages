@@ -6,6 +6,273 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Rename max block number setter
+
+The `request_max_block_number` function has been renamed to `set_tx_max_block_number` to better reflect that it is not a getter, and that the setting is transaction-wide.
+
+```diff
+- context.request_max_block_number(value);
++ context.set_tx_max_block_number(value);
+```
+
+## 0.33
+
+### [Aztec.nr] Storage struct annotation
+
+The storage struct now identified by the annotation `#[aztec(storage)]`, instead of having to rely on it being called `Storage`.
+
+```diff
+- struct Storage {
+-    ...
+- }
++ #[aztec(storage)]
++ struct MyStorageStruct {
++    ...
++ }
+```
+
+### [Aztec.js] Storage layout and note info
+
+Storage layout and note information are now exposed in the TS contract artifact
+
+```diff
+- const note = new Note([new Fr(mintAmount), secretHash]);
+- const pendingShieldStorageSlot = new Fr(5n); // storage slot for pending_shields
+- const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // note type id for TransparentNote
+- const extendedNote = new ExtendedNote(
+-   note,
+-   admin.address,
+-   token.address,
+-   pendingShieldStorageSlot,
+-   noteTypeId,
+-   receipt.txHash,
+- );
+- await pxe.addNote(extendedNote);
++ const note = new Note([new Fr(mintAmount), secretHash]);
++ const extendedNote = new ExtendedNote(
++   note,
++   admin.address,
++   token.address,
++   TokenContract.storage.pending_shields.slot,
++   TokenContract.notes.TransparentNote.id,
++   receipt.txHash,
++ );
++ await pxe.addNote(extendedNote);
+```
+
+### [Aztec.nr] rand oracle is now called unsafe_rand
+
+`oracle::rand::rand` has been renamed to `oracle::unsafe_rand::unsafe_rand`.
+This change was made to communicate that we do not constrain the value in circuit and instead we just trust our PXE.
+
+```diff
+- let random_value = rand();
++ let random_value = unsafe_rand();
+```
+
+### [AztecJS] Simulate and get return values for ANY call and introducing `prove()`
+
+Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
+This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`.
+It is not possible to call `simulate` on any call to get the return values!
+However, beware that it currently always returns a Field array of size 4 for private and public.  
+This will change to become similar to the return values of the `unconstrained` functions with proper return types.
+
+```diff
+-    #[aztec(private)]
+-    fn get_shared_immutable_constrained_private() -> pub Leader {
+-        storage.shared_immutable.read_private()
+-    }
+-
+-    unconstrained fn get_shared_immutable() -> pub Leader {
+-        storage.shared_immutable.read_public()
+-    }
+
++    #[aztec(private)]
++    fn get_shared_immutable_private() -> pub Leader {
++        storage.shared_immutable.read_private()
++    }
+
+- const returnValues = await contract.methods.get_shared_immutable().view();
++ const returnValues = await contract.methods.get_shared_immutable_private().simulate();
+```
+
+```diff
+await expect(
+-   asset.withWallet(wallets[1]).methods.update_admin(newAdminAddress).simulate()).rejects.toThrow(
++   asset.withWallet(wallets[1]).methods.update_admin(newAdminAddress).prove()).rejects.toThrow(
+        "Assertion failed: caller is not admin 'caller_roles.is_admin'",
+);
+```
+
+## 0.31.0
+
+### [Aztec.nr] Public storage historical read API improvement
+
+`history::public_value_inclusion::prove_public_value_inclusion` has been renamed to `history::public_storage::public_storage_historical_read`, and its API changed slightly. Instead of receiving a `value` parameter it now returns the historical value stored at that slot.
+
+If you were using an oracle to get the value to pass to `prove_public_value_inclusion`, drop the oracle and use the return value from `public_storage_historical_read` instead:
+
+```diff
+- let value = read_storage();
+- prove_public_value_inclusion(value, storage_slot, contract_address, context);
++ let value = public_storage_historical_read(storage_slot, contract_address, context);
+```
+
+If you were proving historical existence of a value you got via some other constrained means, perform an assertion against the return value of `public_storage_historical_read` instead:
+
+```diff
+- prove_public_value_inclusion(value, storage_slot, contract_address, context);
++ assert(public_storage_historical_read(storage_slot, contract_address, context) == value);
+```
+
+## 0.30.0
+
+### [AztecJS] Simplify authwit syntax
+
+```diff
+- const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+- await wallets[0].setPublicAuth(messageHash, true).send().wait();
++ await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true).send().wait();
+```
+
+```diff
+const action = asset
+    .withWallet(wallets[1])
+    .methods.unshield(accounts[0].address, accounts[1].address, amount, nonce);
+-const messageHash = computeAuthWitMessageHash(accounts[1].address, action.request());
+-const witness = await wallets[0].createAuthWitness(messageHash);
++const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
+await wallets[1].addAuthWitness(witness);
+```
+
+Also note some of the naming changes:
+`setPublicAuth` -> `setPublicAuthWit`
+`createAuthWitness` -> `createAuthWit`
+
+### [Aztec.nr] Automatic NoteInterface implementation and selector changes
+
+Implementing a note required a fair amount of boilerplate code, which has been substituted by the `#[aztec(note)]` attribute.
+
+```diff
++ #[aztec(note)]
+struct AddressNote {
+    address: AztecAddress,
+    owner: AztecAddress,
+    randomness: Field,
+    header: NoteHeader
+}
+
+impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
+-    fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN]{
+-        [self.address.to_field(), self.owner.to_field(), self.randomness]
+-    }
+-
+-    fn deserialize_content(serialized_note: [Field; ADDRESS_NOTE_LEN]) -> Self {
+-        AddressNote {
+-            address: AztecAddress::from_field(serialized_note[0]),
+-            owner: AztecAddress::from_field(serialized_note[1]),
+-            randomness: serialized_note[2],
+-            header: NoteHeader::empty(),
+-        }
+-    }
+-
+-    fn compute_note_content_hash(self) -> Field {
+-        pedersen_hash(self.serialize_content(), 0)
+-    }
+-
+    fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        let secret = context.request_nullifier_secret_key(self.owner);
+        pedersen_hash([
+            note_hash_for_nullify,
+            secret.low,
+            secret.high,
+        ],0)
+    }
+
+    fn compute_nullifier_without_context(self) -> Field {
+        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+        let secret = get_nullifier_secret_key(self.owner);
+        pedersen_hash([
+            note_hash_for_nullify,
+            secret.low,
+            secret.high,
+        ],0)
+    }
+
+-    fn set_header(&mut self, header: NoteHeader) {
+-        self.header = header;
+-    }
+-
+-    fn get_header(note: Self) -> NoteHeader {
+-        note.header
+-    }
+
+    fn broadcast(self, context: &mut PrivateContext, slot: Field) {
+        let encryption_pub_key = get_public_key(self.owner);
+        emit_encrypted_log(
+            context,
+            (*context).this_address(),
+            slot,
+            Self::get_note_type_id(),
+            encryption_pub_key,
+            self.serialize_content(),
+        );
+    }
+
+-    fn get_note_type_id() -> Field {
+-        6510010011410111511578111116101
+-    }
+}
+```
+
+Automatic note (de)serialization implementation also means it is now easier to filter notes using `NoteGetterOptions.select` via the `::properties()` helper:
+
+Before:
+
+```rust
+let options = NoteGetterOptions::new().select(0, amount, Option::none()).select(1, owner.to_field(), Option::none()).set_limit(1);
+```
+
+After:
+
+```rust
+let options = NoteGetterOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(ValueNote::properties().owner, owner.to_field(), Option::none()).set_limit(1);
+```
+
+The helper returns a metadata struct that looks like this (if autogenerated)
+
+```rust
+ValueNoteProperties {
+    value: PropertySelector { index: 0, offset: 0, length: 32 },
+    owner: PropertySelector { index: 1, offset: 0, length: 32 },
+    randomness: PropertySelector { index: 2, offset: 0, length: 32 },
+}
+```
+
+It can also be used for the `.sort` method.
+
+## 0.27.0
+
+### `initializer` macro replaces `constructor`
+
+Before this version, every contract was required to have exactly one `constructor` private function, that was used for deployment. We have now removed this requirement, and made `constructor` a function like any other.
+
+To signal that a function can be used to **initialize** a contract, you must now decorate it with the `#[aztec(initializer)]` attribute. Initializers are regular functions that set an "initialized" flag (a nullifier) for the contract. A contract can only be initialized once, and contract functions can only be called after the contract has been initialized, much like a constructor. However, if a contract defines no initializers, it can be called at any time. Additionally, you can define as many initializer functions in a contract as you want, both private and public.
+
+To migrate from current code, simply add an initializer attribute to your constructor functions.
+
+```diff
++ #[aztec(initializer)]
+#[aztec(private)]
+fn constructor() { ... }
+```
+
+If your private constructor was used to just call a public internal initializer, then remove the private constructor and flag the public function as initializer. And if your private constructor was an empty one, just remove it.
+
 ## 0.25.0
 
 ### [Aztec.nr] Static calls
@@ -22,6 +289,7 @@ context.static_call_public_function(targetContractAddress, targetSelector, args)
 
 A new `prelude` module to include common Aztec modules and types.
 This simplifies dependency syntax. For example:
+
 ```rust
 use dep::aztec::protocol_types::address::AztecAddress;
 use dep::aztec::{
@@ -29,7 +297,9 @@ use dep::aztec::{
     state_vars::Map
 };
 ```
+
 Becomes:
+
 ```rust
 use dep::aztec::prelude::{AztecAddress, NoteHeader, PrivateContext, Map};
 use dep::aztec::context::Context;
@@ -47,6 +317,7 @@ The prelude consists of
 The `internal` keyword is now removed from Noir, and is replaced by an `aztec(internal)` attribute in the function. The resulting behavior is exactly the same: these functions will only be callable from within the same contract.
 
 Before:
+
 ```rust
 #[aztec(private)]
 internal fn double(input: Field) -> Field {
@@ -55,6 +326,7 @@ internal fn double(input: Field) -> Field {
 ```
 
 After:
+
 ```rust
 #[aztec(private)]
 #[aztec(internal)]
@@ -64,26 +336,30 @@ fn double(input: Field) -> Field {
 ```
 
 ### [Aztec.nr] No SafeU120 anymore!
+
 Noir now have overflow checks by default. So we don't need SafeU120 like libraries anymore.
 
 You can replace it with `U128` instead
 
-Before: 
+Before:
+
 ```
 SafeU120::new(0)
 ```
 
 Now:
+
 ```
 U128::from_integer(0)
 ```
+
 ### [Aztec.nr] `compute_note_hash_and_nullifier` is now autogenerated
 
 Historically developers have been required to include a `compute_note_hash_and_nullifier` function in each of their contracts. This function is now automatically generated, and all instances of it in contract code can be safely removed.
 
 It is possible to provide a user-defined implementation, in which case auto-generation will be skipped (though there are no known use cases for this).
 
-### [Aztec.nr]  Updated naming of state variable wrappers
+### [Aztec.nr] Updated naming of state variable wrappers
 
 We have decided to change the naming of our state variable wrappers because the naming was not clear.
 The changes are as follows:
@@ -111,6 +387,7 @@ Furthermore, the `caller` parameter of the "authwits" have been moved "further o
 For most contracts, this won't be changing much, but for the account contract, it will require a few changes.
 
 Before:
+
 ```rust
 #[aztec(public)]
 fn is_valid_public(message_hash: Field) -> Field {
@@ -126,6 +403,7 @@ fn is_valid(message_hash: Field) -> Field {
 ```
 
 After:
+
 ```rust
 #[aztec(private)]
 fn spend_private_authwit(inner_hash: Field) -> Field {
@@ -747,13 +1025,13 @@ To parse a `AztecAddress` to BigInt, use `.inner`
 Before:
 
 ```js
-const tokenBigInt = await bridge.methods.token().view();
+const tokenBigInt = await bridge.methods.token().simulate();
 ```
 
 Now:
 
 ```js
-const tokenBigInt = (await bridge.methods.token().view()).inner;
+const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ```
 
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml

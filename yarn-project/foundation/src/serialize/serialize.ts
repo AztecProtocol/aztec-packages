@@ -110,6 +110,7 @@ export type Bufferable =
   | boolean
   | Buffer
   | number
+  | bigint
   | string
   | {
       /**
@@ -120,11 +121,19 @@ export type Bufferable =
   | Bufferable[];
 
 /** A type that can be converted to a Field or a Field array. */
-export type Fieldeable =
+export type Fieldable =
   | Fr
   | boolean
   | number
   | bigint
+  | Buffer
+  | {
+      /**
+       * Serialize to a field.
+       * @dev Duplicate to `toField` but left as is as it is used in AVM codebase.
+       */
+      toFr: () => Fr;
+    }
   | {
       /** Serialize to a field. */
       toField: () => Fr;
@@ -133,7 +142,7 @@ export type Fieldeable =
       /** Serialize to an array of fields. */
       toFields: () => Fr[];
     }
-  | Fieldeable[];
+  | Fieldable[];
 
 /**
  * Serializes a list of objects contiguously.
@@ -141,22 +150,30 @@ export type Fieldeable =
  * @returns A buffer list with the concatenation of all fields.
  */
 export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
-  let ret: Buffer[] = [];
+  const ret: Buffer[] = [];
   for (const obj of objs) {
     if (Array.isArray(obj)) {
-      ret = [...ret, ...serializeToBufferArray(...obj)];
+      ret.push(...serializeToBufferArray(...obj));
     } else if (Buffer.isBuffer(obj)) {
       ret.push(obj);
     } else if (typeof obj === 'boolean') {
       ret.push(boolToBuffer(obj));
+    } else if (typeof obj === 'bigint') {
+      // Throw if bigint does not fit into 32 bytes
+      if (obj > BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')) {
+        throw new Error(`BigInt ${obj} does not fit into 32 bytes`);
+      }
+      ret.push(serializeBigInt(obj));
     } else if (typeof obj === 'number') {
       // Note: barretenberg assumes everything is big-endian
       ret.push(numToUInt32BE(obj)); // TODO: Are we always passing numbers as UInt32?
     } else if (typeof obj === 'string') {
       ret.push(numToUInt32BE(obj.length));
       ret.push(Buffer.from(obj));
-    } else {
+    } else if ('toBuffer' in obj) {
       ret.push(obj.toBuffer());
+    } else {
+      throw new Error(`Cannot serialize input to buffer: ${typeof obj} ${(obj as any).constructor?.name}`);
     }
   }
   return ret;
@@ -167,19 +184,25 @@ export function serializeToBufferArray(...objs: Bufferable[]): Buffer[] {
  * @param objs - Objects to serialize.
  * @returns An array of fields with the concatenation of all fields.
  */
-export function serializeToFields(...objs: Fieldeable[]): Fr[] {
-  let ret: Fr[] = [];
+export function serializeToFields(...objs: Fieldable[]): Fr[] {
+  const ret: Fr[] = [];
   for (const obj of objs) {
     if (Array.isArray(obj)) {
-      ret = [...ret, ...serializeToFields(...obj)];
+      ret.push(...serializeToFields(...obj));
     } else if (obj instanceof Fr) {
       ret.push(obj);
     } else if (typeof obj === 'boolean' || typeof obj === 'number' || typeof obj === 'bigint') {
       ret.push(new Fr(obj));
     } else if ('toFields' in obj) {
-      ret = [...ret, ...obj.toFields()];
-    } else {
+      ret.push(...obj.toFields());
+    } else if ('toFr' in obj) {
+      ret.push(obj.toFr());
+    } else if ('toField' in obj) {
       ret.push(obj.toField());
+    } else if (Buffer.isBuffer(obj)) {
+      ret.push(Fr.fromBuffer(obj));
+    } else {
+      throw new Error(`Cannot serialize input to field: ${typeof obj} ${(obj as any).constructor?.name}`);
     }
   }
   return ret;

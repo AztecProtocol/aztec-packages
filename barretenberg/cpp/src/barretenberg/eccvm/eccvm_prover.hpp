@@ -1,7 +1,6 @@
 #pragma once
-#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/flavor/ecc_vm.hpp"
+#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -12,34 +11,30 @@ namespace bb {
 
 // We won't compile this class with Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
-template <IsECCVMFlavor Flavor> class ECCVMProver_ {
-
+class ECCVMProver {
+    using Flavor = ECCVMFlavor;
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename Flavor::CommitmentKey;
+    using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using Curve = typename Flavor::Curve;
     using Transcript = typename Flavor::Transcript;
     using TranslationEvaluations = bb::TranslationEvaluations;
+    using ZeroMorph = ZeroMorphProver_<PCS>;
+    using CircuitBuilder = typename Flavor::CircuitBuilder;
 
   public:
-    explicit ECCVMProver_(const std::shared_ptr<ProvingKey>& input_key,
-                          const std::shared_ptr<PCSCommitmentKey>& commitment_key,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit ECCVMProver(CircuitBuilder& builder,
+                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_preamble_round();
     BB_PROFILE void execute_wire_commitments_round();
     BB_PROFILE void execute_log_derivative_commitments_round();
     BB_PROFILE void execute_grand_product_computation_round();
     BB_PROFILE void execute_relation_check_rounds();
-    BB_PROFILE void execute_univariatization_round();
-    BB_PROFILE void execute_pcs_evaluation_round();
-    BB_PROFILE void execute_shplonk_batched_quotient_round();
-    BB_PROFILE void execute_shplonk_partial_evaluation_round();
-    BB_PROFILE void execute_final_pcs_round();
+    BB_PROFILE void execute_zeromorph_rounds();
     BB_PROFILE void execute_transcript_consistency_univariate_opening_round();
 
     HonkProof& export_proof();
@@ -72,12 +67,7 @@ template <IsECCVMFlavor Flavor> class ECCVMProver_ {
     FF translation_batching_challenge_v; // to be rederived by the translator verifier
 
     SumcheckOutput<Flavor> sumcheck_output;
-    GeminiProverOutput<Curve> gemini_output;
-    ShplonkProverOutput<Curve> shplonk_output;
-    std::shared_ptr<PCSCommitmentKey> commitment_key;
-
-    using Gemini = GeminiProver_<Curve>;
-    using Shplonk = ShplonkProver_<Curve>;
+    std::shared_ptr<CommitmentKey> commitment_key;
 
   private:
     HonkProof proof;

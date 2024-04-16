@@ -1,15 +1,15 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NUM_FIELDS_PER_SHA256,
 } from '../../constants.gen.js';
 import { AggregationObject } from '../aggregation_object.js';
 import { Header } from '../header.js';
+import { RootParityInput } from '../parity/root_parity_input.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
@@ -24,6 +24,10 @@ export class RootRollupInputs {
      * from 2 merge or base rollup circuits.
      */
     public previousRollupData: [PreviousRollupData, PreviousRollupData],
+    /**
+     * The original and converted roots of the L1 to L2 messages subtrees.
+     */
+    public l1ToL2Roots: RootParityInput,
     /**
      * New L1 to L2 messages.
      */
@@ -46,23 +50,73 @@ export class RootRollupInputs {
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
   ) {}
 
+  /**
+   * Serializes the inputs to a buffer.
+   * @returns - The inputs serialized to a buffer.
+   */
   toBuffer() {
     return serializeToBuffer(...RootRollupInputs.getFields(this));
   }
 
+  /**
+   * Serializes the inputs to a hex string.
+   * @returns The instance serialized to a hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Creates a new instance from fields.
+   * @param fields - Fields to create the instance from.
+   * @returns A new RootRollupInputs instance.
+   */
   static from(fields: FieldsOf<RootRollupInputs>): RootRollupInputs {
     return new RootRollupInputs(...RootRollupInputs.getFields(fields));
   }
 
+  /**
+   * Extracts fields from an instance.
+   * @param fields - Fields to create the instance from.
+   * @returns An array of fields.
+   */
   static getFields(fields: FieldsOf<RootRollupInputs>) {
     return [
       fields.previousRollupData,
+      fields.l1ToL2Roots,
       fields.newL1ToL2Messages,
       fields.newL1ToL2MessageTreeRootSiblingPath,
       fields.startL1ToL2MessageTreeSnapshot,
       fields.startArchiveSnapshot,
       fields.newArchiveSiblingPath,
     ] as const;
+  }
+
+  /**
+   * Deserializes the inputs from a buffer.
+   * @param buffer - A buffer to deserialize from.
+   * @returns A new RootRollupInputs instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): RootRollupInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new RootRollupInputs(
+      [reader.readObject(PreviousRollupData), reader.readObject(PreviousRollupData)],
+      reader.readObject(RootParityInput),
+      reader.readArray(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr),
+      reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
+    );
+  }
+
+  /**
+   * Deserializes the inputs from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns A new RootRollupInputs instance.
+   */
+  static fromString(str: string) {
+    return RootRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 }
 
@@ -79,12 +133,10 @@ export class RootRollupPublicInputs {
     public archive: AppendOnlyTreeSnapshot,
     /** A header of an L2 block. */
     public header: Header,
-    /** Hash of the L1 to L2 messages. */
-    public l1ToL2MessagesHash: [Fr, Fr],
   ) {}
 
   static getFields(fields: FieldsOf<RootRollupPublicInputs>) {
-    return [fields.aggregationObject, fields.archive, fields.header, fields.l1ToL2MessagesHash] as const;
+    return [fields.aggregationObject, fields.archive, fields.header] as const;
   }
 
   toBuffer() {
@@ -106,7 +158,14 @@ export class RootRollupPublicInputs {
       reader.readObject(AggregationObject),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(Header),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr) as [Fr, Fr],
     );
+  }
+
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  static fromString(str: string) {
+    return RootRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

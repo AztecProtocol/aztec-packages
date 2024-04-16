@@ -1,9 +1,10 @@
 use crate::{
     abis::{
-    call_request::{CallerContext, CallRequest}, private_call_stack_item::PrivateCallStackItem,
-    function_data::FunctionData,
+    gas_settings::GasSettings, call_request::{CallerContext, CallRequest},
+    private_call_stack_item::PrivateCallStackItem, function_data::FunctionData,
+    max_block_number::MaxBlockNumber,
     membership_witness::{FunctionLeafMembershipWitness, NoteHashReadRequestMembershipWitness},
-    private_circuit_public_inputs::{PrivateCircuitPublicInputs},
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
@@ -16,7 +17,7 @@ use crate::{
 };
 use crate::constants::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, NUM_FIELDS_PER_SHA256
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL
 };
 
 struct PrivateCallDataBuilder {
@@ -38,6 +39,7 @@ struct PrivateCallDataBuilder {
     note_hash_read_request_membership_witnesses: BoundedVec<NoteHashReadRequestMembershipWitness, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     portal_contract_address: EthAddress,
     acir_hash: Field,
+    gas_settings: GasSettings,
 }
 
 impl PrivateCallDataBuilder {
@@ -53,8 +55,8 @@ impl PrivateCallDataBuilder {
             public_inputs,
             is_execution_request: false,
             function_data,
-            private_call_stack: dep::std::unsafe::zeroed(),
-            public_call_stack: dep::std::unsafe::zeroed(),
+            private_call_stack: BoundedVec::new(),
+            public_call_stack: BoundedVec::new(),
             proof: Proof {},
             vk: VerificationKey {},
             function_leaf_membership_witness: contract_function.membership_witness,
@@ -62,9 +64,10 @@ impl PrivateCallDataBuilder {
             public_keys_hash: contract_data.public_keys_hash,
             contract_class_artifact_hash: contract_data.artifact_hash,
             contract_class_public_bytecode_commitment: contract_data.public_bytecode_commitment,
-            note_hash_read_request_membership_witnesses: dep::std::unsafe::zeroed(),
+            note_hash_read_request_membership_witnesses: BoundedVec::new(),
             portal_contract_address: public_inputs.call_context.portal_contract_address,
-            acir_hash: contract_function.acir_hash
+            acir_hash: contract_function.acir_hash,
+            gas_settings: public_inputs.call_context.gas_settings
         }
     }
 
@@ -81,23 +84,14 @@ impl PrivateCallDataBuilder {
         *self
     }
 
-    pub fn is_internal_call(&mut self) -> Self {
-        self.function_data.is_internal = true;
-        self.public_inputs.call_context.msg_sender = self.contract_address;
-        let contract_function = fixtures::contract_functions::default_internal_private_function;
-        self.function_data = contract_function.data;
-        self.function_leaf_membership_witness = contract_function.membership_witness;
-        self.acir_hash = contract_function.acir_hash;
-        *self
-    }
-
     pub fn build_tx_request(self) -> TxRequest {
         let tx_context = build_tx_context();
         TxRequest {
             origin: self.contract_address,
             args_hash: self.public_inputs.args_hash,
             tx_context,
-            function_data: self.function_data
+            function_data: self.function_data,
+            gas_settings: self.gas_settings
         }
     }
 
@@ -149,6 +143,10 @@ impl PrivateCallDataBuilder {
         (hashes, call_requests)
     }
 
+    pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
+        self.public_inputs.max_block_number = MaxBlockNumber::new(max_block_number);
+    }
+
     pub fn append_note_hash_read_requests(&mut self, num_read_requests: u64) {
         let (read_requests, read_request_membership_witnesses) = fixtures::note_hash_read_requests::generate_note_hash_read_requests(num_read_requests);
         self.public_inputs.note_hash_read_requests.extend_from_bounded_vec(read_requests);
@@ -161,12 +159,12 @@ impl PrivateCallDataBuilder {
         self.note_hash_read_request_membership_witnesses.extend_from_bounded_vec(read_request_membership_witnesses);
     }
 
-    pub fn set_encrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         self.public_inputs.encrypted_logs_hash = hash;
         self.public_inputs.encrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: [Field; NUM_FIELDS_PER_SHA256], preimages_length: Field) {
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
         self.public_inputs.unencrypted_logs_hash = hash;
         self.public_inputs.unencrypted_log_preimages_length = preimages_length;
     }

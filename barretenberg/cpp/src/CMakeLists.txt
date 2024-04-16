@@ -21,6 +21,11 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message(STATUS "Compiling with memory checks.")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     endif()
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
+        # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
+        add_compile_options(-Wno-vla-cxx-extension -pthread)
+        add_link_options(-Wl,--shared-memory)
+    endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -58,6 +63,7 @@ add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
 add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/execution_trace)
 add_subdirectory(barretenberg/examples)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
@@ -65,14 +71,15 @@ add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/honk)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/plonk)
+add_subdirectory(barretenberg/plonk_honk_shared)
 add_subdirectory(barretenberg/polynomials)
-add_subdirectory(barretenberg/proof_system)
 add_subdirectory(barretenberg/protogalaxy)
 add_subdirectory(barretenberg/relations)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
 add_subdirectory(barretenberg/srs)
 add_subdirectory(barretenberg/stdlib)
+add_subdirectory(barretenberg/stdlib_circuit_builders)
 add_subdirectory(barretenberg/sumcheck)
 add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
@@ -95,7 +102,7 @@ include(GNUInstallDirs)
 # libbarretenberg + env = a wasi "command" that expects a full wasi runtime (e.g. wasmtime), e.g. test binaries.
 message(STATUS "Compiling all-in-one barretenberg archive")
 
-set(BARRETENBERG_TARGET_OBJECTS 
+set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
@@ -111,27 +118,30 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
+    $<TARGET_OBJECTS:execution_trace_objects>
     $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:plonk_objects>
+    $<TARGET_OBJECTS:plonk_honk_shared_objects>
     $<TARGET_OBJECTS:polynomials_objects>
-    $<TARGET_OBJECTS:proof_system_objects>
     $<TARGET_OBJECTS:protogalaxy_objects>
     $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
+    $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
     $<TARGET_OBJECTS:crypto_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_honk_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_plonk_recursion_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:sumcheck_objects>

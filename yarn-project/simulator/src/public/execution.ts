@@ -1,18 +1,20 @@
-import { FunctionL2Logs, SimulationError } from '@aztec/circuit-types';
+import { type SimulationError, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
-  Fr,
-  L2ToL1Message,
-  PublicCallRequest,
+  type AztecAddress,
+  type ContractStorageRead,
+  type ContractStorageUpdateRequest,
+  type Fr,
+  type L2ToL1Message,
+  type PublicCallRequest,
   PublicDataRead,
   PublicDataUpdateRequest,
-  ReadRequest,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
+  type ReadRequest,
+  type SideEffect,
+  type SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/hash';
+
+import { type Gas } from '../avm/avm_gas.js';
 
 /**
  * The public function execution result.
@@ -26,10 +28,16 @@ export interface PublicExecutionResult {
   newNoteHashes: SideEffect[];
   /** The new l2 to l1 messages generated in this call. */
   newL2ToL1Messages: L2ToL1Message[];
+  /** The side effect counter at the start of the function call. */
+  startSideEffectCounter: Fr;
+  /** The side effect counter after executing this function call */
+  endSideEffectCounter: Fr;
   /** The new nullifiers to be inserted into the nullifier tree. */
   newNullifiers: SideEffectLinkedToNoteHash[];
   /** The nullifier read requests emitted in this call. */
   nullifierReadRequests: ReadRequest[];
+  /** The nullifier non existent read requests emitted in this call. */
+  nullifierNonExistentReadRequests: ReadRequest[];
   /** The contract storage reads performed by the function. */
   contractStorageReads: ContractStorageRead[];
   /** The contract storage update requests performed by the function. */
@@ -40,7 +48,7 @@ export interface PublicExecutionResult {
    * Unencrypted logs emitted during execution of this function call.
    * Note: These are preimages to `unencryptedLogsHash`.
    */
-  unencryptedLogs: FunctionL2Logs;
+  unencryptedLogs: UnencryptedFunctionL2Logs;
   /**
    * Whether the execution reverted.
    */
@@ -49,6 +57,8 @@ export interface PublicExecutionResult {
    * The revert reason if the execution reverted.
    */
   revertReason: SimulationError | undefined;
+  /** How much gas was left after this public execution. */
+  gasLeft: Gas;
 }
 
 /**
@@ -148,7 +158,7 @@ export function checkValidStaticCall(
   newNullifiers: SideEffectLinkedToNoteHash[],
   contractStorageUpdateRequests: ContractStorageUpdateRequest[],
   newL2ToL1Messages: L2ToL1Message[],
-  unencryptedLogs: FunctionL2Logs,
+  unencryptedLogs: UnencryptedFunctionL2Logs,
 ) {
   if (
     contractStorageUpdateRequests.length > 0 ||

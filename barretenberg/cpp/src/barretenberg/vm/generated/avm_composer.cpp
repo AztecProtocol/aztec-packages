@@ -1,9 +1,9 @@
 
 
 #include "./avm_composer.hpp"
-#include "barretenberg/proof_system/circuit_builder/generated/avm_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
-#include "barretenberg/proof_system/composer/permutation_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/vm/generated/avm_circuit_builder.hpp"
 #include "barretenberg/vm/generated/avm_verifier.hpp"
 
 namespace bb {
@@ -31,7 +31,7 @@ AvmProver AvmComposer::create_prover(CircuitConstructor& circuit_constructor)
     compute_witness(circuit_constructor);
     compute_commitment_key(circuit_constructor.get_circuit_subgroup_size());
 
-    AvmProver output_state(proving_key, commitment_key);
+    AvmProver output_state(proving_key, proving_key->commitment_key);
 
     return output_state;
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/proof_system/library/grand_product_delta.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -103,7 +103,7 @@ template <typename Flavor> class SumcheckProver {
         pow_univariate.partially_evaluate(round_challenge);
         round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
                                                   // release memory?        // All but final round
-        // We operate on partially_evaluated_polynomials in place.
+                                                  // We operate on partially_evaluated_polynomials in place.
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             // Write the round univariate to the transcript
             round_univariate =

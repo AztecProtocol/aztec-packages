@@ -54,6 +54,8 @@ export type CircuitSimulationStats = {
   eventName: 'circuit-simulation';
   /** Name of the circuit. */
   circuitName:
+    | 'base-parity'
+    | 'root-parity'
     | 'base-rollup'
     | 'private-kernel-init'
     | 'private-kernel-ordering'
@@ -144,6 +146,8 @@ export type TxStats = {
   newNullifierCount: number;
   /** How many classes were registered through the canonical class registerer. */
   classRegisteredCount: number;
+  /** How this tx pays for its fee */
+  feePaymentMethod: 'none' | 'native' | 'fpc_public' | 'fpc_private';
 };
 
 /**
@@ -166,7 +170,8 @@ export type TxSequencerProcessingStats = {
   duration: number;
   /** Count of how many public writes this tx has made. Acts as a proxy for how 'heavy' this tx */
   publicDataUpdateRequests: number;
-} & TxStats;
+  effectsSize: number;
+} & Pick<TxStats, 'classRegisteredCount' | 'newCommitmentCount' | 'feePaymentMethod'>;
 
 /**
  * Stats for tree insertions

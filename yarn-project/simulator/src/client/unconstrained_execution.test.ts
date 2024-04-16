@@ -1,4 +1,4 @@
-import { AztecNode, FunctionCall, Note } from '@aztec/circuit-types';
+import { type AztecNode, type FunctionCall, Note } from '@aztec/circuit-types';
 import { CompleteAddress, FunctionData, Header } from '@aztec/circuits.js';
 import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -7,7 +7,7 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 
 import { mock } from 'jest-mock-extended';
 
-import { DBOracle } from './db_oracle.js';
+import { type DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
@@ -63,7 +63,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const execRequest: FunctionCall = {
         to: contractAddress,
-        functionData: new FunctionData(FunctionSelector.empty(), false, true, true),
+        functionData: new FunctionData(FunctionSelector.empty(), true),
         args: encodeArguments(artifact, [owner]),
       };
 

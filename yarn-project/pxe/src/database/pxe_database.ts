@@ -1,18 +1,22 @@
-import { ContractDatabase, NoteFilter } from '@aztec/circuit-types';
-import { CompleteAddress, Header, PublicKey } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { type NoteFilter } from '@aztec/circuit-types';
+import { type CompleteAddress, type Header, type PublicKey } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { type Fr } from '@aztec/foundation/fields';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
-import { ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
-import { ContractInstanceDatabase } from './contracts/contract_instance_db.js';
-import { DeferredNoteDao } from './deferred_note_dao.js';
-import { NoteDao } from './note_dao.js';
+import { type ContractArtifactDatabase } from './contracts/contract_artifact_db.js';
+import { type ContractInstanceDatabase } from './contracts/contract_instance_db.js';
+import { type DeferredNoteDao } from './deferred_note_dao.js';
+import { type NoteDao } from './note_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
  * addresses, storage slots, and nullifiers.
  */
-export interface PxeDatabase extends ContractDatabase, ContractArtifactDatabase, ContractInstanceDatabase {
+export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceDatabase {
+  getContract(address: AztecAddress): Promise<(ContractInstanceWithAddress & ContractArtifact) | undefined>;
+
   /**
    * Add a auth witness to the database.
    * @param messageHash - The message hash.
@@ -146,7 +150,7 @@ export interface PxeDatabase extends ContractDatabase, ContractArtifactDatabase,
    * @param publicKey - The public key to set the synched block number for.
    * @param blockNumber - The block number to set.
    */
-  setSynchedBlockNumberForPublicKey(publicKey: PublicKey, blockNumber: number): Promise<boolean>;
+  setSynchedBlockNumberForPublicKey(publicKey: PublicKey, blockNumber: number): Promise<void>;
 
   /**
    * Get the synched block number for a given public key.

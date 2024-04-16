@@ -1,26 +1,26 @@
-import { AztecNode, FunctionCall, Note, TxExecutionRequest } from '@aztec/circuit-types';
+import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
-  ArrayType,
-  FunctionArtifactWithDebugMetadata,
+  type ArrayType,
+  type FunctionArtifactWithDebugMetadata,
   FunctionSelector,
   FunctionType,
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
-import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
+import { type WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
 import { createSimulationError } from '../common/errors.js';
-import { PackedArgsCache } from '../common/packed_args_cache.js';
+import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
-import { DBOracle } from './db_oracle.js';
+import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
-import { ExecutionResult } from './execution_result.js';
+import { type ExecutionResult } from './execution_result.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -85,16 +85,22 @@ export class AcirSimulator {
     const curve = new Grumpkin();
 
     const header = await this.db.getHeader();
+
+    // reserve the first side effect for the tx hash (inserted by the private kernel)
+    const startSideEffectCounter = 1;
+
+    const transactionFee = Fr.ZERO;
     const callContext = new CallContext(
       msgSender,
       contractAddress,
       portalContractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
+      request.gasSettings.getInitialAvailable(),
       false,
       false,
-      // TODO: when contract deployment is done in-app, we should only reserve one counter for the tx hash
-      // 2 counters are reserved for tx hash and contract deployment nullifier
-      1,
+      startSideEffectCounter,
+      request.gasSettings,
+      transactionFee,
     );
     const context = new ClientExecutionContext(
       contractAddress,
@@ -103,11 +109,12 @@ export class AcirSimulator {
       callContext,
       header,
       request.authWitnesses,
-      PackedArgsCache.create(request.packedArguments),
+      PackedValuesCache.create(request.packedArguments),
       new ExecutionNoteCache(),
       this.db,
       curve,
       this.node,
+      startSideEffectCounter,
     );
 
     try {
@@ -191,7 +198,7 @@ export class AcirSimulator {
     const maxNoteFields = (artifact.parameters[artifact.parameters.length - 1].type as ArrayType).length;
     if (maxNoteFields < note.items.length) {
       throw new Error(
-        `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please consider increasing the allowed field size to accommodate all notes generated from the contract.`,
+        `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please reduce the number of fields in your note.`,
       );
     }
 

@@ -59,7 +59,7 @@ cd ~/.aztec && docker-compose up
 If you wish to run components of the Aztec network stack separately, you can use the `aztec start` command with various options for enabling components.
 
 ```bash
-aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] ----p2p-bootstrap [p2pOptions]
+aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
 Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. If you want to e.g. run a PXE separately to a node, you can:
@@ -206,6 +206,6 @@ TokenContractArtifact
 UniswapContractArtifact
 ```
 
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master//yarn-project/end-to-end/src/cli_docs_sandbox.test.ts#L95-L118" target="_blank" rel="noopener noreferrer">Source code: /yarn-project/end-to-end/src/cli_docs_sandbox.test.ts#L95-L118</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master//yarn-project/end-to-end/src/composed/cli_docs_sandbox.test.ts#L95-L118" target="_blank" rel="noopener noreferrer">Source code: /yarn-project/end-to-end/src/composed/cli_docs_sandbox.test.ts#L95-L118</a></sub></sup>
 
 You can see all of our example contracts in the monorepo [here](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts).

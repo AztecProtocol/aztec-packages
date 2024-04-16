@@ -12,6 +12,7 @@ export enum Opcode {
   SUB,
   MUL,
   DIV,
+  FDIV,
   EQ,
   LT,
   LTE,
@@ -63,6 +64,7 @@ export enum Opcode {
   EMITNULLIFIER,
   L1TOL2MSGEXISTS,
   HEADERMEMBER,
+  GETCONTRACTINSTANCE,
   EMITUNENCRYPTEDLOG,
   SENDL2TOL1MSG,
   // External calls
@@ -73,7 +75,7 @@ export enum Opcode {
   REVERT,
   // Gadgets
   KECCAK,
-  POSEIDON,
+  POSEIDON2,
   SHA256, // temp - may be removed, but alot of contracts rely on it
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
 }

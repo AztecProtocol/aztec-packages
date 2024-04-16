@@ -2,11 +2,12 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/flavor/generated/avm_flavor.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
 
@@ -20,7 +21,6 @@ class AvmProver {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
     using CommitmentLabels = Flavor::CommitmentLabels;
-    using Curve = Flavor::Curve;
     using Transcript = Flavor::Transcript;
 
   public:
@@ -28,6 +28,7 @@ class AvmProver {
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
+    void execute_log_derivative_inverse_round();
     void execute_relation_check_rounds();
     void execute_zeromorph_rounds();
 
@@ -46,6 +47,7 @@ class AvmProver {
     ProverPolynomials prover_polynomials;
 
     CommitmentLabels commitment_labels;
+    typename Flavor::WitnessCommitments witness_commitments;
 
     Polynomial quotient_W;
 
@@ -53,7 +55,7 @@ class AvmProver {
 
     std::shared_ptr<PCSCommitmentKey> commitment_key;
 
-    using ZeroMorph = ZeroMorphProver_<Curve>;
+    using ZeroMorph = ZeroMorphProver_<PCS>;
 
   private:
     HonkProof proof;

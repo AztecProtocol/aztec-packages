@@ -2,4 +2,4 @@
 
 exports[`Header computes empty hash 1`] = `Fr<0x124e8c40a6eca2e3ad10c04050b01a3fad00df3cea47b13592c7571b6914c7a7>`;
 
-exports[`Header computes hash 1`] = `Fr<0x1d9b824f3561e706d9e85fde89a60a1e5c25dff839167cba7366ca8f6ee96890>`;
+exports[`Header computes hash 1`] = `Fr<0x18a5f612e161132949f801a96e671678455d00eafbc0685afe11dba0727286c1>`;

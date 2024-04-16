@@ -1,28 +1,30 @@
 import {
-  AztecNode,
-  KeyStore,
-  L2Block,
+  type AztecNode,
+  type KeyStore,
+  type L2Block,
   MerkleTreeId,
-  NoteStatus,
-  NullifierMembershipWitness,
-  PublicDataWitness,
+  type NoteStatus,
+  type NullifierMembershipWitness,
+  type PublicDataWitness,
+  type SiblingPath,
 } from '@aztec/circuit-types';
 import {
-  AztecAddress,
-  CompleteAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  Header,
-  L1_TO_L2_MSG_TREE_HEIGHT,
+  type AztecAddress,
+  type CompleteAddress,
+  type EthAddress,
+  type Fr,
+  type FunctionSelector,
+  type Header,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
+import { type FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { DBOracle, KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
-import { ContractInstance } from '@aztec/types/contracts';
+import { type DBOracle, type KeyPair, MessageLoadOracleInputs } from '@aztec/simulator';
+import { type ContractInstance } from '@aztec/types/contracts';
 
-import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { PxeDatabase } from '../database/index.js';
+import { type ContractDataOracle } from '../contract_data_oracle/index.js';
+import { type PxeDatabase } from '../database/index.js';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -111,16 +113,9 @@ export class SimulatorOracle implements DBOracle {
     contractAddress: AztecAddress,
     functionName: string,
   ): Promise<FunctionArtifactWithDebugMetadata | undefined> {
-    const artifact = await this.contractDataOracle.getFunctionArtifactByName(contractAddress, functionName);
-    if (!artifact) {
-      return;
-    }
-
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, artifact.selector);
-    return {
-      ...artifact,
-      debug,
-    };
+    const instance = await this.contractDataOracle.getContractInstance(contractAddress);
+    const artifact = await this.contractDataOracle.getContractArtifact(instance.contractClassId);
+    return artifact && getFunctionArtifactWithDebugMetadata(artifact, functionName);
   }
 
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
@@ -128,18 +123,40 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieves the L1ToL2Message associated with a specific entry key
-   * Throws an error if the entry key is not found
-   *
-   * @param entryKey - The key of the message to be retrieved
-   * @returns A promise that resolves to the message data, a sibling path and the
-   *          index of the message in the l1ToL2MessageTree
+   * Fetches a message from the db, given its key.
+   * @param contractAddress - Address of a contract by which the message was emitted.
+   * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier.
+   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  async getL1ToL2MembershipWitness(entryKey: Fr): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    const messageAndIndex = await this.aztecNode.getL1ToL2MessageAndIndex(entryKey);
-    const index = messageAndIndex.index;
-    const siblingPath = await this.aztecNode.getL1ToL2MessageSiblingPath('latest', index);
-    return new MessageLoadOracleInputs(index, siblingPath);
+  async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    let nullifierIndex: bigint | undefined;
+    let messageIndex = 0n;
+    let startIndex = 0n;
+    let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
+
+    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
+    // for nullifiers because messages can have duplicates.
+    do {
+      const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, startIndex);
+      if (!response) {
+        throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
+      }
+      [messageIndex, siblingPath] = response;
+
+      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
+      nullifierIndex = await this.getNullifierIndex(messageNullifier);
+
+      startIndex = messageIndex + 1n;
+    } while (nullifierIndex !== undefined);
+
+    // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
+    return new MessageLoadOracleInputs(messageIndex, siblingPath);
   }
 
   /**

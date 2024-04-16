@@ -1,8 +1,8 @@
-import { ABIParameterVisibility, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
+import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
-import { EthAddress } from '../index.js';
+import { AztecAddress, EthAddress } from '../index.js';
 import {
   computeContractAddressFromInstance,
   computeContractAddressFromPartial,
@@ -28,6 +28,7 @@ describe('ContractAddress', () => {
       initializationHash: new Fr(1),
       salt: new Fr(2),
       portalContractAddress: EthAddress.fromField(new Fr(3)),
+      deployer: AztecAddress.fromField(new Fr(4)),
     };
     const result = computeSaltedInitializationHash(mockInstance);
     expect(result).toMatchSnapshot();
@@ -36,6 +37,7 @@ describe('ContractAddress', () => {
   it('computeInitializationHash', () => {
     const mockInitFn: FunctionAbi = {
       functionType: FunctionType.SECRET,
+      isInitializer: false,
       isInternal: false,
       name: 'fun',
       parameters: [{ name: 'param1', type: { kind: 'boolean' }, visibility: ABIParameterVisibility.SECRET }],
@@ -46,12 +48,18 @@ describe('ContractAddress', () => {
     expect(result).toMatchSnapshot();
   });
 
+  it('computeInitializationHash empty', () => {
+    const result = computeInitializationHash(undefined, []);
+    expect(result).toEqual(Fr.ZERO);
+  });
+
   it('computeContractAddressFromInstance', () => {
     const publicKey = new Point(new Fr(1n), new Fr(2n));
     const salt = new Fr(3n);
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const portalContractAddress = EthAddress.fromField(new Fr(6n));
+    const deployer = AztecAddress.fromField(new Fr(7));
 
     const address = computeContractAddressFromInstance({
       publicKeysHash: computePublicKeysHash(publicKey),
@@ -59,13 +67,18 @@ describe('ContractAddress', () => {
       contractClassId,
       initializationHash,
       portalContractAddress,
+      deployer,
       version: 1,
     }).toString();
 
     expect(address).toMatchSnapshot();
 
-    // Value used in "compute_address" test in aztec_address.nr
-    // console.log("address", address);
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/address/aztec_address.nr',
+      'expected_computed_address_from_preimage',
+      address.toString(),
+    );
   });
 
   it('Public key hash matches Noir', () => {
@@ -73,8 +86,12 @@ describe('ContractAddress', () => {
     const hash = computePublicKeysHash(publicKey).toString();
     expect(hash).toMatchSnapshot();
 
-    // Value used in "compute_public_keys_hash" test in public_keys_hash.nr
-    // console.log("hash", hash);
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/address/public_keys_hash.nr',
+      'expected_public_keys_hash',
+      hash.toString(),
+    );
   });
 
   it('Address from partial matches Noir', () => {
@@ -83,7 +100,11 @@ describe('ContractAddress', () => {
     const address = computeContractAddressFromPartial({ publicKey, partialAddress }).toString();
     expect(address).toMatchSnapshot();
 
-    // Value used in "compute_address_from_partial_and_pubkey" test in aztec_address.nr
-    // console.log("address", address);
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/address/aztec_address.nr',
+      'expected_computed_address_from_partial_and_pubkey',
+      address.toString(),
+    );
   });
 });

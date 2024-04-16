@@ -9,13 +9,16 @@ WORKDIR /usr/src/barretenberg/acir_tests
 # Build/install ts apps.
 COPY browser-test-app browser-test-app
 COPY headless-test headless-test
-RUN (cd browser-test-app && yarn && yarn build) && (cd headless-test && yarn && npx playwright install && npx playwright install-deps)
+RUN cd browser-test-app && yarn && yarn build
+RUN cd headless-test && yarn && npx playwright install && npx playwright install-deps
 COPY . .
 ENV VERBOSE=1
 # Run double_verify_proof through bb.js on node to check 512k support.
 RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh double_verify_proof
+# Run a single arbitrary test not involving recursion through bb.js for UltraHonk
+RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh 6_array
 # Run a single arbitrary test not involving recursion through bb.js for GoblinUltraHonk
-RUN BIN=../ts/dest/node/main.js FLOW=accumulate_and_verify_goblin ./run_acir_tests.sh 6_array
+RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_goblin_ultra_honk ./run_acir_tests.sh 6_array
 # Run a single arbitrary test not involving recursion through bb.js for full Goblin
 RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_goblin ./run_acir_tests.sh 6_array
 # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.

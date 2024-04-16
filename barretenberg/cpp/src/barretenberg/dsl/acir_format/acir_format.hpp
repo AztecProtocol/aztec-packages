@@ -17,6 +17,7 @@
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
+#include <utility>
 
 namespace acir_format {
 
@@ -42,7 +43,6 @@ struct AcirFormat {
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
     std::vector<KeccakConstraint> keccak_constraints;
-    std::vector<KeccakVarConstraint> keccak_var_constraints;
     std::vector<Keccakf1600> keccak_permutations;
     std::vector<PedersenConstraint> pedersen_constraints;
     std::vector<PedersenHashConstraint> pedersen_hash_constraints;
@@ -75,7 +75,6 @@ struct AcirFormat {
                    blake2s_constraints,
                    blake3_constraints,
                    keccak_constraints,
-                   keccak_var_constraints,
                    keccak_permutations,
                    pedersen_constraints,
                    pedersen_hash_constraints,
@@ -93,6 +92,7 @@ struct AcirFormat {
 };
 
 using WitnessVector = std::vector<fr, ContainerSlabAllocator<fr>>;
+using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 template <typename Builder = UltraCircuitBuilder>
 Builder create_circuit(const AcirFormat& constraint_system, size_t size_hint = 0, WitnessVector const& witness = {});

@@ -14,9 +14,6 @@ contract SchnorrHardcodedAccount {
 
     global ACCOUNT_ACTIONS_STORAGE_SLOT = 1;
 
-    #[aztec(private)]
-    fn constructor() {}
-
     // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts
     #[aztec(private)]
     fn entrypoint(app_payload: pub AppPayload, fee_payload: pub FeePayload) {
@@ -60,7 +57,7 @@ contract SchnorrHardcodedAccount {
         }
 
         // Verify signature using hardcoded public key
-        let verification = std::schnorr::verify_signature(
+        let verification = std::schnorr::verify_signature_slice(
             public_key_x,
             public_key_y,
             signature,

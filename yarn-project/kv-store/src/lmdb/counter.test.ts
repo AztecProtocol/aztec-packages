@@ -1,5 +1,6 @@
-import { randomBytes } from 'crypto';
-import { Database, open } from 'lmdb';
+import { randomBytes } from '@aztec/foundation/crypto';
+
+import { type Database, open } from 'lmdb';
 
 import { LmdbAztecCounter } from './counter.js';
 

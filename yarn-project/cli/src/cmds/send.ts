@@ -1,6 +1,6 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { AztecAddress, Contract, Fq, Fr } from '@aztec/aztec.js';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type AztecAddress, Contract, type Fq, Fr } from '@aztec/aztec.js';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { createCompatibleClient } from '../client.js';
 import { prepTx } from '../utils.js';
@@ -16,7 +16,7 @@ export async function send(
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
-  const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
+  const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn);
 
   const client = await createCompatibleClient(rpcUrl, debugLogger);
   const wallet = await getSchnorrAccount(client, privateKey, privateKey, Fr.ZERO).getWallet();

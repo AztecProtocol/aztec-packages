@@ -3,18 +3,15 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm/avm_trace/avm_common.hpp"
 #include "barretenberg/vm/avm_trace/avm_deserialization.hpp"
-#include "barretenberg/vm/avm_trace/avm_helper.hpp"
 #include "barretenberg/vm/avm_trace/avm_opcode.hpp"
-#include "barretenberg/vm/tests/helpers.test.hpp"
-#include "gmock/gmock.h"
 #include <cstdint>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <utility>
 
 namespace tests_avm {
 
-using namespace bb;
 using namespace bb::avm_trace;
 using namespace testing;
 
@@ -252,7 +249,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "03"                             // U32
                                "0D3D2518"                       // val 222111000 = 0xD3D2518
                                "00000004"                       // dst_offset 4
-                               "25"                             // INTERNALCALL 37
+                               + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
                                "00000004"                       // jmp_dest
                                + to_hex(OpCode::ADD) +          // opcode ADD
                                "00"                             // Indirect flag
@@ -456,6 +453,158 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
     EXPECT_EQ(row, trace.end());
 
     gen_proof_and_validate(bytecode, std::move(trace), std::vector<FF>{ 13, 156 });
+}
+
+// Positive test with MOV.
+TEST_F(AvmExecutionTests, movOpcode)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET) +      // opcode SET
+                               "00"                       // Indirect flag
+                               "01"                       // U8
+                               "13"                       // val 19
+                               "000000AB"                 // dst_offset 171
+                               + to_hex(OpCode::MOV) +    // opcode MOV
+                               "00"                       // Indirect flag
+                               "000000AB"                 // src_offset 171
+                               "00000021"                 // dst_offset 33
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    // SET
+    EXPECT_THAT(instructions.at(0),
+                AllOf(Field(&Instruction::op_code, OpCode::SET),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
+                                        VariantWith<uint8_t>(19),
+                                        VariantWith<uint32_t>(171)))));
+
+    // MOV
+    EXPECT_THAT(
+        instructions.at(1),
+        AllOf(Field(&Instruction::op_code, OpCode::MOV),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(171), VariantWith<uint32_t>(33)))));
+
+    auto trace = Execution::gen_trace(instructions);
+
+    // Find the first row enabling the MOV selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_mov == 1; });
+    EXPECT_EQ(row->avm_main_ia, 19);
+    EXPECT_EQ(row->avm_main_ic, 19);
+
+    gen_proof_and_validate(bytecode, std::move(trace), {});
+}
+
+// Positive test with CMOV.
+TEST_F(AvmExecutionTests, cmovOpcode)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET) +      // opcode SET
+                               "00"                       // Indirect flag
+                               "01"                       // U8
+                               "03"                       // val 3
+                               "00000010"                 // a_offset 16
+                               + to_hex(OpCode::SET) +    // opcode SET
+                               "00"                       // Indirect flag
+                               "02"                       // U16
+                               "0004"                     // val 4
+                               "00000011"                 // b_offset 17
+                               + to_hex(OpCode::SET) +    // opcode SET
+                               "00"                       // Indirect flag
+                               "03"                       // U32
+                               "00000005"                 // val 5
+                               "00000020"                 // cond_offset 32
+                               + to_hex(OpCode::CMOV) +   // opcode CMOV
+                               "00"                       // Indirect flag
+                               "00000010"                 // a_offset 16
+                               "00000011"                 // b_offset 17
+                               "00000020"                 // cond_offset 32
+                               "00000012"                 // dst_offset 18
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(5));
+
+    // CMOV
+    EXPECT_THAT(instructions.at(3),
+                AllOf(Field(&Instruction::op_code, OpCode::CMOV),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint32_t>(16),
+                                        VariantWith<uint32_t>(17),
+                                        VariantWith<uint32_t>(32),
+                                        VariantWith<uint32_t>(18)))));
+
+    auto trace = Execution::gen_trace(instructions);
+
+    // Find the first row enabling the CMOV selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_cmov == 1; });
+    EXPECT_EQ(row->avm_main_ia, 3);
+    EXPECT_EQ(row->avm_main_ib, 4);
+    EXPECT_EQ(row->avm_main_ic, 3);
+    EXPECT_EQ(row->avm_main_id, 5);
+
+    gen_proof_and_validate(bytecode, std::move(trace), {});
+}
+
+// Positive test with indirect MOV.
+TEST_F(AvmExecutionTests, indMovOpcode)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET) +      // opcode SET
+                               "00"                       // Indirect flag
+                               "03"                       // U32
+                               "0000000A"                 // val 10
+                               "00000001"                 // dst_offset 1
+                               + to_hex(OpCode::SET) +    // opcode SET
+                               "00"                       // Indirect flag
+                               "03"                       // U32
+                               "0000000B"                 // val 11
+                               "00000002"                 // dst_offset 2
+                               + to_hex(OpCode::SET) +    // opcode SET
+                               "00"                       // Indirect flag
+                               "01"                       // U8
+                               "FF"                       // val 255
+                               "0000000A"                 // dst_offset 10
+                               + to_hex(OpCode::MOV) +    // opcode MOV
+                               "01"                       // Indirect flag
+                               "00000001"                 // src_offset 1 --> direct offset 10
+                               "00000002"                 // dst_offset 2 --> direct offset 11
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(5));
+
+    // MOV
+    EXPECT_THAT(instructions.at(3),
+                AllOf(Field(&Instruction::op_code, OpCode::MOV),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint32_t>(1), VariantWith<uint32_t>(2)))));
+
+    auto trace = Execution::gen_trace(instructions);
+
+    // Find the first row enabling the MOV selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_mov == 1; });
+    EXPECT_EQ(row->avm_main_ia, 255);
+    EXPECT_EQ(row->avm_main_ic, 255);
+
+    gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
 // Negative test detecting an invalid opcode byte.

@@ -1,18 +1,17 @@
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   ARCHIVE_HEIGHT,
-  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../constants.gen.js';
 import { GlobalVariables } from '../global_variables.js';
-import { RollupKernelData } from '../kernel/rollup_kernel_data.js';
+import { KernelData } from '../kernel/kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
-import { UInt32 } from '../shared.js';
+import { type UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { NullifierLeaf, NullifierLeafPreimage } from './nullifier_leaf/index.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from './public_data_leaf/index.js';
@@ -88,7 +87,7 @@ export class ConstantRollupData {
 export class BaseRollupInputs {
   constructor(
     /** Data of the 2 kernels that preceded this base rollup circuit. */
-    public kernelData: RollupKernelData,
+    public kernelData: KernelData,
     /** Partial state reference at the start of the rollup. */
     public start: PartialStateReference,
     /** Hints used while proving state diff validity. */
@@ -121,19 +120,6 @@ export class BaseRollupInputs {
     >,
 
     /**
-     * Preimages of leaves which are to be read by the public data reads.
-     */
-    public publicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
-    /**
-     * Sibling paths of leaves which are to be read by the public data reads.
-     * Each item in the array is the sibling path that corresponds to a read request.
-     */
-    public publicDataReadsMembershipWitnesses: Tuple<
-      MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-      typeof MAX_PUBLIC_DATA_READS_PER_TX
-    >,
-
-    /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
     public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
@@ -156,14 +142,55 @@ export class BaseRollupInputs {
       fields.sortedPublicDataWritesIndexes,
       fields.lowPublicDataWritesPreimages,
       fields.lowPublicDataWritesMembershipWitnesses,
-      fields.publicDataReadsPreimages,
-      fields.publicDataReadsMembershipWitnesses,
       fields.archiveRootMembershipWitness,
       fields.constants,
     ] as const;
   }
 
+  /**
+   * Serializes the inputs to a buffer.
+   * @returns The inputs serialized to a buffer.
+   */
   toBuffer() {
     return serializeToBuffer(...BaseRollupInputs.getFields(this));
+  }
+
+  /**
+   * Serializes the inputs to a hex string.
+   * @returns The instance serialized to a hex string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Deserializes the inputs from a buffer.
+   * @param buffer - The buffer to deserialize from.
+   * @returns A new BaseRollupInputs instance.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader): BaseRollupInputs {
+    const reader = BufferReader.asReader(buffer);
+    return new BaseRollupInputs(
+      reader.readObject(KernelData),
+      reader.readObject(PartialStateReference),
+      reader.readObject(StateDiffHints),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataTreeLeaf),
+      reader.readNumbers(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataTreeLeafPreimage),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, {
+        fromBuffer: buffer => MembershipWitness.fromBuffer(buffer, PUBLIC_DATA_TREE_HEIGHT),
+      }),
+      MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
+      reader.readObject(ConstantRollupData),
+    );
+  }
+
+  /**
+   * Deserializes the inputs from a hex string.
+   * @param str - A hex string to deserialize from.
+   * @returns A new BaseRollupInputs instance.
+   */
+  static fromString(str: string) {
+    return BaseRollupInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

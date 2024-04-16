@@ -88,23 +88,19 @@ For our purposes here (not building a wallet), the most important part of the li
 
 ### General utilities
 
-The primary general utility is the `compute_authwit_message_hash` function which computes the action hash from its components. This is useful for when you need to generate a hash that is not for the current call, such as when you want to update a public approval state value that is later used for [authentication in public](#updating-approval-state-in-noir). You can view the implementation of this function [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/authwit/src/auth.nr).
+The primary general utility is the `compute_call_authwit_hash` function which computes the action hash from its components. This is useful for when you need to generate a hash that is not for the current call, such as when you want to update a public approval state value that is later used for [authentication in public](#updating-approval-state-in-noir). You can view the implementation of this function [here](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/authwit/src/auth.nr).
 
 #### TypeScript utilities
 
 To make it convenient to compute the message hashes in TypeScript, the `aztec.js` package includes a `computeAuthWitMessageHash` function that you can use. Implementation [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/authwit.ts).
 
-As you can see above, this function takes a `caller` and a `request`. The `request` can be easily prepared similarly to how we are making contract calls from TypeScript.
-
-#include_code authwit_computeAuthWitMessageHash /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
-
 ### Utilities for private calls
 
 For private calls where we allow execution on behalf of others, we generally want to check if the current call is authenticated by `on_behalf_of`. To easily do so, we can use the `assert_current_call_valid_authwit` which fetches information from the current context without us needing to provide much beyond the `on_behalf_of`.
 
-This function will then make a to `on_behalf_of` to execute the `spend_private_authwit` function which validates that the call is authenticated. 
+This function will then make a to `on_behalf_of` to execute the `spend_private_authwit` function which validates that the call is authenticated.
 The `on_behalf_of` should assert that we are indeed authenticated and then emit a nullifier when we are spending the authwit to prevent replay attacks.
-If the return value is not as expected, we throw an error. 
+If the return value is not as expected, we throw an error.
 This is to cover the case where the `on_behalf_of` might implemented some function with the same selector as the `spend_private_authwit` that could be used to authenticate unintentionally.
 
 #### Example
@@ -153,7 +149,7 @@ In the snippet we are constraining the `else` case such that only `nonce = 0` is
 
 Cool, so we have a function that checks if the current call is authenticated, but how do we actually authenticate it? Well, assuming that we use a wallet that is following the spec, we import `computeAuthWitMessageHash` from `aztec.js` to help us compute the hash, and then we simply `addAuthWitness` to the wallet. Behind the scenes this will make the witness available to the oracle.
 
-#include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+#include_code authwit_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_private.test.ts typescript
 
 ### Public Functions
 
@@ -169,7 +165,7 @@ Authenticating an action in the public domain is quite similar to the private do
 
 In the snippet below, this is done as a separate contract call, but can also be done as part of a batch as mentioned in the [Accounts concepts](./../../../../learn/concepts/accounts/authwit.md#what-about-public).
 
-#include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+#include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_public.test.ts typescript
 
 #### Updating approval state in Noir
 

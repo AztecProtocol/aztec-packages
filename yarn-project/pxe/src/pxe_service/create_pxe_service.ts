@@ -1,15 +1,17 @@
-import { AztecNode } from '@aztec/circuit-types';
+import { type AztecNode } from '@aztec/circuit-types';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { initStoreForRollup } from '@aztec/kv-store/utils';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
+import { getCanonicalMultiCallEntrypointContract } from '@aztec/protocol-contracts/multi-call-entrypoint';
 
 import { join } from 'path';
 
-import { PXEServiceConfig } from '../config/index.js';
+import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { PXEService } from './pxe_service.js';
 
@@ -29,11 +31,7 @@ export async function createPXEService(
   useLogSuffix: string | boolean | undefined = undefined,
 ) {
   const logSuffix =
-    typeof useLogSuffix === 'boolean'
-      ? useLogSuffix
-        ? Math.random().toString(16).slice(2, 8)
-        : undefined
-      : useLogSuffix;
+    typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;
 
   const pxeDbPath = config.dataDirectory ? join(config.dataDirectory, 'pxe_data') : undefined;
   const keyStorePath = config.dataDirectory ? join(config.dataDirectory, 'pxe_key_store') : undefined;
@@ -46,7 +44,14 @@ export async function createPXEService(
   const db = new KVPxeDatabase(await initStoreForRollup(AztecLmdbStore.open(pxeDbPath), l1Contracts.rollupAddress));
 
   const server = new PXEService(keyStore, aztecNode, db, config, logSuffix);
-  await server.addContracts([getCanonicalClassRegisterer(), getCanonicalInstanceDeployer(), getCanonicalGasToken()]);
+  for (const contract of [
+    getCanonicalClassRegisterer(),
+    getCanonicalInstanceDeployer(),
+    getCanonicalMultiCallEntrypointContract(),
+    getCanonicalGasToken(l1Contracts.gasPortalAddress),
+  ]) {
+    await server.registerContract(contract);
+  }
 
   await server.start();
   return server;

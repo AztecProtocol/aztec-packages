@@ -28,13 +28,12 @@ contract SlowTree {
 
     global EMPTY_ROOT: Field = 5785871043333994658400733180052743689641713274194136017445890613179954325976;
 
+    #[aztec(storage)]
     struct Storage {
         trees: Map<Field, SlowMap<TREE_HEIGHT, UPDATE_SIZE>>,
     }
     // docs:end:constants_and_storage
 
-    #[aztec(private)]
-    fn constructor() {}
     // docs:start:initialize
     #[aztec(public)]
     fn initialize() {

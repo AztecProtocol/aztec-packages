@@ -1,91 +1,21 @@
 #include "protogalaxy_verifier.hpp"
-#include "barretenberg/proof_system/library/grand_product_delta.hpp"
+#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 namespace bb {
 
 template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
                                                                             const std::string& domain_separator)
 {
-    // Get circuit parameters and the public inputs
-    inst->verification_key->circuit_size =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "_instance_size");
-    inst->verification_key->log_circuit_size =
-        static_cast<size_t>(numeric::get_msb(inst->verification_key->circuit_size));
-    inst->verification_key->num_public_inputs =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "_public_input_size");
-    inst->verification_key->public_inputs.clear();
-    for (size_t i = 0; i < inst->verification_key->num_public_inputs; ++i) {
-        auto public_input_i =
-            transcript->template receive_from_prover<FF>(domain_separator + "_public_input_" + std::to_string(i));
-        inst->verification_key->public_inputs.emplace_back(public_input_i);
-    }
-
-    inst->verification_key->pub_inputs_offset =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "_pub_inputs_offset");
-
-    // Get commitments to first three wire polynomials
-    auto labels = inst->commitment_labels;
-    auto& witness_commitments = inst->witness_commitments;
-    witness_commitments.w_l = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_l);
-    witness_commitments.w_r = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_r);
-    witness_commitments.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_o);
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // Get  commitments to the ECC wire polynomials and databus polynomials
-        witness_commitments.ecc_op_wire_1 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_1);
-        witness_commitments.ecc_op_wire_2 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_2);
-        witness_commitments.ecc_op_wire_3 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_3);
-        witness_commitments.ecc_op_wire_4 =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.ecc_op_wire_4);
-        witness_commitments.calldata =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata);
-        witness_commitments.calldata_read_counts =
-            transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.calldata_read_counts);
-    }
-
-    // Get challenge for sorted list batching and wire four memory records commitment
-    auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
-    witness_commitments.sorted_accum =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.sorted_accum);
-    witness_commitments.w_4 = transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.w_4);
-
-    // Get permutation challenges and commitment to permutation and lookup grand products
-    auto [beta, gamma] =
-        transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomial
-        witness_commitments.lookup_inverses = transcript->template receive_from_prover<Commitment>(
-            domain_separator + "_" + commitment_labels.lookup_inverses);
-    }
-
-    witness_commitments.z_perm =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_perm);
-    witness_commitments.z_lookup =
-        transcript->template receive_from_prover<Commitment>(domain_separator + "_" + labels.z_lookup);
-
-    // Compute correction terms for grand products
-    const FF public_input_delta = compute_public_input_delta<Flavor>(inst->verification_key->public_inputs,
-                                                                     beta,
-                                                                     gamma,
-                                                                     inst->verification_key->circuit_size,
-                                                                     inst->verification_key->pub_inputs_offset);
-    const FF lookup_grand_product_delta =
-        compute_lookup_grand_product_delta<FF>(beta, gamma, inst->verification_key->circuit_size);
-    inst->relation_parameters =
-        RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
-
-    // Get the relation separation challenges
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        inst->alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
-    }
+    auto& key = inst->verification_key;
+    OinkVerifier<Flavor> oink_verifier{ key, transcript, domain_separator + '_' };
+    auto [relation_parameters, witness_commitments, public_inputs, alphas] = oink_verifier.verify();
+    inst->relation_parameters = std::move(relation_parameters);
+    inst->witness_commitments = std::move(witness_commitments);
+    inst->public_inputs = std::move(public_inputs);
+    inst->alphas = std::move(alphas);
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
-// between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
 template <class VerifierInstances>
 void ProtoGalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<FF>& fold_data)
 {
@@ -141,8 +71,29 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
-    auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
-    auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
+    constexpr FF inverse_two = FF(2).invert();
+    FF vanishing_polynomial_at_challenge;
+    std::array<FF, VerifierInstances::NUM> lagranges;
+    if constexpr (VerifierInstances::NUM == 2) {
+        vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
+        lagranges = { FF(1) - combiner_challenge, combiner_challenge };
+    } else if constexpr (VerifierInstances::NUM == 3) {
+        vanishing_polynomial_at_challenge =
+            combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2));
+        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * inverse_two,
+                      combiner_challenge * (FF(2) - combiner_challenge),
+                      combiner_challenge * (combiner_challenge - FF(1)) * inverse_two };
+    } else if constexpr (VerifierInstances::NUM == 4) {
+        constexpr FF inverse_six = FF(6).invert();
+        vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1)) *
+                                            (combiner_challenge - FF(2)) * (combiner_challenge - FF(3));
+        lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * (FF(3) - combiner_challenge) *
+                          inverse_six,
+                      combiner_challenge * (FF(2) - combiner_challenge) * (FF(3) - combiner_challenge) * inverse_two,
+                      combiner_challenge * (combiner_challenge - FF(1)) * (FF(3) - combiner_challenge) * inverse_two,
+                      combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2)) * inverse_six };
+    }
+    static_assert(VerifierInstances::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>(accumulator->verification_key);
@@ -161,16 +112,15 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
         vk_idx++;
     }
     next_accumulator->verification_key->num_public_inputs = accumulator->verification_key->num_public_inputs;
-    next_accumulator->verification_key->public_inputs =
-        std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
+    next_accumulator->public_inputs = std::vector<FF>(next_accumulator->verification_key->num_public_inputs, 0);
     size_t public_input_idx = 0;
-    for (auto& public_input : next_accumulator->verification_key->public_inputs) {
+    for (auto& public_input : next_accumulator->public_inputs) {
         size_t inst = 0;
         for (auto& instance : instances) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
             if (instance->verification_key->num_public_inputs >=
                 next_accumulator->verification_key->num_public_inputs) {
-                public_input += instance->verification_key->public_inputs[public_input_idx] * lagranges[inst];
+                public_input += instance->public_inputs[public_input_idx] * lagranges[inst];
                 inst++;
             }
         }
@@ -211,6 +161,8 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
     for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
+        expected_parameters.eta_two += instance->relation_parameters.eta_two * lagranges[inst_idx];
+        expected_parameters.eta_three += instance->relation_parameters.eta_three * lagranges[inst_idx];
         expected_parameters.beta += instance->relation_parameters.beta * lagranges[inst_idx];
         expected_parameters.gamma += instance->relation_parameters.gamma * lagranges[inst_idx];
         expected_parameters.public_input_delta +=
@@ -224,4 +176,10 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtoGalaxyVerifier_<Verif
 
 template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 2>>;
 template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 2>>;
+
+template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 3>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 3>>;
+
+template class ProtoGalaxyVerifier_<VerifierInstances_<UltraFlavor, 4>>;
+template class ProtoGalaxyVerifier_<VerifierInstances_<GoblinUltraFlavor, 4>>;
 } // namespace bb

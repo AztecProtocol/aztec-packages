@@ -7,11 +7,14 @@ use super::constants::MAX_CONTRACT_PRIVATE_FUNCTIONS;
 pub enum AztecMacroError {
     AztecDepNotFound,
     ContractHasTooManyPrivateFunctions { span: Span },
-    ContractConstructorMissing { span: Span },
     UnsupportedFunctionArgumentType { span: Span, typ: UnresolvedTypeData },
+    UnsupportedFunctionReturnType { span: Span, typ: UnresolvedTypeData },
     UnsupportedStorageType { span: Option<Span>, typ: UnresolvedTypeData },
     CouldNotAssignStorageSlots { secondary_message: Option<String> },
-    CouldNotImplementNoteSerialization { span: Option<Span>, typ: UnresolvedTypeData },
+    CouldNotImplementNoteInterface { span: Option<Span>, secondary_message: Option<String> },
+    MultipleStorageDefinitions { span: Option<Span> },
+    CouldNotExportStorageLayout { span: Option<Span>, secondary_message: Option<String> },
+    CouldNotExportFunctionAbi { span: Option<Span>, secondary_message: Option<String> },
     EventError { span: Span, message: String },
     UnsupportedAttributes { span: Span, secondary_message: Option<String> },
 }
@@ -20,7 +23,7 @@ impl From<AztecMacroError> for MacroError {
     fn from(err: AztecMacroError) -> Self {
         match err {
             AztecMacroError::AztecDepNotFound {} => MacroError {
-                primary_message: "Aztec dependency not found. Please add aztec as a dependency in your Cargo.toml. For more information go to https://docs.aztec.network/developers/debugging/aztecnr-errors#aztec-dependency-not-found-please-add-aztec-as-a-dependency-in-your-nargotoml".to_owned(),
+                primary_message: "Aztec dependency not found. Please add aztec as a dependency in your Nargo.toml. For more information go to https://docs.aztec.network/developers/debugging/aztecnr-errors#aztec-dependency-not-found-please-add-aztec-as-a-dependency-in-your-nargotoml".to_owned(),
                 secondary_message: None,
                 span: None,
             },
@@ -29,13 +32,13 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message: None,
                 span: Some(span),
             },
-            AztecMacroError::ContractConstructorMissing { span } => MacroError {
-                primary_message: "Contract must have a constructor function".to_owned(),
+            AztecMacroError::UnsupportedFunctionArgumentType { span, typ } => MacroError {
+                primary_message: format!("Provided parameter type `{typ:?}` is not supported in Aztec contract interface"),
                 secondary_message: None,
                 span: Some(span),
             },
-            AztecMacroError::UnsupportedFunctionArgumentType { span, typ } => MacroError {
-                primary_message: format!("Provided parameter type `{typ:?}` is not supported in Aztec contract interface"),
+            AztecMacroError::UnsupportedFunctionReturnType { span, typ } => MacroError {
+                primary_message: format!("Provided return type `{typ:?}` is not supported in Aztec contract interface"),
                 secondary_message: None,
                 span: Some(span),
             },
@@ -49,9 +52,24 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message,
                 span: None,
             },
-            AztecMacroError::CouldNotImplementNoteSerialization { span, typ } => MacroError {
-                primary_message: format!("Could not implement serialization methods for note `{typ:?}`, please provide a serialize_content and deserialize_content methods"),
+            AztecMacroError::CouldNotImplementNoteInterface { span, secondary_message } => MacroError {
+                primary_message: "Could not implement automatic methods for note, please provide an implementation of the NoteInterface trait".to_string(),
+                secondary_message,
+                span
+            },
+            AztecMacroError::MultipleStorageDefinitions { span } => MacroError {
+                primary_message: "Only one struct can be tagged as #[aztec(storage)]".to_string(),
                 secondary_message: None,
+                span,
+            },
+            AztecMacroError::CouldNotExportStorageLayout { secondary_message, span } => MacroError {
+                primary_message: "Could not generate and export storage layout".to_string(),
+                secondary_message,
+                span,
+            },
+            AztecMacroError::CouldNotExportFunctionAbi { secondary_message, span } => MacroError {
+                primary_message: "Could not generate and export function abi".to_string(),
+                secondary_message,
                 span,
             },
             AztecMacroError::EventError { span, message } => MacroError {
@@ -59,7 +77,7 @@ impl From<AztecMacroError> for MacroError {
                 secondary_message: None,
                 span: Some(span),
             },
-AztecMacroError::UnsupportedAttributes { span, secondary_message } => MacroError {
+            AztecMacroError::UnsupportedAttributes { span, secondary_message } => MacroError {
                 primary_message: "Unsupported attributes in contract function".to_string(),
                 secondary_message,
                 span: Some(span),

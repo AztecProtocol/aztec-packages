@@ -1,15 +1,21 @@
-import { ContractDao, MerkleTreeId, NoteFilter, NoteStatus, PublicKey } from '@aztec/circuit-types';
+import { MerkleTreeId, type NoteFilter, NoteStatus, type PublicKey } from '@aztec/circuit-types';
 import { AztecAddress, CompleteAddress, Header } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractArtifact } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { AztecArray, AztecKVStore, AztecMap, AztecMultiMap, AztecSingleton } from '@aztec/kv-store';
+import { Fr, type Point } from '@aztec/foundation/fields';
+import {
+  type AztecArray,
+  type AztecKVStore,
+  type AztecMap,
+  type AztecMultiMap,
+  type AztecSingleton,
+} from '@aztec/kv-store';
 import { contractArtifactFromBuffer, contractArtifactToBuffer } from '@aztec/types/abi';
-import { ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
+import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { DeferredNoteDao } from './deferred_note_dao.js';
 import { NoteDao } from './note_dao.js';
-import { PxeDatabase } from './pxe_database.js';
+import { type PxeDatabase } from './pxe_database.js';
 
 /**
  * A PXE database backed by LMDB.
@@ -20,7 +26,6 @@ export class KVPxeDatabase implements PxeDatabase {
   #addressIndex: AztecMap<string, number>;
   #authWitnesses: AztecMap<string, Buffer[]>;
   #capsules: AztecArray<Buffer[]>;
-  #contracts: AztecMap<string, Buffer>;
   #notes: AztecMap<string, Buffer>;
   #nullifiedNotes: AztecMap<string, Buffer>;
   #nullifierToNoteId: AztecMap<string, string>;
@@ -47,7 +52,6 @@ export class KVPxeDatabase implements PxeDatabase {
 
     this.#authWitnesses = db.openMap('auth_witnesses');
     this.#capsules = db.openArray('capsules');
-    this.#contracts = db.openMap('contracts');
 
     this.#contractArtifacts = db.openMap('contract_artifacts');
     this.#contractInstances = db.openMap('contracts_instances');
@@ -73,11 +77,22 @@ export class KVPxeDatabase implements PxeDatabase {
     this.#deferredNotesByContract = db.openMultiMap('deferred_notes_by_contract');
   }
 
+  public async getContract(
+    address: AztecAddress,
+  ): Promise<(ContractInstanceWithAddress & ContractArtifact) | undefined> {
+    const instance = await this.getContractInstance(address);
+    const artifact = instance && (await this.getContractArtifact(instance?.contractClassId));
+    if (!instance || !artifact) {
+      return undefined;
+    }
+    return { ...instance, ...artifact };
+  }
+
   public async addContractArtifact(id: Fr, contract: ContractArtifact): Promise<void> {
     await this.#contractArtifacts.set(id.toString(), contractArtifactToBuffer(contract));
   }
 
-  getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
+  public getContractArtifact(id: Fr): Promise<ContractArtifact | undefined> {
     const contract = this.#contractArtifacts.get(id.toString());
     // TODO(@spalladino): AztecMap lies and returns Uint8Arrays instead of Buffers, hence the extra Buffer.from.
     return Promise.resolve(contract && contractArtifactFromBuffer(Buffer.from(contract)));
@@ -93,6 +108,10 @@ export class KVPxeDatabase implements PxeDatabase {
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     const contract = this.#contractInstances.get(address.toString());
     return Promise.resolve(contract && SerializableContractInstance.fromBuffer(contract).withAddress(address));
+  }
+
+  getContractsAddresses(): Promise<AztecAddress[]> {
+    return Promise.resolve(Array.from(this.#contractInstances.keys()).map(AztecAddress.fromString));
   }
 
   async addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void> {
@@ -378,7 +397,7 @@ export class KVPxeDatabase implements PxeDatabase {
     return this.#syncedBlockPerPublicKey.get(publicKey.toString());
   }
 
-  setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<boolean> {
+  setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<void> {
     return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
   }
 
@@ -392,18 +411,5 @@ export class KVPxeDatabase implements PxeDatabase {
     const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
 
     return notesSize + treeRootsSize + authWitsSize + addressesSize;
-  }
-
-  async addContract(contract: ContractDao): Promise<void> {
-    await this.#contracts.set(contract.instance.address.toString(), contract.toBuffer());
-  }
-
-  getContract(address: AztecAddress): Promise<ContractDao | undefined> {
-    const contract = this.#contracts.get(address.toString());
-    return Promise.resolve(contract ? ContractDao.fromBuffer(contract) : undefined);
-  }
-
-  getContracts(): Promise<ContractDao[]> {
-    return Promise.resolve(Array.from(this.#contracts.values()).map(c => ContractDao.fromBuffer(c)));
   }
 }

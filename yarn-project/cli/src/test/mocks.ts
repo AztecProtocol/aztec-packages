@@ -1,10 +1,11 @@
-import { ABIParameterVisibility, ContractArtifact, FunctionType } from '@aztec/foundation/abi';
+import { ABIParameterVisibility, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
 
 export const mockContractArtifact: ContractArtifact = {
   name: 'MockContract',
   functions: [
     {
       name: 'constructor',
+      isInitializer: true,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -17,11 +18,12 @@ export const mockContractArtifact: ContractArtifact = {
         },
       ],
       returnTypes: [],
-      bytecode: 'constructorBytecode',
+      bytecode: Buffer.alloc(8, 0xfa),
       debugSymbols: '',
     },
     {
       name: 'mockFunction',
+      isInitializer: false,
       functionType: FunctionType.SECRET,
       isInternal: false,
       parameters: [
@@ -59,10 +61,13 @@ export const mockContractArtifact: ContractArtifact = {
         },
       ],
       returnTypes: [{ kind: 'boolean' }],
-      bytecode: 'mockBytecode',
+      bytecode: Buffer.alloc(8, 0xfa),
       debugSymbols: '',
     },
   ],
-  events: [],
+  outputs: {
+    structs: {},
+    globals: {},
+  },
   fileMap: {},
 };

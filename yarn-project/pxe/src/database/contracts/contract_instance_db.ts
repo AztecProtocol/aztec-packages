@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/circuits.js';
-import { ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type AztecAddress } from '@aztec/circuits.js';
+import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 /**
  * PXE database for managing contract instances.
@@ -15,4 +15,7 @@ export interface ContractInstanceDatabase {
    * @param address - Address of the contract.
    */
   getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+
+  /** Returns the addresses all contract instances registered in the DB. */
+  getContractsAddresses(): Promise<AztecAddress[]>;
 }

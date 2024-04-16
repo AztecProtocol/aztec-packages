@@ -22,6 +22,7 @@ enum class OpCode : uint8_t {
     SUB,
     MUL,
     DIV,
+    FDIV,
     // Compute - Comparators
     EQ,
     LT,
@@ -82,6 +83,7 @@ enum class OpCode : uint8_t {
     EMITNULLIFIER,   // Notes & Nullifiers
     L1TOL2MSGEXISTS, // Messages
     HEADERMEMBER,    // Archive tree & Headers
+    GETCONTRACTINSTANCE,
 
     // Accrued Substate
     EMITUNENCRYPTEDLOG,
@@ -96,7 +98,10 @@ enum class OpCode : uint8_t {
 
     // Gadgets
     KECCAK,
-    POSEIDON,
+    POSEIDON2,
+
+    // Sentinel
+    LAST_OPCODE_SENTINEL,
 };
 
 class Bytecode {

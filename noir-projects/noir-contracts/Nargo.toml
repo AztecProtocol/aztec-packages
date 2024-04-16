@@ -1,7 +1,11 @@
 [workspace]
 members = [
     "contracts/app_subscription_contract",
+    "contracts/auth_contract",
+    "contracts/avm_initializer_test_contract",
     "contracts/avm_test_contract",
+    "contracts/avm_nested_calls_test_contract",
+    "contracts/avm_acvm_interop_test_contract",
     "contracts/fpc_contract",
     "contracts/benchmarking_contract",
     "contracts/card_game_contract",
@@ -36,4 +40,5 @@ members = [
     "contracts/token_bridge_contract",
     "contracts/uniswap_contract",
     "contracts/reader_contract",
+    "contracts/multi_call_entrypoint_contract",
 ]

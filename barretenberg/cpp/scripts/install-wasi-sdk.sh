@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -eu
 
-if [[ -d ./src/wasi-sdk-20.0 && -d ./src/wasi-sdk-20.0+threads ]]; then
+if [[ -d ./src/wasi-sdk ]]; then
   echo "WASI already installed. Skipping."
   exit 0
 fi
 
 # Clean.
-rm -rf ./src/wasi-sdk-*
+rm -rf ./src/wasi-sdk
 
 # Determine system.
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -34,3 +34,5 @@ else
   # Can remove once future releases are more stable.
   curl -s -L https://wasi-sdk.s3.eu-west-2.amazonaws.com/yamt-wasi-sysroot-20.0.threads.tgz | tar zxf -
 fi
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/906): in the future this should use earthly and a 'SAVE ARTIFACT wasi-sdk AS LOCAL wasi-sdk'
+mv wasi-sdk-20.0+threads wasi-sdk

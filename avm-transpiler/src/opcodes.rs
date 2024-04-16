@@ -1,12 +1,13 @@
 /// All AVM opcodes
-/// Keep updated with TS and yellow paper!
-#[derive(Copy, Clone)]
+/// Keep updated with TS and docs protocol specs!
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum AvmOpcode {
     // Compute
     ADD,
     SUB,
     MUL,
     DIV,
+    FDIV,
     EQ,
     LT,
     LTE,
@@ -58,6 +59,7 @@ pub enum AvmOpcode {
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
     HEADERMEMBER,
+    GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
     // External calls
@@ -68,7 +70,7 @@ pub enum AvmOpcode {
     REVERT,
     // Gadgets
     KECCAK,
-    POSEIDON,
+    POSEIDON2,
     SHA256,   // temp - may be removed, but alot of contracts rely on it
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
 }
@@ -82,6 +84,7 @@ impl AvmOpcode {
             AvmOpcode::SUB => "SUB",
             AvmOpcode::MUL => "MUL",
             AvmOpcode::DIV => "DIV",
+            AvmOpcode::FDIV => "FDIV",
             // Compute - Comparators
             AvmOpcode::EQ => "EQ",
             AvmOpcode::LT => "LT",
@@ -146,6 +149,7 @@ impl AvmOpcode {
             // Accrued Substate
             AvmOpcode::EMITUNENCRYPTEDLOG => "EMITUNENCRYPTEDLOG",
             AvmOpcode::SENDL2TOL1MSG => "SENDL2TOL1MSG",
+            AvmOpcode::GETCONTRACTINSTANCE => "GETCONTRACTINSTANCE",
 
             // Control Flow - Contract Calls
             AvmOpcode::CALL => "CALL",
@@ -156,7 +160,7 @@ impl AvmOpcode {
 
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
-            AvmOpcode::POSEIDON => "POSEIDON",
+            AvmOpcode::POSEIDON2 => "POSEIDON2",
             AvmOpcode::SHA256 => "SHA256 ",
             AvmOpcode::PEDERSEN => "PEDERSEN",
         }

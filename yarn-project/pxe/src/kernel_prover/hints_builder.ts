@@ -1,24 +1,24 @@
 import {
   Fr,
   GrumpkinScalar,
-  MAX_NEW_NOTE_HASHES_PER_TX,
+  type MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  NullifierKeyValidationRequestContext,
-  ReadRequestContext,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-  SideEffectType,
-  buildNullifierReadRequestResetHints,
+  type NullifierKeyValidationRequestContext,
+  type ReadRequestContext,
+  type SideEffect,
+  type SideEffectLinkedToNoteHash,
+  type SideEffectType,
+  buildNullifierReadRequestHints,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
-import { ProvingDataOracle } from './proving_data_oracle.js';
+import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 export class HintsBuilder {
   constructor(private oracle: ProvingDataOracle) {}
@@ -74,11 +74,11 @@ export class HintsBuilder {
     return hints;
   }
 
-  getNullifierReadRequestResetHints(
+  getNullifierReadRequestHints(
     nullifierReadRequests: Tuple<ReadRequestContext, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {
-    return buildNullifierReadRequestResetHints(this, nullifierReadRequests, nullifiers);
+    return buildNullifierReadRequestHints(this, nullifierReadRequests, nullifiers);
   }
 
   async getNullifierMembershipWitness(nullifier: Fr) {

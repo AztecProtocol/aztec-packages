@@ -9,7 +9,10 @@ contract InclusionProofs {
     use dep::aztec::{context::Context, note::note_getter_options::NoteStatus};
     // docs:start:imports
     use dep::aztec::history::{
-        contract_inclusion::{prove_contract_inclusion, prove_contract_inclusion_at},
+        contract_inclusion::{
+        prove_contract_deployment_at, prove_contract_non_deployment_at,
+        prove_contract_initialization_at, prove_contract_non_initialization_at
+    },
         note_inclusion::{prove_note_inclusion, prove_note_inclusion_at},
         note_validity::{prove_note_validity, prove_note_validity_at},
         nullifier_inclusion::{
@@ -17,12 +20,13 @@ contract InclusionProofs {
         prove_note_is_nullified_at
     },
         nullifier_non_inclusion::{prove_note_not_nullified, prove_note_not_nullified_at},
-        public_value_inclusion::{prove_public_value_inclusion, prove_public_value_inclusion_at}
+        public_storage::{public_storage_historical_read, public_storage_historical_read_at}
     };
     // docs:end:imports
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
+    #[aztec(storage)]
     struct Storage {
         private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
         public_value: PublicMutable<Field>,
@@ -55,7 +59,12 @@ contract InclusionProofs {
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -101,7 +110,12 @@ contract InclusionProofs {
     ) {
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
         if (fail_case) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -127,7 +141,12 @@ contract InclusionProofs {
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
         if (nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
@@ -148,7 +167,12 @@ contract InclusionProofs {
     #[aztec(private)]
     fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner);
-        let options = NoteGetterOptions::new().select(1, owner.to_field(), Option::none()).set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
+            ValueNote::properties().owner,
+            owner.to_field(),
+            Option::none()
+        ).set_limit(1);
         let notes = private_values.get_notes(options);
         let note = notes[0].unwrap();
 
@@ -174,74 +198,83 @@ contract InclusionProofs {
         }
     }
 
+    #[aztec(public)]
+    fn push_nullifier_public(nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
+    }
+
     // Proves nullifier existed at latest block
     #[aztec(public)]
     fn test_nullifier_inclusion_from_public(nullifier: Field) {
-        prove_nullifier_inclusion(nullifier, context);
+        assert(context.nullifier_exists(nullifier, context.this_address()));
     }
 
     #[aztec(private)]
-    fn test_public_unused_value_inclusion(block_number: u32 // The block at which we'll prove that the public value exists
+    fn test_storage_historical_read_unset_slot(block_number: u32 // The block at which we'll read the public storage value
     ) {
-        prove_public_value_inclusion_at(
-            0,
-            storage.public_unused_value.storage_slot,
-            context.this_address(),
-            block_number,
-            context
+        assert_eq(
+            public_storage_historical_read_at(
+                context,
+                storage.public_unused_value.storage_slot,
+                context.this_address(),
+                block_number
+            ), 0
         );
     }
 
     #[aztec(private)]
-    fn test_public_value_inclusion(
-        public_value: Field,
+    fn test_storage_historical_read(
+        expected: Field,
         use_block_number: bool,
-        block_number: u32 // The block at which we'll prove that the public value exists
+        block_number: u32 // The block at which we'll read the public storage value
     ) {
-        if (use_block_number) {
-            prove_public_value_inclusion_at(
-                public_value,
+        let actual = if (use_block_number) {
+            public_storage_historical_read_at(
+                context,
                 storage.public_value.storage_slot,
                 context.this_address(),
-                block_number,
-                context
-            );
+                block_number
+            )
         } else {
-            prove_public_value_inclusion(
-                public_value,
+            public_storage_historical_read(
+                context,
                 storage.public_value.storage_slot,
-                context.this_address(),
-                context
-            );
+                context.this_address()
+            )
+        };
+
+        assert_eq(actual, expected, "Actual public value does not match expected");
+    }
+
+    // Proves that a contract was publicly deployed and/or initialized at block `block_number`.
+    #[aztec(private)]
+    fn test_contract_inclusion(
+        contract_address: AztecAddress,
+        block_number: u32,
+        test_deployment: bool,
+        test_initialization: bool
+    ) {
+        if test_deployment {
+            prove_contract_deployment_at(contract_address, block_number, context);
+        }
+        if test_initialization {
+            prove_contract_initialization_at(contract_address, block_number, context);
         }
     }
 
-    // Proves that a contract exists at block `block_number`.
-    // Note: This can be used to approximate a factory pattern --> a factory contract could perform this proof and that
-    //       way verify that a contract at a given address is what it expects. Then it could store it in an internal
-    //       map of contracts (like what Uniswap Factory does with pool contracts - it stores them in a mapping).
-    //       By passing in the construct hash the factory can also verify that the contract was constructed with the
-    //       correct constructor arguments. Typically the factory would store the expected construct hash and assert
-    //       that it is what it expects. The constructor param check is the reason of why we pass in the preimage of
-    //       contract's aztec address instead of just the address.
+    // Proves that a contract was NOT publicly deployed and/or initialized at block `block_number`.
     #[aztec(private)]
-    fn test_contract_inclusion(
-        public_key: GrumpkinPoint,
-        contract_address_salt: Field,
-        contract_class_id: ContractClassId,
-        initialization_hash: Field,
-        portal_contract_address: EthAddress,
-        block_number: u32 // The block at which we'll prove that the public value exists
+    fn test_contract_non_inclusion(
+        contract_address: AztecAddress,
+        block_number: u32,
+        test_deployment: bool,
+        test_initialization: bool
     ) {
-        let proven_contract_address = prove_contract_inclusion_at(
-            public_key,
-            contract_address_salt,
-            contract_class_id,
-            initialization_hash,
-            portal_contract_address,
-            block_number,
-            context
-        );
-        // Here typically the factory would add the contract address to its internal map of deployed contracts.
+        if test_deployment {
+            prove_contract_non_deployment_at(contract_address, block_number, context);
+        }
+        if test_initialization {
+            prove_contract_non_initialization_at(contract_address, block_number, context);
+        }
     }
 }

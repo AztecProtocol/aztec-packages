@@ -63,11 +63,11 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async poseidonHash(inputsBuffer: Fr[]): Promise<Fr> {
+  async poseidon2Hash(inputsBuffer: Fr[]): Promise<Fr> {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = await this.wasm.callWasmExport(
-      'poseidon_hash',
+      'poseidon2_hash',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -75,11 +75,23 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async poseidonHashes(inputsBuffer: Fr[]): Promise<Fr> {
+  async poseidon2Hashes(inputsBuffer: Fr[]): Promise<Fr> {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = await this.wasm.callWasmExport(
-      'poseidon_hashes',
+      'poseidon2_hashes',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async poseidon2Permutation(inputState: Fr[]): Promise<Fr[]> {
+    const inArgs = [inputState].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = await this.wasm.callWasmExport(
+      'poseidon2_permutation',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -404,15 +416,23 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGoblinAccumulate(
-    acirComposerPtr: Ptr,
-    constraintSystemBuf: Uint8Array,
-    witnessBuf: Uint8Array,
-  ): Promise<Uint8Array> {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
+  async acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
-      'acir_goblin_accumulate',
+      'acir_prove_and_verify_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirProveAndVerifyGoblinUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_and_verify_goblin_ultra_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -489,18 +509,6 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_verify_proof',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  async acirGoblinVerifyAccumulator(acirComposerPtr: Ptr, proofBuf: Uint8Array): Promise<boolean> {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = await this.wasm.callWasmExport(
-      'acir_goblin_verify_accumulator',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -611,11 +619,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  poseidonHash(inputsBuffer: Fr[]): Fr {
+  poseidon2Hash(inputsBuffer: Fr[]): Fr {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = this.wasm.callWasmExport(
-      'poseidon_hash',
+      'poseidon2_hash',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -623,11 +631,23 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  poseidonHashes(inputsBuffer: Fr[]): Fr {
+  poseidon2Hashes(inputsBuffer: Fr[]): Fr {
     const inArgs = [inputsBuffer].map(serializeBufferable);
     const outTypes: OutputType[] = [Fr];
     const result = this.wasm.callWasmExport(
-      'poseidon_hashes',
+      'poseidon2_hashes',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  poseidon2Permutation(inputState: Fr[]): Fr[] {
+    const inArgs = [inputState].map(serializeBufferable);
+    const outTypes: OutputType[] = [VectorDeserializer(Fr)];
+    const result = this.wasm.callWasmExport(
+      'poseidon2_permutation',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -948,11 +968,23 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGoblinAccumulate(acirComposerPtr: Ptr, constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): Uint8Array {
-    const inArgs = [acirComposerPtr, constraintSystemBuf, witnessBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
+  acirProveAndVerifyUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
-      'acir_goblin_accumulate',
+      'acir_prove_and_verify_ultra_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  acirProveAndVerifyGoblinUltraHonk(constraintSystemBuf: Uint8Array, witnessBuf: Uint8Array): boolean {
+    const inArgs = [constraintSystemBuf, witnessBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = this.wasm.callWasmExport(
+      'acir_prove_and_verify_goblin_ultra_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
@@ -1025,18 +1057,6 @@ export class BarretenbergApiSync {
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_verify_proof',
-      inArgs,
-      outTypes.map(t => t.SIZE_IN_BYTES),
-    );
-    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
-    return out[0];
-  }
-
-  acirGoblinVerifyAccumulator(acirComposerPtr: Ptr, proofBuf: Uint8Array): boolean {
-    const inArgs = [acirComposerPtr, proofBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BoolDeserializer()];
-    const result = this.wasm.callWasmExport(
-      'acir_goblin_verify_accumulator',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );

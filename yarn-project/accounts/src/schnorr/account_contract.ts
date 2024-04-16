@@ -1,8 +1,8 @@
-import { AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, CompleteAddress, GrumpkinPrivateKey } from '@aztec/circuit-types';
+import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { AuthWitness, type CompleteAddress, type GrumpkinPrivateKey } from '@aztec/circuit-types';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
-import { ContractArtifact } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type Fr } from '@aztec/foundation/fields';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
 import { SchnorrAccountContractArtifact } from './artifact.js';
@@ -30,9 +30,9 @@ export class SchnorrAccountContract extends DefaultAccountContract {
 class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private signingPrivateKey: GrumpkinPrivateKey) {}
 
-  createAuthWitness(message: Fr): Promise<AuthWitness> {
+  createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();
-    const signature = schnorr.constructSignature(message.toBuffer(), this.signingPrivateKey).toBuffer();
-    return Promise.resolve(new AuthWitness(message, [...signature]));
+    const signature = schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey).toBuffer();
+    return Promise.resolve(new AuthWitness(messageHash, [...signature]));
   }
 }

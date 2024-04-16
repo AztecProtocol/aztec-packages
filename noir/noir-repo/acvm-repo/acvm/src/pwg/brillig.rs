@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use acir::{
-    brillig::{ForeignCallParam, ForeignCallResult, Value},
+    brillig::{ForeignCallParam, ForeignCallResult},
     circuit::{
         brillig::{Brillig, BrilligInputs, BrilligOutputs},
         opcodes::BlockId,
@@ -11,7 +11,7 @@ use acir::{
     FieldElement,
 };
 use acvm_blackbox_solver::BlackBoxFunctionSolver;
-use brillig_vm::{VMStatus, VM};
+use brillig_vm::{FailureReason, MemoryValue, VMStatus, VM};
 
 use crate::{pwg::OpcodeNotSolvable, OpcodeResolutionError};
 
@@ -73,7 +73,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         acir_index: usize,
     ) -> Result<Self, OpcodeResolutionError> {
         // Set input values
-        let mut calldata: Vec<Value> = Vec::new();
+        let mut calldata: Vec<FieldElement> = Vec::new();
         // Each input represents an expression or array of expressions to evaluate.
         // Iterate over each input and evaluate the expression(s) associated with it.
         // Push the results into memory.
@@ -81,7 +81,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         for input in &brillig.inputs {
             match input {
                 BrilligInputs::Single(expr) => match get_value(expr, initial_witness) {
-                    Ok(value) => calldata.push(value.into()),
+                    Ok(value) => calldata.push(value),
                     Err(_) => {
                         return Err(OpcodeResolutionError::OpcodeNotSolvable(
                             OpcodeNotSolvable::ExpressionHasTooManyUnknowns(expr.clone()),
@@ -92,7 +92,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                     // Attempt to fetch all array input values
                     for expr in expr_arr.iter() {
                         match get_value(expr, initial_witness) {
-                            Ok(value) => calldata.push(value.into()),
+                            Ok(value) => calldata.push(value),
                             Err(_) => {
                                 return Err(OpcodeResolutionError::OpcodeNotSolvable(
                                     OpcodeNotSolvable::ExpressionHasTooManyUnknowns(expr.clone()),
@@ -110,7 +110,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                             .block_value
                             .get(&memory_index)
                             .expect("All memory is initialized on creation");
-                        calldata.push((*memory_value).into());
+                        calldata.push(*memory_value);
                     }
                 }
             }
@@ -122,11 +122,11 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         Ok(Self { vm, acir_index })
     }
 
-    pub fn get_memory(&self) -> &[Value] {
+    pub fn get_memory(&self) -> &[MemoryValue] {
         self.vm.get_memory()
     }
 
-    pub fn write_memory_at(&mut self, ptr: usize, value: Value) {
+    pub fn write_memory_at(&mut self, ptr: usize, value: MemoryValue) {
         self.vm.write_memory_at(ptr, value);
     }
 
@@ -159,7 +159,31 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
         match vm_status {
             VMStatus::Finished { .. } => Ok(BrilligSolverStatus::Finished),
             VMStatus::InProgress => Ok(BrilligSolverStatus::InProgress),
-            VMStatus::Failure { message, call_stack } => {
+            VMStatus::Failure { reason, call_stack } => {
+                let message = match reason {
+                    FailureReason::RuntimeError { message } => Some(message),
+                    FailureReason::Trap { revert_data_offset, revert_data_size } => {
+                        // Since noir can only revert with strings currently, we can parse return data as a string
+                        if revert_data_size == 0 {
+                            None
+                        } else {
+                            let memory = self.vm.get_memory();
+                            let bytes = memory
+                                [revert_data_offset..(revert_data_offset + revert_data_size)]
+                                .iter()
+                                .map(|memory_value| {
+                                    memory_value
+                                        .try_into()
+                                        .expect("Assert message character is not a byte")
+                                })
+                                .collect();
+                            Some(
+                                String::from_utf8(bytes)
+                                    .expect("Assert message is not valid UTF-8"),
+                            )
+                        }
+                    }
+                };
                 Err(OpcodeResolutionError::BrilligFunctionFailed {
                     message,
                     call_stack: call_stack
@@ -211,7 +235,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                 }
                 BrilligOutputs::Array(witness_arr) => {
                     for witness in witness_arr.iter() {
-                        let value = memory[current_ret_data_idx];
+                        let value = &memory[current_ret_data_idx];
                         insert_value(witness, value.to_field(), witness_map)?;
                         current_ret_data_idx += 1;
                     }

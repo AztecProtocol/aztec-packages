@@ -1,12 +1,13 @@
-import { FunctionCall } from '@aztec/circuit-types';
-import { FunctionData } from '@aztec/circuits.js';
+import { type FunctionCall } from '@aztec/circuit-types';
+import { FunctionData, type GasSettings } from '@aztec/circuits.js';
+import { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
+import { type Wallet } from '../account/wallet.js';
 import { computeAuthWitMessageHash } from '../utils/authwit.js';
-import { AccountWalletWithPrivateKey } from '../wallet/account_wallet_with_private_key.js';
-import { FeePaymentMethod } from './fee_payment_method.js';
+import { type FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -25,7 +26,13 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     /**
      * An auth witness provider to authorize fee payments
      */
-    private wallet: AccountWalletWithPrivateKey,
+    private wallet: Wallet,
+
+    /**
+     * A secret to shield the rebate amount from the FPC.
+     * Use this to claim the shielded amount to private balance
+     */
+    private rebateSecret = Fr.random(),
   ) {}
 
   /**
@@ -46,33 +53,34 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
 
   /**
    * Creates a function call to pay the fee in the given asset.
-   * @param maxFee - The maximum fee to be paid in the given asset.
+   * @param gasSettings - The gas settings.
    * @returns The function call to pay the fee.
    */
-  async getFunctionCalls(maxFee: Fr): Promise<FunctionCall[]> {
+  async getFunctionCalls(gasSettings: GasSettings): Promise<FunctionCall[]> {
     const nonce = Fr.random();
-    const messageHash = computeAuthWitMessageHash(this.paymentContract, {
-      args: [this.wallet.getAddress(), this.paymentContract, maxFee, nonce],
-      functionData: new FunctionData(
-        FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'),
-        false,
-        true,
-        false,
-      ),
-      to: this.asset,
-    });
-    await this.wallet.createAuthWitness(messageHash);
+    const maxFee = gasSettings.getFeeLimit();
+    const messageHash = computeAuthWitMessageHash(
+      this.paymentContract,
+      this.wallet.getChainId(),
+      this.wallet.getVersion(),
+      {
+        args: [this.wallet.getCompleteAddress().address, this.paymentContract, maxFee, nonce],
+        functionData: new FunctionData(FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)'), true),
+        to: this.asset,
+      },
+    );
+    await this.wallet.createAuthWit(messageHash);
+
+    const secretHashForRebate = computeMessageSecretHash(this.rebateSecret);
 
     return [
       {
         to: this.getPaymentContract(),
         functionData: new FunctionData(
-          FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field)'),
-          false,
+          FunctionSelector.fromSignature('fee_entrypoint_private(Field,(Field),Field,Field)'),
           true,
-          false,
         ),
-        args: [maxFee, this.asset, nonce],
+        args: [maxFee, this.asset, secretHashForRebate, nonce],
       },
     ];
   }

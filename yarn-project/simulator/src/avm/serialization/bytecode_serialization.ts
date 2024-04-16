@@ -1,3 +1,4 @@
+import { DAGasLeft, L1GasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import {
   Add,
@@ -17,6 +18,8 @@ import {
   FeePerDAGas,
   FeePerL1Gas,
   FeePerL2Gas,
+  FieldDiv,
+  GetContractInstance,
   InternalCall,
   InternalReturn,
   Jump,
@@ -66,6 +69,7 @@ const INSTRUCTION_SET = () =>
     [Sub.opcode, Sub],
     [Mul.opcode, Mul],
     [Div.opcode, Div],
+    [FieldDiv.opcode, FieldDiv],
     [Eq.opcode, Eq],
     [Lt.opcode, Lt],
     [Lte.opcode, Lte],
@@ -99,9 +103,9 @@ const INSTRUCTION_SET = () =>
 
     // Machine State
     // Machine State - Gas
-    //[L1gasleft.opcode, L1gasleft],
-    //[L2gasleft.opcode, L2gasleft],
-    //[Dagasleft.opcode, Dagasleft],
+    [L1GasLeft.opcode, L1GasLeft],
+    [L2GasLeft.opcode, L2GasLeft],
+    [DAGasLeft.opcode, DAGasLeft],
     // Machine State - Internal Control Flow
     [Jump.opcode, Jump],
     [JumpI.opcode, JumpI],
@@ -124,6 +128,7 @@ const INSTRUCTION_SET = () =>
     // Accrued Substate
     [EmitUnencryptedLog.opcode, EmitUnencryptedLog],
     [SendL2ToL1Message.opcode, SendL2ToL1Message],
+    [GetContractInstance.opcode, GetContractInstance],
 
     // Control Flow - Contract Calls
     [Call.opcode, Call],

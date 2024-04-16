@@ -1,14 +1,17 @@
 import {
-  ABIParameter,
-  ABIParameterVisibility,
-  ABIType,
-  DebugFileMap,
-  DebugInfo,
-  EventAbi,
+  type ABIParameter,
+  type ABIParameterVisibility,
+  type AbiType,
+  type AbiValue,
+  type DebugFileMap,
+  type DebugInfo,
 } from '@aztec/foundation/abi';
 
-/** The Aztec.nr function types. */
-type NoirFunctionType = 'Open' | 'Secret' | 'Unconstrained';
+export const AZTEC_PRIVATE_ATTRIBUTE = 'aztec(private)';
+export const AZTEC_PUBLIC_ATTRIBUTE = 'aztec(public)';
+export const AZTEC_PUBLIC_VM_ATTRIBUTE = 'aztec(public-vm)';
+export const AZTEC_INTERNAL_ATTRIBUTE = 'aztec(internal)';
+export const AZTEC_INITIALIZER_ATTRIBUTE = 'aztec(initializer)';
 
 /** The witness indices of the parameters. */
 type ParamWitnessIndices = { /** Start */ start: number; /** End */ end: number };
@@ -24,7 +27,7 @@ export interface NoirFunctionAbi {
     /**
      * The type of the return value.
      */
-    abi_type: ABIType;
+    abi_type: AbiType;
     /**
      * The visibility of the return value.
      */
@@ -40,10 +43,10 @@ export interface NoirFunctionAbi {
 export interface NoirFunctionEntry {
   /** The name of the function. */
   name: string;
-  /** The type of the function. */
-  function_type: NoirFunctionType;
-  /** Whether the function is internal. */
-  is_internal: boolean;
+  /** Whether the function is unconstrained. */
+  is_unconstrained: boolean;
+  /** Custom attributes attached to function */
+  custom_attributes: string[];
   /** The ABI of the function. */
   abi: NoirFunctionAbi;
   /** The bytecode of the function in base64. */
@@ -65,7 +68,10 @@ export interface NoirCompiledContract {
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
   /** The events of the contract */
-  events: EventAbi[];
+  outputs: {
+    structs: Record<string, AbiType[]>;
+    globals: Record<string, AbiValue[]>;
+  };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
 }

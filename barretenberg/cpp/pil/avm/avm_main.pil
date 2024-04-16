@@ -1,6 +1,7 @@
 
 include "avm_mem.pil";
 include "avm_alu.pil";
+include "avm_binary.pil";
 
 namespace avm_main(256);
 
@@ -8,6 +9,11 @@ namespace avm_main(256);
     pol constant clk(i) { i };
     pol constant first = [1] + [0]*; // Used mostly to toggle off the first row consisting
                                      // only in first element of shifted polynomials.
+
+    //===== Fix Range Checks Selectors=============================================
+    // We re-use the clk column for the lookup values of 8-bit resp. 16-bit range check.
+    pol commit sel_rng_8;  // Boolean selector for the  8-bit range check lookup
+    pol commit sel_rng_16; // Boolean selector for the 16-bit range check lookup
 
     //===== CONTROL FLOW ==========================================================
     // Program counter
@@ -21,6 +27,10 @@ namespace avm_main(256);
     
     // Halt program execution
     pol commit sel_halt;
+
+    //===== MEMORY OPCODES ==========================================================
+    pol commit sel_mov;
+    pol commit sel_cmov;
     
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
@@ -38,43 +48,73 @@ namespace avm_main(256);
     pol commit sel_op_not;
     // EQ
     pol commit sel_op_eq;
+    // AND
+    pol commit sel_op_and;
+    // OR
+    pol commit sel_op_or;
+    // XOR
+    pol commit sel_op_xor;
+    // LT
+    pol commit sel_op_lt;
+    // LTE
+    pol commit sel_op_lte;
 
     // Helper selector to characterize an ALU chiplet selector
     pol commit alu_sel;
 
-    // Instruction memory tag (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field)
-    pol commit in_tag;
+    // Helper selector to characterize a Binary chiplet selector
+    pol commit bin_sel;
+
+    // Instruction memory tags read/write (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field)
+    pol commit r_in_tag;
+    pol commit w_in_tag;
 
     // Errors
     pol commit op_err; // Boolean flag pertaining to an operation error
-    pol commit tag_err; // Boolean flag (foreign key to avm_mem.m_tag_err)
+    pol commit tag_err; // Boolean flag (foreign key to avm_mem.tag_err)
 
     // A helper witness being the inverse of some value
     // to show a non-zero equality
     pol commit inv;
+    pol commit id_zero; // Boolean telling whether id is zero (cmov opcode)
 
     // Intermediate register values
     pol commit ia;
     pol commit ib;
     pol commit ic;
+    pol commit id;
     
-    // Memory operation per intermediate register
+    // Memory operation selector per intermediate register
     pol commit mem_op_a;
     pol commit mem_op_b;
     pol commit mem_op_c;
+    pol commit mem_op_d;
 
     // Read-write flag per intermediate register: Read = 0, Write = 1
     pol commit rwa;
     pol commit rwb;
     pol commit rwc;
+    pol commit rwd;
     
+    // Indirect register values
+    pol commit ind_a;
+    pol commit ind_b;
+    pol commit ind_c;
+    pol commit ind_d;
+
+    // Indirect memory operation selector per indirect register
+    pol commit ind_op_a;
+    pol commit ind_op_b;
+    pol commit ind_op_c;
+    pol commit ind_op_d;
+
     // Memory index involved into a memory operation per pertaining intermediate register
     // We should range constrain it to 32 bits ultimately. For first version of the AVM,
     // we will assume that these columns are of the right type.
     pol commit mem_idx_a;
     pol commit mem_idx_b;
     pol commit mem_idx_c;
-
+    pol commit mem_idx_d;
   
     // Track the last line of the execution trace. It does NOT correspond to the last row of the whole table
     // of size N. As this depends on the supplied bytecode, this polynomial cannot be constant.
@@ -88,24 +128,51 @@ namespace avm_main(256);
     sel_op_div * (1 - sel_op_div) = 0;
     sel_op_not * (1 - sel_op_not) = 0;
     sel_op_eq * (1 - sel_op_eq) = 0;
+    sel_op_and * (1 - sel_op_and) = 0;
+    sel_op_or * (1 - sel_op_or) = 0;
+    sel_op_xor * (1 - sel_op_xor) = 0;
+    sel_op_lt * (1 - sel_op_lt) = 0;
+    sel_op_lte * (1 - sel_op_lte) = 0;
 
     sel_internal_call * (1 - sel_internal_call) = 0;
     sel_internal_return * (1 - sel_internal_return) = 0;
     sel_jump * (1 - sel_jump) = 0;
     sel_halt * (1 - sel_halt) = 0;
 
+    // Might be removed if derived from opcode based on a lookup of constants
+    sel_mov * ( 1 - sel_mov) = 0;
+    sel_cmov * ( 1 - sel_cmov) = 0;
+
     op_err * (1 - op_err) = 0;
     tag_err * (1 - tag_err) = 0; // Potential optimization (boolean constraint derivation from equivalence check to avm_mem)?
+    id_zero * (1 - id_zero) = 0;
 
+    // Might be removed if derived from opcode based on a lookup of constants
     mem_op_a * (1 - mem_op_a) = 0;
     mem_op_b * (1 - mem_op_b) = 0;
     mem_op_c * (1 - mem_op_c) = 0;
+    mem_op_d * (1 - mem_op_d) = 0;
 
     rwa * (1 - rwa) = 0;
     rwb * (1 - rwb) = 0;
     rwc * (1 - rwc) = 0;
+    rwd * (1 - rwd) = 0;
 
-    // TODO: Constrain rwa, rwb, rwc to u32 type and 0 <= in_tag <= 6
+    // Might be removed if derived from opcode based on a lookup of constants
+    ind_op_a * (1 - ind_op_a) = 0;
+    ind_op_b * (1 - ind_op_b) = 0;
+    ind_op_c * (1 - ind_op_c) = 0;
+    ind_op_d * (1 - ind_op_d) = 0;
+
+    // TODO - Constraints:
+    // - mem_idx_a, mem_idx_b, mem_idx_c, mem_idx_d to u32 type
+    // - ind_a, ind_b, ind_c, ind_d to u32 type
+    // - 0 <= r_in_tag, w_in_tag <= 6 // Maybe not needed as probably derived by the operation decomposition.
+
+    //====== COMPARATOR OPCODES CONSTRAINTS =====================================
+    // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
+    #[OUTPUT_U8]
+    (sel_op_eq + sel_op_lte + sel_op_lt) * (w_in_tag - 1) = 0;
 
     // Relation for division over the finite field
     // If tag_err == 1 in a division, then ib == 0 and op_err == 1.
@@ -176,7 +243,7 @@ namespace avm_main(256);
 
     //===== CONTROL_FLOW_CONSISTENCY ============================================
     pol INTERNAL_CALL_STACK_SELECTORS = (first + sel_internal_call + sel_internal_return + sel_halt);
-    pol OPCODE_SELECTORS = (sel_op_add + sel_op_sub + sel_op_div + sel_op_mul + sel_op_not + sel_op_eq);
+    pol OPCODE_SELECTORS = (sel_op_add + sel_op_sub + sel_op_div + sel_op_mul + sel_op_not + sel_op_eq + sel_op_and + sel_op_or + sel_op_xor);
 
     // Program counter must increment if not jumping or returning
     #[PC_INCREMENT]
@@ -188,36 +255,165 @@ namespace avm_main(256);
 
     // TODO: we want to set an initial number for the reserved memory of the jump pointer
 
-    // Inter-table Constraints
+    //====== MEMORY OPCODES CONSTRAINTS =========================================
 
-    #[equiv_tag_err]
-    avm_mem.m_tag_err {avm_mem.m_clk} in tag_err {clk};
+    // TODO: consolidate with zero division error handling
+
+    // When sel_cmov == 1, we need id == 0 <==> id_zero == 0
+    // This can be achieved with the 2 following relations.
+    // inv is an extra witness to show that we can invert id, i.e., inv = id^(-1)
+    // If id == 0, we have to set inv = 1 to satisfy the second relation,
+    // because id_zero == 1 from the first relation.
+    #[CMOV_CONDITION_RES_1]
+    sel_cmov * (id * inv - 1 + id_zero) = 0;
+    #[CMOV_CONDITION_RES_2]
+    sel_cmov * id_zero * (1 - inv) = 0;
+
+    // Boolean selectors telling whether we move ia to ic or ib to ic.
+    // Boolean constraints and mutual exclusivity are derived from their
+    // respective definitions based on sel_mov, sel_cmov, and id_zero.
+    pol commit sel_mov_a;
+    pol commit sel_mov_b;
+
+    // For MOV, we copy ia to ic.
+    // For CMOV, we copy ia to ic if id is NOT zero, otherwise we copy ib to ic.
+    sel_mov_a = sel_mov + sel_cmov * (1 - id_zero);
+    sel_mov_b = sel_cmov * id_zero;
+
+    #[MOV_SAME_VALUE_A]
+    sel_mov_a * (ia - ic) = 0; // Ensure that the correct value is moved/copied.
+    #[MOV_SAME_VALUE_B]
+    sel_mov_b * (ib - ic) = 0; // Ensure that the correct value is moved/copied.
+    #[MOV_MAIN_SAME_TAG]
+    (sel_mov + sel_cmov) * (r_in_tag - w_in_tag) = 0;
+
+    //====== Inter-table Constraints ============================================
+    #[INCL_MAIN_TAG_ERR]
+    avm_mem.tag_err {avm_mem.clk} in tag_err {clk};
+
+    #[INCL_MEM_TAG_ERR]
+    tag_err {clk} in avm_mem.tag_err {avm_mem.clk};
 
     // Predicate to activate the copy of intermediate registers to ALU table. If tag_err == 1,
     // the operation is not copied to the ALU table.
     // TODO: when division is moved to the alu, we will need to add the selector in the list below:
-    alu_sel = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_not + sel_op_eq) * (1 - tag_err);
+    alu_sel = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_not + sel_op_eq + sel_op_lt + sel_op_lte) * (1 - tag_err);
 
-    #[equiv_inter_reg_alu]
-    alu_sel {clk, ia, ib, ic,
-             sel_op_add, sel_op_sub, sel_op_mul, sel_op_eq,
-             sel_op_not, in_tag}
+    #[PERM_MAIN_ALU]
+    alu_sel {clk, ia, ib, ic, sel_op_add, sel_op_sub,
+             sel_op_mul, sel_op_eq, sel_op_not, sel_op_lt, sel_op_lte, r_in_tag}
     is
-    avm_alu.alu_sel {avm_alu.alu_clk, avm_alu.alu_ia, avm_alu.alu_ib, avm_alu.alu_ic,
-                     avm_alu.alu_op_add, avm_alu.alu_op_sub, avm_alu.alu_op_mul, avm_alu.alu_op_eq,
-                     avm_alu.alu_op_not, avm_alu.alu_in_tag};
+    avm_alu.alu_sel {avm_alu.clk, avm_alu.ia, avm_alu.ib, avm_alu.ic, avm_alu.op_add, avm_alu.op_sub,
+                     avm_alu.op_mul, avm_alu.op_eq, avm_alu.op_not, avm_alu.op_lt, avm_alu.op_lte, avm_alu.in_tag};
 
-    #[equiv_main_mem_a]
-    mem_op_a {clk, mem_idx_a, ia, rwa, in_tag}
-    is
-    avm_mem.m_op_a {avm_mem.m_clk, avm_mem.m_addr, avm_mem.m_val, avm_mem.m_rw, avm_mem.m_in_tag};
+    // Based on the boolean selectors, we derive the binary op id to lookup in the table;
+    // TODO: Check if having 4 columns (op_id + 3 boolean selectors) is more optimal that just using the op_id
+    // but with a higher degree constraint: op_id * (op_id - 1) * (op_id - 2)
+    pol commit bin_op_id;
+    #[BIN_SEL_1]
+    bin_op_id = sel_op_or + 2 * sel_op_xor; // sel_op_and excluded since op_id = 0 for op_and
 
-    #[equiv_main_mem_b]
-    mem_op_b {clk, mem_idx_b, ib, rwb, in_tag}
-    is
-    avm_mem.m_op_b {avm_mem.m_clk, avm_mem.m_addr, avm_mem.m_val, avm_mem.m_rw, avm_mem.m_in_tag};
+    // Only 1 of the binary selectors should be set (i.e. Mutual Exclusivity)
+    // Bin_sel is not explicitly constrained to be boolean, however this is enforced through
+    // the operation decomposition step during bytecode unpacking.
+    #[BIN_SEL_2]
+    bin_sel = sel_op_and + sel_op_or + sel_op_xor;
 
-    #[equiv_main_mem_c]
-    mem_op_c {clk, mem_idx_c, ic, rwc, in_tag}
+    #[PERM_MAIN_BIN]
+    bin_sel {clk, ia, ib, ic, bin_op_id, r_in_tag}
     is
-    avm_mem.m_op_c {avm_mem.m_clk, avm_mem.m_addr, avm_mem.m_val, avm_mem.m_rw, avm_mem.m_in_tag};
+    avm_binary.start {avm_binary.clk, avm_binary.acc_ia, avm_binary.acc_ib, avm_binary.acc_ic, avm_binary.op_id, avm_binary.in_tag};
+
+    #[PERM_MAIN_MEM_A]
+    mem_op_a {clk, mem_idx_a, ia, rwa
+            , r_in_tag, w_in_tag, sel_mov_a, sel_cmov}
+    is
+    avm_mem.op_a {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw
+                , avm_mem.r_in_tag, avm_mem.w_in_tag, avm_mem.sel_mov_a, avm_mem.sel_cmov};
+
+    #[PERM_MAIN_MEM_B]
+    mem_op_b {clk, mem_idx_b, ib, rwb
+            , r_in_tag, w_in_tag, sel_mov_b, sel_cmov}
+    is
+    avm_mem.op_b {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw
+                , avm_mem.r_in_tag, avm_mem.w_in_tag, avm_mem.sel_mov_b, avm_mem.sel_cmov};
+
+    #[PERM_MAIN_MEM_C]
+    mem_op_c {clk, mem_idx_c, ic, rwc, r_in_tag, w_in_tag}
+    is
+    avm_mem.op_c {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw, avm_mem.r_in_tag, avm_mem.w_in_tag};
+
+    #[PERM_MAIN_MEM_D]
+    mem_op_d {clk, mem_idx_d, id, rwd
+            , r_in_tag, w_in_tag, sel_cmov}
+    is
+    avm_mem.op_d {avm_mem.clk, avm_mem.addr, avm_mem.val, avm_mem.rw
+                , avm_mem.r_in_tag, avm_mem.w_in_tag, avm_mem.sel_cmov};
+
+    #[PERM_MAIN_MEM_IND_A]
+    ind_op_a {clk, ind_a, mem_idx_a} is avm_mem.ind_op_a {avm_mem.clk, avm_mem.addr, avm_mem.val};
+
+    #[PERM_MAIN_MEM_IND_B]
+    ind_op_b {clk, ind_b, mem_idx_b} is avm_mem.ind_op_b {avm_mem.clk, avm_mem.addr, avm_mem.val};
+
+    #[PERM_MAIN_MEM_IND_C]
+    ind_op_c {clk, ind_c, mem_idx_c} is avm_mem.ind_op_c {avm_mem.clk, avm_mem.addr, avm_mem.val};
+
+    #[PERM_MAIN_MEM_IND_D]
+    ind_op_d {clk, ind_d, mem_idx_d} is avm_mem.ind_op_d {avm_mem.clk, avm_mem.addr, avm_mem.val};
+
+    //====== Inter-table Constraints (Range Checks) ============================================
+    // TODO: Investigate optimising these range checks. Handling non-FF elements should require less range checks.
+    //       One can increase the granularity based on the operation and tag. In the most extreme case,
+    //       a specific selector per register might be introduced.
+    #[LOOKUP_U8_0]
+    avm_alu.rng_chk_lookup_selector { avm_alu.u8_r0 } in sel_rng_8 { clk };
+
+    #[LOOKUP_U8_1]
+    avm_alu.rng_chk_lookup_selector { avm_alu.u8_r1 } in sel_rng_8 { clk };
+
+    #[LOOKUP_U16_0]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r0 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_1]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r1 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_2]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r2 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_3]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r3 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_4]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r4 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_5]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r5 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_6]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r6 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_7]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r7 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_8]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r8 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_9]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r9 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_10]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r10 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_11]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r11 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_12]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r12 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_13]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r13 } in sel_rng_16 { clk };
+
+    #[LOOKUP_U16_14]
+    avm_alu.rng_chk_lookup_selector {avm_alu.u16_r14 } in sel_rng_16 { clk };
+

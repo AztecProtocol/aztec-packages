@@ -3,21 +3,26 @@
 #![warn(unreachable_pub)]
 #![warn(clippy::semicolon_if_nothing_returned)]
 
+use abi_gen::value_from_hir_expression;
 use acvm::acir::circuit::ExpressionWidth;
 use clap::Args;
 use fm::{FileId, FileManager};
 use iter_extended::vecmap;
-use noirc_abi::{AbiParameter, AbiType, ContractEvent};
+use noirc_abi::{AbiParameter, AbiType, AbiValue};
 use noirc_errors::{CustomDiagnostic, FileDiagnostic};
-use noirc_evaluator::create_circuit;
+use noirc_evaluator::create_program;
 use noirc_evaluator::errors::RuntimeError;
+use noirc_evaluator::ssa::SsaProgramArtifact;
 use noirc_frontend::debug::build_debug_crate_file;
 use noirc_frontend::graph::{CrateId, CrateName};
 use noirc_frontend::hir::def_map::{Contract, CrateDefMap};
 use noirc_frontend::hir::Context;
 use noirc_frontend::macros_api::MacroProcessor;
-use noirc_frontend::monomorphization::{monomorphize, monomorphize_debug, MonomorphizationError};
+use noirc_frontend::monomorphization::{
+    errors::MonomorphizationError, monomorphize, monomorphize_debug,
+};
 use noirc_frontend::node_interner::FuncId;
+use noirc_frontend::token::SecondaryAttribute;
 use std::path::Path;
 use thiserror::Error;
 use tracing::info;
@@ -30,7 +35,7 @@ mod stdlib;
 
 use debug::filter_relevant_files;
 
-pub use contract::{CompiledContract, ContractFunction, ContractFunctionType};
+pub use contract::{CompiledContract, CompiledContractOutputs, ContractFunction};
 pub use debug::DebugFile;
 pub use program::CompiledProgram;
 
@@ -66,6 +71,10 @@ pub struct CompileOptions {
     /// Display the ACIR for compiled circuit
     #[arg(long)]
     pub print_acir: bool,
+
+    /// Pretty print benchmark times of each code generation pass
+    #[arg(long, hide = true)]
+    pub benchmark_codegen: bool,
 
     /// Treat all warnings as errors
     #[arg(long, conflicts_with = "silence_warnings")]
@@ -237,17 +246,11 @@ pub fn check_crate(
     deny_warnings: bool,
     disable_macros: bool,
 ) -> CompilationResult<()> {
-    let macros: Vec<&dyn MacroProcessor> = if disable_macros {
-        vec![&noirc_macros::AssertMessageMacro as &dyn MacroProcessor]
-    } else {
-        vec![
-            &aztec_macros::AztecMacro as &dyn MacroProcessor,
-            &noirc_macros::AssertMessageMacro as &dyn MacroProcessor,
-        ]
-    };
+    let macros: &[&dyn MacroProcessor] =
+        if disable_macros { &[] } else { &[&aztec_macros::AztecMacro as &dyn MacroProcessor] };
 
     let mut errors = vec![];
-    let diagnostics = CrateDefMap::collect_defs(crate_id, context, &macros);
+    let diagnostics = CrateDefMap::collect_defs(crate_id, context, macros);
     errors.extend(diagnostics.into_iter().map(|(error, file_id)| {
         let diagnostic: CustomDiagnostic = error.into();
         diagnostic.in_file(file_id)
@@ -303,7 +306,7 @@ pub fn compile_main(
 
     if options.print_acir {
         println!("Compiled ACIR for main (unoptimized):");
-        println!("{}", compiled_program.circuit);
+        println!("{}", compiled_program.program);
     }
 
     Ok((compiled_program, warnings))
@@ -404,19 +407,25 @@ fn compile_contract_inner(
         };
         warnings.extend(function.warnings);
         let modifiers = context.def_interner.function_modifiers(&function_id);
-        let func_type = modifiers
-            .contract_function_type
-            .expect("Expected contract function to have a contract visibility");
 
-        let function_type = ContractFunctionType::new(func_type, modifiers.is_unconstrained);
+        let custom_attributes = modifiers
+            .attributes
+            .secondary
+            .iter()
+            .filter_map(
+                |attr| if let SecondaryAttribute::Custom(tag) = attr { Some(tag) } else { None },
+            )
+            .cloned()
+            .collect();
 
         functions.push(ContractFunction {
             name,
-            function_type,
-            is_internal: modifiers.is_internal.unwrap_or(false),
+            custom_attributes,
             abi: function.abi,
-            bytecode: function.circuit,
+            bytecode: function.program,
             debug: function.debug,
+            is_unconstrained: modifiers.is_unconstrained,
+            names: function.names,
         });
     }
 
@@ -424,18 +433,51 @@ fn compile_contract_inner(
         let debug_infos: Vec<_> = functions.iter().map(|function| function.debug.clone()).collect();
         let file_map = filter_relevant_files(&debug_infos, &context.file_manager);
 
+        let out_structs = contract
+            .outputs
+            .structs
+            .into_iter()
+            .map(|(tag, structs)| {
+                let structs = structs
+                    .into_iter()
+                    .map(|struct_id| {
+                        let typ = context.def_interner.get_struct(struct_id);
+                        let typ = typ.borrow();
+                        let fields = vecmap(typ.get_fields(&[]), |(name, typ)| {
+                            (name, AbiType::from_type(context, &typ))
+                        });
+                        let path =
+                            context.fully_qualified_struct_path(context.root_crate_id(), typ.id);
+                        AbiType::Struct { path, fields }
+                    })
+                    .collect();
+                (tag.to_string(), structs)
+            })
+            .collect();
+
+        let out_globals = contract
+            .outputs
+            .globals
+            .iter()
+            .map(|(tag, globals)| {
+                let globals: Vec<AbiValue> = globals
+                    .iter()
+                    .map(|global_id| {
+                        let let_statement =
+                            context.def_interner.get_global_let_statement(*global_id).unwrap();
+                        let hir_expression =
+                            context.def_interner.expression(&let_statement.expression);
+                        value_from_hir_expression(context, hir_expression)
+                    })
+                    .collect();
+                (tag.to_string(), globals)
+            })
+            .collect();
+
         Ok(CompiledContract {
             name: contract.name,
-            events: contract
-                .events
-                .iter()
-                .map(|event_id| {
-                    let typ = context.def_interner.get_struct(*event_id);
-                    let typ = typ.borrow();
-                    ContractEvent::from_struct_type(context, &typ)
-                })
-                .collect(),
             functions,
+            outputs: CompiledContractOutputs { structs: out_structs, globals: out_globals },
             file_map,
             noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
             warnings,
@@ -478,20 +520,44 @@ pub fn compile_no_check(
         return Ok(cached_program.expect("cache must exist for hashes to match"));
     }
     let visibility = program.return_visibility;
-    let (circuit, debug, input_witnesses, return_witnesses, warnings) =
-        create_circuit(program, options.show_ssa, options.show_brillig, options.force_brillig)?;
 
-    let abi =
-        abi_gen::gen_abi(context, &main_function, input_witnesses, return_witnesses, visibility);
-    let file_map = filter_relevant_files(&[debug.clone()], &context.file_manager);
+    let SsaProgramArtifact {
+        program,
+        debug,
+        warnings,
+        main_input_witnesses,
+        main_return_witnesses,
+        names,
+    } = create_program(
+        program,
+        options.show_ssa,
+        options.show_brillig,
+        options.force_brillig,
+        options.benchmark_codegen,
+    )?;
+
+    let abi = abi_gen::gen_abi(
+        context,
+        &main_function,
+        main_input_witnesses,
+        main_return_witnesses,
+        visibility,
+    );
+    let file_map = filter_relevant_files(&debug, &context.file_manager);
 
     Ok(CompiledProgram {
         hash,
-        circuit,
-        debug,
+        // TODO(https://github.com/noir-lang/noir/issues/4428)
+        program,
+        // TODO(https://github.com/noir-lang/noir/issues/4428)
+        // Debug info is only relevant for errors at execution time which is not yet supported
+        // The CompileProgram `debug` field is used in multiple places and is better
+        // left to be updated once execution of multiple ACIR functions is enabled
+        debug: debug[0].clone(),
         abi,
         file_map,
         noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
         warnings,
+        names,
     })
 }

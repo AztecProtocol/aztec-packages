@@ -10,8 +10,8 @@ use crate::{
     macros_api::MacroProcessor,
     node_interner::{FunctionModifiers, TraitId, TypeAliasId},
     parser::{SortedModule, SortedSubModule},
-    FunctionDefinition, Ident, LetStatement, NoirFunction, NoirStruct, NoirTrait, NoirTraitImpl,
-    NoirTypeAlias, TraitImplItem, TraitItem, TypeImpl,
+    FunctionDefinition, Ident, ItemVisibility, LetStatement, ModuleDeclaration, NoirFunction,
+    NoirStruct, NoirTrait, NoirTraitImpl, NoirTypeAlias, TraitImplItem, TraitItem, TypeImpl,
 };
 
 use super::{
@@ -102,8 +102,12 @@ impl<'a> ModCollector<'a> {
         for global in globals {
             let name = global.pattern.name_ident().clone();
 
-            let global_id =
-                context.def_interner.push_empty_global(name.clone(), self.module_id, self.file_id);
+            let global_id = context.def_interner.push_empty_global(
+                name.clone(),
+                self.module_id,
+                self.file_id,
+                global.attributes.clone(),
+            );
 
             // Add the statement to the scope so its path can be looked up later
             let result = self.def_collector.def_map.modules[self.module_id.0]
@@ -232,6 +236,7 @@ impl<'a> ModCollector<'a> {
 
             let name = function.name_ident().clone();
             let func_id = context.def_interner.push_empty_fn();
+            let visibility = function.def.visibility;
 
             // First create dummy function in the DefInterner
             // So that we can get a FuncId
@@ -248,7 +253,7 @@ impl<'a> ModCollector<'a> {
 
             // Add function to scope/ns of the module
             let result = self.def_collector.def_map.modules[self.module_id.0]
-                .declare_function(name, func_id);
+                .declare_function(name, visibility, func_id);
 
             if let Err((first_def, second_def)) = result {
                 let error = DefCollectorErrorKind::Duplicate {
@@ -407,12 +412,10 @@ impl<'a> ModCollector<'a> {
 
                         let modifiers = FunctionModifiers {
                             name: name.to_string(),
-                            visibility: crate::FunctionVisibility::Public,
+                            visibility: ItemVisibility::Public,
                             // TODO(Maddiaa): Investigate trait implementations with attributes see: https://github.com/noir-lang/noir/issues/2629
                             attributes: crate::token::Attributes::empty(),
                             is_unconstrained: false,
-                            contract_function_type: None,
-                            is_internal: None,
                         };
 
                         let location = Location::new(name.span(), self.file_id);
@@ -421,7 +424,7 @@ impl<'a> ModCollector<'a> {
                             .push_function_definition(func_id, modifiers, trait_id.0, location);
 
                         match self.def_collector.def_map.modules[trait_id.0.local_id.0]
-                            .declare_function(name.clone(), func_id)
+                            .declare_function(name.clone(), ItemVisibility::Public, func_id)
                         {
                             Ok(()) => {
                                 if let Some(body) = body {
@@ -456,6 +459,7 @@ impl<'a> ModCollector<'a> {
                             name.clone(),
                             trait_id.0.local_id,
                             self.file_id,
+                            vec![],
                         );
 
                         if let Err((first_def, second_def)) = self.def_collector.def_map.modules
@@ -537,16 +541,16 @@ impl<'a> ModCollector<'a> {
     fn parse_module_declaration(
         &mut self,
         context: &mut Context,
-        mod_name: &Ident,
+        mod_decl: &ModuleDeclaration,
         crate_id: CrateId,
         macro_processors: &[&dyn MacroProcessor],
     ) -> Vec<(CompilationError, FileId)> {
         let mut errors: Vec<(CompilationError, FileId)> = vec![];
         let child_file_id =
-            match find_module(&context.file_manager, self.file_id, &mod_name.0.contents) {
+            match find_module(&context.file_manager, self.file_id, &mod_decl.ident.0.contents) {
                 Ok(child_file_id) => child_file_id,
                 Err(expected_path) => {
-                    let mod_name = mod_name.clone();
+                    let mod_name = mod_decl.ident.clone();
                     let err =
                         DefCollectorErrorKind::UnresolvedModuleDecl { mod_name, expected_path };
                     errors.push((err.into(), self.file_id));
@@ -554,17 +558,17 @@ impl<'a> ModCollector<'a> {
                 }
             };
 
-        let location = Location { file: self.file_id, span: mod_name.span() };
+        let location = Location { file: self.file_id, span: mod_decl.ident.span() };
 
         if let Some(old_location) = context.visited_files.get(&child_file_id) {
             let error = DefCollectorErrorKind::ModuleAlreadyPartOfCrate {
-                mod_name: mod_name.clone(),
+                mod_name: mod_decl.ident.clone(),
                 span: location.span,
             };
             errors.push((error.into(), location.file));
 
             let error = DefCollectorErrorKind::ModuleOriginallyDefined {
-                mod_name: mod_name.clone(),
+                mod_name: mod_decl.ident.clone(),
                 span: old_location.span,
             };
             errors.push((error.into(), old_location.file));
@@ -578,7 +582,12 @@ impl<'a> ModCollector<'a> {
         let mut ast = ast.into_sorted();
 
         for macro_processor in macro_processors {
-            match macro_processor.process_untyped_ast(ast.clone(), &crate_id, context) {
+            match macro_processor.process_untyped_ast(
+                ast.clone(),
+                &crate_id,
+                child_file_id,
+                context,
+            ) {
                 Ok(processed_ast) => {
                     ast = processed_ast;
                 }
@@ -594,7 +603,7 @@ impl<'a> ModCollector<'a> {
         );
 
         // Add module into def collector and get a ModuleId
-        match self.push_child_module(mod_name, child_file_id, true, false) {
+        match self.push_child_module(&mod_decl.ident, child_file_id, true, false) {
             Ok(child_mod_id) => {
                 errors.extend(collect_defs(
                     self.def_collector,

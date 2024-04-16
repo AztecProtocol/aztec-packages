@@ -1,97 +1,18 @@
 #include "protogalaxy_prover.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 template <class ProverInstances>
 void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
                                                                      const std::string& domain_separator)
 {
-    instance->initialize_prover_polynomials();
+    OinkProver<Flavor> oink_prover(instance->proving_key, transcript, domain_separator + '_');
 
-    const auto instance_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->num_public_inputs);
-    transcript->send_to_verifier(domain_separator + "_instance_size", instance_size);
-    transcript->send_to_verifier(domain_separator + "_public_input_size", num_public_inputs);
-
-    for (size_t i = 0; i < instance->proving_key->public_inputs.size(); ++i) {
-        auto public_input_i = instance->proving_key->public_inputs[i];
-        transcript->send_to_verifier(domain_separator + "_public_input_" + std::to_string(i), public_input_i);
-    }
-    transcript->send_to_verifier(domain_separator + "_pub_inputs_offset",
-                                 static_cast<uint32_t>(instance->proving_key->pub_inputs_offset));
-
-    auto& witness_commitments = instance->witness_commitments;
-
-    // Commit to the first three wire polynomials of the instance
-    // We only commit to the fourth wire polynomial after adding memory recordss
-    witness_commitments.w_l = commitment_key->commit(instance->proving_key->w_l);
-    witness_commitments.w_r = commitment_key->commit(instance->proving_key->w_r);
-    witness_commitments.w_o = commitment_key->commit(instance->proving_key->w_o);
-
-    auto wire_comms = witness_commitments.get_wires();
-    auto commitment_labels = instance->commitment_labels;
-    auto wire_labels = commitment_labels.get_wires();
-    for (size_t idx = 0; idx < 3; ++idx) {
-        transcript->send_to_verifier(domain_separator + "_" + wire_labels[idx], wire_comms[idx]);
-    }
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // Commit to Goblin ECC op wires
-        witness_commitments.ecc_op_wire_1 = commitment_key->commit(instance->proving_key->ecc_op_wire_1);
-        witness_commitments.ecc_op_wire_2 = commitment_key->commit(instance->proving_key->ecc_op_wire_2);
-        witness_commitments.ecc_op_wire_3 = commitment_key->commit(instance->proving_key->ecc_op_wire_3);
-        witness_commitments.ecc_op_wire_4 = commitment_key->commit(instance->proving_key->ecc_op_wire_4);
-
-        auto op_wire_comms = instance->witness_commitments.get_ecc_op_wires();
-        auto labels = commitment_labels.get_ecc_op_wires();
-        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-            transcript->send_to_verifier(domain_separator + "_" + labels[idx], op_wire_comms[idx]);
-        }
-        // Commit to DataBus columns
-        witness_commitments.calldata = commitment_key->commit(instance->proving_key->calldata);
-        witness_commitments.calldata_read_counts = commitment_key->commit(instance->proving_key->calldata_read_counts);
-        transcript->send_to_verifier(domain_separator + "_" + commitment_labels.calldata,
-                                     instance->witness_commitments.calldata);
-        transcript->send_to_verifier(domain_separator + "_" + commitment_labels.calldata_read_counts,
-                                     instance->witness_commitments.calldata_read_counts);
-    }
-
-    auto eta = transcript->template get_challenge<FF>(domain_separator + "_eta");
-    instance->compute_sorted_accumulator_polynomials(eta);
-
-    // Commit to the sorted witness-table accumulator and the finalized (i.e. with memory records) fourth wire
-    // polynomial
-    witness_commitments.sorted_accum = commitment_key->commit(instance->prover_polynomials.sorted_accum);
-    witness_commitments.w_4 = commitment_key->commit(instance->prover_polynomials.w_4);
-
-    transcript->send_to_verifier(domain_separator + "_" + commitment_labels.sorted_accum,
-                                 witness_commitments.sorted_accum);
-    transcript->send_to_verifier(domain_separator + "_" + commitment_labels.w_4, witness_commitments.w_4);
-
-    auto [beta, gamma] =
-        transcript->template get_challenges<FF>(domain_separator + "_beta", domain_separator + "_gamma");
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        // Compute and commit to the logderivative inverse used in DataBus
-        instance->compute_logderivative_inverse(beta, gamma);
-        instance->witness_commitments.lookup_inverses =
-            commitment_key->commit(instance->prover_polynomials.lookup_inverses);
-        transcript->send_to_verifier(domain_separator + "_" + commitment_labels.lookup_inverses,
-                                     instance->witness_commitments.lookup_inverses);
-    }
-
-    instance->compute_grand_product_polynomials(beta, gamma);
-
-    witness_commitments.z_perm = commitment_key->commit(instance->prover_polynomials.z_perm);
-    witness_commitments.z_lookup = commitment_key->commit(instance->prover_polynomials.z_lookup);
-
-    transcript->send_to_verifier(domain_separator + "_" + commitment_labels.z_perm,
-                                 instance->witness_commitments.z_perm);
-    transcript->send_to_verifier(domain_separator + "_" + commitment_labels.z_lookup,
-                                 instance->witness_commitments.z_lookup);
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        instance->alphas[idx] =
-            transcript->template get_challenge<FF>(domain_separator + "_alpha_" + std::to_string(idx));
-    }
+    auto [proving_key, relation_params, alphas] = oink_prover.prove();
+    instance->proving_key = std::move(proving_key);
+    instance->relation_parameters = std::move(relation_params);
+    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
+    instance->alphas = std::move(alphas);
 }
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
@@ -102,7 +23,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepa
     if (!instance->is_accumulator) {
         finalise_and_send_instance(instance, domain_separator);
         instance->target_sum = 0;
-        instance->gate_challenges = std::vector<FF>(instance->proving_key->log_circuit_size, 0);
+        instance->gate_challenges = std::vector<FF>(instance->proving_key.log_circuit_size, 0);
     }
 
     idx++;
@@ -126,13 +47,30 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
     // and the computation of Lagrange basis for k instances
-    auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
-    std::vector<FF> lagranges{ FF(1) - challenge, challenge };
+    FF vanishing_polynomial_at_challenge;
+    std::array<FF, ProverInstances::NUM> lagranges;
+    constexpr FF inverse_two = FF(2).invert();
+    if constexpr (ProverInstances::NUM == 2) {
+        vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
+        lagranges = { FF(1) - challenge, challenge };
+    } else if constexpr (ProverInstances::NUM == 3) {
+        vanishing_polynomial_at_challenge = challenge * (challenge - FF(1)) * (challenge - FF(2));
+        lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * inverse_two,
+                      challenge * (FF(2) - challenge),
+                      challenge * (challenge - FF(1)) / FF(2) };
+    } else if constexpr (ProverInstances::NUM == 4) {
+        constexpr FF inverse_six = FF(6).invert();
+        vanishing_polynomial_at_challenge = challenge * (challenge - FF(1)) * (challenge - FF(2)) * (challenge - FF(3));
+        lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * (FF(3) - challenge) * inverse_six,
+                      challenge * (FF(2) - challenge) * (FF(3) - challenge) * inverse_two,
+                      challenge * (challenge - FF(1)) * (FF(3) - challenge) * inverse_two,
+                      challenge * (challenge - FF(1)) * (challenge - FF(2)) * inverse_six };
+    }
+    static_assert(ProverInstances::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
-    auto next_accumulator = std::make_shared<Instance>();
+    auto next_accumulator = std::move(instances[0]);
     next_accumulator->is_accumulator = true;
-    next_accumulator->proving_key = instances[0]->proving_key;
 
     // Compute the next target sum and send the next folding parameters to the verifier
     FF next_target_sum =
@@ -141,35 +79,41 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     next_accumulator->target_sum = next_target_sum;
     next_accumulator->gate_challenges = instances.next_gate_challenges;
 
-    // Initialize prover polynomials
-    ProverPolynomials acc_prover_polynomials;
-    for (auto& polynomial : acc_prover_polynomials.get_all()) {
-        polynomial = typename Flavor::Polynomial(instances[0]->proving_key->circuit_size);
-    }
-
-    // Fold the prover polynomials
-    for (size_t inst_idx = 0; inst_idx < ProverInstances::NUM; inst_idx++) {
-        for (auto [acc_poly, inst_poly] :
-             zip_view(acc_prover_polynomials.get_all(), instances[inst_idx]->prover_polynomials.get_all())) {
-            for (auto [acc_el, inst_el] : zip_view(acc_poly, inst_poly)) {
-                acc_el += inst_el * lagranges[inst_idx];
+    // Initialize accumulator proving key polynomials
+    auto accumulator_polys = next_accumulator->proving_key.get_all();
+    run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
+        for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
+            auto& acc_poly = accumulator_polys[poly_idx];
+            for (auto& acc_el : acc_poly) {
+                acc_el *= lagranges[0];
             }
         }
-    }
-    next_accumulator->prover_polynomials = std::move(acc_prover_polynomials);
+    });
 
-    // Fold public data ϕ from all instances to produce ϕ* and add it to the transcript. As part of the folding
-    // verification, the verifier will produce ϕ* as well and check it against what was sent by the prover.
+    // Fold the proving key polynomials
+    for (size_t inst_idx = 1; inst_idx < ProverInstances::NUM; inst_idx++) {
+        auto input_polys = instances[inst_idx]->proving_key.get_all();
+        run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
+            for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
+                auto& acc_poly = accumulator_polys[poly_idx];
+                auto& inst_poly = input_polys[poly_idx];
+                for (auto [acc_el, inst_el] : zip_view(acc_poly, inst_poly)) {
+                    acc_el += inst_el * lagranges[inst_idx];
+                }
+            }
+        });
+    }
 
     // Fold the public inputs and send to the verifier
-    next_accumulator->proving_key->public_inputs = std::vector<FF>(instances[0]->proving_key->public_inputs.size(), 0);
     size_t el_idx = 0;
-    for (auto& el : next_accumulator->proving_key->public_inputs) {
+    for (auto& el : next_accumulator->proving_key.public_inputs) {
+        el *= lagranges[0];
         size_t inst = 0;
-        for (auto& instance : instances) {
+        for (size_t inst_idx = 1; inst_idx < ProverInstances::NUM; inst_idx++) {
+            auto& instance = instances[inst_idx];
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/830)
-            if (instance->proving_key->num_public_inputs >= next_accumulator->proving_key->num_public_inputs) {
-                el += instance->proving_key->public_inputs[el_idx] * lagranges[inst];
+            if (instance->proving_key.num_public_inputs >= next_accumulator->proving_key.num_public_inputs) {
+                el += instance->proving_key.public_inputs[el_idx] * lagranges[inst];
                 inst++;
             };
         }
@@ -188,32 +132,41 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     auto& combined_relation_parameters = instances.relation_parameters;
     auto folded_relation_parameters = bb::RelationParameters<FF>{
         combined_relation_parameters.eta.evaluate(challenge),
+        combined_relation_parameters.eta_two.evaluate(challenge),
+        combined_relation_parameters.eta_three.evaluate(challenge),
         combined_relation_parameters.beta.evaluate(challenge),
         combined_relation_parameters.gamma.evaluate(challenge),
         combined_relation_parameters.public_input_delta.evaluate(challenge),
         combined_relation_parameters.lookup_grand_product_delta.evaluate(challenge),
     };
     next_accumulator->relation_parameters = folded_relation_parameters;
+    next_accumulator->proving_key = std::move(instances[0]->proving_key);
+    // Derive the prover polynomials from the proving key polynomials since we only fold the unshifted polynomials. This
+    // is extremely cheap since we only call .share() and .shifted() polynomial functions. We need the folded prover
+    // polynomials for the decider.
+    next_accumulator->prover_polynomials = ProverPolynomials(next_accumulator->proving_key);
     return next_accumulator;
 }
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::preparation_round()
 {
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::preparation_round");
     prepare_for_folding();
 };
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::perturbator_round()
 {
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::perturbator_round");
     state.accumulator = get_accumulator();
     FF delta = transcript->template get_challenge<FF>("delta");
-    state.deltas = compute_round_challenge_pows(state.accumulator->proving_key->log_circuit_size, delta);
-    state.perturbator = Polynomial<FF>(state.accumulator->proving_key->log_circuit_size + 1); // initialize to all zeros
+    state.deltas = compute_round_challenge_pows(state.accumulator->proving_key.log_circuit_size, delta);
+    state.perturbator = Polynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
     // compute perturbator only if this is not the first round and has an accumulator
     if (state.accumulator->is_accumulator) {
         state.perturbator = compute_perturbator(state.accumulator, state.deltas);
         // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
         // the accumulator which the folding verifier has from the previous iteration.
-        for (size_t idx = 1; idx <= state.accumulator->proving_key->log_circuit_size; idx++) {
+        for (size_t idx = 1; idx <= state.accumulator->proving_key.log_circuit_size; idx++) {
             transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
         }
     }
@@ -221,6 +174,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::pertu
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
 {
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
     auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     instances.next_gate_challenges =
         update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
@@ -239,6 +193,7 @@ template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combi
 
 template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accumulator_update_round()
 {
+    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::accumulator_update_round");
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     std::shared_ptr<Instance> next_accumulator =
         compute_next_accumulator(instances, state.combiner_quotient, combiner_challenge, state.compressed_perturbator);
@@ -260,4 +215,10 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 
 template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>;
 template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>;
+
+template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 3>>;
+template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 3>>;
+
+template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 4>>;
+template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 4>>;
 } // namespace bb

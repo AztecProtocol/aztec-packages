@@ -1,8 +1,7 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { BufferReader, prefixBufferWithLength } from '@aztec/foundation/serialize';
-
-import { randomBytes } from 'crypto';
 
 /**
  * Represents an individual unencrypted log entry.
@@ -25,7 +24,7 @@ export class UnencryptedL2Log {
   ) {}
 
   get length(): number {
-    return EventSelector.SIZE + this.data.length;
+    return EventSelector.SIZE + this.data.length + AztecAddress.SIZE_IN_BYTES + 4;
   }
 
   /**
@@ -52,6 +51,24 @@ export class UnencryptedL2Log {
     return `UnencryptedL2Log(contractAddress: ${this.contractAddress.toString()}, selector: ${this.selector.toString()}, data: ${payload})`;
   }
 
+  /** Returns a JSON-friendly representation of the log. */
+  public toJSON(): object {
+    return {
+      contractAddress: this.contractAddress.toString(),
+      selector: this.selector.toString(),
+      data: this.data.toString('hex'),
+    };
+  }
+
+  /** Converts a plain JSON object into an instance. */
+  public static fromJSON(obj: any) {
+    return new UnencryptedL2Log(
+      AztecAddress.fromString(obj.contractAddress),
+      EventSelector.fromString(obj.selector),
+      Buffer.from(obj.data, 'hex'),
+    );
+  }
+
   /**
    * Deserializes log from a buffer.
    * @param buffer - The buffer or buffer reader containing the log.
@@ -71,8 +88,8 @@ export class UnencryptedL2Log {
    */
   public static random(): UnencryptedL2Log {
     const contractAddress = AztecAddress.random();
-    const selector = new EventSelector(Math.floor(Math.random() * (2 ** (EventSelector.SIZE * 8) - 1)));
-    const dataLength = EventSelector.SIZE + Math.floor(Math.random() * 200);
+    const selector = EventSelector.random();
+    const dataLength = EventSelector.SIZE + randomBytes(1)[0];
     const data = randomBytes(dataLength);
     return new UnencryptedL2Log(contractAddress, selector, data);
   }

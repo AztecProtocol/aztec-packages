@@ -1,6 +1,5 @@
 #pragma once
-#include "ffiterm.hpp"
-#include "ffterm.hpp"
+#include "term.hpp"
 
 namespace smt_terms {
 using namespace smt_solver;
@@ -14,29 +13,23 @@ using namespace smt_solver;
  */
 class Bool {
   public:
-    cvc5::Solver* solver;
+    Solver* solver;
     cvc5::Term term;
     bool asserted = false;
 
-    explicit Bool(const cvc5::Term& t, Solver& slv)
-        : solver(&slv.s)
+    Bool(const cvc5::Term& t, Solver* slv)
+        : solver(slv)
         , term(t){};
-    explicit Bool(const FFTerm& t)
-        : solver(&t.solver->s)
+
+    explicit Bool(const STerm& t)
+        : solver(t.solver)
         , term(t.term){};
 
-    explicit Bool(const FFITerm& t)
-        : solver(&t.solver->s)
-        , term(t.term){};
-
-    explicit Bool(bool t, Solver& slv)
-        : solver(&slv.s)
+    explicit Bool(bool t, Solver* slv)
+        : solver(slv)
     {
-        term = solver->mkBoolean(t);
+        term = solver->term_manager.mkBoolean(t);
     }
-    Bool(const cvc5::Term& term, cvc5::Solver* s)
-        : solver(s)
-        , term(term){};
     Bool(const Bool& other) = default;
     Bool(Bool&& other) = default;
 
@@ -71,17 +64,17 @@ class Bool {
 
     friend Bool batch_or(const std::vector<Bool>& children)
     {
-        cvc5::Solver* s = children[0].solver;
+        Solver* s = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
-        cvc5::Term res = s->mkTerm(cvc5::Kind::OR, terms);
+        cvc5::Term res = s->term_manager.mkTerm(cvc5::Kind::OR, terms);
         return { res, s };
     }
 
     friend Bool batch_and(const std::vector<Bool>& children)
     {
-        cvc5::Solver* s = children[0].solver;
+        Solver* s = children[0].solver;
         std::vector<cvc5::Term> terms(children.begin(), children.end());
-        cvc5::Term res = s->mkTerm(cvc5::Kind::AND, terms);
+        cvc5::Term res = s->term_manager.mkTerm(cvc5::Kind::AND, terms);
         return { res, s };
     }
 

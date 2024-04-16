@@ -1,10 +1,19 @@
+use dep::types::traits::Empty;
 use crate::abis::previous_rollup_data::PreviousRollupData;
 use crate::abis::base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, MERGE_ROLLUP_TYPE};
 use crate::components;
 
-struct MergeRollupInputs{
+struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
     previous_rollup_data : [PreviousRollupData; 2]
+}
+
+impl Empty for MergeRollupInputs {
+    fn empty() -> Self {
+        MergeRollupInputs {
+            previous_rollup_data: [PreviousRollupData::empty(); 2]
+        }
+    }
 }
 
 impl MergeRollupInputs {
@@ -131,14 +140,7 @@ mod tests {
     #[test]
     fn txs_effects_hash() {
         let mut inputs = default_merge_rollup_inputs();
-        let expected_hash = accumulate_sha256(
-            [
-            U128::from_integer(0),
-            U128::from_integer(1),
-            U128::from_integer(2),
-            U128::from_integer(3)
-        ]
-        );
+        let expected_hash = accumulate_sha256([1, 2]);
         let outputs = inputs.merge_rollup_circuit();
 
         assert_eq(outputs.txs_effects_hash, expected_hash);

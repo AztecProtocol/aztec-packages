@@ -1,5 +1,5 @@
-import { AztecAddress } from '@aztec/aztec.js';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { type AztecAddress } from '@aztec/aztec.js';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
 import { format } from 'util';
 
@@ -16,7 +16,7 @@ export async function call(
   debugLogger: DebugLogger,
   log: LogFn,
 ) {
-  const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn, log);
+  const { functionArgs, contractArtifact } = await prepTx(contractArtifactPath, functionName, functionArgsIn);
 
   const fnArtifact = getFunctionArtifact(contractArtifact, functionName);
   if (fnArtifact.parameters.length !== functionArgs.length) {

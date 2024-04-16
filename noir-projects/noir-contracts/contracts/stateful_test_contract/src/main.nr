@@ -3,11 +3,12 @@ contract StatefulTest {
     use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
     use dep::aztec::{
-        deploy::{deploy_contract as aztec_deploy_contract}, context::{PublicContext, Context},
-        oracle::get_contract_instance::get_contract_instance,
-        initializer::{mark_as_initialized, assert_is_initialized}
+        deploy::deploy_contract as aztec_deploy_contract,
+        context::{PublicContext, Context, gas::GasOpts},
+        oracle::get_contract_instance::get_contract_instance, initializer::assert_is_initialized_private
     };
 
+    #[aztec(storage)]
     struct Storage {
         notes: Map<AztecAddress, PrivateSet<ValueNote>>,
         public_values: Map<AztecAddress, PublicMutable<Field>>,
@@ -17,14 +18,26 @@ contract StatefulTest {
     #[aztec(initializer)]
     fn constructor(owner: AztecAddress, value: Field) {
         let selector = FunctionSelector::from_signature("create_note_no_init_check((Field),Field)");
-        let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
+        context.call_private_function(context.this_address(), selector, [owner.to_field(), value]).assert_empty();
+    }
+
+    #[aztec(private)]
+    #[aztec(initializer)]
+    fn wrong_constructor() {
+        let selector = FunctionSelector::from_signature("not_exists(Field)");
+        let _res = context.call_public_function(context.this_address(), selector, [42]);
     }
 
     #[aztec(public)]
     #[aztec(initializer)]
     fn public_constructor(owner: AztecAddress, value: Field) {
         let selector = FunctionSelector::from_signature("increment_public_value_no_init_check((Field),Field)");
-        let _res = context.call_public_function(context.this_address(), selector, [owner.to_field(), value]);
+        context.call_public_function(
+            context.this_address(),
+            selector,
+            [owner.to_field(), value],
+            GasOpts::default()
+        ).assert_empty();
     }
 
     #[aztec(private)]
@@ -46,7 +59,7 @@ contract StatefulTest {
 
     #[aztec(private)]
     fn destroy_and_create(recipient: AztecAddress, amount: Field) {
-        assert_is_initialized(&mut context);
+        assert_is_initialized_private(&mut context);
         let sender = context.msg_sender();
 
         let sender_notes = storage.notes.at(sender);

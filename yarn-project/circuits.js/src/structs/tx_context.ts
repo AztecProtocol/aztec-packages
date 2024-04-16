@@ -1,7 +1,7 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GeneratorIndex, TX_CONTEXT_DATA_LENGTH } from '../constants.gen.js';
 
@@ -90,9 +90,6 @@ export class TxContext {
   }
 
   hash(): Fr {
-    return pedersenHash(
-      this.toFields().map(f => f.toBuffer()),
-      GeneratorIndex.TX_CONTEXT,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.TX_CONTEXT);
   }
 }

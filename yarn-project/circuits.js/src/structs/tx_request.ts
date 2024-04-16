@@ -2,10 +2,11 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GeneratorIndex, TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
+import { GasSettings } from './gas_settings.js';
 import { TxContext } from './tx_context.js';
 
 /**
@@ -13,26 +14,20 @@ import { TxContext } from './tx_context.js';
  */
 export class TxRequest {
   constructor(
-    /**
-     * Sender.
-     */
+    /** Sender. */
     public origin: AztecAddress,
-    /**
-     * Function data representing the function to call.
-     */
+    /** Function data representing the function to call. */
     public functionData: FunctionData,
-    /**
-     * Pedersen hash of function arguments.
-     */
+    /** Pedersen hash of function arguments. */
     public argsHash: Fr,
-    /**
-     * Transaction context.
-     */
+    /** Transaction context. */
     public txContext: TxContext,
+    /** Gas limits and max fees per dimension. */
+    public gasSettings: GasSettings,
   ) {}
 
   static getFields(fields: FieldsOf<TxRequest>) {
-    return [fields.origin, fields.functionData, fields.argsHash, fields.txContext] as const;
+    return [fields.origin, fields.functionData, fields.argsHash, fields.txContext, fields.gasSettings] as const;
   }
 
   static from(fields: FieldsOf<TxRequest>): TxRequest {
@@ -67,21 +62,25 @@ export class TxRequest {
       reader.readObject(FunctionData),
       Fr.fromBuffer(reader),
       reader.readObject(TxContext),
+      reader.readObject(GasSettings),
     );
   }
 
   hash() {
-    return pedersenHash(
-      this.toFields().map(field => field.toBuffer()),
-      GeneratorIndex.TX_REQUEST,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.TX_REQUEST);
   }
 
   static empty() {
-    return new TxRequest(AztecAddress.ZERO, FunctionData.empty(), Fr.zero(), TxContext.empty());
+    return new TxRequest(AztecAddress.ZERO, FunctionData.empty(), Fr.zero(), TxContext.empty(), GasSettings.empty());
   }
 
   isEmpty() {
-    return this.origin.isZero() && this.functionData.isEmpty() && this.argsHash.isZero() && this.txContext.isEmpty();
+    return (
+      this.origin.isZero() &&
+      this.functionData.isEmpty() &&
+      this.argsHash.isZero() &&
+      this.txContext.isEmpty() &&
+      this.gasSettings.isEmpty()
+    );
   }
 }

@@ -2,7 +2,7 @@ use crate::{
     abis::{function_data::FunctionData, private_circuit_public_inputs::PrivateCircuitPublicInputs},
     address::AztecAddress,
     constants::{GENERATOR_INDEX__CALL_STACK_ITEM, PRIVATE_CALL_STACK_ITEM_LENGTH}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize}, utils::reader::Reader
+    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader
 };
 
 struct PrivateCallStackItem {
@@ -26,7 +26,7 @@ impl Eq for PrivateCallStackItem {
 
 impl Serialize<PRIVATE_CALL_STACK_ITEM_LENGTH> for PrivateCallStackItem {
     fn serialize(self) -> [Field; PRIVATE_CALL_STACK_ITEM_LENGTH] {
-        let mut fields: BoundedVec<Field, PRIVATE_CALL_STACK_ITEM_LENGTH> = BoundedVec::new(); 
+        let mut fields: BoundedVec<Field, PRIVATE_CALL_STACK_ITEM_LENGTH> = BoundedVec::new();
 
         fields.push(self.contract_address.to_field());
         fields.extend_from_array(self.function_data.serialize());
@@ -60,9 +60,19 @@ impl Hash for PrivateCallStackItem {
     }
 }
 
+impl Empty for PrivateCallStackItem {
+    fn empty() -> Self {
+        PrivateCallStackItem {
+            contract_address: AztecAddress::empty(),
+            function_data: FunctionData::empty(),
+            public_inputs: PrivateCircuitPublicInputs::empty(),
+        }
+    }
+}
+
 #[test]
 fn serialization_of_empty() {
-    let item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let item = PrivateCallStackItem::empty();
     let serialized = item.serialize();
     let deserialized = PrivateCallStackItem::deserialize(serialized);
     assert(item.eq(deserialized));
@@ -70,11 +80,11 @@ fn serialization_of_empty() {
 
 #[test]
 fn empty_hash() {
-    let mut item: PrivateCallStackItem = dep::std::unsafe::zeroed();
+    let mut item = PrivateCallStackItem::empty();
     item.function_data.is_private = true;
     let hash = item.hash();
 
     // Value from private_call_stack_item.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x1c3b67cab2bc3dc2106cfeddd8ea68b8d445849f20ed3b9286ad684542aae25d;
+    let test_data_empty_hash = 0x243b1b69ea529d158803cc7a16b52293c5e5f2a1859337e3f69e4b20f55c6fb6;
     assert_eq(hash, test_data_empty_hash);
 }
