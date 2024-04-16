@@ -131,6 +131,20 @@ impl PublicContext {
         self.return_hash = returns_hasher.hash();
     }
 
+    // Keep private or ask the AVM team if you want to change it.
+    fn push_nullifier_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_read_requests.push(request);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    // Keep private or ask the AVM team if you want to change it.
+    fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_non_existent_read_requests.push(request);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
     pub fn finish(self) -> PublicCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let unencrypted_log_preimages_length = 0;
@@ -154,7 +168,8 @@ impl PublicContext {
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
             prover_address: self.prover_address,
-            revert_code: 0
+            revert_code: 0,
+            gas_left: self.inputs.call_context.gas_left
         };
         pub_circuit_pub_inputs
     }
@@ -187,10 +202,6 @@ impl ContextInterface for PublicContext {
 
     fn get_args_hash(self) -> Field {
         self.args_hash
-    }
-
-    fn get_header(self) -> Header {
-        self.historical_header
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
@@ -243,18 +254,6 @@ impl PublicContextInterface for PublicContext {
         // Current public can only check for settled nullifiers, so we always silo.
         let siloed_nullifier = silo_nullifier(address, unsiloed_nullifier);
         nullifier_exists_oracle(siloed_nullifier) == 1
-    }
-
-    fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_non_existent_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
     }
 
     fn message_portal(&mut self, recipient: EthAddress, content: Field) {

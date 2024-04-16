@@ -1,7 +1,7 @@
 use crate::{
     abis::{
     call_context::CallContext, read_request::ReadRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, gas::Gas
 },
     address::AztecAddress,
     constants::{
@@ -50,6 +50,9 @@ struct PublicCircuitPublicInputs{
     prover_address: AztecAddress,
 
     revert_code: u8,
+    
+    // gas left after execution is completed
+    gas_left: Gas,
 }
 
 impl Eq for PublicCircuitPublicInputs {
@@ -98,6 +101,7 @@ impl Serialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInput
         fields.extend_from_array(self.historical_header.serialize());
         fields.push(self.prover_address.to_field());
         fields.push(self.revert_code as Field);
+        fields.extend_from_array(self.gas_left.serialize());
         fields.storage
     }
 }
@@ -125,6 +129,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             historical_header: reader.read_struct(Header::deserialize),
             prover_address: reader.read_struct(AztecAddress::deserialize),
             revert_code: reader.read() as u8,
+            gas_left: reader.read_struct(Gas::deserialize),
         };
 
         reader.finish();
@@ -159,6 +164,7 @@ impl Empty for PublicCircuitPublicInputs {
             historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
             revert_code: 0 as u8,
+            gas_left: Gas::empty(),
         }
     }
 }

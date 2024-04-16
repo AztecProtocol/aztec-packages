@@ -1,7 +1,7 @@
 use crate::{
     hash::compute_tx_logs_hash,
     abis::{
-    gas_used::GasUsed,
+    gas::Gas,
     accumulated_data::{
     combined_accumulated_data::CombinedAccumulatedData,
     private_accumulated_data::PrivateAccumulatedData, public_accumulated_data::PublicAccumulatedData,
@@ -34,7 +34,7 @@ struct PrivateAccumulatedDataBuilder {
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
-    gas_used: GasUsed
+    gas_used: Gas
 }
 
 impl PrivateAccumulatedDataBuilder {
@@ -227,7 +227,7 @@ impl Empty for PrivateAccumulatedDataBuilder {
             unencrypted_log_preimages_length: 0,
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            gas_used: GasUsed::empty(),
+            gas_used: Gas::empty(),
         }
     }
 }

@@ -28,6 +28,7 @@ import {
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+import { Gas } from './gas.js';
 import { Header } from './header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { ReadRequest } from './read_request.js';
@@ -120,6 +121,9 @@ export class PublicCircuitPublicInputs {
      * Flag indicating if the call was reverted.
      */
     public revertCode: RevertCode,
+
+    /** How much gas was left after execution. */
+    public gasLeft: Gas,
   ) {}
 
   /**
@@ -155,6 +159,7 @@ export class PublicCircuitPublicInputs {
       Header.empty(),
       AztecAddress.ZERO,
       RevertCode.OK,
+      Gas.empty(),
     );
   }
 
@@ -181,7 +186,8 @@ export class PublicCircuitPublicInputs {
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
       this.proverAddress.isZero() &&
-      this.revertCode.isOK()
+      this.revertCode.isOK() &&
+      this.gasLeft.isEmpty()
     );
   }
 
@@ -210,6 +216,7 @@ export class PublicCircuitPublicInputs {
       fields.historicalHeader,
       fields.proverAddress,
       fields.revertCode,
+      fields.gasLeft,
     ] as const;
   }
 
@@ -257,6 +264,7 @@ export class PublicCircuitPublicInputs {
       reader.readObject(Header),
       reader.readObject(AztecAddress),
       reader.readObject(RevertCode),
+      reader.readObject(Gas),
     );
   }
 
@@ -282,6 +290,7 @@ export class PublicCircuitPublicInputs {
       Header.fromFields(reader),
       AztecAddress.fromFields(reader),
       RevertCode.fromFields(reader),
+      Gas.fromFields(reader),
     );
   }
 
