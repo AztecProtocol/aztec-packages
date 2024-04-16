@@ -1604,7 +1604,7 @@ impl AcirContext {
             }
             AcirType::Array(element_types, size) => {
                 let (acir_value, witnesses) = self.brillig_array_output(&element_types, size);
-                b_outputs.push(BrilligOutputs::Array(witnesses));
+                brillig_outputs.push(BrilligOutputs::Array(witnesses));
                 acir_value
             }
         });
