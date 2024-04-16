@@ -5,7 +5,7 @@ use crate::{
 },
     messaging::process_l1_to_l2_message,
     oracle::{arguments, public_call::call_public_function_internal, returns},
-    hash::{hash_args, ArgsHasher}
+    hash::{hash_args_array, ArgsHasher}
 };
 use dep::protocol_types::{
     abis::{
@@ -291,38 +291,38 @@ impl PublicContextInterface for PublicContext {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 
-    fn call_public_function<RETURNS_COUNT>(
+    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field],
+        args: [Field; ARGS_COUNT],
         _gas: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        let args_hash = hash_args_array(args);
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
-    fn static_call_public_function<RETURNS_COUNT>(
+    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field],
+        args: [Field; ARGS_COUNT],
         _gas: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        let args_hash = hash_args_array(args);
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
-    fn delegate_call_public_function<RETURNS_COUNT>(
+    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field]
+        args: [Field; ARGS_COUNT]
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        let args_hash = hash_args_array(args);
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 }

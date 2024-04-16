@@ -50,11 +50,7 @@ contract Crowdfunding {
     #[aztec(private)]
     fn donate(amount: u64) {
         // 1) Check that the deadline has not passed
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("_check_deadline()"),
-            []
-        );
+        Crowdfunding::at(context.this_address())._check_deadline().enqueue(&mut context);
 
         // 2) Transfer the donation tokens from donor to this contract
         Token::at(storage.donation_token.read_private()).transfer(
