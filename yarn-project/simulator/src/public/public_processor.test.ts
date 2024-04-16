@@ -304,6 +304,20 @@ describe('public_processor', () => {
         PublicDataUpdateRequest.empty,
       );
 
+      kernelOutput.forPublic!.endNonRevertibleData.unencryptedLogsHashes = makeTuple(
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+        SideEffect.empty,
+      );
+
+      kernelOutput.forPublic!.end.unencryptedLogsHashes = makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty);
+
+      kernelOutput.forPublic!.endNonRevertibleData.encryptedLogsHashes = makeTuple(
+        MAX_ENCRYPTED_LOGS_PER_TX,
+        SideEffect.empty,
+      );
+
+      kernelOutput.forPublic!.end.encryptedLogsHashes = makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty);
+
       addKernelPublicCallStack(kernelOutput, {
         setupCalls: [callRequests[0]],
         appLogicCalls: [callRequests[2]],
@@ -629,6 +643,14 @@ describe('public_processor', () => {
       const kernelOutput = makePrivateKernelTailCircuitPublicInputs(0x10);
       kernelOutput.forPublic!.end.encryptedLogsHashes = makeTuple(MAX_ENCRYPTED_LOGS_PER_TX, SideEffect.empty);
       kernelOutput.forPublic!.end.unencryptedLogsHashes = makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, SideEffect.empty);
+      kernelOutput.forPublic!.endNonRevertibleData.encryptedLogsHashes = makeTuple(
+        MAX_ENCRYPTED_LOGS_PER_TX,
+        SideEffect.empty,
+      );
+      kernelOutput.forPublic!.endNonRevertibleData.unencryptedLogsHashes = makeTuple(
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+        SideEffect.empty,
+      );
       kernelOutput.forPublic!.endNonRevertibleData.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         PublicDataUpdateRequest.empty,
