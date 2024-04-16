@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use acvm::acir::circuit::Program;
 
 use crate::transpile::brillig_to_avm;
-use crate::utils::extract_brillig_from_acir;
+use crate::utils::extract_brillig_from_acir_program;
 
 /// Representation of a contract with some transpiled functions
 #[derive(Debug, Serialize, Deserialize)]
