@@ -625,12 +625,12 @@ impl<'a> Context<'a> {
                                         sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
                                     });
 
-                                let acir_program_id = ssa
+                                let acir_function_id = ssa
                                     .entry_point_to_generated_index
                                     .get(id)
                                     .expect("ICE: should have an associated final index");
                                 let output_vars = self.acir_context.call_acir_function(
-                                    *acir_program_id,
+                                    *acir_function_id,
                                     inputs,
                                     output_count,
                                     self.current_side_effects_enabled_var,
@@ -2522,19 +2522,27 @@ mod test {
         },
     };
 
-    fn build_basic_foo_with_return(builder: &mut FunctionBuilder, foo_id: FunctionId) {
-        // acir(fold) fn foo f1 {
+    fn build_basic_foo_with_return(
+        builder: &mut FunctionBuilder,
+        foo_id: FunctionId,
+        is_brillig_func: bool,
+    ) {
+        // fn foo f1 {
         // b0(v0: Field, v1: Field):
         //     v2 = eq v0, v1
         //     constrain v2 == u1 0
         //     return v0
         // }
-        builder.new_function("foo".into(), foo_id, InlineType::Fold);
+        if is_brillig_func {
+            builder.new_brillig_function("foo".into(), foo_id);
+        } else {
+            builder.new_function("foo".into(), foo_id, InlineType::Fold);
+        }
         let foo_v0 = builder.add_parameter(Type::field());
         let foo_v1 = builder.add_parameter(Type::field());
 
         let foo_equality_check = builder.insert_binary(foo_v0, BinaryOp::Eq, foo_v1);
-        let zero = builder.field_constant(0u128);
+        let zero = builder.numeric_constant(0u128, Type::unsigned(1));
         builder.insert_constrain(foo_equality_check, zero, None);
         builder.terminate_with_return(vec![foo_v0]);
     }
@@ -2568,7 +2576,7 @@ mod test {
         builder.insert_constrain(main_call1_results[0], main_call2_results[0], None);
         builder.terminate_with_return(vec![]);
 
-        build_basic_foo_with_return(&mut builder, foo_id);
+        build_basic_foo_with_return(&mut builder, foo_id, false);
 
         let ssa = builder.finish();
 
@@ -2664,7 +2672,7 @@ mod test {
         builder.insert_constrain(main_call1_results[0], main_call2_results[0], None);
         builder.terminate_with_return(vec![]);
 
-        build_basic_foo_with_return(&mut builder, foo_id);
+        build_basic_foo_with_return(&mut builder, foo_id, false);
 
         let ssa = builder.finish();
 
@@ -2755,7 +2763,7 @@ mod test {
             .to_vec();
         builder.terminate_with_return(vec![foo_call[0]]);
 
-        build_basic_foo_with_return(&mut builder, foo_id);
+        build_basic_foo_with_return(&mut builder, foo_id, false);
 
         let ssa = builder.finish();
 
@@ -2817,6 +2825,84 @@ mod test {
                 }
             }
             _ => panic!("Expected only Call opcode"),
+        }
+    }
+
+    // Test that given multiple calls to the same brillig function we generate only one bytecode
+    // and the appropriate Brillig call opcodes are generated
+    #[test]
+    fn multiple_brillig_calls_one_bytecode() {
+        // acir(inline) fn main f0 {
+        //     b0(v0: Field, v1: Field):
+        //       v3 = call f1(v0, v1)
+        //       v4 = call f1(v0, v1)
+        //       v5 = call f1(v0, v1)
+        //       v6 = call f1(v0, v1)
+        //       return
+        // }
+        // brillig fn foo f1 {
+        // b0(v0: Field, v1: Field):
+        //     v2 = eq v0, v1
+        //     constrain v2 == u1 0
+        //     return v0
+        // }
+        // brillig fn foo f2 {
+        //     b0(v0: Field, v1: Field):
+        //       v2 = eq v0, v1
+        //       constrain v2 == u1 0
+        //       return v0
+        // }
+        let foo_id = Id::test_new(0);
+        let mut builder = FunctionBuilder::new("main".into(), foo_id);
+        let main_v0 = builder.add_parameter(Type::field());
+        let main_v1 = builder.add_parameter(Type::field());
+
+        let foo_id = Id::test_new(1);
+        let foo = builder.import_function(foo_id);
+        let bar_id = Id::test_new(2);
+        let bar = builder.import_function(bar_id);
+
+        // Insert multiple calls to the same Brillig function
+        builder.insert_call(foo, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        builder.insert_call(foo, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        builder.insert_call(foo, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        // Interleave a call to a separate Brillig function to make sure that we can call multiple separate Brillig functions
+        builder.insert_call(bar, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        builder.insert_call(foo, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        builder.insert_call(bar, vec![main_v0, main_v1], vec![Type::field()]).to_vec();
+        builder.terminate_with_return(vec![]);
+
+        build_basic_foo_with_return(&mut builder, foo_id, true);
+        build_basic_foo_with_return(&mut builder, bar_id, true);
+
+        let ssa = builder.finish();
+        let brillig = ssa.to_brillig(false);
+        println!("{}", ssa);
+
+        let (acir_functions, brillig_functions) = ssa
+            .into_acir(&brillig, noirc_frontend::Distinctness::Distinct)
+            .expect("Should compile manually written SSA into ACIR");
+
+        assert_eq!(acir_functions.len(), 1, "Should only have a `main` ACIR function");
+        assert_eq!(
+            brillig_functions.len(),
+            2,
+            "Should only have generated a single Brillig function"
+        );
+
+        let main_acir = &acir_functions[0];
+        let main_opcodes = main_acir.opcodes();
+        assert_eq!(main_opcodes.len(), 6, "Should have four calls to f1 and two calls to f2");
+
+        // We should only have `BrilligCall` opcodes in `main`
+        for (i, opcode) in main_opcodes.iter().enumerate() {
+            match opcode {
+                Opcode::BrilligCall { id, .. } => {
+                    let expected_id = if i == 3 || i == 5 { 1 } else { 0 };
+                    assert_eq!(*id, expected_id, "Expected an id of {expected_id} but got {id}");
+                }
+                _ => panic!("Expected only Brillig call opcode"),
+            }
         }
     }
 }
