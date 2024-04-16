@@ -1,7 +1,0 @@
-[package]
-name = "brillig_acir_loop"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.26.0"
-
-[dependencies]

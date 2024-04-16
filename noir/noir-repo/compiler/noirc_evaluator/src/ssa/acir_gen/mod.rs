@@ -637,7 +637,7 @@ impl<'a> Context<'a> {
                                         sum + dfg.try_get_array_length(*result_id).unwrap_or(1)
                                     });
 
-                                let acir_program_id = ssa
+                                let acir_function_id = ssa
                                     .entry_point_to_generated_index
                                     .get(id)
                                     .expect("ICE: should have an associated final index");
