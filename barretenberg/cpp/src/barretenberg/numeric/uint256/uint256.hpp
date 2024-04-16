@@ -23,7 +23,12 @@
 namespace bb::numeric {
 
 class alignas(32) uint256_t {
+
   public:
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+#define WASM_NUM_LIMBS 9
+#define WASM_LIMB_BITS 29
+#endif
     constexpr uint256_t(const uint64_t a = 0) noexcept
         : data{ a, 0, 0, 0 }
     {}
@@ -84,15 +89,24 @@ class alignas(32) uint256_t {
         return { static_cast<uint64_t>(a), static_cast<uint64_t>(a >> 64), 0, 0 };
     }
 
-    constexpr explicit operator uint128_t() { return (static_cast<uint128_t>(data[1]) << 64) + data[0]; }
+    constexpr explicit operator uint128_t()
+    {
+        return (static_cast<uint128_t>(data[1]) << 64) + data[0];
+    }
 
     constexpr uint256_t& operator=(const uint256_t& other) noexcept = default;
     constexpr uint256_t& operator=(uint256_t&& other) noexcept = default;
     constexpr ~uint256_t() noexcept = default;
 
-    explicit constexpr operator bool() const { return static_cast<bool>(data[0]); };
+    explicit constexpr operator bool() const
+    {
+        return static_cast<bool>(data[0]);
+    };
 
-    template <std::integral T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
+    template <std::integral T> explicit constexpr operator T() const
+    {
+        return static_cast<T>(data[0]);
+    };
 
     [[nodiscard]] constexpr bool get_bit(uint64_t bit_index) const;
     [[nodiscard]] constexpr uint64_t get_msb() const;
@@ -125,7 +139,10 @@ class alignas(32) uint256_t {
     constexpr bool operator>=(const uint256_t& other) const;
     constexpr bool operator<=(const uint256_t& other) const;
 
-    static constexpr size_t length() { return 256; }
+    static constexpr size_t length()
+    {
+        return 256;
+    }
 
     constexpr uint256_t& operator+=(const uint256_t& other)
     {
@@ -208,6 +225,20 @@ class alignas(32) uint256_t {
                                                                      uint64_t b,
                                                                      uint64_t c,
                                                                      uint64_t carry_in);
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+    static constexpr void wasm_madd(const uint64_t& left_limb,
+                                    const uint64_t* right_limbs,
+                                    uint64_t& result_0,
+                                    uint64_t& result_1,
+                                    uint64_t& result_2,
+                                    uint64_t& result_3,
+                                    uint64_t& result_4,
+                                    uint64_t& result_5,
+                                    uint64_t& result_6,
+                                    uint64_t& result_7,
+                                    uint64_t& result_8);
+    [[nodiscard]] static constexpr std::array<uint64_t, WASM_NUM_LIMBS> wasm_convert(const uint64_t* data);
+#endif
 };
 
 inline std::ostream& operator<<(std::ostream& os, uint256_t const& a)

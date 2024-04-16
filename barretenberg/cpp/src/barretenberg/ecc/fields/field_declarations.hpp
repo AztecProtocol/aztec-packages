@@ -21,6 +21,11 @@
 #endif
 
 namespace bb {
+/**
+ * @brief General class for prime fields see \ref field_docs["field documentation"] for general implementation reference
+ *
+ * @tparam Params_
+ */
 template <class Params_> struct alignas(32) field {
   public:
     using View = field;
@@ -29,6 +34,11 @@ template <class Params_> struct alignas(32) field {
     using vec_in_buf = const uint8_t*;
     using out_buf = uint8_t*;
     using vec_out_buf = uint8_t**;
+
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+#define WASM_NUM_LIMBS 9
+#define WASM_LIMB_BITS 29
+#endif
 
     // We don't initialize data in the default constructor since we'd lose a lot of time on huge array initializations.
     // Other alternatives have been noted, such as casting to get around constructors where they matter,
@@ -159,14 +169,34 @@ template <class Params_> struct alignas(32) field {
 
     static constexpr uint256_t modulus =
         uint256_t{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
+    static constexpr uint256_t r_squared_uint{
+        Params_::r_squared_0, Params_::r_squared_1, Params_::r_squared_2, Params_::r_squared_3
+    };
+#else
+    static constexpr uint256_t r_squared_uint{
+        Params_::r_squared_wasm_0, Params_::r_squared_wasm_1, Params_::r_squared_wasm_2, Params_::r_squared_wasm_3
+    };
+    static constexpr std::array<uint64_t, 9> wasm_modulus = { Params::modulus_wasm_0, Params::modulus_wasm_1,
+                                                              Params::modulus_wasm_2, Params::modulus_wasm_3,
+                                                              Params::modulus_wasm_4, Params::modulus_wasm_5,
+                                                              Params::modulus_wasm_6, Params::modulus_wasm_7,
+                                                              Params::modulus_wasm_8 };
 
+#endif
     static constexpr field cube_root_of_unity()
     {
         // endomorphism i.e. lambda * [P] = (beta * x, y)
         if constexpr (Params::cube_root_0 != 0) {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
             constexpr field result{
                 Params::cube_root_0, Params::cube_root_1, Params::cube_root_2, Params::cube_root_3
             };
+#else
+            constexpr field result{
+                Params::cube_root_wasm_0, Params::cube_root_wasm_1, Params::cube_root_wasm_2, Params::cube_root_wasm_3
+            };
+#endif
             return result;
         } else {
             constexpr field two_inv = field(2).invert();
@@ -176,41 +206,80 @@ template <class Params_> struct alignas(32) field {
         }
     }
 
-    static constexpr field zero() { return field(0, 0, 0, 0); }
-    static constexpr field neg_one() { return -field(1); }
-    static constexpr field one() { return field(1); }
+    static constexpr field zero()
+    {
+        return field(0, 0, 0, 0);
+    }
+    static constexpr field neg_one()
+    {
+        return -field(1);
+    }
+    static constexpr field one()
+    {
+        return field(1);
+    }
 
     static constexpr field external_coset_generator()
     {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[7],
             Params::coset_generators_1[7],
             Params::coset_generators_2[7],
             Params::coset_generators_3[7],
         };
+#else
+        const field result{
+            Params::coset_generators_wasm_0[7],
+            Params::coset_generators_wasm_1[7],
+            Params::coset_generators_wasm_2[7],
+            Params::coset_generators_wasm_3[7],
+        };
+#endif
+
         return result;
     }
 
     static constexpr field tag_coset_generator()
     {
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[6],
             Params::coset_generators_1[6],
             Params::coset_generators_2[6],
             Params::coset_generators_3[6],
         };
+#else
+        const field result{
+            Params::coset_generators_wasm_0[6],
+            Params::coset_generators_wasm_1[6],
+            Params::coset_generators_wasm_2[6],
+            Params::coset_generators_wasm_3[6],
+        };
+#endif
+
         return result;
     }
 
     static constexpr field coset_generator(const size_t idx)
     {
         ASSERT(idx < 7);
+#if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         const field result{
             Params::coset_generators_0[idx],
             Params::coset_generators_1[idx],
             Params::coset_generators_2[idx],
             Params::coset_generators_3[idx],
         };
+#else
+        const field result{
+            Params::coset_generators_wasm_0[idx],
+            Params::coset_generators_wasm_1[idx],
+            Params::coset_generators_wasm_2[idx],
+            Params::coset_generators_wasm_3[idx],
+        };
+#endif
+
         return result;
     }
 
@@ -247,6 +316,7 @@ template <class Params_> struct alignas(32) field {
 
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
     BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
+    static_assert(Params::modulus_0 != 1);
     static constexpr uint256_t modulus_minus_two =
         uint256_t(Params::modulus_0 - 2ULL, Params::modulus_1, Params::modulus_2, Params::modulus_3);
     constexpr field invert() const noexcept;
@@ -277,11 +347,20 @@ template <class Params_> struct alignas(32) field {
 
     static constexpr field get_root_of_unity(size_t subgroup_size) noexcept;
 
-    static void serialize_to_buffer(const field& value, uint8_t* buffer) { write(buffer, value); }
+    static void serialize_to_buffer(const field& value, uint8_t* buffer)
+    {
+        write(buffer, value);
+    }
 
-    static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
+    static field serialize_from_buffer(const uint8_t* buffer)
+    {
+        return from_buffer<field>(buffer);
+    }
 
-    [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
+    [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const
+    {
+        return ::to_buffer(*this);
+    }
 
     struct wide_array {
         uint64_t data[8]; // NOLINT
@@ -458,8 +537,11 @@ template <class Params_> struct alignas(32) field {
         return os;
     }
 
-    BB_INLINE static void __copy(const field& a, field& r) noexcept { r = a; } // NOLINT
-    BB_INLINE static void __swap(field& src, field& dest) noexcept             // NOLINT
+    BB_INLINE static void __copy(const field& a, field& r) noexcept
+    {
+        r = a;
+    }                                                              // NOLINT
+    BB_INLINE static void __swap(field& src, field& dest) noexcept // NOLINT
     {
         field T = dest;
         dest = src;
@@ -473,7 +555,10 @@ template <class Params_> struct alignas(32) field {
     // For serialization
     void msgpack_pack(auto& packer) const;
     void msgpack_unpack(auto o);
-    void msgpack_schema(auto& packer) const { packer.pack_alias(Params::schema_name, "bin32"); }
+    void msgpack_schema(auto& packer) const
+    {
+        packer.pack_alias(Params::schema_name, "bin32");
+    }
 
     static constexpr uint256_t twice_modulus = modulus + modulus;
     static constexpr uint256_t not_modulus = -modulus;
@@ -520,6 +605,29 @@ template <class Params_> struct alignas(32) field {
         {}
     };
 
+#if defined(__wasm__) || !defined(__SIZEOF_INT128__)
+    BB_INLINE static constexpr void wasm_madd(uint64_t& left_limb,
+                                              const std::array<uint64_t, WASM_NUM_LIMBS>& right_limbs,
+                                              uint64_t& result_0,
+                                              uint64_t& result_1,
+                                              uint64_t& result_2,
+                                              uint64_t& result_3,
+                                              uint64_t& result_4,
+                                              uint64_t& result_5,
+                                              uint64_t& result_6,
+                                              uint64_t& result_7,
+                                              uint64_t& result_8);
+    BB_INLINE static constexpr void wasm_reduce(uint64_t& result_0,
+                                                uint64_t& result_1,
+                                                uint64_t& result_2,
+                                                uint64_t& result_3,
+                                                uint64_t& result_4,
+                                                uint64_t& result_5,
+                                                uint64_t& result_6,
+                                                uint64_t& result_7,
+                                                uint64_t& result_8);
+    BB_INLINE static constexpr std::array<uint64_t, WASM_NUM_LIMBS> wasm_convert(const uint64_t* data);
+#endif
     BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
 
     BB_INLINE static constexpr uint64_t mac(
