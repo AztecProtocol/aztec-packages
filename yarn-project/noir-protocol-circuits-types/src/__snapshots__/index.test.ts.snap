@@ -35,20 +35,20 @@ PrivateKernelCircuitPublicInputs {
   "constants": CombinedConstantData {
     "gasSettings": GasSettings {
       "da": DimensionGasSettings {
-        "gasLimit": 0,
-        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "teardownGasLimit": 0,
+        "gasLimit": 1000000000,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
+        "teardownGasLimit": 100000000,
       },
-      "inclusionFee": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+      "inclusionFee": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
       "l1": DimensionGasSettings {
-        "gasLimit": 0,
-        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "teardownGasLimit": 0,
+        "gasLimit": 1000000000,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
+        "teardownGasLimit": 100000000,
       },
       "l2": DimensionGasSettings {
-        "gasLimit": 0,
-        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "teardownGasLimit": 0,
+        "gasLimit": 1000000000,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
+        "teardownGasLimit": 100000000,
       },
     },
     "historicalHeader": Header {
@@ -56,7 +56,7 @@ PrivateKernelCircuitPublicInputs {
         "inHash": Buffer<0x00089a9d421a82c4a25f7acbebe69e638d5b064fa8a60e018793dcb0be53752c>,
         "outHash": Buffer<0x0007638bb56b6dda2b64b8f76841114ac3a87a1820030e2e16772c4d294879c3>,
         "txTreeHeight": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
-        "txsEffectsHash": Buffer<0x000a22f59afca841598e8846ec2a659c6c85c5785b44d27b1d624134685372c2>,
+        "txsEffectsHash": Buffer<0x00b7621332d76eafa5bbfb05506468259ea658c056999139e2e30c11335a62e7>,
       },
       "globalVariables": {
         "blockNumber": "0x0000000000000000000000000000000000000000000000000000000000000003",
@@ -68,12 +68,12 @@ PrivateKernelCircuitPublicInputs {
           "feePerL1Gas": "0x0000000000000000000000000000000000000000000000000000000000000001",
           "feePerL2Gas": "0x0000000000000000000000000000000000000000000000000000000000000001",
         },
-        "timestamp": "0x000000000000000000000000000000000000000000000000000000006618f761",
+        "timestamp": "0x00000000000000000000000000000000000000000000000000000000661e91fb",
         "version": "0x0000000000000000000000000000000000000000000000000000000000000001",
       },
       "lastArchive": AppendOnlyTreeSnapshot {
         "nextAvailableLeafIndex": 3,
-        "root": Fr<0x07fab97bcdd59de8e38c60c32a70c5a535b4b0a936de27945add5a4f91e98f06>,
+        "root": Fr<0x0a95bc42c9b1325b33adbc49c5d8b1cb3c24b06497bdeb906bdeddf984bb18ed>,
       },
       "state": StateReference {
         "l1ToL2MessageTree": AppendOnlyTreeSnapshot {
@@ -83,11 +83,11 @@ PrivateKernelCircuitPublicInputs {
         "partial": PartialStateReference {
           "noteHashTree": AppendOnlyTreeSnapshot {
             "nextAvailableLeafIndex": 384,
-            "root": Fr<0x1f7a3e4893b2e0c99acd8628fbba6a04f317a0da9202b9c907bfb281b2b2b8f1>,
+            "root": Fr<0x13b8f87916824a70b61db1e39841ca18f0e1706495f4a94910061b31548b6fd2>,
           },
           "nullifierTree": AppendOnlyTreeSnapshot {
             "nextAvailableLeafIndex": 512,
-            "root": Fr<0x2fc0fd4c929b6d9dedf4b553ab9346fa6b4d9bc9fcddd8b84cefcf38d7bef947>,
+            "root": Fr<0x285f4ef5c8626c97572a4f5f52f971ec226ffd9788f39bac69a9a746c031d6a5>,
           },
           "publicDataTree": AppendOnlyTreeSnapshot {
             "nextAvailableLeafIndex": 256,
@@ -139,7 +139,7 @@ PrivateKernelCircuitPublicInputs {
         "value": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
       },
     ],
-    "gasUsed": GasUsed {
+    "gasUsed": Gas {
       "daGas": 0,
       "l1Gas": 0,
       "l2Gas": 0,
@@ -410,7 +410,7 @@ PrivateKernelCircuitPublicInputs {
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
         "noteHash": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "value": Fr<0x0120b8914aa469b5399f50e7f2f130e1ec6b88fc9c813261e1ceac8628a88a4a>,
+        "value": Fr<0x2d6a3d291f624e5b82343b32820953331f574d2a59af5dedac29f86447b586b7>,
       },
       SideEffectLinkedToNoteHash {
         "counter": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -1773,20 +1773,20 @@ PrivateKernelTailCircuitPublicInputs {
   "constants": CombinedConstantData {
     "gasSettings": GasSettings {
       "da": DimensionGasSettings {
-        "gasLimit": 0,
-        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "teardownGasLimit": 0,
+        "gasLimit": 1000000000,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
+        "teardownGasLimit": 100000000,
       },
-      "inclusionFee": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
+      "inclusionFee": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
       "l1": DimensionGasSettings {
-        "gasLimit": 0,
-        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "teardownGasLimit": 0,
+        "gasLimit": 1000000000,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
+        "teardownGasLimit": 100000000,
       },
       "l2": DimensionGasSettings {
-        "gasLimit": 0,
-        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
-        "teardownGasLimit": 0,
+        "gasLimit": 1000000000,
+        "maxFeePerGas": Fr<0x0000000000000000000000000000000000000000000000000000000000000001>,
+        "teardownGasLimit": 100000000,
       },
     },
     "historicalHeader": Header {
@@ -1845,8 +1845,8 @@ PrivateKernelTailCircuitPublicInputs {
   "forRollup": PartialPrivateTailPublicInputsForRollup {
     "end": CombinedAccumulatedData {
       "encryptedLogPreimagesLength": Fr<0x000000000000000000000000000000000000000000000000000000000000013c>,
-      "encryptedLogsHash": Fr<0x001f977ffa681df54d514a1683fa64eb08ed8707fe14931be99c8c6b50ecc0e9>,
-      "gasUsed": GasUsed {
+      "encryptedLogsHash": Fr<0x00241dc05670d61c77a27f08a36d34e4fb42eb684e379a335b7fcbc4a6a3d9b7>,
+      "gasUsed": Gas {
         "daGas": 0,
         "l1Gas": 0,
         "l2Gas": 0,
@@ -1856,7 +1856,7 @@ PrivateKernelTailCircuitPublicInputs {
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
       ],
       "newNoteHashes": [
-        Fr<0x10b865f50f30381b7260965abf6546bd19f61d14e0ebe9c8f2ffc2fda7025286>,
+        Fr<0x267c1344c1376059abfb677497f3be3433daace64a13480aec07a407f84a5c75>,
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
@@ -1922,9 +1922,9 @@ PrivateKernelTailCircuitPublicInputs {
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
       ],
       "newNullifiers": [
-        Fr<0x2c6dad86c13c2fec72ef9cc0c766894076ed307b216c59aadee6d5a41074931d>,
-        Fr<0x1714bf3027a6e375b0f147c3f5aa2d8ae2867f9ccd4009a24e5e51d5022fd284>,
-        Fr<0x1e7d2cbdac4200fe707abf1305f1d02d93f4e451e2caffd62c2681f81ff0c1ad>,
+        Fr<0x039417f16ace0a29060d14ce444da694711d7193793e429d46d22a76f6775838>,
+        Fr<0x22762a2ebe1d107f52243d8984bcf2b2b1f0225ab58ee928f9db0b48eab3dd6f>,
+        Fr<0x161dcf68b3fffe6a58b62b13a96bbcaeb6de57142fd540ccff49de4b47593fd7>,
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
         Fr<0x0000000000000000000000000000000000000000000000000000000000000000>,
