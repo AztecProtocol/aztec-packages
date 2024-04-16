@@ -1,7 +1,8 @@
+use acvm::acir::brillig::Opcode as BrilligOpcode;
 use log::debug;
 
-use acvm::acir::circuit::brillig::Brillig;
-use acvm::acir::circuit::Opcode;
+use acvm::acir::circuit::brillig::{Brillig, BrilligBytecode};
+use acvm::acir::circuit::{Opcode, Program};
 
 use crate::instructions::AvmInstruction;
 
@@ -20,14 +21,24 @@ pub fn extract_brillig_from_acir(opcodes: &Vec<Opcode>) -> &Brillig {
     }
 }
 
+pub fn extract_brillig_from_acir_program(program: &Program) -> &[BrilligOpcode] {
+    assert_eq!(program.functions.len(), 1, "An AVM program should have only a single ACIR function flagged as 'BrilligCall'");
+    let opcodes = &program.functions[0].opcodes;
+    assert_eq!(opcodes.len(), 1, "An AVM program should have only a single ACIR function flagged as 'BrilligCall'");
+    match opcodes[0] {
+        Opcode::BrilligCall { id, .. } => {}
+        _ => panic!("Tried to extract a Brillig program from its ACIR wrapper opcode, but the opcode doesn't contain Brillig!"),
+    }
+    assert_eq!(program.unconstrained_functions.len(), 1, "An AVM program should be contained entirely in only a single `Brillig` function");
+    &program.unconstrained_functions[0].bytecode
+}
+
 /// Print inputs, outputs, and instructions in a Brillig program
-pub fn dbg_print_brillig_program(brillig: &Brillig) {
+pub fn dbg_print_brillig_program(brillig_bytecode: &[BrilligOpcode]) {
     debug!("Printing Brillig program...");
-    debug!("\tInputs: {:?}", brillig.inputs);
-    for (i, instruction) in brillig.bytecode.iter().enumerate() {
+    for (i, instruction) in brillig_bytecode.iter().enumerate() {
         debug!("\tPC:{0} {1:?}", i, instruction);
     }
-    debug!("\tOutputs: {:?}", brillig.outputs);
 }
 
 /// Print each instruction in an AVM program
