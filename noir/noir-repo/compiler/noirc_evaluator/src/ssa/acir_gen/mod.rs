@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use self::acir_ir::acir_variable::{AcirContext, AcirType, AcirVar};
 use super::function_builder::data_bus::DataBus;
 use super::ir::dfg::CallStack;
-use super::ir::instruction::ConstrainError;
+use super::ir::instruction::{ConstrainError, UserDefinedConstrainError};
 use super::{
     ir::{
         dfg::DataFlowGraph,
@@ -521,8 +521,13 @@ impl<'a> Context<'a> {
 
                 let assert_message = if let Some(error) = assert_message {
                     match error.as_ref() {
-                        ConstrainError::Static(string) => Some(string.clone()),
-                        ConstrainError::Dynamic(call_instruction) => {
+                        ConstrainError::Intrinsic(string)
+                        | ConstrainError::UserDefined(UserDefinedConstrainError::Static(string)) => {
+                            Some(string.clone())
+                        }
+                        ConstrainError::UserDefined(UserDefinedConstrainError::Dynamic(
+                            call_instruction,
+                        )) => {
                             self.convert_ssa_call(call_instruction, dfg, ssa, brillig, &[])?;
                             None
                         }
