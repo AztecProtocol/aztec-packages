@@ -22,6 +22,26 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         assert(needs_teardown == true, "Cannot run unnecessary teardown circuit");
     }
 
+    fn validate_transaction_fee(self, public_inputs: PublicKernelCircuitPublicInputsBuilder) {
+        let injected_transaction_fee = self.public_call.call_stack_item.public_inputs.call_context.transaction_fee;
+
+        let inclusion_fee = public_inputs.constants.gas_settings.inclusion_fee;
+        let revertible_gas_used = public_inputs.end.gas_used;
+        let non_revertible_gas_used = public_inputs.end_non_revertible.gas_used;
+        let teardown_gas_allocated = public_inputs.constants.gas_settings.get_teardown_gas_limits();
+        let total_gas_used = revertible_gas_used.add(non_revertible_gas_used).add(teardown_gas_allocated);
+
+        // TODO(palla/gas): Source gas prices from current block and not previous
+        let block_gas_prices = public_inputs.constants.historical_header.global_variables.gas_fees;
+
+        // TODO(palla/gas): Move this check to the base rollup once we charge fees there
+        let user_max_gas_prices = public_inputs.constants.gas_settings.get_max_fee_per_gas();
+        assert(user_max_gas_prices.geq(block_gas_prices), "Gas price exceeds user max gas price");
+
+        let transaction_fee = total_gas_used.compute_fee(block_gas_prices, inclusion_fee);
+        assert_eq(injected_transaction_fee, transaction_fee, "Transaction fee does not match");
+    }
+
     fn public_kernel_teardown(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
         let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
@@ -45,6 +65,9 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
+
+        // Validate the transaction fee injected has been correctly computed.
+        self.validate_transaction_fee(public_inputs);
 
         if public_inputs.revert_code == 0 {
             common::accumulate_unencrypted_logs(
@@ -371,6 +394,23 @@ mod tests {
     fn fails_if_public_call_reverted() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.revert_code = 1;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Transaction fee does not match")]
+    fn fails_if_wrong_transaction_fee() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+        builder.public_call.public_inputs.call_context.transaction_fee = 1;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Gas price exceeds user max gas price")]
+    fn fails_if_max_user_fee_per_gas_exceeded() {
+        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
+        builder.previous_kernel.gas_settings.l2.max_fee_per_gas = 1;
+        builder.previous_kernel.historical_header.global_variables.gas_fees.fee_per_l2_gas = 2;
 
         builder.failed();
     }

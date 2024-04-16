@@ -1,7 +1,8 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress}, abis::gas::Gas,
-    constants::{GAS_SETTINGS_LENGTH, DIMENSION_GAS_SETTINGS_LENGTH}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered, utils::reader::Reader
+    abis::gas_fees::GasFees, constants::{GAS_SETTINGS_LENGTH, DIMENSION_GAS_SETTINGS_LENGTH},
+    hash::pedersen_hash, traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered,
+    utils::reader::Reader
 };
 
 struct GasSettings {
@@ -23,6 +24,22 @@ impl GasSettings {
 
     fn get_gas_limits(self) -> Gas {
         Gas { da_gas: self.da.gas_limit, l1_gas: self.l1.gas_limit, l2_gas: self.l2.gas_limit }
+    }
+
+    fn get_teardown_gas_limits(self) -> Gas {
+        Gas {
+            da_gas: self.da.teardown_gas_limit,
+            l1_gas: self.l1.teardown_gas_limit,
+            l2_gas: self.l2.teardown_gas_limit
+        }
+    }
+
+    fn get_max_fee_per_gas(self) -> GasFees {
+        GasFees {
+            fee_per_da_gas: self.da.max_fee_per_gas,
+            fee_per_l1_gas: self.l1.max_fee_per_gas,
+            fee_per_l2_gas: self.l2.max_fee_per_gas
+        }
     }
 }
 

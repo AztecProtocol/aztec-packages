@@ -1,7 +1,7 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
-    constants::GAS_LENGTH, hash::pedersen_hash, traits::{Deserialize, Hash, Serialize, Empty},
-    abis::side_effect::Ordered, utils::reader::Reader
+    abis::gas_fees::GasFees, constants::GAS_LENGTH, hash::pedersen_hash,
+    traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered, utils::reader::Reader
 };
 
 struct Gas {
@@ -29,6 +29,13 @@ impl Gas {
             self.l1_gas - other.l1_gas,
             self.l2_gas - other.l2_gas
         )
+    }
+
+    fn compute_fee(self, prices: GasFees, inclusion_fee: Field) -> Field {
+        (self.da_gas as Field) * prices.fee_per_da_gas
+            + (self.l1_gas as Field) * prices.fee_per_l1_gas
+            + (self.l2_gas as Field) * prices.fee_per_l2_gas
+            + inclusion_fee
     }
 }
 

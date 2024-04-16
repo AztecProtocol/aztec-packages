@@ -47,7 +47,10 @@ export class CallContext {
      */
     public sideEffectCounter: number,
 
-    /** Gas settings for this tx. */
+    /**
+     * Gas settings for this tx.
+     * TODO(palla/gas) This is constant across the transaction, should we lift it out of CallContext?
+     */
     public gasSettings: GasSettings,
 
     /** Accumulated transaction fee, only set during teardown phase. */

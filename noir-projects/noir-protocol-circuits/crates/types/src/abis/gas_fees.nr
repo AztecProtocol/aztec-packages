@@ -14,6 +14,12 @@ impl GasFees {
     fn new(fee_per_da_gas: Field, fee_per_l1_gas: Field, fee_per_l2_gas: Field) -> Self {
         Self { fee_per_da_gas, fee_per_l1_gas, fee_per_l2_gas }
     }
+
+    fn geq(self, other: GasFees) -> bool {
+        !((self.fee_per_da_gas.lt(other.fee_per_da_gas))
+            | (self.fee_per_l1_gas.lt(other.fee_per_l1_gas))
+            | (self.fee_per_l2_gas.lt(other.fee_per_l2_gas)))
+    }
 }
 
 impl Serialize<GAS_FEES_LENGTH> for GasFees {
