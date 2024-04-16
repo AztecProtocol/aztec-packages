@@ -56,12 +56,12 @@ describe('e2e_dapp_subscription', () => {
   const REFUND = 29n; // intentionally overpay the gas fee. This is the expected refund.
   const MAX_FEE = FEE_AMOUNT + REFUND;
 
-  const GAS_SETTINGS = GasSettings.new(
-    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    new Fr(6),
-  );
+  const GAS_SETTINGS = GasSettings.new({
+    da: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    l1: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    l2: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    inclusionFee: new Fr(6),
+  });
 
   beforeAll(async () => {
     process.env.PXE_URL = '';

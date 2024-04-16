@@ -15,17 +15,17 @@ export class GasSettings {
     public readonly inclusionFee: Fr,
   ) {}
 
-  static new(
-    da: FieldsOf<DimensionGasSettings>,
-    l1: FieldsOf<DimensionGasSettings>,
-    l2: FieldsOf<DimensionGasSettings>,
-    inclusionFee: Fr,
-  ) {
+  static new(args: {
+    da: FieldsOf<DimensionGasSettings>;
+    l1: FieldsOf<DimensionGasSettings>;
+    l2: FieldsOf<DimensionGasSettings>;
+    inclusionFee: Fr;
+  }) {
     return new GasSettings(
-      DimensionGasSettings.from(da),
-      DimensionGasSettings.from(l1),
-      DimensionGasSettings.from(l2),
-      inclusionFee,
+      DimensionGasSettings.from(args.da),
+      DimensionGasSettings.from(args.l1),
+      DimensionGasSettings.from(args.l2),
+      args.inclusionFee,
     );
   }
 

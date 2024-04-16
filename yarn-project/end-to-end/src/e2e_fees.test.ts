@@ -53,12 +53,12 @@ describe('e2e_fees', () => {
   let bananaPublicBalances: BalancesFn;
   let bananaPrivateBalances: BalancesFn;
 
-  const gasSettings = GasSettings.new(
-    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    new Fr(6),
-  );
+  const gasSettings = GasSettings.new({
+    da: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    l1: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    l2: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    inclusionFee: new Fr(6),
+  });
 
   beforeAll(async () => {
     const { wallets: _wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3, {}, {}, true);

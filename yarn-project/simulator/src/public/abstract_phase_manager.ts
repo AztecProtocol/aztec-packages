@@ -251,11 +251,6 @@ export abstract class AbstractPhaseManager {
         const isExecutionRequest = !isPublicExecutionResult(current);
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
 
-        // const gasLeft = kernelOutput.constants.gasSettings
-        //   .getLimits()
-        //   .sub(kernelOutput.end.gasUsed)
-        //   .sub(kernelOutput.endNonRevertibleData.gasUsed);
-
         const result = isExecutionRequest
           ? await this.publicExecutor.simulate(current, this.globalVariables, sideEffectCounter)
           : current;

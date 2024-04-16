@@ -37,12 +37,12 @@ describe('TxRequest', () => {
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), true),
       argsHash: new Fr(3),
       txContext: new TxContext(false, false, Fr.ZERO, Fr.ZERO),
-      gasSettings: GasSettings.new(
-        { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
-        { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
-        { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
-        new Fr(10),
-      ),
+      gasSettings: GasSettings.new({
+        da: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
+        l1: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
+        l2: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
+        inclusionFee: new Fr(10),
+      }),
     });
 
     const hash = txRequest.hash().toString();

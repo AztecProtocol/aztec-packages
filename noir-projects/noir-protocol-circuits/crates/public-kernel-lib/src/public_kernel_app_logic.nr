@@ -469,7 +469,7 @@ mod tests {
         // And uses 200, ending with 500 left
         builder.public_call.public_inputs.gas_left = Gas::new(500, 500, 500);
 
-        // So the updated gas used by non-revertible must go up by 200, and revertible must stay the same
+        // So the updated gas used by revertible must go up by 200, and non-revertible must stay the same
         let output = builder.execute();
         assert_eq(output.end.gas_used, Gas::new(500, 500, 500));
         assert_eq(output.end_non_revertible.gas_used, Gas::new(0, 0, 0));
