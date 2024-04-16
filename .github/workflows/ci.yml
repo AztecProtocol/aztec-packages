@@ -143,3 +143,9 @@ jobs:
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 15
         run: earthly --no-output +bench-ultra-honk --bench_mode=cache
+
+  merge-check:
+    runs-on: ${{ github.actor }}-x86
+    needs: [e2e, bb-native-tests, bb-bench]
+    steps:
+      - run: echo Pull request merging now allowed.
