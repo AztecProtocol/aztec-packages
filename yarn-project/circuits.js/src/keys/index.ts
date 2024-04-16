@@ -1,3 +1,4 @@
+// TODO(benesjan): nuke all this?
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
