@@ -23,7 +23,7 @@ nargo:
     RUN echo CONTENT HASH $COMMIT_HASH | tee .content-hash
     SAVE ARTIFACT /usr/src/noir-repo/target/release/nargo nargo
     SAVE ARTIFACT /usr/src/noir-repo/target/release/acvm acvm
-    SAVE IMAGE --cache-hint aztecprotocol/nargo
+    SAVE IMAGE aztecprotocol/nargo
 
 packages:
     BUILD ../barretenberg/ts/+build # prefetch
