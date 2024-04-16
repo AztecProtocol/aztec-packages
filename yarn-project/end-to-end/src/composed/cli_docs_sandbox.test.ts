@@ -129,6 +129,7 @@ SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
 SlowTreeContractArtifact
 StatefulTestContractArtifact
+StateVarsContractArtifact
 TestContractArtifact
 TokenBlacklistContractArtifact
 TokenBridgeContractArtifact
