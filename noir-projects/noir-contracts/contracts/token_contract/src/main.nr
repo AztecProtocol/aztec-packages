@@ -125,14 +125,14 @@ contract Token {
     // docs:start:total_supply
     #[aztec(public)]
     fn total_supply() -> pub Field {
-        storage.total_supply.read().to_integer()
+        storage.total_supply.read().to_field()
     }
     // docs:end:total_supply
 
     // docs:start:balance_of_public
     #[aztec(public)]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.public_balances.at(owner).read().to_integer()
+        storage.public_balances.at(owner).read().to_field()
     }
     // docs:end:balance_of_public
 
@@ -206,7 +206,7 @@ contract Token {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
 
         let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new(amount.to_integer(), secret_hash);
+        let mut note = TransparentNote::new(amount.to_field(), secret_hash);
 
         storage.public_balances.at(from).write(from_balance);
         pending_shields.insert_from_public(&mut note);
@@ -348,7 +348,7 @@ contract Token {
 
     // docs:start:balance_of_private
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
-        storage.balances.balance_of(owner).to_integer()
+        storage.balances.balance_of(owner).to_field()
     }
     // docs:end:balance_of_private
 }

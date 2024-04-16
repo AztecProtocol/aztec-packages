@@ -38,6 +38,16 @@ contract TokenBlacklist {
         slow_update: SharedImmutable<AztecAddress>,
     }
 
+    #[aztec(public)]
+    fn total_supply() -> pub Field {
+        storage.total_supply.read().to_field()
+    }
+
+    #[aztec(public)]
+    fn balance_of_public(owner: AztecAddress) -> pub Field {
+        storage.public_balances.at(owner).read().to_field()
+    }
+
     // docs:start:constructor
     #[aztec(public)]
     #[aztec(initializer)]
@@ -289,15 +299,7 @@ contract TokenBlacklist {
 
     /// Unconstrained ///
 
-    unconstrained fn total_supply() -> pub Field {
-        storage.total_supply.read().to_field()
-    }
-
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
-    }
-
-    unconstrained fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.public_balances.at(owner).read().to_field()
     }
 }
