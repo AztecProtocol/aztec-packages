@@ -142,7 +142,26 @@ jobs:
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 15
-        run: earthly --no-output +bench-ultra-honk --bench_mode=cache
+        run: earthly --artifact +bench/bench.json --bench_mode=cache
+
+      # Utilize github-action-benchmark to automatically update the plots at
+      # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
+      # This also creates an alert if benchmarks exceed the threshold specified below.
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: C++ Benchmark
+          tool: 'googlecpp'
+          output-file-path: barretenberg/cpp/bench.json
+          # Access token to deploy GitHub Pages branch
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Push and deploy GitHub pages branch automatically
+          auto-push: true
+          # Show alert with commit comment on detecting possible performance regression
+          alert-threshold: '105%' # alert if bench result is 1.05x worse
+          comment-on-alert: true
+          fail-on-alert: false
+          alert-comment-cc-users: '@ludamad @codygunton'
 
   merge-check:
     runs-on: ${{ github.actor }}-x86

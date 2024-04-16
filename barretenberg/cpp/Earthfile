@@ -193,11 +193,10 @@ bench-ultra-honk:
     COPY --dir +bench-binaries/* .
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
-    RUN cd release && ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
-    RUN cd op-count && ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
-    RUN cd op-count-time && ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+    RUN cd release && ./bin/ultra_honk_bench --benchmark_out=../ultra_honk_release.json --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
     COPY +wasmtime/wasmtime /usr/bin/wasmtime
-    RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+    RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/ultra_honk_bench --benchmark_out=../ultra_honk_wasm.json --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
+    SAVE ARTIFACT ultra_honk*.json
 
 bench-client-ivc:
     BUILD +wasmtime # prefetch
@@ -205,11 +204,32 @@ bench-client-ivc:
     COPY --dir +bench-binaries/* .
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
-    RUN cd release && ./bin/client_ivc_bench --benchmark_filter="ClientIVCBench/Full/6$"
-    RUN cd op-count && ./bin/client_ivc_bench --benchmark_filter="ClientIVCBench/Full/6$"
-    RUN cd op-count-time && ./bin/client_ivc_bench --benchmark_filter="ClientIVCBench/Full/6$"
+    RUN cd release && ./bin/client_ivc_bench --benchmark_out=../client_ivc_release.json --benchmark_filter="ClientIVCBench/Full/6$"
+    RUN cd op-count && ./bin/client_ivc_bench --benchmark_out=../client_ivc_op_count.json --benchmark_filter="ClientIVCBench/Full/6$"
+    RUN cd op-count-time && ./bin/client_ivc_bench --benchmark_out=../client_ivc_op_count_time.json --benchmark_filter="ClientIVCBench/Full/6$"
     COPY +wasmtime/wasmtime /usr/bin/wasmtime
-    RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/client_ivc_bench --benchmark_filter="ClientIVCBench/Full/6$"
+    RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/client_ivc_bench --benchmark_out=../client_ivc_wasm.json --benchmark_filter="ClientIVCBench/Full/6$"
+    SAVE ARTIFACT client_ivc*.json
+
+bench:
+    FROM aztecprotocol/bb-ubuntu-lunar
+    # for sequential running
+    WAIT
+    COPY +bench-ultra-honk/* .
+    END
+    WAIT
+    COPY +bench-client-ivc/* .
+    END
+    COPY ./scripts/ci/combine_benchmarks.py ./scripts/ci/combine_benchmarks.py
+    RUN ./scripts/ci/combine_benchmarks.py \
+        native client_ivc_release.json \
+        native ultra_honk_release.json \
+        wasm client_ivc_wasm.json \
+        wasm ultra_honk_wasm.json \
+        "" client_ivc_op_count.json \
+        "" client_ivc_op_count_time.json \
+        > bench.json
+    SAVE ARTIFACT bench.json
 
 # Sent to the bench runner using a earthly --push +test-binaries
 # then we can run earthly +test --test_mode=cache
@@ -247,3 +267,8 @@ test:
         ENV HARDWARE_CONCURRENCY=$hardware_concurrency
     END
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
+
+build:
+    BUILD +preset-wasm
+    BUILD +preset-wasm-threads
+    BUILD +preset-release
