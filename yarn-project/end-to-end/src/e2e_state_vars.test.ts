@@ -67,6 +67,17 @@ describe('e2e_state_vars', () => {
       await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
     });
 
+
+    it('public multiread of SharedImmutable', async () => {
+      // Reads the value using an unconstrained function checking the return values with:
+      // 1. A constrained public function that reads 5 times directly (going beyond the previous 4 Field return value)
+
+      const a = await contract.methods.get_shared_immutable_constrained_public_multiple().simulate();
+      const c = await contract.methods.get_shared_immutable().simulate();
+
+      expect(a).toEqual([c, c, c, c, c]);
+    });
+
     it('initializing SharedImmutable the second time should fail', async () => {
       // Jest executes the tests sequentially and the first call to initialize_shared_immutable was executed
       // in the previous test, so the call bellow should fail.

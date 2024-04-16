@@ -144,6 +144,12 @@ contract DocsExample {
         storage.shared_immutable.read_public()
     }
 
+    #[aztec(public)]
+    fn get_shared_immutable_constrained_public_multiple() -> pub [Leader; 5] {
+        let a = storage.shared_immutable.read_public();
+        [a, a, a, a, a]
+    }
+
     #[aztec(private)]
     fn get_shared_immutable_constrained_private() -> pub Leader {
         storage.shared_immutable.read_private()
