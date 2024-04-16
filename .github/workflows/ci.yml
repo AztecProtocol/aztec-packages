@@ -44,7 +44,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
-        run: earthly --remote-cache=aztecprotocol/ci-cache:master ./yarn-project+export-end-to-end
+        run: earthly ./yarn-project+export-end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       - name: Create list of end-to-end jobs
         id: e2e_list
