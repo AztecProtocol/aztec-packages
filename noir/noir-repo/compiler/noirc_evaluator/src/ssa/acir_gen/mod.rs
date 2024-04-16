@@ -362,7 +362,7 @@ impl<'a> Context<'a> {
         // replaced with constraints on witnesses to the program outputs.
         let output_values = self.acir_context.brillig_call(
             self.current_side_effects_enabled_var,
-            code,
+            &code,
             inputs,
             outputs,
             false,
