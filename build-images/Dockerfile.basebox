@@ -1,5 +1,5 @@
-# We want to produce two downstream images, devbox and sysbox. This image is the base image each.
-# It contains a host of tools that developers need to build aztec.
+# We want to produce two downstream images, devbox and sysbox. This image is the base image for each.
+# It contains a suite of tools that developers might use to develop aztec.
 FROM aztecprotocol/build
 RUN yes | unminimize
 

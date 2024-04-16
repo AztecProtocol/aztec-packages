@@ -5,8 +5,7 @@ set -eu
 groupmod -g $LOCAL_GROUP_ID aztec-dev
 usermod -u $LOCAL_USER_ID aztec-dev &> /dev/null
 
-# Modify the gid of the docker group to match the docker socket's gid.
-# Check if this gid is already being used by another group, modify existing if so.
+# Find the group id of the docker socket, add aztec-dev to that group, or create the group and add aztec-dev.
 SOCKET_GID=$(stat -c %g /var/run/docker.sock)
 EXISTING_GROUP=$(getent group $SOCKET_GID | cut -d: -f1)
 if [ -z "$EXISTING_GROUP" ]; then

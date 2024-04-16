@@ -1,5 +1,5 @@
 [toolchain]
-channel = "1.73"
+channel = "1.73.0"
 components = ["rust-src"]
 targets = []
 profile = "default"

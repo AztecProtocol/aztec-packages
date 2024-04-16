@@ -1,8 +1,34 @@
 # This image contains *just* what's needed to perform a full build of the aztec project.
 # It acts as the base image for all CI builds, and we build on it to produce a developer box.
-FROM ubuntu:noble
 
-# Install required distro packages.
+# Build wasi-sdk.
+FROM ubuntu:noble AS wasi-sdk
+RUN apt update && apt install -y \
+    clang \
+    cmake \
+    ninja-build \
+    git \
+    cargo
+RUN git clone --depth 1 --recursive --branch wasi-sdk-22 \
+        https://github.com/WebAssembly/wasi-sdk.git
+RUN cd wasi-sdk && MAKEFLAGS="-j$(nproc)" make -e build strip && \
+    mv build/install/opt/wasi-sdk /opt/wasi-sdk
+
+# Build foundry.
+FROM ubuntu:noble AS foundry
+RUN apt update && apt install -y git cargo
+RUN ulimit -n 65535 && \
+    git clone --depth 1 --branch nightly-de33b6af53005037b463318d2628b5cfcaf39916 \
+        https://github.com/foundry-rs/foundry.git && \
+    cd foundry && cargo build --profile local && \
+    mkdir -p /opt/foundry/bin && \
+    for t in forge cast anvil chisel; do \
+        mv ./target/local/$t /opt/foundry/bin/$t; \
+        strip /opt/foundry/bin/$t; \
+    done
+
+# Build actual image.
+FROM ubuntu:noble
 RUN apt update && \
     apt install -y \
         # Utils
@@ -32,36 +58,11 @@ RUN apt update && \
         python3-clang \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Build and install wasi-sdk.
-# We need rust to build wasi-sdk, but don't want to have to commit to any specific version at this layer of the build.
-# Install and uninstall the distros cargo as part of this single layer.
-# We can't just use the distros version for aztec as it's missing rustup, which is needed to download cross-compilers.
-RUN apt update && apt install -y cargo && \
-    git clone --recursive https://github.com/WebAssembly/wasi-sdk.git && \
-    cd wasi-sdk && \
-    git checkout 5bde500a86666c69f2a8adec27fd85725d4768d9 && \
-    MAKEFLAGS="-j$(nproc)" make -e build strip && \
-    mv build/install/opt/wasi-sdk /opt/wasi-sdk && \
-    cd .. && rm -rf wasi-sdk && \
-    apt remove -y cargo rustc && apt autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# Install wasi-sdk.
+COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
 
-# Build and install foundry.
-# We use a specific pinned nightly commit.
-# Requires rust 1.75. Use distros version to build, then remove.
-RUN ulimit -n 65535 && \
-    apt update && apt install -y cargo && \
-    git clone --depth 1 --branch nightly-de33b6af53005037b463318d2628b5cfcaf39916 \
-        https://github.com/foundry-rs/foundry.git && \
-    cd foundry && cargo build --profile local && \
-    mkdir -p /opt/foundry/bin && \
-    for t in forge cast anvil chisel; do \
-        mv ./target/local/$t /opt/foundry/bin/$t; \
-        strip /opt/foundry/bin/$t; \
-    done && \
-    cd .. && rm -rf foundry && \
-    apt remove -y cargo rustc && apt autoremove -y && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cargo
+# Install foundry.
+COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
 # Install rust and cross-compilers. Noir specifically uses 1.73.0.
