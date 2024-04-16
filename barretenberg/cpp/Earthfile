@@ -87,16 +87,19 @@ preset-release:
     FROM +source
     RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-release-assert:
     FROM +source
     RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-debug:
     FROM +source
     RUN cmake --preset clang16-dbg -Bbuild && cmake --build build --target bb
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-wasm:
     ARG TARGETARCH
@@ -110,8 +113,8 @@ preset-wasm:
         RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm
         RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
         SAVE ARTIFACT build/bin
-        SAVE IMAGE --cache-hint
     END
+    SAVE IMAGE --cache-hint
 
 preset-wasm-threads:
     FROM +source
@@ -120,21 +123,25 @@ preset-wasm-threads:
     # TODO(https://github.com/AztecProtocol/barretenberg/issues/941) We currently do not strip barretenberg threaded wasm, for stack traces.
     # RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-gcc:
     FROM +source
     RUN cmake --preset gcc -Bbuild && cmake --build build
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-fuzzing:
     FROM +source
     RUN cmake --preset fuzzing -Bbuild && cmake --build build
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-clang-assert:
     FROM +source
     RUN cmake --preset clang16-assert -Bbuild && cmake --build build --target bb
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 # benchmarking images
 # these are either fresh builds just for benching (op-count and op-count-time)
@@ -143,21 +150,25 @@ preset-op-count-bench:
     FROM +source
     RUN cmake --preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert -Bbuild && cmake --build build --target ultra_honk_bench --target client_ivc_bench
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-op-count-time-bench:
     FROM +source
     RUN cmake --preset op-count-time -Bbuild && cmake --build build --target ultra_honk_bench --target client_ivc_bench
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-release-bench:
     FROM +preset-release
     RUN cmake --build build --target ultra_honk_bench --target client_ivc_bench
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 preset-wasm-bench:
     FROM +preset-wasm-threads
     RUN cmake --build build --target ultra_honk_bench --target client_ivc_bench
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 # test images
 preset-release-assert-test:
@@ -165,6 +176,7 @@ preset-release-assert-test:
     # build all targets for tests
     RUN cmake --build build
     SAVE ARTIFACT build/bin
+    SAVE IMAGE --cache-hint
 
 # Sent to the bench runner using a earthly --push +bench-binaries
 # then we can run earthly +bench-ultra-honk --bench_mode=cache
@@ -177,6 +189,10 @@ bench-binaries:
         FROM aztecprotocol/bb-bench-binaries:$TARGETARCH-$EARTHLY_GIT_HASH
         SAVE ARTIFACT ./*
     ELSE
+        BUILD +preset-op-count-time-bench # activates cache-hint
+        BUILD +preset-op-count-bench # activates cache-hint
+        BUILD +preset-release-bench # activates cache-hint
+        BUILD +preset-wasm-bench # activates cache-hint
         FROM scratch
         COPY +preset-op-count-time-bench/bin/*_bench op-count-time/bin/
         COPY +preset-op-count-bench/bin/*_bench op-count/bin/
@@ -237,6 +253,7 @@ test-clang-format:
 test:
     ARG hardware_concurrency=""
     BUILD +test-clang-format
+    BUILD +test-binaries # for cache-hint
     BUILD ./srs_db/+build # prefetch
     FROM +source
     COPY --dir +test-binaries/build build

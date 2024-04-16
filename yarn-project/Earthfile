@@ -1,6 +1,9 @@
 VERSION 0.8
 
 deps:
+    # Prefetch targets to not wait for +deps, and activate --cache-hint's (only done through BUILD).
+    BUILD ../barretenberg/ts/+build
+    BUILD ../noir/+packages/packages
     LOCALLY
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
@@ -29,7 +32,7 @@ deps:
     RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
 build:
-    # Prefetch targets to not wait for +deps.
+    # Prefetch targets to not wait for +deps, and activate --cache-hint's (only done through BUILD).
     BUILD ../barretenberg/cpp/+preset-release
     BUILD ../noir/+nargo
     BUILD ../noir-projects/+build
@@ -72,6 +75,8 @@ end-to-end-prod:
     SAVE ARTIFACT /usr/src /usr/src
 
 end-to-end:
+    # BUILD activates --cache-hint
+    BUILD ../foundry/+build
     FROM node:18.19.1-slim
     RUN apt-get update && apt-get install jq chromium netcat-openbsd -y
     ENV CHROME_BIN="/usr/bin/chromium"
@@ -87,14 +92,14 @@ all:
 
 # for use with yarn-project/end-to-end and its e2e_mode=cache option
 export-end-to-end:
-    # Prefetch targets to build in parallel.
+    # Prefetch targets to build in parallel and activate --cache-hint.
     BUILD +end-to-end
     BUILD +aztec
     ARG EARTHLY_GIT_HASH
     # pushes the foundry image to local docker images
     FROM ../foundry/+build
-    SAVE IMAGE aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
+    SAVE IMAGE --cache-hint aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
     FROM +end-to-end
-    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
+    SAVE IMAGE --cache-hint aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
     FROM +aztec
-    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+    SAVE IMAGE --cache-hint aztecprotocol/aztec:$EARTHLY_GIT_HASH
