@@ -458,6 +458,7 @@ contract Add2HonkVerifier is IVerifier {
         for (uint256 round; round < LOG_N; ++round) {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
             bool valid = checkSum(roundUnivariate, roundTarget);
+            if (!valid) revert SumcheckFailed();
 
             Fr roundChallenge = tp.sumCheckUChallenges[round];
 
@@ -468,7 +469,7 @@ contract Add2HonkVerifier is IVerifier {
 
         // Last round
         Fr grandHonkRelationSum = accumulateRelationEvaluations(proof, tp, powPartialEvaluation);
-        verified = grandHonkRelationSum == roundTarget;
+        verified = (grandHonkRelationSum == roundTarget);
     }
 
     function checkSum(Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate, Fr roundTarget)
@@ -477,7 +478,7 @@ contract Add2HonkVerifier is IVerifier {
         returns (bool checked)
     {
         Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
-        checked = totalSum != roundTarget;
+        checked = totalSum == roundTarget;
     }
 
     // Return the new target sum for the next sumcheck round
