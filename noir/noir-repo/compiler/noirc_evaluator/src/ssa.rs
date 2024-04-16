@@ -146,7 +146,7 @@ pub fn create_program(
     let func_sigs = program.function_signatures.clone();
 
     let recursive = program.recursive;
-    let (generated_acirs, generated_brilligs) = optimize_into_acir(
+    let (generated_acirs, generated_brillig) = optimize_into_acir(
         program,
         enable_ssa_logging,
         enable_brillig_logging,
@@ -159,7 +159,7 @@ pub fn create_program(
         "The generated ACIRs should match the supplied function signatures"
     );
 
-    let mut program_artifact = SsaProgramArtifact::new(generated_brilligs);
+    let mut program_artifact = SsaProgramArtifact::new(generated_brillig);
     // For setting up the ABI we need separately specify main's input and return witnesses
     let mut is_main = true;
     for (acir, func_sig) in generated_acirs.into_iter().zip(func_sigs) {

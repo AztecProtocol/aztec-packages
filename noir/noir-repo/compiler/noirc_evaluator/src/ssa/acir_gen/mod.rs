@@ -45,7 +45,7 @@ struct SharedContext {
     /// Final list of Brillig functions which will be part of the final program
     /// This is shared across `Context` structs as we want one list of Brillig
     /// functions across all ACIR artifacts
-    generated_brilligs: Vec<GeneratedBrillig>,
+    generated_brillig: Vec<GeneratedBrillig>,
 
     /// Maps SSA function index -> Final generated Brillig artifact index.
     /// Represents the index of a function from SSA to its final generated index.
@@ -61,7 +61,7 @@ impl SharedContext {
     }
 
     fn generated_brillig(&self, func_pointer: usize) -> &GeneratedBrillig {
-        &self.generated_brilligs[func_pointer]
+        &self.generated_brillig[func_pointer]
     }
 
     fn insert_generated_brillig(
@@ -71,11 +71,11 @@ impl SharedContext {
         code: GeneratedBrillig,
     ) {
         self.brillig_generated_func_pointers.insert(ssa_func_index, generated_pointer);
-        self.generated_brilligs.push(code);
+        self.generated_brillig.push(code);
     }
 
     fn new_generated_pointer(&self) -> u32 {
-        self.generated_brilligs.len() as u32
+        self.generated_brillig.len() as u32
     }
 }
 
@@ -238,7 +238,7 @@ impl Ssa {
             }
         }
 
-        let brilligs = vecmap(shared_context.generated_brilligs, |brillig| BrilligBytecode {
+        let brilligs = vecmap(shared_context.generated_brillig, |brillig| BrilligBytecode {
             bytecode: brillig.byte_code,
         });
 
