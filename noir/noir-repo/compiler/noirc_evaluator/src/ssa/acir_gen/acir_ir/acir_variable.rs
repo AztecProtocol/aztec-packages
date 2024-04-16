@@ -1598,7 +1598,7 @@ impl AcirContext {
         let outputs_var = vecmap(outputs, |output| match output {
             AcirType::NumericType(_) => {
                 let witness_index = self.acir_ir.next_witness_index();
-                b_outputs.push(BrilligOutputs::Simple(witness_index));
+                brillig_outputs.push(BrilligOutputs::Simple(witness_index));
                 let var = self.add_data(AcirVarData::Witness(witness_index));
                 AcirValue::Var(var, output.clone())
             }
