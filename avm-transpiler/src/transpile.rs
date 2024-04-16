@@ -1089,10 +1089,7 @@ fn handle_storage_read(
 ///     brillig: the Brillig program
 /// returns: an array where each index is a Brillig pc,
 ///     and each value is the corresponding AVM pc.
-fn map_brillig_pcs_to_avm_pcs(
-    initial_offset: usize,
-    brillig_bytecode: &[BrilligOpcode],
-) -> Vec<usize> {
+fn map_brillig_pcs_to_avm_pcs(initial_offset: usize, brillig_bytecode: &[BrilligOpcode]) -> Vec<usize> {
     let mut pc_map = vec![0; brillig_bytecode.len()];
 
     pc_map[0] = initial_offset;
