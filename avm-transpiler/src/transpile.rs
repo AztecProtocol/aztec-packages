@@ -1,5 +1,4 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
-use acvm::acir::circuit::brillig::Brillig;
 
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
