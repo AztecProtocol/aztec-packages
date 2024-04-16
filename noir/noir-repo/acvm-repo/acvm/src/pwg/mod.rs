@@ -166,11 +166,7 @@ pub struct ACVM<'a, B: BlackBoxFunctionSolver> {
     /// List is appended onto by the caller upon reaching a [ACVMStatus::RequiresAcirCall]
     acir_call_results: Vec<Vec<FieldElement>>,
 
-    // A counter maintained through an ACVM process that determines
-    // whether the caller has resolved the bytecode of a Brillig pointer
-    // brillig_call_counter: usize,
-    // Represents the bytecode pointer
-    // brillig_bytecodes: Vec<
+    // Each unconstrained function referenced in the program
     unconstrained_functions: &'a [BrilligBytecode],
 }
 
