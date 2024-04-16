@@ -117,7 +117,8 @@ preset-wasm-threads:
     FROM +source
     COPY +get-wasi-sdk-threads/wasi-sdk src/wasi-sdk
     RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm
-    RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/941) We currently do not strip barretenberg threaded wasm, for stack traces.
+    # RUN src/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
 
 preset-gcc:
@@ -187,6 +188,7 @@ bench-binaries:
 
 # Runs on the bench image, sent from the builder runner
 bench-ultra-honk:
+    BUILD +wasmtime # prefetch
     FROM +source
     COPY --dir +bench-binaries/* .
     # install SRS needed for proving
@@ -198,6 +200,7 @@ bench-ultra-honk:
     RUN cd wasm && wasmtime run --env HARDWARE_CONCURRENCY=16 -Wthreads=y -Sthreads=y --dir=".." ./bin/ultra_honk_bench --benchmark_filter="construct_proof_ultrahonk_power_of_2/20$"
 
 bench-client-ivc:
+    BUILD +wasmtime # prefetch
     FROM +source
     COPY --dir +bench-binaries/* .
     # install SRS needed for proving
@@ -232,9 +235,15 @@ test-clang-format:
     RUN ./format.sh check
 
 test:
+    ARG hardware_concurrency=""
+    BUILD +test-clang-format
+    BUILD ./srs_db/+build # prefetch
     FROM +source
     COPY --dir +test-binaries/build build
-    BUILD +test-clang-format
     FROM +preset-release-assert-test
     COPY --dir ./srs_db/+build/. srs_db
+    # limit hardware concurrency, if provided
+    IF [ "$HARDWARE_CONCURRENCY" != "" ]
+        ENV HARDWARE_CONCURRENCY=$hardware_concurrency
+    END
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
