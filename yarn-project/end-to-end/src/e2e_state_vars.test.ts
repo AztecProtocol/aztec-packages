@@ -67,7 +67,6 @@ describe('e2e_state_vars', () => {
       await contract.methods.match_shared_immutable(c.account, c.points).send().wait();
     });
 
-
     it('public multiread of SharedImmutable', async () => {
       // Reads the value using an unconstrained function checking the return values with:
       // 1. A constrained public function that reads 5 times directly (going beyond the previous 4 Field return value)
