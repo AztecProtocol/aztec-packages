@@ -10,8 +10,9 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-    call_context::CallContext, function_data::FunctionData, function_selector::FunctionSelector,
-    max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    gas::Gas, call_context::CallContext, function_data::FunctionData,
+    function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
+    nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     public_call_stack_item::PublicCallStackItem,
@@ -99,12 +100,6 @@ impl ContextInterface for PrivateContext {
         self.args_hash
     }
 
-    // Returns the header of a block whose state is used during private execution (not the block the transaction is
-    // included in).
-    fn get_header(self) -> Header {
-        self.historical_header
-    }
-
     fn push_new_note_hash(&mut self, note_hash: Field) {
         let side_effect = SideEffect { value: note_hash, counter: self.side_effect_counter };
         self.new_note_hashes.push(side_effect);
@@ -146,6 +141,12 @@ impl PrivateContext {
             // unencrypted_logs_preimages: Vec::new(),
             nullifier_key: Option::none()
         }
+    }
+
+    // Returns the header of a block whose state is used during private execution (not the block the transaction is
+    // included in).
+    fn get_header(self) -> Header {
+        self.historical_header
     }
 
     // Returns the header of an arbitrary block whose block number is less than or equal to the block number
@@ -494,7 +495,8 @@ impl PrivateContext {
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),
                 prover_address: AztecAddress::zero(),
-                revert_code: 0
+                revert_code: 0,
+                gas_left: Gas::empty()
             },
             is_execution_request: true
         };

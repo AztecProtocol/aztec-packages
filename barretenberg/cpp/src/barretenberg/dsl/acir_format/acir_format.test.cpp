@@ -198,7 +198,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         });
     }
 
-    std::vector<uint32_t> signature(64);
+    std::array<uint32_t, 64> signature;
     for (uint32_t i = 0, value = 12; i < 64; i++, value++) {
         signature[i] = value;
         range_constraints.push_back(RangeConstraint{
@@ -292,7 +292,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         });
     }
 
-    std::vector<uint32_t> signature(64);
+    std::array<uint32_t, 64> signature;
     for (uint32_t i = 0, value = 12; i < 64; i++, value++) {
         signature[i] = value;
         range_constraints.push_back(RangeConstraint{
