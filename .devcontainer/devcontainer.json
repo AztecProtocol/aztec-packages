@@ -1,5 +1,10 @@
 {
-  "image": "aztecprotocol/codespace",
+  "build": {
+    "dockerfile": "../build-images/Dockerfile",
+    "context": "../build-images",
+    "target": "codespace"
+  },
+  // "image": "aztecprotocol/codespace",
   // "features": {
   //   "docker-in-docker": {
   //     "version": "latest",
