@@ -156,11 +156,11 @@ global MAX_BLOCK_NUMBER_LENGTH: u64 = 2; // 1 for the option flag, 1 for the val
 global NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 3;
 global NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 4;
 global PARTIAL_STATE_REFERENCE_LENGTH: u64 = 6;
-global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 221;
+global PRIVATE_CALL_STACK_ITEM_LENGTH: u64 = 220;
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure.
 // In other words, if the structure/size of the public inputs of a function call changes then we should change this
 // constant as well PRIVATE_CALL_STACK_ITEM_LENGTH
-global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 218;
+global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 217;
 // Change this ONLY if you have changed the PublicCircuitPublicInputs structure.
 global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u64 = 209;
 global STATE_REFERENCE_LENGTH: u64 = 8; // 2 for snap + 8 for partial
