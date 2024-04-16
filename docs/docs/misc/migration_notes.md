@@ -10,7 +10,14 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### [Aztec.nr] Contract interfaces
 
-It is now possible to import contracts on another contracts and use their automatic interfaces to perform calls. The interfaces have the same name as the contract, and are automatically exported. Parameters are automatically serialized (using the `Serialize<N>` trait) and return values are automatically deserialized (using the `Deserialize<N>` trait).
+It is now possible to import contracts on another contracts and use their automatic interfaces to perform calls. The interfaces have the same name as the contract, and are automatically exported. Parameters are automatically serialized (using the `Serialize<N>` trait) and return values are automatically deserialized (using the `Deserialize<N>` trait). Serialize and Deserialize methods have to conform to the standard ACVM serialization schema for the interface to work!
+
+1. Only fixed length types are supported
+2. All numeric types become Fields
+3. Strings become arrays of Fields, one per char
+4. Arrays become arrays of Fields following rules 2 and 3
+5. Structs become arrays of Fields, with every item defined in the same order as they are in Noir code, following rules 2, 3, 4 and 5 (recursive)
+
 
 ```diff
 - context.call_public_function(

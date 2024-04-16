@@ -446,11 +446,8 @@ fn compile_contract_inner(
                         let fields = vecmap(typ.get_fields(&[]), |(name, typ)| {
                             (name, AbiType::from_type(context, &typ))
                         });
-                        let path = context.fully_qualified_struct_path(
-                            context.root_crate_id(),
-                            typ.id,
-                            false,
-                        );
+                        let path =
+                            context.fully_qualified_struct_path(context.root_crate_id(), typ.id);
                         AbiType::Struct { path, fields }
                     })
                     .collect();

@@ -100,7 +100,8 @@ pub fn signature_of_type(typ: &Type) -> String {
     }
 }
 
-// Fetches the name of all structs tagged as #[aztec(note)] in a given crate
+// Fetches the name of all structs tagged as #[aztec(note)] in a given crate, avoiding
+// contract dependencies that are just there for their interfaces.
 pub fn fetch_crate_notes(
     context: &HirContext,
     crate_id: &CrateId,
@@ -112,16 +113,20 @@ pub fn fetch_crate_notes(
             let attributes = context.def_interner.struct_attributes(struct_id);
             if attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(note)")) {
                 let module_id = struct_id.module_id();
-                let path =
-                    context.fully_qualified_struct_path(context.root_crate_id(), *struct_id, true);
-                let path = if path.contains("::") {
-                    let prefix =
-                        if &module_id.krate == context.root_crate_id() { "crate" } else { "dep" };
-                    format!("{}::{}", prefix, path)
-                } else {
-                    path
-                };
-                Some((path.clone(), r#struct))
+
+                fully_qualified_note_path(context, *struct_id).map(|path| {
+                    let path = if path.contains("::") {
+                        let prefix = if &module_id.krate == context.root_crate_id() {
+                            "crate"
+                        } else {
+                            "dep"
+                        };
+                        format!("{}::{}", prefix, path)
+                    } else {
+                        path
+                    };
+                    (path.clone(), r#struct)
+                })
             } else {
                 None
             }
@@ -149,7 +154,7 @@ pub fn get_contract_module_data(
         })
         .collect();
 
-    // If the current crate does not contain a contract module we simply skip it. More than 1 contract in a crate is forbidden by the compiler
+    // If the current crate does not contain a contract module we simply skip it.
     if contract_module_file_ids.is_empty() {
         return None;
     }
@@ -243,4 +248,64 @@ pub fn inject_global(
 
     let statement_id = context.def_interner.get_global(global_id).let_statement;
     context.def_interner.replace_statement(statement_id, hir_stmt);
+}
+
+pub fn fully_qualified_note_path(context: &HirContext, note_id: StructId) -> Option<String> {
+    let module_id = note_id.module_id();
+    let child_id = module_id.local_id.0;
+    let def_map =
+        context.def_map(&module_id.krate).expect("The local crate should be analyzed already");
+
+    let module = context.module(module_id);
+
+    let module_path = def_map.get_module_path_with_separator(child_id, module.parent, "::");
+
+    if &module_id.krate == context.root_crate_id() {
+        Some(module_path)
+    } else {
+        find_non_contract_dependencies_bfs(context, context.root_crate_id(), &module_id.krate)
+            .map(|crates| crates.join("::") + "::" + &module_path)
+    }
+}
+
+fn filter_contract_modules(context: &HirContext, crate_id: &CrateId) -> bool {
+    if let Some(def_map) = context.def_map(crate_id) {
+        !def_map.modules().iter().any(|(_, module)| module.is_contract)
+    } else {
+        true
+    }
+}
+
+fn find_non_contract_dependencies_bfs(
+    context: &HirContext,
+    crate_id: &CrateId,
+    target_crate_id: &CrateId,
+) -> Option<Vec<String>> {
+    context.crate_graph[crate_id]
+        .dependencies
+        .iter()
+        .filter(|dep| filter_contract_modules(context, &dep.crate_id))
+        .find_map(|dep| {
+            if &dep.crate_id == target_crate_id {
+                Some(vec![dep.name.to_string()])
+            } else {
+                None
+            }
+        })
+        .or_else(|| {
+            context.crate_graph[crate_id]
+                .dependencies
+                .iter()
+                .filter(|dep| filter_contract_modules(context, &dep.crate_id))
+                .find_map(|dep| {
+                    if let Some(mut path) =
+                        find_non_contract_dependencies_bfs(context, &dep.crate_id, target_crate_id)
+                    {
+                        path.insert(0, dep.name.to_string());
+                        Some(path)
+                    } else {
+                        None
+                    }
+                })
+        })
 }
