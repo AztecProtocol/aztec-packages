@@ -316,7 +316,7 @@ export class ${input.name}Contract extends ContractBase {
   ${notesGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
-  public methods!: {
+  public override methods!: {
     ${methods.join('\n')}
   };
 }
