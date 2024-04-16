@@ -137,7 +137,6 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forRollup.end,
       this.constants,
       PartialStateReference.empty(),
-      PartialStateReference.empty(),
       this.revertCode,
     );
   }

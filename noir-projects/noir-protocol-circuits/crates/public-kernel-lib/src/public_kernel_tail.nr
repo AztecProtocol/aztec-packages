@@ -91,16 +91,12 @@ impl PublicKernelTailCircuitPrivateInputs {
 
         let end = self.propagate_accumulated_data();
 
-        // TODO: update public data tree root.
-        let end_state = self.start_state;
-
         KernelCircuitPublicInputs {
             aggregation_object: previous_public_inputs.aggregation_object,
             rollup_validation_requests: previous_public_inputs.validation_requests.for_rollup,
             end,
             constants: previous_public_inputs.constants,
             start_state: self.start_state,
-            end_state,
             revert_code: previous_public_inputs.revert_code
         }
     }

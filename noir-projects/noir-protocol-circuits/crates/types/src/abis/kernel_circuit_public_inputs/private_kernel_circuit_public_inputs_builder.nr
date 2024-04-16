@@ -37,7 +37,6 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             end: self.end.to_combined(),
             constants: self.constants,
             start_state: PartialStateReference::empty(),
-            end_state: PartialStateReference::empty(),
             revert_code: 0
         }
     }

@@ -30,7 +30,6 @@ export class KernelCircuitPublicInputs {
      */
     public constants: CombinedConstantData,
     public startState: PartialStateReference,
-    public endState: PartialStateReference,
     /**
      * Flag indicating whether the transaction reverted.
      */
@@ -48,7 +47,6 @@ export class KernelCircuitPublicInputs {
       this.end,
       this.constants,
       this.startState,
-      this.endState,
       this.revertCode,
     );
   }
@@ -66,7 +64,6 @@ export class KernelCircuitPublicInputs {
       reader.readObject(CombinedAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readObject(PartialStateReference),
-      reader.readObject(PartialStateReference),
       reader.readObject(RevertCode),
     );
   }
@@ -77,7 +74,6 @@ export class KernelCircuitPublicInputs {
       RollupValidationRequests.empty(),
       CombinedAccumulatedData.empty(),
       CombinedConstantData.empty(),
-      PartialStateReference.empty(),
       PartialStateReference.empty(),
       RevertCode.OK,
     );

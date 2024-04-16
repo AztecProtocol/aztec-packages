@@ -71,7 +71,6 @@ struct FixtureBuilder {
 
     // States.
     start_state: PartialStateReference,
-    end_state: PartialStateReference,
 }
 
 impl FixtureBuilder {
@@ -107,7 +106,6 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: 0,
             counter: 0,
             start_state: PartialStateReference::empty(),
-            end_state: PartialStateReference::empty(),
             gas_used: GasUsed::empty(),
             gas_settings: GasSettings::empty()
         }
@@ -239,7 +237,6 @@ impl FixtureBuilder {
             end,
             constants,
             start_state: self.start_state,
-            end_state: self.end_state,
             revert_code: self.revert_code
         }
     }
@@ -441,7 +438,6 @@ impl Empty for FixtureBuilder {
             min_revertible_side_effect_counter: 0,
             counter: 0,
             start_state: PartialStateReference::empty(),
-            end_state: PartialStateReference::empty(),
             gas_settings: GasSettings::empty(),
             gas_used: GasUsed::empty(),
         }

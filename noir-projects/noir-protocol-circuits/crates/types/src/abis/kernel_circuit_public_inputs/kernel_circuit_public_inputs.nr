@@ -13,6 +13,5 @@ struct KernelCircuitPublicInputs {
     end: CombinedAccumulatedData,
     constants: CombinedConstantData,
     start_state: PartialStateReference,
-    end_state: PartialStateReference,
     revert_code: u8,
 }

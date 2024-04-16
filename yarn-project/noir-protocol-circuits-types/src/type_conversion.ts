@@ -1250,7 +1250,6 @@ export function mapKernelCircuitPublicInputsFromNoir(inputs: KernelCircuitPublic
     mapCombinedAccumulatedDataFromNoir(inputs.end),
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapPartialStateReferenceFromNoir(inputs.start_state),
-    mapPartialStateReferenceFromNoir(inputs.end_state),
     mapRevertCodeFromNoir(inputs.revert_code),
   );
 }
@@ -1262,7 +1261,6 @@ export function mapKernelCircuitPublicInputsToNoir(inputs: KernelCircuitPublicIn
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     end: mapCombinedAccumulatedDataToNoir(inputs.end),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
-    end_state: mapPartialStateReferenceToNoir(inputs.endState),
     revert_code: mapRevertCodeToNoir(inputs.revertCode),
   };
 }

@@ -183,7 +183,6 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert(is_empty(public_inputs.start_state));
-        assert(is_empty(public_inputs.end_state));
     }
 
     #[test]
