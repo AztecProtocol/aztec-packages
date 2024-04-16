@@ -109,4 +109,12 @@ export interface KeyStore {
    * TODO(benesjan): will need to be updated once we have app siloing of viewing keys
    */
   getMasterIncomingViewingSecretKeyForPublicKey(masterIncomingViewingPublicKey: PublicKey): Promise<GrumpkinPrivateKey>;
+
+  /**
+   * Retrieves public keys hash of the account
+   * @throws If the provided account address is not associated with any of the registered accounts.
+   * @param account - The account address to get public keys hash for.
+   * @returns A Promise that resolves to the public keys hash.
+   */
+  getPublicKeysHash(account: AztecAddress): Promise<Fr>;
 }

@@ -32,6 +32,8 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getCompleteAddress(): CompleteAddress;
 
+  abstract getPublicKeysHash(): Fr;
+
   abstract getChainId(): Fr;
 
   abstract getVersion(): Fr;
@@ -77,6 +79,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.pxe.getRegisteredAccount(address);
+  }
+  getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined> {
+    return this.pxe.getRegisteredAccountPublicKeysHash(address);
   }
   getRecipients(): Promise<CompleteAddress[]> {
     return this.pxe.getRecipients();

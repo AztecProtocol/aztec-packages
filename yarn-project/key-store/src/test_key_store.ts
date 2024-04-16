@@ -68,7 +68,9 @@ export class TestKeyStore implements KeyStore {
     const accountAddressFr = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
     const accountAddress = AztecAddress.fromField(accountAddressFr);
 
-    // We store all the public and secret keys in the database
+    // We save the keys to db
+    await this.#keys.set(`${accountAddress.toString()}-public_keys_hash`, publicKeysHash.toBuffer());
+
     await this.#keys.set(`${accountAddress.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
@@ -272,5 +274,19 @@ export class TestKeyStore implements KeyStore {
     throw new Error(
       `Could not find master incoming viewing secret key for public key ${masterIncomingViewingPublicKey.toString()}`,
     );
+  }
+
+  /**
+   * Retrieves public keys hash of the account
+   * @throws If the provided account address is not associated with any of the registered accounts.
+   * @param account - The account address to get public keys hash for.
+   * @returns A Promise that resolves to the public keys hash.
+   */
+  public getPublicKeysHash(account: AztecAddress): Promise<Fr> {
+    const publicKeysHashBuffer = this.#keys.get(`${account.toString()}-public_keys_hash`);
+    if (!publicKeysHashBuffer) {
+      throw new Error(`Account ${account.toString()} does not exist.`);
+    }
+    return Promise.resolve(Fr.fromBuffer(publicKeysHashBuffer));
   }
 }
