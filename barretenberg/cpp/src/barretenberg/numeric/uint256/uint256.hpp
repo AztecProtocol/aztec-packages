@@ -89,24 +89,15 @@ class alignas(32) uint256_t {
         return { static_cast<uint64_t>(a), static_cast<uint64_t>(a >> 64), 0, 0 };
     }
 
-    constexpr explicit operator uint128_t()
-    {
-        return (static_cast<uint128_t>(data[1]) << 64) + data[0];
-    }
+    constexpr explicit operator uint128_t() { return (static_cast<uint128_t>(data[1]) << 64) + data[0]; }
 
     constexpr uint256_t& operator=(const uint256_t& other) noexcept = default;
     constexpr uint256_t& operator=(uint256_t&& other) noexcept = default;
     constexpr ~uint256_t() noexcept = default;
 
-    explicit constexpr operator bool() const
-    {
-        return static_cast<bool>(data[0]);
-    };
+    explicit constexpr operator bool() const { return static_cast<bool>(data[0]); };
 
-    template <std::integral T> explicit constexpr operator T() const
-    {
-        return static_cast<T>(data[0]);
-    };
+    template <std::integral T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
 
     [[nodiscard]] constexpr bool get_bit(uint64_t bit_index) const;
     [[nodiscard]] constexpr uint64_t get_msb() const;
@@ -139,10 +130,7 @@ class alignas(32) uint256_t {
     constexpr bool operator>=(const uint256_t& other) const;
     constexpr bool operator<=(const uint256_t& other) const;
 
-    static constexpr size_t length()
-    {
-        return 256;
-    }
+    static constexpr size_t length() { return 256; }
 
     constexpr uint256_t& operator+=(const uint256_t& other)
     {
