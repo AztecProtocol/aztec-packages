@@ -86,6 +86,7 @@ impl PrivateAccumulatedDataBuilder {
                 revertible_builder.new_note_hashes.push(note_hash);
             }
         }
+
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.storage[i];
             if nullifier.counter < min_revertible_side_effect_counter {
@@ -104,11 +105,28 @@ impl PrivateAccumulatedDataBuilder {
             }
         }
 
+        for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+            let encrypted_logs_hash = self.encrypted_logs_hashes.storage[i];
+            if encrypted_logs_hash.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash);
+            } else {
+                revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash);
+            }
+        }
+
+        for i in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
+            let unencrypted_logs_hash = self.unencrypted_logs_hashes.storage[i];
+            if unencrypted_logs_hash.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
+            } else {
+                revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
+            }
+        }
+
         revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
-        revertible_builder.encrypted_logs_hashes = self.encrypted_logs_hashes;
-        revertible_builder.unencrypted_logs_hashes = self.unencrypted_logs_hashes;
+        // TODO(1165): Once we have individual lens, split here
         revertible_builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
-        revertible_builder.unencrypted_log_preimages_length= self.unencrypted_log_preimages_length;
+        revertible_builder.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length;
 
         (non_revertible_builder.finish(), revertible_builder.finish())
     }

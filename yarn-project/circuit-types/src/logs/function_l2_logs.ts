@@ -87,11 +87,10 @@ export class EncryptedFunctionL2Logs extends FunctionL2Logs<EncryptedL2Log> {
   /**
    * Creates a new L2Logs object with `numLogs` logs.
    * @param numLogs - The number of logs to create.
-   * @param test - Whether this call is a test, and won't overflow the kernels.
    * @returns A new EncryptedFunctionL2Logs object.
    */
-  public static random(numLogs: number, test = false): EncryptedFunctionL2Logs {
-    if (!test && numLogs > MAX_ENCRYPTED_LOGS_PER_CALL) {
+  public static random(numLogs: number): EncryptedFunctionL2Logs {
+    if (numLogs > MAX_ENCRYPTED_LOGS_PER_CALL) {
       throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_ENCRYPTED_LOGS_PER_CALL})`);
     }
     const logs: EncryptedL2Log[] = [];
@@ -140,11 +139,10 @@ export class UnencryptedFunctionL2Logs extends FunctionL2Logs<UnencryptedL2Log> 
   /**
    * Creates a new L2Logs object with `numLogs` logs.
    * @param numLogs - The number of logs to create.
-   * @param test - Whether this call is a test, and won't overflow the kernels.
    * @returns A new UnencryptedFunctionL2Logs object.
    */
-  public static random(numLogs: number, test = false): UnencryptedFunctionL2Logs {
-    if (!test && numLogs > MAX_UNENCRYPTED_LOGS_PER_CALL) {
+  public static random(numLogs: number): UnencryptedFunctionL2Logs {
+    if (numLogs > MAX_UNENCRYPTED_LOGS_PER_CALL) {
       throw new Error(`Trying to create ${numLogs} logs for one call (max: ${MAX_UNENCRYPTED_LOGS_PER_CALL})`);
     }
     const logs: UnencryptedL2Log[] = [];

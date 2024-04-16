@@ -293,8 +293,6 @@ pub fn update_end_values(
     // See the following thread if not clear:
     // https://discourse.aztec.network/t/proposal-forcing-the-sequencer-to-actually-submit-data-to-l1/426
 
-    // TODO(Miranda): Once we use actual logs, silo them here
-
     public_inputs.end.encrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(private_call_public_inputs.encrypted_logs_hashes));
     public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(array_to_bounded_vec(private_call_public_inputs.unencrypted_logs_hashes));
 

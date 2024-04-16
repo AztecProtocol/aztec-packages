@@ -158,10 +158,14 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
         // Logs for the private call.
-        let encrypted_log_preimages_length = 100;
-        let unencrypted_log_preimages_length = 50;
-        builder.private_call.set_encrypted_logs(16, encrypted_log_preimages_length);
-        builder.private_call.set_unencrypted_logs(26, unencrypted_log_preimages_length);
+        let encrypted_logs_hashes = [16, 36];
+        let encrypted_log_preimages_length = [100, 75];
+        let unencrypted_logs_hashes = [26, 46];
+        let unencrypted_log_preimages_length = [50, 25];
+        builder.private_call.set_encrypted_logs(encrypted_logs_hashes[0], encrypted_log_preimages_length[0]);
+        builder.private_call.set_unencrypted_logs(unencrypted_logs_hashes[0], unencrypted_log_preimages_length[0]);
+        builder.private_call.set_encrypted_logs(encrypted_logs_hashes[1], encrypted_log_preimages_length[1]);
+        builder.private_call.set_unencrypted_logs(unencrypted_logs_hashes[1], unencrypted_log_preimages_length[1]);
 
         let public_inputs = builder.execute();
 
@@ -170,8 +174,12 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, tx_hash);
 
         // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length);
+        assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length.reduce(|a, b| a + b));
+        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length.reduce(|a, b| a + b));
+        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, encrypted_logs_hashes[0]);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, unencrypted_logs_hashes[0]);
+        assert_eq(public_inputs.end.encrypted_logs_hashes[1].value, encrypted_logs_hashes[1]);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hashes[1]);
     }
 
     #[test(should_fail_with = "invalid array")]

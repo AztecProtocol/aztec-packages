@@ -187,6 +187,7 @@ pub fn update_public_end_non_revertible_values(
     propagate_new_nullifiers_non_revertible(public_call, circuit_outputs);
     propagate_new_note_hashes_non_revertible(public_call, circuit_outputs);
     propagate_new_l2_to_l1_messages(public_call, circuit_outputs);
+    propagate_new_unencrypted_logs_non_revertible(public_call, circuit_outputs);
     propagate_valid_non_revertible_public_data_update_requests(public_call, circuit_outputs);
 }
 
@@ -435,6 +436,22 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
     }
     public_inputs.end.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
     public_inputs.end.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
+}
+
+pub fn propagate_new_unencrypted_logs_non_revertible(public_call: PublicCallData, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+    // new unencrypted logs
+    let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
+    // TODO(Miranda): silo logs here once we have finalised struct
+    let mut new_logs_to_insert : BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL> = BoundedVec::new();
+    for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL {
+        let new_log = new_logs[i];
+        if new_log.value != 0 {
+            // let siloed_new_log = something;
+            new_logs_to_insert.push(new_log)
+        }
+    }
+    public_inputs.end_non_revertible.unencrypted_logs_hashes.extend_from_bounded_vec(new_logs_to_insert);
+    public_inputs.end_non_revertible.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
 }
 
 /**
