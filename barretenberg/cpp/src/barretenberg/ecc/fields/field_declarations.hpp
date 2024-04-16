@@ -206,18 +206,9 @@ template <class Params_> struct alignas(32) field {
         }
     }
 
-    static constexpr field zero()
-    {
-        return field(0, 0, 0, 0);
-    }
-    static constexpr field neg_one()
-    {
-        return -field(1);
-    }
-    static constexpr field one()
-    {
-        return field(1);
-    }
+    static constexpr field zero() { return field(0, 0, 0, 0); }
+    static constexpr field neg_one() { return -field(1); }
+    static constexpr field one() { return field(1); }
 
     static constexpr field external_coset_generator()
     {
@@ -347,20 +338,11 @@ template <class Params_> struct alignas(32) field {
 
     static constexpr field get_root_of_unity(size_t subgroup_size) noexcept;
 
-    static void serialize_to_buffer(const field& value, uint8_t* buffer)
-    {
-        write(buffer, value);
-    }
+    static void serialize_to_buffer(const field& value, uint8_t* buffer) { write(buffer, value); }
 
-    static field serialize_from_buffer(const uint8_t* buffer)
-    {
-        return from_buffer<field>(buffer);
-    }
+    static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
 
-    [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const
-    {
-        return ::to_buffer(*this);
-    }
+    [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
 
     struct wide_array {
         uint64_t data[8]; // NOLINT
@@ -537,11 +519,8 @@ template <class Params_> struct alignas(32) field {
         return os;
     }
 
-    BB_INLINE static void __copy(const field& a, field& r) noexcept
-    {
-        r = a;
-    }                                                              // NOLINT
-    BB_INLINE static void __swap(field& src, field& dest) noexcept // NOLINT
+    BB_INLINE static void __copy(const field& a, field& r) noexcept { r = a; } // NOLINT
+    BB_INLINE static void __swap(field& src, field& dest) noexcept             // NOLINT
     {
         field T = dest;
         dest = src;
@@ -555,10 +534,7 @@ template <class Params_> struct alignas(32) field {
     // For serialization
     void msgpack_pack(auto& packer) const;
     void msgpack_unpack(auto o);
-    void msgpack_schema(auto& packer) const
-    {
-        packer.pack_alias(Params::schema_name, "bin32");
-    }
+    void msgpack_schema(auto& packer) const { packer.pack_alias(Params::schema_name, "bin32"); }
 
     static constexpr uint256_t twice_modulus = modulus + modulus;
     static constexpr uint256_t not_modulus = -modulus;
