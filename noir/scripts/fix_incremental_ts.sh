@@ -7,5 +7,7 @@ cd $(dirname $0)/../noir-repo
 
 # Mac doesn't set LOCAL_USER_ID as it has it's own uid alignment magic.
 if [[ "$HOSTNAME" == "devbox" && -z "${LOCAL_USER_ID:-}" ]]; then
+  echo -n "Fixing incremental timestamps... "
   find target -type f -print0 | xargs -0 -P $(nproc) -I {} sh -c 'touch -d @$(stat --format="%Y" {}) {}'
+  echo "Done."
 fi
