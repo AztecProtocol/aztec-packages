@@ -43,17 +43,28 @@ jobs:
           concurrency_key: build-${{ github.actor }}-x86
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
-        if: ${{ github.ref_name == 'master' }}
         timeout-minutes: 40
-        run: earthly --remote-cache=AztecProtocol/ci-cache:master --push ./yarn-project+export-end-to-end
-      - name: "Build E2E Image"
-        if: ${{ github.ref_name != 'master' }}
-        timeout-minutes: 40
-        run: earthly --remote-cache=AztecProtocol/ci-cache:master --push ./yarn-project+export-end-to-end
+        run: earthly --remote-cache=aztecprotocol/ci-cache:master ./yarn-project+export-end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       - name: Create list of end-to-end jobs
         id: e2e_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+
+  # Run on master for cold-start cache.
+  build-publish-cache:
+    needs: build
+    runs-on: ${{ github.actor }}-x86
+    if: ${{ github.ref_name == 'master' }}
+    steps:
+      - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: build-${{ github.actor }}-x86
+      - name: "Publish E2E Image Cache"
+        # Long timeout in case of a long image push with new base imaegs.
+        timeout-minutes: 30
+        run: earthly --remote-cache=aztecprotocol/ci-cache:master --push ./yarn-project+export-end-to-end
 
   # all the end-to-end integration tests for aztec
   e2e:
