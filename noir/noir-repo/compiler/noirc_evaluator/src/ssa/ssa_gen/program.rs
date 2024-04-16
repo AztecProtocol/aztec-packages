@@ -31,29 +31,19 @@ impl Ssa {
             (f.id(), f)
         });
 
-        let mut acir_index = 0;
-        let mut brillig_index = 0;
-        let id_to_index = btree_map(functions.iter().enumerate(), |(_, (id, func))| {
-            let runtime = func.runtime();
-            match func.runtime() {
-                RuntimeType::Acir(_) => {
-                    let res = (*id, acir_index);
-                    // Any non-entry point ACIR function will be inlined into main
-                    // so we do not want to increment on it. Otherwise we can possibly
-                    // have ACIR function pointers that are larger than the total number of
-                    // functions in a program.
-                    if runtime.is_entry_point() || *id == main_id {
-                        acir_index += 1;
+        let entry_point_to_generated_index = btree_map(
+            functions
+                .iter()
+                .filter(|(_, func)| {
+                    let runtime = func.runtime();
+                    match func.runtime() {
+                        RuntimeType::Acir(_) => runtime.is_entry_point() || func.id() == main_id,
+                        RuntimeType::Brillig => false,
                     }
-                    res
-                }
-                RuntimeType::Brillig => {
-                    let res = (*id, brillig_index);
-                    brillig_index += 1;
-                    res
-                }
-            }
-        });
+                })
+                .enumerate(),
+            |(i, (id, _))| (*id, i as u32),
+        );
 
         Self {
             functions,
