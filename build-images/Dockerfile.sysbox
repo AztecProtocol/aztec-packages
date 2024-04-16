@@ -73,7 +73,4 @@ RUN apt install --no-install-recommends -y openssh-server \
 # Install google authenticator for setting up 2fa.
 RUN apt update && apt install -y libpam-google-authenticator
 
-# sudo group can sudo without password.
-RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
-
 EXPOSE 22

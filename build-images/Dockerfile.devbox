@@ -13,9 +13,6 @@ RUN echo \
 RUN apt-get update && apt-get install -y docker-ce-cli
 ADD https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker /etc/bash_completion.d/docker.sh
 
-# sudo group can sudo without password.
-RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
-
 # As we're going to drop down to a less privileged user with same uid as the host, we need an entrypoint script.
 RUN apt install -y gosu
 COPY entrypoint.sh .
@@ -28,7 +25,7 @@ ENV SSH_CONNECTION=' '
 
 # Create the user we'll run as.
 # It's expected that a host directory will be mounted onto the home dir.
-# We populate with a basic configuration in case a mount doesn't occur (e.g. a github codespace).
+# We populate with a basic configuration in case a mount doesn't occur.
 # We align the user and group id at runtime in the entrypoint script.
 # The user is part of the root group, allowing writes to certain dirs (e.g. /opt/rust).
 RUN useradd --shell /bin/zsh -G sudo,root -m aztec-dev

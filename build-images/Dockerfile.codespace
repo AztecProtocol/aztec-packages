@@ -1,0 +1,20 @@
+# This devbox container can be used to provide a full development environment.
+# The user should use the ./run.sh script to launch.
+# The users ~/.devbox directory will be mounted into /home/aztec-dev.
+# It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
+# It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
+FROM aztecprotocol/basebox
+
+# Create the user we'll run as.
+# A persistent volume will be mounted on the home dir as part of .devcontainer config.
+# An onCreateCommand hook copies files in skel to the home dir.
+RUN useradd --shell /bin/zsh -G sudo -m aztec-dev
+USER aztec-dev
+ENV CARGO_HOME=/home/aztec-dev/.cargo
+WORKDIR /home/aztec-dev
+COPY home .
+# Needed to ensure correct permissions when mounting transient volume here.
+RUN mkdir .vscode-server
+CMD ["/bin/zsh"]
+
+# COPY home /root

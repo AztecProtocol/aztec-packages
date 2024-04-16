@@ -1,17 +1,23 @@
 {
-  "image": "node:lts-bookworm-slim",
-  "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-  },
-  "postCreateCommand": "curl -s install.aztec.network | VERSION=master NON_INTERACTIVE=1 BIN_PATH=/usr/local/bin bash -s",
+  "image": "aztecprotocol/codespace",
+  // "features": {
+  //   "docker-in-docker": {
+  //     "version": "latest",
+  //     "moby": true,
+  //     "dockerDashComposeVersion": "v1"
+  //   }
+  // },
   "customizations": {
     "vscode": {
-      "settings": {},
-      "extensions": [
-        "noir-lang.vscode-noir"
-      ]
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/zsh"
+      }
     }
   },
-  "workspaceMount": "source=${localWorkspaceFolder},target=/root/workspace,type=bind",
-  "workspaceFolder": "/root/workspace"
+  "mounts": [
+    "source=aztec-dev-home,target=/home/aztec-dev,type=volume",
+    "target=/home/aztec-dev/.vscode-server,type=volume"
+  ]
+  // "workspaceMount": "source=${localWorkspaceFolder},target=/home/aztec-dev/workspace,type=bind",
+  // "workspaceFolder": "/home/aztec-dev/workspace"
 }

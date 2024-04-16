@@ -57,3 +57,6 @@ COPY ./key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh
 
 # Set lang explicitly. Ensures tmux shows unicode symbols.
 RUN echo "LANG=C.UTF-8" >> /etc/environment
+
+# sudo group can sudo without password.
+RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
