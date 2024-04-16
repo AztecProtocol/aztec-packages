@@ -5,7 +5,14 @@ import {
   type Proof,
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
-import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { Fr } from '@aztec/foundation/fields';
+import {
+  type PublicExecution,
+  type PublicExecutionResult,
+  type PublicExecutor,
+  type PublicStateDB,
+  isPublicExecutionResult,
+} from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
@@ -63,4 +70,18 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       returnValues: undefined,
     };
   }
+
+  protected override tweakCurrentExecutionBeforeSimulation(
+    current: PublicExecution | PublicExecutionResult,
+    previousKernelOutput: PublicKernelCircuitPublicInputs,
+  ): void {
+    if (isPublicExecutionResult(current)) {
+      return;
+    }
+    current.callContext.transactionFee = computeTransactionFee(current, previousKernelOutput);
+  }
+}
+
+function computeTransactionFee(_current: PublicExecution, _previousKernelOutput: PublicKernelCircuitPublicInputs): Fr {
+  return Fr.ONE; // TODO: Implement me!
 }

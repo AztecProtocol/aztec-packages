@@ -89,15 +89,20 @@ export class PublicCallStackItem {
    * @returns Hash.
    */
   public hash() {
+    let publicInputs: PublicCircuitPublicInputs;
     if (this.isExecutionRequest) {
       const { callContext, argsHash } = this.publicInputs;
-      this.publicInputs = PublicCircuitPublicInputs.empty();
-      this.publicInputs.callContext = callContext;
-      this.publicInputs.argsHash = argsHash;
+      publicInputs = PublicCircuitPublicInputs.empty();
+      publicInputs.callContext = callContext.clone();
+      // TODO(palla/gas) See comment in noir-projects/noir-protocol-circuits/crates/types/src/abis/public_call_stack_item.nr PublicCallStackItem::as_execution_request
+      publicInputs.callContext.transactionFee = Fr.ZERO;
+      publicInputs.argsHash = argsHash;
+    } else {
+      publicInputs = this.publicInputs;
     }
 
     return pedersenHash(
-      [this.contractAddress, this.functionData.hash(), this.publicInputs.hash()],
+      [this.contractAddress, this.functionData.hash(), publicInputs.hash()],
       GeneratorIndex.CALL_STACK_ITEM,
     );
   }

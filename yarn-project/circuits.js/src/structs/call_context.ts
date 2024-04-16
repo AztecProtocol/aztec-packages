@@ -53,9 +53,28 @@ export class CallContext {
      */
     public gasSettings: GasSettings,
 
-    /** Accumulated transaction fee, only set during teardown phase. */
+    /**
+     * Accumulated transaction fee, only set during teardown phase.
+     * TODO(palla/gas): All other values except for this one and gasLeft are known at the time the call is created. Does it mean this doesn't belong here?
+     */
     public transactionFee: Fr,
   ) {}
+
+  // Returns a new instance that is a copy of the current one.
+  clone(): CallContext {
+    return new CallContext(
+      this.msgSender,
+      this.storageContractAddress,
+      this.portalContractAddress,
+      this.functionSelector,
+      this.gasLeft,
+      this.isDelegateCall,
+      this.isStaticCall,
+      this.sideEffectCounter,
+      this.gasSettings.clone(),
+      this.transactionFee,
+    );
+  }
 
   /**
    * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.

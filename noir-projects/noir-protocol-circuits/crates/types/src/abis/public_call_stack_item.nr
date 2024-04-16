@@ -35,6 +35,12 @@ impl PublicCallStackItem {
         request_public_inputs.call_context = public_inputs.call_context;
         request_public_inputs.args_hash = public_inputs.args_hash;
 
+        // TODO(palla/gas): We need to manually set the tx_fee to zero here for hashing,
+        // since the tx_fee is not set in the public inputs when the call stack item is created,
+        // but is amended later by the kernel. This feels like a sign that the transaction_fee
+        // does not belong to the call_context.
+        request_public_inputs.call_context.transaction_fee = 0;
+
         let call_stack_item = PublicCallStackItem {
             contract_address: self.contract_address,
             function_data: self.function_data,

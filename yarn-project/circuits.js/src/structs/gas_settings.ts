@@ -15,6 +15,10 @@ export class GasSettings {
     public readonly inclusionFee: Fr,
   ) {}
 
+  clone(): GasSettings {
+    return new GasSettings(this.da.clone(), this.l1.clone(), this.l2.clone(), this.inclusionFee);
+  }
+
   static new(args: {
     da: FieldsOf<DimensionGasSettings>;
     l1: FieldsOf<DimensionGasSettings>;
@@ -147,6 +151,10 @@ export class DimensionGasSettings {
     if (teardownGasLimit > gasLimit) {
       throw new Error(`Teardown gas limit ${teardownGasLimit} is greater than gas limit ${gasLimit}`);
     }
+  }
+
+  clone() {
+    return new DimensionGasSettings(this.gasLimit, this.teardownGasLimit, this.maxFeePerGas);
   }
 
   static default() {

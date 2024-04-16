@@ -251,6 +251,13 @@ export abstract class AbstractPhaseManager {
         const isExecutionRequest = !isPublicExecutionResult(current);
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
 
+        // TODO(palla/gas): This isn't nice, we shouldn't need to be manually modifying an execution
+        // before processing a call. We need this so we can inject the computed transactionFee on teardown
+        // into the call context. This is because the transactionFee is only known after the execution of
+        // previous phases is complete. We may need it for injecting gasLeft as well. Perhaps neither of those
+        // two belong to the callContext?
+        this.tweakCurrentExecutionBeforeSimulation(current, kernelOutput);
+
         const result = isExecutionRequest
           ? await this.publicExecutor.simulate(current, this.globalVariables, sideEffectCounter)
           : current;
@@ -322,6 +329,13 @@ export abstract class AbstractPhaseManager {
     removeRedundantPublicDataWrites(kernelOutput, this.phase);
 
     return [publicKernelInputs, kernelOutput, kernelProof, newUnencryptedFunctionLogs, undefined, returns];
+  }
+
+  protected tweakCurrentExecutionBeforeSimulation(
+    _current: PublicExecution | PublicExecutionResult,
+    _previousKernelOutput: PublicKernelCircuitPublicInputs,
+  ) {
+    // Nothing to do by default
   }
 
   protected async runKernelCircuit(
