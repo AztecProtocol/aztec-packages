@@ -11,6 +11,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
+  Gas,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
@@ -338,14 +339,15 @@ export abstract class AbstractPhaseManager {
   ): Promise<[PublicKernelCircuitPrivateInputs, PublicKernelCircuitPublicInputs]> {
     const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
 
+    // We take a deep copy (clone) of these inputs to be passed to the prover
     const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
     switch (this.phase) {
       case PublicKernelPhase.SETUP:
-        return [inputs, await this.publicKernel.publicKernelCircuitSetup(inputs)];
+        return [inputs.clone(), await this.publicKernel.publicKernelCircuitSetup(inputs)];
       case PublicKernelPhase.APP_LOGIC:
-        return [inputs, await this.publicKernel.publicKernelCircuitAppLogic(inputs)];
+        return [inputs.clone(), await this.publicKernel.publicKernelCircuitAppLogic(inputs)];
       case PublicKernelPhase.TEARDOWN:
-        return [inputs, await this.publicKernel.publicKernelCircuitTeardown(inputs)];
+        return [inputs.clone(), await this.publicKernel.publicKernelCircuitTeardown(inputs)];
       default:
         throw new Error(`No public kernel circuit for inputs`);
     }
@@ -413,6 +415,7 @@ export abstract class AbstractPhaseManager {
       historicalHeader: this.historicalHeader,
       // TODO(@just-mitch): need better mapping from simulator to revert code.
       revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
+      gasLeft: Gas.from(result.gasLeft),
     });
   }
 
