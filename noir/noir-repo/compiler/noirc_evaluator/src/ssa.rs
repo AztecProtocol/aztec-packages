@@ -38,8 +38,8 @@ pub mod ssa_gen;
 /// Optimize the given program by converting it into SSA
 /// form and performing optimizations there. When finished,
 /// convert the final SSA into an ACIR program and return it.
-/// An ACIR program is made up both separate ACIR functions
-/// and separate Brillig functions for unconstrained execution.
+/// An ACIR program is made up of both ACIR functions
+/// and Brillig functions for unconstrained execution.
 pub(crate) fn optimize_into_acir(
     program: Program,
     print_passes: bool,
