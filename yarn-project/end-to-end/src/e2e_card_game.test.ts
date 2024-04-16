@@ -1,5 +1,5 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { INITIAL_TEST_ENCRYPTION_KEYS } from '@aztec/accounts/testing';
+import { INITIAL_TEST_ENCRYPTION_KEYS, INITIAL_TEST_SECRET_KEYS } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
@@ -7,9 +7,8 @@ import {
   GrumpkinScalar,
   type PXE,
   type Wallet,
-  generatePublicKey,
 } from '@aztec/aztec.js';
-import { computeNullifierSecretKey, computeSiloedNullifierSecretKey } from '@aztec/circuits.js';
+import { computeNullifierSecretKey, computeSiloedNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';
 import { CardGameContract } from '@aztec/noir-contracts.js/CardGame';
@@ -98,8 +97,8 @@ describe('e2e_card_game', () => {
 
     const preRegisteredAccounts = await pxe.getRegisteredAccounts();
 
-    const toRegister = PLAYER_ENCRYPTION_KEYS.filter(key => {
-      const publicKey = generatePublicKey(key);
+    const toRegisterSecretKeys = INITIAL_TEST_SECRET_KEYS.filter(key => {
+      const publicKey = deriveKeys(key).masterIncomingViewingPublicKey;
       return (
         preRegisteredAccounts.find(preRegisteredAccount => {
           return preRegisteredAccount.publicKey.equals(publicKey);
@@ -107,9 +106,9 @@ describe('e2e_card_game', () => {
       );
     });
 
-    for (let i = 0; i < toRegister.length; i++) {
-      logger.info(`Deploying account contract ${i}/${toRegister.length}...`);
-      const encryptionPrivateKey = toRegister[i];
+    for (let i = 0; i < toRegisterSecretKeys.length; i++) {
+      logger.info(`Deploying account contract ${i}/${toRegisterSecretKeys.length}...`);
+      const encryptionPrivateKey = toRegisterSecretKeys[i];
       const account = getSchnorrAccount(pxe, encryptionPrivateKey, GrumpkinScalar.random());
       const wallet = await account.waitSetup({ interval: 0.1 });
       wallets.push(wallet);

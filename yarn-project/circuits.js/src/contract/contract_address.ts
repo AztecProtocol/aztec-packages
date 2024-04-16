@@ -1,12 +1,12 @@
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
+import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
 import { GeneratorIndex } from '../constants.gen.js';
 import { computeVarArgsHash } from '../hash/hash.js';
-import { type PublicKey } from '../types/public_key.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
@@ -65,9 +65,9 @@ export function computeSaltedInitializationHash(
  * @returns The partially constructed contract address.
  */
 export function computeContractAddressFromPartial(
-  args: ({ publicKeyHash: Fr } | { publicKey: PublicKey }) & { partialAddress: Fr },
+  args: ({ publicKeyHash: Fr } | { secretKey: Fr }) & { partialAddress: Fr },
 ): AztecAddress {
-  const publicKeyHash = 'publicKey' in args ? computePublicKeysHash(args.publicKey) : args.publicKeyHash;
+  const publicKeyHash = 'secretKey' in args ? deriveKeys(args.secretKey).publicKeysHash : args.publicKeyHash;
   const result = pedersenHash([publicKeyHash, args.partialAddress], GeneratorIndex.CONTRACT_ADDRESS);
   return AztecAddress.fromField(result);
 }
@@ -77,11 +77,42 @@ export function computeContractAddressFromPartial(
  * @param publicKey - Single public key (for now!).
  * @returns The hash of the public keys.
  */
-export function computePublicKeysHash(publicKey: PublicKey | undefined): Fr {
-  if (!publicKey) {
-    return Fr.ZERO;
-  }
-  return pedersenHash([publicKey.x, publicKey.y], GeneratorIndex.PARTIAL_ADDRESS);
+// TODO(benesjan): this copied out of key store, should be moved to a shared location
+export function deriveKeys(sk: Fr) {
+  const curve = new Grumpkin();
+  // First we derive master secret keys -  we use sha512 here because this derivation will never take place
+  // in a circuit
+  const masterNullifierSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.NSK_M]);
+  const masterIncomingViewingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.IVSK_M]);
+  const masterOutgoingViewingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.OVSK_M]);
+  const masterTaggingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.TSK_M]);
+
+  // Then we derive master public keys
+  const masterNullifierPublicKey = curve.mul(curve.generator(), masterNullifierSecretKey);
+  const masterIncomingViewingPublicKey = curve.mul(curve.generator(), masterIncomingViewingSecretKey);
+  const masterOutgoingViewingPublicKey = curve.mul(curve.generator(), masterOutgoingViewingSecretKey);
+  const masterTaggingPublicKey = curve.mul(curve.generator(), masterTaggingSecretKey);
+
+  // We hash the public keys to get the public keys hash
+  const publicKeysHash = poseidon2Hash([
+    masterNullifierPublicKey,
+    masterIncomingViewingPublicKey,
+    masterOutgoingViewingPublicKey,
+    masterTaggingPublicKey,
+    GeneratorIndex.PUBLIC_KEYS_HASH,
+  ]);
+
+  return {
+    masterNullifierSecretKey,
+    masterIncomingViewingSecretKey,
+    masterOutgoingViewingSecretKey,
+    masterTaggingSecretKey,
+    masterNullifierPublicKey,
+    masterIncomingViewingPublicKey,
+    masterOutgoingViewingPublicKey,
+    masterTaggingPublicKey,
+    publicKeysHash,
+  };
 }
 
 /**

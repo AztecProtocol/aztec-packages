@@ -86,7 +86,7 @@ export class DeployTest {
 
   async registerRandomAccount(): Promise<AztecAddress> {
     const pxe = this.pxe;
-    const { completeAddress: owner, privateKey } = CompleteAddress.fromRandomPrivateKey();
+    const { completeAddress: owner, privateKey } = CompleteAddress.fromRandomSecretKey();
     await pxe.registerAccount(privateKey, owner.partialAddress);
     return owner.address;
   }

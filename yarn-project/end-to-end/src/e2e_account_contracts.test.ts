@@ -20,17 +20,14 @@ import { setup } from './fixtures/utils.js';
 
 function itShouldBehaveLikeAnAccountContract(
   getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
-  walletSetup: (
-    pxe: PXE,
-    encryptionPrivateKey: GrumpkinPrivateKey,
-    accountContract: AccountContract,
-  ) => Promise<Wallet>,
+  walletSetup: (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => Promise<Wallet>,
   walletAt: (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => Promise<Wallet>,
 ) {
   describe(`behaves like an account contract`, () => {
     let child: ChildContract;
     let wallet: Wallet;
-    let encryptionPrivateKey: GrumpkinPrivateKey;
+    let secretKey: Fr;
+    let signingKey: GrumpkinPrivateKey;
 
     let pxe: PXE;
     let logger: DebugLogger;
@@ -38,9 +35,10 @@ function itShouldBehaveLikeAnAccountContract(
 
     beforeEach(async () => {
       ({ logger, pxe, teardown } = await setup(0));
-      encryptionPrivateKey = GrumpkinScalar.random();
+      secretKey = Fr.random();
+      signingKey = GrumpkinScalar.random();
 
-      wallet = await walletSetup(pxe, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
+      wallet = await walletSetup(pxe, secretKey, getAccountContract(signingKey));
       child = await ChildContract.deploy(wallet).send().deployed();
     }, 60_000);
 
@@ -68,8 +66,8 @@ function itShouldBehaveLikeAnAccountContract(
 }
 
 describe('e2e_account_contracts', () => {
-  const walletSetup = async (pxe: PXE, encryptionPrivateKey: GrumpkinPrivateKey, accountContract: AccountContract) => {
-    const account = new AccountManager(pxe, encryptionPrivateKey, accountContract);
+  const walletSetup = async (pxe: PXE, secretKey: Fr, accountContract: AccountContract) => {
+    const account = new AccountManager(pxe, secretKey, accountContract);
     return await account.waitSetup();
   };
 

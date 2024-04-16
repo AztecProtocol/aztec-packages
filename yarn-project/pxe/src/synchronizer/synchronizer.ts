@@ -206,13 +206,16 @@ export class Synchronizer {
 
         if (noteProcessor.status.syncedToBlock === toBlockNumber) {
           // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
-          this.log.debug(`Note processor for ${noteProcessor.masterIncomingViewingPublicKey.toString()} has caught up`, {
-            eventName: 'note-processor-caught-up',
-            publicKey: noteProcessor.masterIncomingViewingPublicKey.toString(),
-            duration: noteProcessor.timer.ms(),
-            dbSize: this.db.estimateSize(),
-            ...noteProcessor.stats,
-          } satisfies NoteProcessorCaughtUpStats);
+          this.log.debug(
+            `Note processor for ${noteProcessor.masterIncomingViewingPublicKey.toString()} has caught up`,
+            {
+              eventName: 'note-processor-caught-up',
+              publicKey: noteProcessor.masterIncomingViewingPublicKey.toString(),
+              duration: noteProcessor.timer.ms(),
+              dbSize: this.db.estimateSize(),
+              ...noteProcessor.stats,
+            } satisfies NoteProcessorCaughtUpStats,
+          );
 
           this.noteProcessorsToCatchUp = this.noteProcessorsToCatchUp.filter(
             np => !np.masterIncomingViewingPublicKey.equals(noteProcessor.masterIncomingViewingPublicKey),
@@ -315,7 +318,9 @@ export class Synchronizer {
     const lastBlockNumber = this.getSynchedBlockNumber();
     return {
       blocks: lastBlockNumber,
-      notes: Object.fromEntries(this.noteProcessors.map(n => [n.masterIncomingViewingPublicKey.toString(), n.status.syncedToBlock])),
+      notes: Object.fromEntries(
+        this.noteProcessors.map(n => [n.masterIncomingViewingPublicKey.toString(), n.status.syncedToBlock]),
+      ),
     };
   }
 

@@ -13,9 +13,8 @@ import {
   TxStatus,
   type Wallet,
   computeMessageSecretHash,
-  generatePublicKey,
 } from '@aztec/aztec.js';
-import { type AztecAddress, CompleteAddress, Fq } from '@aztec/circuits.js';
+import { type AztecAddress, CompleteAddress, Fq, deriveKeys } from '@aztec/circuits.js';
 import {
   TokenContract as BananaCoin,
   FPCContract,
@@ -59,7 +58,7 @@ describe('e2e_fees_account_init', () => {
   let bananaPublicBalances: BalancesFn;
   let bananaPrivateBalances: BalancesFn;
 
-  let bobsPrivateEncryptionKey: Fq;
+  let bobsSecretKey: Fr;
   let bobsPrivateSigningKey: Fq;
   let bobsAccountManager: AccountManager;
   let bobsAddress: AztecAddress;
@@ -125,9 +124,9 @@ describe('e2e_fees_account_init', () => {
   beforeEach(() => {
     maxFee = 3n;
     actualFee = 1n;
-    bobsPrivateEncryptionKey = Fq.random();
+    bobsSecretKey = Fr.random();
     bobsPrivateSigningKey = Fq.random();
-    bobsAccountManager = getSchnorrAccount(ctx.pxe, bobsPrivateEncryptionKey, bobsPrivateSigningKey, Fr.random());
+    bobsAccountManager = getSchnorrAccount(ctx.pxe, bobsSecretKey, bobsPrivateSigningKey, Fr.random());
     bobsAddress = bobsAccountManager.getCompleteAddress().address;
   });
 
@@ -285,15 +284,20 @@ describe('e2e_fees_account_init', () => {
         const instance = bobsAccountManager.getInstance();
 
         // and gives the public keys to alice
-        const encPubKey = generatePublicKey(bobsPrivateEncryptionKey);
         const signingPubKey = new Schnorr().computePublicKey(bobsPrivateSigningKey);
-        const completeAddress = CompleteAddress.fromPublicKeyAndInstance(encPubKey, instance);
+        const completeAddress = CompleteAddress.fromSecretKeyAndInstance(bobsSecretKey, instance);
 
         // alice registers the keys in the PXE
         await ctx.pxe.registerRecipient(completeAddress);
 
         // and deploys bob's account, paying the fee from her balance
-        const tx = await SchnorrAccountContract.deployWithPublicKey(encPubKey, alice, signingPubKey.x, signingPubKey.y)
+        const publicKeysHash = deriveKeys(bobsSecretKey).publicKeysHash;
+        const tx = await SchnorrAccountContract.deployWithPublicKeysHash(
+          publicKeysHash,
+          alice,
+          signingPubKey.x,
+          signingPubKey.y,
+        )
           .send({
             contractAddressSalt: instance.salt,
             skipClassRegistration: true,

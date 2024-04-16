@@ -180,20 +180,17 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(
-      async (
-        artifactPath,
-        { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey, initializer },
-      ) => {
+      async (artifactPath, { json, rpcUrl, args: rawArgs, portalAddress, salt, wait, secretKey, initializer }) => {
+        // TODO(benesjan): the args will need to be updated here ^
         const { deploy } = await import('./cmds/deploy.js');
         await deploy(
           artifactPath,
           json,
           rpcUrl,
-          publicKey,
           rawArgs,
           portalAddress,
           salt,
-          privateKey,
+          secretKey,
           initializer,
           wait,
           debugLogger,

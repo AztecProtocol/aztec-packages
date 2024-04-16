@@ -116,7 +116,9 @@ export class NoteProcessor {
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
       const noteDaos: NoteDao[] = [];
-      const secretKey = await this.keyStore.getMasterIncomingViewingSecretKeyForPublicKey(this.masterIncomingViewingPublicKey);
+      const secretKey = await this.keyStore.getMasterIncomingViewingSecretKeyForPublicKey(
+        this.masterIncomingViewingPublicKey,
+      );
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {

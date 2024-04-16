@@ -1,5 +1,5 @@
 import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
 import { AztecAddress, EthAddress } from '../index.js';
@@ -8,8 +8,8 @@ import {
   computeContractAddressFromPartial,
   computeInitializationHash,
   computePartialAddress,
-  computePublicKeysHash,
   computeSaltedInitializationHash,
+  deriveKeys,
 } from './contract_address.js';
 
 describe('ContractAddress', () => {
@@ -54,15 +54,16 @@ describe('ContractAddress', () => {
   });
 
   it('computeContractAddressFromInstance', () => {
-    const publicKey = new Point(new Fr(1n), new Fr(2n));
+    const secretKey = new Fr(2n);
     const salt = new Fr(3n);
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const portalContractAddress = EthAddress.fromField(new Fr(6n));
     const deployer = AztecAddress.fromField(new Fr(7));
+    const publicKeysHash = deriveKeys(secretKey).publicKeysHash;
 
     const address = computeContractAddressFromInstance({
-      publicKeysHash: computePublicKeysHash(publicKey),
+      publicKeysHash,
       salt,
       contractClassId,
       initializationHash,
@@ -82,8 +83,8 @@ describe('ContractAddress', () => {
   });
 
   it('Public key hash matches Noir', () => {
-    const publicKey = new Point(new Fr(1n), new Fr(2n));
-    const hash = computePublicKeysHash(publicKey).toString();
+    const secretKey = new Fr(2n);
+    const hash = deriveKeys(secretKey).toString();
     expect(hash).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
@@ -95,9 +96,9 @@ describe('ContractAddress', () => {
   });
 
   it('Address from partial matches Noir', () => {
-    const publicKey = new Point(new Fr(1n), new Fr(2n));
+    const secretKey = new Fr(2n);
     const partialAddress = new Fr(3n);
-    const address = computeContractAddressFromPartial({ publicKey, partialAddress }).toString();
+    const address = computeContractAddressFromPartial({ secretKey, partialAddress }).toString();
     expect(address).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

@@ -15,8 +15,6 @@ import {
   TxContext,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ConstantKeyPair } from '@aztec/key-store';
 
 export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => {
   describe(testName, () => {

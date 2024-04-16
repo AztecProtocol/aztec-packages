@@ -1,4 +1,4 @@
-import { type NewKeyStore, type PublicKey } from '@aztec/circuit-types';
+import { type KeyStore, type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
   Fr,
@@ -16,7 +16,7 @@ import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
  * TestKeyStore is an implementation of the KeyStore interface, used for managing key pairs in a testing environment.
  * It should be utilized in testing scenarios where secure key management is not required, and ease-of-use is prioritized.
  */
-export class NewTestKeyStore implements NewKeyStore {
+export class TestKeyStore implements KeyStore {
   #keys: AztecMap<string, Buffer>;
 
   constructor(private curve: Grumpkin, database: AztecKVStore) {

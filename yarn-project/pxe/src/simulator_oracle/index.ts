@@ -20,7 +20,7 @@ import {
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { type DBOracle, type NullifierKeys, MessageLoadOracleInputs } from '@aztec/simulator';
+import { type DBOracle, MessageLoadOracleInputs, type NullifierKeys } from '@aztec/simulator';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type ContractDataOracle } from '../contract_data_oracle/index.js';

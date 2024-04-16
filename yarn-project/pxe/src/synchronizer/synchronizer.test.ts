@@ -1,5 +1,5 @@
 import { type AztecNode, L2Block } from '@aztec/circuit-types';
-import { CompleteAddress, Fr, GrumpkinScalar, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
+import { CompleteAddress, Fr, type Header, INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -129,7 +129,6 @@ describe('Synchronizer', () => {
     // Manually adding account to database so that we can call synchronizer.isAccountStateSynchronized
     const keyStore = new TestKeyStore(new Grumpkin(), openTmpStore());
     const addAddress = async (startingBlockNum: number) => {
-      
       const secretKey = Fr.random();
       const partialAddress = Fr.random();
       const accountAddress = await keyStore.addAccount(secretKey, partialAddress);

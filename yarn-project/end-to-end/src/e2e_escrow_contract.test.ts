@@ -5,15 +5,11 @@ import {
   type DebugLogger,
   ExtendedNote,
   Fr,
-  type GrumpkinPrivateKey,
-  GrumpkinScalar,
   Note,
   type PXE,
-  type PublicKey,
   computeMessageSecretHash,
-  generatePublicKey,
 } from '@aztec/aztec.js';
-import { computePartialAddress } from '@aztec/circuits.js';
+import { computePartialAddress, deriveKeys } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -32,8 +28,8 @@ describe('e2e_escrow_contract', () => {
   let owner: AztecAddress;
   let recipient: AztecAddress;
 
-  let escrowPrivateKey: GrumpkinPrivateKey;
-  let escrowPublicKey: PublicKey;
+  let escrowSecretKey: Fr;
+  let escrowPublicKeysHash: Fr;
 
   beforeEach(async () => {
     // Setup environment
@@ -48,11 +44,11 @@ describe('e2e_escrow_contract', () => {
 
     // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
-    escrowPrivateKey = GrumpkinScalar.random();
-    escrowPublicKey = generatePublicKey(escrowPrivateKey);
-    const escrowDeployment = EscrowContract.deployWithPublicKey(escrowPublicKey, wallet, owner);
+    escrowSecretKey = Fr.random();
+    escrowPublicKeysHash = deriveKeys(escrowSecretKey).publicKeysHash;
+    const escrowDeployment = EscrowContract.deployWithPublicKeysHash(escrowPublicKeysHash, wallet, owner);
     const escrowInstance = escrowDeployment.getInstance();
-    await pxe.registerAccount(escrowPrivateKey, computePartialAddress(escrowInstance));
+    await pxe.registerAccount(escrowSecretKey, computePartialAddress(escrowInstance));
     escrowContract = await escrowDeployment.send().deployed();
     logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
