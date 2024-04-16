@@ -1,0 +1,16 @@
+# Checks bb prover with memory sanitizer
+name: BB MSAN
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs: {}
+jobs:
+  bb-msan-check:
+    runs-on: ubuntu-latest
+    steps:
+      - {uses: actions/checkout@v4, with: { ref: "${{ github.event.pull_request.head.sha }}"}}
+      - {uses: earthly/actions-setup@v1, with: {github-token: "${{ secrets.GITHUB_TOKEN }}"}}
+      - name: "Barretenberg Prover MSAN Check"
+        timeout-minutes: 720 # 12 hour timeout. Yes, it's slow.
+        run: earthly ./barretenberg/cpp/+preset-msan-check

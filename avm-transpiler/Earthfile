@@ -21,7 +21,7 @@ build:
     RUN ./scripts/bootstrap_native.sh
     SAVE ARTIFACT target/release/avm-transpiler avm-transpiler
 
-run: 
+run:
     #TODO needed?
     FROM ubuntu:focal
     COPY +build/avm-transpiler /usr/src/avm-transpiler
