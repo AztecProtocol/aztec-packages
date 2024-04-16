@@ -1,5 +1,5 @@
 /// All AVM opcodes
-/// Keep updated with TS and docs protocol specs!
+/// Keep updated with TS, cpp, and docs protocol specs!
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum AvmOpcode {
     // Compute
@@ -21,7 +21,6 @@ pub enum AvmOpcode {
     // Execution environment
     ADDRESS,
     STORAGEADDRESS,
-    ORIGIN,
     SENDER,
     PORTAL,
     FEEPERL1GAS,
