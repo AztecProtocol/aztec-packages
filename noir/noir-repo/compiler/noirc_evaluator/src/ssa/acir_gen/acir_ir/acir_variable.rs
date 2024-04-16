@@ -1613,8 +1613,8 @@ impl AcirContext {
         self.acir_ir.brillig_call(
             Some(predicate),
             generated_brillig,
-            b_inputs,
-            b_outputs,
+            brillig_inputs,
+            brillig_outputs,
             brillig_function_index,
         );
 
