@@ -65,9 +65,10 @@ describe('prover/bb_prover/public-kernel', () => {
     });
     tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
 
-    const [processed, _] = await processor.process([tx], 1, undefined);
+    const [processed, failed] = await processor.process([tx], 1, undefined);
 
     expect(processed.length).toBe(1);
+    expect(failed.length).toBe(0);
     const processedTx = processed[0];
     expect(processedTx.publicKernelRequests.map(r => r.type)).toEqual([
       PublicKernelType.SETUP,
