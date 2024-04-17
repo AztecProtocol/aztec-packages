@@ -9,7 +9,7 @@ import * as fs from 'fs/promises';
 import { type MemDown, default as memdown } from 'memdown';
 
 import { getConfig } from '../mocks/fixtures.js';
-import { TestPublicProcessor } from '../mocks/test_public_processor.js';
+import { TestContext } from '../mocks/test_context.js';
 import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -20,7 +20,7 @@ describe('prover/bb_prover/public-kernel', () => {
   let builderDb: MerkleTreeOperations;
   let prover: BBNativeRollupProver;
   let directoryToCleanup: string | undefined;
-  let processor: TestPublicProcessor;
+  let processor: TestContext;
   let root: Buffer;
 
   beforeAll(async () => {
@@ -47,7 +47,7 @@ describe('prover/bb_prover/public-kernel', () => {
   beforeEach(async () => {
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
 
-    processor = TestPublicProcessor.new();
+    processor = TestContext.new();
     root = Buffer.alloc(32, 5);
     processor.db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
   }, 60_000);

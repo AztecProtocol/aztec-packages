@@ -1,5 +1,7 @@
 import { type BlockProver, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
 import { GlobalVariables, Header } from '@aztec/circuits.js';
+import { type DebugLogger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import {
   type ContractsDataSourcePublicDB,
   type PublicExecution,
@@ -8,28 +10,51 @@ import {
   type PublicExecutor,
   PublicProcessor,
   RealPublicKernelCircuitSimulator,
+  type SimulationProvider,
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees, TreeInfo } from '@aztec/world-state';
 
+import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-export class TestPublicProcessor {
+import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { type CircuitProver } from '../prover/interface.js';
+import { TestCircuitProver } from '../prover/test_circuit_prover.js';
+import { getConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
+
+export class TestContext {
   constructor(
-    public db: MockProxy<MerkleTreeOperations>,
+    public publicMockDb: MockProxy<MerkleTreeOperations>,
     public publicExecutor: MockProxy<PublicExecutor>,
     public publicContractsDB: MockProxy<ContractsDataSourcePublicDB>,
     public publicWorldStateDB: MockProxy<WorldStatePublicDB>,
     public publicProcessor: PublicProcessor,
+    public simulationProvider: SimulationProvider,
+    public globalVariables: GlobalVariables,
+    public actualDb: MerkleTreeOperations,
+    public prover: CircuitProver,
+    public orchestrator: ProvingOrchestrator,
+    public blockNumber: number,
+    public directoriesToCleanup: string[],
   ) {}
 
-  static new() {
+  static async new(logger: DebugLogger, blockNumber = 3) {
+    const globalVariables = makeGlobals(blockNumber);
+    const acvmConfig = await getConfig(logger);
+    const simulationProvider = await getSimulationProvider({
+      acvmWorkingDirectory: acvmConfig?.acvmWorkingDirectory,
+      acvmBinaryPath: acvmConfig?.expectedAcvmPath,
+    });
+
     const publicExecutor = mock<PublicExecutor>();
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const db = mock<MerkleTreeOperations>();
+    const root = Buffer.alloc(32, 5);
+    db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
     const processor = new PublicProcessor(
       db,
       publicExecutor,
@@ -40,7 +65,33 @@ export class TestPublicProcessor {
       publicWorldStateDB,
     );
 
-    return new this(db, publicExecutor, publicContractsDB, publicWorldStateDB, processor);
+    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
+
+    const prover = new TestCircuitProver(simulationProvider);
+
+    const orchestrator = await ProvingOrchestrator.new(actualDb, prover);
+
+    return new this(
+      db,
+      publicExecutor,
+      publicContractsDB,
+      publicWorldStateDB,
+      processor,
+      simulationProvider,
+      globalVariables,
+      actualDb,
+      prover,
+      orchestrator,
+      blockNumber,
+      [acvmConfig?.directoryToCleanup ?? ''],
+    );
+  }
+
+  async cleanup() {
+    await this.orchestrator.stop();
+    for (const dir in this.directoriesToCleanup.filter(x => x != '')) {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
   }
 
   public async process(

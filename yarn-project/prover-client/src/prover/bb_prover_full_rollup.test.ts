@@ -9,7 +9,7 @@ import * as fs from 'fs/promises';
 import { type MemDown, default as memdown } from 'memdown';
 
 import { getConfig, makeGlobals } from '../mocks/fixtures.js';
-import { TestPublicProcessor } from '../mocks/test_public_processor.js';
+import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
 
@@ -22,7 +22,7 @@ describe('prover/bb_prover/full-rollup', () => {
   let builderDb: MerkleTreeOperations;
   let prover: BBNativeRollupProver;
   let directoryToCleanup: string | undefined;
-  let processor: TestPublicProcessor;
+  let processor: TestContext;
   let root: Buffer;
 
   let blockNumber: number;
@@ -48,7 +48,7 @@ describe('prover/bb_prover/full-rollup', () => {
     blockNumber = 3;
     globalVariables = makeGlobals(blockNumber);
 
-    processor = TestPublicProcessor.new();
+    processor = TestContext.new();
 
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     root = Buffer.alloc(32, 5);
