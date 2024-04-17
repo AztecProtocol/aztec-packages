@@ -53,10 +53,9 @@ template <typename FF_> class AuxiliaryRelationImpl {
      * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
      *
      */
-    template <typename AllEntities, typename Parameters>
-    inline static bool is_active(const AllEntities& in, [[maybe_unused]] const Parameters& params)
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return !(in.q_aux.value_at(0).is_zero() && in.q_aux.value_at(1).is_zero());
+        return (in.q_aux.value_at(0).is_zero() && in.q_aux.value_at(1).is_zero());
     }
 
     /**

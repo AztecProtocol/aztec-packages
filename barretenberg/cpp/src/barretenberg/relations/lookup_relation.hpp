@@ -36,19 +36,11 @@ template <typename FF_> class LookupRelationImpl {
      * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
      *
      */
-    template <typename AllEntities, typename Parameters>
-    inline static bool is_active([[maybe_unused]] const AllEntities& in, [[maybe_unused]] const Parameters& params)
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
-        // Note: the following technique works in proofconstruction and deciding but fails for certain acir test
-        // programs. I'm not sure why.
-        // From the definition of the lookup grand product, if the inputs are trivial,
-        // Z_lookup is updated as Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the
-        // contribution of the given inputs will be the zero polynomial.
-        auto gamma_by_one_plus_beta = params.gamma * (params.beta + 1);
-        bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * gamma_by_one_plus_beta &&
-                           in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * gamma_by_one_plus_beta);
-        return is_active;
-        // return true;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/952): figure out why skip condition described in
+        // issue causes failures in acir tests.
+        return false;
     }
 
     /**
