@@ -1,9 +1,19 @@
 import { UnencryptedL2Log } from '@aztec/circuit-types';
-import { AztecAddress, EthAddress, L2ToL1Message } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  EthAddress,
+  L2ToL1Message,
+  ReadRequest,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+} from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
+import { type PublicExecutionResult } from '../../index.js';
 import { type HostStorage } from './host_storage.js';
 import { Nullifiers } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
@@ -39,6 +49,21 @@ export type JournalData = {
   currentStorageValue: Map<bigint, Map<bigint, Fr>>;
 };
 
+// TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+type PartialPublicExecutionResult = {
+  nullifierReadRequests: ReadRequest[];
+  nullifierNonExistentReadRequests: ReadRequest[];
+  newNoteHashes: SideEffect[];
+  newL2ToL1Messages: L2ToL1Message[];
+  startSideEffectCounter: number;
+  newNullifiers: SideEffectLinkedToNoteHash[];
+  contractStorageReads: ContractStorageRead[];
+  contractStorageUpdateRequests: ContractStorageUpdateRequest[];
+  unencryptedLogs: UnencryptedL2Log[];
+  unencryptedLogsHashes: SideEffect[];
+  nestedExecutions: PublicExecutionResult[];
+};
+
 /**
  * A class to manage persistable AVM state for contract calls.
  * Maintains a cache of the current world state,
@@ -67,11 +92,28 @@ export class AvmPersistableStateManager {
   public newL1Messages: L2ToL1Message[] = [];
   public newLogs: UnencryptedL2Log[] = [];
 
+  // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+  public transitionalExecutionResult: PartialPublicExecutionResult;
+
   constructor(hostStorage: HostStorage, parent?: AvmPersistableStateManager) {
     this.hostStorage = hostStorage;
     this.publicStorage = new PublicStorage(hostStorage.publicStateDb, parent?.publicStorage);
     this.nullifiers = new Nullifiers(hostStorage.commitmentsDb, parent?.nullifiers);
     this.trace = new WorldStateAccessTrace(parent?.trace);
+
+    this.transitionalExecutionResult = {
+      nullifierReadRequests: [],
+      nullifierNonExistentReadRequests: [],
+      newNoteHashes: [],
+      newL2ToL1Messages: [],
+      startSideEffectCounter: this.trace.accessCounter,
+      newNullifiers: [],
+      contractStorageReads: [],
+      contractStorageUpdateRequests: [],
+      unencryptedLogs: [],
+      unencryptedLogsHashes: [],
+      nestedExecutions: [],
+    };
   }
 
   /**
@@ -92,6 +134,12 @@ export class AvmPersistableStateManager {
     this.log.debug(`storage(${storageAddress})@${slot} <- ${value}`);
     // Cache storage writes for later reference/reads
     this.publicStorage.write(storageAddress, slot, value);
+
+    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    this.transitionalExecutionResult.contractStorageUpdateRequests.push(
+      new ContractStorageUpdateRequest(slot, value, this.trace.accessCounter),
+    );
+
     // Trace all storage writes (even reverted ones)
     this.trace.tracePublicStorageWrite(storageAddress, slot, value);
   }
@@ -106,6 +154,12 @@ export class AvmPersistableStateManager {
   public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
     const [exists, value] = await this.publicStorage.read(storageAddress, slot);
     this.log.debug(`storage(${storageAddress})@${slot} ?? value: ${value}, exists: ${exists}.`);
+
+    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    this.transitionalExecutionResult.contractStorageReads.push(
+      new ContractStorageRead(slot, value, this.trace.accessCounter),
+    );
+
     // We want to keep track of all performed reads (even reverted ones)
     this.trace.tracePublicStorageRead(storageAddress, slot, value, exists);
     return Promise.resolve(value);
@@ -133,6 +187,9 @@ export class AvmPersistableStateManager {
    * @param noteHash - the unsiloed note hash to write
    */
   public writeNoteHash(storageAddress: Fr, noteHash: Fr) {
+    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    this.transitionalExecutionResult.newNoteHashes.push(new SideEffect(noteHash, new Fr(this.trace.accessCounter)));
+
     this.log.debug(`noteHashes(${storageAddress}) += @${noteHash}.`);
     this.trace.traceNewNoteHash(storageAddress, noteHash);
   }
@@ -148,6 +205,16 @@ export class AvmPersistableStateManager {
     this.log.debug(
       `nullifiers(${storageAddress})@${nullifier} ?? leafIndex: ${leafIndex}, pending: ${isPending}, exists: ${exists}.`,
     );
+
+    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    if (exists) {
+      this.transitionalExecutionResult.nullifierReadRequests.push(new ReadRequest(nullifier, this.trace.accessCounter));
+    } else {
+      this.transitionalExecutionResult.nullifierNonExistentReadRequests.push(
+        new ReadRequest(nullifier, this.trace.accessCounter),
+      );
+    }
+
     this.trace.traceNullifierCheck(storageAddress, nullifier, exists, isPending, leafIndex);
     return Promise.resolve(exists);
   }
@@ -158,6 +225,11 @@ export class AvmPersistableStateManager {
    * @param nullifier - the unsiloed nullifier to write
    */
   public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
+    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    this.transitionalExecutionResult.newNullifiers.push(
+      new SideEffectLinkedToNoteHash(nullifier, Fr.ZERO, new Fr(this.trace.accessCounter)),
+    );
+
     this.log.debug(`nullifiers(${storageAddress}) += ${nullifier}.`);
     // Cache pending nullifiers for later access
     await this.nullifiers.append(storageAddress, nullifier);
@@ -189,18 +261,31 @@ export class AvmPersistableStateManager {
   public writeL1Message(recipient: EthAddress | Fr, content: Fr) {
     this.log.debug(`L1Messages(${recipient}) += ${content}.`);
     const recipientAddress = recipient instanceof EthAddress ? recipient : EthAddress.fromField(recipient);
-    this.newL1Messages.push(new L2ToL1Message(recipientAddress, content));
+    const message = new L2ToL1Message(recipientAddress, content);
+    this.newL1Messages.push(message);
+
+    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    this.transitionalExecutionResult.newL2ToL1Messages.push(message);
   }
 
   public writeLog(contractAddress: Fr, event: Fr, log: Fr[]) {
     this.log.debug(`UnencryptedL2Log(${contractAddress}) += event ${event} with ${log.length} fields.`);
-    const L2log = new UnencryptedL2Log(
+    const ulog = new UnencryptedL2Log(
       AztecAddress.fromField(contractAddress),
       EventSelector.fromField(event),
       Buffer.concat(log.map(f => f.toBuffer())),
     );
-    this.newLogs.push(L2log);
-    this.trace.traceNewLog(Fr.fromBuffer(L2log.hash()));
+    const logHash = Fr.fromBuffer(ulog.hash());
+
+    // TRANSITIONAL: This should be removed once the AVM is fully operational and the public executor is gone.
+    this.transitionalExecutionResult.unencryptedLogs.push(ulog);
+    // this duplicates exactly what happens in the trace just for the purpose of transitional integration with the kernel
+    this.transitionalExecutionResult.unencryptedLogsHashes.push(
+      new SideEffect(logHash, new Fr(this.trace.accessCounter)),
+    );
+
+    this.newLogs.push(ulog);
+    this.trace.traceNewLog(logHash);
   }
 
   /**

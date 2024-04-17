@@ -195,7 +195,7 @@ describe('e2e_avm_simulator', () => {
     });
 
     // TODO(4293): this should work! Fails in public kernel because both nullifiers are incorrectly being siloed by same address
-    it.skip('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
+    it('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
       const nullifier = new Fr(1);
       const tx = await avmContract.methods
         .create_same_nullifier_in_nested_call(secondAvmContract.address, nullifier)

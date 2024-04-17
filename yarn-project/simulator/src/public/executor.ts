@@ -26,7 +26,7 @@ import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
-import { convertAvmResults, createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
+import { createAvmExecutionEnvironment, isAvmBytecode } from './transitional_adaptors.js';
 
 /**
  * Execute a public function and return the execution result.
@@ -66,6 +66,8 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.commitmentsDb,
   );
   const worldStateJournal = new AvmPersistableStateManager(hostStorage);
+  const startSideEffectCounter = executionContext.sideEffectCounter.current();
+  worldStateJournal.trace.accessCounter = startSideEffectCounter;
 
   const executionEnv = createAvmExecutionEnvironment(
     executionContext.execution,
@@ -80,13 +82,22 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
   const simulator = new AvmSimulator(context);
 
   const result = await simulator.execute();
-  const newWorldState = context.persistableState.flush();
-
   log.verbose(
     `[AVM] ${address.toString()}:${selector} returned, reverted: ${result.reverted}, reason: ${result.revertReason}.`,
   );
 
-  return await convertAvmResults(executionContext, newWorldState, result, machineState);
+  // Extract the call's results from AVM state and adapt it to a PublicExecutionResult
+  return Promise.resolve({
+    ...worldStateJournal.transitionalExecutionResult, // includes nestedExecutions
+    execution: executionContext.execution,
+    startSideEffectCounter: new Fr(startSideEffectCounter),
+    endSideEffectCounter: new Fr(worldStateJournal.trace.accessCounter),
+    returnValues: result.output,
+    unencryptedLogs: new UnencryptedFunctionL2Logs(worldStateJournal.transitionalExecutionResult.unencryptedLogs),
+    reverted: result.reverted,
+    revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,
+    gasLeft: machineState.gasLeft,
+  });
 }
 
 async function executePublicFunctionAcvm(
