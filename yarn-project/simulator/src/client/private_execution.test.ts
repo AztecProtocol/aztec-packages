@@ -173,16 +173,22 @@ describe('Private Execution test suite', () => {
   beforeAll(async () => {
     logger = createDebugLogger('aztec:test:private_execution');
 
+    // TODO(benesjan): ideally we would not have the key store here and just have if else in getNullifierKeys as it
+    // used to be before keys changes
     keyStore = new TestKeyStore(new Grumpkin(), openTmpStore());
 
     const ownerPartialAddress = Fr.random();
     await keyStore.addAccount(ownerSk, ownerPartialAddress);
 
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, Fr.random());
+
+    const recipientPartialAddress = Fr.random();
+    recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
+
+    await keyStore.addAccount(recipientSk, recipientPartialAddress);
   });
 
   beforeEach(() => {
