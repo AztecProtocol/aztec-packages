@@ -99,13 +99,21 @@ describe('SharedMutablePrivateGetter', () => {
 
       it('should fail when trying to rotate setting a 0 key', async () => {
         await expect(
-          keyRegistry.withWallet(wallets[0]).methods.rotate_nullifier_public_key(wallets[0].getAddress(), new Fr(0)).send().wait(),
+          keyRegistry
+            .withWallet(wallets[0])
+            .methods.rotate_nullifier_public_key(wallets[0].getAddress(), new Fr(0))
+            .send()
+            .wait(),
         ).rejects.toThrow('New nullifier public key must be non-zero');
       });
 
       it('should fail when trying to rotate for another address without authwit', async () => {
         await expect(
-          keyRegistry.withWallet(wallets[0]).methods.rotate_nullifier_public_key(wallets[1].getAddress(), new Fr(2)).send().wait(),
+          keyRegistry
+            .withWallet(wallets[0])
+            .methods.rotate_nullifier_public_key(wallets[1].getAddress(), new Fr(2))
+            .send()
+            .wait(),
         ).rejects.toThrow('Assertion failed: Message not authorized by account');
       });
     });

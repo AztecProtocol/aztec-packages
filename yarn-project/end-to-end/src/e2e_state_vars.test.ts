@@ -237,13 +237,13 @@ describe('e2e_state_vars', () => {
 
       // We set the authorized value here, knowing there will be some delay before the value change takes place
       await authContract
-      .withWallet(wallet)
-      .methods.set_authorized(AztecAddress.fromField(new Fr(6969696969)))
-      .send()
-      .wait();
+        .withWallet(wallet)
+        .methods.set_authorized(AztecAddress.fromField(new Fr(6969696969)))
+        .send()
+        .wait();
     }, 30_000);
 
-    it('checks authorized in auth contract from test contract and finds the old value because the change hasn\'t been applied yet', async () => {
+    it("checks authorized in auth contract from test contract and finds the old value because the change hasn't been applied yet", async () => {
       const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter(authContract.address, 2)
         .send()
