@@ -456,10 +456,10 @@ mod tests {
         builder.previous_kernel.gas_used = Gas::new(300, 300, 300);
 
         // This call starts with 700 gas left
-        builder.public_call.public_inputs.call_context.gas_left = Gas::new(700, 700, 700);
+        builder.public_call.public_inputs.start_gas_left = Gas::new(700, 700, 700);
 
         // And uses 200, ending with 500 left
-        builder.public_call.public_inputs.gas_left = Gas::new(500, 500, 500);
+        builder.public_call.public_inputs.end_gas_left = Gas::new(500, 500, 500);
 
         // So the updated gas used by revertible must go up by 200, and non-revertible must stay the same
         let output = builder.execute();

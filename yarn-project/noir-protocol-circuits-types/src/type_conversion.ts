@@ -122,7 +122,6 @@ import {
   type FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   type FunctionSelector as FunctionSelectorNoir,
   type GasFees as GasFeesNoir,
-  type Gas as GasNoir,
   type GasSettings as GasSettingsNoir,
   type L2ToL1Message as L2ToL1MessageNoir,
   type MaxBlockNumber as MaxBlockNumberNoir,
@@ -153,6 +152,7 @@ import { type PrivateKernelInnerCircuitPrivateInputs as PrivateKernelInnerCircui
 import { type PrivateKernelTailToPublicCircuitPrivateInputs as PrivateKernelTailToPublicCircuitPrivateInputsNoir } from './types/private_kernel_tail_to_public_types.js';
 import {
   type CombinedAccumulatedData as CombinedAccumulatedDataNoir,
+  type Gas as GasNoir,
   type GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   type NullifierReadRequestHints as NullifierReadRequestHintsNoir,
   type NullifierSettledReadHint as NullifierSettledReadHintNoir,
@@ -433,12 +433,9 @@ export function mapCallContextFromNoir(callContext: CallContextNoir): CallContex
     mapAztecAddressFromNoir(callContext.storage_contract_address),
     mapEthAddressFromNoir(callContext.portal_contract_address),
     mapFunctionSelectorFromNoir(callContext.function_selector),
-    mapGasFromNoir(callContext.gas_left),
     callContext.is_delegate_call,
     callContext.is_static_call,
     mapNumberFromNoir(callContext.side_effect_counter),
-    mapGasSettingsFromNoir(callContext.gas_settings),
-    mapFieldFromNoir(callContext.transaction_fee),
   );
 }
 
@@ -453,12 +450,9 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
     storage_contract_address: mapAztecAddressToNoir(callContext.storageContractAddress),
     portal_contract_address: mapEthAddressToNoir(callContext.portalContractAddress),
     function_selector: mapFunctionSelectorToNoir(callContext.functionSelector),
-    gas_left: mapGasToNoir(callContext.gasLeft),
     is_delegate_call: callContext.isDelegateCall,
     is_static_call: callContext.isStaticCall,
     side_effect_counter: mapNumberToNoir(callContext.sideEffectCounter),
-    gas_settings: mapGasSettingsToNoir(callContext.gasSettings),
-    transaction_fee: mapFieldToNoir(callContext.transactionFee),
   };
 }
 
@@ -752,6 +746,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
     version: mapFieldToNoir(privateCircuitPublicInputs.version),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
+    gas_settings: mapGasSettingsToNoir(privateCircuitPublicInputs.gasSettings),
   };
 }
 
@@ -1062,7 +1057,6 @@ export function mapPrivateAccumulatedDataFromNoir(
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
       mapCallRequestFromNoir,
     ),
-    mapGasFromNoir(privateAccumulatedData.gas_used),
   );
 }
 
@@ -1077,7 +1071,6 @@ export function mapPrivateAccumulatedDataToNoir(data: PrivateAccumulatedData): P
     unencrypted_log_preimages_length: mapFieldToNoir(data.unencryptedLogPreimagesLength),
     private_call_stack: mapTuple(data.privateCallStack, mapCallRequestToNoir),
     public_call_stack: mapTuple(data.publicCallStack, mapCallRequestToNoir),
-    gas_used: mapGasToNoir(data.gasUsed),
   };
 }
 
@@ -1585,7 +1578,9 @@ export function mapPublicCircuitPublicInputsToNoir(
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
     revert_code: mapRevertCodeToNoir(publicInputs.revertCode),
-    gas_left: mapGasToNoir(publicInputs.gasLeft),
+    start_gas_left: mapGasToNoir(publicInputs.startGasLeft),
+    end_gas_left: mapGasToNoir(publicInputs.endGasLeft),
+    transaction_fee: mapFieldToNoir(publicInputs.transactionFee),
   };
 }
 /**

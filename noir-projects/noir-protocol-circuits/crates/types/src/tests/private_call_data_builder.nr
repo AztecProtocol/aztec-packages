@@ -5,7 +5,7 @@ use crate::{
     max_block_number::MaxBlockNumber,
     membership_witness::{FunctionLeafMembershipWitness, NoteHashReadRequestMembershipWitness},
     private_circuit_public_inputs::{PrivateCircuitPublicInputs},
-    private_kernel::private_call_data::PrivateCallData, side_effect::SideEffect,
+    private_kernel::private_call_data::PrivateCallData, side_effect::SideEffect
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
     mocked::{Proof, VerificationKey},
@@ -67,7 +67,7 @@ impl PrivateCallDataBuilder {
             note_hash_read_request_membership_witnesses: BoundedVec::new(),
             portal_contract_address: public_inputs.call_context.portal_contract_address,
             acir_hash: contract_function.acir_hash,
-            gas_settings: public_inputs.call_context.gas_settings
+            gas_settings: public_inputs.gas_settings
         }
     }
 

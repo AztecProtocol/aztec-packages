@@ -2,7 +2,13 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GAS_SETTINGS_LENGTH } from '../constants.gen.js';
+import {
+  DEFAULT_GAS_LIMIT,
+  DEFAULT_INCLUSION_FEE,
+  DEFAULT_MAX_FEE_PER_GAS,
+  DEFAULT_TEARDOWN_GAS_LIMIT,
+  GAS_SETTINGS_LENGTH,
+} from '../constants.gen.js';
 import { Gas } from './gas.js';
 import { type UInt32 } from './shared.js';
 
@@ -52,7 +58,7 @@ export class GasSettings {
       DimensionGasSettings.default(),
       DimensionGasSettings.default(),
       DimensionGasSettings.default(),
-      Fr.ONE,
+      new Fr(DEFAULT_INCLUSION_FEE),
     );
   }
 
@@ -62,7 +68,7 @@ export class GasSettings {
       DimensionGasSettings.simulation(),
       DimensionGasSettings.simulation(),
       DimensionGasSettings.simulation(),
-      Fr.ONE,
+      new Fr(DEFAULT_INCLUSION_FEE),
     );
   }
 
@@ -150,11 +156,11 @@ export class DimensionGasSettings {
   }
 
   static default() {
-    return new DimensionGasSettings(1e9, 1e8, Fr.ONE);
+    return new DimensionGasSettings(DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, new Fr(DEFAULT_MAX_FEE_PER_GAS));
   }
 
   static simulation() {
-    return new DimensionGasSettings(1e9, 1e8, Fr.ONE);
+    return new DimensionGasSettings(DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, new Fr(DEFAULT_MAX_FEE_PER_GAS));
   }
 
   getFeeLimit() {

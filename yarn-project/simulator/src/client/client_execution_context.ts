@@ -14,8 +14,11 @@ import {
   CallContext,
   FunctionData,
   FunctionSelector,
+  GasSettings,
   type Header,
   NoteHashReadRequestMembershipWitness,
+  PrivateContextInputs,
+  PrivateGlobalVariables,
   PublicCallRequest,
   type SideEffect,
   TxContext,
@@ -99,18 +102,15 @@ export class ClientExecutionContext extends ViewDataOracle {
       throw new Error('Invalid arguments size');
     }
 
-    const fields = [
-      ...this.callContext.toFields(),
-      ...this.historicalHeader.toFields(),
+    const privateContextInputs = new PrivateContextInputs(
+      this.callContext,
+      this.historicalHeader,
+      new PrivateGlobalVariables(this.txContext.chainId, this.txContext.version),
+      this.sideEffectCounter,
+      GasSettings.default(), // TODO(palla/gas): Set proper value
+    );
 
-      this.txContext.chainId,
-      this.txContext.version,
-
-      new Fr(this.sideEffectCounter),
-
-      ...args,
-    ];
-
+    const fields = [...privateContextInputs.toFields(), ...args];
     return toACVMWitness(0, fields);
   }
 
@@ -497,12 +497,9 @@ export class ClientExecutionContext extends ViewDataOracle {
       isDelegateCall ? this.contractAddress : targetContractAddress,
       portalContractAddress,
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
-      this.callContext.gasLeft, // TODO(palla/gas): We should deduct DA and L1 gas used for the derived context
       isDelegateCall,
       isStaticCall,
       startSideEffectCounter,
-      this.callContext.gasSettings,
-      this.callContext.transactionFee,
     );
   }
 

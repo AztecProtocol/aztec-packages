@@ -1,7 +1,11 @@
 use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress}, abis::gas::Gas,
-    constants::{GAS_SETTINGS_LENGTH, DIMENSION_GAS_SETTINGS_LENGTH}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered, utils::reader::Reader
+    constants::{
+    GAS_SETTINGS_LENGTH, DIMENSION_GAS_SETTINGS_LENGTH, DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT,
+    DEFAULT_MAX_FEE_PER_GAS, DEFAULT_INCLUSION_FEE
+},
+    hash::pedersen_hash, traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered,
+    utils::reader::Reader
 };
 
 struct GasSettings {
@@ -12,7 +16,7 @@ struct GasSettings {
 }
 
 impl GasSettings {
-    fn new(
+    pub fn new(
         da: DimensionGasSettings,
         l1: DimensionGasSettings,
         l2: DimensionGasSettings,
@@ -21,8 +25,29 @@ impl GasSettings {
         Self { da, l1, l2, inclusion_fee }
     }
 
-    fn get_gas_limits(self) -> Gas {
+    pub fn get_gas_limits(self) -> Gas {
         Gas { da_gas: self.da.gas_limit, l1_gas: self.l1.gas_limit, l2_gas: self.l2.gas_limit }
+    }
+
+    pub fn default() -> Self {
+        GasSettings::new(
+            DimensionGasSettings::new(
+                DEFAULT_GAS_LIMIT,
+                DEFAULT_TEARDOWN_GAS_LIMIT,
+                DEFAULT_MAX_FEE_PER_GAS
+            ),
+            DimensionGasSettings::new(
+                DEFAULT_GAS_LIMIT,
+                DEFAULT_TEARDOWN_GAS_LIMIT,
+                DEFAULT_MAX_FEE_PER_GAS
+            ),
+            DimensionGasSettings::new(
+                DEFAULT_GAS_LIMIT,
+                DEFAULT_TEARDOWN_GAS_LIMIT,
+                DEFAULT_MAX_FEE_PER_GAS
+            ),
+            DEFAULT_INCLUSION_FEE
+        )
     }
 }
 

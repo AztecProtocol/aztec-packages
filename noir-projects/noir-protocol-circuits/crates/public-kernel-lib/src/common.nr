@@ -173,7 +173,7 @@ pub fn update_validation_requests(public_call: PublicCallData, circuit_outputs: 
 
 pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
     let tx_gas_limits = circuit_outputs.constants.gas_settings.get_gas_limits();
-    let call_gas_left = public_call.call_stack_item.public_inputs.gas_left;
+    let call_gas_left = public_call.call_stack_item.public_inputs.end_gas_left;
     let accum_end_non_revertible_gas_used = circuit_outputs.end_non_revertible.gas_used;
 
     // dep::types::debug_log::debug_log_format(
@@ -198,7 +198,7 @@ pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: 
 
 pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
     let tx_gas_limits = circuit_outputs.constants.gas_settings.get_gas_limits();
-    let call_gas_left = public_call.call_stack_item.public_inputs.gas_left;
+    let call_gas_left = public_call.call_stack_item.public_inputs.end_gas_left;
     let accum_end_gas_used = circuit_outputs.end.gas_used;
 
     // dep::types::debug_log::debug_log_format(
@@ -519,7 +519,10 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
     public_inputs.end.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
 }
 
-pub fn propagate_new_unencrypted_logs_non_revertible(public_call: PublicCallData, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+pub fn propagate_new_unencrypted_logs_non_revertible(
+    public_call: PublicCallData,
+    public_inputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
     // TODO(Miranda): silo logs here once we have finalised struct
