@@ -118,7 +118,7 @@ describe('SharedMutablePrivateGetter', () => {
             .wait(),
         ).rejects.toThrow('Assertion failed: Message not authorized by account');
       });
-    })
+    });
   });
 
   describe('key registration flow', () => {
