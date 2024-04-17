@@ -18,6 +18,7 @@ def main():
             print("1. SSH into build machine")
             print("2. SSH into bench machine")
             print("3. Start/Stop spot machines")
+            print("4. Manage Running Jobs")
             print("q. Quit")
             with term.location(0, term.height - 1):
                 selection = term.inkey()
@@ -28,6 +29,8 @@ def main():
         ssh_into_machine('bench-x86')
     elif selection == '3':
         manage_spot_instances()
+    elif selection == '4':
+        manage_ci_workflows()
 
 def ssh_into_machine(suffix):
     GITHUB_ACTOR = os.getenv('GITHUB_ACTOR', 'default_actor')
@@ -39,8 +42,6 @@ def ssh_into_machine(suffix):
     # Command to get the instance information
     cmd = f'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" "Name=tag:Name,Values=aztec-packages-{GITHUB_ACTOR}-{suffix}" --output json --region us-east-2'
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    print(result.stdout)
-
     if result.returncode != 0:
         print("Failed to get AWS instances:", result.stderr)
         return
@@ -66,6 +67,23 @@ def manage_spot_instances():
         subprocess.run('gh workflow run start-spot.yml', shell=True)
     elif action == 'stop':
         subprocess.run('gh workflow run stop-spot.yml', shell=True)
+
+def manage_ci_workflows():
+    # Retrieve the most recent workflow run
+    cmd = f"gh run list --workflow=ci.yml --actor={GITHUB_ACTOR} --limit 1"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if result.returncode != 0 or not result.stdout.strip():
+        print("Failed to retrieve workflow runs or no runs found.")
+        return
+    print("Most recent CI run details:")
+    print(result.stdout)
+
+    run_id = input("Enter the run ID to cancel or force cancel: ")
+    action = input("Enter 'cancel' to cancel or 'force' to force cancel the run: ")
+    if action.lower() == 'cancel':
+        subprocess.run(f"gh run cancel {run_id}", shell=True)
+    elif action.lower() == 'force':
+        subprocess.run(f"gh run cancel {run_id} --force", shell=True)
 
 if __name__ == "__main__":
     main()
