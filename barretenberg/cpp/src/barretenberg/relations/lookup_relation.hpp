@@ -41,14 +41,14 @@ template <typename FF_> class LookupRelationImpl {
     {
         // Note: the following technique works in proofconstruction and deciding but fails for certain acir test
         // programs. I'm not sure why.
-        // // From the definition of the lookup grand product, if the inputs are trivial,
-        // // Z_lookup is updated as Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the
-        // // contribution of the given inputs will be the zero polynomial.
-        // auto gamma_by_one_plus_beta = params.gamma * (params.beta + 1);
-        // bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * gamma_by_one_plus_beta &&
-        //                    in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * gamma_by_one_plus_beta);
-        // return is_active;
-        return true;
+        // From the definition of the lookup grand product, if the inputs are trivial,
+        // Z_lookup is updated as Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the
+        // contribution of the given inputs will be the zero polynomial.
+        auto gamma_by_one_plus_beta = params.gamma * (params.beta + 1);
+        bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * gamma_by_one_plus_beta &&
+                           in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * gamma_by_one_plus_beta);
+        return is_active;
+        // return true;
     }
 
     /**
@@ -134,8 +134,7 @@ template <typename FF_> class LookupRelationImpl {
         auto tmp = (q_lookup * wire_accum + gamma);                               // deg 3 or 4
         tmp *= (table_accum + table_accum_shift * beta + gamma_by_one_plus_beta); // 1 or 3
         tmp *= one_plus_beta;                                                     // deg 0 or 1
-
-        return tmp; // deg 4 or 8
+        return tmp;                                                               // deg 4 or 8
     }
 
     /**
@@ -166,7 +165,6 @@ template <typename FF_> class LookupRelationImpl {
         auto s_accum_shift = View(in.sorted_accum_shift);
 
         auto tmp = (s_accum + s_accum_shift * beta + gamma_by_one_plus_beta); // 1 or 2
-
         return tmp;
     }
 

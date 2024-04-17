@@ -135,7 +135,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    // relation_parameters.gamma_by_one_plus_beta = gamma * (beta + 1);
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
         proving_key.compute_logderivative_inverse(relation_parameters);
