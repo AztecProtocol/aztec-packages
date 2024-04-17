@@ -25,12 +25,12 @@ template <typename FF_> class UltraPermutationRelationImpl {
     inline static bool is_active(const AllEntities& in, [[maybe_unused]] const Parameters& params)
     {
         (void)in;
-        // // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
-        // // non-trivial copy constraints.
-        // bool non_trivial_permutation = !(in.z_perm.value_at(0) == in.z_perm_shift.value_at(0) &&
-        //                                  in.z_perm.value_at(1) == in.z_perm_shift.value_at(1));
-        // return non_trivial_permutation;
-        return true;
+        // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
+        // non-trivial copy constraints.
+        bool non_trivial_permutation = !(in.z_perm.value_at(0) == in.z_perm_shift.value_at(0) &&
+                                         in.z_perm.value_at(1) == in.z_perm_shift.value_at(1));
+        return non_trivial_permutation;
+        // return true;
     }
 
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
