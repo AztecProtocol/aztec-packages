@@ -662,6 +662,8 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
+                                // TODO(Alvaro) This is due to limitations in the calldatacopy opcode.
+                                // We cannot currently reuse brillig entry points that have slice arguments.
                                 let has_slice_argument = arguments.iter().any(|arg| {
                                     let typ = dfg.type_of_value(*arg);
                                     typ.contains_slice_element()
