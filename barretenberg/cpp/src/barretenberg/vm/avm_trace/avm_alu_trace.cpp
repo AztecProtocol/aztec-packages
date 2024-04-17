@@ -675,6 +675,7 @@ FF AvmAluTraceBuilder::op_lte(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
  */
 FF AvmAluTraceBuilder::op_cast(FF const& a, AvmMemoryTag in_tag, uint32_t clk)
 {
+    info("THIS IS SOLVING A STRANGE COMPILATION ISSUE");
     // Get the decomposition of a
     auto [a_lo, a_hi] = decompose(uint256_t(a));
     // Decomposition of p-a
