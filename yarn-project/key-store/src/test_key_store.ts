@@ -7,6 +7,7 @@ import {
   GrumpkinScalar,
   type PartialAddress,
   Point,
+  computeAppNullifierSecretKey,
 } from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
@@ -174,10 +175,8 @@ export class TestKeyStore implements KeyStore {
       );
     }
     const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);
-
-    return Promise.resolve(
-      poseidon2Hash([masterNullifierSecretKey.high, masterNullifierSecretKey.low, app, GeneratorIndex.NSK_M]),
-    );
+    const appNullifierSecretKey = computeAppNullifierSecretKey(masterNullifierSecretKey, app);
+    return Promise.resolve(appNullifierSecretKey);
   }
 
   /**

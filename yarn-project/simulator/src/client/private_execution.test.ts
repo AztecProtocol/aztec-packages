@@ -1,29 +1,25 @@
-import {
-  type AztecNode,
-  type KeyStore,
-  type L1ToL2Message,
-  Note,
-  PackedValues,
-  TxExecutionRequest,
-} from '@aztec/circuit-types';
+import { type AztecNode, type L1ToL2Message, Note, PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
   CompleteAddress,
   FunctionData,
   GasSettings,
+  type GrumpkinPrivateKey,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PartialStateReference,
   PublicCallRequest,
+  type PublicKey,
   StateReference,
   TxContext,
+  computeAppNullifierSecretKey,
+  deriveKeys,
   getContractInstanceFromDeployParams,
   nonEmptySideEffects,
   sideEffectArrayToValueArray,
 } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeCommitmentNonce, computeMessageSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
@@ -41,8 +37,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
-// TODO(benesjan): nuke keystore dependency
-import { TestKeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
@@ -84,7 +78,10 @@ describe('Private Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
 
-  let keyStore: KeyStore;
+  let ownerMasterNullifierPublicKey: PublicKey;
+  let recipientMasterNullifierPublicKey: PublicKey;
+  let ownerMasterNullifierSecretKey: GrumpkinPrivateKey;
+  let recipientMasterNullifierSecretKey: GrumpkinPrivateKey;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -170,35 +167,52 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
-  beforeAll(async () => {
+  beforeAll(() => {
     logger = createDebugLogger('aztec:test:private_execution');
 
-    // TODO(benesjan): ideally we would not have the key store here and just have if else in getNullifierKeys as it
-    // used to be before keys changes
-    keyStore = new TestKeyStore(new Grumpkin(), openTmpStore());
+    // I need: secret key to compute complete address, master nullifier public key, app nullifier secret key
+    // to get app nullifier secret key I need masterNullifierSecretKey
 
     const ownerPartialAddress = Fr.random();
-    await keyStore.addAccount(ownerSk, ownerPartialAddress);
-
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
+
+    const allOwnerKeys = deriveKeys(ownerSk);
+    ownerMasterNullifierPublicKey = allOwnerKeys.masterNullifierPublicKey;
+    ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
 
+    const allRecipientKeys = deriveKeys(recipientSk);
+    recipientMasterNullifierPublicKey = allRecipientKeys.masterNullifierPublicKey;
+    recipientMasterNullifierSecretKey = allRecipientKeys.masterNullifierSecretKey;
+
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
-
-    await keyStore.addAccount(recipientSk, recipientPartialAddress);
   });
 
   beforeEach(() => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeys.mockImplementation(async (accountAddress: AztecAddress, contractAddress: AztecAddress) => {
-      return Promise.resolve({
-        masterNullifierPublicKey: await keyStore.getMasterNullifierPublicKey(accountAddress),
-        appNullifierSecretKey: await keyStore.getAppNullifierSecretKey(accountAddress, contractAddress),
-      });
+    oracle.getNullifierKeys.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
+      // return Promise.resolve({
+      //   masterNullifierPublicKey: await keyStore.getMasterNullifierPublicKey(accountAddress),
+      //   appNullifierSecretKey: await keyStore.getAppNullifierSecretKey(accountAddress, contractAddress),
+      // });
+
+      if (accountAddress.equals(ownerCompleteAddress.address)) {
+        return Promise.resolve({
+          masterNullifierPublicKey: ownerMasterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+        });
+      }
+      if (accountAddress.equals(recipientCompleteAddress.address)) {
+        return Promise.resolve({
+          masterNullifierPublicKey: recipientMasterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
+        });
+      }
+      throw new Error(`Unknown address ${accountAddress}`);
     });
     oracle.getHeader.mockResolvedValue(header);
 
@@ -897,7 +911,7 @@ describe('Private Execution test suite', () => {
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
       const expectedNullifier = pedersenHash([
         innerNoteHash,
-        await keyStore.getAppNullifierSecretKey(owner, contractAddress),
+        computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
@@ -967,7 +981,7 @@ describe('Private Execution test suite', () => {
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
       const expectedNullifier = pedersenHash([
         innerNoteHash,
-        await keyStore.getAppNullifierSecretKey(owner, contractAddress),
+        computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
