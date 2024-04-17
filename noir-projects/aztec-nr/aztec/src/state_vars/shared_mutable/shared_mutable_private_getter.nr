@@ -8,7 +8,7 @@ use crate::state_vars::{storage::Storage, shared_mutable::scheduled_value_change
 struct SharedMutablePrivateGetter<T, DELAY> {
   context: PrivateContext,
   // The contract address of the contract we want to read from
-  contract_address: AztecAddress,
+  other_contract_address: AztecAddress,
   // The storage slot where the SharedMutable is stored on the other contract
   storage_slot: Field,
 }
@@ -18,12 +18,12 @@ struct SharedMutablePrivateGetter<T, DELAY> {
 impl<T, DELAY> SharedMutablePrivateGetter<T, DELAY> {
   pub fn new(
     context: PrivateContext,
-    contract_address: AztecAddress,
+    other_contract_address: AztecAddress,
     storage_slot: Field,
   ) -> Self {
     assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
-    assert(contract_address.to_field() != 0, "Contract address cannot be 0");
-    Self { context, contract_address, storage_slot }
+    assert(other_contract_address.to_field() != 0, "Other contract address cannot be 0");
+    Self { context, other_contract_address, storage_slot }
   }
 
   pub fn get_current_value_in_private(self) -> T where T: FromField {
@@ -50,7 +50,7 @@ impl<T, DELAY> SharedMutablePrivateGetter<T, DELAY> {
       raw_fields[i] = public_storage_historical_read(
         context,
         derived_slot + i as Field,
-        self.contract_address
+        self.other_contract_address
       );
     }
 

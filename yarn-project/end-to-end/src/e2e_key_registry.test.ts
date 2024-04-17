@@ -1,7 +1,7 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
 import { GeneratorIndex } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { KeyRegistryContract, StateVarsContract } from '@aztec/noir-contracts.js';
+import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
@@ -11,7 +11,7 @@ const TIMEOUT = 100_000;
 
 describe('SharedMutablePrivateGetter', () => {
   let keyRegistry: KeyRegistryContract;
-  let stateVarsContract: StateVarsContract;
+  let testContract: TestContract;
   let pxe: PXE;
   jest.setTimeout(TIMEOUT);
 
@@ -21,7 +21,7 @@ describe('SharedMutablePrivateGetter', () => {
 
   beforeAll(async () => {
     ({ teardown, pxe, wallets } = await setup(2));
-    stateVarsContract = await StateVarsContract.deploy(wallets[0]).send().deployed();
+    testContract = await TestContract.deploy(wallets[0]).send().deployed();
     keyRegistry = await KeyRegistryContract.deploy(wallets[0]).send().deployed();
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
@@ -29,7 +29,7 @@ describe('SharedMutablePrivateGetter', () => {
 
   const delay = async (blocks: number) => {
     for (let i = 0; i < blocks; i++) {
-      await stateVarsContract.methods.delay().send().wait();
+      await testContract.methods.delay().send().wait();
     }
   };
 
@@ -65,7 +65,7 @@ describe('SharedMutablePrivateGetter', () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
-            .methods.register_from_preimage(
+            .methods.register(
               AztecAddress.fromField(mismatchedAddress),
               partialAddress,
               masterNullifierPublicKey,
@@ -84,7 +84,7 @@ describe('SharedMutablePrivateGetter', () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
-            .methods.register_from_preimage(
+            .methods.register(
               AztecAddress.fromField(accountAddedToRegistry),
               partialAddress,
               mismatchedMasterNullifierPublicKey,
@@ -99,13 +99,13 @@ describe('SharedMutablePrivateGetter', () => {
 
       it('should fail when trying to rotate setting a 0 key', async () => {
         await expect(
-          keyRegistry.withWallet(wallets[0]).methods.rotate_keys(wallets[0].getAddress(), new Fr(0)).send().wait(),
+          keyRegistry.withWallet(wallets[0]).methods.rotate_nullifier_public_key(wallets[0].getAddress(), new Fr(0)).send().wait(),
         ).rejects.toThrow('New nullifier public key must be non-zero');
       });
 
       it('should fail when trying to rotate for another address without authwit', async () => {
         await expect(
-          keyRegistry.withWallet(wallets[0]).methods.rotate_keys(wallets[1].getAddress(), new Fr(2)).send().wait(),
+          keyRegistry.withWallet(wallets[0]).methods.rotate_nullifier_public_key(wallets[1].getAddress(), new Fr(2)).send().wait(),
         ).rejects.toThrow('Assertion failed: Message not authorized by account');
       });
     });
@@ -136,7 +136,7 @@ describe('SharedMutablePrivateGetter', () => {
 
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.register_from_preimage(
+        .methods.register(
           AztecAddress.fromField(accountAddedToRegistry),
           partialAddress,
           masterNullifierPublicKey,
@@ -149,7 +149,7 @@ describe('SharedMutablePrivateGetter', () => {
     });
 
     it('checks our registry contract from state vars contract and fails because the address has not been registered yet', async () => {
-      const { txHash } = await stateVarsContract.methods
+      const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
         .send()
         .wait();
@@ -161,7 +161,7 @@ describe('SharedMutablePrivateGetter', () => {
     it('checks our registry contract from state vars contract and finds the address and associated nullifier public key after a delay', async () => {
       await delay(5);
 
-      const { txHash } = await stateVarsContract.methods
+      const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
         .send()
         .wait();
@@ -179,13 +179,13 @@ describe('SharedMutablePrivateGetter', () => {
 
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.rotate_keys(wallets[0].getAddress(), newMasterNullifierPublicKey)
+        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey)
         .send()
         .wait();
     });
 
     it("checks our registry contract from state vars contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
-      const { txHash } = await stateVarsContract.methods
+      const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
         .send()
         .wait();
@@ -197,7 +197,7 @@ describe('SharedMutablePrivateGetter', () => {
     it('checks our registry contract from state vars contract and finds the new nullifier public key that has been rotated', async () => {
       await delay(5);
 
-      const { txHash } = await stateVarsContract.methods
+      const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
         .send()
         .wait();
@@ -209,13 +209,13 @@ describe('SharedMutablePrivateGetter', () => {
   });
 
   describe('key rotation flow with authwit', () => {
-    it('wallet 0 lets wallet 1 call rotate_keys on his behalf with a pre-defined new public key', async () => {
+    it('wallet 0 lets wallet 1 call rotate_nullifier_public_key on his behalf with a pre-defined new public key', async () => {
       // This changes
       const newMasterNullifierPublicKey = new Fr(420);
 
       const action = keyRegistry
         .withWallet(wallets[1])
-        .methods.rotate_keys(wallets[0].getAddress(), newMasterNullifierPublicKey);
+        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey);
 
       await wallets[0]
         .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)
@@ -226,7 +226,7 @@ describe('SharedMutablePrivateGetter', () => {
     });
 
     it("checks our registry contract from state vars contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
-      const { txHash } = await stateVarsContract.methods
+      const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
         .send()
         .wait();
@@ -238,7 +238,7 @@ describe('SharedMutablePrivateGetter', () => {
     it('checks our registry contract from state vars contract and finds the new nullifier public key that has been rotated', async () => {
       await delay(5);
 
-      const { txHash } = await stateVarsContract.methods
+      const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
         .send()
         .wait();

@@ -41,22 +41,13 @@ contract KeyRegistry {
   }
 
   #[aztec(public)]
-  fn rotate_keys(
+  fn rotate_nullifier_public_key(
     address: AztecAddress,
     new_nullifier_public_key: Field,
-    // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
-    // Uncomment lines below to enable that functionality
-    // new_incoming_public_key: FIeld,
-    // new_outgoing_public_key: FIeld,
-    // new_tagging_public_key: FIeld,
   ) {
     assert(
-      (new_nullifier_public_key != 0),
-      // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
-      // Uncomment lines below to enable that functionality      // (new_incoming_public_key != 0) &
-      // (new_outgoing_public_key != 0) &
-      // (new_tagging_public_key != 0),
-       "New nullifier public key must be non-zero"
+      new_nullifier_public_key != 0,
+      "New nullifier public key must be non-zero"
     );
 
     if (!address.eq(context.msg_sender())) {
@@ -64,22 +55,12 @@ contract KeyRegistry {
     }
 
     let nullifier_key_registry = storage.nullifier_public_key_registry.at(address);
-    // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
-    // Uncomment lines below to enable that functionality
-    // let incoming_entry = storage.nullifier_public_key_registry.at(context.msg_sender());
-    // let outgoing_entry = storage.nullifier_public_key_registry.at(context.msg_sender());
-    // let tagging_entry = storage.nullifier_public_key_registry.at(context.msg_sender());
 
     nullifier_key_registry.schedule_value_change(new_nullifier_public_key);
-    // We are not supporting rotating / changing keys other than the nullifier public in the registry at the moment, but will in the future.
-    // Uncomment lines below to enable that functionality
-    // incoming_entry.schedule_value_change(incoming_public_key);
-    // outgoing_entry.schedule_value_change(outgoing_public_key);
-    // tagging_entry.schedule_value_change(tagging_public_key);
   }
 
   #[aztec(public)]
-  fn register_from_preimage(
+  fn register(
     address: AztecAddress,
     partial_address: PartialAddress,
     nullifier_public_key: Field,
