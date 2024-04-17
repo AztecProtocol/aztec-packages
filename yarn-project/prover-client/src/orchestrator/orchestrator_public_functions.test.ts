@@ -40,7 +40,7 @@ describe('prover/orchestrator/public-functions', () => {
         });
         tx.data.constants.historicalHeader = await context.actualDb.buildInitialHeader();
 
-        const [processed, _] = await context.process([tx], 1, undefined);
+        const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
         // This will need to be a 2 tx block
         const blockTicket = await context.orchestrator.startNewBlock(

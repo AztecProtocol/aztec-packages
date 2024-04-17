@@ -39,7 +39,7 @@ describe('prover/bb_prover/public-kernel', () => {
     });
     tx.data.constants.historicalHeader = await context.actualDb.buildInitialHeader();
 
-    const [processed, failed] = await context.process([tx], 1, undefined);
+    const [processed, failed] = await context.processPublicFunctions([tx], 1, undefined);
 
     expect(processed.length).toBe(1);
     expect(failed.length).toBe(0);

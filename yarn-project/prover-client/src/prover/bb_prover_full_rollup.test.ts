@@ -42,7 +42,7 @@ describe('prover/bb_prover/full-rollup', () => {
       makeEmptyProcessedTx(Header.empty(), new Fr(1234), new Fr(1)),
     );
 
-    const [processed, failed] = await context.process(txs, numTransactions, context.orchestrator);
+    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.orchestrator);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);

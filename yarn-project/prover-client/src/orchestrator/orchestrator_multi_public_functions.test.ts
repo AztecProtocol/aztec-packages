@@ -48,7 +48,7 @@ describe('prover/orchestrator/public-functions', () => {
           await makeEmptyProcessedTestTx(context.actualDb),
         );
 
-        const [processed, failed] = await context.process(txs, numTransactions, context.orchestrator);
+        const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.orchestrator);
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 

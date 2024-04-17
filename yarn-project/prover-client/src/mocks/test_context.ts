@@ -113,7 +113,7 @@ export class TestContext {
     }
   }
 
-  public async process(
+  public async processPublicFunctions(
     txs: Tx[],
     maxTransactions: number,
     blockProver?: BlockProver,
@@ -131,7 +131,7 @@ export class TestContext {
       }
       throw new Error(`Unexpected execution request: ${execution}`);
     };
-    return await this.processWithMockExecutorImplementation(
+    return await this.processPublicFunctionsWithMockExecutorImplementation(
       txs,
       maxTransactions,
       blockProver,
@@ -140,7 +140,7 @@ export class TestContext {
     );
   }
 
-  public async processWithMockExecutorImplementation(
+  public async processPublicFunctionsWithMockExecutorImplementation(
     txs: Tx[],
     maxTransactions: number,
     blockProver?: BlockProver,

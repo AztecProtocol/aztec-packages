@@ -249,7 +249,11 @@ export class BBNativeRollupProver implements CircuitProver {
 
     await fs.writeFile(proofFileName, proof.buffer);
 
-    const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logger.debug);
+    const logFunction = (message: string) => {
+      logger.debug(`${circuitType} BB out - ${message}`);
+    };
+
+    const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 
