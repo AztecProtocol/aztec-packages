@@ -46,6 +46,7 @@ describe('SharedMutablePrivateGetter', () => {
       const masterOutgoingViewingPublicKey = new Fr(56);
       const masterTaggingPublicKey = new Fr(78);
 
+      // TODO(#5726): use computePublicKeysHash function
       const publicKeysHash = poseidon2Hash([
         masterNullifierPublicKey,
         masterIncomingViewingPublicKey,
