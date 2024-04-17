@@ -136,17 +136,17 @@ impl PublicContextInterface for AvmContext {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {        
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
-            args.as_slice(),
+            args,
             temporary_function_selector.to_field()
         );
         let data_to_return: [Field; RETURNS_COUNT] = results.0;
@@ -156,17 +156,17 @@ impl PublicContextInterface for AvmContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn static_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
         let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
-            args.as_slice(),
+            args,
             temporary_function_selector.to_field()
         );
 
@@ -174,11 +174,11 @@ impl PublicContextInterface for AvmContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn delegate_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
         assert(false, "'delegate_call_public_function' not implemented!");
         FunctionReturns::new([0; RETURNS_COUNT])

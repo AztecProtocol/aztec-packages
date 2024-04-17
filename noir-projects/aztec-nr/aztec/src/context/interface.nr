@@ -36,25 +36,25 @@ trait PublicContextInterface {
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress);
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]);
     fn accumulate_unencrypted_logs<T>(&mut self, log: T);
-    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT>;
-    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn static_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT>;
-    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn delegate_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT>;
     fn nullifier_exists(self, unsiloed_nullifier: Field, address: AztecAddress) -> bool;
 }
@@ -215,15 +215,8 @@ struct AvmCallInterface<T> {
 
 impl<T> AvmCallInterface<T> {
     pub fn call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) -> T where T: Deserialize<N> {
-        let (data_to_return, success) = context.call_public_function_raw(
-            gas_opts,
-            self.target_contract,
-            self.selector.to_field(),
-            self.args
-        );
-        assert(success == 1, "Nested call failed!");
-
-        FunctionReturns::new(data_to_return).deserialize_into()
+        let returns = context.call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+        returns.deserialize_into()
     }
 
     pub fn static_call<N>(
@@ -231,19 +224,13 @@ impl<T> AvmCallInterface<T> {
         context: &mut AvmContext,
         gas_opts: GasOpts
     ) -> T where T: Deserialize<N> {
-        let (data_to_return, success) = context.static_call_public_function_raw(
-            gas_opts,
-            self.target_contract,
-            self.selector.to_field(),
-            self.args
-        );
-        assert(success == 1, "Nested call failed!");
-
-        FunctionReturns::new(data_to_return).deserialize_into()
+        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+        returns.deserialize_into()
     }
 
-    pub fn delegate_call<N>(self, context: &mut AvmContext) {
-        assert(false, "'delegate_call_public_function' not implemented!");
+    pub fn delegate_call<N>(self, context: &mut AvmContext) -> T where T: Deserialize<N> {
+        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
+        returns.deserialize_into()
     }
 }
 
@@ -255,30 +242,17 @@ struct AvmVoidCallInterface {
 
 impl AvmVoidCallInterface {
     pub fn call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) {
-        let (data_to_return, success) = context.call_public_function_raw(
-            gas_opts,
-            self.target_contract,
-            self.selector.to_field(),
-            self.args
-        );
-        assert(success == 1, "Nested call failed!");
-
-        FunctionReturns::new(data_to_return).assert_empty()
+        let returns = context.call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+        returns.assert_empty()
     }
 
     pub fn static_call<N>(self, context: &mut AvmContext, gas_opts: GasOpts) {
-        let (data_to_return, success) = context.static_call_public_function_raw(
-            gas_opts,
-            self.target_contract,
-            self.selector.to_field(),
-            self.args
-        );
-        assert(success == 1, "Nested call failed!");
-
-        FunctionReturns::new(data_to_return).assert_empty()
+        let returns = context.static_call_public_function(self.target_contract, self.selector, self.args, gas_opts);
+        returns.assert_empty()
     }
 
     pub fn delegate_call<N>(self, context: &mut AvmContext) {
-        assert(false, "'delegate_call_public_function' not implemented!");
+        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
+        returns.assert_empty()
     }
 }
