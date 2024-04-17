@@ -70,7 +70,7 @@ def manage_spot_instances():
 
 def manage_ci_workflows():
     # Retrieve the most recent workflow run
-    cmd = f"gh run list --workflow=ci.yml --actor={GITHUB_ACTOR} --limit 1"
+    cmd = f"gh run list --workflow=ci.yml -u {GITHUB_ACTOR} --limit 1"
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if result.returncode != 0 or not result.stdout.strip():
         print("Failed to retrieve workflow runs or no runs found.")
@@ -78,12 +78,13 @@ def manage_ci_workflows():
     print("Most recent CI run details:")
     print(result.stdout)
 
-    run_id = input("Enter the run ID to cancel or force cancel: ")
     action = input("Enter 'cancel' to cancel or 'force' to force cancel the run: ")
+    run_id = input("Enter the run ID to cancel or force cancel: ")
     if action.lower() == 'cancel':
         subprocess.run(f"gh run cancel {run_id}", shell=True)
     elif action.lower() == 'force':
-        subprocess.run(f"gh run cancel {run_id} --force", shell=True)
+        subprocess.run('gh api --method POST -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" ' +
+            '/repos/AztecProtocol/aztec-packages/actions/runs/' + run_id + '/force-cancel', shell=True)
 
 if __name__ == "__main__":
     main()
