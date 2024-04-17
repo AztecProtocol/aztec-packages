@@ -25,8 +25,8 @@ export function computeContractAddressFromInstance(
     | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'>),
 ): AztecAddress {
   const partialAddress = computePartialAddress(instance);
-  const publicKeyHash = instance.publicKeysHash;
-  return computeContractAddressFromPartial({ partialAddress, publicKeyHash });
+  const publicKeysHash = instance.publicKeysHash;
+  return computeContractAddressFromPartial({ partialAddress, publicKeysHash });
 }
 
 /**
@@ -65,10 +65,10 @@ export function computeSaltedInitializationHash(
  * @returns The partially constructed contract address.
  */
 export function computeContractAddressFromPartial(
-  args: ({ publicKeyHash: Fr } | { secretKey: Fr }) & { partialAddress: Fr },
+  args: ({ publicKeysHash: Fr } | { secretKey: Fr }) & { partialAddress: Fr },
 ): AztecAddress {
-  const publicKeyHash = 'secretKey' in args ? deriveKeys(args.secretKey).publicKeysHash : args.publicKeyHash;
-  const result = poseidon2Hash([publicKeyHash, args.partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
+  const publicKeysHash = 'secretKey' in args ? deriveKeys(args.secretKey).publicKeysHash : args.publicKeysHash;
+  const result = poseidon2Hash([publicKeysHash, args.partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
   return AztecAddress.fromField(result);
 }
 

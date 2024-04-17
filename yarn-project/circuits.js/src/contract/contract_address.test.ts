@@ -97,9 +97,9 @@ describe('ContractAddress', () => {
   });
 
   it('Address from partial matches Noir', () => {
-    const secretKey = new Fr(2n);
-    const partialAddress = new Fr(3n);
-    const address = computeContractAddressFromPartial({ secretKey, partialAddress }).toString();
+    const publicKeysHash = new Fr(1n);
+    const partialAddress = new Fr(2n);
+    const address = computeContractAddressFromPartial({ publicKeysHash, partialAddress }).toString();
     expect(address).toMatchSnapshot();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data

@@ -78,11 +78,11 @@ impl AztecAddress {
 
 #[test]
 fn compute_address_from_partial_and_pubkey() {
-    let point = GrumpkinPoint { x: 1, y: 2 };
-    let partial_address = PartialAddress::from_field(3);
+    let pub_keys_hash = PublicKeysHash::from_field(1);
+    let partial_address = PartialAddress::from_field(2);
 
-    let address = AztecAddress::compute(PublicKeysHash::compute(point), partial_address);
-    let expected_computed_address_from_partial_and_pubkey = 0x1ab0fca7239c26a6169c3803a9e9652a2f99d63a610eba3ded5474f42751ae6e;
+    let address = AztecAddress::compute(pub_keys_hash, partial_address);
+    let expected_computed_address_from_partial_and_pubkey = 0x1b6ead051e7b42665064ca6cf1ec77da0a36d86e00d1ff6e44077966c0c3a9fa;
     assert(address.to_field() == expected_computed_address_from_partial_and_pubkey);
 }
 

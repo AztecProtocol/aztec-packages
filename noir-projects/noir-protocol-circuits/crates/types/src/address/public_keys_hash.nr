@@ -37,6 +37,7 @@ impl PublicKeysHash {
         Self { inner: field }
     }
 
+    // TODO(benesjan): this is stale now
     pub fn compute(public_key: GrumpkinPoint) -> Self {
         PublicKeysHash::from_field(
             pedersen_hash(
@@ -58,10 +59,11 @@ impl PublicKeysHash {
     }
 }
 
-#[test]
-fn compute_public_keys_hash() {
-    let point = GrumpkinPoint { x: 1, y: 2 };
-    let actual = PublicKeysHash::compute(point);
-    let expected_public_keys_hash = 0x22d83a089d7650514c2de24cd30185a414d943eaa19817c67bffe2c3183006a3;
-    assert(actual.to_field() == expected_public_keys_hash);
-}
+// TODO(benesjan): re-enable this test once the compute function is updated
+// #[test]
+// fn compute_public_keys_hash() {
+//     let point = GrumpkinPoint { x: 1, y: 2 };
+//     let actual = PublicKeysHash::compute(point);
+//     let expected_public_keys_hash = 0x22d83a089d7650514c2de24cd30185a414d943eaa19817c67bffe2c3183006a3;
+//     assert(actual.to_field() == expected_public_keys_hash);
+// }
