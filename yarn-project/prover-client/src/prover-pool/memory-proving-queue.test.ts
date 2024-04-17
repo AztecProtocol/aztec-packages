@@ -4,9 +4,6 @@ import {
   makeParityPublicInputs,
   makeProof,
 } from '@aztec/circuits.js/testing';
-import { promiseWithCallback } from '@aztec/foundation/promise';
-
-import { jest } from '@jest/globals';
 
 import { MemoryProvingQueue } from './memory-proving-queue.js';
 import { type ProvingQueue } from './proving-queue.js';
@@ -20,21 +17,15 @@ describe('MemoryProvingQueue', () => {
   });
 
   it('returns jobs in order', async () => {
-    queue.prove(
-      {
-        type: ProvingRequestType.BASE_PARITY,
-        inputs: makeBaseParityInputs(),
-      },
-      jest.fn(),
-    );
+    void queue.prove({
+      type: ProvingRequestType.BASE_PARITY,
+      inputs: makeBaseParityInputs(),
+    });
 
-    queue.prove(
-      {
-        type: ProvingRequestType.BASE_ROLLUP,
-        inputs: makeBaseRollupInputs(),
-      },
-      jest.fn(),
-    );
+    void queue.prove({
+      type: ProvingRequestType.BASE_ROLLUP,
+      inputs: makeBaseRollupInputs(),
+    });
 
     const job1 = await queue.getProvingJob();
     expect(job1?.request.type).toEqual(ProvingRequestType.BASE_PARITY);
@@ -49,14 +40,10 @@ describe('MemoryProvingQueue', () => {
 
   it('notifies of completion', async () => {
     const inputs = makeBaseParityInputs();
-    const [promise, cb] = promiseWithCallback();
-    queue.prove(
-      {
-        inputs,
-        type: ProvingRequestType.BASE_PARITY,
-      },
-      cb,
-    );
+    const promise = queue.prove({
+      inputs,
+      type: ProvingRequestType.BASE_PARITY,
+    });
 
     const job = await queue.getProvingJob();
     expect(job?.request.inputs).toEqual(inputs);
@@ -69,14 +56,10 @@ describe('MemoryProvingQueue', () => {
 
   it('notifies of errors', async () => {
     const inputs = makeBaseParityInputs();
-    const [promise, cb] = promiseWithCallback();
-    queue.prove(
-      {
-        inputs,
-        type: ProvingRequestType.BASE_PARITY,
-      },
-      cb,
-    );
+    const promise = queue.prove({
+      inputs,
+      type: ProvingRequestType.BASE_PARITY,
+    });
     const job = await queue.getProvingJob();
     expect(job?.request.inputs).toEqual(inputs);
 

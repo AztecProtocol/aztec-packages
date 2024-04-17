@@ -208,6 +208,7 @@ export class ProvingOrchestrator {
    * Cancel any further proving of the block
    */
   public cancelBlock() {
+    this.queue.cancelAll();
     this.provingState?.cancel();
   }
 
@@ -325,7 +326,8 @@ export class ProvingOrchestrator {
       }
     };
 
-    void safeJob();
+    // let the callstack unwind before adding the job to the queue
+    setImmediate(safeJob);
   }
 
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction

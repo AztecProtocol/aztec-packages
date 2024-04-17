@@ -1,4 +1,4 @@
-import { InterruptError } from '@aztec/foundation/error';
+import { TimeoutError } from '@aztec/foundation/error';
 import { MemoryFifo } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
@@ -30,7 +30,7 @@ export class MemoryProvingQueue implements ProvingQueue {
         request: job.request,
       };
     } catch (err) {
-      if (err instanceof InterruptError) {
+      if (err instanceof TimeoutError) {
         return null;
       }
 

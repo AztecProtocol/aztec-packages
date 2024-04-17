@@ -27,22 +27,3 @@ export function promiseWithResolvers<T>(): PromiseWithResolvers<T> {
     reject,
   };
 }
-
-export type PromiseWithCallback<T> = [promise: Promise<T>, callback: (err: any, result: T) => void];
-
-/**
- * Creates a promise and a node-style callback to resolve or reject it.
- * @returns - A tuple containing a promise and a callback function that resolves or rejects the promise.
- */
-export function promiseWithCallback<T>(): PromiseWithCallback<T> {
-  const { promise, resolve, reject } = promiseWithResolvers<T>();
-  const callback = (err: any, result: T) => {
-    if (err) {
-      reject(err);
-    } else {
-      resolve(result);
-    }
-  };
-
-  return [promise, callback];
-}

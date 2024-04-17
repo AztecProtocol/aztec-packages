@@ -1,10 +1,9 @@
 import { makeBaseParityInputs, makeParityPublicInputs, makeProof } from '@aztec/circuits.js/testing';
-import { promiseWithCallback } from '@aztec/foundation/promise';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type CircuitProver } from '../prover/interface.js';
-import { LocalProvingAgent } from './local-proving-agent.js';
+import { CircuitProverAgent } from './circuit-prover-agent.js';
 import { MemoryProvingQueue } from './memory-proving-queue.js';
 import { type ProvingAgent } from './prover-agent.js';
 import { type ProvingQueue } from './proving-queue.js';
@@ -18,7 +17,7 @@ describe('LocalProvingAgent', () => {
   beforeEach(() => {
     prover = mock<CircuitProver>();
     queue = new MemoryProvingQueue();
-    agent = new LocalProvingAgent(prover);
+    agent = new CircuitProverAgent(prover);
   });
 
   beforeEach(() => {
@@ -35,14 +34,10 @@ describe('LocalProvingAgent', () => {
     prover.getBaseParityProof.mockResolvedValue([publicInputs, proof]);
 
     const inputs = makeBaseParityInputs();
-    const [promise, cb] = promiseWithCallback();
-    queue.prove(
-      {
-        type: ProvingRequestType.BASE_PARITY,
-        inputs,
-      },
-      cb,
-    );
+    const promise = queue.prove({
+      type: ProvingRequestType.BASE_PARITY,
+      inputs,
+    });
 
     await expect(promise).resolves.toEqual([publicInputs, proof]);
     expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs);
@@ -53,14 +48,10 @@ describe('LocalProvingAgent', () => {
     prover.getBaseParityProof.mockRejectedValue(error);
 
     const inputs = makeBaseParityInputs();
-    const [promise, cb] = promiseWithCallback();
-    queue.prove(
-      {
-        type: ProvingRequestType.BASE_PARITY,
-        inputs,
-      },
-      cb,
-    );
+    const promise = queue.prove({
+      type: ProvingRequestType.BASE_PARITY,
+      inputs,
+    });
 
     await expect(promise).rejects.toEqual(error);
     expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs);
@@ -72,26 +63,18 @@ describe('LocalProvingAgent', () => {
     prover.getBaseParityProof.mockResolvedValue([publicInputs, proof]);
 
     const inputs = makeBaseParityInputs();
-    const [promise1, cb1] = promiseWithCallback();
-    queue.prove(
-      {
-        type: ProvingRequestType.BASE_PARITY,
-        inputs,
-      },
-      cb1,
-    );
+    const promise1 = queue.prove({
+      type: ProvingRequestType.BASE_PARITY,
+      inputs,
+    });
 
     await expect(promise1).resolves.toEqual([publicInputs, proof]);
 
     const inputs2 = makeBaseParityInputs();
-    const [promise2, cb2] = promiseWithCallback();
-    queue.prove(
-      {
-        type: ProvingRequestType.BASE_PARITY,
-        inputs: inputs2,
-      },
-      cb2,
-    );
+    const promise2 = queue.prove({
+      type: ProvingRequestType.BASE_PARITY,
+      inputs: inputs2,
+    });
 
     await expect(promise2).resolves.toEqual([publicInputs, proof]);
 
