@@ -13,7 +13,7 @@ import { ProvingOrchestrator } from './orchestrator.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
-const logger = createDebugLogger('aztec:orchestrator-test');
+const logger = createDebugLogger('aztec:orchestrator-failures');
 
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;

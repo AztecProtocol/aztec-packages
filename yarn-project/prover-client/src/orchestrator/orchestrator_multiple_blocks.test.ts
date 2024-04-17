@@ -8,7 +8,7 @@ import { TestContext } from '../mocks/test_context.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
-const logger = createDebugLogger('aztec:orchestrator-test');
+const logger = createDebugLogger('aztec:orchestrator-multi-blocks');
 
 describe('prover/orchestrator/multi-block', () => {
   let context: TestContext;

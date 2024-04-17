@@ -10,7 +10,7 @@ import { BBNativeRollupProver } from './bb_prover.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
-const logger = createDebugLogger('aztec:bb-prover-test');
+const logger = createDebugLogger('aztec:bb-prover-full-rollup');
 
 describe('prover/bb_prover/full-rollup', () => {
   let context: TestContext;
