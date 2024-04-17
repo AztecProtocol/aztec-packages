@@ -16,6 +16,7 @@ import {
   type TracedNullifierCheck,
   type TracedPublicStorageRead,
   type TracedPublicStorageWrite,
+  type TracedUnencryptedL2Log,
 } from './trace_types.js';
 
 /**
@@ -33,7 +34,7 @@ export type JournalData = {
 
   newL1Messages: L2ToL1Message[];
   newLogs: UnencryptedL2Log[];
-
+  newLogsHashes: TracedUnencryptedL2Log[];
   /** contract address -\> key -\> value */
   currentStorageValue: Map<bigint, Map<bigint, Fr>>;
 };
@@ -171,24 +172,11 @@ export class AvmPersistableStateManager {
    * @returns exists - whether the message exists in the L1 to L2 Messages tree
    */
   public async checkL1ToL2MessageExists(msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
-    let exists = false;
-    try {
-      // The following 2 values are used to compute a message nullifier. Given that here we do not care about getting
-      // non-nullified messages we can just pass in random values and the nullifier check will effectively be ignored
-      // (no nullifier will be found).
-      const ignoredContractAddress = AztecAddress.random();
-      const ignoredSecret = Fr.random();
-      const gotMessage = await this.hostStorage.commitmentsDb.getL1ToL2MembershipWitness(
-        ignoredContractAddress,
-        msgHash,
-        ignoredSecret,
-      );
-      exists = gotMessage !== undefined && gotMessage.index == msgLeafIndex.toBigInt();
-    } catch {
-      // error getting message - doesn't exist!
-      exists = false;
-    }
-    this.log.debug(`l1ToL2Messages(${msgHash})@${msgLeafIndex} ?? exists: ${exists}.`);
+    const valueAtIndex = await this.hostStorage.commitmentsDb.getL1ToL2LeafValue(msgLeafIndex.toBigInt());
+    const exists = valueAtIndex?.equals(msgHash) ?? false;
+    this.log.debug(
+      `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
+    );
     this.trace.traceL1ToL2MessageCheck(msgHash, msgLeafIndex, exists);
     return Promise.resolve(exists);
   }
@@ -206,13 +194,13 @@ export class AvmPersistableStateManager {
 
   public writeLog(contractAddress: Fr, event: Fr, log: Fr[]) {
     this.log.debug(`UnencryptedL2Log(${contractAddress}) += event ${event} with ${log.length} fields.`);
-    this.newLogs.push(
-      new UnencryptedL2Log(
-        AztecAddress.fromField(contractAddress),
-        EventSelector.fromField(event),
-        Buffer.concat(log.map(f => f.toBuffer())),
-      ),
+    const L2log = new UnencryptedL2Log(
+      AztecAddress.fromField(contractAddress),
+      EventSelector.fromField(event),
+      Buffer.concat(log.map(f => f.toBuffer())),
     );
+    this.newLogs.push(L2log);
+    this.trace.traceNewLog(Fr.fromBuffer(L2log.hash()));
   }
 
   /**
@@ -252,6 +240,7 @@ export class AvmPersistableStateManager {
       l1ToL2MessageChecks: this.trace.l1ToL2MessageChecks,
       newL1Messages: this.newL1Messages,
       newLogs: this.newLogs,
+      newLogsHashes: this.trace.newLogsHashes,
       currentStorageValue: this.publicStorage.getCache().cachePerContract,
       storageReads: this.trace.publicStorageReads,
       storageWrites: this.trace.publicStorageWrites,

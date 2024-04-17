@@ -3,6 +3,7 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   FunctionData,
+  Gas,
   GasFees,
   GasSettings,
   GlobalVariables,
@@ -47,6 +48,9 @@ describe('ACIR public execution simulator', () => {
   let executor: PublicExecutor;
   let header: Header;
 
+  const gasLeft = new Gas(1e9, 1e9, 1e9);
+  const globalVariables = GlobalVariables.empty();
+
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
@@ -89,6 +93,7 @@ describe('ACIR public execution simulator', () => {
     CallContext.from({
       storageContractAddress,
       msgSender: AztecAddress.random(),
+      gasLeft,
       portalContractAddress: EthAddress.random(),
       functionSelector: FunctionSelector.empty(),
       isDelegateCall: false,
@@ -132,7 +137,8 @@ describe('ACIR public execution simulator', () => {
           .mockResolvedValueOnce(previousTotalSupply); // reading total supply
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        const result = await executor.simulate(execution, GlobalVariables.empty());
+        const result = await executor.simulate(execution, globalVariables);
+        expect(result.revertReason).toBeUndefined();
 
         const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient);
         const totalSupplyStorageSlot = new Fr(4n);
@@ -142,11 +148,13 @@ describe('ACIR public execution simulator', () => {
         // There should be 2 storage updates, one for the recipient's balance and one for the total supply
         expect(result.contractStorageUpdateRequests).toEqual([
           {
+            contractAddress,
             storageSlot: recipientBalanceStorageSlot,
             newValue: expectedBalance,
             sideEffectCounter: 3,
           },
           {
+            contractAddress,
             storageSlot: totalSupplyStorageSlot,
             newValue: expectedTotalSupply,
             sideEffectCounter: 4,
@@ -159,6 +167,7 @@ describe('ACIR public execution simulator', () => {
         // the updates
         expect(result.contractStorageReads).toEqual([
           {
+            contractAddress,
             storageSlot: isMinterStorageSlot,
             currentValue: isMinter,
             sideEffectCounter: 0,
@@ -210,18 +219,20 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const result = await executor.simulate(execution, GlobalVariables.empty());
+        const result = await executor.simulate(execution, globalVariables);
 
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
 
         expect(result.contractStorageUpdateRequests).toEqual([
           {
+            contractAddress,
             storageSlot: senderStorageSlot,
             newValue: expectedSenderBalance,
             sideEffectCounter: 1, // 1 read (sender balance)
           },
           {
+            contractAddress,
             storageSlot: recipientStorageSlot,
             newValue: expectedRecipientBalance,
             sideEffectCounter: 3, // 1 read (sender balance), 1 write (new sender balance), 1 read (recipient balance)
@@ -236,7 +247,7 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const { reverted, revertReason } = await executor.simulate(execution, GlobalVariables.empty());
+        const { reverted, revertReason } = await executor.simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch('Assertion failed: attempt to subtract with underflow');
       });
@@ -325,7 +336,7 @@ describe('ACIR public execution simulator', () => {
       publicState.storageRead.mockResolvedValue(amount);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, GlobalVariables.empty());
+      const result = await executor.simulate(execution, globalVariables);
 
       // Assert the note hash was created
       expect(result.newNoteHashes.length).toEqual(1);
@@ -349,7 +360,7 @@ describe('ACIR public execution simulator', () => {
       publicContracts.getBytecode.mockResolvedValue(createL2ToL1MessagePublicArtifact.bytecode);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, GlobalVariables.empty());
+      const result = await executor.simulate(execution, globalVariables);
 
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
@@ -371,7 +382,7 @@ describe('ACIR public execution simulator', () => {
       publicContracts.getBytecode.mockResolvedValue(createNullifierPublicArtifact.bytecode);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, GlobalVariables.empty());
+      const result = await executor.simulate(execution, globalVariables);
 
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
@@ -386,6 +397,7 @@ describe('ACIR public execution simulator', () => {
       const tokenRecipient = AztecAddress.random();
       let bridgedAmount = 20n;
       let secret = new Fr(1);
+      let leafIndex: bigint;
 
       let crossChainMsgRecipient: AztecAddress | undefined;
       let crossChainMsgSender: EthAddress | undefined;
@@ -399,6 +411,7 @@ describe('ACIR public execution simulator', () => {
       beforeEach(() => {
         bridgedAmount = 20n;
         secret = new Fr(1);
+        leafIndex = 0n;
 
         crossChainMsgRecipient = undefined;
         crossChainMsgSender = undefined;
@@ -412,7 +425,7 @@ describe('ACIR public execution simulator', () => {
           secret,
         );
 
-      const computeArgs = () => encodeArguments(mintPublicArtifact, [tokenRecipient, bridgedAmount, secret]);
+      const computeArgs = () => encodeArguments(mintPublicArtifact, [tokenRecipient, bridgedAmount, secret, leafIndex]);
 
       const computeCallContext = () =>
         makeCallContext(contractAddress, {
@@ -444,7 +457,7 @@ describe('ACIR public execution simulator', () => {
           root = pedersenHash([root, sibling]);
         }
         commitmentsDb.getL1ToL2MembershipWitness.mockImplementation(() => {
-          return Promise.resolve(new MessageLoadOracleInputs(0n, siblingPath));
+          return Promise.resolve(new MessageLoadOracleInputs(leafIndex, siblingPath));
         });
 
         if (updateState) {
@@ -702,7 +715,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
 
-      expect(() => executor.simulate(execution, GlobalVariables.empty())).not.toThrow();
+      expect(() => executor.simulate(execution, globalVariables)).not.toThrow();
     });
 
     it('Throws when header is not as expected', async () => {
@@ -712,7 +725,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
 
-      const { revertReason, reverted } = await executor.simulate(execution, GlobalVariables.empty());
+      const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
       expect(reverted).toBe(true);
       expect(revertReason?.message).toMatch(`Invalid header hash`);
     });

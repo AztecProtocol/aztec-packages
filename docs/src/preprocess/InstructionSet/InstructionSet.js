@@ -38,10 +38,9 @@ const CALL_INSTRUCTION_ARGS = [
     description: "memory offset to args (will become the callee's calldata)",
   },
   {
-    name: "argsSize",
-    description: "number of words to pass via callee's calldata",
-    mode: "immediate",
-    type: "u32",
+    name: "argsSizeOffset",
+    description:
+      "memory offset for the number of words to pass via callee's calldata",
   },
   {
     name: "retOffset",
@@ -527,24 +526,6 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = context.environment.storageAddress`",
     Summary: "Get the _storage_ address of the currently executing context",
     Details: "The storage address is used for public storage accesses.",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
-  },
-  {
-    id: "origin",
-    Name: "`ORIGIN`",
-    Category: "Execution Environment",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.origin`",
-    Summary: "Get the transaction's origination address",
-    Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = u32`",
   },
