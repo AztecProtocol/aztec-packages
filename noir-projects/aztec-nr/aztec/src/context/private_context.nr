@@ -287,7 +287,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -298,7 +298,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -309,7 +309,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) -> PackedReturns {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
@@ -407,7 +407,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
@@ -418,7 +418,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -429,7 +429,7 @@ impl PrivateContext {
         args: [Field; ARGS_COUNT]
     ) {
         let args_hash = hash_args_array(args);
-        assert(args_hash == arguments::pack_arguments(args));
+        assert(args_hash == arguments::pack_arguments_array(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
