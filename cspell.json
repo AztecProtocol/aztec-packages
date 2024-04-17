@@ -95,6 +95,7 @@
     "fuzzers",
     "gitmodules",
     "gitrepo",
+    "gossipsub",
     "grumpkin",
     "gtest",
     "hackmd",

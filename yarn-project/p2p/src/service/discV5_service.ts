@@ -72,11 +72,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.logger.info(`ENR NodeId: ${this.enr.nodeId}`);
     this.logger.info(`ENR UDP: ${multiAddrUdp.toString()}`);
 
-    (this.discv5 as Discv5EventEmitter).on('discovered', async (enr: ENR) => await this.onDiscovered(enr));
+    (this.discv5 as Discv5EventEmitter).on('discovered', (enr: ENR) => this.onDiscovered(enr));
     (this.discv5 as Discv5EventEmitter).on('enrAdded', async (enr: ENR) => {
       const multiAddrTcp = await enr.getFullMultiaddr('tcp');
       const multiAddrUdp = await enr.getFullMultiaddr('udp');
       this.logger.verbose(`Added ENR. Multiaddr - TCP: ${multiAddrTcp?.toString()}, UDP: ${multiAddrUdp?.toString()}`);
+      console.log(`Added ENR. Multiaddr - TCP: ${multiAddrTcp?.toString()}, UDP: ${multiAddrUdp?.toString()}`);
     });
 
     (this.discv5 as Discv5EventEmitter).on('peer', (peerId: PeerId) => {
@@ -85,9 +86,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
     this.runningPromise = new RunningPromise(async () => {
       if (process.env.FIND_NODE) {
-        // console.log('looking for node', process.env.FIND_NODE);
-        const res = await this.discv5.findNode(process.env.FIND_NODE);
-        // console.log('res', res.length, await Promise.all(res.map(n => n.peerId())));
+        await this.discv5.findNode(process.env.FIND_NODE);
       } else {
         await this.discv5.findRandomNode();
       }
@@ -140,7 +139,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.currentState = PeerDiscoveryState.STOPPED;
   }
 
-  private async onDiscovered(enr: ENR) {
+  private onDiscovered(enr: ENR) {
     // check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (value) {

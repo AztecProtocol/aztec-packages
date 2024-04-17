@@ -7,9 +7,7 @@ import { ENR } from '@chainsafe/enr';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
-import type { IncomingStreamData, PeerId } from '@libp2p/interface';
-import type { ServiceMap } from '@libp2p/interface-libp2p';
-import '@libp2p/kad-dht';
+import type { IncomingStreamData, PeerId, ServiceMap } from '@libp2p/interface';
 import { mplex } from '@libp2p/mplex';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { createFromJSON, createSecp256k1PeerId, exportToProtobuf } from '@libp2p/peer-id-factory';
@@ -153,13 +151,19 @@ export class LibP2PService implements P2PService {
     store: AztecKVStore,
   ) {
     const { tcpListenIp, tcpListenPort, minPeerCount, maxPeerCount } = config;
+    const bindAddrTcp = `/ip4/${tcpListenIp}/tcp/${tcpListenPort}`;
+
     const opts: Libp2pOptions<ServiceMap> = {
       start: false,
       peerId,
       addresses: {
-        listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
+        listen: [bindAddrTcp],
       },
-      transports: [tcp()],
+      transports: [
+        tcp({
+          maxConnections: config.maxPeerCount,
+        }),
+      ],
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {

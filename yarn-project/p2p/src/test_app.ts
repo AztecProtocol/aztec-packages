@@ -1,16 +1,25 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
 
+// import { Discv5Discovery } from '@chainsafe/discv5';
 import { type ENR } from '@chainsafe/enr';
+import { type GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
+// import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import type { IncomingStreamData, PeerId, ServiceMap, Stream } from '@libp2p/interface';
+import type {
+  IncomingStreamData,
+  PeerId,
+  PubSub,
+  /*Stream*/
+} from '@libp2p/interface';
 import { mplex } from '@libp2p/mplex';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { tcp } from '@libp2p/tcp';
+// import { multiaddr } from '@multiformats/multiaddr';
 import { pipe } from 'it-pipe';
-import { type Libp2p, type Libp2pOptions, type ServiceFactoryMap, createLibp2p } from 'libp2p';
+import { type Libp2p, createLibp2p } from 'libp2p';
 
 import { type P2PConfig, getP2PConfigEnvVars } from './config.js';
 import { DiscV5Service } from './service/discV5_service.js';
@@ -19,16 +28,24 @@ import { AztecPeerDb, type AztecPeerStore } from './service/peer_store.js';
 
 const { PRIVATE_KEY, DATA_DIR } = process.env;
 
-const logger = createDebugLogger('aztec:p2p_test_app');
+const TEST_TOPIC = 'aztec_txs';
+
+const logger = createDebugLogger('aztec:p2p_test_app_MAIN');
+
+interface PubSubLibp2p extends Libp2p {
+  services: {
+    pubsub: PubSub<GossipsubEvents>;
+  };
+}
 
 /**
  * This is a test app for P2P communication.
  */
 export class P2PTestApp {
+  private messageInterval: NodeJS.Timeout | null = null;
   constructor(
-    private libP2PNode: Libp2p,
+    private libP2PNode: PubSubLibp2p,
     private discV5Node: DiscV5Service,
-    private peerId: PeerId,
     private peerStore: AztecPeerStore,
     private config: P2PConfig,
     private protocolId = '/aztec/1.0.0',
@@ -74,12 +91,35 @@ export class P2PTestApp {
         this.logger.error('Failed to handle incoming stream');
       }
       if (!msg.length) {
-        console.log(`Empty message received from peer ${incoming.connection.remotePeer}`);
+        this.logger.info(`Empty message received from peer ${incoming.connection.remotePeer}`);
       }
-      console.log(`\n\n MSG from peer ${incoming.connection.remotePeer}: ${msg.toString('hex')}\n\n`);
+      this.logger.info(`\n\n MSG from peer ${incoming.connection.remotePeer}: ${msg.toString('hex')}\n\n`);
     });
 
     await this.libP2PNode.start();
+
+    this.libP2PNode.services.pubsub.addEventListener('gossipsub:message', e => {
+      const { msg, msgId, propagationSource } = e.detail;
+      this.logger.info(
+        `Received PUBSUB message.
+        ID: ${msgId}
+        From ${propagationSource}
+        MSG: ${msg.data.toString()}
+        Topic: ${msg.topic}`,
+      );
+      // await this.handleNewMessage(data);
+    });
+
+    this.subscribeToTopic(TEST_TOPIC);
+
+    // Send some data to connected peers on test topic
+    this.messageInterval = setInterval(async () => {
+      try {
+        await this.publishToTopic(TEST_TOPIC, Buffer.from('33'));
+      } catch (err) {
+        this.logger.error(`Failed to publish message: ${err}`);
+      }
+    }, 5000);
   }
 
   private async addPeer(enr: ENR) {
@@ -91,7 +131,7 @@ export class P2PTestApp {
     const peerIdStr = peerMultiAddr.getPeerId();
 
     if (!peerIdStr) {
-      console.log(`Peer ID not found in discovered node's multiaddr: ${peerMultiAddr}`);
+      this.logger.error(`Peer ID not found in discovered node's multiaddr: ${peerMultiAddr}`);
       return;
     }
 
@@ -118,39 +158,75 @@ export class P2PTestApp {
 
   public static async new(peerId: PeerId, discV5: DiscV5Service, peerStore: AztecPeerStore, config: P2PConfig) {
     const bindAddrTcp = `/ip4/${config.tcpListenIp}/tcp/${config.tcpListenPort}/p2p/${peerId.toString()}`;
+    // console.log('bindAddrTcp: ', bindAddrTcp);
 
-    const opts: Libp2pOptions<ServiceMap> = {
+    // const bootNodeMultiAddrs = (
+    //   await Promise.all(
+    //     config.bootstrapNodes.map(async enr => {
+    //       const multiAddr = (await ENR.decodeTxt(enr).getFullMultiaddr('tcp'))?.toString();
+    //       return multiAddr;
+    //     }),
+    //   )
+    // ).filter((addr): addr is string => !!addr);
+
+    // console.log('bootnode tcp multiaddrs: ', bootNodeMultiAddrs);
+
+    const libp2p = await createLibp2p({
       start: false,
       peerId,
       addresses: {
         listen: [bindAddrTcp],
       },
-      transports: [tcp()],
+      transports: [
+        tcp({
+          maxConnections: config.maxPeerCount,
+        }),
+      ],
       streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
-    };
+      connectionManager: {
+        maxConnections: config.maxPeerCount,
+        minConnections: config.minPeerCount,
+      },
+      services: {
+        identify: identify({ protocolPrefix: 'aztec' }),
+        pubsub: gossipsub(),
+      },
+    });
 
-    const services: ServiceFactoryMap = {
-      identify: identify({ protocolPrefix: 'aztec' }),
-    };
+    libp2p.services.pubsub;
 
-    const libp2p = await createLibp2p({ ...opts, services });
+    return new P2PTestApp(libp2p, discV5, peerStore, config);
+  }
 
-    return new P2PTestApp(libp2p, discV5, peerId, peerStore, config);
+  private subscribeToTopic(topic: string) {
+    if (!this.libP2PNode.services.pubsub) {
+      throw new Error('Pubsub service not available.');
+    }
+    this.libP2PNode.services.pubsub.subscribe(topic);
+  }
+
+  private async publishToTopic(topic: string, data: Uint8Array) {
+    if (!this.libP2PNode.services.pubsub) {
+      throw new Error('Pubsub service not available.');
+    }
+    await this.libP2PNode.services.pubsub.publish(topic, data);
   }
 
   private async handleNewConnection(peerId: PeerId) {
     this.logger.info(`Connected to peer: ${peerId.toString()}. Sending some data.`);
+    await Promise.resolve();
     try {
       const stream = await this.libP2PNode.dialProtocol(peerId, this.protocolId);
-      const dataToSend: Uint8Array = new Uint8Array([0x33]); // Example data
-
-      await sendDataOverStream(stream, dataToSend);
+      //   const dataToSend: Uint8Array = new Uint8Array([0x33]); // Example data
+      //   await sendDataOverStream(stream, dataToSend);
       await stream.close();
     } catch (err) {
-      this.logger.error('Failed to send data over stream', err);
+      this.logger.error(`Failed to dial peer ${peerId.toString()}`, err);
     }
   }
+
+  // private async handleNewMessage(msg: Uint8Array) {}
 
   private async handlePeerDisconnect(peerId: PeerId) {
     this.logger.info(`Disconnected from peer: ${peerId.toString()}`);
@@ -159,20 +235,20 @@ export class P2PTestApp {
   }
 }
 
-async function sendDataOverStream(stream: Stream, data: Uint8Array): Promise<void> {
-  await pipe(toAsyncIterable(data), stream.sink);
-}
+// async function sendDataOverStream(stream: Stream, data: Uint8Array): Promise<void> {
+//   await pipe(toAsyncIterable(data), stream.sink);
+// }
 
-// Convert data to an async iterable using an async generator function
-async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
-  yield data;
-}
+// // Convert data to an async iterable using an async generator function
+// async function* toAsyncIterable(data: Uint8Array): AsyncIterable<Uint8Array> {
+//   yield data;
+// }
 
 async function main() {
   const peerDb = new AztecPeerDb(AztecLmdbStore.open(DATA_DIR));
   const peerId = await createLibP2PPeerId(PRIVATE_KEY);
 
-  logger.info(`peerId: , ${peerId.toString()}`);
+  logger.info(`peerId: ${peerId.toString()}`);
 
   const config = getP2PConfigEnvVars();
   const discV5 = new DiscV5Service(peerId, config);
