@@ -62,6 +62,6 @@ impl PublicKeysHash {
 fn compute_public_keys_hash() {
     let point = GrumpkinPoint { x: 1, y: 2 };
     let actual = PublicKeysHash::compute(point);
-    let expected_public_keys_hash = 0x1923a6246e305720b6aaf751fde0342613e93c82e455c3831e28375c16dd40d8;
+    let expected_public_keys_hash = 0x22d83a089d7650514c2de24cd30185a414d943eaa19817c67bffe2c3183006a3;
     assert(actual.to_field() == expected_public_keys_hash);
 }

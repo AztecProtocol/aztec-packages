@@ -15,7 +15,7 @@ import { computeVarArgsHash } from '../hash/hash.js';
  * ```
  * salted_initialization_hash = pedersen([salt, initialization_hash, deployer, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
  * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
- * address = pedersen([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDRESS_V1)
+ * address = poseidon2Hash([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDRESS_V1)
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */
@@ -68,7 +68,7 @@ export function computeContractAddressFromPartial(
   args: ({ publicKeyHash: Fr } | { secretKey: Fr }) & { partialAddress: Fr },
 ): AztecAddress {
   const publicKeyHash = 'secretKey' in args ? deriveKeys(args.secretKey).publicKeysHash : args.publicKeyHash;
-  const result = pedersenHash([publicKeyHash, args.partialAddress], GeneratorIndex.CONTRACT_ADDRESS);
+  const result = poseidon2Hash([publicKeyHash, args.partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
   return AztecAddress.fromField(result);
 }
 
@@ -77,7 +77,7 @@ export function computeContractAddressFromPartial(
  * @param publicKey - Single public key (for now!).
  * @returns The hash of the public keys.
  */
-// TODO(benesjan): this copied out of key store, should be moved to a shared location
+// TODO(benesjan): this copied out of key store, should be moved to a shared location, clean up this whole file
 export function deriveKeys(sk: Fr) {
   const curve = new Grumpkin();
   // First we derive master secret keys -  we use sha512 here because this derivation will never take place

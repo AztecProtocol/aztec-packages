@@ -63,9 +63,8 @@ export class TestKeyStore implements KeyStore {
     ]);
 
     // We hash the partial address and the public keys hash to get the account address
-    // TODO(#5726): Should GeneratorIndex.CONTRACT_ADDRESS be removed given that we introduced CONTRACT_ADDRESS_V1?
     // TODO(#5726): Move the following line to AztecAddress class?
-    const accountAddressFr = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
+    const accountAddressFr = poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
     const accountAddress = AztecAddress.fromField(accountAddressFr);
 
     // We save the keys to db
@@ -102,10 +101,12 @@ export class TestKeyStore implements KeyStore {
    * @param account - The account address for which to retrieve the master nullifier public key.
    * @returns The master nullifier public key for the account.
    */
-  public getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
+  public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
     const masterNullifierPublicKeyBuffer = this.#keys.get(`${account.toString()}-npk_m`);
     if (!masterNullifierPublicKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
   }
@@ -116,10 +117,12 @@ export class TestKeyStore implements KeyStore {
    * @param account - The account address for which to retrieve the master incoming viewing public key.
    * @returns The master incoming viewing public key for the account.
    */
-  public getMasterIncomingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
+  public async getMasterIncomingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
     const masterIncomingViewingPublicKeyBuffer = this.#keys.get(`${account.toString()}-ivpk_m`);
     if (!masterIncomingViewingPublicKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     return Promise.resolve(Point.fromBuffer(masterIncomingViewingPublicKeyBuffer));
   }
@@ -130,10 +133,12 @@ export class TestKeyStore implements KeyStore {
    * @param account - The account to retrieve the master outgoing viewing key for.
    * @returns A Promise that resolves to the master outgoing viewing key.
    */
-  public getMasterOutgoingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
+  public async getMasterOutgoingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
     const masterOutgoingViewingPublicKeyBuffer = this.#keys.get(`${account.toString()}-ovpk_m`);
     if (!masterOutgoingViewingPublicKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     return Promise.resolve(Point.fromBuffer(masterOutgoingViewingPublicKeyBuffer));
   }
@@ -144,10 +149,12 @@ export class TestKeyStore implements KeyStore {
    * @param account - The account to retrieve the master tagging key for.
    * @returns A Promise that resolves to the master tagging key.
    */
-  public getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey> {
+  public async getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey> {
     const masterTaggingPublicKeyBuffer = this.#keys.get(`${account.toString()}-tpk_m`);
     if (!masterTaggingPublicKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     return Promise.resolve(Point.fromBuffer(masterTaggingPublicKeyBuffer));
   }
@@ -159,10 +166,12 @@ export class TestKeyStore implements KeyStore {
    * @param app - The application address to retrieve the nullifier secret key for.
    * @returns A Promise that resolves to the application nullifier secret key.
    */
-  public getAppNullifierSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+  public async getAppNullifierSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
     const masterNullifierSecretKeyBuffer = this.#keys.get(`${account.toString()}-nsk_m`);
     if (!masterNullifierSecretKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);
 
@@ -178,10 +187,12 @@ export class TestKeyStore implements KeyStore {
    * @param app - The application address to retrieve the incoming viewing secret key for.
    * @returns A Promise that resolves to the application incoming viewing secret key.
    */
-  public getAppIncomingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+  public async getAppIncomingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
     const masterIncomingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ivsk_m`);
     if (!masterIncomingViewingSecretKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     const masterIncomingViewingSecretKey = GrumpkinScalar.fromBuffer(masterIncomingViewingSecretKeyBuffer);
 
@@ -202,10 +213,12 @@ export class TestKeyStore implements KeyStore {
    * @param app - The application address to retrieve the outgoing viewing secret key for.
    * @returns A Promise that resolves to the application outgoing viewing secret key.
    */
-  public getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+  public async getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
     const masterOutgoingViewingSecretKeyBuffer = this.#keys.get(`${account.toString()}-ovsk_m`);
     if (!masterOutgoingViewingSecretKeyBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(masterOutgoingViewingSecretKeyBuffer);
 
@@ -282,10 +295,12 @@ export class TestKeyStore implements KeyStore {
    * @param account - The account address to get public keys hash for.
    * @returns A Promise that resolves to the public keys hash.
    */
-  public getPublicKeysHash(account: AztecAddress): Promise<Fr> {
+  public async getPublicKeysHash(account: AztecAddress): Promise<Fr> {
     const publicKeysHashBuffer = this.#keys.get(`${account.toString()}-public_keys_hash`);
     if (!publicKeysHashBuffer) {
-      throw new Error(`Account ${account.toString()} does not exist.`);
+      throw new Error(
+        `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
     }
     return Promise.resolve(Fr.fromBuffer(publicKeysHashBuffer));
   }
