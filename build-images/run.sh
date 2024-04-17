@@ -14,8 +14,11 @@ fi
 docker run \
   -ti --rm \
   --hostname devbox \
+  -e SSH_CONNECTION=' ' \
   ${ID_ARGS:-} \
+  -w/workspaces/aztec-packages \
+  -v$PWD/..:/workspaces/aztec-packages \
   -v$HOME/.devbox:/home/aztec-dev \
   -v$HOME/.ssh:/home/aztec-dev/.ssh:ro \
   -v/var/run/docker.sock:/var/run/docker.sock \
-  aztecprotocol/devbox
+  aztecprotocol/codespace
