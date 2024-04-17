@@ -345,10 +345,9 @@ export function mapEthAddressFromNoir(address: NoirEthAddress): EthAddress {
  */
 export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
   return {
-    is_fee_payment_tx: txContext.isFeePaymentTx,
-    is_rebate_payment_tx: txContext.isRebatePaymentTx,
     chain_id: mapFieldToNoir(txContext.chainId),
     version: mapFieldToNoir(txContext.version),
+    gas_settings: mapGasSettingsToNoir(txContext.gasSettings),
   };
 }
 
@@ -359,10 +358,9 @@ export function mapTxContextToNoir(txContext: TxContext): TxContextNoir {
  */
 export function mapTxContextFromNoir(txContext: TxContextNoir): TxContext {
   return new TxContext(
-    txContext.is_fee_payment_tx,
-    txContext.is_rebate_payment_tx,
     mapFieldFromNoir(txContext.chain_id),
     mapFieldFromNoir(txContext.version),
+    mapGasSettingsFromNoir(txContext.gas_settings),
   );
 }
 
@@ -418,7 +416,6 @@ export function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
     args_hash: mapFieldToNoir(txRequest.argsHash),
     tx_context: mapTxContextToNoir(txRequest.txContext),
     function_data: mapFunctionDataToNoir(txRequest.functionData),
-    gas_settings: mapGasSettingsToNoir(txRequest.gasSettings),
   };
 }
 
@@ -743,10 +740,8 @@ export function mapPrivateCircuitPublicInputsToNoir(
     encrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.encryptedLogPreimagesLength),
     unencrypted_log_preimages_length: mapFieldToNoir(privateCircuitPublicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
-    chain_id: mapFieldToNoir(privateCircuitPublicInputs.chainId),
-    version: mapFieldToNoir(privateCircuitPublicInputs.version),
+    tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
-    gas_settings: mapGasSettingsToNoir(privateCircuitPublicInputs.gasSettings),
   };
 }
 
@@ -1215,7 +1210,6 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
   return new CombinedConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
-    mapGasSettingsFromNoir(combinedConstantData.gas_settings),
   );
 }
 
@@ -1228,7 +1222,6 @@ export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedCons
   return {
     historical_header: mapHeaderToNoir(combinedConstantData.historicalHeader),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
-    gas_settings: mapGasSettingsToNoir(combinedConstantData.gasSettings),
   };
 }
 

@@ -87,11 +87,11 @@ impl ContextInterface for PrivateContext {
     }
 
     fn chain_id(self) -> Field {
-        self.inputs.private_global_variables.chain_id
+        self.inputs.tx_context.chain_id
     }
 
     fn version(self) -> Field {
-        self.inputs.private_global_variables.version
+        self.inputs.tx_context.version
     }
 
     fn selector(self) -> FunctionSelector {
@@ -190,9 +190,7 @@ impl PrivateContext {
             encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
             historical_header: self.historical_header,
-            chain_id: self.inputs.private_global_variables.chain_id,
-            version: self.inputs.private_global_variables.version,
-            gas_settings: self.inputs.gas_settings
+            tx_context: self.inputs.tx_context
         };
 
         priv_circuit_pub_inputs

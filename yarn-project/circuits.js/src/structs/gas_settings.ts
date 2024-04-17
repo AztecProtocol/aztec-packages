@@ -35,6 +35,15 @@ export class GasSettings {
     );
   }
 
+  clone() {
+    return GasSettings.new({
+      da: this.da.clone(),
+      l1: this.l1.clone(),
+      l2: this.l2.clone(),
+      inclusionFee: this.inclusionFee,
+    });
+  }
+
   /** Returns the maximum fee to be paid according to gas limits and max fees set. */
   getFeeLimit() {
     return [this.da, this.l1, this.l2]
@@ -153,6 +162,10 @@ export class DimensionGasSettings {
     if (teardownGasLimit > gasLimit) {
       throw new Error(`Teardown gas limit ${teardownGasLimit} is greater than gas limit ${gasLimit}`);
     }
+  }
+
+  clone() {
+    return new DimensionGasSettings(this.gasLimit, this.teardownGasLimit, this.maxFeePerGas);
   }
 
   static default() {

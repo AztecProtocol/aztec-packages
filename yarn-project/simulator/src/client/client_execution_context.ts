@@ -14,11 +14,9 @@ import {
   CallContext,
   FunctionData,
   FunctionSelector,
-  GasSettings,
   type Header,
   NoteHashReadRequestMembershipWitness,
   PrivateContextInputs,
-  PrivateGlobalVariables,
   PublicCallRequest,
   type SideEffect,
   TxContext,
@@ -105,9 +103,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     const privateContextInputs = new PrivateContextInputs(
       this.callContext,
       this.historicalHeader,
-      new PrivateGlobalVariables(this.txContext.chainId, this.txContext.version),
+      this.txContext,
       this.sideEffectCounter,
-      GasSettings.default(), // TODO(palla/gas): Set proper value
     );
 
     const fields = [...privateContextInputs.toFields(), ...args];
@@ -383,7 +380,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
-    const derivedTxContext = new TxContext(false, false, this.txContext.chainId, this.txContext.version);
+    const derivedTxContext = this.txContext.clone();
 
     const derivedCallContext = await this.deriveCallContext(
       targetContractAddress,

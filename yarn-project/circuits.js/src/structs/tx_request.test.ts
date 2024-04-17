@@ -32,17 +32,17 @@ describe('TxRequest', () => {
   });
 
   it('compute hash', () => {
+    const gasSettings = GasSettings.new({
+      da: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
+      l1: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
+      l2: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
+      inclusionFee: new Fr(10),
+    });
     const txRequest = TxRequest.from({
       origin: AztecAddress.fromBigInt(1n),
       functionData: new FunctionData(FunctionSelector.fromField(new Fr(2n)), true),
       argsHash: new Fr(3),
-      txContext: new TxContext(false, false, Fr.ZERO, Fr.ZERO),
-      gasSettings: GasSettings.new({
-        da: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
-        l1: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
-        l2: { gasLimit: 2, teardownGasLimit: 1, maxFeePerGas: new Fr(3) },
-        inclusionFee: new Fr(10),
-      }),
+      txContext: new TxContext(Fr.ZERO, Fr.ZERO, gasSettings),
     });
 
     const hash = txRequest.hash().toString();

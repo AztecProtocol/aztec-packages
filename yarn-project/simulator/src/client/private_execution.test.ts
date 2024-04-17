@@ -90,10 +90,9 @@ describe('Private Execution test suite', () => {
 
   let trees: { [name: keyof typeof treeHeights]: AppendOnlyTree<Fr> } = {};
   const txContextFields: FieldsOf<TxContext> = {
-    isFeePaymentTx: false,
-    isRebatePaymentTx: false,
     chainId: new Fr(10),
     version: new Fr(20),
+    gasSettings: GasSettings.default(),
   };
 
   const runSimulator = ({
@@ -120,7 +119,6 @@ describe('Private Execution test suite', () => {
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       packedArguments: [packedArguments],
       authWitnesses: [],
-      gasSettings: GasSettings.default(),
     });
 
     return acirSimulator.run(txRequest, artifact, contractAddress, portalContractAddress, msgSender);
