@@ -131,20 +131,6 @@ template <typename FF_> class LookupRelationImpl {
         tmp *= (table_accum + table_accum_shift * beta + gamma_by_one_plus_beta); // 1 or 3
         tmp *= one_plus_beta;                                                     // deg 0 or 1
 
-        if constexpr (std::is_same_v<Accumulator, bb::fr>) {
-            auto term_A = q_lookup * wire_accum + gamma;
-            auto term_B = table_accum + table_accum_shift * beta + gamma_by_one_plus_beta;
-            if (term_A == gamma) {
-                info("A is const!");
-            } else {
-                info("A nope!");
-            }
-            if (term_B == gamma_by_one_plus_beta) {
-                info("B is const!");
-            } else {
-                info("B nope!");
-            }
-        }
         return tmp; // deg 4 or 8
     }
 
@@ -177,14 +163,6 @@ template <typename FF_> class LookupRelationImpl {
 
         auto tmp = (s_accum + s_accum_shift * beta + gamma_by_one_plus_beta); // 1 or 2
 
-        if constexpr (std::is_same_v<Accumulator, bb::fr>) {
-            auto term_C = tmp;
-            if (term_C == gamma_by_one_plus_beta) {
-                info("C is const!");
-            } else {
-                info("C nope!");
-            }
-        }
         return tmp;
     }
 
