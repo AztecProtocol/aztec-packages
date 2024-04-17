@@ -907,7 +907,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      expect(results.revertReason?.message).toMatch(/Nested static call failed/);
+      expect(results.revertReason?.message).toMatch(/Nested call failed/);
     });
   });
 });
