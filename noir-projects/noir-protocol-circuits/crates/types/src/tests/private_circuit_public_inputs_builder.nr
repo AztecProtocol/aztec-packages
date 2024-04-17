@@ -13,9 +13,9 @@ use crate::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
-    },
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL,
+    MAX_UNENCRYPTED_LOGS_PER_CALL
+},
     traits::Empty
 };
 
@@ -50,6 +50,8 @@ struct PrivateCircuitPublicInputsBuilder {
 
     chain_id: Field,
     version: Field,
+
+    gas_settings: GasSettings,
 }
 
 impl PrivateCircuitPublicInputsBuilder {
@@ -73,16 +75,14 @@ impl PrivateCircuitPublicInputsBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            side_effect_counter: 0,
-            gas_left: Gas::empty(),
-            gas_settings: GasSettings::empty(),
-            transaction_fee: 0
+            side_effect_counter: 0
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
         public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
+        public_inputs.gas_settings = GasSettings::default();
 
         public_inputs
     }
@@ -110,7 +110,8 @@ impl PrivateCircuitPublicInputsBuilder {
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             chain_id: self.chain_id,
-            version: self.version
+            version: self.version,
+            gas_settings: self.gas_settings
         }
     }
 }
@@ -138,6 +139,7 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             historical_header: Header::empty(),
             chain_id: 0,
             version: 0,
+            gas_settings: GasSettings::empty()
         }
     }
 }

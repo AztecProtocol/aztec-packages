@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-    call_context::CallContext, max_block_number::MaxBlockNumber,
+    call_context::CallContext, max_block_number::MaxBlockNumber, gas_settings::GasSettings,
     nullifier_key_validation_request::NullifierKeyValidationRequest, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
@@ -9,8 +9,8 @@ use crate::{
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
+    PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
+    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
     header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader
@@ -54,6 +54,8 @@ struct PrivateCircuitPublicInputs {
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     chain_id: Field,
     version: Field,
+    
+    gas_settings: GasSettings,
 }
 
 impl Eq for PrivateCircuitPublicInputs {
@@ -78,7 +80,8 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
         self.historical_header.eq(other.historical_header) &
         self.chain_id.eq(other.chain_id) &
-        self.version.eq(other.version)
+        self.version.eq(other.version) &
+        self.gas_settings.eq(other.gas_settings)
     }
 }
 
@@ -126,6 +129,7 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.extend_from_array(self.historical_header.serialize());
         fields.push(self.chain_id);
         fields.push(self.version);
+        fields.extend_from_array(self.gas_settings.serialize());
 
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -160,6 +164,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             historical_header: reader.read_struct(Header::deserialize),
             chain_id: reader.read(),
             version: reader.read(),
+            gas_settings: reader.read_struct(GasSettings::deserialize),
         };
 
         reader.finish();
@@ -172,7 +177,6 @@ impl Hash for PrivateCircuitPublicInputs {
         pedersen_hash(self.serialize(), GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
     }
 }
-
 
 impl Empty for PrivateCircuitPublicInputs {
     fn empty() -> Self {
@@ -199,6 +203,7 @@ impl Empty for PrivateCircuitPublicInputs {
             historical_header: Header::empty(),
             chain_id: 0,
             version: 0,
+            gas_settings: GasSettings::empty(),
         }
     }
 }
@@ -216,6 +221,6 @@ fn empty_hash() {
     let inputs = PrivateCircuitPublicInputs::empty();
     let hash = inputs.hash();
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x24ea9ab3fc039778bef8e7212f6a09feec1019db19b449333b523a08b812ee88;
+    let test_data_empty_hash = 0x2206ac815584e878dccdb9e7ef4f53ccecf2fded7ed289ff2cdb2daa37e3e3e6;
     assert_eq(hash, test_data_empty_hash);
 }

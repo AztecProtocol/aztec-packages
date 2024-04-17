@@ -1,6 +1,5 @@
-use dep::protocol_types::{abis::call_context::CallContext, header::Header, traits::Empty};
+use dep::protocol_types::{abis::{call_context::CallContext, gas_settings::GasSettings}, header::Header, traits::Empty};
 use crate::context::globals::private_global_variables::PrivateGlobalVariables;
-
 
 // PrivateContextInputs are expected to be provided to each private function
 // docs:start:private-context-inputs
@@ -9,6 +8,7 @@ struct PrivateContextInputs {
     historical_header: Header,
     private_global_variables: PrivateGlobalVariables,
     start_side_effect_counter: u32,
+    gas_settings: GasSettings,
 }
 // docs:end:private-context-inputs
 
@@ -19,6 +19,7 @@ impl Empty for PrivateContextInputs {
             historical_header: Header::empty(),
             private_global_variables: PrivateGlobalVariables::empty(),
             start_side_effect_counter: 0 as u32,
+            gas_settings: GasSettings::empty(),
         }
     }
 }

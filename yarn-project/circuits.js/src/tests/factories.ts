@@ -381,7 +381,6 @@ export function makePrivateAccumulatedData(seed = 1, full = false) {
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.empty),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
-    makeGas(seed + 0x600),
   );
 }
 
@@ -406,18 +405,14 @@ export function makeAggregationObject(seed = 1): AggregationObject {
  * @returns A call context.
  */
 export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContext>> = {}): CallContext {
-  const gasSettings = makeGasSettings();
   return CallContext.from({
     msgSender: makeAztecAddress(seed),
     storageContractAddress: makeAztecAddress(seed + 1),
     portalContractAddress: makeEthAddress(seed + 2),
     functionSelector: makeSelector(seed + 3),
-    gasLeft: gasSettings.getLimits(),
     isStaticCall: false,
     isDelegateCall: false,
     sideEffectCounter: 0,
-    gasSettings,
-    transactionFee: fr(seed + 6),
     ...overrides,
   });
 }
@@ -465,6 +460,8 @@ export function makePublicCircuitPublicInputs(
     makeAztecAddress(seed + 0xb01),
     RevertCode.OK,
     makeGas(seed + 0xc00),
+    makeGas(seed + 0xc00),
+    fr(0),
   );
 }
 
@@ -922,6 +919,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     historicalHeader: makeHeader(seed + 0xd00, undefined),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
+    gasSettings: makeGasSettings(),
   });
 }
 

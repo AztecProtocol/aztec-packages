@@ -28,6 +28,7 @@ import {
 import { Header } from '../structs/header.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
+import { GasSettings } from './gas_settings.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { MaxBlockNumber } from './max_block_number.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
@@ -138,6 +139,9 @@ export class PrivateCircuitPublicInputs {
      * Version of the instance.
      */
     public version: Fr,
+
+    /** Gas settings for this transaction */
+    public gasSettings: GasSettings,
   ) {}
 
   /**
@@ -179,6 +183,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Header),
       reader.readObject(Fr),
       reader.readObject(Fr),
+      reader.readObject(GasSettings),
     );
   }
 
@@ -207,6 +212,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Header),
       reader.readField(),
       reader.readField(),
+      reader.readObject(GasSettings),
     );
   }
 
@@ -238,6 +244,7 @@ export class PrivateCircuitPublicInputs {
       Header.empty(),
       Fr.ZERO,
       Fr.ZERO,
+      GasSettings.empty(),
     );
   }
 
@@ -266,7 +273,8 @@ export class PrivateCircuitPublicInputs {
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
       this.chainId.isZero() &&
-      this.version.isZero()
+      this.version.isZero() &&
+      this.gasSettings.isEmpty()
     );
   }
 
@@ -299,6 +307,7 @@ export class PrivateCircuitPublicInputs {
       fields.historicalHeader,
       fields.chainId,
       fields.version,
+      fields.gasSettings,
     ] as const;
   }
 

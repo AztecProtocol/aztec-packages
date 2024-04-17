@@ -192,7 +192,8 @@ impl PrivateContext {
             unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             chain_id: self.inputs.private_global_variables.chain_id,
-            version: self.inputs.private_global_variables.version
+            version: self.inputs.private_global_variables.version,
+            gas_settings: self.inputs.gas_settings
         };
 
         priv_circuit_pub_inputs
@@ -501,7 +502,9 @@ impl PrivateContext {
                 historical_header: Header::empty(),
                 prover_address: AztecAddress::zero(),
                 revert_code: 0,
-                gas_left: Gas::empty()
+                start_gas_left: Gas::empty(),
+                end_gas_left: Gas::empty(),
+                transaction_fee: 0
             },
             is_execution_request: true
         };

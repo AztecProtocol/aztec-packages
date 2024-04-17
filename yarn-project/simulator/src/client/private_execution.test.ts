@@ -796,10 +796,6 @@ describe('Private Execution test suite', () => {
       // Alter function data to match the manipulated oracle
       const functionData = FunctionData.fromAbi(childContractArtifact);
 
-      const transactionFee = new Fr(0);
-      const gasSettings = GasSettings.default();
-      const gasLeft = gasSettings.getInitialAvailable();
-
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
         functionData: functionData,
@@ -809,24 +805,18 @@ describe('Private Execution test suite', () => {
           storageContractAddress: childAddress,
           portalContractAddress: childPortalContractAddress,
           functionSelector: childSelector,
-          gasLeft,
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,
-          transactionFee,
-          gasSettings,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
           storageContractAddress: parentAddress,
           portalContractAddress: EthAddress.ZERO,
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
-          gasLeft,
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,
-          transactionFee,
-          gasSettings,
         }),
       });
 
