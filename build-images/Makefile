@@ -1,15 +1,12 @@
 build:
 	docker build -t aztecprotocol/build . --target build
 
-basebox: build
-	docker build -t aztecprotocol/basebox . --target basebox
-
-devbox: basebox
+devbox:
 	docker build -t aztecprotocol/devbox . --target devbox
 
-sysbox: basebox
+sysbox:
 	docker build -t aztecprotocol/sysbox --target sysbox .
 
-all: build devbox basebox
+all: build devbox sysbox
 
-.PHONY: all build basebox devbox sysbox
+.PHONY: all build devbox sysbox

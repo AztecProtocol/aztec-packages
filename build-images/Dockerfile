@@ -152,12 +152,14 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 ########################################################################################################################
 # This devbox container can be used to provide a full development environment.
 #
-# It can be used as a dev-container:
+# It can be used as a dev container:
 # - Configuration in .devcontainer/devcontainer.json.
+# - To run locally install "Dev Containers" plugin in vscode.
+# - To run in GitHub codespaces, visit the repo in github, press '.', and open the terminal.
 #
 # It can be used independently:
 # - The user should use the ./run.sh script to launch.
-# - The a persistent volume will be mounted to /home/aztec-dev.
+# - A persistent volume will be mounted to /home/aztec-dev.
 # - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
 # - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
 FROM basebox as devbox
