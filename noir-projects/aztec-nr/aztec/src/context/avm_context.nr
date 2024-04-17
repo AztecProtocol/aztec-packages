@@ -20,9 +20,6 @@ impl AvmContext {
         AvmContext { inputs }
     }
 
-    pub fn origin(self) -> AztecAddress {
-        origin()
-    }
     pub fn storage_address(self) -> AztecAddress {
         storage_address()
     }
@@ -53,12 +50,12 @@ impl AvmContext {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
 
-    fn call_public_function_raw<ARGS_COUNT, RET_COUNT>(
+    fn call_public_function_raw<RET_COUNT>(
         self: &mut Self,
         gas: GasOpts,
         contract_address: AztecAddress,
         temporary_function_selector: Field,
-        args: [Field; ARGS_COUNT]
+        args: [Field]
     ) -> ([Field; RET_COUNT], u8) {
         call(
             gas_for_call(gas),
@@ -68,12 +65,12 @@ impl AvmContext {
         )
     }
 
-    fn static_call_public_function_raw<ARGS_COUNT, RET_COUNT>(
+    fn static_call_public_function_raw<RET_COUNT>(
         self: &mut Self,
         gas: GasOpts,
         contract_address: AztecAddress,
         temporary_function_selector: Field,
-        args: [Field; ARGS_COUNT]
+        args: [Field]
     ) -> ([Field; RET_COUNT], u8) {
         call_static(
             gas_for_call(gas),
@@ -122,14 +119,6 @@ impl PublicContextInterface for AvmContext {
         nullifier_exists(unsiloed_nullifier, address.to_field()) == 1
     }
 
-    fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        assert(false, "'push_nullifier_read_request' not implemented!");
-    }
-
-    fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
-        assert(false, "'push_nullifier_non_existent_read_request' not implemented!");
-    }
-
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
         assert(false, "'accumulate_encrypted_logs' not implemented!");
     }
@@ -147,11 +136,11 @@ impl PublicContextInterface for AvmContext {
         send_l2_to_l1_msg(recipient, content);
     }
 
-    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {        
         let results = call(
@@ -167,11 +156,11 @@ impl PublicContextInterface for AvmContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn static_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         temporary_function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
         let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
@@ -185,11 +174,11 @@ impl PublicContextInterface for AvmContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn delegate_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
         assert(false, "'delegate_call_public_function' not implemented!");
         FunctionReturns::new([0; RETURNS_COUNT])
@@ -222,10 +211,6 @@ impl ContextInterface for AvmContext {
     fn selector(self) -> FunctionSelector {
         FunctionSelector::from_field(self.inputs.selector)
     }
-    fn get_header(self) -> Header {
-        assert(false, "'get_header' not implemented!");
-        Header::empty()
-    }
     fn get_args_hash(self) -> Field {
         self.inputs.args_hash
     }
@@ -246,9 +231,6 @@ fn address() -> AztecAddress {}
 
 #[oracle(avmOpcodeStorageAddress)]
 fn storage_address() -> AztecAddress {}
-
-#[oracle(avmOpcodeOrigin)]
-fn origin() -> AztecAddress {}
 
 #[oracle(avmOpcodeSender)]
 fn sender() -> AztecAddress {}
@@ -308,20 +290,20 @@ fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> u8 {}
 fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {}
 
 #[oracle(avmOpcodeCall)]
-fn call<ARGS_COUNT, RET_SIZE>(
+fn call<RET_SIZE>(
     gas: [Field; 3], // gas allocation: [l1_gas, l2_gas, da_gas]
     address: AztecAddress,
-    args: [Field; ARGS_COUNT],
+    args: [Field],
     // TODO(5110): consider passing in calldata directly
     temporary_function_selector: Field
 ) -> ([Field; RET_SIZE], u8) {}
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStaticCall)]
-fn call_static<ARGS_COUNT, RET_SIZE>(
+fn call_static<RET_SIZE>(
     gas: [Field; 3], // gas allocation: [l1_gas, l2_gas, da_gas]
     address: AztecAddress,
-    args: [Field; ARGS_COUNT],
+    args: [Field],
     // TODO(5110): consider passing in calldata directly
     temporary_function_selector: Field
 ) -> ([Field; RET_SIZE], u8) {}

@@ -5,7 +5,7 @@ use crate::{
 },
     messaging::process_l1_to_l2_message,
     oracle::{arguments, public_call::call_public_function_internal, returns},
-    hash::{hash_args_array, ArgsHasher}
+    hash::{hash_args, ArgsHasher}
 };
 use dep::protocol_types::{
     abis::{
@@ -130,6 +130,20 @@ impl PublicContext {
         self.return_hash = returns_hasher.hash();
     }
 
+    // Keep private or ask the AVM team if you want to change it.
+    fn push_nullifier_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_read_requests.push(request);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
+    // Keep private or ask the AVM team if you want to change it.
+    fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
+        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
+        self.nullifier_non_existent_read_requests.push(request);
+        self.side_effect_counter = self.side_effect_counter + 1;
+    }
+
     pub fn finish(self) -> PublicCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let unencrypted_logs_hash = 0;
@@ -154,7 +168,8 @@ impl PublicContext {
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
             prover_address: self.prover_address,
-            revert_code: 0
+            revert_code: 0,
+            gas_left: self.inputs.call_context.gas_left
         };
         pub_circuit_pub_inputs
     }
@@ -187,10 +202,6 @@ impl ContextInterface for PublicContext {
 
     fn get_args_hash(self) -> Field {
         self.args_hash
-    }
-
-    fn get_header(self) -> Header {
-        self.historical_header
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
@@ -245,18 +256,6 @@ impl PublicContextInterface for PublicContext {
         nullifier_exists_oracle(siloed_nullifier) == 1
     }
 
-    fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
-    fn push_nullifier_non_existent_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.side_effect_counter };
-        self.nullifier_non_existent_read_requests.push(request);
-        self.side_effect_counter = self.side_effect_counter + 1;
-    }
-
     fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         let message = L2ToL1Message { recipient, content };
         self.new_l2_to_l1_msgs.push(message);
@@ -292,37 +291,37 @@ impl PublicContextInterface for PublicContext {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 
-    fn call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         _gas: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
-    fn static_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn static_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT],
+        args: [Field],
         _gas: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
-    fn delegate_call_public_function<ARGS_COUNT, RETURNS_COUNT>(
+    fn delegate_call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
-        args: [Field; ARGS_COUNT]
+        args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
-        let args_hash = hash_args_array(args);
+        let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }

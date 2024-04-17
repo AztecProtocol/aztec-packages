@@ -14,6 +14,8 @@ import {
   isWrappedFieldStruct,
 } from '@aztec/foundation/abi';
 
+import uniqBy from 'lodash.uniqby';
+
 /**
  * Returns the corresponding typescript type for a given Noir type.
  * @param type - The input Noir type.
@@ -224,7 +226,9 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
  * @param input - The contract artifact.
  */
 function generateNotesGetter(input: ContractArtifact) {
-  const notes = input.outputs.globals.notes ? (input.outputs.globals.notes as TupleValue[]) : [];
+  const notes = input.outputs.globals.notes
+    ? uniqBy(input.outputs.globals.notes as TupleValue[], n => (n.fields[1] as BasicValue<'string', string>).value)
+    : [];
   const notesUnionType = notes.map(n => `'${(n.fields[1] as BasicValue<'string', string>).value}'`).join(' | ');
 
   const noteMetadata = notes
@@ -312,7 +316,7 @@ export class ${input.name}Contract extends ContractBase {
   ${notesGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
-  public methods!: {
+  public override methods!: {
     ${methods.join('\n')}
   };
 }
