@@ -209,14 +209,20 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         auto prev_level_width = prev_level_coeffs.size();
         // we need degree + 1 terms to represent the intermediate polynomials
         std::vector<std::vector<FF>> level_coeffs(prev_level_width >> 1, std::vector<FF>(degree + 1, 0));
-        for (size_t node = 0; node < prev_level_width; node += 2) {
-            auto parent = node >> 1;
-            std::copy(prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
-            for (size_t d = 0; d < degree; d++) {
-                level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
-                level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
-            }
-        }
+        run_loop_in_parallel(
+            prev_level_width >> 1,
+            [&](size_t start, size_t end) {
+                for (size_t node = start << 1; node < end << 1; node += 2) {
+                    auto parent = node >> 1;
+                    std::copy(
+                        prev_level_coeffs[node].begin(), prev_level_coeffs[node].end(), level_coeffs[parent].begin());
+                    for (size_t d = 0; d < degree; d++) {
+                        level_coeffs[parent][d] += prev_level_coeffs[node + 1][d] * betas[level];
+                        level_coeffs[parent][d + 1] += prev_level_coeffs[node + 1][d] * deltas[level];
+                    }
+                }
+            },
+            8);
         return construct_coefficients_tree(betas, deltas, level_coeffs, level + 1);
     }
 
@@ -236,11 +242,14 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         auto width = full_honk_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width >> 1, std::vector<FF>(2, 0));
-        for (size_t node = 0; node < width; node += 2) {
-            auto parent = node >> 1;
-            first_level_coeffs[parent][0] = full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-            first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
-        }
+        run_loop_in_parallel(width >> 1, [&](size_t start, size_t end) {
+            for (size_t node = start << 1; node < end << 1; node += 2) {
+                auto parent = node >> 1;
+                first_level_coeffs[parent][0] =
+                    full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
+                first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
+            }
+        });
         return construct_coefficients_tree(betas, deltas, first_level_coeffs);
     }
 
@@ -309,9 +318,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         size_t common_instance_size = instances[0]->proving_key.circuit_size;
         pow_betas.compute_values();
         // Determine number of threads for multithreading.
-        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
-        // on a specified minimum number of iterations per thread. This eventually leads to the use of a single thread.
-        // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
+        // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available
+        // based on a specified minimum number of iterations per thread. This eventually leads to the use of a
+        // single thread. For now we use a power of 2 number of threads simply to ensure the round size is evenly
+        // divided.
         size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
         size_t desired_num_threads = common_instance_size / min_iterations_per_thread;
@@ -340,9 +350,9 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
                 FF pow_challenge = pow_betas[idx];
 
-                // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to this
-                // function have already been folded. Moreover, linear-dependent relations that act over the entire
-                // execution trace rather than on rows, will not be multiplied by the pow challenge.
+                // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
+                // this function have already been folded. Moreover, linear-dependent relations that act over the
+                // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
                 accumulate_relation_univariates(
                     thread_univariate_accumulators[thread_idx],
                     extended_univariates[thread_idx],
@@ -362,7 +372,6 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
                                                                     const CombinedRelationSeparator& alpha)
     {
-
         // First relation does not get multiplied by a batching challenge
         auto result = std::get<0>(std::get<0>(univariate_accumulators))
                           .template extend_to<ProverInstances::BATCHED_EXTENDED_LENGTH>();
