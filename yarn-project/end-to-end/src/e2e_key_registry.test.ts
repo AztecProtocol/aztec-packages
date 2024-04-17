@@ -38,7 +38,7 @@ describe('SharedMutablePrivateGetter', () => {
   describe('failure cases', () => {
     let accountAddedToRegistry: AztecAddress;
 
-    describe('should fail registering or rotating with bad input', () => {
+    describe('should fail registering with bad input', () => {
       const partialAddress = new Fr(69);
 
       const masterNullifierPublicKey = new Fr(12);
@@ -96,7 +96,9 @@ describe('SharedMutablePrivateGetter', () => {
             .wait(),
         ).rejects.toThrow('Computed address does not match supplied address');
       });
+    });
 
+    describe('should fail when rotating keys with bad input', () => {
       it('should fail when trying to rotate setting a 0 key', async () => {
         await expect(
           keyRegistry
@@ -116,7 +118,7 @@ describe('SharedMutablePrivateGetter', () => {
             .wait(),
         ).rejects.toThrow('Assertion failed: Message not authorized by account');
       });
-    });
+    })
   });
 
   describe('key registration flow', () => {
@@ -156,7 +158,7 @@ describe('SharedMutablePrivateGetter', () => {
         .wait();
     });
 
-    it('checks our registry contract from state vars contract and fails because the address has not been registered yet', async () => {
+    it('checks our registry contract from test contract and fails because the address has not been registered yet', async () => {
       const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, accountAddedToRegistry)
         .send()
@@ -166,7 +168,7 @@ describe('SharedMutablePrivateGetter', () => {
       expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(Fr.ZERO);
     });
 
-    it('checks our registry contract from state vars contract and finds the address and associated nullifier public key after a delay', async () => {
+    it('checks our registry contract from test contract and finds the address and associated nullifier public key after a delay', async () => {
       await delay(5);
 
       const { txHash } = await testContract.methods
@@ -192,7 +194,7 @@ describe('SharedMutablePrivateGetter', () => {
         .wait();
     });
 
-    it("checks our registry contract from state vars contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
+    it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
       const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
         .send()
@@ -202,7 +204,7 @@ describe('SharedMutablePrivateGetter', () => {
       expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(0));
     });
 
-    it('checks our registry contract from state vars contract and finds the new nullifier public key that has been rotated', async () => {
+    it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
       await delay(5);
 
       const { txHash } = await testContract.methods
@@ -233,7 +235,7 @@ describe('SharedMutablePrivateGetter', () => {
       await action.send().wait();
     });
 
-    it("checks our registry contract from state vars contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
+    it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
       const { txHash } = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
         .send()
@@ -243,7 +245,7 @@ describe('SharedMutablePrivateGetter', () => {
       expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(910));
     });
 
-    it('checks our registry contract from state vars contract and finds the new nullifier public key that has been rotated', async () => {
+    it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
       await delay(5);
 
       const { txHash } = await testContract.methods
