@@ -152,6 +152,7 @@ jobs:
 
   notify:
     needs: [e2e, bb-native-tests, bb-bench]
+    runs-on: ${{ github.actor }}-x86
     if: ${{ github.ref == 'refs/heads/master' && failure() }}
     steps:
       - name: Send notification to aztec3-ci channel if workflow failed on master
