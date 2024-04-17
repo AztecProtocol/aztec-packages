@@ -19,9 +19,14 @@ on:
       ec2_ami_id:
         required: true
         type: string
+      # how much time to add to shutdown when a job finishes or starts
       ec2_instance_ttl:
         required: true
         type: number
+      # how much time to linger with no jobs before enacting an immediate shutdown
+      ec2_linger_time:
+        type: number
+        default: 5
       ec2_subnet_id:
         default: subnet-4cfabd25
         type: string
