@@ -41,7 +41,7 @@ describe('prover/bb_prover', () => {
       ],
     };
     prover = await BBNativeRollupProver.new(bbConfig);
-  }, 120_000);
+  }, 30_000);
 
   beforeEach(async () => {
     builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
