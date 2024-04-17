@@ -15,7 +15,6 @@ import {
   ContentCommitment,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
-  DimensionGasSettings,
   EthAddress,
   type FUNCTION_TREE_HEIGHT,
   Fr,
@@ -117,7 +116,6 @@ import {
   type CallRequest as CallRequestNoir,
   type CallerContext as CallerContextNoir,
   type CombinedConstantData as CombinedConstantDataNoir,
-  type DimensionGasSettings as DimensionGasSettingsNoir,
   type FunctionData as FunctionDataNoir,
   type FunctionLeafMembershipWitness as FunctionLeafMembershipWitnessNoir,
   type FunctionSelector as FunctionSelectorNoir,
@@ -455,35 +453,19 @@ export function mapCallContextToNoir(callContext: CallContext): CallContextNoir 
 
 export function mapGasSettingsFromNoir(gasSettings: GasSettingsNoir): GasSettings {
   return new GasSettings(
-    mapDimensionGasSettingsFromNoir(gasSettings.da),
-    mapDimensionGasSettingsFromNoir(gasSettings.l1),
-    mapDimensionGasSettingsFromNoir(gasSettings.l2),
+    mapGasFromNoir(gasSettings.gas_limits),
+    mapGasFromNoir(gasSettings.teardown_gas_limits),
+    mapGasFeesFromNoir(gasSettings.max_fees_per_gas),
     mapFieldFromNoir(gasSettings.inclusion_fee),
   );
 }
 
 export function mapGasSettingsToNoir(gasSettings: GasSettings): GasSettingsNoir {
   return {
-    da: mapDimensionGasSettingsToNoir(gasSettings.da),
-    l1: mapDimensionGasSettingsToNoir(gasSettings.l1),
-    l2: mapDimensionGasSettingsToNoir(gasSettings.l2),
+    gas_limits: mapGasToNoir(gasSettings.gasLimits),
+    teardown_gas_limits: mapGasToNoir(gasSettings.teardownGasLimits),
+    max_fees_per_gas: mapGasFeesToNoir(gasSettings.maxFeesPerGas),
     inclusion_fee: mapFieldToNoir(gasSettings.inclusionFee),
-  };
-}
-
-export function mapDimensionGasSettingsFromNoir(dimensionGasSettings: DimensionGasSettingsNoir): DimensionGasSettings {
-  return new DimensionGasSettings(
-    mapNumberFromNoir(dimensionGasSettings.gas_limit),
-    mapNumberFromNoir(dimensionGasSettings.teardown_gas_limit),
-    mapFieldFromNoir(dimensionGasSettings.max_fee_per_gas),
-  );
-}
-
-export function mapDimensionGasSettingsToNoir(dimensionGasSettings: DimensionGasSettings): DimensionGasSettingsNoir {
-  return {
-    gas_limit: mapNumberToNoir(dimensionGasSettings.gasLimit),
-    teardown_gas_limit: mapNumberToNoir(dimensionGasSettings.teardownGasLimit),
-    max_fee_per_gas: mapFieldToNoir(dimensionGasSettings.maxFeePerGas),
   };
 }
 

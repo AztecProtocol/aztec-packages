@@ -73,8 +73,8 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
 mod tests {
     use crate::{
         abis::{
-        function_selector::FunctionSelector, function_data::FunctionData,
-        gas_settings::{GasSettings, DimensionGasSettings}
+        function_selector::FunctionSelector, function_data::FunctionData, gas_settings::GasSettings,
+        gas::Gas, gas_fees::GasFees
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         grumpkin_point::GrumpkinPoint, transaction::{tx_request::TxRequest, tx_context::TxContext}
@@ -90,12 +90,7 @@ mod tests {
 
     #[test]
     fn compute_hash() {
-        let gas_settings = GasSettings {
-            da: DimensionGasSettings { gas_limit: 2, teardown_gas_limit: 1, max_fee_per_gas: 3 },
-            l1: DimensionGasSettings { gas_limit: 2, teardown_gas_limit: 1, max_fee_per_gas: 3 },
-            l2: DimensionGasSettings { gas_limit: 2, teardown_gas_limit: 1, max_fee_per_gas: 3 },
-            inclusion_fee: 10
-        };
+        let gas_settings = GasSettings::new(Gas::new(2, 2, 2), Gas::new(1, 1, 1), GasFees::new(3, 3, 3), 10);
         let tx_request = TxRequest {
             origin: AztecAddress::from_field(1),
             args_hash: 3,
@@ -103,7 +98,7 @@ mod tests {
             function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_private: true }
         };
         // Value from tx_request.test.ts "compute hash" test
-        let test_data_tx_request_hash = 0x135db0f12df1434f386e5c3cb78e3910960dc64b37a67cba6e3414d6d17d980a;
+        let test_data_tx_request_hash = 0x00b8affaf5ca65d647756e359ce0b2c5fa5c2c03f219189e28db323f22975706;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

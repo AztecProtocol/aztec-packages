@@ -1,7 +1,7 @@
 use crate::{
     abis::{
-    call_context::CallContext, gas_settings::{GasSettings, DimensionGasSettings}, gas::Gas,
-    max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    call_context::CallContext, gas_settings::GasSettings, gas::Gas, max_block_number::MaxBlockNumber,
+    nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
