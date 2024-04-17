@@ -39,12 +39,15 @@ template <typename FF_> class LookupRelationImpl {
     template <typename AllEntities, typename Parameters>
     inline static bool is_active(const AllEntities& in, [[maybe_unused]] const Parameters& params)
     {
-        // From the definition of the lookup grand product, if the inputs are trivial, Z_lookup is updated as
-        // Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the contribution of the given
-        // inputs will be the zero polynomial.
-        bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * params.gamma_by_one_plus_beta &&
-                           in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * params.gamma_by_one_plus_beta);
-        return is_active;
+        (void)in;
+        // // From the definition of the lookup grand product, if the inputs are trivial, Z_lookup is updated as
+        // // Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the contribution of the given
+        // // inputs will be the zero polynomial.
+        // bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * params.gamma_by_one_plus_beta
+        // &&
+        //                    in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * params.gamma_by_one_plus_beta);
+        // return is_active;
+        return true;
     }
 
     /**
