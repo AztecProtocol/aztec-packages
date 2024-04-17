@@ -43,8 +43,9 @@ template <typename FF_> class LookupRelationImpl {
         // From the definition of the lookup grand product, if the inputs are trivial, Z_lookup is updated as
         // Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the contribution of the given
         // inputs will be the zero polynomial.
-        bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * params.gamma_by_one_plus_beta &&
-                           in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * params.gamma_by_one_plus_beta);
+        auto gamma_by_one_plus_beta = params.gamma * (params.beta + 1);
+        bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * gamma_by_one_plus_beta &&
+                           in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * gamma_by_one_plus_beta);
         return is_active;
         // return true;
     }
