@@ -1,16 +1,24 @@
+import { type PublicKernelNonTailRequest, type PublicKernelTailRequest } from '@aztec/circuit-types';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type ParityPublicInputs,
   type Proof,
+  type PublicKernelCircuitPublicInputs,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 
 export enum ProvingRequestType {
+  PUBLIC_VM,
+
+  PUBLIC_KERNEL_NON_TAIL,
+  PUBLIC_KERNEL_TAIL,
+
   BASE_ROLLUP,
   MERGE_ROLLUP,
   ROOT_ROLLUP,
@@ -19,10 +27,19 @@ export enum ProvingRequestType {
   ROOT_PARITY,
 }
 
-//   PUBLIC_KERNEL,
-// PUBLIC_VM,
-
 export type ProvingRequest =
+  | {
+      type: ProvingRequestType.PUBLIC_VM;
+      inputs: unknown;
+    }
+  | {
+      type: ProvingRequestType.PUBLIC_KERNEL_NON_TAIL;
+      inputs: PublicKernelNonTailRequest;
+    }
+  | {
+      type: ProvingRequestType.PUBLIC_KERNEL_TAIL;
+      inputs: PublicKernelTailRequest;
+    }
   | {
       type: ProvingRequestType.BASE_PARITY;
       inputs: BaseParityInputs;
@@ -45,11 +62,17 @@ export type ProvingRequest =
     };
 
 export type ProvingRequestPublicInputs = {
-  [ProvingRequestType.BASE_PARITY]: ParityPublicInputs;
-  [ProvingRequestType.ROOT_PARITY]: ParityPublicInputs;
+  [ProvingRequestType.PUBLIC_VM]: unknown;
+
+  [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicKernelCircuitPublicInputs;
+  [ProvingRequestType.PUBLIC_KERNEL_TAIL]: KernelCircuitPublicInputs;
+
   [ProvingRequestType.BASE_ROLLUP]: BaseOrMergeRollupPublicInputs;
   [ProvingRequestType.MERGE_ROLLUP]: BaseOrMergeRollupPublicInputs;
   [ProvingRequestType.ROOT_ROLLUP]: RootRollupPublicInputs;
+
+  [ProvingRequestType.BASE_PARITY]: ParityPublicInputs;
+  [ProvingRequestType.ROOT_PARITY]: ParityPublicInputs;
 };
 
 export type ProvingRequestResult<T extends ProvingRequestType> = [ProvingRequestPublicInputs[T], Proof];

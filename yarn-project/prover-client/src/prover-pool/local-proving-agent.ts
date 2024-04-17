@@ -1,3 +1,5 @@
+import { PublicKernelType } from '@aztec/circuit-types';
+import { makeEmptyProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
@@ -48,12 +50,36 @@ export class LocalProvingAgent implements ProvingAgent {
 
   private work({ type, inputs }: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
     switch (type) {
-      case ProvingRequestType.BASE_PARITY: {
-        return this.prover.getBaseParityProof(inputs);
+      case ProvingRequestType.PUBLIC_VM: {
+        return Promise.resolve([{}, makeEmptyProof()] as const);
       }
 
-      case ProvingRequestType.ROOT_PARITY: {
-        return this.prover.getRootParityProof(inputs);
+      case ProvingRequestType.PUBLIC_KERNEL_SETUP: {
+        return this.prover.getPublicKernelProof({
+          inputs,
+          type: PublicKernelType.SETUP,
+        });
+      }
+
+      case ProvingRequestType.PUBLIC_KERNEL_APP: {
+        return this.prover.getPublicKernelProof({
+          inputs,
+          type: PublicKernelType.APP_LOGIC,
+        });
+      }
+
+      case ProvingRequestType.PUBLIC_KERNEL_TEARDOWN: {
+        return this.prover.getPublicKernelProof({
+          inputs,
+          type: PublicKernelType.TEARDOWN,
+        });
+      }
+
+      case ProvingRequestType.PUBLIC_KERNEL_TAIL: {
+        return this.prover.getPublicTailProof({
+          inputs,
+          type: PublicKernelType.TAIL,
+        });
       }
 
       case ProvingRequestType.BASE_ROLLUP: {
@@ -66,6 +92,14 @@ export class LocalProvingAgent implements ProvingAgent {
 
       case ProvingRequestType.ROOT_ROLLUP: {
         return this.prover.getRootRollupProof(inputs);
+      }
+
+      case ProvingRequestType.BASE_PARITY: {
+        return this.prover.getBaseParityProof(inputs);
+      }
+
+      case ProvingRequestType.ROOT_PARITY: {
+        return this.prover.getRootParityProof(inputs);
       }
 
       default: {
