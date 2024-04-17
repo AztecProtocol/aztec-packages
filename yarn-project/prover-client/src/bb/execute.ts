@@ -5,7 +5,8 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
-import { BBNativeRollupProver, BBProverConfig } from '../prover/bb_prover.js';
+
+import { BBNativeRollupProver, type BBProverConfig } from '../prover/bb_prover.js';
 
 export enum BB_RESULT {
   SUCCESS,
@@ -264,20 +265,16 @@ export async function verifyProof(
  * @param workingDirectory - The directory to be used for the keys
  * @param log - A logging function
  */
-export async function generateAllServerVks(
-  pathToBB: string,
-  workingDirectory: string,
-  log: LogFn,
-) {
+export async function generateAllServerVks(pathToBB: string, workingDirectory: string, log: LogFn) {
   const bbConfig: BBProverConfig = {
     bbBinaryPath: pathToBB,
     bbWorkingDirectory: workingDirectory,
 
     // These aren't needed for this
-    acvmBinaryPath: "",
-    acvmWorkingDirectory: "",
+    acvmBinaryPath: '',
+    acvmWorkingDirectory: '',
     circuitFilter: [],
-  }
+  };
   // This will generate all of the server circuit verification keys for us
   try {
     await BBNativeRollupProver.generateVerificationKeys(bbConfig);

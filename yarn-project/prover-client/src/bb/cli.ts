@@ -89,7 +89,7 @@ export function getProgram(log: LogFn): Command {
       );
     });
 
-    program
+  program
     .command('write-server-vks')
     .description('Generates all verification keys require for server protocol circuits')
     .requiredOption(
@@ -105,11 +105,7 @@ export function getProgram(log: LogFn): Command {
         log(`Working directory does not exist`);
         return;
       }
-      await generateAllServerVks(
-        options.bbPath,
-        options.workingDirectory,
-        log,
-      );
+      await generateAllServerVks(options.bbPath, options.workingDirectory, log);
     });
   return program;
 }

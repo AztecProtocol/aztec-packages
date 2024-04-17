@@ -56,7 +56,10 @@ export type BBProverConfig = {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements CircuitProver {
-  constructor(private config: BBProverConfig, private verificationKeyDirectories: Map<ServerProtocolArtifact, string>) {}
+  constructor(
+    private config: BBProverConfig,
+    private verificationKeyDirectories: Map<ServerProtocolArtifact, string>,
+  ) {}
 
   static async new(config: BBProverConfig) {
     await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
@@ -75,10 +78,7 @@ export class BBNativeRollupProver implements CircuitProver {
     const promises = [];
     const directories = new Map<ServerProtocolArtifact, string>();
     for (const circuitName in ServerCircuitArtifacts) {
-      if (
-        bbConfig.circuitFilter?.length &&
-        bbConfig.circuitFilter.findIndex((c: string) => c === circuitName) === -1
-      ) {
+      if (bbConfig.circuitFilter?.length && bbConfig.circuitFilter.findIndex((c: string) => c === circuitName) === -1) {
         // circuit is not supported
         continue;
       }
