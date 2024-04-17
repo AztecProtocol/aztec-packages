@@ -1,5 +1,5 @@
-import { type AztecNode, CompleteAddress, type KeyStore, Note } from '@aztec/circuit-types';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
+import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
 import {
   ABIParameterVisibility,
@@ -9,8 +9,6 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { TestKeyStore } from '@aztec/key-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -23,40 +21,30 @@ describe('Simulator', () => {
   let node: MockProxy<AztecNode>;
 
   let simulator: AcirSimulator;
-  // const ownerPk = GrumpkinScalar.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-  // const ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
-  // const owner = ownerCompleteAddress.address;
-  // const ownerNullifierSecretKey = Point.random();
-  // const ownerNullifierPublicKey = Fr.random();
-
-  // TODO(benesjan): this address is incorrect
-  let ownerCompleteAddress: CompleteAddress;
-  let keyStore: KeyStore;
   let owner: AztecAddress;
   let contractAddress: AztecAddress;
   let appNullifierSecretKey: Fr;
 
-  beforeEach(async () => {
-    const db = openTmpStore();
-    keyStore = new TestKeyStore(new Grumpkin(), db);
+  beforeEach(() => {
+    const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+    const allOwnerKeys = deriveKeys(ownerSk);
 
-    owner = await keyStore.createAccount();
+    const ownerMasterNullifierPublicKey = allOwnerKeys.masterNullifierPublicKey;
+    const ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
+
     contractAddress = AztecAddress.random();
 
     // We disabled the AztecAddress preimage check in oracle to get it working
-    const randomPartialAddress = Fr.random();
-    ownerCompleteAddress = new CompleteAddress(
-      owner,
-      await keyStore.getMasterIncomingViewingPublicKey(owner),
-      randomPartialAddress,
-    );
+    const ownerPartialAddress = Fr.random();
+    const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
+    owner = ownerCompleteAddress.address;
 
-    appNullifierSecretKey = await keyStore.getAppNullifierSecretKey(owner, contractAddress);
+    appNullifierSecretKey = computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress);
 
     oracle = mock<DBOracle>();
     node = mock<AztecNode>();
     oracle.getNullifierKeys.mockResolvedValue({
-      masterNullifierPublicKey: await keyStore.getMasterNullifierPublicKey(owner),
+      masterNullifierPublicKey: ownerMasterNullifierPublicKey,
       appNullifierSecretKey,
     });
     oracle.getCompleteAddress.mockResolvedValue(ownerCompleteAddress);

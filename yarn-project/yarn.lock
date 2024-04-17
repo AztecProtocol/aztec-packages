@@ -879,7 +879,6 @@ __metadata:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/key-store": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
