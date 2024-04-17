@@ -1,5 +1,5 @@
 import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type AbiType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
+import { type FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -46,19 +46,12 @@ export async function executePrivateFunction(
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-  publicInputs.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
   publicInputs.encryptedLogPreimagesLength = new Fr(encryptedLogs.getSerializedLength());
-  publicInputs.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
   publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
   const callStackItem = new PrivateCallStackItem(contractAddress, functionData, publicInputs);
 
-  // Mocking the return type to be an array of 4 fields
-  // TODO: @LHerskind must be updated as we are progressing with the macros to get the information
   const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
-  const returnTypes: AbiType[] = [{ kind: 'array', length: rawReturnValues.length, type: { kind: 'field' } }];
-  const mockArtifact = { ...artifact, returnTypes };
-  const returnValues = decodeReturnValues(mockArtifact, rawReturnValues);
 
   const noteHashReadRequestPartialWitnesses = context.getNoteHashReadRequestPartialWitnesses(
     publicInputs.noteHashReadRequests,
@@ -73,7 +66,7 @@ export async function executePrivateFunction(
     acir,
     partialWitness,
     callStackItem,
-    returnValues,
+    returnValues: rawReturnValues,
     noteHashReadRequestPartialWitnesses,
     newNotes,
     vk: Buffer.from(artifact.verificationKey!, 'hex'),
