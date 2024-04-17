@@ -4,7 +4,7 @@
 #   VERBOSE: to enable logging for each test.
 set -eu
 
-# Catch when running in parallel
+# Catch when running in parallel.
 error_file="/tmp/error.$$"
 pids=()
 source ./bash_helpers/catch.sh
