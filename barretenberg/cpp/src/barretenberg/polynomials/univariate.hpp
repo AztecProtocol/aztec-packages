@@ -271,7 +271,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
      * subtraction: setting Δ = v1-v0, the values of f(X) are f(0)=v0, f(1)= v0 + Δ, v2 = f(1) + Δ, v3 = f(2) + Δ...
      *
      */
-    template <size_t EXTENDED_DOMAIN_END> Univariate<Fr, EXTENDED_DOMAIN_END> extend_to() const
+    template <size_t EXTENDED_DOMAIN_END, bool optimised = false> Univariate<Fr, EXTENDED_DOMAIN_END> extend_to() const
     {
         const size_t EXTENDED_LENGTH = EXTENDED_DOMAIN_END - domain_start;
         using Data = BarycentricData<Fr, LENGTH, EXTENDED_LENGTH>;
@@ -282,11 +282,20 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         std::copy(evaluations.begin(), evaluations.end(), result.evaluations.begin());
 
         static constexpr Fr inverse_two = Fr(2).invert();
+        // static_assert(!optimised || (LENGTH <= 2));
         if constexpr (LENGTH == 2) {
             Fr delta = value_at(1) - value_at(0);
             static_assert(EXTENDED_LENGTH != 0);
-            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
-                result.value_at(idx + 1) = result.value_at(idx) + delta;
+            if constexpr (optimised) {
+                Fr current = result.value_at(1);
+                for (size_t idx = domain_end - 2; idx < EXTENDED_DOMAIN_END - 1; idx++) {
+                    current += delta;
+                    result.value_at(idx + 1) = current;
+                }
+            } else {
+                for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
+                    result.value_at(idx + 1) = result.value_at(idx) + delta;
+                }
             }
             return result;
         } else if constexpr (LENGTH == 3) {

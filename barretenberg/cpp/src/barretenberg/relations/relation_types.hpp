@@ -90,6 +90,28 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_part
 };
 
 /**
+ * @brief Get the subrelation accumulators for the Protogalaxy combiner calculation.
+ * @details A subrelation of degree D, when evaluated on polynomials of degree N, gives a polynomial of degree D
+ * * N. In the context of Protogalaxy, N = NUM_INSTANCES-1. Hence, given a subrelation of length x, its
+ * evaluation on such polynomials will have degree (x-1) * (NUM_INSTANCES-1), and the length of this evaluation
+ * will be one greater than this.
+ * @tparam NUM_INSTANCES
+ * @tparam NUM_SUBRELATIONS
+ * @param SUBRELATION_PARTIAL_LENGTHS The array of subrelation lengths supplied by a relation.
+ * @return The transformed subrelation lenths
+ */
+template <size_t NUM_INSTANCES, size_t NUM_SUBRELATIONS>
+consteval std::array<size_t, NUM_SUBRELATIONS> compute_optimised_composed_subrelation_partial_lengths(
+    std::array<size_t, NUM_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS)
+{
+    std::transform(SUBRELATION_PARTIAL_LENGTHS.begin(),
+                   SUBRELATION_PARTIAL_LENGTHS.end(),
+                   SUBRELATION_PARTIAL_LENGTHS.begin(),
+                   [](const size_t x) { return (x - 2) * (NUM_INSTANCES - 1) + 1; });
+    return SUBRELATION_PARTIAL_LENGTHS;
+};
+
+/**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the
  * verifier.
  *
@@ -149,6 +171,11 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, compute_composed_subrelation_partial_lengths<NUM_INSTANCES>(SUBRELATION_TOTAL_LENGTHS)>;
+    template <size_t NUM_INSTANCES>
+    using OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations =
+        TupleOfUnivariates<FF,
+                           compute_optimised_composed_subrelation_partial_lengths<NUM_INSTANCES>(
+                               SUBRELATION_TOTAL_LENGTHS)>;
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
     using SumcheckArrayOfValuesOverSubrelations = ArrayOfValues<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;
