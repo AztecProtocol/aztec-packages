@@ -72,6 +72,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_alu_op_add = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_add);
     commitments.avm_alu_op_cast =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_cast);
+    commitments.avm_alu_op_cast_prev =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_cast_prev);
     commitments.avm_alu_op_div = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_div);
     commitments.avm_alu_op_eq = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_eq);
     commitments.avm_alu_op_eq_diff_inv =

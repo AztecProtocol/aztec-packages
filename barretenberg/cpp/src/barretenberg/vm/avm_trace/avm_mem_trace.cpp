@@ -179,10 +179,10 @@ void AvmMemTraceBuilder::store_in_mem_trace(
 }
 
 /**
- * @brief Handle a read memory operation specific to MOV opcode. Load the corresponding
+ * @brief Handle a read memory operation without any tag check. Load the corresponding
  *        value to the intermediate register ia. A memory trace entry for the load
  *        operation is added. It is permissive in the sense that we do not enforce tag
- *        matching with against any instruction tag. In addition, the specific selector
+ *        matching with against any instruction tag. Optionally, a specific selector
  *        for MOV opcode is enabled.
  *
  * @param clk Main clock
@@ -191,7 +191,9 @@ void AvmMemTraceBuilder::store_in_mem_trace(
  * @return Result of the read operation containing the value and the tag of the memory cell
  *         at the supplied address.
  */
-AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint32_t const clk, uint32_t const addr)
+AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_no_tag_check(uint32_t const clk,
+                                                                            uint32_t const addr,
+                                                                            bool is_mov)
 {
     MemEntry mem_entry = memory.contains(addr) ? memory.at(addr) : MemEntry{};
 
@@ -203,7 +205,7 @@ AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint32
         .m_tag = mem_entry.tag,
         .r_in_tag = mem_entry.tag,
         .w_in_tag = mem_entry.tag,
-        .m_sel_mov_a = true,
+        .m_sel_mov_a = is_mov,
     });
 
     return mem_entry;

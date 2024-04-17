@@ -76,6 +76,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_alu_in_tag = commitment_key->commit(key->avm_alu_in_tag);
     witness_commitments.avm_alu_op_add = commitment_key->commit(key->avm_alu_op_add);
     witness_commitments.avm_alu_op_cast = commitment_key->commit(key->avm_alu_op_cast);
+    witness_commitments.avm_alu_op_cast_prev = commitment_key->commit(key->avm_alu_op_cast_prev);
     witness_commitments.avm_alu_op_div = commitment_key->commit(key->avm_alu_op_div);
     witness_commitments.avm_alu_op_eq = commitment_key->commit(key->avm_alu_op_eq);
     witness_commitments.avm_alu_op_eq_diff_inv = commitment_key->commit(key->avm_alu_op_eq_diff_inv);
@@ -260,6 +261,7 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_alu_in_tag, witness_commitments.avm_alu_in_tag);
     transcript->send_to_verifier(commitment_labels.avm_alu_op_add, witness_commitments.avm_alu_op_add);
     transcript->send_to_verifier(commitment_labels.avm_alu_op_cast, witness_commitments.avm_alu_op_cast);
+    transcript->send_to_verifier(commitment_labels.avm_alu_op_cast_prev, witness_commitments.avm_alu_op_cast_prev);
     transcript->send_to_verifier(commitment_labels.avm_alu_op_div, witness_commitments.avm_alu_op_div);
     transcript->send_to_verifier(commitment_labels.avm_alu_op_eq, witness_commitments.avm_alu_op_eq);
     transcript->send_to_verifier(commitment_labels.avm_alu_op_eq_diff_inv, witness_commitments.avm_alu_op_eq_diff_inv);

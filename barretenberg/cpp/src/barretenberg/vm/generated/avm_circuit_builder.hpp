@@ -70,6 +70,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_in_tag{};
     FF avm_alu_op_add{};
     FF avm_alu_op_cast{};
+    FF avm_alu_op_cast_prev{};
     FF avm_alu_op_div{};
     FF avm_alu_op_eq{};
     FF avm_alu_op_eq_diff_inv{};
@@ -272,6 +273,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_cmp_rng_ctr_shift{};
     FF avm_alu_cmp_sel_shift{};
     FF avm_alu_op_add_shift{};
+    FF avm_alu_op_cast_prev_shift{};
     FF avm_alu_op_cast_shift{};
     FF avm_alu_op_mul_shift{};
     FF avm_alu_op_sub_shift{};
@@ -313,8 +315,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 250;
-    static constexpr size_t num_polys = 214;
+    static constexpr size_t num_fixed_columns = 252;
+    static constexpr size_t num_polys = 215;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -349,6 +351,7 @@ class AvmCircuitBuilder {
             polys.avm_alu_in_tag[i] = rows[i].avm_alu_in_tag;
             polys.avm_alu_op_add[i] = rows[i].avm_alu_op_add;
             polys.avm_alu_op_cast[i] = rows[i].avm_alu_op_cast;
+            polys.avm_alu_op_cast_prev[i] = rows[i].avm_alu_op_cast_prev;
             polys.avm_alu_op_div[i] = rows[i].avm_alu_op_div;
             polys.avm_alu_op_eq[i] = rows[i].avm_alu_op_eq;
             polys.avm_alu_op_eq_diff_inv[i] = rows[i].avm_alu_op_eq_diff_inv;
@@ -522,6 +525,7 @@ class AvmCircuitBuilder {
         polys.avm_alu_cmp_rng_ctr_shift = Polynomial(polys.avm_alu_cmp_rng_ctr.shifted());
         polys.avm_alu_cmp_sel_shift = Polynomial(polys.avm_alu_cmp_sel.shifted());
         polys.avm_alu_op_add_shift = Polynomial(polys.avm_alu_op_add.shifted());
+        polys.avm_alu_op_cast_prev_shift = Polynomial(polys.avm_alu_op_cast_prev.shifted());
         polys.avm_alu_op_cast_shift = Polynomial(polys.avm_alu_op_cast.shifted());
         polys.avm_alu_op_mul_shift = Polynomial(polys.avm_alu_op_mul.shifted());
         polys.avm_alu_op_sub_shift = Polynomial(polys.avm_alu_op_sub.shifted());
