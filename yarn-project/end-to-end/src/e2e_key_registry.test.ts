@@ -132,7 +132,6 @@ describe('SharedMutablePrivateGetter', () => {
       ]);
 
       // We hash the partial address and the public keys hash to get the account address
-      // TODO(#5726): Should GeneratorIndex.CONTRACT_ADDRESS be removed given that we introduced CONTRACT_ADDRESS_V1?
       // TODO(#5726): Move the following line to AztecAddress class?
       accountAddedToRegistry = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
 
