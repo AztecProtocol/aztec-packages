@@ -28,9 +28,6 @@
       "path": "../world-state"
     },
     {
-      "path": "../key-store"
-    },
-    {
       "path": "../kv-store"
     },
     {
