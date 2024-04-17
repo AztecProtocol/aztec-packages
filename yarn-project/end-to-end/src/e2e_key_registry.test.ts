@@ -186,7 +186,7 @@ describe('SharedMutablePrivateGetter', () => {
         .wait();
     });
 
-    it("checks our registry contract from state vars contract and finds our old public key because the key rotation  hasn't been applied yet", async () => {
+    it("checks our registry contract from state vars contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
       const { txHash } = await stateVarsContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
         .send()
