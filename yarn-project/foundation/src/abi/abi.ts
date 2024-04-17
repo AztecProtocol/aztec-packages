@@ -368,7 +368,9 @@ export function getFunctionDebugMetadata(
     const programDebugSymbols = JSON.parse(
       inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string', raw: true }),
     );
-    // TODO: We only support handling debug info for the contract function entry point 
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5813)
+    // We only support handling debug info for the contract function entry point.
+    // So for now we simply index into the first debug info.
     return { debugSymbols: programDebugSymbols.debug_infos[0], files: contractArtifact.fileMap };
   }
   return undefined;
