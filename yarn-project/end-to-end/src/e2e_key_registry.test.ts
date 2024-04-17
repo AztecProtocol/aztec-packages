@@ -98,21 +98,15 @@ describe('SharedMutablePrivateGetter', () => {
       });
 
       it('should fail when trying to rotate setting a 0 key', async () => {
-        await expect(keyRegistry.withWallet(wallets[0]).methods.rotate_keys(
-          wallets[0].getAddress(),
-          new Fr(0),
-        ).send().wait()).rejects.toThrow(
-          'New nullifier public key must be non-zero',
-        );
+        await expect(
+          keyRegistry.withWallet(wallets[0]).methods.rotate_keys(wallets[0].getAddress(), new Fr(0)).send().wait(),
+        ).rejects.toThrow('New nullifier public key must be non-zero');
       });
 
       it('should fail when trying to rotate for another address without authwit', async () => {
-        await expect(keyRegistry.withWallet(wallets[0]).methods.rotate_keys(
-          wallets[1].getAddress(),
-          new Fr(2),
-        ).send().wait()).rejects.toThrow(
-          'Assertion failed: Message not authorized by account',
-        );
+        await expect(
+          keyRegistry.withWallet(wallets[0]).methods.rotate_keys(wallets[1].getAddress(), new Fr(2)).send().wait(),
+        ).rejects.toThrow('Assertion failed: Message not authorized by account');
       });
     });
   });
@@ -184,10 +178,11 @@ describe('SharedMutablePrivateGetter', () => {
       // This changes
       const newMasterNullifierPublicKey = new Fr(910);
 
-      await keyRegistry.withWallet(wallets[0]).methods.rotate_keys(
-        wallets[0].getAddress(),
-        newMasterNullifierPublicKey,
-      ).send().wait();
+      await keyRegistry
+        .withWallet(wallets[0])
+        .methods.rotate_keys(wallets[0].getAddress(), newMasterNullifierPublicKey)
+        .send()
+        .wait();
     });
 
     it("checks our registry contract from state vars contract and finds our old public key because the key rotation  hasn't been applied yet", async () => {
@@ -223,7 +218,10 @@ describe('SharedMutablePrivateGetter', () => {
         .withWallet(wallets[1])
         .methods.rotate_keys(wallets[0].getAddress(), newMasterNullifierPublicKey);
 
-      await wallets[0].setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true).send().wait();
+      await wallets[0]
+        .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)
+        .send()
+        .wait();
 
       await action.send().wait();
     });
