@@ -56,8 +56,7 @@ export type BBProverConfig = {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements CircuitProver {
-  private verificationKeyDirectories: Map<ServerProtocolArtifact, string> = new Map<ServerProtocolArtifact, string>();
-  constructor(private config: BBProverConfig) {}
+  constructor(private config: BBProverConfig, private verificationKeyDirectories: Map<ServerProtocolArtifact, string>) {}
 
   static async new(config: BBProverConfig) {
     await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
@@ -67,9 +66,46 @@ export class BBNativeRollupProver implements CircuitProver {
     logger.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
     logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
 
-    const prover = new BBNativeRollupProver(config);
-    await prover.init();
-    return prover;
+    const mappings = await BBNativeRollupProver.generateVerificationKeys(config);
+
+    return new BBNativeRollupProver(config, mappings);
+  }
+
+  public static async generateVerificationKeys(bbConfig: BBProverConfig) {
+    const promises = [];
+    const directories = new Map<ServerProtocolArtifact, string>();
+    for (const circuitName in ServerCircuitArtifacts) {
+      if (
+        bbConfig.circuitFilter?.length &&
+        bbConfig.circuitFilter.findIndex((c: string) => c === circuitName) === -1
+      ) {
+        // circuit is not supported
+        continue;
+      }
+      const verificationKeyPromise = generateKeyForNoirCircuit(
+        bbConfig.bbBinaryPath,
+        bbConfig.bbWorkingDirectory,
+        circuitName,
+        ServerCircuitArtifacts[circuitName as ServerProtocolArtifact],
+        'vk',
+        logger.debug,
+      ).then(result => {
+        if (result.status == BB_RESULT.FAILURE) {
+          const message = `Failed to generate verification key for circuit ${circuitName}, message: ${result.reason}`;
+          logger.error(message);
+          throw new Error(message);
+        }
+        if (result.status == BB_RESULT.ALREADY_PRESENT) {
+          logger.info(`Verification key for circuit ${circuitName} was already present at ${result.path!}`);
+        } else {
+          logger.info(`Generated verification key for circuit ${circuitName} at ${result.path!}`);
+        }
+        directories.set(circuitName as ServerProtocolArtifact, result.path!);
+      });
+      promises.push(verificationKeyPromise);
+    }
+    await Promise.all(promises);
+    return directories;
   }
 
   /**
@@ -154,37 +190,6 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const result = convertRootRollupOutputsFromWitnessMap(outputWitness);
     return Promise.resolve([result, proof]);
-  }
-
-  private async init() {
-    const promises = [];
-    for (const circuitName in ServerCircuitArtifacts) {
-      if (
-        this.config.circuitFilter?.length &&
-        this.config.circuitFilter.findIndex((c: string) => c === circuitName) === -1
-      ) {
-        // circuit is not supported
-        continue;
-      }
-      const verificationKeyPromise = generateKeyForNoirCircuit(
-        this.config.bbBinaryPath,
-        this.config.bbWorkingDirectory,
-        circuitName,
-        ServerCircuitArtifacts[circuitName as ServerProtocolArtifact],
-        'vk',
-        logger.debug,
-      ).then(result => {
-        if (result.status == BB_RESULT.FAILURE) {
-          const message = `Failed to generate verification key for circuit ${circuitName}, message: ${result.reason}`;
-          logger.error(message);
-          throw new Error(message);
-        }
-        logger.info(`Generated verification key for circuit ${circuitName} at ${result.path!}`);
-        this.verificationKeyDirectories.set(circuitName as ServerProtocolArtifact, result.path!);
-      });
-      promises.push(verificationKeyPromise);
-    }
-    await Promise.all(promises);
   }
 
   public async createProof(witnessMap: WitnessMap, circuitType: ServerProtocolArtifact): Promise<[WitnessMap, Proof]> {

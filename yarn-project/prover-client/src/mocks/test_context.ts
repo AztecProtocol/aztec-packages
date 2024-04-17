@@ -23,7 +23,7 @@ import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { type BBProverConfig } from '../prover/bb_prover.js';
 import { type CircuitProver } from '../prover/interface.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
-import { getConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
+import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
 export class TestContext {
   constructor(
@@ -70,7 +70,7 @@ export class TestContext {
     const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
 
     let localProver: CircuitProver;
-    const config = await getConfig(logger);
+    const config = await getEnvironmentConfig(logger);
     const simulationProvider = await getSimulationProvider({
       acvmWorkingDirectory: config?.acvmWorkingDirectory,
       acvmBinaryPath: config?.expectedAcvmPath,
