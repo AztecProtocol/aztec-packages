@@ -17,7 +17,7 @@ export class SimulatedTx {
    */
   public toJSON() {
     const returnToJson = (data: ProcessReturnValues | undefined): string => {
-      if (data == undefined) {
+      if (data === undefined) {
         return JSON.stringify(data);
       }
       return JSON.stringify(data.map(fr => fr.toString()));
@@ -37,7 +37,7 @@ export class SimulatedTx {
    */
   public static fromJSON(obj: any) {
     const returnFromJson = (json: string): ProcessReturnValues | undefined => {
-      if (json == undefined) {
+      if (json === undefined) {
         return json;
       }
       return JSON.parse(json).map(Fr.fromString);

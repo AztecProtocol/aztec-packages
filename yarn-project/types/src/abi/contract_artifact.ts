@@ -136,7 +136,7 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
   }
 
   let returnTypes: AbiType[] = [];
-  if (functionType == FunctionType.UNCONSTRAINED && fn.abi.return_type) {
+  if (functionType === FunctionType.UNCONSTRAINED && fn.abi.return_type) {
     returnTypes = [fn.abi.return_type.abi_type];
   } else {
     const pathToFind = `${contract.name}::${fn.name}_abi`;

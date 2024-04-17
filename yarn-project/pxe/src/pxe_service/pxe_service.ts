@@ -417,7 +417,6 @@ export class PXEService implements PXE {
       }
 
       if (simulatePublic) {
-        // Only one transaction, so we can take index 0.
         simulatedTx.publicReturnValues = await this.#simulatePublicCalls(simulatedTx.tx);
       }
 
