@@ -1,3 +1,5 @@
+mod array_dynamic_public;
+mod array_fixed;
 mod map;
 mod private_immutable;
 mod private_mutable;
@@ -8,6 +10,8 @@ mod shared_immutable;
 mod shared_mutable;
 mod storage;
 
+use crate::state_vars::array_dynamic_public::PublicDynamicArray;
+use crate::state_vars::array_fixed::FixedArray;
 use crate::state_vars::map::Map;
 use crate::state_vars::private_immutable::PrivateImmutable;
 use crate::state_vars::private_mutable::PrivateMutable;

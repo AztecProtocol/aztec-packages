@@ -71,7 +71,7 @@ pub fn generate_storage_field_constructor(
             let mut new_path = path.clone().to_owned();
             new_path.segments.push(ident("new"));
             match path.segments.last().unwrap().0.contents.as_str() {
-                "Map" => Ok(call(
+                "Map" | "FixedArray" => Ok(call(
                     variable_path(new_path),
                     vec![
                         variable("context"),
@@ -221,7 +221,7 @@ fn get_serialized_length(
     });
 
     // Maps and (private) Notes always occupy a single slot. Someone could store a Note in PublicMutable for whatever reason though.
-    if struct_name == "Map" || (is_note && struct_name != "PublicMutable") {
+    if struct_name == "Map" || struct_name == "FixedArray" || struct_name == "PublicDynamicArray" || (is_note && struct_name != "PublicMutable") {
         return Ok(1);
     }
 
