@@ -10,10 +10,9 @@ import { makeTuple } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import * as fs from 'fs/promises';
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig } from '../mocks/fixtures.js';
+import { TestContext } from '../mocks/test_context.js';
 import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -21,28 +20,18 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 const logger = createDebugLogger('aztec:bb-prover-test');
 
 describe('prover/bb_prover/parity', () => {
-  let prover: BBNativeRollupProver;
-  let directoryToCleanup: string | undefined;
+  let context: TestContext;
 
   beforeAll(async () => {
-    const config = await getConfig(logger);
-    if (!config) {
-      throw new Error(`BB and ACVM binaries must be present to test the BB Prover`);
-    }
-    directoryToCleanup = config.directoryToCleanup;
-    const bbConfig: BBProverConfig = {
-      acvmBinaryPath: config.expectedAcvmPath,
-      acvmWorkingDirectory: config.acvmWorkingDirectory,
-      bbBinaryPath: config.expectedBBPath,
-      bbWorkingDirectory: config.bbWorkingDirectory,
+    const buildProver = (bbConfig: BBProverConfig) => {
+      bbConfig.circuitFilter = ['BaseParityArtifact', 'RootParityArtifact'];
+      return BBNativeRollupProver.new(bbConfig);
     };
-    prover = await BBNativeRollupProver.new(bbConfig);
+    context = await TestContext.new(logger, buildProver);
   }, 60_000);
 
   afterAll(async () => {
-    if (directoryToCleanup) {
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
-    }
+    await context.cleanup();
   }, 5000);
 
   it('proves the parity circuits', async () => {
@@ -55,11 +44,13 @@ describe('prover/bb_prover/parity', () => {
     );
 
     // Generate the base parity proofs
-    const rootInputs = await Promise.all(baseParityInputs.map(baseInputs => prover.getBaseParityProof(baseInputs)));
+    const rootInputs = await Promise.all(
+      baseParityInputs.map(baseInputs => context.prover.getBaseParityProof(baseInputs)),
+    );
 
     // Verify the base parity proofs
     await expect(
-      Promise.all(rootInputs.map(input => prover.verifyProof('BaseParityArtifact', input[1]))),
+      Promise.all(rootInputs.map(input => context.prover.verifyProof('BaseParityArtifact', input[1]))),
     ).resolves.not.toThrow();
 
     // Now generate the root parity proof
@@ -70,9 +61,9 @@ describe('prover/bb_prover/parity', () => {
     const rootParityInputs: RootParityInputs = new RootParityInputs(
       rootChildrenInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
     );
-    const rootOutput = await prover.getRootParityProof(rootParityInputs);
+    const rootOutput = await context.prover.getRootParityProof(rootParityInputs);
 
     // Verify the root parity proof
-    await expect(prover.verifyProof('RootParityArtifact', rootOutput[1])).resolves.not.toThrow();
+    await expect(context.prover.verifyProof('RootParityArtifact', rootOutput[1])).resolves.not.toThrow();
   }, 100_000);
 });

@@ -1,66 +1,26 @@
 import { PROVING_STATUS, makeEmptyProcessedTx, mockTx } from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, Header } from '@aztec/circuits.js';
+import { Fr, Header } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { type MerkleTreeOperations, MerkleTrees, type TreeInfo } from '@aztec/world-state';
 
-import * as fs from 'fs/promises';
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
-import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
-import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
+import { BBNativeRollupProver } from './bb_prover.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:bb-prover-test');
 
 describe('prover/bb_prover/full-rollup', () => {
-  let orchestrator: ProvingOrchestrator;
-  let builderDb: MerkleTreeOperations;
-  let prover: BBNativeRollupProver;
-  let directoryToCleanup: string | undefined;
-  let processor: TestContext;
-  let root: Buffer;
-
-  let blockNumber: number;
-
-  let globalVariables: GlobalVariables;
+  let context: TestContext;
 
   beforeAll(async () => {
-    const config = await getConfig(logger);
-    if (!config) {
-      throw new Error(`BB and ACVM binaries must be present to test the BB Prover`);
-    }
-    directoryToCleanup = config.directoryToCleanup;
-    const bbConfig: BBProverConfig = {
-      acvmBinaryPath: config.expectedAcvmPath,
-      acvmWorkingDirectory: config.acvmWorkingDirectory,
-      bbBinaryPath: config.expectedBBPath,
-      bbWorkingDirectory: config.bbWorkingDirectory,
-    };
-    prover = await BBNativeRollupProver.new(bbConfig);
-  }, 60_000);
-
-  beforeEach(async () => {
-    blockNumber = 3;
-    globalVariables = makeGlobals(blockNumber);
-
-    processor = TestContext.new();
-
-    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-    root = Buffer.alloc(32, 5);
-    processor.db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-
-    orchestrator = await ProvingOrchestrator.new(builderDb, prover);
+    context = await TestContext.new(logger, BBNativeRollupProver.new);
   }, 60_000);
 
   afterAll(async () => {
-    if (directoryToCleanup) {
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
-    }
+    await context.cleanup();
   }, 5000);
 
   it('proves all circuits', async () => {
@@ -72,31 +32,31 @@ describe('prover/bb_prover/full-rollup', () => {
       }),
     );
     for (const tx of txs) {
-      tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
+      tx.data.constants.historicalHeader = await context.actualDb.buildInitialHeader();
     }
 
-    const provingTicket = await orchestrator.startNewBlock(
+    const provingTicket = await context.orchestrator.startNewBlock(
       numTransactions,
-      globalVariables,
+      context.globalVariables,
       [],
       makeEmptyProcessedTx(Header.empty(), new Fr(1234), new Fr(1)),
     );
 
-    const [processed, failed] = await processor.process(txs, numTransactions, orchestrator);
+    const [processed, failed] = await context.process(txs, numTransactions, context.orchestrator);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
 
-    await orchestrator.setBlockCompleted();
+    await context.orchestrator.setBlockCompleted();
 
     const provingResult = await provingTicket.provingPromise;
 
     expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
 
-    const blockResult = await orchestrator.finaliseBlock();
+    const blockResult = await context.orchestrator.finaliseBlock();
 
-    await expect(prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
+    await expect(context.prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
 
-    await orchestrator.stop();
+    await context.orchestrator.stop();
   }, 600_000);
 });

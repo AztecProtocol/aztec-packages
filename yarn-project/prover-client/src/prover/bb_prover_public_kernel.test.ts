@@ -1,14 +1,10 @@
 import { PublicKernelType, mockTx } from '@aztec/circuit-types';
 import { type Proof, makeEmptyProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { openTmpStore } from '@aztec/kv-store/utils';
 import { type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type MerkleTreeOperations, MerkleTrees, type TreeInfo } from '@aztec/world-state';
 
-import * as fs from 'fs/promises';
 import { type MemDown, default as memdown } from 'memdown';
 
-import { getConfig } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
 
@@ -17,45 +13,23 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 const logger = createDebugLogger('aztec:bb-prover-test');
 
 describe('prover/bb_prover/public-kernel', () => {
-  let builderDb: MerkleTreeOperations;
-  let prover: BBNativeRollupProver;
-  let directoryToCleanup: string | undefined;
-  let processor: TestContext;
-  let root: Buffer;
+  let context: TestContext;
 
   beforeAll(async () => {
-    const config = await getConfig(logger);
-    if (!config) {
-      throw new Error(`BB and ACVM binaries must be present to test the BB Prover`);
-    }
-    directoryToCleanup = config.directoryToCleanup;
-    const bbConfig: BBProverConfig = {
-      acvmBinaryPath: config.expectedAcvmPath,
-      acvmWorkingDirectory: config.acvmWorkingDirectory,
-      bbBinaryPath: config.expectedBBPath,
-      bbWorkingDirectory: config.bbWorkingDirectory,
-      circuitFilter: [
+    const buildProver = (bbConfig: BBProverConfig) => {
+      bbConfig.circuitFilter = [
         'PublicKernelAppLogicArtifact',
         'PublicKernelSetupArtifact',
         'PublicKernelTailArtifact',
         'PublicKernelTeardownArtifact',
-      ],
+      ];
+      return BBNativeRollupProver.new(bbConfig);
     };
-    prover = await BBNativeRollupProver.new(bbConfig);
-  }, 30_000);
-
-  beforeEach(async () => {
-    builderDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
-
-    processor = TestContext.new();
-    root = Buffer.alloc(32, 5);
-    processor.db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
+    context = await TestContext.new(logger, buildProver);
   }, 60_000);
 
   afterAll(async () => {
-    if (directoryToCleanup) {
-      await fs.rm(directoryToCleanup, { recursive: true, force: true });
-    }
+    await context.cleanup();
   }, 5000);
 
   it('proves the public kernel circuits', async () => {
@@ -63,9 +37,9 @@ describe('prover/bb_prover/public-kernel', () => {
       numberOfNonRevertiblePublicCallRequests: 2,
       numberOfRevertiblePublicCallRequests: 1,
     });
-    tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
+    tx.data.constants.historicalHeader = await context.actualDb.buildInitialHeader();
 
-    const [processed, failed] = await processor.process([tx], 1, undefined);
+    const [processed, failed] = await context.process([tx], 1, undefined);
 
     expect(processed.length).toBe(1);
     expect(failed.length).toBe(0);
@@ -98,20 +72,20 @@ describe('prover/bb_prover/public-kernel', () => {
       let proof: Proof = makeEmptyProof();
       if (request.type === PublicKernelType.TAIL) {
         await expect(
-          prover.getPublicTailProof(request).then(result => {
+          context.prover.getPublicTailProof(request).then(result => {
             proof = result[1];
           }),
         ).resolves.not.toThrow();
       } else {
         await expect(
-          prover.getPublicKernelProof(request).then(result => {
+          context.prover.getPublicKernelProof(request).then(result => {
             proof = result[1];
           }),
         ).resolves.not.toThrow();
       }
 
       logger.verbose(`Verifying kernel type: ${PublicKernelType[request.type]}`);
-      await expect(prover.verifyProof(artifact, proof)).resolves.not.toThrow();
+      await expect(context.prover.verifyProof(artifact, proof)).resolves.not.toThrow();
     }
   }, 60_000);
 });

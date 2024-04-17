@@ -14,12 +14,13 @@ import {
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
-import { type MerkleTreeOperations, MerkleTrees, TreeInfo } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees, type TreeInfo } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { type BBProverConfig } from '../prover/bb_prover.js';
 import { type CircuitProver } from '../prover/interface.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 import { getConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
@@ -40,13 +41,13 @@ export class TestContext {
     public directoriesToCleanup: string[],
   ) {}
 
-  static async new(logger: DebugLogger, blockNumber = 3) {
+  static async new(
+    logger: DebugLogger,
+    createProver: (bbConfig: BBProverConfig) => Promise<CircuitProver> = _ =>
+      Promise.resolve(new TestCircuitProver(new WASMSimulator())),
+    blockNumber = 3,
+  ) {
     const globalVariables = makeGlobals(blockNumber);
-    const acvmConfig = await getConfig(logger);
-    const simulationProvider = await getSimulationProvider({
-      acvmWorkingDirectory: acvmConfig?.acvmWorkingDirectory,
-      acvmBinaryPath: acvmConfig?.expectedAcvmPath,
-    });
 
     const publicExecutor = mock<PublicExecutor>();
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
@@ -67,9 +68,25 @@ export class TestContext {
 
     const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
 
-    const prover = new TestCircuitProver(simulationProvider);
+    let localProver: CircuitProver;
+    const config = await getConfig(logger);
+    const simulationProvider = await getSimulationProvider({
+      acvmWorkingDirectory: config?.acvmWorkingDirectory,
+      acvmBinaryPath: config?.expectedAcvmPath,
+    });
+    if (!config) {
+      localProver = new TestCircuitProver(simulationProvider);
+    } else {
+      const bbConfig: BBProverConfig = {
+        acvmBinaryPath: config.expectedAcvmPath,
+        acvmWorkingDirectory: config.acvmWorkingDirectory,
+        bbBinaryPath: config.expectedBBPath,
+        bbWorkingDirectory: config.bbWorkingDirectory,
+      };
+      localProver = await createProver(bbConfig);
+    }
 
-    const orchestrator = await ProvingOrchestrator.new(actualDb, prover);
+    const orchestrator = await ProvingOrchestrator.new(actualDb, localProver);
 
     return new this(
       db,
@@ -80,10 +97,10 @@ export class TestContext {
       simulationProvider,
       globalVariables,
       actualDb,
-      prover,
+      localProver,
       orchestrator,
       blockNumber,
-      [acvmConfig?.directoryToCleanup ?? ''],
+      [config?.directoryToCleanup ?? ''],
     );
   }
 

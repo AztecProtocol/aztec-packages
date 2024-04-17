@@ -4,12 +4,9 @@ import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
-import {
-  makeBloatedProcessedTx,
-  makeEmptyProcessedTestTx
-} from '../mocks/fixtures.js';
+import { makeBloatedProcessedTx, makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;

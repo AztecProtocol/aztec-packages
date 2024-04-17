@@ -1,9 +1,9 @@
 import {
   MerkleTreeId,
+  type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
   mockTx,
-  type ProcessedTx,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
@@ -27,12 +27,11 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { NativeACVMSimulator, WASMSimulator, type SimulationProvider } from '@aztec/simulator';
+import { NativeACVMSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import path from 'path';
-
 
 const {
   BB_RELEASE_DIR = 'cpp/build/bin',

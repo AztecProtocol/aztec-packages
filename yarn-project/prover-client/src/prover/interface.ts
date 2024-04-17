@@ -99,6 +99,11 @@ export interface CircuitProver {
    * @param kernelRequest - Object containing the details of the proof required
    */
   getPublicTailProof(kernelRequest: PublicKernelTailRequest): Promise<[KernelCircuitPublicInputs, Proof]>;
+
+  /**
+   * Verifies a circuit proof
+   */
+  verifyProof(artifact: ServerProtocolArtifact, proof: Proof): Promise<void>;
 }
 
 /**

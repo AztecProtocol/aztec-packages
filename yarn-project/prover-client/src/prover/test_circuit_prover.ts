@@ -22,6 +22,7 @@ import {
   RootParityArtifact,
   RootRollupArtifact,
   ServerCircuitArtifacts,
+  type ServerProtocolArtifact,
   SimulatedBaseRollupArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
@@ -162,5 +163,10 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertPublicTailOutputFromWitnessMap(witness);
     return [result, makeEmptyProof()];
+  }
+
+  // Not implemented for test circuits
+  public verifyProof(_1: ServerProtocolArtifact, _2: Proof): Promise<void> {
+    throw new Error('Method not implemented.');
   }
 }
