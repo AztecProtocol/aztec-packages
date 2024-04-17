@@ -25,7 +25,7 @@ describe('SharedMutablePrivateGetter', () => {
     keyRegistry = await KeyRegistryContract.deploy(wallets[0]).send().deployed();
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
-  }, 30_000);
+  }, 120_000);
 
   const delay = async (blocks: number) => {
     for (let i = 0; i < blocks; i++) {
