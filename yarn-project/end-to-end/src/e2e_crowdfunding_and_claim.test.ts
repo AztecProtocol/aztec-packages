@@ -108,6 +108,9 @@ describe('e2e_crowdfunding_and_claim', () => {
 
     crowdfundingPrivateKey = GrumpkinScalar.random();
     crowdfundingPublicKey = generatePublicKey(crowdfundingPrivateKey);
+    if (crowdfundingPublicKey.x != new Fr(27)) {
+      throw new Error('Fake error to trigger CI failure');
+    }
 
     const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKey(
       crowdfundingPublicKey,
