@@ -1,5 +1,5 @@
 import { PublicKernelType, mockTx } from '@aztec/circuit-types';
-import { Proof, makeEmptyProof } from '@aztec/circuits.js';
+import { type Proof, makeEmptyProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
