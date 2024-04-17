@@ -11,6 +11,7 @@ import {
   PublicFeePaymentMethod,
   SentTx,
 } from '@aztec/aztec.js';
+import { GasSettings } from '@aztec/circuits.js';
 import { DefaultDappEntrypoint } from '@aztec/entrypoints/dapp';
 import {
   AppSubscriptionContract,
@@ -21,11 +22,7 @@ import {
 } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
-import { jest } from '@jest/globals';
-
 import { type BalancesFn, expectMapping, getBalancesFn, publicDeployAccounts, setup } from './fixtures/utils.js';
-
-jest.setTimeout(100_000);
 
 const TOKEN_NAME = 'BananaCoin';
 const TOKEN_SYMBOL = 'BC';
@@ -56,17 +53,26 @@ describe('e2e_dapp_subscription', () => {
   const PRIVATELY_MINTED_BANANAS = 600n;
 
   const FEE_AMOUNT = 1n;
-  const REFUND = 2n; // intentionally overpay the gas fee. This is the expected refund.
+  const REFUND = 29n; // intentionally overpay the gas fee. This is the expected refund.
   const MAX_FEE = FEE_AMOUNT + REFUND;
+
+  const GAS_SETTINGS = GasSettings.new({
+    da: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    l1: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    l2: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
+    inclusionFee: new Fr(6),
+  });
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
     process.env.ENABLE_GAS ??= '1';
 
+    expect(GAS_SETTINGS.getFeeLimit().toBigInt()).toEqual(MAX_FEE);
+
     let wallets: AccountWalletWithPrivateKey[];
     let aztecNode: AztecNode;
     let deployL1ContractsValues: DeployL1Contracts;
-    ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3));
+    ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3, {}, {}, true));
 
     await publicDeployAccounts(wallets[0], wallets);
 
@@ -121,7 +127,7 @@ describe('e2e_dapp_subscription', () => {
       [aliceAddress, sequencerAddress, subscriptionContract.address, bananaFPC.address],
       [0n, 0n, INITIAL_GAS_BALANCE, INITIAL_GAS_BALANCE],
     );
-  });
+  }, 180_000);
 
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     /**
@@ -223,7 +229,7 @@ describe('e2e_dapp_subscription', () => {
     // subscribe again. This will overwrite the subscription
     await subscribe(new PrivateFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet), MAX_FEE, 0);
     await expect(dappIncrement()).rejects.toThrow(
-      "Failed to solve brillig function, reason: explicit trap hit in brillig '(context.block_number()) as u64 < expiry_block_number as u64'",
+      "Failed to solve brillig function '(context.block_number()) as u64 < expiry_block_number as u64'",
     );
   });
 
@@ -247,12 +253,7 @@ describe('e2e_dapp_subscription', () => {
     return subscriptionContract
       .withWallet(aliceWallet)
       .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
-      .send({
-        fee: {
-          maxFee,
-          paymentMethod,
-        },
-      })
+      .send({ fee: { gasSettings: GAS_SETTINGS, paymentMethod } })
       .wait();
   }
 

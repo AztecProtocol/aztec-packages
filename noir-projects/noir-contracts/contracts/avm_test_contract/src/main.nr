@@ -31,9 +31,6 @@ contract AvmTest {
     use dep::aztec::protocol_types::abis::function_selector::FunctionSelector;
     use dep::compressed_string::CompressedString;
 
-    // avm lib
-    use dep::aztec::avm::hash::sha256;
-
     #[aztec(storage)]
     struct Storage {
         single: PublicMutable<Field>,
@@ -155,8 +152,8 @@ contract AvmTest {
     }
 
     #[aztec(public-vm)]
-    fn sha256_hash(data: [Field; 10]) -> pub [Field; 2] {
-        sha256(data)
+    fn sha256_hash(data: [u8; 10]) -> pub [u8; 32] {
+        dep::std::hash::sha256(data)
     }
 
     #[aztec(public-vm)]
@@ -188,7 +185,7 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn test_get_contract_instance() {
         let ci = get_contract_instance_avm(context.this_address());
-        assert(ci.is_some());
+        assert(ci.is_some(), "Contract instance not found!");
     }
 
     /************************************************************************
@@ -207,11 +204,6 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn get_sender() -> pub AztecAddress {
         context.msg_sender()
-    }
-
-    #[aztec(public-vm)]
-    fn get_origin() -> pub AztecAddress {
-        context.origin()
     }
 
     #[aztec(public-vm)]
@@ -261,7 +253,9 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn check_selector() {
-        assert(context.selector() == FunctionSelector::from_signature("check_selector()"));
+        assert(
+            context.selector() == FunctionSelector::from_signature("check_selector()"), "Unexpected selector!"
+        );
     }
 
     #[aztec(public-vm)]
@@ -271,10 +265,10 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn emit_unencrypted_log() {
-        context.accumulate_unencrypted_logs(/*event_selector=*/ 5, /*message=*/ [10, 20, 30]);
-        context.accumulate_unencrypted_logs(/*event_selector=*/ 8, /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*event_selector=*/ 5, /*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*event_selector=*/ 8, /*message=*/ "Hello, world!");
         let s: CompressedString<2,44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.accumulate_unencrypted_logs(/*event_selector=*/ 10, /*message=*/ s);
+        context.emit_unencrypted_log(/*event_selector=*/ 10, /*message=*/ s);
     }
 
     #[aztec(public-vm)]
@@ -302,7 +296,7 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier, context.this_address()));
+        assert(context.nullifier_exists(nullifier, context.this_address()), "Nullifier doesn't exist!");
     }
 
     // Use the standard context interface to emit a new nullifier
