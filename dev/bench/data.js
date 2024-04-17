@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1713295893303,
+  "lastUpdate": 1713373143943,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
@@ -259,6 +259,86 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/AztecProtocol/aztec-packages/pull/5787/commits/60bf183a8b17b531b22f8a4bdfef629191fd6c2c"
         },
         "date": 1713295892795,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20693.443312,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15944.315796999997 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 6736.0779220000495,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 6373.06311 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 74136.953945,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 74136956000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 24753.942065,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 24753942000 ms\nthreads: 1"
+          },
+          {
+            "name": "batch_mul_with_endomorphism(t)",
+            "value": 738540675,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 738540675 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 5283178470,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 5283178470 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 177233091,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 177233091 ns\nthreads: 1"
+          },
+          {
+            "name": "batch_mul_with_endomorphism(t)",
+            "value": 635163001,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 635163001 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 4382789501,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 4382789501 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 147174803,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 147174803 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "9cc07fa5819d13c1bbcb7bf3732fff82d7c42816",
+          "message": "feat: bench uploading",
+          "timestamp": "2024-04-10T10:54:42Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/5787/commits/9cc07fa5819d13c1bbcb7bf3732fff82d7c42816"
+        },
+        "date": 1713373143418,
         "tool": "googlecpp",
         "benches": [
           {
