@@ -77,7 +77,7 @@ struct FixtureBuilder {
 
 impl FixtureBuilder {
     pub fn new() -> Self {
-        let tx_context = TxContext { is_fee_payment_tx: false, is_rebate_payment_tx: false, chain_id: 1, version: 0 };
+        let tx_context = TxContext { chain_id: 1, version: 0, gas_settings: GasSettings::empty() };
 
         FixtureBuilder {
             contract_address: fixtures::contracts::parent_contract.address,
@@ -116,11 +116,7 @@ impl FixtureBuilder {
     }
 
     pub fn to_constant_data(self) -> CombinedConstantData {
-        CombinedConstantData {
-            historical_header: self.historical_header,
-            tx_context: self.tx_context,
-            gas_settings: self.gas_settings
-        }
+        CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context }
     }
 
     pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {

@@ -134,7 +134,6 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
         txContext: TxContext.empty(),
         packedArguments: [],
         authWitnesses: [],
-        gasSettings: GasSettings.default(),
       });
 
       await expect(async () => await pxe.proveTx(txExecutionRequest, false)).rejects.toThrow(

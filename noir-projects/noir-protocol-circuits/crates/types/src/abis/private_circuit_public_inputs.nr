@@ -13,7 +13,8 @@ use crate::{
     MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
     header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader
+    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader,
+    transaction::tx_context::TxContext
 };
 
 struct PrivateCircuitPublicInputs {
@@ -49,13 +50,10 @@ struct PrivateCircuitPublicInputs {
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
 
-    // Note: The following 2 values are not redundant to the values in self.historical_header.global_variables because
+    // Note: The chain_id and version here are not redundant to the values in self.historical_header.global_variables because
     // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
-    chain_id: Field,
-    version: Field,
-    
-    gas_settings: GasSettings,
+    tx_context: TxContext,
 }
 
 impl Eq for PrivateCircuitPublicInputs {
@@ -79,9 +77,7 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
         (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
         self.historical_header.eq(other.historical_header) &
-        self.chain_id.eq(other.chain_id) &
-        self.version.eq(other.version) &
-        self.gas_settings.eq(other.gas_settings)
+        self.tx_context.eq(other.tx_context)
     }
 }
 
@@ -127,9 +123,7 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
-        fields.push(self.chain_id);
-        fields.push(self.version);
-        fields.extend_from_array(self.gas_settings.serialize());
+        fields.extend_from_array(self.tx_context.serialize());
 
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -162,9 +156,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
-            chain_id: reader.read(),
-            version: reader.read(),
-            gas_settings: reader.read_struct(GasSettings::deserialize),
+            tx_context: reader.read_struct(TxContext::deserialize),
         };
 
         reader.finish();
@@ -201,9 +193,7 @@ impl Empty for PrivateCircuitPublicInputs {
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
-            chain_id: 0,
-            version: 0,
-            gas_settings: GasSettings::empty(),
+            tx_context: TxContext::empty(),
         }
     }
 }

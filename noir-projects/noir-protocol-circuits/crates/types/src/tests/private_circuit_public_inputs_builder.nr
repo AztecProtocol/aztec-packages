@@ -6,7 +6,7 @@ use crate::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, compute_initialization_hash}, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
+    messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures, transaction::tx_context::TxContext
 };
 use crate::{
     constants::{
@@ -109,9 +109,7 @@ impl PrivateCircuitPublicInputsBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
-            chain_id: self.chain_id,
-            version: self.version,
-            gas_settings: self.gas_settings
+            tx_context: TxContext::new(self.chain_id, self.version, self.gas_settings)
         }
     }
 }

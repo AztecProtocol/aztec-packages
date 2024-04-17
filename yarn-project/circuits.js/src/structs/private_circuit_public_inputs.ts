@@ -28,11 +28,11 @@ import {
 import { Header } from '../structs/header.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../structs/side_effects.js';
 import { CallContext } from './call_context.js';
-import { GasSettings } from './gas_settings.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { MaxBlockNumber } from './max_block_number.js';
 import { NullifierKeyValidationRequest } from './nullifier_key_validation_request.js';
 import { ReadRequest } from './read_request.js';
+import { TxContext } from './tx_context.js';
 
 /**
  * Public inputs to a private circuit.
@@ -128,20 +128,13 @@ export class PrivateCircuitPublicInputs {
      */
     public historicalHeader: Header,
     /**
-     * Chain Id of the instance.
+     * Transaction context.
      *
-     * Note: The following 2 values are not redundant to the values in self.historical_header.global_variables because
+     * Note: The chainId and version in the txContext are not redundant to the values in self.historical_header.global_variables because
      * they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
      * before the upgrade took place but be using the updated protocol to execute and prove the transaction.
      */
-    public chainId: Fr,
-    /**
-     * Version of the instance.
-     */
-    public version: Fr,
-
-    /** Gas settings for this transaction */
-    public gasSettings: GasSettings,
+    public txContext: TxContext,
   ) {}
 
   /**
@@ -181,9 +174,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(Header),
-      reader.readObject(Fr),
-      reader.readObject(Fr),
-      reader.readObject(GasSettings),
+      reader.readObject(TxContext),
     );
   }
 
@@ -210,9 +201,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readObject(Header),
-      reader.readField(),
-      reader.readField(),
-      reader.readObject(GasSettings),
+      reader.readObject(TxContext),
     );
   }
 
@@ -242,9 +231,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       Header.empty(),
-      Fr.ZERO,
-      Fr.ZERO,
-      GasSettings.empty(),
+      TxContext.empty(),
     );
   }
 
@@ -272,9 +259,7 @@ export class PrivateCircuitPublicInputs {
       this.encryptedLogPreimagesLength.isZero() &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
-      this.chainId.isZero() &&
-      this.version.isZero() &&
-      this.gasSettings.isEmpty()
+      this.txContext.isEmpty()
     );
   }
 
@@ -305,9 +290,7 @@ export class PrivateCircuitPublicInputs {
       fields.encryptedLogPreimagesLength,
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
-      fields.chainId,
-      fields.version,
-      fields.gasSettings,
+      fields.txContext,
     ] as const;
   }
 
