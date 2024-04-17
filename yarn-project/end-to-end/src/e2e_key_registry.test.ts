@@ -61,7 +61,7 @@ describe('SharedMutablePrivateGetter', () => {
       accountAddedToRegistry = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
 
       it('should fail registering with mismatched address', async () => {
-        const mismatchedAddress = accountAddedToRegistry.add(new Fr(1));
+        const mismatchedAddress = Fr.random();
 
         await expect(
           keyRegistry
