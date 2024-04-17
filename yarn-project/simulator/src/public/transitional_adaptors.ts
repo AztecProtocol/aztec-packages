@@ -5,6 +5,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FunctionData,
+  Gas,
   type GlobalVariables,
   type Header,
   L2ToL1Message,
@@ -16,11 +17,12 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type AvmContext } from '../avm/avm_context.js';
 import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
+import { type AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmContractCallResults } from '../avm/avm_message_call_result.js';
 import { type JournalData } from '../avm/journal/journal.js';
 import { Mov } from '../avm/opcodes/memory.js';
 import { createSimulationError } from '../common/errors.js';
-import { PackedArgsCache, SideEffectCounter } from '../index.js';
+import { PackedValuesCache, SideEffectCounter } from '../index.js';
 import { type PublicExecution, type PublicExecutionResult } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
 
@@ -39,18 +41,19 @@ export function createAvmExecutionEnvironment(
   return new AvmExecutionEnvironment(
     current.contractAddress,
     current.callContext.storageContractAddress,
-    current.callContext.msgSender, // TODO: origin is not available
     current.callContext.msgSender,
     current.callContext.portalContractAddress,
-    /*feePerL1Gas=*/ Fr.zero(),
-    /*feePerL2Gas=*/ Fr.zero(),
-    /*feePerDaGas=*/ Fr.zero(),
+    globalVariables.gasFees.feePerL1Gas,
+    globalVariables.gasFees.feePerL2Gas,
+    globalVariables.gasFees.feePerDaGas,
     /*contractCallDepth=*/ Fr.zero(),
     header,
     globalVariables,
     current.callContext.isStaticCall,
     current.callContext.isDelegateCall,
     current.args,
+    current.callContext.gasSettings,
+    current.callContext.transactionFee,
     current.functionData.selector,
   );
 }
@@ -62,9 +65,12 @@ export function createPublicExecutionContext(avmContext: AvmContext, calldata: F
     storageContractAddress: avmContext.environment.storageAddress,
     portalContractAddress: avmContext.environment.portal,
     functionSelector: avmContext.environment.temporaryFunctionSelector,
+    gasLeft: Gas.from(avmContext.machineState.gasLeft),
     isDelegateCall: avmContext.environment.isDelegateCall,
     isStaticCall: avmContext.environment.isStaticCall,
     sideEffectCounter: sideEffectCounter,
+    gasSettings: avmContext.environment.gasSettings,
+    transactionFee: avmContext.environment.transactionFee,
   });
   const functionData = new FunctionData(avmContext.environment.temporaryFunctionSelector, /*isPrivate=*/ false);
   const execution: PublicExecution = {
@@ -73,7 +79,7 @@ export function createPublicExecutionContext(avmContext: AvmContext, calldata: F
     args: calldata,
     functionData,
   };
-  const packedArgs = PackedArgsCache.create([]);
+  const packedArgs = PackedValuesCache.create([]);
 
   const context = new PublicExecutionContext(
     execution,
@@ -101,14 +107,15 @@ export async function convertAvmResults(
   executionContext: PublicExecutionContext,
   newWorldState: JournalData,
   result: AvmContractCallResults,
+  endMachineState: AvmMachineState,
 ): Promise<PublicExecutionResult> {
   const execution = executionContext.execution;
 
   const contractStorageReads: ContractStorageRead[] = newWorldState.storageReads.map(
-    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber()),
+    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber(), read.storageAddress),
   );
   const contractStorageUpdateRequests: ContractStorageUpdateRequest[] = newWorldState.storageWrites.map(
-    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber()),
+    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber(), write.storageAddress),
   );
   // We need to write the storage updates to the DB, because that's what the ACVM expects.
   // Assumes the updates are in the right order.
@@ -162,6 +169,7 @@ export async function convertAvmResults(
     unencryptedLogs,
     reverted: result.reverted,
     revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,
+    gasLeft: endMachineState.gasLeft,
   };
 }
 

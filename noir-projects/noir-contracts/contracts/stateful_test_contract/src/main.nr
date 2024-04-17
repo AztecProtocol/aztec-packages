@@ -17,8 +17,7 @@ contract StatefulTest {
     #[aztec(private)]
     #[aztec(initializer)]
     fn constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("create_note_no_init_check((Field),Field)");
-        let _res = context.call_private_function(context.this_address(), selector, [owner.to_field(), value]);
+        StatefulTest::at(context.this_address()).create_note_no_init_check(owner, value).call(&mut context);
     }
 
     #[aztec(private)]
@@ -31,13 +30,7 @@ contract StatefulTest {
     #[aztec(public)]
     #[aztec(initializer)]
     fn public_constructor(owner: AztecAddress, value: Field) {
-        let selector = FunctionSelector::from_signature("increment_public_value_no_init_check((Field),Field)");
-        let _res = context.call_public_function(
-            context.this_address(),
-            selector,
-            [owner.to_field(), value],
-            GasOpts::default()
-        );
+        StatefulTest::at(context.this_address()).increment_public_value_no_init_check(owner, value).call(&mut context);
     }
 
     #[aztec(private)]

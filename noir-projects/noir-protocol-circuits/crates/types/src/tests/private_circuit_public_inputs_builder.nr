@@ -1,25 +1,28 @@
 use crate::{
     abis::{
-    call_context::CallContext, max_block_number::MaxBlockNumber,
-    nullifier_key_validation_request::NullifierKeyValidationRequest,
+    call_context::CallContext, gas_settings::{GasSettings, DimensionGasSettings}, gas::Gas,
+    max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, compute_initialization_hash}, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
 };
-use crate::constants::{
+use crate::{
+    constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, RETURN_VALUES_LENGTH
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL
+},
+    traits::Empty
 };
 
 struct PrivateCircuitPublicInputsBuilder {
     call_context: CallContext,
 
     args_hash: Field,
-    return_values: BoundedVec<Field, RETURN_VALUES_LENGTH>,
+    returns_hash: Field,
 
     min_revertible_side_effect_counter: u32,
 
@@ -50,7 +53,7 @@ struct PrivateCircuitPublicInputsBuilder {
 
 impl PrivateCircuitPublicInputsBuilder {
     pub fn new() -> Self {
-        let mut public_inputs: PrivateCircuitPublicInputsBuilder = dep::std::unsafe::zeroed();
+        let mut public_inputs = PrivateCircuitPublicInputsBuilder::empty();
 
         let args_hash = 0;
 
@@ -69,7 +72,10 @@ impl PrivateCircuitPublicInputsBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            side_effect_counter: 0
+            side_effect_counter: 0,
+            gas_left: Gas::empty(),
+            gas_settings: GasSettings::empty(),
+            transaction_fee: 0
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
@@ -84,7 +90,7 @@ impl PrivateCircuitPublicInputsBuilder {
         PrivateCircuitPublicInputs {
             call_context: self.call_context,
             args_hash: self.args_hash,
-            return_values: self.return_values.storage,
+            returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             max_block_number: self.max_block_number,
             note_hash_read_requests: self.note_hash_read_requests.storage,
@@ -104,6 +110,33 @@ impl PrivateCircuitPublicInputsBuilder {
             historical_header: self.historical_header,
             chain_id: self.chain_id,
             version: self.version
+        }
+    }
+}
+
+impl Empty for PrivateCircuitPublicInputsBuilder {
+    fn empty() -> Self {
+        PrivateCircuitPublicInputsBuilder {
+            call_context: CallContext::empty(),
+            args_hash: 0,
+            returns_hash: 0,
+            min_revertible_side_effect_counter: 0 as u32,
+            max_block_number: MaxBlockNumber::empty(),
+            note_hash_read_requests: BoundedVec::new(),
+            nullifier_read_requests: BoundedVec::new(),
+            nullifier_key_validation_requests: BoundedVec::new(),
+            new_note_hashes: BoundedVec::new(),
+            new_nullifiers: BoundedVec::new(),
+            private_call_stack_hashes: BoundedVec::new(),
+            public_call_stack_hashes: BoundedVec::new(),
+            new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hash: 0,
+            unencrypted_logs_hash: 0,
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
+            historical_header: Header::empty(),
+            chain_id: 0,
+            version: 0,
         }
     }
 }

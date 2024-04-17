@@ -46,23 +46,26 @@ export class DeployAccountMethod extends DeployMethod {
         : feePaymentNameOrArtifact;
   }
 
-  protected async getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
+  protected override async getInitializeFunctionCalls(options: DeployOptions): Promise<ExecutionRequestInit> {
     const exec = await super.getInitializeFunctionCalls(options);
 
     if (options.fee && this.#feePaymentArtifact) {
       const { address } = this.getInstance();
+      const emptyAppPayload = EntrypointPayload.fromAppExecution([]);
       const feePayload = await EntrypointPayload.fromFeeOptions(options?.fee);
 
       exec.calls.push({
         to: address,
-        args: encodeArguments(this.#feePaymentArtifact, [feePayload]),
+        args: encodeArguments(this.#feePaymentArtifact, [emptyAppPayload, feePayload]),
         functionData: FunctionData.fromAbi(this.#feePaymentArtifact),
       });
 
       exec.authWitnesses ??= [];
       exec.packedArguments ??= [];
 
+      exec.authWitnesses.push(await this.#authWitnessProvider.createAuthWit(emptyAppPayload.hash()));
       exec.authWitnesses.push(await this.#authWitnessProvider.createAuthWit(feePayload.hash()));
+      exec.packedArguments.push(...emptyAppPayload.packedArguments);
       exec.packedArguments.push(...feePayload.packedArguments);
     }
 

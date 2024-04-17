@@ -56,21 +56,21 @@ impl PrivateKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use dep::std::unsafe;
     use crate::private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
     use dep::reset_kernel_lib::{
         tests::nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        read_request_reset::{PendingReadHint, ReadRequestState, ReadRequestStatus}
+        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
+        grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
@@ -163,7 +163,7 @@ mod tests {
                 sorted_new_nullifiers_indexes,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
-                master_nullifier_secret_keys: unsafe::zeroed()
+                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX]
             };
             kernel.native_private_kernel_circuit_tail()
         }
@@ -175,6 +175,14 @@ mod tests {
         pub fn succeeded(&mut self) {
             let _ = self.execute();
         }
+    }
+
+    #[test]
+    unconstrained fn execution_succeeded() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        let public_inputs = builder.execute();
+
+        assert(is_empty(public_inputs.start_state));
     }
 
     #[test]

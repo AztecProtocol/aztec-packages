@@ -31,7 +31,6 @@ const std::unordered_map<OpCode, size_t> Bytecode::OPERANDS_NUM = {
     //// Execution Environment
     //{OpCode::ADDRESS, },
     //{OpCode::STORAGEADDRESS, },
-    //{OpCode::ORIGIN, },
     //{OpCode::SENDER, },
     //{OpCode::PORTAL, },
     //{OpCode::FEEPERL1GAS, },
@@ -89,7 +88,7 @@ const std::unordered_map<OpCode, size_t> Bytecode::OPERANDS_NUM = {
 
     //// Gadgets
     //{ OpCode::KECCAK, },
-    //{ OpCode::POSEIDON, },
+    //{ OpCode::POSEIDON2, },
     //{ OpCode::SHA256, },
     //{ OpCode::PEDERSEN, },
 };
@@ -102,7 +101,7 @@ const std::unordered_map<OpCode, size_t> Bytecode::OPERANDS_NUM = {
  */
 bool Bytecode::is_valid(const uint8_t byte)
 {
-    return byte <= static_cast<uint8_t>(OpCode::POSEIDON);
+    return byte < static_cast<uint8_t>(OpCode::LAST_OPCODE_SENTINEL);
 }
 
 /**
@@ -116,7 +115,6 @@ bool Bytecode::has_in_tag(OpCode const op_code)
     switch (op_code) {
     case OpCode::ADDRESS:
     case OpCode::STORAGEADDRESS:
-    case OpCode::ORIGIN:
     case OpCode::SENDER:
     case OpCode::PORTAL:
     case OpCode::FEEPERL1GAS:

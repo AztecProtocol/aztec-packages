@@ -4,7 +4,6 @@ use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
 use crate::common;
-use dep::std::unsafe;
 
 struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -22,7 +21,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
@@ -35,6 +34,8 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
         self.validate_inputs();
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
+
+        common::update_revertible_gas_used(self.public_call, &mut public_inputs);
 
         if public_inputs.revert_code == 0 {
             // Pops the item from the call stack and validates it against the current execution.
@@ -76,9 +77,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+        read_request::ReadRequest, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_note_hash, silo_nullifier},
@@ -448,5 +449,29 @@ mod tests {
         assert_eq(request_context.value, request_1.value);
         assert_eq(request_context.counter, request_1.counter);
         assert_eq(request_context.contract_address, storage_contract_address);
+    }
+
+    #[test]
+    fn updates_revertible_gas_used() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        // Transaction gas limit is 1k
+        builder.previous_kernel.gas_settings.da.gas_limit = 1000;
+        builder.previous_kernel.gas_settings.l1.gas_limit = 1000;
+        builder.previous_kernel.gas_settings.l2.gas_limit = 1000;
+
+        // Revertible has already used 300
+        builder.previous_kernel.gas_used = Gas::new(300, 300, 300);
+
+        // This call starts with 700 gas left
+        builder.public_call.public_inputs.call_context.gas_left = Gas::new(700, 700, 700);
+
+        // And uses 200, ending with 500 left
+        builder.public_call.public_inputs.gas_left = Gas::new(500, 500, 500);
+
+        // So the updated gas used by revertible must go up by 200, and non-revertible must stay the same
+        let output = builder.execute();
+        assert_eq(output.end.gas_used, Gas::new(500, 500, 500));
+        assert_eq(output.end_non_revertible.gas_used, Gas::new(0, 0, 0));
     }
 }
