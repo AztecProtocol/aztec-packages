@@ -1,4 +1,3 @@
-#!/bin/sh
 build:
 	docker build -f Dockerfile.build -t aztecprotocol/build .
 

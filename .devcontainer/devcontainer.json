@@ -22,11 +22,11 @@
         "terminal.integrated.shell.linux": "/bin/zsh"
       }
     }
-  },
-  "mounts": [
-    "source=aztec-dev-home,target=/home/aztec-dev,type=volume",
-    "target=/home/aztec-dev/.vscode-server,type=volume"
-  ]
+  }
+  // "mounts": [
+  //   "source=aztec-dev-home,target=/home/aztec-dev,type=volume",
+  //   "target=/home/aztec-dev/.vscode-server,type=volume"
+  // ]
   // "workspaceMount": "source=${localWorkspaceFolder},target=/home/aztec-dev/workspace,type=bind",
   // "workspaceFolder": "/home/aztec-dev/workspace"
 }
