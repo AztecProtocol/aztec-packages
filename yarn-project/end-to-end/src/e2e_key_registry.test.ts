@@ -80,7 +80,7 @@ describe('SharedMutablePrivateGetter', () => {
       });
 
       it('should fail registering with mismatched nullifier public key', async () => {
-        const mismatchedMasterNullifierPublicKey = masterNullifierPublicKey.add(new Fr(1));
+        const mismatchedMasterNullifierPublicKey = Fr.random();
 
         await expect(
           keyRegistry
