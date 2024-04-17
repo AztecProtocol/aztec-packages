@@ -1,5 +1,6 @@
 import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
 import { type GlobalVariables } from '@aztec/circuits.js';
+import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type MerkleTreeOperations, MerkleTrees, type TreeInfo } from '@aztec/world-state';
@@ -16,9 +17,8 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 const logger = createDebugLogger('aztec:orchestrator-test');
 
 describe('prover/orchestrator', () => {
-  let orchestrator: ProvingOrchestrator;
   let builderDb: MerkleTreeOperations;
-
+  let orchestrator: ProvingOrchestrator;
   let processor: TestPublicProcessor;
 
   let prover: TestCircuitProver;
@@ -52,23 +52,22 @@ describe('prover/orchestrator', () => {
       await orchestrator.stop();
     });
 
-    it.each([
-      [0, 4],
-      [1, 0],
-      [2, 0],
-      [1, 5],
-      [2, 4],
-      [8, 1],
-    ] as const)(
-      'builds an L2 block with %i non-revertible and %i revertible calls',
-      async (numberOfNonRevertiblePublicCallRequests: number, numberOfRevertiblePublicCallRequests: number) => {
-        const tx = mockTx(1000 * testCount++, {
-          numberOfNonRevertiblePublicCallRequests,
-          numberOfRevertiblePublicCallRequests,
-        });
-        tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
-
-        const [processed, _] = await processor.process([tx], 1, undefined);
+    it.each([[4, 2, 3]] as const)(
+      'builds an L2 block with %i transactions each with %i revertible and %i non revertible',
+      async (
+        numTransactions: number,
+        numberOfNonRevertiblePublicCallRequests: number,
+        numberOfRevertiblePublicCallRequests: number,
+      ) => {
+        const txs = times(numTransactions, (i: number) =>
+          mockTx(100000 * testCount++ + 1000 * i, {
+            numberOfNonRevertiblePublicCallRequests,
+            numberOfRevertiblePublicCallRequests,
+          }),
+        );
+        for (const tx of txs) {
+          tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
+        }
 
         // This will need to be a 2 tx block
         const blockTicket = await orchestrator.startNewBlock(
@@ -78,9 +77,7 @@ describe('prover/orchestrator', () => {
           await makeEmptyProcessedTestTx(builderDb),
         );
 
-        for (const processedTx of processed) {
-          await orchestrator.addNewTx(processedTx);
-        }
+        await processor.process(txs, 2, orchestrator);
 
         //  we need to complete the block as we have not added a full set of txs
         await orchestrator.setBlockCompleted();

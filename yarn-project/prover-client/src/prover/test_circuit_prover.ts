@@ -8,7 +8,6 @@ import {
   type MergeRollupInputs,
   type ParityPublicInputs,
   type Proof,
-  type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
   type RootParityInputs,
   type RootRollupInputs,
@@ -23,20 +22,13 @@ import {
   RootParityArtifact,
   RootRollupArtifact,
   ServerCircuitArtifacts,
-  type ServerProtocolArtifact,
   SimulatedBaseRollupArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
-  convertPublicInnerRollupInputsToWitnessMap,
-  convertPublicInnerRollupOutputFromWitnessMap,
-  convertPublicSetupRollupInputsToWitnessMap,
-  convertPublicSetupRollupOutputFromWitnessMap,
   convertPublicTailInputsToWitnessMap,
   convertPublicTailOutputFromWitnessMap,
-  convertPublicTeardownRollupInputsToWitnessMap,
-  convertPublicTeardownRollupOutputFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -46,37 +38,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import { type WitnessMap } from '@noir-lang/types';
-
-import { type CircuitProver } from './interface.js';
-
-type PublicKernelProvingOps = {
-  artifact: ServerProtocolArtifact;
-  convertInputs: (inputs: PublicKernelCircuitPrivateInputs) => WitnessMap;
-  convertOutputs: (outputs: WitnessMap) => PublicKernelCircuitPublicInputs;
-};
-
-type KernelTypeToArtifact = Record<PublicKernelType, PublicKernelProvingOps | undefined>;
-
-const KernelArtifactMapping: KernelTypeToArtifact = {
-  [PublicKernelType.NON_PUBLIC]: undefined,
-  [PublicKernelType.APP_LOGIC]: {
-    artifact: 'PublicKernelAppLogicArtifact',
-    convertInputs: convertPublicInnerRollupInputsToWitnessMap,
-    convertOutputs: convertPublicInnerRollupOutputFromWitnessMap,
-  },
-  [PublicKernelType.SETUP]: {
-    artifact: 'PublicKernelSetupArtifact',
-    convertInputs: convertPublicSetupRollupInputsToWitnessMap,
-    convertOutputs: convertPublicSetupRollupOutputFromWitnessMap,
-  },
-  [PublicKernelType.TEARDOWN]: {
-    artifact: 'PublicKernelTeardownArtifact',
-    convertInputs: convertPublicTeardownRollupInputsToWitnessMap,
-    convertOutputs: convertPublicTeardownRollupOutputFromWitnessMap,
-  },
-  [PublicKernelType.TAIL]: undefined,
-};
+import { type CircuitProver, KernelArtifactMapping } from './interface.js';
 
 /**
  * A class for use in testing situations (e2e, unit test etc)

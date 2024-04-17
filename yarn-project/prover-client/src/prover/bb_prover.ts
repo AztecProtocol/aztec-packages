@@ -1,5 +1,5 @@
 /* eslint-disable require-await */
-import { type PublicKernelNonTailRequest, type PublicKernelTailRequest } from '@aztec/circuit-types';
+import { type PublicKernelNonTailRequest, type PublicKernelTailRequest, PublicKernelType } from '@aztec/circuit-types';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -26,6 +26,8 @@ import {
   convertBaseRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
+  convertPublicTailInputsToWitnessMap,
+  convertPublicTailOutputFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
@@ -37,7 +39,7 @@ import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
 import { BB_RESULT, generateKeyForNoirCircuit, generateProof, verifyProof } from '../bb/execute.js';
-import { type CircuitProver } from './interface.js';
+import { type CircuitProver, KernelArtifactMapping } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -46,6 +48,8 @@ export type BBProverConfig = {
   bbWorkingDirectory: string;
   acvmBinaryPath: string;
   acvmWorkingDirectory: string;
+  // list of circuits supported by this prover. defaults to all circuits if empty
+  circuitFilter?: ServerProtocolArtifact[];
 };
 
 /**
@@ -155,6 +159,13 @@ export class BBNativeRollupProver implements CircuitProver {
   private async init() {
     const promises = [];
     for (const circuitName in ServerCircuitArtifacts) {
+      if (
+        this.config.circuitFilter?.length &&
+        this.config.circuitFilter.findIndex((c: string) => c === circuitName) === -1
+      ) {
+        // circuit is not supported
+        continue;
+      }
       const verificationKeyPromise = generateKeyForNoirCircuit(
         this.config.bbBinaryPath,
         this.config.bbWorkingDirectory,
@@ -259,10 +270,27 @@ export class BBNativeRollupProver implements CircuitProver {
     await this.verifyProof(circuitType, proof);
   }
 
-  getPublicKernelProof(_: PublicKernelNonTailRequest): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
-    throw new Error('Method not implemented.');
+  public async getPublicKernelProof(
+    kernelRequest: PublicKernelNonTailRequest,
+  ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
+    const kernelOps = KernelArtifactMapping[kernelRequest.type];
+    if (kernelOps === undefined) {
+      throw new Error(`Unable to prove kernel type ${PublicKernelType[kernelRequest.type]}`);
+    }
+    const witnessMap = kernelOps.convertInputs(kernelRequest.inputs);
+
+    const [outputWitness, proof] = await this.createProof(witnessMap, kernelOps.artifact);
+
+    const result = kernelOps.convertOutputs(outputWitness);
+    return Promise.resolve([result, proof]);
   }
-  getPublicTailProof(_: PublicKernelTailRequest): Promise<[KernelCircuitPublicInputs, Proof]> {
-    throw new Error('Method not implemented.');
+
+  public async getPublicTailProof(kernelRequest: PublicKernelTailRequest): Promise<[KernelCircuitPublicInputs, Proof]> {
+    const witnessMap = convertPublicTailInputsToWitnessMap(kernelRequest.inputs);
+
+    const [outputWitness, proof] = await this.createProof(witnessMap, 'PublicKernelTailArtifact');
+
+    const result = convertPublicTailOutputFromWitnessMap(outputWitness);
+    return [result, proof];
   }
 }
