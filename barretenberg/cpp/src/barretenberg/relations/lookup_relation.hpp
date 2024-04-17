@@ -37,17 +37,18 @@ template <typename FF_> class LookupRelationImpl {
      *
      */
     template <typename AllEntities, typename Parameters>
-    inline static bool is_active(const AllEntities& in, [[maybe_unused]] const Parameters& params)
+    inline static bool is_active([[maybe_unused]] const AllEntities& in, [[maybe_unused]] const Parameters& params)
     {
-        (void)in;
-        // From the definition of the lookup grand product, if the inputs are trivial, Z_lookup is updated as
-        // Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the contribution of the given
-        // inputs will be the zero polynomial.
-        auto gamma_by_one_plus_beta = params.gamma * (params.beta + 1);
-        bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * gamma_by_one_plus_beta &&
-                           in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * gamma_by_one_plus_beta);
-        return is_active;
-        // return true;
+        // Note: the following technique works in proofconstruction and deciding but fails for certain acir test
+        // programs. I'm not sure why.
+        // // From the definition of the lookup grand product, if the inputs are trivial,
+        // // Z_lookup is updated as Z_lookup_{i+1} = Z_lookup_i * \gamma * (1 + \beta). If this condition holds, the
+        // // contribution of the given inputs will be the zero polynomial.
+        // auto gamma_by_one_plus_beta = params.gamma * (params.beta + 1);
+        // bool is_active = !(in.z_lookup_shift.value_at(0) == in.z_lookup.value_at(0) * gamma_by_one_plus_beta &&
+        //                    in.z_lookup_shift.value_at(1) == in.z_lookup.value_at(1) * gamma_by_one_plus_beta);
+        // return is_active;
+        return true;
     }
 
     /**
