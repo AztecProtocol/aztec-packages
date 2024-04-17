@@ -667,42 +667,6 @@ FF AvmAluTraceBuilder::op_lte(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
  */
 FF AvmAluTraceBuilder::op_cast(FF const& a, AvmMemoryTag in_tag, uint32_t clk)
 {
-    uint256_t a_256{ a };
-    // Get the decomposition of a
-    auto [a_lo, a_hi] = decompose(a_256);
-    // Decomposition of p-a
-    auto [p_sub_a_lo, p_sub_a_hi, p_a_borrow] = gt_witness(FF::modulus, a_256);
-    auto [u8_r0, u8_r1, u16_reg] = to_alu_slice_registers(a_256);
-
-    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
-        .alu_clk = clk,
-        .alu_op_cast = true,
-        .alu_ff_tag = in_tag == AvmMemoryTag::FF,
-        .alu_u8_tag = in_tag == AvmMemoryTag::U8,
-        .alu_u16_tag = in_tag == AvmMemoryTag::U16,
-        .alu_u32_tag = in_tag == AvmMemoryTag::U32,
-        .alu_u64_tag = in_tag == AvmMemoryTag::U64,
-        .alu_u128_tag = in_tag == AvmMemoryTag::U128,
-        .alu_ia = a,
-        .alu_ic = 0,
-        .alu_u8_r0 = u8_r0,
-        .alu_u8_r1 = u8_r1,
-        .alu_u16_reg = u16_reg,
-        .hi_lo_limbs = { a_lo, a_hi, p_sub_a_lo, p_sub_a_hi },
-        .p_a_borrow = p_a_borrow,
-    });
-
-    uint256_t sub = (p_sub_a_hi << 128) + p_sub_a_lo;
-    auto [sub_u8_r0, sub_u8_r1, sub_u16_reg] = to_alu_slice_registers(sub);
-
-    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
-        .alu_op_cast_prev = true,
-        .alu_u8_r0 = sub_u8_r0,
-        .alu_u8_r1 = sub_u8_r1,
-        .alu_u16_reg = sub_u16_reg,
-        .hi_lo_limbs = { p_sub_a_lo, p_sub_a_hi },
-    });
-
     FF c;
 
     switch (in_tag) {
@@ -728,6 +692,41 @@ FF AvmAluTraceBuilder::op_cast(FF const& a, AvmMemoryTag in_tag, uint32_t clk)
         c = 0;
         break;
     }
+
+    // Get the decomposition of a
+    auto [a_lo, a_hi] = decompose(uint256_t(a));
+    // Decomposition of p-a
+    auto [p_sub_a_lo, p_sub_a_hi, p_a_borrow] = gt_witness(FF::modulus, uint256_t(a));
+    auto [u8_r0, u8_r1, u16_reg] = to_alu_slice_registers(uint256_t(a));
+
+    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
+        .alu_clk = clk,
+        .alu_op_cast = true,
+        .alu_ff_tag = in_tag == AvmMemoryTag::FF,
+        .alu_u8_tag = in_tag == AvmMemoryTag::U8,
+        .alu_u16_tag = in_tag == AvmMemoryTag::U16,
+        .alu_u32_tag = in_tag == AvmMemoryTag::U32,
+        .alu_u64_tag = in_tag == AvmMemoryTag::U64,
+        .alu_u128_tag = in_tag == AvmMemoryTag::U128,
+        .alu_ia = a,
+        .alu_ic = c,
+        .alu_u8_r0 = u8_r0,
+        .alu_u8_r1 = u8_r1,
+        .alu_u16_reg = u16_reg,
+        .hi_lo_limbs = { a_lo, a_hi, p_sub_a_lo, p_sub_a_hi },
+        .p_a_borrow = p_a_borrow,
+    });
+
+    uint256_t sub = (p_sub_a_hi << 128) + p_sub_a_lo;
+    auto [sub_u8_r0, sub_u8_r1, sub_u16_reg] = to_alu_slice_registers(sub);
+
+    alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
+        .alu_op_cast_prev = true,
+        .alu_u8_r0 = sub_u8_r0,
+        .alu_u8_r1 = sub_u8_r1,
+        .alu_u16_reg = sub_u16_reg,
+        .hi_lo_limbs = { p_sub_a_lo, p_sub_a_hi },
+    });
 
     return c;
 }

@@ -814,7 +814,7 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
     }
 
     // Reading from memory and loading into ia without tag check.
-    auto const [val, tag] = mem_trace_builder.read_and_load_no_tag_check(clk, direct_src_offset, true);
+    auto const [val, tag] = mem_trace_builder.read_and_load_mov_opcode(clk, direct_src_offset);
 
     // Write into memory from intermediate register ic.
     mem_trace_builder.write_into_memory(clk, IntermRegister::IC, direct_dst_offset, val, tag, tag);
@@ -982,7 +982,7 @@ void AvmTraceBuilder::op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_
     }
 
     // Reading from memory and loading into ia
-    auto memEntry = mem_trace_builder.read_and_load_no_tag_check(clk, direct_a_offset, false);
+    auto memEntry = mem_trace_builder.read_and_load_cast_opcode(clk, direct_a_offset, dst_tag);
     FF a = memEntry.val;
 
     // In case of a memory tag error, we do not perform the computation.
@@ -1614,7 +1614,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
         if ((r.avm_main_sel_op_add == FF(1) || r.avm_main_sel_op_sub == FF(1) || r.avm_main_sel_op_mul == FF(1) ||
              r.avm_main_sel_op_eq == FF(1) || r.avm_main_sel_op_not == FF(1) || r.avm_main_sel_op_lt ||
-             r.avm_main_sel_op_lte) &&
+             r.avm_main_sel_op_lte || r.avm_main_sel_op_cast == FF(1)) &&
             r.avm_main_tag_err == FF(0)) {
             r.avm_main_alu_sel = FF(1);
         }
