@@ -39,6 +39,7 @@ export class TestContext {
     public orchestrator: ProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
+    public logger: DebugLogger,
   ) {}
 
   static async new(
@@ -101,12 +102,13 @@ export class TestContext {
       orchestrator,
       blockNumber,
       [config?.directoryToCleanup ?? ''],
+      logger,
     );
   }
 
   async cleanup() {
     await this.orchestrator.stop();
-    for (const dir in this.directoriesToCleanup.filter(x => x != '')) {
+    for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       await fs.rm(dir, { recursive: true, force: true });
     }
   }
