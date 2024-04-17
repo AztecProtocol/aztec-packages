@@ -12,4 +12,4 @@ sysbox: basebox
 
 all: build devbox basebox
 
-.PHONY all build basebox devbox sysbox
+.PHONY: all build basebox devbox sysbox
