@@ -20,7 +20,7 @@ describe('MemoryProvingQueue', () => {
   });
 
   it('returns jobs in order', async () => {
-    queue.submitProvingRequest(
+    queue.prove(
       {
         type: ProvingRequestType.BASE_PARITY,
         inputs: makeBaseParityInputs(),
@@ -28,7 +28,7 @@ describe('MemoryProvingQueue', () => {
       jest.fn(),
     );
 
-    queue.submitProvingRequest(
+    queue.prove(
       {
         type: ProvingRequestType.BASE_ROLLUP,
         inputs: makeBaseRollupInputs(),
@@ -50,7 +50,7 @@ describe('MemoryProvingQueue', () => {
   it('notifies of completion', async () => {
     const inputs = makeBaseParityInputs();
     const [promise, cb] = promiseWithCallback();
-    queue.submitProvingRequest(
+    queue.prove(
       {
         inputs,
         type: ProvingRequestType.BASE_PARITY,
@@ -70,7 +70,7 @@ describe('MemoryProvingQueue', () => {
   it('notifies of errors', async () => {
     const inputs = makeBaseParityInputs();
     const [promise, cb] = promiseWithCallback();
-    queue.submitProvingRequest(
+    queue.prove(
       {
         inputs,
         type: ProvingRequestType.BASE_PARITY,

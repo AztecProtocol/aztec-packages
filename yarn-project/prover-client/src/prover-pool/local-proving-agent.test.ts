@@ -36,7 +36,7 @@ describe('LocalProvingAgent', () => {
 
     const inputs = makeBaseParityInputs();
     const [promise, cb] = promiseWithCallback();
-    queue.submitProvingRequest(
+    queue.prove(
       {
         type: ProvingRequestType.BASE_PARITY,
         inputs,
@@ -54,7 +54,7 @@ describe('LocalProvingAgent', () => {
 
     const inputs = makeBaseParityInputs();
     const [promise, cb] = promiseWithCallback();
-    queue.submitProvingRequest(
+    queue.prove(
       {
         type: ProvingRequestType.BASE_PARITY,
         inputs,
@@ -73,7 +73,7 @@ describe('LocalProvingAgent', () => {
 
     const inputs = makeBaseParityInputs();
     const [promise1, cb1] = promiseWithCallback();
-    queue.submitProvingRequest(
+    queue.prove(
       {
         type: ProvingRequestType.BASE_PARITY,
         inputs,
@@ -85,7 +85,7 @@ describe('LocalProvingAgent', () => {
 
     const inputs2 = makeBaseParityInputs();
     const [promise2, cb2] = promiseWithCallback();
-    queue.submitProvingRequest(
+    queue.prove(
       {
         type: ProvingRequestType.BASE_PARITY,
         inputs: inputs2,

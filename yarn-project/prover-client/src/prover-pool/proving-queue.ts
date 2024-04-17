@@ -9,13 +9,9 @@ export type ProvingJob<T extends ProvingRequest> = {
   request: T;
 };
 
-export interface ProvingRequestCallback<T extends ProvingRequestType> {
-  (error: Error, result: []): void;
-  (error: null, result: ProvingRequestResult<T>): void;
-}
-
 export interface ProvingRequestProducer {
-  submitProvingRequest<T extends ProvingRequest>(request: T, callback: ProvingRequestCallback<T['type']>): void;
+  prove<T extends ProvingRequest>(request: T): Promise<ProvingRequestResult<T['type']>>;
+  cancelAll(): void;
 }
 
 export interface ProvingQueueConsumer {

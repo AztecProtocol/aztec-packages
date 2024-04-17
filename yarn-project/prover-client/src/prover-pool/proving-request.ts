@@ -19,6 +19,9 @@ export enum ProvingRequestType {
   ROOT_PARITY,
 }
 
+//   PUBLIC_KERNEL,
+// PUBLIC_VM,
+
 export type ProvingRequest =
   | {
       type: ProvingRequestType.BASE_PARITY;

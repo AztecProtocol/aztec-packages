@@ -1,15 +1,15 @@
 import { InterruptError } from '@aztec/foundation/error';
 import { MemoryFifo } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 
-import { type ProvingJob, type ProvingQueue, type ProvingRequestCallback } from './proving-queue.js';
+import { type ProvingJob, type ProvingQueue } from './proving-queue.js';
 import { type ProvingRequest, type ProvingRequestResult, ProvingRequestType } from './proving-request.js';
 
 type ProvingJobWithResolvers<T extends ProvingRequest = ProvingRequest> = {
   id: string;
   request: T;
-  done: ProvingRequestCallback<T['type']>;
-};
+} & PromiseWithResolvers<ProvingRequestResult<T['type']>>;
 
 export class MemoryProvingQueue implements ProvingQueue {
   private jobId = 0;
@@ -45,7 +45,7 @@ export class MemoryProvingQueue implements ProvingQueue {
     }
 
     this.jobsInProgress.delete(jobId);
-    job.done(null, result);
+    job.resolve(result);
     return Promise.resolve();
   }
 
@@ -56,15 +56,18 @@ export class MemoryProvingQueue implements ProvingQueue {
     }
 
     this.jobsInProgress.delete(jobId);
-    job.done(err, []);
+    job.reject(err);
     return Promise.resolve();
   }
 
-  submitProvingRequest<T extends ProvingRequest>(request: T, done: ProvingRequestCallback<T['type']>): void {
+  prove<T extends ProvingRequest>(request: T): Promise<ProvingRequestResult<T['type']>> {
+    const { promise, resolve, reject } = promiseWithResolvers<ProvingRequestResult<T['type']>>();
     const item: ProvingJobWithResolvers<T> = {
       id: String(this.jobId++),
       request,
-      done,
+      promise,
+      resolve,
+      reject,
     };
 
     this.log.info(`Adding ${ProvingRequestType[request.type]} proving job to queue`);
@@ -72,5 +75,12 @@ export class MemoryProvingQueue implements ProvingQueue {
     if (!this.queue.put(item as any)) {
       throw new Error();
     }
+
+    return promise;
+  }
+
+  cancelAll(): void {
+    this.queue.cancel();
+    this.queue = new MemoryFifo();
   }
 }
