@@ -87,7 +87,7 @@ class AvmMemTraceBuilder {
 
     std::vector<MemoryTraceEntry> finalize();
 
-    MemEntry read_and_load_mov_opcode(uint32_t clk, uint32_t addr);
+    MemEntry read_and_load_no_tag_check(uint32_t clk, uint32_t addr, bool is_mov);
     std::array<MemEntry, 3> read_and_load_cmov_opcode(uint32_t clk,
                                                       uint32_t a_addr,
                                                       uint32_t b_addr,
