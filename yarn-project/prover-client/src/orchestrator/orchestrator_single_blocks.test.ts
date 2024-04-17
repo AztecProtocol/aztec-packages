@@ -24,7 +24,7 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:orchestrator-test');
 
-describe('prover/orchestrator', () => {
+describe('prover/orchestrator/blocks', () => {
   let builder: ProvingOrchestrator;
   let builderDb: MerkleTreeOperations;
   let expectsDb: MerkleTreeOperations;

@@ -14,7 +14,7 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:bb-prover-test');
 
-describe('prover/bb_prover', () => {
+describe('prover/bb_prover/base-rollup', () => {
   let builderDb: MerkleTreeOperations;
   let prover: BBNativeRollupProver;
   let directoryToCleanup: string | undefined;

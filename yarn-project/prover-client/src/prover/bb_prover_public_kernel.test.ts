@@ -1,4 +1,5 @@
 import { PublicKernelType, mockTx } from '@aztec/circuit-types';
+import { Proof, makeEmptyProof } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
@@ -15,7 +16,7 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:bb-prover-test');
 
-describe('prover/bb_prover', () => {
+describe('prover/bb_prover/public-kernel', () => {
   let builderDb: MerkleTreeOperations;
   let prover: BBNativeRollupProver;
   let directoryToCleanup: string | undefined;
@@ -75,24 +76,41 @@ describe('prover/bb_prover', () => {
       PublicKernelType.TAIL,
     ]);
 
-    for (const request of processedTx.publicKernelRequests) {
-      if (request.type === PublicKernelType.TAIL) {
-        logger.info(`Proving tail circuit`);
-        const [_, proof] = await prover.getPublicTailProof(request);
-        logger.info(`Verifying tail circuit`);
-        await prover.verifyProof('PublicKernelTailArtifact', proof);
-        continue;
+    const getArtifactForPublicKernel = (type: PublicKernelType): ServerProtocolArtifact => {
+      switch (type) {
+        case PublicKernelType.NON_PUBLIC:
+          throw new Error(`Can't prove non-public kernels`);
+        case PublicKernelType.SETUP:
+          return 'PublicKernelSetupArtifact';
+        case PublicKernelType.APP_LOGIC:
+          return 'PublicKernelAppLogicArtifact';
+        case PublicKernelType.TEARDOWN:
+          return 'PublicKernelTeardownArtifact';
+        case PublicKernelType.TAIL:
+          return 'PublicKernelTailArtifact';
       }
-      logger.info(`Proving kernel type: ${PublicKernelType[request.type]}`);
-      const [_, proof] = await prover.getPublicKernelProof(request);
-      const artifact: ServerProtocolArtifact =
-        request.type === PublicKernelType.SETUP
-          ? 'PublicKernelSetupArtifact'
-          : request.type === PublicKernelType.APP_LOGIC
-          ? 'PublicKernelAppLogicArtifact'
-          : 'PublicKernelTeardownArtifact';
-      logger.info(`Verifying artifact type: ${artifact}`);
-      await prover.verifyProof(artifact, proof);
+    };
+
+    for (const request of processedTx.publicKernelRequests) {
+      const artifact = getArtifactForPublicKernel(request.type);
+      logger.verbose(`Proving kernel type: ${PublicKernelType[request.type]}`);
+      let proof: Proof = makeEmptyProof();
+      if (request.type === PublicKernelType.TAIL) {
+        await expect(
+          prover.getPublicTailProof(request).then(result => {
+            proof = result[1];
+          }),
+        ).resolves.not.toThrow();
+      } else {
+        await expect(
+          prover.getPublicKernelProof(request).then(result => {
+            proof = result[1];
+          }),
+        ).resolves.not.toThrow();
+      }
+
+      logger.verbose(`Verifying kernel type: ${PublicKernelType[request.type]}`);
+      await expect(prover.verifyProof(artifact, proof)).resolves.not.toThrow();
     }
   }, 60_000);
 });

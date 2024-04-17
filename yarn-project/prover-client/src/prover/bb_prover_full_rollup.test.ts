@@ -17,7 +17,7 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:bb-prover-test');
 
-describe('prover/bb_prover', () => {
+describe('prover/bb_prover/full-rollup', () => {
   let orchestrator: ProvingOrchestrator;
   let builderDb: MerkleTreeOperations;
   let prover: BBNativeRollupProver;
@@ -82,9 +82,10 @@ describe('prover/bb_prover', () => {
       makeEmptyProcessedTx(Header.empty(), new Fr(1234), new Fr(1)),
     );
 
-    const [processed, _] = await processor.process(txs, numTransactions, orchestrator);
+    const [processed, failed] = await processor.process(txs, numTransactions, orchestrator);
 
     expect(processed.length).toBe(numTransactions);
+    expect(failed.length).toBe(0);
 
     await orchestrator.setBlockCompleted();
 

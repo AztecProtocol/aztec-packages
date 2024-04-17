@@ -16,7 +16,7 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:orchestrator-test');
 
-describe('prover/orchestrator', () => {
+describe('prover/orchestrator/public-functions', () => {
   let builderDb: MerkleTreeOperations;
   let orchestrator: ProvingOrchestrator;
   let processor: TestPublicProcessor;
@@ -69,17 +69,17 @@ describe('prover/orchestrator', () => {
           tx.data.constants.historicalHeader = await builderDb.buildInitialHeader();
         }
 
-        // This will need to be a 2 tx block
         const blockTicket = await orchestrator.startNewBlock(
-          2,
+          numTransactions,
           globalVariables,
           [],
           await makeEmptyProcessedTestTx(builderDb),
         );
 
-        await processor.process(txs, 2, orchestrator);
+        const [processed, failed] = await processor.process(txs, numTransactions, orchestrator);
+        expect(processed.length).toBe(numTransactions);
+        expect(failed.length).toBe(0);
 
-        //  we need to complete the block as we have not added a full set of txs
         await orchestrator.setBlockCompleted();
 
         const result = await blockTicket.provingPromise;
