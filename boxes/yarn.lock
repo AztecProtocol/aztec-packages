@@ -108,6 +108,7 @@ __metadata:
     "@aztec/circuit-types": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
     tslib: "npm:^2.4.0"
   languageName: node
   linkType: soft
@@ -128,7 +129,7 @@ __metadata:
   resolution: "@aztec/foundation@portal:../yarn-project/foundation::locator=create-aztec-app%40workspace%3A."
   dependencies:
     "@aztec/bb.js": "portal:../../barretenberg/ts"
-    "@koa/cors": "npm:^4.0.0"
+    "@koa/cors": "npm:^5.0.0"
     "@noble/curves": "npm:^1.2.0"
     bn.js: "npm:^5.2.1"
     debug: "npm:^4.3.4"
@@ -229,6 +230,7 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
+    "@aztec/circuits.js": "npm:latest"
     "@playwright/test": "npm:1.42.0"
     "@types/node": "npm:^20.11.17"
     copy-webpack-plugin: "npm:^11.0.0"
@@ -1122,12 +1124,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@koa/cors@npm:^4.0.0":
-  version: 4.0.0
-  resolution: "@koa/cors@npm:4.0.0"
+"@koa/cors@npm:^5.0.0":
+  version: 5.0.0
+  resolution: "@koa/cors@npm:5.0.0"
   dependencies:
     vary: "npm:^1.1.2"
-  checksum: 10c0/53caa512e7aacf8d4ad0d9eb427fa84bdfd6fccb9a060b317d77acf352941ad7935bbc0b4569c0c73d9cdef0b3fce83b7e00190548f31076366dd8e60d7e1198
+  checksum: 10c0/49e5f3b861590bd81aa3663a2f0658234a9b378840bb54a2947b3c5f2067f9d966b6fa2e9049fdc7c74c787456d1885bacd0b7ee1f134274d28282c7df99c3fd
   languageName: node
   linkType: hard
 
