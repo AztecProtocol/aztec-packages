@@ -1,7 +1,4 @@
 ########################################################################################################################
-# This image contains *just* what's needed to perform a full build of the aztec project.
-# It acts as the base image for all CI builds, and we build on it to produce a developer box.
-
 # Build wasi-sdk.
 FROM ubuntu:noble AS wasi-sdk
 RUN apt update && apt install -y \
@@ -15,6 +12,7 @@ RUN git clone --depth 1 --recursive --branch wasi-sdk-22 \
 RUN cd wasi-sdk && MAKEFLAGS="-j$(nproc)" make -e build strip && \
     mv build/install/opt/wasi-sdk /opt/wasi-sdk
 
+########################################################################################################################
 # Build foundry.
 FROM ubuntu:noble AS foundry
 RUN apt update && apt install -y git cargo
@@ -28,7 +26,9 @@ RUN ulimit -n 65535 && \
         strip /opt/foundry/bin/$t; \
     done
 
-# Build actual image.
+########################################################################################################################
+# This image contains *just* what's needed to perform a full build of the aztec project.
+# It acts as the base image for all CI builds, and we build on it to produce a developer box.
 FROM ubuntu:noble as build
 RUN apt update && \
     apt install -y \
@@ -86,7 +86,7 @@ RUN npm install --global yarn
 RUN npm install --global solhint
 
 ########################################################################################################################
-# We want to produce two downstream images, devbox and sysbox. This image is the base image for each.
+# We want to produce downstream images: codespace, devbox and sysbox. This image is the base image for each.
 # It contains a suite of tools that developers might use to develop aztec.
 FROM build as basebox
 RUN yes | unminimize

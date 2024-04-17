@@ -4,6 +4,10 @@
     "context": "../build-images",
     "target": "codespace"
   },
+  // ubuntu:noble is currently not supported.
+  // Can possibly workaround cherry-picking from here:
+  //   https://github.com/devcontainers/features/blob/main/src/docker-in-docker/install.sh
+  //
   // "image": "aztecprotocol/codespace",
   // "features": {
   //   "docker-in-docker": {
