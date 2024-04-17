@@ -1,0 +1,20 @@
+{
+  "name": "@aztec/vanilla-vite",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@aztec/aztec.js": "latest"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0",
+    "vite-plugin-node-polyfills": "0.17.0",
+    "vite-plugin-top-level-await": "^1.4.1"
+  }
+}
