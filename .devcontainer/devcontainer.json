@@ -2,8 +2,9 @@
   "build": {
     "dockerfile": "../build-images/Dockerfile",
     "context": "../build-images",
-    "target": "codespace"
+    "target": "devbox"
   },
+  "containerUser": "aztec-dev",
   // ubuntu:noble is currently not supported.
   // Can possibly workaround cherry-picking from here:
   //   https://github.com/devcontainers/features/blob/main/src/docker-in-docker/install.sh
@@ -16,17 +17,7 @@
   //     "dockerDashComposeVersion": "v1"
   //   }
   // },
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "terminal.integrated.shell.linux": "/bin/zsh"
-      }
-    }
-  }
-  // "mounts": [
-  //   "source=aztec-dev-home,target=/home/aztec-dev,type=volume",
-  //   "target=/home/aztec-dev/.vscode-server,type=volume"
-  // ]
-  // "workspaceMount": "source=${localWorkspaceFolder},target=/home/aztec-dev/workspace,type=bind",
-  // "workspaceFolder": "/home/aztec-dev/workspace"
+  "mounts": [
+    "source=devbox-home,target=/home/aztec-dev,type=volume"
+  ]
 }

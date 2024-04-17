@@ -151,26 +151,35 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
 ########################################################################################################################
 # This devbox container can be used to provide a full development environment.
-# The user should use the ./run.sh script to launch.
-# The users ~/.devbox directory will be mounted into /home/aztec-dev.
-# It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
-# It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
+#
+# It can be used as a dev-container:
+# - Configuration in .devcontainer/devcontainer.json.
+#
+# It can be used independently:
+# - The user should use the ./run.sh script to launch.
+# - The a persistent volume will be mounted to /home/aztec-dev.
+# - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
+# - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
 FROM basebox as devbox
-
 ENV TERM=xterm-256color
-
-# Use as entrypoint when running in an environment that requires uid/gid alignment (e.g. vanilla linux docker).
-COPY ./entrypoint.sh /entrypoint.sh
-
 # Create the user we'll run as.
 RUN useradd --shell /bin/zsh -G sudo,root -m aztec-dev
 USER aztec-dev
 ENV CARGO_HOME=/home/aztec-dev/.cargo
 ENV PATH=/home/aztec-dev/.npm-global/bin:/home/aztec-dev/.cargo/bin:$PATH
 WORKDIR /home/aztec-dev
+# Add dotfiles.
 COPY --chown=aztec-dev:aztec-dev home .
 # Needed to ensure correct permissions when mounting transient volume here.
 RUN mkdir .vscode-server && mkdir .npm-global
+# We expect to mount repo here. Don't warn it's owned by root.
+RUN git config --global --add safe.directory /workspaces/aztec-packages
+# Switch back to root. Gives option for root runtime adjustments before becoming aztec-dev.
+USER root
+RUN apt install -y gosu
+# Use as entrypoint when running in an environment that requires uid/gid alignment (e.g. vanilla linux docker).
+COPY ./entrypoint.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/bin/zsh"]
 
 ########################################################################################################################
