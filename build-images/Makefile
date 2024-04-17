@@ -1,15 +1,15 @@
-#!/bin/sh
 build:
-	docker build -f Dockerfile.build -t aztecprotocol/build .
+        docker build -t aztecprotocol/build --target build .
 
-basebox: build
-	docker build -f Dockerfile.basebox -t aztecprotocol/basebox .
+codespace:
+        docker build -t aztecprotocol/codespace --target codespace .
 
-codespace: basebox
-	docker build -f Dockerfile.codespace -t aztecprotocol/codespace .
+devbox:
+        docker build -t aztecprotocol/devbox --target devbox .
 
-devbox: basebox
-	docker build -f Dockerfile.devbox -t aztecprotocol/devbox .
+sysbox:
+        docker build -t aztecprotocol/sysbox --target sysbox .
 
-sysbox: basebox
-	docker build -f Dockerfile.sysbox -t aztecprotocol/sysbox .
+all: codespace devbox sysbox
+
+.PHONY all build codespace devbox sysbox
