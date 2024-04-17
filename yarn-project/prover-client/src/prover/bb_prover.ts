@@ -175,8 +175,9 @@ export class BBNativeRollupProver implements CircuitProver {
         logger.debug,
       ).then(result => {
         if (result.status == BB_RESULT.FAILURE) {
-          logger.error(`Failed to generate verification key for circuit ${circuitName}`);
-          return;
+          const message = `Failed to generate verification key for circuit ${circuitName}, message: ${result.reason}`;
+          logger.error(message);
+          throw new Error(message);
         }
         logger.info(`Generated verification key for circuit ${circuitName} at ${result.path!}`);
         this.verificationKeyDirectories.set(circuitName as ServerProtocolArtifact, result.path!);
@@ -247,6 +248,10 @@ export class BBNativeRollupProver implements CircuitProver {
     const proofFileName = `${bbWorkingDirectory}/proof`;
     const verificationKeyPath = this.verificationKeyDirectories.get(circuitType);
 
+    if (verificationKeyPath === undefined) {
+      throw new Error(`Verification Key undefined for: ${circuitType}`);
+    }
+
     await fs.writeFile(proofFileName, proof.buffer);
 
     const logFunction = (message: string) => {
@@ -254,6 +259,18 @@ export class BBNativeRollupProver implements CircuitProver {
     };
 
     const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
+
+    try {
+      await fs.access(proofFileName, fs.constants.R_OK);
+    } catch (err) {
+      logger.error(`Failed to read proof at ${proofFileName}`);
+    }
+
+    try {
+      await fs.access(verificationKeyPath, fs.constants.R_OK);
+    } catch (err) {
+      logger.error(`Failed to read vk at ${verificationKeyPath}`);
+    }
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 
