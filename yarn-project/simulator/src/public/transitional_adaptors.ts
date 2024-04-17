@@ -112,10 +112,10 @@ export async function convertAvmResults(
   const execution = executionContext.execution;
 
   const contractStorageReads: ContractStorageRead[] = newWorldState.storageReads.map(
-    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber()),
+    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber(), read.storageAddress),
   );
   const contractStorageUpdateRequests: ContractStorageUpdateRequest[] = newWorldState.storageWrites.map(
-    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber()),
+    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber(), write.storageAddress),
   );
   // We need to write the storage updates to the DB, because that's what the ACVM expects.
   // Assumes the updates are in the right order.
@@ -143,6 +143,9 @@ export async function convertAvmResults(
   const unencryptedLogs: UnencryptedFunctionL2Logs = new UnencryptedFunctionL2Logs(
     newWorldState.newLogs.map(log => new UnencryptedL2Log(log.contractAddress, log.selector, log.data)),
   );
+  const unencryptedLogsHashes = newWorldState.newLogsHashes.map(
+    logHash => new SideEffect(logHash.logHash, logHash.counter),
+  );
   const newL2ToL1Messages = newWorldState.newL1Messages.map(m => new L2ToL1Message(m.recipient, m.content));
 
   const returnValues = result.output;
@@ -166,6 +169,7 @@ export async function convertAvmResults(
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
+    unencryptedLogsHashes,
     unencryptedLogs,
     reverted: result.reverted,
     revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,

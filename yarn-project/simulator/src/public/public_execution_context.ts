@@ -90,10 +90,10 @@ export class PublicExecutionContext extends TypedOracle {
   }
 
   /**
-   * Pack the given arguments.
+   * Pack the given array of arguments.
    * @param args - Arguments to pack
    */
-  public override packArguments(args: Fr[]): Promise<Fr> {
+  public override packArgumentsArray(args: Fr[]): Promise<Fr> {
     return Promise.resolve(this.packedValuesCache.pack(args));
   }
 
@@ -133,6 +133,7 @@ export class PublicExecutionContext extends TypedOracle {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
+    return Fr.fromBuffer(log.hash());
   }
 
   /**
