@@ -10,7 +10,7 @@ import {
   type SentTx,
   TxStatus,
 } from '@aztec/aztec.js';
-import { BootstrapNode, type P2PConfig, createLibP2PPeerId } from '@aztec/p2p';
+import { type BootNodeConfig, BootstrapNode, createLibP2PPeerId } from '@aztec/p2p';
 import { ConstantKeyPair, type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount } from 'viem/accounts';
@@ -74,11 +74,8 @@ describe('e2e_p2p_network', () => {
   const createBootstrapNode = async () => {
     const peerId = await createLibP2PPeerId();
     const bootstrapNode = new BootstrapNode();
-    const config: P2PConfig = {
-      p2pEnabled: true,
-      tcpListenPort: BOOT_NODE_TCP_PORT,
+    const config: BootNodeConfig = {
       udpListenPort: BOOT_NODE_TCP_PORT,
-      tcpListenIp: '0.0.0.0',
       udpListenIp: '0.0.0.0',
       announceHostname: '/ip4/127.0.0.1',
       announcePort: BOOT_NODE_TCP_PORT,
@@ -86,12 +83,6 @@ describe('e2e_p2p_network', () => {
       minPeerCount: 10,
       maxPeerCount: 100,
       p2pPeerCheckIntervalMS: 100,
-
-      // TODO: the following config options are not applicable to bootstrap nodes
-      p2pBlockCheckIntervalMS: 1000,
-      p2pL2QueueSize: 1,
-      transactionProtocol: '',
-      bootstrapNodes: [''],
     };
     await bootstrapNode.start(config);
 
@@ -117,6 +108,9 @@ describe('e2e_p2p_network', () => {
       minTxsPerBlock: NUM_TXS_PER_BLOCK,
       maxTxsPerBlock: NUM_TXS_PER_BLOCK,
       p2pEnabled: true,
+      p2pBlockCheckIntervalMS: 1000,
+      p2pL2QueueSize: 1,
+      transactionProtocol: '',
     };
     return await AztecNodeService.createAndSync(newConfig);
   };
