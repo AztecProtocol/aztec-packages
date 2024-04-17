@@ -662,10 +662,19 @@ impl<'a> Context<'a> {
                                     dfg.type_of_value(*result_id).into()
                                 });
 
+                                // TODO(Alvaro) This is due to limitations in the calldatacopy opcode.
+                                // We cannot currently reuse brillig entry points that have slice arguments.
+                                let has_slice_argument = arguments.iter().any(|arg| {
+                                    let typ = dfg.type_of_value(*arg);
+                                    typ.contains_slice_element()
+                                });
+
                                 // Check whether we have already generated Brillig for this function
                                 // If we have, re-use the generated code to set-up the Brillig call.
-                                let output_values = if let Some(generated_pointer) =
-                                    self.shared_context.generated_brillig_pointer(id)
+                                let output_values = if let Some(generated_pointer) = self
+                                    .shared_context
+                                    .generated_brillig_pointer(id)
+                                    .filter(|_| !has_slice_argument)
                                 {
                                     let code = self
                                         .shared_context
