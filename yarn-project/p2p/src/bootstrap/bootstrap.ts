@@ -12,7 +12,8 @@ import { createLibP2PPeerId } from '../service/index.js';
  * Required P2P config values for a bootstrap node.
  */
 export type BootNodeConfig = Partial<P2PConfig> &
-  Required<Pick<P2PConfig, 'peerIdPrivateKey' | 'udpListenIp' | 'udpListenPort' | 'announceHostname' | 'announcePort'>>;
+  Pick<P2PConfig, 'announceHostname' | 'announcePort'> &
+  Required<Pick<P2PConfig, 'udpListenIp' | 'udpListenPort'>>;
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.

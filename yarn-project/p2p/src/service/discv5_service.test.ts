@@ -15,14 +15,7 @@ describe('Discv5Service', () => {
     announcePort: port,
     tcpListenPort: port,
     udpListenIp: '0.0.0.0',
-    tcpListenIp: '0.0.0.0',
     udpListenPort: port,
-    bootstrapNodes: [],
-    p2pEnabled: true,
-    p2pBlockCheckIntervalMS: 50,
-    p2pPeerCheckIntervalMS: 50,
-    p2pL2QueueSize: 100,
-    transactionProtocol: 'aztec/1.0.0',
     minPeerCount: 1,
     maxPeerCount: 100,
   };
@@ -92,10 +85,16 @@ describe('Discv5Service', () => {
     const peerId = await createLibP2PPeerId();
     const config = {
       ...baseConfig,
+      tcpListenIp: '0.0.0.0',
       bootstrapNodes: [bootNode.getENR().encodeTxt()],
       tcpListenPort: port,
       udpListenPort: port,
       announcePort: port,
+      p2pBlockCheckIntervalMS: 50,
+      p2pPeerCheckIntervalMS: 50,
+      transactionProtocol: 'aztec/1.0.0',
+      p2pEnabled: true,
+      p2pL2QueueSize: 100,
     };
     return new DiscV5Service(peerId, config);
   };
