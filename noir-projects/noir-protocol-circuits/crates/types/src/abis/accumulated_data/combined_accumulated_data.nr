@@ -31,7 +31,7 @@ struct CombinedAccumulatedData {
 }
 
 impl CombinedAccumulatedData {
-    pub fn recombine(non_revertible: PublicAccumulatedData, revertible: PublicAccumulatedData) -> Self {
+    pub fn combine(non_revertible: PublicAccumulatedData, revertible: PublicAccumulatedData) -> Self {
         // TODO(Miranda): Hash here or elsewhere?
         let encrypted_logs_hash = compute_tx_logs_hash(array_merge(non_revertible.encrypted_logs_hashes, revertible.encrypted_logs_hashes));
         let unencrypted_logs_hash = compute_tx_logs_hash(array_merge(non_revertible.unencrypted_logs_hashes, revertible.unencrypted_logs_hashes));

@@ -29,6 +29,7 @@ export const MAX_ENCRYPTED_LOGS_PER_TX = 8;
 export const MAX_UNENCRYPTED_LOGS_PER_TX = 8;
 export const NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
 export const NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
+export const MAX_PUBLIC_DATA_HINTS = 64;
 export const NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
 export const VK_TREE_HEIGHT = 3;
 export const FUNCTION_TREE_HEIGHT = 5;
