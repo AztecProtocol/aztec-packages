@@ -237,8 +237,7 @@ contract TokenBlacklist {
 
         storage.balances.sub(from, U128::from_integer(amount));
 
-        let selector = FunctionSelector::from_signature("_increase_public_balance((Field),Field)");
-        context.call_public_function(context.this_address(), selector, [to.to_field(), amount]);
+        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
 
     // docs:start:transfer_private
@@ -276,8 +275,7 @@ contract TokenBlacklist {
 
         storage.balances.sub(from, U128::from_integer(amount));
 
-        let selector = FunctionSelector::from_signature("_reduce_total_supply(Field)");
-        context.call_public_function(context.this_address(), selector, [amount]);
+        TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
     /// Internal ///
