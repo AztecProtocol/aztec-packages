@@ -14,7 +14,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     };
 
     /**
-     * @brief Returns true if the contribution from any subrelation for the provided inputs is non-zero
+     * @brief Returns true if the contribution from all subrelation for the provided inputs is identically zero
      *
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
