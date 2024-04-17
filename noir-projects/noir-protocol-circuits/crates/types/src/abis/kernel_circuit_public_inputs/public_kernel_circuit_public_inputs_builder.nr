@@ -1,13 +1,12 @@
-use crate::abis::{
+use crate::{
+    abis::{
     accumulated_data::{CombinedAccumulatedData, PublicAccumulatedDataBuilder},
     combined_constant_data::CombinedConstantData,
-    kernel_circuit_public_inputs::{
-    kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs
-},
+    kernel_circuit_public_inputs::{public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
     validation_requests::ValidationRequestsBuilder
+},
+    mocked::AggregationObject, traits::Empty
 };
-use crate::mocked::AggregationObject;
 
 struct PublicKernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
@@ -32,15 +31,17 @@ impl PublicKernelCircuitPublicInputsBuilder {
             revert_code: self.revert_code
         }
     }
+}
 
-    pub fn finish_tail(self) -> KernelCircuitPublicInputs {
-        KernelCircuitPublicInputs {
-            aggregation_object: self.aggregation_object,
-            rollup_validation_requests: self.validation_requests.to_rollup(),
-            // TODO: Sort by counters.
-            end: CombinedAccumulatedData::recombine(self.end_non_revertible.finish(), self.end.finish()),
-            constants: self.constants,
-            revert_code: self.revert_code
+impl Empty for PublicKernelCircuitPublicInputsBuilder {
+    fn empty() -> Self {
+        PublicKernelCircuitPublicInputsBuilder {
+            aggregation_object: AggregationObject::empty(),
+            validation_requests: ValidationRequestsBuilder::empty(),
+            end_non_revertible: PublicAccumulatedDataBuilder::empty(),
+            end: PublicAccumulatedDataBuilder::empty(),
+            constants: CombinedConstantData::empty(),
+            revert_code: 0 as u8,
         }
     }
 }

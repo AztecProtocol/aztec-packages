@@ -40,7 +40,7 @@ export class AccountManager {
     private accountContract: AccountContract,
     salt?: Salt,
   ) {
-    this.salt = salt ? new Fr(salt) : Fr.random();
+    this.salt = salt !== undefined ? new Fr(salt) : Fr.random();
   }
 
   protected getEncryptionPublicKey() {
@@ -148,7 +148,7 @@ export class AccountManager {
         this.accountContract.getContractArtifact(),
         args,
         'constructor',
-        'pay_init_fee',
+        'entrypoint',
       );
     }
     return this.deployMethod;

@@ -1,8 +1,4 @@
-import {
-  type NullifierMembershipWitness,
-  UnencryptedFunctionL2Logs,
-  type UnencryptedL2Log,
-} from '@aztec/circuit-types';
+import { UnencryptedFunctionL2Logs, type UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   CallContext,
   FunctionData,
@@ -17,7 +13,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { TypedOracle, toACVMWitness } from '../acvm/index.js';
-import { type PackedArgsCache, type SideEffectCounter } from '../common/index.js';
+import { type PackedValuesCache, type SideEffectCounter } from '../common/index.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { executePublicFunction } from './executor.js';
@@ -38,7 +34,7 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly execution: PublicExecution,
     public readonly header: Header,
     public readonly globalVariables: GlobalVariables,
-    private readonly packedArgsCache: PackedArgsCache,
+    private readonly packedValuesCache: PackedValuesCache,
     private readonly sideEffectCounter: SideEffectCounter,
     public readonly stateDb: PublicStateDB,
     public readonly contractsDb: PublicContractsDB,
@@ -94,11 +90,27 @@ export class PublicExecutionContext extends TypedOracle {
   }
 
   /**
-   * Pack the given arguments.
+   * Pack the given array of arguments.
    * @param args - Arguments to pack
    */
-  public packArguments(args: Fr[]): Promise<Fr> {
-    return Promise.resolve(this.packedArgsCache.pack(args));
+  public override packArgumentsArray(args: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.packedValuesCache.pack(args));
+  }
+
+  /**
+   * Pack the given returns.
+   * @param returns - Returns to pack
+   */
+  public override packReturns(returns: Fr[]): Promise<Fr> {
+    return Promise.resolve(this.packedValuesCache.pack(returns));
+  }
+
+  /**
+   * Unpack the given returns.
+   * @param returnsHash - Returns hash to unpack
+   */
+  public override unpackReturns(returnsHash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
   }
 
   /**
@@ -109,7 +121,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
+  public override async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
     return await this.commitmentsDb.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
 
@@ -117,7 +129,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: UnencryptedL2Log) {
+  public override emitUnencryptedLog(log: UnencryptedL2Log) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
@@ -129,7 +141,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @param contractAddress - The address of the contract whose portal address is to be fetched.
    * @returns The portal contract address.
    */
-  public async getPortalContractAddress(contractAddress: AztecAddress) {
+  public override async getPortalContractAddress(contractAddress: AztecAddress) {
     return (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
   }
 
@@ -138,7 +150,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @param startStorageSlot - The starting storage slot.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public async storageRead(startStorageSlot: Fr, numberOfElements: number) {
+  public override async storageRead(startStorageSlot: Fr, numberOfElements: number) {
     const values = [];
     for (let i = 0; i < Number(numberOfElements); i++) {
       const storageSlot = new Fr(startStorageSlot.value + BigInt(i));
@@ -155,7 +167,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @param startStorageSlot - The starting storage slot.
    * @param values - The values to be written.
    */
-  public async storageWrite(startStorageSlot: Fr, values: Fr[]) {
+  public override async storageWrite(startStorageSlot: Fr, values: Fr[]) {
     const newValues = [];
     for (let i = 0; i < values.length; i++) {
       const storageSlot = new Fr(startStorageSlot.toBigInt() + BigInt(i));
@@ -176,7 +188,7 @@ export class PublicExecutionContext extends TypedOracle {
    * @param argsHash - The packed arguments to pass to the function.
    * @returns The return values of the public function.
    */
-  public async callPublicFunction(
+  public override async callPublicFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -186,21 +198,25 @@ export class PublicExecutionContext extends TypedOracle {
   ) {
     isStaticCall = isStaticCall || this.execution.callContext.isStaticCall;
 
-    const args = this.packedArgsCache.unpack(argsHash);
+    const args = this.packedValuesCache.unpack(argsHash);
     this.log.verbose(
       `Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`,
     );
 
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
     const functionData = new FunctionData(functionSelector, /*isPrivate=*/ false);
+    const { transactionFee, gasSettings, gasLeft } = this.execution.callContext;
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
       portalContractAddress: portalAddress,
       functionSelector,
+      gasLeft, // Propagate the same gas left as when we started since ACVM public functions don't have any metering
       isDelegateCall,
       isStaticCall,
       sideEffectCounter,
+      gasSettings,
+      transactionFee,
     });
 
     const nestedExecution: PublicExecution = {
@@ -214,7 +230,7 @@ export class PublicExecutionContext extends TypedOracle {
       nestedExecution,
       this.header,
       this.globalVariables,
-      this.packedArgsCache,
+      this.packedValuesCache,
       this.sideEffectCounter,
       this.stateDb,
       this.contractsDb,
@@ -240,17 +256,12 @@ export class PublicExecutionContext extends TypedOracle {
     return childExecutionResult.returnValues;
   }
 
-  public async getNullifierMembershipWitness(
-    blockNumber: number,
-    nullifier: Fr,
-  ): Promise<NullifierMembershipWitness | undefined> {
-    if (!this.header.globalVariables.blockNumber.equals(new Fr(blockNumber))) {
-      throw new Error(`Public execution oracle can only access nullifier membership witnesses for the current block`);
-    }
-    return await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
+  public override async checkNullifierExists(nullifier: Fr): Promise<boolean> {
+    const witness = await this.commitmentsDb.getNullifierMembershipWitnessAtLatestBlock(nullifier);
+    return !!witness;
   }
 
-  public async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
+  public override async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
     // Note to AVM implementor: The wrapper of the oracle call get_contract_instance in aztec-nr
     // automatically checks that the returned instance is correct, by hashing it together back
     // into the address. However, in the AVM, we also need to prove the negative, otherwise a malicious

@@ -11,6 +11,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
+import { Gas } from '../gas.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 
 /**
@@ -58,6 +59,9 @@ export class PrivateAccumulatedData {
      * Current public call stack.
      */
     public publicCallStack: Tuple<CallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+
+    /** Gas used so far by this transaction. */
+    public gasUsed: Gas,
   ) {}
 
   toBuffer() {
@@ -71,6 +75,7 @@ export class PrivateAccumulatedData {
       this.unencryptedLogPreimagesLength,
       this.privateCallStack,
       this.publicCallStack,
+      this.gasUsed,
     );
   }
 
@@ -95,6 +100,7 @@ export class PrivateAccumulatedData {
       Fr.fromBuffer(reader),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest),
+      reader.readObject(Gas),
     );
   }
 
@@ -118,6 +124,7 @@ export class PrivateAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, CallRequest.empty),
+      Gas.empty(),
     );
   }
 }

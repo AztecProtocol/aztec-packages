@@ -1,12 +1,12 @@
 import { UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
-import { Fr, type GlobalVariables, type Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
+import { Fr, Gas, type GlobalVariables, type Header, PublicCircuitPublicInputs } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 
-import { Oracle, acvm, extractCallStack, extractReturnWitness } from '../acvm/index.js';
+import { Oracle, acvm, extractCallStack, witnessMapToFields } from '../acvm/index.js';
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
@@ -15,7 +15,7 @@ import { AvmPersistableStateManager } from '../avm/journal/index.js';
 import { AcirSimulator } from '../client/simulator.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { SideEffectCounter } from '../common/index.js';
-import { PackedArgsCache } from '../common/packed_args_cache.js';
+import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db.js';
 import { type PublicExecution, type PublicExecutionResult, checkValidStaticCall } from './execution.js';
 import { PublicExecutionContext } from './public_execution_context.js';
@@ -66,19 +66,18 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.globalVariables,
   );
 
-  // TODO(@spalladino) Load initial gas from the public execution request
-  const machineState = new AvmMachineState(1e7, 1e7, 1e7);
-
+  const machineState = new AvmMachineState(executionContext.execution.callContext.gasLeft);
   const context = new AvmContext(worldStateJournal, executionEnv, machineState);
   const simulator = new AvmSimulator(context);
 
   const result = await simulator.execute();
   const newWorldState = context.persistableState.flush();
 
-  log.verbose(`[AVM] ${address.toString()}:${selector} returned, reverted: ${result.reverted}.`);
+  log.verbose(
+    `[AVM] ${address.toString()}:${selector} returned, reverted: ${result.reverted}, reason: ${result.revertReason}.`,
+  );
 
-  // TODO(@spalladino) Read gas left from machineState and return it
-  return await convertAvmResults(executionContext, newWorldState, result);
+  return await convertAvmResults(executionContext, newWorldState, result, machineState);
 }
 
 async function executePublicFunctionAcvm(
@@ -95,11 +94,12 @@ async function executePublicFunctionAcvm(
   const initialWitness = context.getInitialWitness();
   const acvmCallback = new Oracle(context);
 
-  const { partialWitness, reverted, revertReason } = await (async () => {
+  const { partialWitness, returnWitnessMap, reverted, revertReason } = await (async () => {
     try {
       const result = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback);
       return {
         partialWitness: result.partialWitness,
+        returnWitnessMap: result.returnWitness,
         reverted: false,
         revertReason: undefined,
       };
@@ -121,6 +121,7 @@ async function executePublicFunctionAcvm(
       } else {
         return {
           partialWitness: undefined,
+          returnWitnessMap: undefined,
           reverted: true,
           revertReason: createSimulationError(ee),
         };
@@ -150,6 +151,7 @@ async function executePublicFunctionAcvm(
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
+      gasLeft: Gas.empty(),
     };
   }
 
@@ -157,9 +159,9 @@ async function executePublicFunctionAcvm(
     throw new Error('No partial witness returned from ACVM');
   }
 
-  const returnWitness = extractReturnWitness(acir, partialWitness);
+  const returnWitness = witnessMapToFields(returnWitnessMap);
   const {
-    returnValues,
+    returnsHash,
     nullifierReadRequests: nullifierReadRequestsPadded,
     nullifierNonExistentReadRequests: nullifierNonExistentReadRequestsPadded,
     newL2ToL1Msgs,
@@ -168,6 +170,7 @@ async function executePublicFunctionAcvm(
     startSideEffectCounter,
     endSideEffectCounter,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
+  const returnValues = await context.unpackReturns(returnsHash);
 
   const nullifierReadRequests = nullifierReadRequestsPadded.filter(v => !v.isEmpty());
   const nullifierNonExistentReadRequests = nullifierNonExistentReadRequestsPadded.filter(v => !v.isEmpty());
@@ -190,6 +193,7 @@ async function executePublicFunctionAcvm(
 
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
+  const gasLeft = context.execution.callContext.gasLeft; // No gas metering for ACVM
 
   return {
     execution,
@@ -207,6 +211,7 @@ async function executePublicFunctionAcvm(
     unencryptedLogs,
     reverted: false,
     revertReason: undefined,
+    gasLeft,
   };
 }
 
@@ -235,7 +240,7 @@ export class PublicExecutor {
   ): Promise<PublicExecutionResult> {
     // Functions can request to pack arguments before calling other functions.
     // We use this cache to hold the packed arguments.
-    const packedArgs = PackedArgsCache.create([]);
+    const packedArgs = PackedValuesCache.create([]);
 
     const context = new PublicExecutionContext(
       execution,

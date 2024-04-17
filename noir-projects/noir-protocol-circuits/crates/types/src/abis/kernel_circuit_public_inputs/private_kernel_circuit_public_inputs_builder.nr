@@ -1,4 +1,5 @@
-use crate::abis::{
+use crate::{
+    abis::{
     accumulated_data::PrivateAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{
     kernel_circuit_public_inputs::KernelCircuitPublicInputs,
@@ -6,9 +7,9 @@ use crate::abis::{
     public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs
 },
     validation_requests::validation_requests_builder::ValidationRequestsBuilder
+},
+    mocked::AggregationObject, partial_state_reference::PartialStateReference, traits::Empty
 };
-use crate::mocked::AggregationObject;
-use dep::std::unsafe;
 
 struct PrivateKernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
@@ -35,6 +36,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             rollup_validation_requests: self.validation_requests.to_rollup(),
             end: self.end.to_combined(),
             constants: self.constants,
+            start_state: PartialStateReference::empty(),
             revert_code: 0
         }
     }
@@ -49,6 +51,18 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             end,
             constants: self.constants,
             revert_code: 0
+        }
+    }
+}
+
+impl Empty for PrivateKernelCircuitPublicInputsBuilder {
+    fn empty() -> Self {
+        PrivateKernelCircuitPublicInputsBuilder {
+            aggregation_object: AggregationObject::empty(),
+            min_revertible_side_effect_counter: 0 as u32,
+            validation_requests: ValidationRequestsBuilder::empty(),
+            end: PrivateAccumulatedDataBuilder::empty(),
+            constants: CombinedConstantData::empty(),
         }
     }
 }

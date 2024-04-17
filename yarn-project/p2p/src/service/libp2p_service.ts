@@ -7,7 +7,8 @@ import { ENR } from '@chainsafe/enr';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
-import type { IncomingStreamData, PeerId, ServiceMap } from '@libp2p/interface';
+import type { IncomingStreamData, PeerId, ServiceMap, Stream } from '@libp2p/interface';
+import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { peerIdFromString } from '@libp2p/peer-id';
 import { createFromJSON, createSecp256k1PeerId, exportToProtobuf } from '@libp2p/peer-id-factory';
@@ -237,7 +238,7 @@ export class LibP2PService implements P2PService {
     const peerIdStr = peerMultiAddr.getPeerId();
 
     if (!peerIdStr) {
-      this.logger.info(`Peer ID not found in discovered node's multiaddr: ${peerMultiAddr}`);
+      this.logger.debug(`Peer ID not found in discovered node's multiaddr: ${peerMultiAddr}`);
       return;
     }
 
@@ -248,8 +249,9 @@ export class LibP2PService implements P2PService {
     // add to peer store if not already known
     if (!hasPeer) {
       this.logger.info(`Discovered peer ${enr.peerId().toString()}. Adding to libp2p peer list`);
+      let stream: Stream | undefined;
       try {
-        const stream = await this.node.dialProtocol(peerMultiAddr, this.protocolId);
+        stream = await this.node.dialProtocol(peerMultiAddr, this.protocolId);
 
         // dial successful, add to DB as well
         if (!this.peerStore.getPeer(peerIdStr)) {
@@ -258,6 +260,10 @@ export class LibP2PService implements P2PService {
         await stream.close();
       } catch (err) {
         this.logger.error(`Failed to dial peer ${peerIdStr}`, err);
+      } finally {
+        if (stream) {
+          await stream.close();
+        }
       }
     }
   }

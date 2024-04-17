@@ -76,12 +76,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     (this.discv5 as Discv5EventEmitter).on('enrAdded', async (enr: ENR) => {
       const multiAddrTcp = await enr.getFullMultiaddr('tcp');
       const multiAddrUdp = await enr.getFullMultiaddr('udp');
-      this.logger.verbose(`Added ENR. Multiaddr - TCP: ${multiAddrTcp?.toString()}, UDP: ${multiAddrUdp?.toString()}`);
-      console.log(`Added ENR. Multiaddr - TCP: ${multiAddrTcp?.toString()}, UDP: ${multiAddrUdp?.toString()}`);
-    });
-
-    (this.discv5 as Discv5EventEmitter).on('peer', (peerId: PeerId) => {
-      this.logger.info(`peer: ${peerId}`);
+      this.logger.debug(`ENR multiaddr: ${multiAddrTcp?.toString()}, ${multiAddrUdp?.toString()}`);
     });
 
     this.runningPromise = new RunningPromise(async () => {
@@ -94,10 +89,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   public async start(): Promise<void> {
-    this.logger.info('Starting DiscV5');
     if (this.currentState === PeerDiscoveryState.RUNNING) {
       throw new Error('DiscV5Service already started');
     }
+    this.logger.info('Starting DiscV5');
     await this.discv5.start();
     this.logger.info('DiscV5 started');
     this.currentState = PeerDiscoveryState.RUNNING;

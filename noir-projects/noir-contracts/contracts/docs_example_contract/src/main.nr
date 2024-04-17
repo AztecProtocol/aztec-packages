@@ -16,7 +16,7 @@ contract DocsExample {
     use dep::aztec::prelude::{
         AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
         PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
-        PrivateSet, SharedImmutable
+        PrivateSet, SharedImmutable, Deserialize
     };
     use dep::aztec::{note::note_getter_options::Comparator, context::{PublicContext, Context}};
     // how to import methods from other files/folders within your workspace
@@ -115,11 +115,9 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let ret = context.call_private_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
-        );
-        Leader::deserialize([ret[0], ret[1]])
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().call(&mut context);
+        leader.points += 1;
+        leader
     }
 
     #[aztec(public)]
@@ -128,16 +126,20 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        let ret = context.call_public_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
-        );
-        Leader::deserialize([ret[0], ret[1]])
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().call(&mut context);
+        leader.points += 1;
+        leader
     }
 
     #[aztec(public)]
     fn get_shared_immutable_constrained_public() -> pub Leader {
         storage.shared_immutable.read_public()
+    }
+
+    #[aztec(public)]
+    fn get_shared_immutable_constrained_public_multiple() -> pub [Leader; 5] {
+        let a = storage.shared_immutable.read_public();
+        [a, a, a, a, a]
     }
 
     #[aztec(private)]
@@ -212,12 +214,7 @@ contract DocsExample {
     fn update_legendary_card(randomness: Field, points: u8) {
         let mut new_card = CardNote::new(points, randomness, context.msg_sender());
         storage.legendary_card.replace(&mut new_card, true);
-
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]
@@ -236,11 +233,7 @@ contract DocsExample {
         storage.legendary_card.replace(&mut new_card, true);
         // docs:end:state_vars-PrivateMutableReplace
 
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]
@@ -341,7 +334,9 @@ contract DocsExample {
         // ************************************************************
         // Return values are pushed into the context
         // docs:start:context-example-context-return
-        context.return_values.push(result);
+        let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
+        return_hasher.add(result);
+        context.set_return_hash(return_hasher);
         // docs:end:context-example-context-return
 
         // The context is returned to be consumed by the kernel circuit!

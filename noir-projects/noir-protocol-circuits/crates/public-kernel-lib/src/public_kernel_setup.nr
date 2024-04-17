@@ -3,7 +3,6 @@ use dep::types::abis::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
     kernel_data::PublicKernelData, public_call_data::PublicCallData
 };
-use dep::std::unsafe;
 
 struct PublicKernelSetupCircuitPrivateInputs {
     // Note: One might think that our previous_kernel ought to be
@@ -26,7 +25,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
 
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
         // since this phase is non-revertible, we must assert the public call did not revert
         common::validate_public_call_non_revert(self.public_call);
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
@@ -39,6 +38,8 @@ impl PublicKernelSetupCircuitPrivateInputs {
 
         // validate the inputs unique to having a previous private kernel
         self.validate_inputs();
+
+        common::update_non_revertible_gas_used(self.public_call, &mut public_inputs);
 
         // Pops the item from the call stack and validates it against the current execution.
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
@@ -69,7 +70,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        call_request::CallRequest, function_selector::FunctionSelector,
+        call_request::CallRequest, function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         public_call_data::PublicCallData, read_request::ReadRequest
@@ -496,5 +497,32 @@ mod tests {
         builder.public_call.public_inputs.revert_code = 1;
 
         builder.failed();
+    }
+
+    #[test]
+    fn updates_non_revertible_gas_used() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        // Transaction gas limit is 1k
+        builder.previous_kernel.gas_settings.da.gas_limit = 1000;
+        builder.previous_kernel.gas_settings.l1.gas_limit = 1000;
+        builder.previous_kernel.gas_settings.l2.gas_limit = 1000;
+
+        // Revertible has already used 100
+        builder.previous_revertible.gas_used = Gas::new(100, 100, 100);
+
+        // And non-revertible has used another 200
+        builder.previous_kernel.gas_used = Gas::new(200, 200, 200);
+
+        // So this call starts with 700 gas left
+        builder.public_call.public_inputs.call_context.gas_left = Gas::new(700, 700, 700);
+
+        // And uses 300, ending with 400 left
+        builder.public_call.public_inputs.gas_left = Gas::new(400, 400, 400);
+
+        // So the updated gas used by non-revertible must go up by 300, and revertible must stay the same
+        let output = builder.execute();
+        assert_eq(output.end_non_revertible.gas_used, Gas::new(500, 500, 500));
+        assert_eq(output.end.gas_used, Gas::new(100, 100, 100));
     }
 }
