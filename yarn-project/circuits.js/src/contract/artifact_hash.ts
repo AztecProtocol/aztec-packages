@@ -71,6 +71,7 @@ export function computeArtifactFunctionTreeRoot(artifact: ContractArtifact, fnTy
 
 export function computeArtifactFunctionTree(artifact: ContractArtifact, fnType: FunctionType): MerkleTree | undefined {
   const leaves = computeFunctionLeaves(artifact, fnType);
+  getLogger().debug(`Computing function tree for ${fnType}`, { leaves: leaves.map(x => x.toString()) });
   // TODO(@spalladino) Consider implementing a null-object for empty trees
   if (leaves.length === 0) {
     return undefined;
@@ -96,7 +97,11 @@ export function computeFunctionArtifactHash(
   const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
   const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
   const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
-  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
+  const functionArtifactHash = sha256Fr(
+    Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]),
+  );
+  getLogger().debug(`Computing function artifact hash`, { selector, bytecodeHash, metadataHash, functionArtifactHash });
+  return functionArtifactHash;
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {
