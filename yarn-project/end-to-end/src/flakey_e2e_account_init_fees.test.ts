@@ -14,7 +14,14 @@ import {
   type Wallet,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { type AztecAddress, CompleteAddress, Fq, deriveKeys, GasSettings, DimensionGasSettings } from '@aztec/circuits.js';
+import {
+  type AztecAddress,
+  CompleteAddress,
+  DimensionGasSettings,
+  Fq,
+  GasSettings,
+  deriveKeys,
+} from '@aztec/circuits.js';
 import {
   TokenContract as BananaCoin,
   FPCContract,

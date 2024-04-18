@@ -124,8 +124,6 @@ import {
   type GasFees as GasFeesNoir,
   type Gas as GasNoir,
   type GasSettings as GasSettingsNoir,
-  type GasUsed as GasUsedNoir,
-  type GrumpkinPrivateKey as GrumpkinPrivateKeyNoir,
   type L2ToL1Message as L2ToL1MessageNoir,
   type MaxBlockNumber as MaxBlockNumberNoir,
   type AztecAddress as NoirAztecAddress,
