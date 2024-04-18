@@ -1,15 +1,15 @@
 import { getUnsafeSchnorrAccount, getUnsafeSchnorrWallet } from '@aztec/accounts/single_key';
 import {
-  ExtendedNote,
-  Note,
-  computeMessageSecretHash,
-  waitForAccountSynch,
   type AccountWallet,
   type ContractInstanceWithAddress,
+  ExtendedNote,
+  Note,
   type TxHash,
+  computeMessageSecretHash,
+  waitForAccountSynch,
 } from '@aztec/aztec.js';
 import { type Salt } from '@aztec/aztec.js/account';
-import { Fr, deriveSigningKey, type AztecAddress, type CompleteAddress } from '@aztec/circuits.js';
+import { type AztecAddress, type CompleteAddress, Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { type DeployL1Contracts } from '@aztec/ethereum';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -18,7 +18,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setup, type EndToEndContext } from '../fixtures/utils.js';
+import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 jest.setTimeout(60_000);
 
