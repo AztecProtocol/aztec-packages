@@ -38,7 +38,7 @@ const runPty = async (command, { success: exitSuccess, error }) => {
 };
 
 async function installSandbox() {
-  await runPty("echo y | bash -i <(curl -s install.aztec.network); exit\n", {
+  await runPty("yes | bash -i <(curl -s install.aztec.network); exit\n", {
     success: "The Sandbox is installed!",
     error:
       "Failed to install the Sandbox. Please visit the docs at https://docs.aztec.network",

@@ -12,8 +12,8 @@ if ! grep -q "PXE_URL" ~/.bashrc; then
     echo "export PXE_URL=https://\$CODESPACE_NAME-8080.preview.\$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" >> ~/.bashrc
 fi
 
-echo 'y' | npx create-aztec-app -t $TYPE -n $NAME -s
-mv react/* .
+yes | npx create-aztec-app -t $TYPE -n $NAME -s
+mv react/* react/.* .
 rm -rf react
 
 yarn
