@@ -30,15 +30,18 @@ export enum ProvingRequestType {
 export type ProvingRequest =
   | {
       type: ProvingRequestType.PUBLIC_VM;
-      inputs: unknown;
+      // prefer object over unknown so that we can run "in" checks, e.g. `'toBuffer' in request.inputs`
+      inputs: object;
     }
   | {
       type: ProvingRequestType.PUBLIC_KERNEL_NON_TAIL;
-      inputs: PublicKernelNonTailRequest;
+      kernelType: PublicKernelNonTailRequest['type'];
+      inputs: PublicKernelNonTailRequest['inputs'];
     }
   | {
       type: ProvingRequestType.PUBLIC_KERNEL_TAIL;
-      inputs: PublicKernelTailRequest;
+      kernelType: PublicKernelTailRequest['type'];
+      inputs: PublicKernelTailRequest['inputs'];
     }
   | {
       type: ProvingRequestType.BASE_PARITY;
@@ -62,7 +65,7 @@ export type ProvingRequest =
     };
 
 export type ProvingRequestPublicInputs = {
-  [ProvingRequestType.PUBLIC_VM]: unknown;
+  [ProvingRequestType.PUBLIC_VM]: object;
 
   [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicKernelCircuitPublicInputs;
   [ProvingRequestType.PUBLIC_KERNEL_TAIL]: KernelCircuitPublicInputs;

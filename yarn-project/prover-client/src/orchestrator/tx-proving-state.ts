@@ -44,11 +44,13 @@ export class TxProvingState {
         kernelRequest.type === PublicKernelType.TAIL
           ? {
               type: ProvingRequestType.PUBLIC_KERNEL_TAIL,
-              inputs: kernelRequest,
+              kernelType: kernelRequest.type,
+              inputs: kernelRequest.inputs,
             }
           : {
               type: ProvingRequestType.PUBLIC_KERNEL_NON_TAIL,
-              inputs: kernelRequest,
+              kernelType: kernelRequest.type,
+              inputs: kernelRequest.inputs,
             };
       const publicFunction: PublicFunction = {
         vmProof: undefined,

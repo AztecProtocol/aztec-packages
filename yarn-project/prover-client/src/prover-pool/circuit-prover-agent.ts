@@ -22,20 +22,21 @@ export class CircuitProverAgent implements ProvingAgent {
   ) {}
 
   start(queue: ProvingQueueConsumer): void {
+    if (this.runningPromise) {
+      throw new Error('Agent is already running');
+    }
+
     this.runningPromise = new RunningPromise(async () => {
-      this.log.verbose('Getting proving jobs');
       const job = await queue.getProvingJob();
       if (!job) {
-        this.log.verbose('No proving jobs available, waiting...');
         return;
       }
 
       try {
-        this.log.info(`Processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}`);
         const [time, result] = await elapsed(() => this.work(job.request));
         await queue.resolveProvingJob(job.id, result);
         this.log.info(
-          `Finished processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]} ms=${time}`,
+          `Processed proving job id=${job.id} type=${ProvingRequestType[job.request.type]} duration=${time}ms`,
         );
       } catch (err) {
         this.log.error(
@@ -49,22 +50,33 @@ export class CircuitProverAgent implements ProvingAgent {
   }
 
   async stop(): Promise<void> {
-    await this.runningPromise?.stop();
+    if (!this.runningPromise) {
+      throw new Error('Agent is not running');
+    }
+
+    await this.runningPromise.stop();
     this.runningPromise = undefined;
   }
 
-  private work({ type, inputs }: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
+  private work(request: ProvingRequest): Promise<ProvingRequestResult<typeof type>> {
+    const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
         return Promise.resolve([{}, makeEmptyProof()] as const);
       }
 
       case ProvingRequestType.PUBLIC_KERNEL_NON_TAIL: {
-        return this.prover.getPublicKernelProof(inputs);
+        return this.prover.getPublicKernelProof({
+          type: request.kernelType,
+          inputs,
+        });
       }
 
       case ProvingRequestType.PUBLIC_KERNEL_TAIL: {
-        return this.prover.getPublicTailProof(inputs);
+        return this.prover.getPublicTailProof({
+          type: request.kernelType,
+          inputs,
+        });
       }
 
       case ProvingRequestType.BASE_ROLLUP: {

@@ -8,9 +8,7 @@ import { type ProverConfig } from '../config.js';
 import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { CircuitProverAgent } from '../prover-pool/circuit-prover-agent.js';
-import { MemoryProvingQueue } from '../prover-pool/memory-proving-queue.js';
-import { type ProvingAgent } from '../prover-pool/prover-agent.js';
-import { type ProvingQueue } from '../prover-pool/proving-queue.js';
+import { ProverPool } from '../prover-pool/prover-pool.js';
 import { TestCircuitProver } from '../prover/test_circuit_prover.js';
 
 /**
@@ -18,42 +16,35 @@ import { TestCircuitProver } from '../prover/test_circuit_prover.js';
  */
 export class TxProver implements ProverClient {
   private orchestrator: ProvingOrchestrator;
-  private queue: ProvingQueue;
-  private agents: ProvingAgent[];
+  private proverPool: ProverPool;
 
   constructor(
     private worldStateSynchronizer: WorldStateSynchronizer,
     simulationProvider: SimulationProvider,
     protected vks: VerificationKeys,
     agentCount = 1,
+    agentPollIntervalMS = 10,
   ) {
-    this.queue = new MemoryProvingQueue();
-    this.agents = Array.from(
-      { length: agentCount },
-      () => new CircuitProverAgent(new TestCircuitProver(simulationProvider)),
+    this.proverPool = new ProverPool(
+      agentCount,
+      i => new CircuitProverAgent(new TestCircuitProver(simulationProvider), agentPollIntervalMS, `${i}`),
     );
 
-    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.queue);
+    this.orchestrator = new ProvingOrchestrator(worldStateSynchronizer.getLatest(), this.proverPool.queue);
   }
 
   /**
    * Starts the prover instance
    */
-  public start() {
-    for (const agent of this.agents) {
-      agent.start(this.queue);
-    }
-
-    return Promise.resolve();
+  public async start() {
+    await this.proverPool.start();
   }
 
   /**
    * Stops the prover instance
    */
   public async stop() {
-    for (const agent of this.agents) {
-      await agent.stop();
-    }
+    await this.proverPool.stop();
   }
 
   /**

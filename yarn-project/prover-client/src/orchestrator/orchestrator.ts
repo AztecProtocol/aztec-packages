@@ -13,6 +13,7 @@ import {
   type ProvingResult,
   type ProvingTicket,
 } from '@aztec/circuit-types/interfaces';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -33,6 +34,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { Timer } from '@aztec/foundation/timer';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
@@ -312,7 +314,24 @@ export class ProvingOrchestrator {
     // and reject the proving job whilst keeping the event loop free of rejections
     const safeJob = async () => {
       try {
+        const timer = new Timer();
         const [publicInputs, proof] = await this.queue.prove(request);
+        const duration = timer.ms();
+
+        const inputSize = 'toBuffer' in request.inputs ? request.inputs.toBuffer().length : 0;
+        const outputSize = 'toBuffer' in publicInputs ? publicInputs.toBuffer().length : 0;
+        const circuitName = this.getCircuitNameFromRequest(request);
+        const stats: CircuitSimulationStats | undefined = circuitName
+          ? {
+              eventName: 'circuit-simulation',
+              circuitName,
+              duration,
+              inputSize,
+              outputSize,
+            }
+          : undefined;
+
+        logger.debug(`Simulated ${ProvingRequestType[request.type]} circuit duration=${duration}ms`, stats);
 
         if (!provingState?.verifyState()) {
           logger.debug(`State no longer valid, discarding result of job type ${ProvingRequestType[request.type]}`);
@@ -328,6 +347,43 @@ export class ProvingOrchestrator {
 
     // let the callstack unwind before adding the job to the queue
     setImmediate(safeJob);
+  }
+
+  private getCircuitNameFromRequest(request: ProvingRequest): CircuitSimulationStats['circuitName'] | null {
+    switch (request.type) {
+      case ProvingRequestType.PUBLIC_VM:
+        return null;
+      case ProvingRequestType.PUBLIC_KERNEL_NON_TAIL:
+        switch (request.kernelType) {
+          case PublicKernelType.SETUP:
+            return 'public-kernel-setup';
+          case PublicKernelType.APP_LOGIC:
+            return 'public-kernel-app-logic';
+          case PublicKernelType.TEARDOWN:
+            return 'public-kernel-teardown';
+          default:
+            return null;
+        }
+      case ProvingRequestType.PUBLIC_KERNEL_TAIL:
+        switch (request.kernelType) {
+          case PublicKernelType.TAIL:
+            return 'public-kernel-tail';
+          default:
+            return null;
+        }
+      case ProvingRequestType.BASE_ROLLUP:
+        return 'base-rollup';
+      case ProvingRequestType.MERGE_ROLLUP:
+        return 'merge-rollup';
+      case ProvingRequestType.ROOT_ROLLUP:
+        return 'root-rollup';
+      case ProvingRequestType.BASE_PARITY:
+        return 'base-parity';
+      case ProvingRequestType.ROOT_PARITY:
+        return 'root-parity';
+      default:
+        return null;
+    }
   }
 
   // Updates the merkle trees for a transaction. The first enqueued job for a transaction

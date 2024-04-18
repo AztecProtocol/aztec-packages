@@ -7,6 +7,7 @@ import { type ProvingQueue } from './proving-queue.js';
  */
 export class ProverPool {
   private agents: ProvingAgent[] = [];
+  private running = false;
 
   constructor(
     private size: number,
@@ -15,8 +16,15 @@ export class ProverPool {
   ) {}
 
   async start(): Promise<void> {
-    this.agents = [];
-    for (let i = 0; i < this.size; i++) {
+    if (this.running) {
+      throw new Error('Prover pool is already running');
+    }
+
+    // lock the pool state here since creating agents is async
+    this.running = true;
+
+    // handle start, stop, start cycles by only creating as many agents as were requested
+    for (let i = this.agents.length; i < this.size; i++) {
       this.agents.push(await this.agentFactory(i));
     }
 
@@ -26,8 +34,14 @@ export class ProverPool {
   }
 
   async stop(): Promise<void> {
+    if (!this.running) {
+      throw new Error('Prover pool is not running');
+    }
+
     for (const agent of this.agents) {
       await agent.stop();
     }
+
+    this.running = false;
   }
 }
