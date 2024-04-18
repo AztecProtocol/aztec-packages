@@ -160,9 +160,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)
     .option(
-      '-k, --public-key <string>',
-      'Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.',
-      parsePublicKey,
+      '-sk, --secret-key <string>',
+      'Optional secret key used to derive public keys for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using the keys derived from this secret key.',
+      parseField,
     )
     .option(
       '-p, --portal-address <hex string>',
@@ -181,7 +181,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(
       async (artifactPath, { json, rpcUrl, args: rawArgs, portalAddress, salt, wait, secretKey, initializer }) => {
-        // TODO(benesjan): the args will need to be updated here ^
+        // TODO(#5726): should we just pass publicKeysHash instead of secretKey here and in deploy func?
         const { deploy } = await import('./cmds/deploy.js');
         await deploy(
           artifactPath,
