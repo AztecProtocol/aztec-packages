@@ -68,8 +68,8 @@ export abstract class BaseWallet implements Wallet {
   addCapsule(capsule: Fr[]): Promise<void> {
     return this.pxe.addCapsule(capsule);
   }
-  registerAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    return this.pxe.registerAccount(sk, partialAddress);
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+    return this.pxe.registerAccount(secretKey, partialAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.pxe.registerRecipient(account);
