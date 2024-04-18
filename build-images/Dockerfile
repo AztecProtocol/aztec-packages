@@ -9,7 +9,8 @@ RUN apt update && apt install -y \
     cargo
 RUN git clone --depth 1 --recursive --branch wasi-sdk-22 \
         https://github.com/WebAssembly/wasi-sdk.git
-RUN cd wasi-sdk && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk
+RUN mkdir -p /wasi-sdk/build/install/opt/wasi-sdk
+WORKDIR /wasi-sdk
 ENV MAKEFLAGS="-j$(nproc)"
 RUN make build/llvm.BUILT
 RUN make build/wasi-libc.BUILT
