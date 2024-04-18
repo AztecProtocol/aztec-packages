@@ -45,7 +45,7 @@ contract SchnorrSingleKeyAccount {
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         let witness = get_auth_witness(outer_hash);
-        // TODO(benesjan): the following is currently broken because we are no longer able to compute public keys hash
+        // TODO(#5830): the following is currently broken because we are no longer able to compute public keys hash
         // in recover_address(...) just from user public key.
         // assert(recover_address(outer_hash, witness).eq(context.this_address()));
         true

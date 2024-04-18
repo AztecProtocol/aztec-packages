@@ -37,7 +37,7 @@ impl PublicKeysHash {
         Self { inner: field }
     }
 
-    // TODO(benesjan): this is stale now
+    // TODO(#5830): update this
     pub fn compute(public_key: GrumpkinPoint) -> Self {
         PublicKeysHash::from_field(
             pedersen_hash(
@@ -59,7 +59,7 @@ impl PublicKeysHash {
     }
 }
 
-// TODO(benesjan): re-enable this test once the compute function is updated
+// TODO(#5830): re-enable this test once the compute function is updated
 // #[test]
 // fn compute_public_keys_hash() {
 //     let point = GrumpkinPoint { x: 1, y: 2 };
