@@ -1,7 +1,9 @@
-#!/bin/bash
-set -eu
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
+set -euo pipefail
 
 REPOSITORY=$1
 CPUS=$2
+ARCH=${3:-x86_64}
 
-cond_spot_run_script $REPOSITORY $CPUS build $REPOSITORY
+cond_spot_run_script $REPOSITORY $CPUS $ARCH build $REPOSITORY | add_timestamps

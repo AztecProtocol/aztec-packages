@@ -6,11 +6,11 @@
 # Scans for all .test.cpp files in a subdirectory, and creates a gtest binary named <module name>_tests.
 # Scans for all .bench.cpp files in a subdirectory, and creates a benchmark binary named <module name>_bench.
 #
-# We have to get a bit complicated here, due to the fact CMake will not parallelise the building of object files
+# We have to get a bit complicated here, due to the fact CMake will not parallelize the building of object files
 # between dependent targets, due to the potential of post-build code generation steps etc.
 # To work around this, we create "object libraries" containing the object files.
 # Then we declare executables/libraries that are to be built from these object files.
-# These assets will only be linked as their dependencies complete, but we can parallelise the compilation at least.
+# These assets will only be linked as their dependencies complete, but we can parallelize the compilation at least.
 
 # This is an interface library that can be used as an install target to include all header files
 # encountered by the `barretenberg_module` function. There is probably a better way to do this,
@@ -55,13 +55,17 @@ function(barretenberg_module MODULE_NAME)
             ${ARGN}
             ${TBB_IMPORTED_TARGETS}
         )
+
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME} msgpack-c)
+        add_dependencies(${MODULE_NAME}_objects msgpack-c)
         list(APPEND lib_targets ${MODULE_NAME})
 
         set(MODULE_LINK_NAME ${MODULE_NAME})
     endif()
 
     file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
-    if(TESTING AND TEST_SOURCE_FILES)
+    if(TEST_SOURCE_FILES AND NOT FUZZING)
         add_library(
             ${MODULE_NAME}_test_objects
             OBJECT
@@ -73,6 +77,8 @@ function(barretenberg_module MODULE_NAME)
             ${MODULE_NAME}_test_objects
             PRIVATE
             GTest::gtest
+            GTest::gtest_main
+            GTest::gmock_main
             ${TBB_IMPORTED_TARGETS}
         )
 
@@ -114,9 +120,13 @@ function(barretenberg_module MODULE_NAME)
             ${ARGN}
             GTest::gtest
             GTest::gtest_main
+            GTest::gmock_main
             ${TBB_IMPORTED_TARGETS}
         )
 
+        # enable msgpack downloading via dependency (solves race condition)
+        add_dependencies(${MODULE_NAME}_test_objects msgpack-c)
+        add_dependencies(${MODULE_NAME}_tests msgpack-c)
         if(NOT WASM AND NOT CI)
             # If collecting coverage data, set profile
             # For some reason processor affinity doesn't work, so the developer has to set it manually anyway
@@ -177,7 +187,6 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
                 PRIVATE
                 "-fsanitize=fuzzer"
-                ${SANITIZER_OPTIONS}
             )
 
             target_link_libraries(
@@ -189,41 +198,47 @@ function(barretenberg_module MODULE_NAME)
     endif()
 
     file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
-    if(BENCHMARKS AND BENCH_SOURCE_FILES)
-        add_library(
-            ${MODULE_NAME}_bench_objects
-            OBJECT
-            ${BENCH_SOURCE_FILES}
-        )
-        list(APPEND lib_targets ${MODULE_NAME}_bench_objects)
+    if(BENCH_SOURCE_FILES AND NOT FUZZING)
+        foreach(BENCHMARK_SOURCE ${BENCH_SOURCE_FILES})
+            get_filename_component(BENCHMARK_NAME ${BENCHMARK_SOURCE} NAME_WE) # extract name without extension
+            add_library(
+                ${BENCHMARK_NAME}_bench_objects
+                OBJECT
+                ${BENCHMARK_SOURCE}
+            )
+            list(APPEND lib_targets ${BENCHMARK_NAME}_bench_objects)
 
-        target_link_libraries(
-            ${MODULE_NAME}_bench_objects
-            PRIVATE
-            benchmark::benchmark
-            ${TBB_IMPORTED_TARGETS}
-        )
+            target_link_libraries(
+                ${BENCHMARK_NAME}_bench_objects
+                PRIVATE
+                benchmark::benchmark
+                ${TBB_IMPORTED_TARGETS}
+            )
 
-        add_executable(
-            ${MODULE_NAME}_bench
-            $<TARGET_OBJECTS:${MODULE_NAME}_bench_objects>
-        )
-        list(APPEND exe_targets ${MODULE_NAME}_bench)
+            add_executable(
+                ${BENCHMARK_NAME}_bench
+                $<TARGET_OBJECTS:${BENCHMARK_NAME}_bench_objects>
+            )
+            list(APPEND exe_targets ${MODULE_NAME}_bench)
 
-        target_link_libraries(
-            ${MODULE_NAME}_bench
-            PRIVATE
-            ${MODULE_LINK_NAME}
-            ${ARGN}
-            benchmark::benchmark
-            ${TBB_IMPORTED_TARGETS}
-        )
+            target_link_libraries(
+                ${BENCHMARK_NAME}_bench
+                PRIVATE
+                ${MODULE_LINK_NAME}
+                ${ARGN}
+                benchmark::benchmark
+                ${TBB_IMPORTED_TARGETS}
+            )
 
-        add_custom_target(
-            run_${MODULE_NAME}_bench
-            COMMAND ${MODULE_NAME}_bench
-            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        )
+            # enable msgpack downloading via dependency (solves race condition)
+            add_dependencies(${BENCHMARK_NAME}_bench_objects msgpack-c)
+            add_dependencies(${BENCHMARK_NAME}_bench msgpack-c)
+            add_custom_target(
+                run_${BENCHMARK_NAME}_bench
+                COMMAND ${BENCHMARK_NAME}_bench
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+            )
+        endforeach()
     endif()
 
     set(${MODULE_NAME}_lib_targets ${lib_targets} PARENT_SCOPE)

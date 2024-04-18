@@ -1,19 +1,24 @@
 #include "barretenberg/plonk/composer/standard_composer.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
-#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system;
-using namespace proof_system::plonk;
+using namespace bb;
+using namespace bb::plonk;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
-TEST(standard_plonk_composer, base_case)
+class StandardPlonkComposer : public ::testing::Test {
+  public:
+    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+};
+
+TEST_F(StandardPlonkComposer, BaseCase)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -28,7 +33,7 @@ TEST(standard_plonk_composer, base_case)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, composer_from_serialized_keys)
+TEST_F(StandardPlonkComposer, ComposerFromSerializedKeys)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -40,7 +45,7 @@ TEST(standard_plonk_composer, composer_from_serialized_keys)
     auto pk_data = from_buffer<plonk::proving_key_data>(pk_buf);
     auto vk_data = from_buffer<plonk::verification_key_data>(vk_buf);
 
-    auto crs = std::make_unique<barretenberg::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
+    auto crs = std::make_unique<bb::srs::factories::FileCrsFactory<curve::BN254>>("../srs_db/ignition");
     auto proving_key =
         std::make_shared<plonk::proving_key>(std::move(pk_data), crs->get_prover_crs(pk_data.circuit_size + 1));
     auto verification_key = std::make_shared<plonk::verification_key>(std::move(vk_data), crs->get_verifier_crs());
@@ -58,7 +63,7 @@ TEST(standard_plonk_composer, composer_from_serialized_keys)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, test_add_gate_proofs)
+TEST_F(StandardPlonkComposer, TestAddGateProofs)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -118,13 +123,13 @@ TEST(standard_plonk_composer, test_add_gate_proofs)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, test_mul_gate_proofs)
+TEST_F(StandardPlonkComposer, TestMulGateProofs)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
-    fr q[7]{ fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(),
-             fr::random_element(), fr::random_element(), fr::random_element() };
-    fr q_inv[7]{
+    std::array<fr, 7> q{ fr::random_element(), fr::random_element(), fr::random_element(), fr::random_element(),
+                         fr::random_element(), fr::random_element(), fr::random_element() };
+    std::array<fr, 7> q_inv{
         q[0].invert(), q[1].invert(), q[2].invert(), q[3].invert(), q[4].invert(), q[5].invert(), q[6].invert(),
     };
 
@@ -198,7 +203,7 @@ TEST(standard_plonk_composer, test_mul_gate_proofs)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, range_constraint)
+TEST_F(StandardPlonkComposer, RangeConstraint)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -216,7 +221,7 @@ TEST(standard_plonk_composer, range_constraint)
         for (uint32_t j = 0; j < 16; ++j) {
             uint32_t result = (value >> (30U - (2 * j)));
             fr source = builder.get_variable(accumulators[j + (extra_bits >> 1)]).from_montgomery_form();
-            uint32_t expected = static_cast<uint32_t>(source.data[0]);
+            auto expected = static_cast<uint32_t>(source.data[0]);
             EXPECT_EQ(result, expected);
         }
         for (uint32_t j = 1; j < 16; ++j) {
@@ -242,7 +247,7 @@ TEST(standard_plonk_composer, range_constraint)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, range_constraint_fail)
+TEST_F(StandardPlonkComposer, RangeConstraintFail)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -263,7 +268,7 @@ TEST(standard_plonk_composer, range_constraint_fail)
     EXPECT_EQ(result, false);
 }
 
-TEST(standard_plonk_composer, and_constraint)
+TEST_F(StandardPlonkComposer, AndConstraint)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -291,13 +296,13 @@ TEST(standard_plonk_composer, and_constraint)
             uint32_t out_expected = left_expected & right_expected;
 
             fr left_source = builder.get_variable(accumulators.left[j + (extra_bits >> 1)]).from_montgomery_form();
-            uint32_t left_result = static_cast<uint32_t>(left_source.data[0]);
+            auto left_result = static_cast<uint32_t>(left_source.data[0]);
 
             fr right_source = builder.get_variable(accumulators.right[j + (extra_bits >> 1)]).from_montgomery_form();
-            uint32_t right_result = static_cast<uint32_t>(right_source.data[0]);
+            auto right_result = static_cast<uint32_t>(right_source.data[0]);
 
             fr out_source = builder.get_variable(accumulators.out[j + (extra_bits >> 1)]).from_montgomery_form();
-            uint32_t out_result = static_cast<uint32_t>(out_source.data[0]);
+            auto out_result = static_cast<uint32_t>(out_source.data[0]);
 
             EXPECT_EQ(left_result, left_expected);
             EXPECT_EQ(right_result, right_expected);
@@ -334,7 +339,7 @@ TEST(standard_plonk_composer, and_constraint)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, xor_constraint)
+TEST_F(StandardPlonkComposer, XorConstraint)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -361,13 +366,13 @@ TEST(standard_plonk_composer, xor_constraint)
             uint32_t out_expected = left_expected ^ right_expected;
 
             fr left_source = builder.get_variable(accumulators.left[j + (extra_bits >> 1)]).from_montgomery_form();
-            uint32_t left_result = static_cast<uint32_t>(left_source.data[0]);
+            auto left_result = static_cast<uint32_t>(left_source.data[0]);
 
             fr right_source = builder.get_variable(accumulators.right[j + (extra_bits >> 1)]).from_montgomery_form();
-            uint32_t right_result = static_cast<uint32_t>(right_source.data[0]);
+            auto right_result = static_cast<uint32_t>(right_source.data[0]);
 
             fr out_source = builder.get_variable(accumulators.out[j + (extra_bits >> 1)]).from_montgomery_form();
-            uint32_t out_result = static_cast<uint32_t>(out_source.data[0]);
+            auto out_result = static_cast<uint32_t>(out_source.data[0]);
 
             EXPECT_EQ(left_result, left_expected);
             EXPECT_EQ(right_result, right_expected);
@@ -404,7 +409,7 @@ TEST(standard_plonk_composer, xor_constraint)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, big_add_gate_with_bit_extract)
+TEST_F(StandardPlonkComposer, BigAddGateWithBitExtract)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -447,7 +452,7 @@ TEST(standard_plonk_composer, big_add_gate_with_bit_extract)
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, test_range_constraint_fail)
+TEST_F(StandardPlonkComposer, TestRangeConstraintFail)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -465,7 +470,7 @@ TEST(standard_plonk_composer, test_range_constraint_fail)
     EXPECT_EQ(result, false);
 }
 
-TEST(standard_plonk_composer, test_check_circuit_correct)
+TEST_F(StandardPlonkComposer, TestCheckCircuitCorrect)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -482,11 +487,11 @@ TEST(standard_plonk_composer, test_check_circuit_correct)
     builder.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
     builder.create_add_gate({ d_idx, c_idx, a_idx, fr::one(), fr::neg_one(), fr::neg_one(), fr::zero() });
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
 
-TEST(standard_plonk_composer, test_check_circuit_broken)
+TEST_F(StandardPlonkComposer, TestCheckCircuitBroken)
 {
     auto builder = StandardCircuitBuilder();
     auto composer = StandardComposer();
@@ -503,6 +508,6 @@ TEST(standard_plonk_composer, test_check_circuit_broken)
     builder.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
     builder.create_add_gate({ d_idx, c_idx, a_idx, fr::one(), fr::neg_one(), fr::neg_one(), fr::zero() });
 
-    bool result = builder.check_circuit();
+    bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, false);
 }

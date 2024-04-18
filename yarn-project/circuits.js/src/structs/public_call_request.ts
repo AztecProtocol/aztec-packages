@@ -1,17 +1,15 @@
-import { BufferReader } from '@aztec/foundation/serialize';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { computeVarArgsHash } from '../abis/abis.js';
-import { CircuitsWasm, FieldsOf } from '../index.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import {
-  AztecAddress,
-  CallContext,
-  Fr,
-  FunctionData,
-  PublicCallStackItem,
-  PublicCircuitPublicInputs,
-  Vector,
-} from './index.js';
+import { computeVarArgsHash } from '../hash/hash.js';
+import { CallContext } from './call_context.js';
+import { CallRequest, CallerContext } from './call_request.js';
+import { FunctionData } from './function_data.js';
+import { PublicCallStackItem } from './public_call_stack_item.js';
+import { PublicCircuitPublicInputs } from './public_circuit_public_inputs.js';
+import { Vector } from './shared.js';
 
 /**
  * Represents a request to call a public function from a private function. Serialization is
@@ -25,20 +23,23 @@ export class PublicCallRequest {
     public contractAddress: AztecAddress,
     /**
      * Data identifying the function being called.
+     * TODO(#3417): Remove this since the only useful data is the function selector, which is already part of the call context.
      */
     public functionData: FunctionData,
     /**
      * Context of the public call.
+     * TODO(#3417): Check if all fields of CallContext are actually needed.
      */
     public callContext: CallContext,
+    /**
+     * Context of the public call.
+     * TODO(#3417): Check if all fields of CallContext are actually needed.
+     */
+    public parentCallContext: CallContext,
     /**
      * Function arguments.
      */
     public args: Fr[],
-    /**
-     * Optional side effect counter tracking position of this event in tx execution.
-     */
-    public sideEffectCounter?: number,
   ) {}
 
   /**
@@ -46,19 +47,26 @@ export class PublicCallRequest {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.contractAddress, this.functionData, this.callContext, new Vector(this.args));
+    return serializeToBuffer(
+      this.contractAddress,
+      this.functionData,
+      this.callContext,
+      this.parentCallContext,
+      new Vector(this.args),
+    );
   }
 
   /**
-   * Deserialise this from a buffer.
-   * @param buffer - The bufferable type from which to deserialise.
-   * @returns The deserialised instance of PublicCallRequest.
+   * Deserialize this from a buffer.
+   * @param buffer - The bufferable type from which to deserialize.
+   * @returns The deserialized instance of PublicCallRequest.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicCallRequest(
       new AztecAddress(reader.readBytes(32)),
       FunctionData.fromBuffer(reader),
+      CallContext.fromBuffer(reader),
       CallContext.fromBuffer(reader),
       reader.readVector(Fr),
     );
@@ -83,8 +91,8 @@ export class PublicCallRequest {
       fields.contractAddress,
       fields.functionData,
       fields.callContext,
+      fields.parentCallContext,
       fields.args,
-      fields.sideEffectCounter,
     ] as const;
   }
 
@@ -92,18 +100,36 @@ export class PublicCallRequest {
    * Creates a new PublicCallStackItem by populating with zeroes all fields related to result in the public circuit output.
    * @returns A PublicCallStackItem instance with the same contract address, function data, call context, and args.
    */
-  async toPublicCallStackItem(): Promise<PublicCallStackItem> {
+  toPublicCallStackItem() {
     const publicInputs = PublicCircuitPublicInputs.empty();
     publicInputs.callContext = this.callContext;
-    publicInputs.argsHash = await this.getArgsHash();
+    publicInputs.argsHash = this.getArgsHash();
     return new PublicCallStackItem(this.contractAddress, this.functionData, publicInputs, true);
+  }
+
+  /**
+   * Creates a new CallRequest with values of the calling contract.
+   * @returns A CallRequest instance with the contract address, caller context, and the hash of the call stack item.
+   */
+  toCallRequest() {
+    const item = this.toPublicCallStackItem();
+    const callerContext = this.callContext.isDelegateCall
+      ? new CallerContext(this.parentCallContext.msgSender, this.parentCallContext.storageContractAddress)
+      : CallerContext.empty();
+    return new CallRequest(
+      item.hash(),
+      this.parentCallContext.storageContractAddress,
+      callerContext,
+      new Fr(this.callContext.sideEffectCounter),
+      Fr.ZERO,
+    );
   }
 
   /**
    * Returns the hash of the arguments for this request.
    * @returns Hash of the arguments for this request.
    */
-  async getArgsHash() {
-    return computeVarArgsHash(await CircuitsWasm.get(), this.args);
+  getArgsHash() {
+    return computeVarArgsHash(this.args);
   }
 }

@@ -1,49 +1,40 @@
-import {
-  AztecAddress,
-  Contract,
-  ContractDeployer,
-  Fr,
-  GrumpkinScalar,
-  Point,
-  generatePublicKey,
-  getSchnorrAccount,
-  isContractDeployed,
-} from '@aztec/aztec.js';
-import { StructType, decodeFunctionSignatureWithParameterNames } from '@aztec/foundation/abi';
-import { JsonStringify } from '@aztec/foundation/json-rpc';
-import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { Fr } from '@aztec/circuits.js';
+import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
-import { compileContract, generateNoirInterface, generateTypescriptInterface } from '@aztec/noir-compiler/cli';
-import { CompleteAddress, ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
+import { addCodegenCommanderAction } from '@aztec/noir-compiler/cli';
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
+import { lookup } from 'dns/promises';
 import { readFileSync } from 'fs';
-import startCase from 'lodash.startcase';
 import { dirname, resolve } from 'path';
-import { mnemonicToAccount } from 'viem/accounts';
 
-import { createCompatibleClient } from './client.js';
-import { encodeArgs, parseStructString } from './encoding.js';
-import { unboxContract } from './unbox.js';
 import {
-  deployAztecContracts,
-  getAbiFunction,
-  getContractAbi,
-  getExampleContractArtifacts,
-  getTxSender,
-  prepTx,
-} from './utils.js';
+  parseAztecAddress,
+  parseEthereumAddress,
+  parseField,
+  parseFieldFromHexString,
+  parseOptionalAztecAddress,
+  parseOptionalInteger,
+  parseOptionalLogId,
+  parseOptionalSelector,
+  parseOptionalTxHash,
+  parsePartialAddress,
+  parsePrivateKey,
+  parsePublicKey,
+  parseTxHash,
+} from './parse_args.js';
 
-const accountCreationSalt = Fr.ZERO;
+/**
+ * If we can successfully resolve 'host.docker.internal', then we are running in a container, and we should treat
+ * localhost as being host.docker.internal.
+ */
+const getLocalhost = () =>
+  lookup('host.docker.internal')
+    .then(() => 'host.docker.internal')
+    .catch(() => 'localhost');
 
-const stripLeadingHex = (hex: string) => {
-  if (hex.length > 2 && hex.startsWith('0x')) {
-    return hex.substring(2);
-  }
-  return hex;
-};
-
-const { ETHEREUM_HOST, AZTEC_RPC_HOST, PRIVATE_KEY, API_KEY } = process.env;
+const LOCALHOST = await getLocalhost();
+const { ETHEREUM_HOST = `http://${LOCALHOST}:8545`, PRIVATE_KEY, API_KEY, CLI_VERSION } = process.env;
 
 /**
  * Returns commander program that defines the CLI.
@@ -55,41 +46,47 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   const program = new Command();
 
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const version: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const cliVersion: string = CLI_VERSION || JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const logJson = (obj: object) => log(JSON.stringify(obj, null, 2));
 
-  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(version);
+  program.name('aztec-cli').description('CLI for interacting with Aztec.').version(cliVersion);
+
+  const pxeOption = new Option('-u, --rpc-url <string>', 'URL of the PXE')
+    .env('PXE_URL')
+    .default(`http://${LOCALHOST}:8080`)
+    .makeOptionMandatory(true);
+
+  const createPrivateKeyOption = (description: string, mandatory: boolean) =>
+    new Option('-k, --private-key <string>', description)
+      .env('PRIVATE_KEY')
+      .argParser(parsePrivateKey)
+      .makeOptionMandatory(mandatory);
 
   program
     .command('deploy-l1-contracts')
     .description('Deploys all necessary Ethereum contracts for Aztec.')
-    .option(
+    .requiredOption(
       '-u, --rpc-url <string>',
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
-      ETHEREUM_HOST || 'http://localhost:8545',
+      ETHEREUM_HOST,
     )
     .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
-    .option('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .requiredOption('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
       'test test test test test test test test test test test junk',
     )
     .action(async options => {
-      const { rollupAddress, registryAddress, inboxAddress, outboxAddress, contractDeploymentEmitterAddress } =
-        await deployAztecContracts(
-          options.rpcUrl,
-          options.apiKey ?? '',
-          options.privateKey,
-          options.mnemonic,
-          debugLogger,
-        );
-      log('\n');
-      log(`Rollup Address: ${rollupAddress.toString()}`);
-      log(`Registry Address: ${registryAddress.toString()}`);
-      log(`L1 -> L2 Inbox Address: ${inboxAddress.toString()}`);
-      log(`L2 -> L1 Outbox address: ${outboxAddress.toString()}`);
-      log(`Contract Deployment Emitter Address: ${contractDeploymentEmitterAddress.toString()}`);
-      log('\n');
+      const { deployL1Contracts } = await import('./cmds/deploy_l1_contracts.js');
+      await deployL1Contracts(
+        options.rpcUrl,
+        options.apiKey ?? '',
+        options.privateKey,
+        options.mnemonic,
+        log,
+        debugLogger,
+      );
     });
 
   program
@@ -103,299 +100,277 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
     )
     .action(async options => {
-      let privKey;
-      let publicKey;
-      if (options.mnemonic) {
-        const acc = mnemonicToAccount(options.mnemonic);
-        // TODO(#2052): This reduction is not secure enough. TACKLE THIS ISSUE BEFORE MAINNET.
-        const key = GrumpkinScalar.fromBufferWithReduction(Buffer.from(acc.getHdKey().privateKey!));
-        publicKey = await generatePublicKey(key);
-      } else {
-        const key = GrumpkinScalar.random();
-        privKey = key.toString(true);
-        publicKey = await generatePublicKey(key);
-      }
-      log(`\nPrivate Key: ${privKey}\nPublic Key: ${publicKey.toString()}\n`);
+      const { generatePrivateKey } = await import('./cmds/generate_private_key.js');
+      generatePrivateKey(options.mnemonic, log);
+    });
+
+  program
+    .command('generate-p2p-private-key')
+    .summary('Generates a LibP2P peer private key.')
+    .description('Generates a private key that can be used for running a node on a LibP2P network.')
+    .action(async () => {
+      const { generateP2PPrivateKey } = await import('./cmds/generate_p2p_private_key.js');
+      await generateP2PPrivateKey(log);
     });
 
   program
     .command('create-account')
     .description(
-      'Creates an aztec account that can be used for sending transactions. Registers the account on the RPC server and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
+      'Creates an aztec account that can be used for sending transactions. Registers the account on the PXE and deploys an account contract. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
     )
     .summary('Creates an aztec account that can be used for sending transactions.')
-    .option(
-      '-k, --private-key <string>',
-      'Private key for note encryption and transaction signing. Uses random by default.',
-      PRIVATE_KEY,
+    .addOption(
+      createPrivateKeyOption('Private key for note encryption and transaction signing. Uses random by default.', false),
     )
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-    .action(async options => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const privateKey = options.privateKey
-        ? GrumpkinScalar.fromString(stripLeadingHex(options.privateKey))
-        : GrumpkinScalar.random();
+    .addOption(pxeOption)
+    // `options.wait` is default true. Passing `--no-wait` will set it to false.
+    // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
+    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .action(async ({ rpcUrl, privateKey, wait }) => {
+      const { createAccount } = await import('./cmds/create_account.js');
+      await createAccount(rpcUrl, privateKey, wait, debugLogger, log);
+    });
 
-      const account = getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt);
-      const wallet = await account.waitDeploy();
-      const { address, publicKey, partialAddress } = wallet.getCompleteAddress();
-
-      log(`\nCreated new account:\n`);
-      log(`Address:         ${address.toString()}`);
-      log(`Public key:      ${publicKey.toString()}`);
-      if (!options.privateKey) log(`Private key:     ${privateKey.toString(true)}`);
-      log(`Partial address: ${partialAddress.toString()}`);
+  program
+    .command('register-account')
+    .description(
+      'Registers an aztec account that can be used for sending transactions. Registers the account on the PXE. Uses a Schnorr single-key account which uses the same key for encryption and authentication (not secure for production usage).',
+    )
+    .summary('Registers an aztec account that can be used for sending transactions.')
+    .addOption(createPrivateKeyOption('Private key for note encryption and transaction signing.', true))
+    .requiredOption(
+      '-pa, --partial-address <partialAddress>',
+      'The partially computed address of the account contract.',
+      parsePartialAddress,
+    )
+    .addOption(pxeOption)
+    .action(async ({ rpcUrl, privateKey, partialAddress }) => {
+      const { registerAccount } = await import('./cmds/register_account.js');
+      await registerAccount(rpcUrl, privateKey, partialAddress, debugLogger, log);
     });
 
   program
     .command('deploy')
     .description('Deploys a compiled Aztec.nr contract to Aztec.')
     .argument(
-      '<abi>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      '<artifact>',
+      "A compiled Aztec.nr contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js",
     )
+    .option('--initializer <string>', 'The contract initializer function to call')
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .addOption(pxeOption)
     .option(
       '-k, --public-key <string>',
       'Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.',
+      parsePublicKey,
     )
-    .option('-s, --salt <string>', 'Optional deployment salt as a hex string for generating the deployment address.')
-    .action(async (abiPath, options: any) => {
-      const contractAbi = await getContractAbi(abiPath, log);
-      const constructorAbi = contractAbi.functions.find(({ name }) => name === 'constructor');
-
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const publicKey = options.publicKey ? Point.fromString(options.publicKey) : undefined;
-      const salt = options.salt ? Fr.fromBuffer(Buffer.from(stripLeadingHex(options.salt), 'hex')) : undefined;
-      const deployer = new ContractDeployer(contractAbi, client, publicKey);
-
-      const constructor = getAbiFunction(contractAbi, 'constructor');
-      if (!constructor) throw new Error(`Constructor not found in contract ABI`);
-      if (constructor.parameters.length !== options.args.length) {
-        throw new Error(
-          `Invalid number of args passed (expected ${constructor.parameters.length} but got ${options.args.length})`,
+    .option(
+      '-p, --portal-address <hex string>',
+      'Optional L1 portal address to link the contract to.',
+      parseEthereumAddress,
+    )
+    .option(
+      '-s, --salt <hex string>',
+      'Optional deployment salt as a hex string for generating the deployment address.',
+      parseFieldFromHexString,
+    )
+    .addOption(createPrivateKeyOption("The sender's private key.", true))
+    .option('--json', 'Emit output as json')
+    // `options.wait` is default true. Passing `--no-wait` will set it to false.
+    // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
+    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .action(
+      async (
+        artifactPath,
+        { json, rpcUrl, publicKey, args: rawArgs, portalAddress, salt, wait, privateKey, initializer },
+      ) => {
+        const { deploy } = await import('./cmds/deploy.js');
+        await deploy(
+          artifactPath,
+          json,
+          rpcUrl,
+          publicKey,
+          rawArgs,
+          portalAddress,
+          salt,
+          privateKey,
+          initializer,
+          wait,
+          debugLogger,
+          log,
+          logJson,
         );
-      }
-
-      debugLogger(`Input arguments: ${options.args.map((x: any) => `"${x}"`).join(', ')}`);
-      const args = encodeArgs(options.args, constructorAbi!.parameters);
-      debugLogger(`Encoded arguments: ${args.join(', ')}`);
-      const tx = deployer.deploy(...args).send({ contractAddressSalt: salt });
-      debugLogger(`Deploy tx sent with hash ${await tx.getTxHash()}`);
-      const deployed = await tx.wait();
-      log(`\nContract deployed at ${deployed.contractAddress!.toString()}\n`);
-    });
+      },
+    );
 
   program
     .command('check-deploy')
     .description('Checks if a contract is deployed to the specified Aztec address.')
-    .requiredOption('-ca, --contract-address <address>', 'An Aztec address to check if contract has been deployed to.')
-    .option('-u, --rpc-url <url>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .requiredOption(
+      '-ca, --contract-address <address>',
+      'An Aztec address to check if contract has been deployed to.',
+      parseAztecAddress,
+    )
+    .addOption(pxeOption)
     .action(async options => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const address = AztecAddress.fromString(options.contractAddress);
-      const isDeployed = await isContractDeployed(client, address);
-      if (isDeployed) log(`\nContract found at ${address.toString()}\n`);
-      else log(`\nNo contract found at ${address.toString()}\n`);
+      const { checkDeploy } = await import('./cmds/check_deploy.js');
+      await checkDeploy(options.rpcUrl, options.contractAddress, debugLogger, log);
+    });
+
+  program
+    .command('add-contract')
+    .description(
+      'Adds an existing contract to the PXE. This is useful if you have deployed a contract outside of the PXE and want to use it with the PXE.',
+    )
+    .requiredOption(
+      '-c, --contract-artifact <fileLocation>',
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
+    )
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .requiredOption('--init-hash <init hash>', 'Initialization hash', parseFieldFromHexString)
+    .option('--salt <salt>', 'Optional deployment salt', parseFieldFromHexString)
+    .option('-p, --public-key <public key>', 'Optional public key for this contract', parsePublicKey)
+    .option('--portal-address <address>', 'Optional address to a portal contract on L1', parseEthereumAddress)
+    .option('--deployer-address <address>', 'Optional address of the contract deployer', parseAztecAddress)
+    .addOption(pxeOption)
+    .action(async options => {
+      const { addContract } = await import('./cmds/add_contract.js');
+      await addContract(
+        options.rpcUrl,
+        options.contractArtifact,
+        options.contractAddress,
+        options.initHash,
+        options.salt ?? Fr.ZERO,
+        options.publicKey,
+        options.portalContract,
+        options.deployerAddress,
+        debugLogger,
+        log,
+      );
     });
 
   program
     .command('get-tx-receipt')
     .description('Gets the receipt for the specified transaction hash.')
-    .argument('<txHash>', 'A transaction hash to get the receipt for.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-    .action(async (_txHash, options) => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const txHash = TxHash.fromString(_txHash);
-      const receipt = await client.getTxReceipt(txHash);
-      if (!receipt) {
-        log(`No receipt found for transaction hash ${_txHash}`);
-      } else {
-        log(`\nTransaction receipt: \n${JsonStringify(receipt, true)}\n`);
-      }
+    .argument('<txHash>', 'A transaction hash to get the receipt for.', parseTxHash)
+    .addOption(pxeOption)
+    .action(async (txHash, options) => {
+      const { getTxReceipt } = await import('./cmds/get_tx_receipt.js');
+      await getTxReceipt(options.rpcUrl, txHash, debugLogger, log);
     });
 
   program
     .command('get-contract-data')
     .description('Gets information about the Aztec contract deployed at the specified address.')
-    .argument('<contractAddress>', 'Aztec address of the contract.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
+    .addOption(pxeOption)
     .option('-b, --include-bytecode <boolean>', "Include the contract's public function bytecode, if any.", false)
     .action(async (contractAddress, options) => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const address = AztecAddress.fromString(contractAddress);
-      const contractDataWithOrWithoutBytecode = options.includeBytecode
-        ? await client.getExtendedContractData(address)
-        : await client.getContractData(address);
-
-      if (!contractDataWithOrWithoutBytecode) {
-        log(`No contract data found at ${contractAddress}`);
-        return;
-      }
-      let contractData: ContractData;
-
-      if ('contractData' in contractDataWithOrWithoutBytecode) {
-        contractData = contractDataWithOrWithoutBytecode.contractData;
-      } else {
-        contractData = contractDataWithOrWithoutBytecode;
-      }
-      log(`\nContract Data: \nAddress: ${contractData.contractAddress.toString()}`);
-      log(`Portal:  ${contractData.portalContractAddress.toString()}`);
-      if ('bytecode' in contractDataWithOrWithoutBytecode) {
-        log(`Bytecode: ${contractDataWithOrWithoutBytecode.bytecode}`);
-      }
-      log('\n');
+      const { getContractData } = await import('./cmds/get_contract_data.js');
+      await getContractData(options.rpcUrl, contractAddress, options.includeBytecode, debugLogger, log);
     });
 
   program
     .command('get-logs')
-    .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
-    .option('-f, --from <blockNum>', 'Initial block number for getting logs (defaults to 1).')
-    .option('-l, --limit <blockCount>', 'How many blocks to fetch (defaults to 100).')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-    .action(async options => {
-      const { from, limit } = options;
-      const fromBlock = from ? parseInt(from) : 1;
-      const limitCount = limit ? parseInt(limit) : 100;
-
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const logs = await client.getUnencryptedLogs(fromBlock, limitCount);
-      if (!logs.length) {
-        log(`No logs found in blocks ${fromBlock} to ${fromBlock + limitCount}`);
-      } else {
-        log('Logs found: \n');
-        L2BlockL2Logs.unrollLogs(logs).forEach(fnLog => log(`${fnLog.toString('ascii')}\n`));
-      }
+    .description('Gets all the unencrypted logs from an intersection of all the filter params.')
+    .option('-tx, --tx-hash <txHash>', 'A transaction hash to get the receipt for.', parseOptionalTxHash)
+    .option(
+      '-fb, --from-block <blockNum>',
+      'Initial block number for getting logs (defaults to 1).',
+      parseOptionalInteger,
+    )
+    .option('-tb, --to-block <blockNum>', 'Up to which block to fetch logs (defaults to latest).', parseOptionalInteger)
+    .option('-al --after-log <logId>', 'ID of a log after which to fetch the logs.', parseOptionalLogId)
+    .option('-ca, --contract-address <address>', 'Contract address to filter logs by.', parseOptionalAztecAddress)
+    .option('-s, --selector <hex string>', 'Event selector to filter logs by.', parseOptionalSelector)
+    .addOption(pxeOption)
+    .option('--follow', 'If set, will keep polling for new logs until interrupted.')
+    .action(async ({ txHash, fromBlock, toBlock, afterLog, contractAddress, selector, rpcUrl, follow }) => {
+      const { getLogs } = await import('./cmds/get_logs.js');
+      await getLogs(txHash, fromBlock, toBlock, afterLog, contractAddress, selector, rpcUrl, follow, debugLogger, log);
     });
 
   program
     .command('register-recipient')
-    .description('Register a recipient in the Aztec RPC.')
-    .requiredOption('-a, --address <aztecAddress>', "The account's Aztec address.")
-    .requiredOption('-p, --public-key <publicKey>', 'The account public key.')
-    .requiredOption('-pa, --partial-address <partialAddress', 'The partially computed address of the account contract.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-    .action(async options => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const address = AztecAddress.fromString(options.address);
-      const publicKey = Point.fromString(options.publicKey);
-      const partialAddress = Fr.fromString(options.partialAddress);
-
-      await client.registerRecipient(await CompleteAddress.create(address, publicKey, partialAddress));
-      log(`\nRegistered details for account with address: ${options.address}\n`);
+    .description('Register a recipient in the PXE.')
+    .requiredOption('-a, --address <aztecAddress>', "The account's Aztec address.", parseAztecAddress)
+    .requiredOption('-p, --public-key <publicKey>', 'The account public key.', parsePublicKey)
+    .requiredOption(
+      '-pa, --partial-address <partialAddress>',
+      'The partially computed address of the account contract.',
+      parsePartialAddress,
+    )
+    .addOption(pxeOption)
+    .action(async ({ address, publicKey, partialAddress, rpcUrl }) => {
+      const { registerRecipient } = await import('./cmds/register_recipient.js');
+      await registerRecipient(address, publicKey, partialAddress, rpcUrl, debugLogger, log);
     });
 
   program
     .command('get-accounts')
-    .description('Gets all the Aztec accounts stored in the Aztec RPC.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .description('Gets all the Aztec accounts stored in the PXE.')
+    .addOption(pxeOption)
+    .option('--json', 'Emit output as json')
     .action(async (options: any) => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const accounts = await client.getAccounts();
-      if (!accounts.length) {
-        log('No accounts found.');
-      } else {
-        log(`Accounts found: \n`);
-        for (const account of accounts) {
-          log(account.toReadableString());
-        }
-      }
+      const { getAccounts } = await import('./cmds/get_accounts.js');
+      await getAccounts(options.rpcUrl, options.json, debugLogger, log, logJson);
     });
 
   program
     .command('get-account')
     .description('Gets an account given its Aztec address.')
-    .argument('<address>', 'The Aztec address to get account for')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-    .action(async (_address, options) => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const address = AztecAddress.fromString(_address);
-      const account = await client.getAccount(address);
-
-      if (!account) {
-        log(`Unknown account ${_address}`);
-      } else {
-        log(account.toReadableString());
-      }
+    .argument('<address>', 'The Aztec address to get account for', parseAztecAddress)
+    .addOption(pxeOption)
+    .action(async (address, options) => {
+      const { getAccount } = await import('./cmds/get_account.js');
+      await getAccount(address, options.rpcUrl, debugLogger, log);
     });
 
   program
     .command('get-recipients')
-    .description('Gets all the recipients stored in the Aztec RPC.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .description('Gets all the recipients stored in the PXE.')
+    .addOption(pxeOption)
     .action(async (options: any) => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const recipients = await client.getRecipients();
-      if (!recipients.length) {
-        log('No recipients found.');
-      } else {
-        log(`Recipients found: \n`);
-        for (const recipient of recipients) {
-          log(recipient.toReadableString());
-        }
-      }
+      const { getRecipients } = await import('./cmds/get_recipients.js');
+      await getRecipients(options.rpcUrl, debugLogger, log);
     });
 
   program
     .command('get-recipient')
     .description('Gets a recipient given its Aztec address.')
-    .argument('<address>', 'The Aztec address to get recipient for')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-    .action(async (_address, options) => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const address = AztecAddress.fromString(_address);
-      const recipient = await client.getRecipient(address);
-
-      if (!recipient) {
-        log(`Unknown recipient ${_address}`);
-      } else {
-        log(recipient.toReadableString());
-      }
+    .argument('<address>', 'The Aztec address to get recipient for', parseAztecAddress)
+    .addOption(pxeOption)
+    .action(async (address, options) => {
+      const { getRecipient } = await import('./cmds/get_recipient.js');
+      await getRecipient(address, options.rpcUrl, debugLogger, log);
     });
 
   program
     .command('send')
     .description('Calls a function on an Aztec contract.')
-    .argument('<functionName>', 'Name of Function to view')
+    .argument('<functionName>', 'Name of function to execute')
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
-      '-c, --contract-abi <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      '-c, --contract-artifact <fileLocation>',
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
-    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.')
-    .option('-k, --private-key <string>', "The sender's private key.", PRIVATE_KEY)
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .addOption(createPrivateKeyOption("The sender's private key.", true))
+    .addOption(pxeOption)
+    .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .action(async (functionName, options) => {
-      const { contractAddress, functionArgs, contractAbi } = await prepTx(
-        options.contractAbi,
-        options.contractAddress,
+      const { send } = await import('./cmds/send.js');
+      await send(
         functionName,
         options.args,
+        options.contractArtifact,
+        options.contractAddress,
+        options.privateKey,
+        options.rpcUrl,
+        !options.noWait,
+        debugLogger,
         log,
       );
-
-      const fnAbi = getAbiFunction(contractAbi, functionName);
-      if (fnAbi.parameters.length !== options.args.length) {
-        throw Error(
-          `Invalid number of args passed. Expected ${fnAbi.parameters.length}; Received: ${options.args.length}`,
-        );
-      }
-
-      const privateKey = GrumpkinScalar.fromString(stripLeadingHex(options.privateKey));
-
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const wallet = await getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt).getWallet();
-      const contract = await Contract.at(contractAddress, contractAbi, wallet);
-      const tx = contract.methods[functionName](...functionArgs).send();
-      await tx.wait();
-      log('\nTransaction has been mined');
-      const receipt = await tx.getReceipt();
-      log(`Transaction hash: ${(await tx.getTxHash()).toString()}`);
-      log(`Status: ${receipt.status}\n`);
-      log(`Block number: ${receipt.blockNumber}`);
-      log(`Block hash: ${receipt.blockHash?.toString('hex')}`);
     });
 
   program
@@ -403,33 +378,51 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description(
       'Simulates the execution of a view (read-only) function on a deployed contract, without modifying state.',
     )
-    .argument('<functionName>', 'Name of Function to view')
+    .argument('<functionName>', 'Name of function to call')
     .option('-a, --args [functionArgs...]', 'Function arguments', [])
     .requiredOption(
-      '-c, --contract-abi <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      '-c, --contract-artifact <fileLocation>',
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
-    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.')
-    .option('-f, --from <string>', 'Public key of the TX viewer. If empty, will try to find account in RPC.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .option('-f, --from <string>', 'Aztec address of the caller. If empty, will use the first account from RPC.')
+    .addOption(pxeOption)
     .action(async (functionName, options) => {
-      const { contractAddress, functionArgs, contractAbi } = await prepTx(
-        options.contractAbi,
-        options.contractAddress,
+      const { call } = await import('./cmds/call.js');
+      await call(
         functionName,
         options.args,
+        options.contractArtifact,
+        options.contractAddress,
+        options.from,
+        options.rpcUrl,
+        debugLogger,
         log,
       );
-      const fnAbi = getAbiFunction(contractAbi, functionName);
-      if (fnAbi.parameters.length !== options.args.length) {
-        throw Error(
-          `Invalid number of args passed. Expected ${fnAbi.parameters.length}; Received: ${options.args.length}`,
-        );
-      }
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const from = await getTxSender(client, options.from);
-      const result = await client.viewTx(functionName, functionArgs, contractAddress, from);
-      log('\nView result: ', result, '\n');
+    });
+
+  program
+    .command('add-note')
+    .description('Adds a note to the database in the PXE.')
+    .argument('<address>', 'The Aztec address of the note owner.', parseAztecAddress)
+    .argument('<contractAddress>', 'Aztec address of the contract.', parseAztecAddress)
+    .argument('<storageSlot>', 'The storage slot of the note.', parseField)
+    .argument('<noteTypeId>', 'The type ID of the note.', parseField)
+    .argument('<txHash>', 'The tx hash of the tx containing the note.', parseTxHash)
+    .requiredOption('-n, --note [note...]', 'The members of a Note serialized as hex strings.', [])
+    .addOption(pxeOption)
+    .action(async (address, contractAddress, storageSlot, noteTypeId, txHash, options) => {
+      const { addNote } = await import('./cmds/add_note.js');
+      await addNote(
+        address,
+        contractAddress,
+        storageSlot,
+        noteTypeId,
+        txHash,
+        options.note,
+        options.rpcUrl,
+        debugLogger,
+      );
     });
 
   // Helper for users to decode hex strings into structs if needed.
@@ -438,90 +431,76 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description("Helper for parsing an encoded string into a contract's parameter struct.")
     .argument('<encodedString>', 'The encoded hex string')
     .requiredOption(
-      '-c, --contract-abi <fileLocation>',
-      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts",
+      '-c, --contract-artifact <fileLocation>',
+      "A compiled Aztec.nr contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts.js",
     )
     .requiredOption('-p, --parameter <parameterName>', 'The name of the struct parameter to decode into')
     .action(async (encodedString, options) => {
-      const contractAbi = await getContractAbi(options.contractAbi, log);
-      const parameterAbitype = contractAbi.functions
-        .map(({ parameters }) => parameters)
-        .flat()
-        .find(({ name, type }) => name === options.parameter && type.kind === 'struct');
-      if (!parameterAbitype) {
-        log(`No struct parameter found with name ${options.parameter}`);
-        return;
-      }
-      const data = parseStructString(encodedString, parameterAbitype.type as StructType);
-      log(`\nStruct Data: \n${JsonStringify(data, true)}\n`);
+      const { parseParameterStruct } = await import('./cmds/parse_parameter_struct.js');
+      await parseParameterStruct(encodedString, options.contractArtifact, options.parameter, log);
     });
 
   program
     .command('block-number')
     .description('Gets the current Aztec L2 block number.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .addOption(pxeOption)
     .action(async (options: any) => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const num = await client.getBlockNumber();
-      log(`${num}\n`);
+      const { blockNumber } = await import('./cmds/block_number.js');
+      await blockNumber(options.rpcUrl, debugLogger, log);
     });
 
   program
     .command('example-contracts')
-    .description('Lists the example contracts available to deploy from @aztec/noir-contracts')
+    .description('Lists the example contracts available to deploy from @aztec/noir-contracts.js')
     .action(async () => {
-      const abisList = await getExampleContractArtifacts();
-      const names = Object.keys(abisList);
-      names.forEach(name => log(name));
-    });
-
-  program
-    .command('unbox')
-    .description(
-      'Unboxes an example contract from @aztec/boxes.  Also Copies `noir-libs` dependencies and setup simple frontend for the contract using its ABI.',
-    )
-    .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
-    .argument('[localDirectory]', 'Local directory to unbox to (relative or absolute), defaults to `<contractName>`')
-    .action(async (contractName, localDirectory) => {
-      const unboxTo: string = localDirectory ? localDirectory : contractName;
-      await unboxContract(contractName, unboxTo, version, log);
+      const { exampleContracts } = await import('./cmds/example_contracts.js');
+      await exampleContracts(log);
     });
 
   program
     .command('get-node-info')
     .description('Gets the information of an aztec node at a URL.')
-    .requiredOption('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .addOption(pxeOption)
     .action(async options => {
-      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
-      const info = await client.getNodeInfo();
-      log(`\nNode Info:\n`);
-      Object.entries(info).map(([key, value]) => log(`${startCase(key)}: ${value}`));
+      const { getNodeInfo } = await import('./cmds/get_node_info.js');
+      await getNodeInfo(options.rpcUrl, debugLogger, log);
     });
 
   program
     .command('inspect-contract')
     .description('Shows list of external callable functions for a contract')
     .argument(
-      '<contractAbiFile>',
-      `A compiled Noir contract's ABI in JSON format or name of a contract ABI exported by @aztec/noir-contracts`,
+      '<contractArtifactFile>',
+      `A compiled Noir contract's artifact in JSON format or name of a contract artifact exported by @aztec/noir-contracts.js`,
     )
-    .action(async (contractAbiFile: string) => {
-      const contractAbi = await getContractAbi(contractAbiFile, debugLogger);
-      const contractFns = contractAbi.functions.filter(
-        f => !f.isInternal && f.name !== 'compute_note_hash_and_nullifier',
-      );
-      if (contractFns.length === 0) {
-        log(`No external functions found for contract ${contractAbi.name}`);
-      }
-      for (const fn of contractFns) {
-        const signature = decodeFunctionSignatureWithParameterNames(fn.name, fn.parameters);
-        log(`${fn.functionType} ${signature}`);
-      }
+    .action(async (contractArtifactFile: string) => {
+      const { inspectContract } = await import('./cmds/inspect_contract.js');
+      await inspectContract(contractArtifactFile, log);
     });
 
-  compileContract(program, 'compile', log);
-  generateTypescriptInterface(program, 'generate-typescript', log);
-  generateNoirInterface(program, 'generate-noir-interface', log);
+  program
+    .command('compute-selector')
+    .description('Given a function signature, it computes a selector')
+    .argument('<functionSignature>', 'Function signature to compute selector for e.g. foo(Field)')
+    .action(async (functionSignature: string) => {
+      const { computeSelector } = await import('./cmds/compute_selector.js');
+      computeSelector(functionSignature, log);
+    });
+
+  program
+    .command('update')
+    .description('Updates Nodejs and Noir dependencies')
+    .argument('[projectPath]', 'Path to the project directory', process.cwd())
+    .option('--contract [paths...]', 'Paths to contracts to update dependencies', [])
+    .option('--aztec-version <semver>', 'The version to update Aztec packages to. Defaults to latest', 'latest')
+    .addOption(pxeOption)
+    .action(async (projectPath: string, options) => {
+      const { update } = await import('./update/update.js');
+      const { contract, aztecVersion, rpcUrl } = options;
+      await update(projectPath, contract, rpcUrl, aztecVersion, log);
+    });
+
+  addCodegenCommanderAction(program, log);
 
   return program;
 }

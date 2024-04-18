@@ -1,10 +1,7 @@
+import { assertMemberLength } from '@aztec/foundation/array';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-
-import { PRIVATE_DATA_TREE_HEIGHT } from '../cbind/constants.gen.js';
-import { assertMemberLength, range } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * Contains information which can be used to prove that a leaf is a member of a Merkle tree.
@@ -29,14 +26,6 @@ export class MembershipWitness<N extends number> {
 
   toBuffer() {
     return serializeToBuffer(toBufferBE(this.leafIndex, 32), ...this.siblingPath);
-  }
-
-  static mock(size: number, start: number) {
-    return new MembershipWitness(
-      size,
-      BigInt(start),
-      range(size, start).map(x => new Fr(BigInt(x))) as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
-    );
   }
 
   /**
@@ -80,15 +69,31 @@ export class MembershipWitness<N extends number> {
    * @param buffer - Buffer or reader to read from.
    * @returns The deserialized `MembershipWitness`.
    */
-  static fromBuffer<N extends number>(buffer: Buffer | BufferReader): MembershipWitness<N> {
+  static fromBuffer<N extends number>(buffer: Buffer | BufferReader, size: N): MembershipWitness<N> {
     const reader = BufferReader.asReader(buffer);
     const leafIndex = toBigIntBE(reader.readBytes(32));
-    const siblingPath = reader.readBufferArray() as Tuple<Buffer, N>;
-    return this.fromBufferArray(leafIndex, siblingPath);
+    const siblingPath = reader.readArray(size, Fr);
+    return new MembershipWitness(size, leafIndex, siblingPath);
+  }
+
+  /**
+   * Creates a deserializer object for a MembershipWitness with a given size.
+   * @param size - Expected size of the witness.
+   * @returns A deserializer object.
+   */
+  static deserializer<N extends number>(size: N): { fromBuffer(buffer: Buffer | BufferReader): MembershipWitness<N> } {
+    return {
+      fromBuffer: (buffer: Buffer | BufferReader) => {
+        const reader = BufferReader.asReader(buffer);
+        const leafIndex = toBigIntBE(reader.readBytes(32));
+        const siblingPath = reader.readArray(size, Fr);
+        return new MembershipWitness(size, leafIndex, siblingPath);
+      },
+    };
   }
 
   // import { SiblingPath } from '@aztec/merkle-tree';
   //   static fromSiblingPath<N extends number>(leafIndex: bigint, siblingPath: SiblingPath<N>): MembershipWitness<N> {
-  //     return new MembershipWitness<N>(siblingPath.pathSize, leafIndex, siblingPath.toFieldArray() as Tuple<Fr, N>);
+  //     return new MembershipWitness<N>(siblingPath.pathSize, leafIndex, siblingPath.toFields() as Tuple<Fr, N>);
   //   }
 }

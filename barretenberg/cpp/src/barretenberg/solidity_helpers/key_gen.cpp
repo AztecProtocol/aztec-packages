@@ -6,6 +6,7 @@
 
 #include "circuits/add_2_circuit.hpp"
 #include "circuits/blake_circuit.hpp"
+#include "circuits/ecdsa_circuit.hpp"
 #include "circuits/recursive_circuit.hpp"
 
 #include "utils/instance_sol_gen.hpp"
@@ -31,7 +32,7 @@ void generate_keys(std::string output_path, std::string flavour_prefix, std::str
     {
         auto vk_filename = output_path + "/keys/" + vk_class_name + ".sol";
         std::ofstream os(vk_filename);
-        proof_system::output_vk_sol(os, vkey, vk_class_name);
+        bb::output_vk_sol(os, vkey, vk_class_name);
         info("VK contract written to: ", vk_filename);
     }
 
@@ -63,24 +64,27 @@ int main(int argc, char** argv)
     const std::string output_path = args[3];
     const std::string srs_path = args[4];
 
-    barretenberg::srs::init_crs_factory(srs_path);
+    bb::srs::init_crs_factory(srs_path);
     // @todo - Add support for unrolled standard verifier. Needs a new solidity verifier contract.
 
     if (plonk_flavour != "ultra") {
         info("Only ultra plonk flavour is supported at the moment");
         return 1;
-    } else {
-        info("Generating ultra plonk keys for ", circuit_flavour, " circuit");
-
-        if (circuit_flavour == "blake") {
-            generate_keys<UltraComposer, BlakeCircuit>(output_path, plonk_flavour, circuit_flavour);
-        } else if (circuit_flavour == "add2") {
-            generate_keys<UltraComposer, Add2Circuit>(output_path, plonk_flavour, circuit_flavour);
-        } else if (circuit_flavour == "recursive") {
-            generate_keys<UltraComposer, RecursiveCircuit>(output_path, plonk_flavour, circuit_flavour);
-        } else {
-            info("Only blake, add2 and recursive circuits are supported at the moment");
-            return 1;
-        }
     }
+
+    info("Generating ultra plonk keys for ", circuit_flavour, " circuit");
+
+    if (circuit_flavour == "blake") {
+        generate_keys<UltraComposer, BlakeCircuit>(output_path, plonk_flavour, circuit_flavour);
+    } else if (circuit_flavour == "add2") {
+        generate_keys<UltraComposer, Add2Circuit>(output_path, plonk_flavour, circuit_flavour);
+    } else if (circuit_flavour == "recursive") {
+        generate_keys<UltraComposer, RecursiveCircuit>(output_path, plonk_flavour, circuit_flavour);
+    } else if (circuit_flavour == "ecdsa") {
+        generate_keys<UltraComposer, EcdsaCircuit>(output_path, plonk_flavour, circuit_flavour);
+    } else {
+        info("Unsupported circuit are supported at the moment");
+        return 1;
+    }
+    return 0;
 }

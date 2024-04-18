@@ -5,13 +5,13 @@ import { yamux } from '@chainsafe/libp2p-yamux';
 import type { ServiceMap } from '@libp2p/interface-libp2p';
 import { kadDHT } from '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
-import { createFromProtobuf } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
-import { Libp2p, Libp2pOptions, ServiceFactoryMap, createLibp2p } from 'libp2p';
+import { type Libp2p, type Libp2pOptions, type ServiceFactoryMap, createLibp2p } from 'libp2p';
 import { identifyService } from 'libp2p/identify';
+import { format } from 'util';
 
-import { P2PConfig } from '../config.js';
-import { createLibP2PPeerId } from '../index.js';
+import { type P2PConfig } from '../config.js';
+import { createLibP2PPeerId } from '../service/index.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -29,11 +29,11 @@ export class BootstrapNode {
   public async start(config: P2PConfig) {
     const { peerIdPrivateKey, tcpListenIp, tcpListenPort, announceHostname, announcePort, minPeerCount, maxPeerCount } =
       config;
-    const peerId = peerIdPrivateKey
-      ? await createFromProtobuf(Buffer.from(peerIdPrivateKey, 'hex'))
-      : await createLibP2PPeerId();
-    this.logger(
-      `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${announcePort}`,
+    const peerId = await createLibP2PPeerId(peerIdPrivateKey);
+    this.logger.info(
+      `Starting bootstrap node ${peerId} on ${tcpListenIp}:${tcpListenPort} announced at ${announceHostname}:${
+        announcePort ?? tcpListenPort
+      }`,
     );
 
     const opts: Libp2pOptions<ServiceMap> = {
@@ -41,7 +41,7 @@ export class BootstrapNode {
       peerId,
       addresses: {
         listen: [`/ip4/${tcpListenIp}/tcp/${tcpListenPort}`],
-        announce: [`/ip4/${announceHostname}/tcp/${announcePort ?? tcpListenPort}`],
+        announce: announceHostname ? [`${announceHostname}/tcp/${announcePort ?? tcpListenPort}`] : [],
       },
       transports: [tcp()],
       streamMuxers: [yamux(), mplex()],
@@ -60,6 +60,13 @@ export class BootstrapNode {
         protocolPrefix: 'aztec',
         clientMode: false,
       }),
+      // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
+      // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
+      // work as then you would have a permanent port to be dialled.
+      // Alas, I struggled to get this to work reliably either.
+      // autoNAT: autoNATService({
+      //   protocolPrefix: 'aztec',
+      // }),
     };
 
     this.node = await createLibp2p({
@@ -68,24 +75,24 @@ export class BootstrapNode {
     });
 
     await this.node.start();
-    this.logger(`lib p2p has started`);
+    this.logger.debug(`lib p2p has started`);
 
     // print out listening addresses
-    this.logger('listening on addresses:');
+    this.logger.info('Listening on addresses:');
     this.node.getMultiaddrs().forEach(addr => {
-      this.logger(addr.toString());
+      this.logger.info(addr.toString());
     });
 
     this.node.addEventListener('peer:discovery', evt => {
-      this.logger('Discovered %s', evt.detail.id.toString()); // Log discovered peer
+      this.logger.verbose(format('Discovered %s', evt.detail.id.toString())); // Log discovered peer
     });
 
     this.node.addEventListener('peer:connect', evt => {
-      this.logger('Connected to %s', evt.detail.toString()); // Log connected peer
+      this.logger.verbose(format('Connected to %s', evt.detail.toString())); // Log connected peer
     });
 
     this.node.addEventListener('peer:disconnect', evt => {
-      this.logger('Disconnected from %s', evt.detail.toString()); // Log connected peer
+      this.logger.verbose(format('Disconnected from %s', evt.detail.toString())); // Log connected peer
     });
   }
 
@@ -96,7 +103,7 @@ export class BootstrapNode {
   public async stop() {
     // stop libp2p
     await this.node?.stop();
-    this.logger('libp2p has stopped');
+    this.logger.debug('libp2p has stopped');
   }
 
   /**

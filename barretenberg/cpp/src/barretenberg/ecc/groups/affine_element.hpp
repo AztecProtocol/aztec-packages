@@ -2,12 +2,18 @@
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <cstring>
 #include <type_traits>
 #include <vector>
 
-namespace barretenberg::group_elements {
-template <typename Fq, typename Fr, typename Params> class alignas(64) affine_element {
+namespace bb::group_elements {
+template <typename T>
+concept SupportsHashToCurve = T::can_hash_to_curve;
+template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_element {
   public:
+    using Fq = Fq_;
+    using Fr = Fr_;
+
     using in_buf = const uint8_t*;
     using vec_in_buf = const uint8_t*;
     using out_buf = uint8_t*;
@@ -16,11 +22,11 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
     affine_element() noexcept = default;
     ~affine_element() noexcept = default;
 
-    constexpr affine_element(const Fq& a, const Fq& b) noexcept;
+    constexpr affine_element(const Fq& x, const Fq& y) noexcept;
 
-    constexpr affine_element(const affine_element& other) noexcept;
+    constexpr affine_element(const affine_element& other) noexcept = default;
 
-    constexpr affine_element(affine_element&& other) noexcept;
+    constexpr affine_element(affine_element&& other) noexcept = default;
 
     static constexpr affine_element one() noexcept { return { Params::one_x, Params::one_y }; };
 
@@ -50,9 +56,9 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
               typename CompileTimeEnabled = std::enable_if_t<(BaseField::modulus >> 255) == uint256_t(1), void>>
     static constexpr std::array<affine_element, 2> from_compressed_unsafe(const uint256_t& compressed) noexcept;
 
-    constexpr affine_element& operator=(const affine_element& other) noexcept;
+    constexpr affine_element& operator=(const affine_element& other) noexcept = default;
 
-    constexpr affine_element& operator=(affine_element&& other) noexcept;
+    constexpr affine_element& operator=(affine_element&& other) noexcept = default;
 
     constexpr affine_element operator+(const affine_element& other) const noexcept;
 
@@ -68,25 +74,16 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
 
     [[nodiscard]] constexpr bool on_curve() const noexcept;
 
+    static constexpr std::optional<affine_element> derive_from_x_coordinate(const Fq& x, bool sign_bit) noexcept;
+
     /**
      * @brief Samples a random point on the curve.
      *
      * @return A randomly chosen point on the curve
      */
-    static affine_element random_element(numeric::random::Engine* engine = nullptr) noexcept;
-
-    static std::optional<affine_element> derive_from_x_coordinate(const Fq& x, bool sign_bit) noexcept;
-
-    /**
-     * @brief Hash a seed value to curve.
-     *
-     * @return A point on the curve corresponding to the given seed
-     */
-    template <typename = typename std::enable_if<Params::can_hash_to_curve>>
-    static affine_element hash_to_curve(uint64_t seed) noexcept;
-
-    template <typename = typename std::enable_if<Params::can_hash_to_curve>>
-    static affine_element hash_to_curve(const std::vector<uint8_t>& seed) noexcept;
+    static affine_element random_element(numeric::RNG* engine = nullptr) noexcept;
+    static constexpr affine_element hash_to_curve(const std::vector<uint8_t>& seed, uint8_t attempt_count = 0) noexcept
+        requires SupportsHashToCurve<Params>;
 
     constexpr bool operator==(const affine_element& other) const noexcept;
 
@@ -98,8 +95,8 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
     /**
      * @brief Serialize the point to the given buffer
      *
-     * @details We support serializing the point at infinity for curves defined over a barretenberg::field (i.e., a
-     * native field of prime order) and for points of barretenberg::g2.
+     * @details We support serializing the point at infinity for curves defined over a bb::field (i.e., a
+     * native field of prime order) and for points of bb::g2.
      *
      * @warning This will need to be updated if we serialize points over composite-order fields other than fq2!
      *
@@ -107,13 +104,9 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
     static void serialize_to_buffer(const affine_element& value, uint8_t* buffer)
     {
         if (value.is_point_at_infinity()) {
-            if constexpr (Fq::modulus.get_msb() == 255) {
-                write(buffer, uint256_t(0));
-                write(buffer, Fq::modulus);
-            } else {
-                write(buffer, uint256_t(0));
-                write(buffer, uint256_t(1) << 255);
-            }
+            // if we are infinity, just set all buffer bits to 1
+            // we only need this case because the below gets mangled converting from montgomery for infinity points
+            memset(buffer, 255, sizeof(Fq) * 2);
         } else {
             Fq::serialize_to_buffer(value.y, buffer);
             Fq::serialize_to_buffer(value.x, buffer + sizeof(Fq));
@@ -127,45 +120,24 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
      *
      * @return Deserialized point
      *
-     * @details We support serializing the point at infinity for curves defined over a barretenberg::field (i.e., a
-     * native field of prime order) and for points of barretenberg::g2.
+     * @details We support serializing the point at infinity for curves defined over a bb::field (i.e., a
+     * native field of prime order) and for points of bb::g2.
      *
      * @warning This will need to be updated if we serialize points over composite-order fields other than fq2!
      */
     static affine_element serialize_from_buffer(uint8_t* buffer)
     {
-        affine_element result;
-
-        // need to read a raw uint256_t to avoid reductions so we can check whether the point is the point at infinity
-        auto raw_x = from_buffer<uint256_t>(buffer + sizeof(Fq));
-
-        if constexpr (Fq::modulus.get_msb() == 255) {
-            if (raw_x == Fq::modulus) {
-                result.y = Fq::zero();
-                result.x.data[0] = raw_x.data[0];
-                result.x.data[1] = raw_x.data[1];
-                result.x.data[2] = raw_x.data[2];
-                result.x.data[3] = raw_x.data[3];
-            } else {
-                result.y = Fq::serialize_from_buffer(buffer);
-                result.x = Fq(raw_x);
-            }
-        } else {
-            if (raw_x.get_msb() == 255) {
-                result.y = Fq::zero();
-                result.x = Fq::zero();
-                result.self_set_infinity();
-            } else {
-                // conditional here to avoid reading the same data twice in case of a field of prime order
-                if constexpr (std::is_same<Fq, fq2>::value) {
-                    result.y = Fq::serialize_from_buffer(buffer);
-                    result.x = Fq::serialize_from_buffer(buffer + sizeof(Fq));
-                } else {
-                    result.y = Fq::serialize_from_buffer(buffer);
-                    result.x = Fq(raw_x);
-                }
-            }
+        // Does the buffer consist entirely of set bits? If so, we have a point at infinity
+        // Note that if it isn't, this loop should end early.
+        // We only need this case because the below gets mangled converting to montgomery for infinity points
+        bool is_point_at_infinity =
+            std::all_of(buffer, buffer + sizeof(Fq) * 2, [](uint8_t val) { return val == 255; });
+        if (is_point_at_infinity) {
+            return affine_element::infinity();
         }
+        affine_element result;
+        result.y = Fq::serialize_from_buffer(buffer);
+        result.x = Fq::serialize_from_buffer(buffer + sizeof(Fq));
         return result;
     }
 
@@ -188,9 +160,11 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
     }
     Fq x;
     Fq y;
+
     // for serialization: update with new fields
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
     MSGPACK_FIELDS(x, y);
 };
-} // namespace barretenberg::group_elements
+} // namespace bb::group_elements
 
 #include "./affine_element_impl.hpp"

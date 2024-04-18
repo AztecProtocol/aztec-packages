@@ -1,23 +1,38 @@
-FROM alpine:3.18 AS builder
-RUN apk update \
-    && apk upgrade \
-    && apk add --no-cache \
-        build-base \
-        clang16 \
-        cmake \
-        ninja \
-        git \
-        curl \
-        perl
-WORKDIR /usr/src/barretenberg/cpp
-COPY . .
-# Build bb binary. Everything else is built as part linux-clang-assert.
-RUN cmake --preset default && cmake --build --preset default --target bb
+FROM ubuntu:lunar as builder
 
-FROM alpine:3.18
+RUN apt update && apt install -y \
+  build-essential \
+  curl \
+  git \
+  cmake \
+  lsb-release \
+  wget \
+  software-properties-common \
+  gnupg \
+  ninja-build \
+  npm \
+  libssl-dev \
+  jq \
+  bash \
+  libstdc++6
+
+RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
+
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
+# Build bb binary and targets needed for benchmarking. 
+# Everything else is built as part linux-clang-assert.
+# Benchmark targets want to run without asserts, so get built alongside bb.
+RUN cmake --preset clang16
+RUN cmake --build --preset clang16 --target ultra_honk_rounds_bench --target bb --target grumpkin_srs_gen
+
+FROM ubuntu:lunar
+WORKDIR /usr/src/barretenberg/cpp
+COPY . .
+COPY --from=builder /usr/src/barretenberg/cpp/scripts/ci /usr/src/barretenberg/cpp/scripts/ci
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+COPY --from=builder /usr/src/barretenberg/cpp/build/bin/ultra_honk_rounds_bench /usr/src/barretenberg/cpp/build/bin/ultra_honk_rounds_bench
+COPY --from=builder /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen /usr/src/barretenberg/cpp/build/bin/grumpkin_srs_gen
 # Copy libs for consuming projects.
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a
 COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libenv.a /usr/src/barretenberg/cpp/build/lib/libenv.a

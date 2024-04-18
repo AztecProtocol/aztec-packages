@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Usage:
 # Bootstraps the repo. End to end tests should be runnable after a bootstrap:
 #   ./bootstrap.sh
@@ -8,70 +8,75 @@
 #   ./bootstrap.sh clean
 set -eu
 
-export CMD=${1:-}
-
 cd "$(dirname "$0")"
 
-# Bump this number to force a full bootstrap.
-VERSION=1
+CMD=${1:-}
 
-# Remove all untracked files and directories.
-if [ -n "$CMD" ]; then
-  if [ "$CMD" = "clean" ]; then
-    echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
-    echo -n "Continue? [y/n] "
-    read user_input
-    if [ "$user_input" != "y" ] && [ "$user_input" != "Y" ]; then
-      exit 1
-    fi
-    rm -f .bootstrapped
-    rm -rf .git/hooks/*
-    rm -rf .git/modules/*
-    git clean -fd
-    for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
-      rm -rf $SUBMODULE
-    done
-  else
-    echo "Unknown command: $CLEAN"
+YELLOW="\033[93m"
+BOLD="\033[1m"
+RESET="\033[0m"
+
+source ./build-system/scripts/setup_env '' '' '' > /dev/null
+
+if [ "$CMD" = "clean" ]; then
+  echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
+  echo -n "Continue? [y/n] "
+  read user_input
+  if [ "$user_input" != "y" ] && [ "$user_input" != "Y" ]; then
     exit 1
   fi
-fi
 
-# Lightweight bootstrap. Run `./bootstrap.sh clean` to bypass.
-if [[ -f .bootstrapped && $(cat .bootstrapped) -eq "$VERSION" ]]; then
-  echo -e '\033[1mRebuild L1 contracts...\033[0m'
-  (cd l1-contracts && .foundry/bin/forge build)
+  # Remove hooks and submodules.
+  rm -rf .git/hooks/*
+  rm -rf .git/modules/*
+  for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
+    rm -rf $SUBMODULE
+  done
 
-  echo -e '\n\033[1mUpdate npm deps...\033[0m'
-  (cd yarn-project && yarn install)
-
-  echo -e '\n\033[1mRebuild Noir contracts...\033[0m'
-  (cd yarn-project/noir-contracts && yarn noir:build:all 2> /dev/null)
-
-  echo -e '\n\033[1mRebuild barretenberg wasm...\033[0m'
-  (cd barretenberg/cpp && cmake --build --preset default && cmake --build --preset wasm && cmake --build --preset wasm-threads)
-
-  echo -e '\n\033[1mRebuild circuits wasm...\033[0m'
-  (cd circuits/cpp && cmake --build --preset wasm -j --target aztec3-circuits.wasm)
+  # Remove all untracked files, directories, nested repos, and .gitignore files.
+  git clean -ffdx
 
   exit 0
-fi
-
-git submodule update --init --recursive
-
-if [ ! -f ~/.nvm/nvm.sh ]; then
-  echo "Nvm not found at ~/.nvm"
+elif [ "$CMD" = "full" ]; then
+  if can_use_ci_cache; then
+    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
+    echo
+  fi
+elif [ "$CMD" = "fast" ]; then
+  export USE_CACHE=1
+  if ! can_use_ci_cache; then
+    echo -e "${BOLD}${YELLOW}WARNING: Either docker or aws credentials are missing. Install docker and request credentials. Note this is for internal aztec devs only.${RESET}"
+    exit 1
+  fi
+else
+  echo "usage: $0 <full|fast|clean>"
   exit 1
 fi
 
 # Install pre-commit git hooks.
 HOOKS_DIR=$(git rev-parse --git-path hooks)
-echo "(cd barretenberg/cpp && ./format.sh staged)" > $HOOKS_DIR/pre-commit
-echo "(cd circuits/cpp && ./format.sh staged)" >> $HOOKS_DIR/pre-commit
+echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
 chmod +x $HOOKS_DIR/pre-commit
 
-barretenberg/cpp/bootstrap.sh
-circuits/cpp/bootstrap.sh
-yarn-project/bootstrap.sh
+git submodule update --init --recursive
 
-echo $VERSION > .bootstrapped
+PROJECTS=(
+  barretenberg
+  noir
+  foundry
+  l1-contracts
+  avm-transpiler
+  noir-projects
+  yarn-project
+)
+
+# Build projects locally
+for P in "${PROJECTS[@]}"; do
+  echo "**************************************"
+  echo -e "\033[1mBootstrapping $P...\033[0m"
+  echo "**************************************"
+  echo
+  (cd $P && ./bootstrap.sh)
+  echo
+  echo
+done

@@ -2,11 +2,11 @@
 
 #include "./transition_widget.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace widget {
 
 /**
- * @brief Core class implementing the arithmetic gate in Turbo plonk
+ * @brief Core class implementing the arithmetic gate in Ultra plonk
  *
  * @details ArithmethicKernel provides the logic that can implement one of several transitions. The whole formula
  * without alpha scaling is:
@@ -60,8 +60,6 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
   private:
     // A structure with various challenges, even though only alpha is used here.
     typedef containers::challenge_array<Field, num_independent_relations> challenge_array;
-    // Type for the linear terms of the transition (not actually used here)
-    typedef containers::coefficient_array<Field> coefficient_array;
 
   public:
     inline static std::set<PolynomialIndex> const& get_required_polynomial_ids()
@@ -75,15 +73,6 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
     }
 
     /**
-     * @brief Stub for computing linear terms. Not used in plookup artihmetic gate
-     *
-     */
-    inline static void compute_linear_terms(PolyContainer&,
-                                            const challenge_array&,
-                                            coefficient_array&,
-                                            const size_t = 0)
-    {}
-    /**
      * @brief Computes the full identity for the arithmetic gate in plookup to be added to the quotient. All the logic
      * is explained in class description
      *
@@ -92,10 +81,10 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
      * @param quotient Quotient reference to add the result to
      * @param i Gate index
      */
-    inline static void compute_non_linear_terms(PolyContainer& polynomials,
-                                                const challenge_array& challenges,
-                                                Field& quotient,
-                                                const size_t i = 0)
+    inline static void accumulate_contribution(PolyContainer& polynomials,
+                                               const challenge_array& challenges,
+                                               Field& quotient,
+                                               const size_t i = 0)
     {
         // For subgroup element i, this term evaluates to W_4(i \omega) * 2 iff Q_ARITH(i \omega) = 2
         const Field& q_arith =
@@ -136,8 +125,8 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
         arithmetic_gate_identity *= (q_arith - 3);
 
         // TODO: if we multiply all q_m values by `-1/2` we can remove the need for this extra multiplication
-        if constexpr (std::is_same<barretenberg::fr, Field>::value) {
-            static constexpr barretenberg::fr neg_half = barretenberg::fr(-2).invert();
+        if constexpr (std::is_same<bb::fr, Field>::value) {
+            static constexpr bb::fr neg_half = bb::fr(-2).invert();
             arithmetic_gate_identity *= neg_half;
         } else {
             static const Field neg_half = Field(-2).invert();
@@ -169,20 +158,6 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
 
         quotient += identity;
     }
-
-    inline static Field sum_linear_terms(PolyContainer&, const challenge_array&, coefficient_array&, const size_t = 0)
-    {
-        return Field(0);
-    }
-
-    /**
-     * @brief Stub for updating opening scalars, since not using linear terms
-     *
-     */
-    inline static void update_kate_opening_scalars(coefficient_array&,
-                                                   std::map<std::string, Field>&,
-                                                   const challenge_array&)
-    {}
 };
 
 } // namespace widget
@@ -193,8 +168,7 @@ template <class Field, class Getters, typename PolyContainer> class PlookupArith
  * @tparam Settings
  */
 template <typename Settings>
-using ProverPlookupArithmeticWidget =
-    widget::TransitionWidget<barretenberg::fr, Settings, widget::PlookupArithmeticKernel>;
+using ProverPlookupArithmeticWidget = widget::TransitionWidget<bb::fr, Settings, widget::PlookupArithmeticKernel>;
 
 /**
  * @brief Ultra plonk arithmetic widget for the verifier. It's quite complex, so for details better look at the kernel
@@ -205,4 +179,4 @@ template <typename Field, typename Group, typename Transcript, typename Settings
 using VerifierPlookupArithmeticWidget =
     widget::GenericVerifierWidget<Field, Transcript, Settings, widget::PlookupArithmeticKernel>;
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

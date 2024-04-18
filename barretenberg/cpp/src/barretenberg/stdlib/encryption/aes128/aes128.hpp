@@ -7,16 +7,11 @@
 #include "../../primitives/witness/witness.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib::aes128 {
 
-namespace aes128 {
+template <typename Builder>
+std::vector<stdlib::field_t<Builder>> encrypt_buffer_cbc(const std::vector<stdlib::field_t<Builder>>& input,
+                                                         const stdlib::field_t<Builder>& iv,
+                                                         const stdlib::field_t<Builder>& key);
 
-template <typename Composer>
-std::vector<stdlib::field_t<Composer>> encrypt_buffer_cbc(const std::vector<stdlib::field_t<Composer>>& input,
-                                                          const stdlib::field_t<Composer>& iv,
-                                                          const stdlib::field_t<Composer>& key);
-
-} // namespace aes128
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::aes128

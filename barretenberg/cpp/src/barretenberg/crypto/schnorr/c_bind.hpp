@@ -5,9 +5,9 @@
 
 extern "C" {
 
-using namespace barretenberg;
+using namespace bb;
 using affine_element = grumpkin::g1::affine_element;
-using multisig = crypto::schnorr::multisig<grumpkin::g1, KeccakHasher, Blake2sHasher>;
+using multisig = crypto::schnorr_multisig<grumpkin::g1, bb::crypto::KeccakHasher, bb::crypto::Blake2sHasher>;
 
 WASM_EXPORT void schnorr_compute_public_key(fr::in_buf private_key, affine_element::out_buf public_key_buf);
 WASM_EXPORT void schnorr_negate_public_key(affine_element::in_buf public_key_buffer, affine_element::out_buf output);
@@ -39,7 +39,7 @@ WASM_EXPORT void schnorr_multisig_construct_signature_round_2(
 WASM_EXPORT void schnorr_multisig_combine_signatures(uint8_t const* message,
                                                      multisig::MultiSigPublicKey::vec_in_buf signer_pubkeys_buf,
                                                      multisig::RoundOnePublicOutput::vec_in_buf round_one_buf,
-                                                     fr::vec_in_buf round_two_buf,
+                                                     fq::vec_in_buf round_two_buf,
                                                      out_buf32 s,
                                                      out_buf32 e,
                                                      bool* success);

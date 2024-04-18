@@ -1,27 +1,28 @@
-#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include <benchmark/benchmark.h>
 
 using namespace benchmark;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
-using FF = barretenberg::fr;
-using barretenberg::BarycentricData;
-using barretenberg::Univariate;
+using FF = bb::fr;
+using bb::BarycentricData;
+using bb::Univariate;
 
-namespace proof_system::benchmark {
+namespace bb::benchmark {
 
 void extend_2_to_6(State& state) noexcept
 {
     auto univariate = Univariate<FF, 2>::get_random();
-    BarycentricData<FF, 2, 6> barycentric_2_to_6;
     for (auto _ : state) {
-        DoNotOptimize(barycentric_2_to_6.extend(univariate));
+        DoNotOptimize(univariate.extend_to<6>());
     }
 }
 BENCHMARK(extend_2_to_6);
 
-} // namespace proof_system::benchmark
+} // namespace bb::benchmark
+
+BENCHMARK_MAIN();

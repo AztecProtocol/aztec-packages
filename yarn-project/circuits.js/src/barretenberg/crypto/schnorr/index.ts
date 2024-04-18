@@ -1,7 +1,9 @@
+import { BarretenbergSync } from '@aztec/bb.js';
+import { Point } from '@aztec/foundation/fields';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-import { IWasmModule } from '@aztec/foundation/wasm';
 
-import { CircuitsWasm, GrumpkinPrivateKey, Point, PublicKey } from '../../../index.js';
+import { type GrumpkinPrivateKey } from '../../../types/grumpkin_private_key.js';
+import { type PublicKey } from '../../../types/public_key.js';
 import { SchnorrSignature } from './signature.js';
 
 export * from './signature.js';
@@ -10,15 +12,7 @@ export * from './signature.js';
  * Schnorr signature construction and helper operations.
  */
 export class Schnorr {
-  /**
-   * Creates a new Schnorr instance.
-   * @returns New Schnorr instance.
-   */
-  public static async new() {
-    return new this(await CircuitsWasm.get());
-  }
-
-  constructor(private wasm: IWasmModule) {}
+  private wasm = BarretenbergSync.getSingleton().getWasm();
 
   /**
    * Computes a grumpkin public key from a private key.

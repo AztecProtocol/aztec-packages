@@ -3,10 +3,10 @@
  * @brief Contains some functions that are shared between the various Plonk composers.
  */
 #include "composer_lib.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 /**
  * @brief Retrieve lagrange forms of selector polynomials and compute monomial and coset-monomial forms and put into
@@ -22,16 +22,16 @@ void compute_monomial_and_coset_selector_forms(plonk::proving_key* circuit_provi
         // Compute monomial form of selector polynomial
         auto selector_poly_lagrange =
             circuit_proving_key->polynomial_store.get(selector_properties[i].name + "_lagrange");
-        barretenberg::polynomial selector_poly(circuit_proving_key->circuit_size);
-        barretenberg::polynomial_arithmetic::ifft(
+        bb::polynomial selector_poly(circuit_proving_key->circuit_size);
+        bb::polynomial_arithmetic::ifft(
             &selector_poly_lagrange[0], &selector_poly[0], circuit_proving_key->small_domain);
 
         // Compute coset FFT of selector polynomial
-        barretenberg::polynomial selector_poly_fft(selector_poly, circuit_proving_key->circuit_size * 4 + 4);
+        bb::polynomial selector_poly_fft(selector_poly, circuit_proving_key->circuit_size * 4 + 4);
         selector_poly_fft.coset_fft(circuit_proving_key->large_domain);
 
-        // TODO(luke): For Standard/Turbo, the lagrange polynomials can be removed from the store at this point but this
-        // is not the case for Ultra. Implement?
+        // Note: For Standard, the lagrange polynomials could be removed from the store at this point but this
+        // is not the case for Ultra.
         circuit_proving_key->polynomial_store.put(selector_properties[i].name, std::move(selector_poly));
         circuit_proving_key->polynomial_store.put(selector_properties[i].name + "_fft", std::move(selector_poly_fft));
     }
@@ -45,12 +45,12 @@ void compute_monomial_and_coset_selector_forms(plonk::proving_key* circuit_provi
 std::shared_ptr<plonk::verification_key> compute_verification_key_common(
     std::shared_ptr<plonk::proving_key> const& proving_key,
     // Here too
-    std::shared_ptr<barretenberg::srs::factories::VerifierCrs<curve::BN254>> const& vrs)
+    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& vrs)
 {
     auto circuit_verification_key = std::make_shared<plonk::verification_key>(
         proving_key->circuit_size, proving_key->num_public_inputs, vrs, proving_key->circuit_type);
     // TODO(kesha): Dirty hack for now. Need to actually make commitment-agnositc
-    using KZGCommitmentKey = honk::pcs::CommitmentKey<curve::BN254>;
+    using KZGCommitmentKey = bb::CommitmentKey<curve::BN254>;
     auto commitment_key = KZGCommitmentKey(proving_key->circuit_size, proving_key->reference_string);
 
     for (size_t i = 0; i < proving_key->polynomial_manifest.size(); ++i) {
@@ -71,9 +71,9 @@ std::shared_ptr<plonk::verification_key> compute_verification_key_common(
     }
 
     // Set the polynomial manifest in verification key.
-    circuit_verification_key->polynomial_manifest = proof_system::plonk::PolynomialManifest(proving_key->circuit_type);
+    circuit_verification_key->polynomial_manifest = bb::plonk::PolynomialManifest(proving_key->circuit_type);
 
     return circuit_verification_key;
 }
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

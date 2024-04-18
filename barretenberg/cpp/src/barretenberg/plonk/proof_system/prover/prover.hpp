@@ -1,17 +1,19 @@
 #pragma once
-#include "../../../proof_system/work_queue/work_queue.hpp"
 #include "../commitment_scheme/commitment_scheme.hpp"
 #include "../types/program_settings.hpp"
 #include "../types/proof.hpp"
 #include "../widgets/random_widgets/random_widget.hpp"
 #include "../widgets/transition_widgets/transition_widget.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/work_queue/work_queue.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 template <typename settings> class ProverBase {
 
   public:
+    using Flavor = typename settings::Flavor;
+
     ProverBase(std::shared_ptr<proving_key> input_key = nullptr,
                const transcript::Manifest& manifest = transcript::Manifest());
     ProverBase(ProverBase&& other);
@@ -19,13 +21,13 @@ template <typename settings> class ProverBase {
     ProverBase& operator=(const ProverBase& other) = delete;
     ProverBase& operator=(ProverBase&& other);
 
-    void execute_preamble_round();
-    void execute_first_round();
-    void execute_second_round();
-    void execute_third_round();
-    void execute_fourth_round();
-    void execute_fifth_round();
-    void execute_sixth_round();
+    BB_PROFILE void execute_preamble_round();
+    BB_PROFILE void execute_first_round();
+    BB_PROFILE void execute_second_round();
+    BB_PROFILE void execute_third_round();
+    BB_PROFILE void execute_fourth_round();
+    BB_PROFILE void execute_fifth_round();
+    BB_PROFILE void execute_sixth_round();
 
     void add_polynomial_evaluations_to_transcript();
     void compute_batch_opening_polynomials();
@@ -47,7 +49,7 @@ template <typename settings> class ProverBase {
 
     work_queue::work_item_info get_queued_work_item_info() const { return queue.get_queued_work_item_info(); }
 
-    std::shared_ptr<barretenberg::fr[]> get_scalar_multiplication_data(const size_t work_item_number) const
+    std::shared_ptr<bb::fr[]> get_scalar_multiplication_data(const size_t work_item_number) const
     {
         return queue.get_scalar_multiplication_data(work_item_number);
     }
@@ -67,7 +69,7 @@ template <typename settings> class ProverBase {
         return queue.get_fft_data(work_item_number);
     }
 
-    void put_scalar_multiplication_data(const barretenberg::g1::affine_element result, const size_t work_item_number)
+    void put_scalar_multiplication_data(const bb::g1::affine_element result, const size_t work_item_number)
     {
         queue.put_scalar_multiplication_data(result, work_item_number);
     }
@@ -87,7 +89,7 @@ template <typename settings> class ProverBase {
     size_t circuit_size;
 
     std::vector<std::unique_ptr<ProverRandomWidget>> random_widgets;
-    std::vector<std::unique_ptr<widget::TransitionWidgetBase<barretenberg::fr>>> transition_widgets;
+    std::vector<std::unique_ptr<widget::TransitionWidgetBase<bb::fr>>> transition_widgets;
     transcript::StandardTranscript transcript;
 
     std::shared_ptr<proving_key> key;
@@ -98,17 +100,13 @@ template <typename settings> class ProverBase {
   private:
     plonk::proof proof;
 };
-extern template class ProverBase<standard_settings>;
-extern template class ProverBase<turbo_settings>;
-extern template class ProverBase<ultra_settings>;
-extern template class ProverBase<ultra_to_standard_settings>;
 
 typedef ProverBase<standard_settings> Prover;
-typedef ProverBase<turbo_settings> TurboProver;
+typedef Prover StandardProver;
 typedef ProverBase<ultra_settings> UltraProver; // TODO(Mike): maybe just return a templated proverbase so that I don't
                                                 // need separate cases for ultra vs ultra_to_standard...???
                                                 // TODO(Cody): Make this into an issue?
 typedef ProverBase<ultra_to_standard_settings> UltraToStandardProver;
 typedef ProverBase<ultra_with_keccak_settings> UltraWithKeccakProver;
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

@@ -1,61 +1,50 @@
 #include "verification_key.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen_lookup.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 /**
  * @brief Hashes the evaluation domain to match the 'circuit' approach taken in
- * stdlib/recursion/verification_key/verification_key.hpp.
+ * stdlib/plonk_recursion/verification_key/verification_key.hpp.
  * @note: in that reference file, the circuit-equivalent of this function is a _method_ of the `evaluation_domain'
- * struct. But we cannot do that with the native `barretenberg::evaluation_domain` type unfortunately, because it's
+ * struct. But we cannot do that with the native `bb::evaluation_domain` type unfortunately, because it's
  * defined in polynomials/evaluation_domain.hpp, and `polynomial` is a bberg library which does not depend on `crypto`
  * in its CMakeLists.txt file. (We'd need `crypto` to be able to call native pedersen functions).
  *
- * @param domain to compress
- * @param circuit_type to use when choosing pedersen compression function
- * @return barretenberg::fr compression of the evaluation domain as a field
+ * @param domain to hash
+ * @return bb::fr hash of the evaluation domain as a field
  */
-barretenberg::fr compress_native_evaluation_domain(barretenberg::evaluation_domain const& domain,
-                                                   proof_system::CircuitType circuit_type)
+bb::fr hash_native_evaluation_domain(bb::evaluation_domain const& domain)
 {
-    barretenberg::fr out;
-    if (circuit_type == proof_system::CircuitType::ULTRA) {
-        out = crypto::pedersen_commitment::lookup::compress_native({
-            domain.root,
-            domain.domain,
-            domain.generator,
-        });
-    } else {
-        out = crypto::pedersen_commitment::compress_native({
-            domain.root,
-            domain.domain,
-            domain.generator,
-        });
-    }
+    bb::fr out = crypto::pedersen_hash::hash({
+        domain.root,
+        domain.domain,
+        domain.generator,
+    });
+
     return out;
 }
 
 /**
- * @brief Compress the verification key data.
+ * @brief Hash the verification key data.
  *
- * @details Native pedersen compression of VK data that is truly core to a VK.
+ * @details Native pedersen hash of VK data that is truly core to a VK.
  * Omits recursion proof flag and recursion input indices as they are not really
  * core to the VK itself.
  *
- * @param hash_index generator index to use during pedersen compression
- * @returns a field containing the compression
+ * @param hash_index generator index to use during pedersen hashing
+ * @returns a field containing the hash
  */
-barretenberg::fr verification_key_data::compress_native(const size_t hash_index) const
+bb::fr verification_key_data::hash_native(const size_t hash_index) const
 {
-    barretenberg::evaluation_domain eval_domain = barretenberg::evaluation_domain(circuit_size);
+    bb::evaluation_domain eval_domain = bb::evaluation_domain(circuit_size);
 
     std::vector<uint8_t> preimage_data;
 
-    preimage_data.push_back(static_cast<uint8_t>(proof_system::CircuitType(circuit_type)));
+    preimage_data.push_back(static_cast<uint8_t>(bb::CircuitType(circuit_type)));
 
     const uint256_t domain = eval_domain.domain;
     const uint256_t generator = eval_domain.generator;
@@ -75,14 +64,12 @@ barretenberg::fr verification_key_data::compress_native(const size_t hash_index)
 
     write(preimage_data, eval_domain.root);
 
-    barretenberg::fr compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
-
-    return compressed_key;
+    return crypto::pedersen_hash::hash_buffer(preimage_data, hash_index);
 }
 
 verification_key::verification_key(const size_t num_gates,
                                    const size_t num_inputs,
-                                   std::shared_ptr<barretenberg::srs::factories::VerifierCrs<curve::BN254>> const& crs,
+                                   std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& crs,
                                    CircuitType circuit_type_)
     : circuit_type(circuit_type_)
     , circuit_size(num_gates)
@@ -94,7 +81,7 @@ verification_key::verification_key(const size_t num_gates,
 {}
 
 verification_key::verification_key(verification_key_data&& data,
-                                   std::shared_ptr<barretenberg::srs::factories::VerifierCrs<curve::BN254>> const& crs)
+                                   std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& crs)
     : circuit_type(static_cast<CircuitType>(data.circuit_type))
     , circuit_size(data.circuit_size)
     , log_circuit_size(numeric::get_msb(data.circuit_size))
@@ -105,6 +92,7 @@ verification_key::verification_key(verification_key_data&& data,
     , polynomial_manifest(static_cast<CircuitType>(data.circuit_type))
     , contains_recursive_proof(data.contains_recursive_proof)
     , recursive_proof_public_input_indices(std::move(data.recursive_proof_public_input_indices))
+    , is_recursive_circuit(data.is_recursive_circuit)
 {}
 
 verification_key::verification_key(const verification_key& other)
@@ -120,7 +108,7 @@ verification_key::verification_key(const verification_key& other)
     , recursive_proof_public_input_indices(other.recursive_proof_public_input_indices)
 {}
 
-verification_key::verification_key(verification_key&& other)
+verification_key::verification_key(verification_key&& other) noexcept
     : circuit_type(other.circuit_type)
     , circuit_size(other.circuit_size)
     , log_circuit_size(numeric::get_msb(other.circuit_size))
@@ -133,7 +121,7 @@ verification_key::verification_key(verification_key&& other)
     , recursive_proof_public_input_indices(other.recursive_proof_public_input_indices)
 {}
 
-verification_key& verification_key::operator=(verification_key&& other)
+verification_key& verification_key::operator=(verification_key&& other) noexcept
 {
     circuit_type = other.circuit_type;
     circuit_size = other.circuit_size;
@@ -148,7 +136,7 @@ verification_key& verification_key::operator=(verification_key&& other)
     return *this;
 }
 
-sha256::hash verification_key::sha256_hash()
+crypto::Sha256Hash verification_key::sha256_hash()
 {
     std::vector<uint256_t> vk_data;
     vk_data.emplace_back(static_cast<uint32_t>(circuit_type));
@@ -162,7 +150,7 @@ sha256::hash verification_key::sha256_hash()
     for (auto& index : recursive_proof_public_input_indices) {
         vk_data.emplace_back(index);
     }
-    return sha256::sha256(to_buffer(vk_data));
+    return crypto::sha256(to_buffer(vk_data));
 }
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

@@ -8,7 +8,7 @@
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 
-namespace barretenberg {
+namespace bb {
 class Bn254FrParams {
   public:
     // Note: limbs here are combined as concat(_3, _2, _1, _0)
@@ -66,10 +66,13 @@ class Bn254FrParams {
     // used in msgpack schema serialization
     static constexpr char schema_name[] = "fr";
     static constexpr bool has_high_2adicity = true;
+
+    // This is a BN254 scalar, so it represents one BN254 scalar
+    static constexpr size_t NUM_BN254_SCALARS = 1;
 };
 
 using fr = field<Bn254FrParams>;
 
-} // namespace barretenberg
+} // namespace bb
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

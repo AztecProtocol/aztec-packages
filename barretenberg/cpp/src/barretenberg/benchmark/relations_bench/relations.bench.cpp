@@ -1,98 +1,59 @@
-#include "barretenberg/honk/flavor/goblin_ultra.hpp"
-#include "barretenberg/honk/flavor/standard.hpp"
-#include "barretenberg/honk/flavor/ultra.hpp"
-#include "barretenberg/proof_system/relations/arithmetic_relation.hpp"
-#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
-#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
-#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
-#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/proof_system/relations/lookup_relation.hpp"
-#include "barretenberg/proof_system/relations/permutation_relation.hpp"
-#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/translator_vm/goblin_translator_flavor.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
-namespace proof_system::benchmark::relations {
+namespace bb::benchmark::relations {
 
-using FF = barretenberg::fr;
+using Fr = bb::fr;
+using Fq = grumpkin::fr;
 
 template <typename Flavor, typename Relation> void execute_relation(::benchmark::State& state)
 {
-    // Generate beta and gamma
-    auto beta = FF::random_element();
-    auto gamma = FF::random_element();
-    auto public_input_delta = FF::random_element();
+    using FF = typename Flavor::FF;
+    using AllValues = typename Flavor::AllValues;
+    using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
-    RelationParameters<FF> params{
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = public_input_delta,
-    };
-
-    using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
-    using RelationValues = typename Relation::RelationValues;
+    auto params = bb::RelationParameters<FF>::get_random();
 
     // Extract an array containing all the polynomial evaluations at a given row i
-    ClaimedEvaluations new_value;
-    // Define the appropriate RelationValues type for this relation and initialize to zero
-    RelationValues accumulator;
+    AllValues new_value{};
+    // Define the appropriate SumcheckArrayOfValuesOverSubrelations type for this relation and initialize to zero
+    SumcheckArrayOfValuesOverSubrelations accumulator;
     // Evaluate each constraint in the relation and check that each is satisfied
 
-    Relation relation;
     for (auto _ : state) {
-        relation.add_full_relation_value_contribution(accumulator, new_value, params);
+        Relation::accumulate(accumulator, new_value, params, 1);
     }
 }
+BENCHMARK(execute_relation<UltraFlavor, UltraArithmeticRelation<Fr>>);
+BENCHMARK(execute_relation<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation<UltraFlavor, EllipticRelation<Fr>>);
+BENCHMARK(execute_relation<UltraFlavor, AuxiliaryRelation<Fr>>);
+BENCHMARK(execute_relation<UltraFlavor, LookupRelation<Fr>>);
+BENCHMARK(execute_relation<UltraFlavor, UltraPermutationRelation<Fr>>);
 
-void arithmetic_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Standard, ArithmeticRelation<FF>>(state);
-}
-BENCHMARK(arithmetic_relation);
+BENCHMARK(execute_relation<GoblinUltraFlavor, EccOpQueueRelation<Fr>>);
 
-void auxiliary_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, AuxiliaryRelation<FF>>(state);
-}
-BENCHMARK(auxiliary_relation);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorDecompositionRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorOpcodeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorAccumulatorTransferRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorDeltaRangeConstraintRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorNonNativeFieldRelation<Fr>>);
+BENCHMARK(execute_relation<GoblinTranslatorFlavor, GoblinTranslatorPermutationRelation<Fr>>);
 
-void elliptic_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, EllipticRelation<FF>>(state);
-}
-BENCHMARK(elliptic_relation);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMLookupRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMMSMRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMPointTableRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMSetRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMTranscriptRelation<Fq>>);
+BENCHMARK(execute_relation<ECCVMFlavor, ECCVMWnafRelation<Fq>>);
 
-void ecc_op_queue_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::GoblinUltra, EccOpQueueRelation<FF>>(state);
-}
-BENCHMARK(ecc_op_queue_relation);
+} // namespace bb::benchmark::relations
 
-void gen_perm_sort_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, GenPermSortRelation<FF>>(state);
-}
-BENCHMARK(gen_perm_sort_relation);
-
-void lookup_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, LookupRelation<FF>>(state);
-}
-BENCHMARK(lookup_relation);
-
-void permutation_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Standard, PermutationRelation<FF>>(state);
-}
-BENCHMARK(permutation_relation);
-
-void ultra_arithmetic_relation(::benchmark::State& state) noexcept
-{
-    execute_relation<honk::flavor::Ultra, UltraArithmeticRelation<FF>>(state);
-}
-BENCHMARK(ultra_arithmetic_relation);
-
-} // namespace proof_system::benchmark::relations
+BENCHMARK_MAIN();

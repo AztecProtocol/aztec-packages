@@ -1,8 +1,8 @@
-import { FunctionAbi } from './abi.js';
+import { type ABIParameterVisibility, type FunctionArtifact } from './abi.js';
 import { decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './decoder.js';
 
 describe('abi/decoder', () => {
-  // Copied from yarn-project/noir-contracts/src/contracts/test_contract/target/Test.json
+  // Copied from noir-contracts/contracts/test_contract/target/Test.json
   const abi = {
     name: 'testCodeGen',
     parameters: [
@@ -20,7 +20,7 @@ describe('abi/decoder', () => {
             { name: 'secretHash', type: { kind: 'field' } },
           ],
         },
-        visibility: 'private',
+        visibility: 'private' as ABIParameterVisibility,
       },
       {
         name: 'aDeepStruct',
@@ -58,10 +58,10 @@ describe('abi/decoder', () => {
             },
           ],
         },
-        visibility: 'private',
+        visibility: 'private' as ABIParameterVisibility,
       },
     ],
-  } as unknown as Pick<FunctionAbi, 'name' | 'parameters'>;
+  } as Pick<FunctionArtifact, 'name' | 'parameters'>;
 
   it('decodes function signature', () => {
     expect(decodeFunctionSignature(abi.name, abi.parameters)).toMatchInlineSnapshot(

@@ -2,12 +2,12 @@
 #include <chrono>
 #include <gtest/gtest.h>
 
-namespace test_grumpkin {
+using namespace bb;
 
 TEST(grumpkin, CheckB)
 {
     auto b = grumpkin::g1::curve_b;
-    barretenberg::fr seventeen = 17;
+    fr seventeen = 17;
     EXPECT_EQ(seventeen, -b);
 }
 
@@ -256,8 +256,7 @@ TEST(grumpkin, GroupExponentiationConsistencyCheck)
 TEST(grumpkin, DeriveGenerators)
 {
     constexpr size_t num_generators = 128;
-    auto result = grumpkin::g1::derive_generators<num_generators>();
-
+    auto result = grumpkin::g1::derive_generators("test generators", num_generators);
     const auto is_unique = [&result](const grumpkin::g1::affine_element& y, const size_t j) {
         for (size_t i = 0; i < result.size(); ++i) {
             if ((i != j) && result[i] == y) {
@@ -330,4 +329,3 @@ TEST(grumpkin, BadPoints)
     }
     EXPECT_TRUE(res);
 }
-} // namespace test_grumpkin

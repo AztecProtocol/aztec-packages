@@ -1,114 +1,129 @@
-import { ABIParameter, decodeFunctionSignature } from '@aztec/foundation/abi';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { keccak } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { fromHex, toBigIntBE } from '../bigint-buffer/index.js';
+import { keccak256, randomBytes } from '../crypto/index.js';
+import { type Fr } from '../fields/fields.js';
+import { BufferReader } from '../serialize/buffer_reader.js';
+import { FieldReader } from '../serialize/field_reader.js';
+import { type ABIParameter } from './abi.js';
+import { decodeFunctionSignature } from './decoder.js';
+import { Selector } from './selector.js';
 
-/**
- * A function selector is the first 4 bytes of the hash of a function signature.
- */
-export class FunctionSelector {
-  /**
-   * The size of the function selector in bytes.
-   */
-  public static SIZE = 4;
+/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 
-  constructor(/** number representing the function selector */ public value: number) {
-    if (value > 2 ** (FunctionSelector.SIZE * 8) - 1) {
-      throw new Error(`Function selector must fit in ${FunctionSelector.SIZE} bytes.`);
-    }
-  }
+/** Function selector branding */
+export interface FunctionSelector {
+  /** Brand. */
+  _branding: 'FunctionSelector';
+}
 
-  /**
-   * Checks if the function selector is empty (all bytes are 0).
-   * @returns True if the function selector is empty (all bytes are 0).
-   */
-  public isEmpty(): boolean {
-    return this.value === 0;
-  }
-
-  /**
-   * Serialize as a buffer.
-   * @returns The buffer.
-   */
-  toBuffer(): Buffer {
-    return toBufferBE(BigInt(this.value), FunctionSelector.SIZE);
-  }
-
-  /**
-   * Serialize as a hex string.
-   * @returns The string.
-   */
-  toString(): string {
-    return this.toBuffer().toString('hex');
-  }
-
+/** A function selector is the first 4 bytes of the hash of a function signature. */
+export class FunctionSelector extends Selector {
   /**
    * Checks if this function selector is equal to another.
-   * @param other - The other function selector.
    * @returns True if the function selectors are equal.
    */
-  equals(other: FunctionSelector): boolean {
-    return this.value === other.value;
+  equals(fn: { name: string; parameters: ABIParameter[] }): boolean;
+  equals(otherName: string, otherParams: ABIParameter[]): boolean;
+  equals(other: FunctionSelector): boolean;
+  equals(
+    other: FunctionSelector | string | { name: string; parameters: ABIParameter[] },
+    otherParams?: ABIParameter[],
+  ): boolean {
+    if (typeof other === 'string') {
+      return this.equals(FunctionSelector.fromNameAndParameters(other, otherParams!));
+    } else if (typeof other === 'object' && 'name' in other) {
+      return this.equals(FunctionSelector.fromNameAndParameters(other.name, other.parameters));
+    } else {
+      return this.value === other.value;
+    }
   }
 
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.
-   * @returns The FunctionSelector.
+   * @returns The Selector.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): FunctionSelector {
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    const value = Number(toBigIntBE(reader.readBytes(FunctionSelector.SIZE)));
+    const value = Number(toBigIntBE(reader.readBytes(Selector.SIZE)));
     return new FunctionSelector(value);
   }
 
   /**
-   * Returns a new field with the same contents as this EthAddress.
-   *
-   * @returns An Fr instance.
-   */
-  public toField() {
-    return new Fr(this.value);
-  }
-
-  /**
-   * Converts a field to function selector.
+   * Converts a field to selector.
    * @param fr - The field to convert.
-   * @returns The function selector.
+   * @returns The selector.
    */
-  static fromField(fr: Fr): FunctionSelector {
-    return new FunctionSelector(Number(fr.value));
+  static fromField(fr: Fr) {
+    return new FunctionSelector(Number(fr.toBigInt()));
+  }
+
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return FunctionSelector.fromField(reader.readField());
   }
 
   /**
-   * Creates a function selector from a signature.
-   * @param signature - Signature of the function to generate the selector for (e.g. "transfer(field,field)").
-   * @returns Function selector.
+   * Creates a selector from a signature.
+   * @param signature - Signature to generate the selector for (e.g. "transfer(field,field)").
+   * @returns selector.
    */
-  static fromSignature(signature: string): FunctionSelector {
-    return FunctionSelector.fromBuffer(keccak(Buffer.from(signature)).subarray(0, FunctionSelector.SIZE));
+  static fromSignature(signature: string) {
+    // throw if signature contains whitespace
+    if (/\s/.test(signature)) {
+      throw new Error('Signature cannot contain whitespace');
+    }
+    return FunctionSelector.fromBuffer(keccak256(Buffer.from(signature)).subarray(0, Selector.SIZE));
+  }
+
+  /**
+   * Create a Selector instance from a hex-encoded string.
+   * The input 'address' should be prefixed with '0x' or not, and have exactly 64 hex characters.
+   * Throws an error if the input length is invalid or address value is out of range.
+   *
+   * @param selector - The hex-encoded string representing the Selector.
+   * @returns An Selector instance.
+   */
+  static fromString(selector: string) {
+    const buf = fromHex(selector);
+    if (buf.length !== Selector.SIZE) {
+      throw new Error(`Invalid Selector length ${buf.length} (expected ${Selector.SIZE}).`);
+    }
+    return FunctionSelector.fromBuffer(buf);
+  }
+
+  /**
+   * Creates an empty selector.
+   * @returns An empty selector.
+   */
+  static empty() {
+    return new FunctionSelector(0);
   }
 
   /**
    * Creates a function selector for a given function name and parameters.
    * @param name - The name of the function.
    * @param parameters - An array of ABIParameter objects, each containing the type information of a function parameter.
-   * @returns A Buffer containing the 4-byte function selector.
+   * @returns A Buffer containing the 4-byte selector.
    */
-  static fromNameAndParameters(name: string, parameters: ABIParameter[]) {
+  static fromNameAndParameters(args: { name: string; parameters: ABIParameter[] }): FunctionSelector;
+  static fromNameAndParameters(name: string, parameters: ABIParameter[]): FunctionSelector;
+  static fromNameAndParameters(
+    nameOrArgs: string | { name: string; parameters: ABIParameter[] },
+    maybeParameters?: ABIParameter[],
+  ): FunctionSelector {
+    const { name, parameters } =
+      typeof nameOrArgs === 'string' ? { name: nameOrArgs, parameters: maybeParameters! } : nameOrArgs;
     const signature = decodeFunctionSignature(name, parameters);
-    const selector = FunctionSelector.fromSignature(signature);
-    // If using the debug logger here it kill the typing in the `server_world_state_synchroniser` and jest tests.
-    // console.log(`Function selector for ${signature} is ${selector}`);
+    const selector = this.fromSignature(signature);
+    // If using the debug logger here it kill the typing in the `server_world_state_synchronizer` and jest tests.
+    // console.log(`selector for ${signature} is ${selector}`);
     return selector;
   }
 
   /**
-   * Creates an empty function selector.
-   * @returns An empty function selector.
+   * Creates a random instance.
    */
-  static empty(): FunctionSelector {
-    return new FunctionSelector(0);
+  static random() {
+    return FunctionSelector.fromBuffer(randomBytes(Selector.SIZE));
   }
 }

@@ -1,0 +1,1 @@
+barretenberg_module(protogalaxy ultra_honk)

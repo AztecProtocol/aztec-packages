@@ -1,8 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BootstrapNode, getP2PConfigEnvVars } from '@aztec/p2p';
 
-import 'dotenv/config';
-
 const logger = createDebugLogger('aztec:bootstrap_node');
 
 /**
@@ -12,12 +10,12 @@ async function main() {
   const config = getP2PConfigEnvVars();
   const bootstrapNode = new BootstrapNode(logger);
   await bootstrapNode.start(config);
-  logger('Node started');
+  logger.info('Node started');
 
   const stop = async () => {
-    logger('Stopping bootstrap node...');
+    logger.debug('Stopping bootstrap node...');
     await bootstrapNode.stop();
-    logger('Node stopped');
+    logger.info('Node stopped');
     process.exit(0);
   };
   process.on('SIGTERM', stop);

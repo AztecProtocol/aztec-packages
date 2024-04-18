@@ -1,10 +1,9 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
-import { CheatCodes } from '@aztec/aztec.js';
-import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { LendingContract } from '@aztec/noir-contracts/types';
+import { type AztecAddress, type CheatCodes, Fr } from '@aztec/aztec.js';
+import { pedersenHash } from '@aztec/foundation/crypto';
+import { type LendingContract } from '@aztec/noir-contracts.js/Lending';
 
-import { TokenSimulator } from './token_simulator.js';
+import { type TokenSimulator } from './token_simulator.js';
 
 /**
  * Contains utilities to compute the "key" for private holdings in the public state.
@@ -24,13 +23,8 @@ export class LendingAccount {
    * Computes the key for the private holdings of this account.
    * @returns Key in public space
    */
-  public async key(): Promise<Fr> {
-    return Fr.fromBuffer(
-      pedersenPlookupCommitInputs(
-        await CircuitsWasm.get(),
-        [this.address, this.secret].map(f => f.toBuffer()),
-      ),
-    );
+  public key() {
+    return pedersenHash([this.address, this.secret]);
   }
 }
 
@@ -171,12 +165,15 @@ export class LendingSimulator {
 
     expect(this.borrowed).toEqual(this.stableCoin.totalSupply - this.mintedOutside);
 
-    const asset = await this.lendingContract.methods.get_asset(0).view();
-    expect(asset['interest_accumulator']).toEqual(this.accumulator);
+    const asset = await this.lendingContract.methods.get_asset(0).simulate();
+
+    const interestAccumulator = asset['interest_accumulator'];
+    const interestAccumulatorBigint = BigInt(interestAccumulator.lo + interestAccumulator.hi * 2n ** 64n);
+    expect(interestAccumulatorBigint).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
-    for (const key of [this.account.address, await this.account.key()]) {
-      const privatePos = await this.lendingContract.methods.get_position(key).view();
+    for (const key of [this.account.address, this.account.key()]) {
+      const privatePos = await this.lendingContract.methods.get_position(key).simulate();
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);
       expect(privatePos['debt']).toEqual(

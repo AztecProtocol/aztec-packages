@@ -1,6 +1,18 @@
-import { ABIParameter, ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
-
-import compact from 'lodash.compact';
+import {
+  type ABIParameter,
+  type BasicValue,
+  type ContractArtifact,
+  type FunctionArtifact,
+  type IntegerValue,
+  type StructValue,
+  type TupleValue,
+  type TypedStructFieldValue,
+  getDefaultInitializer,
+  isAztecAddressStruct,
+  isEthAddressStruct,
+  isFunctionSelectorStruct,
+  isWrappedFieldStruct,
+} from '@aztec/foundation/abi';
 
 /**
  * Returns the corresponding typescript type for a given Noir type.
@@ -20,6 +32,18 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
     case 'array':
       return `${abiTypeToTypescript(type.type)}[]`;
     case 'struct':
+      if (isEthAddressStruct(type)) {
+        return 'EthAddressLike';
+      }
+      if (isAztecAddressStruct(type)) {
+        return 'AztecAddressLike';
+      }
+      if (isFunctionSelectorStruct(type)) {
+        return 'FunctionSelectorLike';
+      }
+      if (isWrappedFieldStruct(type)) {
+        return 'WrappedFieldLike';
+      }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:
       throw new Error(`Unknown type ${type}`);
@@ -40,7 +64,7 @@ function generateParameter(param: ABIParameter) {
  * @param param - A Noir function.
  * @returns The corresponding ts code.
  */
-function generateMethod(entry: FunctionAbi) {
+function generateMethod(entry: FunctionArtifact) {
   const args = entry.parameters.map(generateParameter).join(', ');
   return `
     /** ${entry.name}(${entry.parameters.map(p => `${p.name}: ${p.type.kind}`).join(', ')}) */
@@ -49,27 +73,45 @@ function generateMethod(entry: FunctionAbi) {
 
 /**
  * Generates a deploy method for this contract.
- * @param input - ABI of the contract.
+ * @param input - Build artifact of the contract.
  * @returns A type-safe deploy method in ts.
  */
-function generateDeploy(input: ContractAbi) {
-  const ctor = input.functions.find(f => f.name === 'constructor');
+function generateDeploy(input: ContractArtifact) {
+  const ctor = getDefaultInitializer(input);
   const args = (ctor?.parameters ?? []).map(generateParameter).join(', ');
-  const abiName = `${input.name}ContractAbi`;
+  const contractName = `${input.name}Contract`;
+  const artifactName = `${contractName}Artifact`;
 
   return `
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(rpc: AztecRPC, ${args}) {
-    return new DeployMethod<${input.name}Contract>(Point.ZERO, rpc, ${abiName}, Array.from(arguments).slice(1));
+  public static deploy(wallet: Wallet, ${args}) {
+    return new DeployMethod<${contractName}>(Point.ZERO, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
-  public static deployWithPublicKey(rpc: AztecRPC, publicKey: PublicKey, ${args}) {
-    return new DeployMethod<${input.name}Contract>(publicKey, rpc, ${abiName}, Array.from(arguments).slice(2));
+  public static deployWithPublicKey(publicKey: PublicKey, wallet: Wallet, ${args}) {
+    return new DeployMethod<${contractName}>(publicKey, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
+  }
+
+  /**
+   * Creates a tx to deploy a new instance of this contract using the specified constructor method.
+   */
+  public static deployWithOpts<M extends keyof ${contractName}['methods']>(
+    opts: { publicKey?: PublicKey; method?: M; wallet: Wallet },
+    ...args: Parameters<${contractName}['methods'][M]>
+  ) {
+    return new DeployMethod<${contractName}>(
+      opts.publicKey ?? Point.ZERO,
+      opts.wallet,
+      ${artifactName},
+      ${contractName}.at,
+      Array.from(arguments).slice(1),
+      opts.method ?? 'constructor',
+    );
   }
   `;
 }
@@ -83,12 +125,10 @@ function generateDeploy(input: ContractAbi) {
 function generateConstructor(name: string) {
   return `
   private constructor(
-    /** The deployed contract's complete address. */
-    completeAddress: CompleteAddress,
-    /** The wallet. */
+    instance: ContractInstanceWithAddress,
     wallet: Wallet,
   ) {
-    super(completeAddress, ${name}ContractAbi, wallet);
+    super(instance, ${name}ContractArtifact, wallet);
   }
   `;
 }
@@ -108,73 +148,152 @@ function generateAt(name: string) {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(
-    /** The deployed contract's address. */
     address: AztecAddress,
-    /** The wallet. */
     wallet: Wallet,
   ) {
-    const extendedContractData = await wallet.getExtendedContractData(address);
-    if (extendedContractData === undefined) {
-      throw new Error('Contract ' + address.toString() + ' is not deployed');
-    }
-    return new ${name}Contract(extendedContractData.getCompleteAddress(), wallet);
+    return Contract.at(address, ${name}Contract.artifact, wallet) as Promise<${name}Contract>;
   }`;
 }
 
 /**
- * Generates a static getter for the contract's ABI.
- * @param name - Name of the contract used to derive name of the ABI import.
+ * Generates a static getter for the contract's artifact.
+ * @param name - Name of the contract used to derive name of the artifact import.
  */
-function generateAbiGetter(name: string) {
-  const abiName = `${name}ContractAbi`;
+function generateArtifactGetter(name: string) {
+  const artifactName = `${name}ContractArtifact`;
   return `
   /**
-   * Returns this contract's ABI.
+   * Returns this contract's artifact.
    */
-  public static get abi(): ContractAbi {
-    return ${abiName};
+  public static get artifact(): ContractArtifact {
+    return ${artifactName};
   }
   `;
 }
 
 /**
- * Generates statements for importing the abi from a json artifact and re-exporting it.
+ * Generates statements for importing the artifact from json and re-exporting it.
  * @param name - Name of the contract.
- * @param abiImportPath - Path to load the ABI from.
+ * @param artifactImportPath - Path to load the ABI from.
  * @returns Code.
  */
-function generateAbiStatement(name: string, abiImportPath: string) {
+function generateAbiStatement(name: string, artifactImportPath: string) {
   const stmts = [
-    `import ${name}ContractAbiJson from '${abiImportPath}' assert { type: 'json' };`,
-    `export const ${name}ContractAbi = ${name}ContractAbiJson as unknown as ContractAbi;`,
+    `import ${name}ContractArtifactJson from '${artifactImportPath}' assert { type: 'json' };`,
+    `export const ${name}ContractArtifact = loadContractArtifact(${name}ContractArtifactJson as NoirCompiledContract);`,
   ];
   return stmts.join('\n');
 }
 
 /**
+ * Generates a getter for the contract's storage layout.
+ * @param input - The contract artifact.
+ */
+function generateStorageLayoutGetter(input: ContractArtifact) {
+  const storage = input.outputs.globals.storage ? (input.outputs.globals.storage[0] as StructValue) : { fields: [] };
+  const storageFields = storage.fields as TypedStructFieldValue<StructValue>[];
+  const storageFieldsUnionType = storageFields.map(f => `'${f.name}'`).join(' | ');
+  const layout = storageFields
+    .map(
+      ({
+        name,
+        value: {
+          fields: [slot, typ],
+        },
+      }) =>
+        `${name}: {
+          slot: new Fr(${(slot.value as IntegerValue).value}n),
+          typ: "${(typ.value as BasicValue<'string', string>).value}",
+        }
+      `,
+    )
+    .join(',\n');
+  return storageFields.length > 0
+    ? `
+    public static get storage(): ContractStorageLayout<${storageFieldsUnionType}> {
+      return {
+        ${layout}
+      } as ContractStorageLayout<${storageFieldsUnionType}>;
+    }
+    `
+    : '';
+}
+
+/**
+ * Generates a getter for the contract notes
+ * @param input - The contract artifact.
+ */
+function generateNotesGetter(input: ContractArtifact) {
+  const notes = input.outputs.globals.notes ? (input.outputs.globals.notes as TupleValue[]) : [];
+  const notesUnionType = notes.map(n => `'${(n.fields[1] as BasicValue<'string', string>).value}'`).join(' | ');
+
+  const noteMetadata = notes
+    .map(
+      ({ fields: [id, typ] }) =>
+        `${(typ as BasicValue<'string', string>).value}: {
+        id: new Fr(${(id as IntegerValue).value}n),
+      }
+    `,
+    )
+    .join(',\n');
+  return notes.length > 0
+    ? `
+  public static get notes(): ContractNotes<${notesUnionType}> {
+    const notes = this.artifact.outputs.globals.notes ? (this.artifact.outputs.globals.notes as any) : [];
+    return {
+      ${noteMetadata}
+    } as ContractNotes<${notesUnionType}>;
+  }
+  `
+    : '';
+}
+
+/**
  * Generates the typescript code to represent a contract.
  * @param input - The compiled Noir artifact.
- * @param abiImportPath - Optional path to import the ABI (if not set, will be required in the constructor).
+ * @param artifactImportPath - Optional path to import the artifact (if not set, will be required in the constructor).
  * @returns The corresponding ts code.
  */
-export function generateTypescriptContractInterface(input: ContractAbi, abiImportPath?: string) {
-  // `compact` removes all falsey values from an array
-  const methods = compact(input.functions.filter(f => f.name !== 'constructor').map(generateMethod));
-  const deploy = abiImportPath && generateDeploy(input);
-  const ctor = abiImportPath && generateConstructor(input.name);
-  const at = abiImportPath && generateAt(input.name);
-  const abiStatement = abiImportPath && generateAbiStatement(input.name, abiImportPath);
-  const abiGetter = abiImportPath && generateAbiGetter(input.name);
+export function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
+  const methods = input.functions.filter(f => !f.isInternal).map(generateMethod);
+  const deploy = artifactImportPath && generateDeploy(input);
+  const ctor = artifactImportPath && generateConstructor(input.name);
+  const at = artifactImportPath && generateAt(input.name);
+  const artifactStatement = artifactImportPath && generateAbiStatement(input.name, artifactImportPath);
+  const artifactGetter = artifactImportPath && generateArtifactGetter(input.name);
+  const storageLayoutGetter = artifactImportPath && generateStorageLayoutGetter(input);
+  const notesGetter = artifactImportPath && generateNotesGetter(input);
 
   return `
 /* Autogenerated file, do not edit! */
 
 /* eslint-disable */
-import { AztecAddress, CompleteAddress, ContractBase, ContractFunctionInteraction, ContractMethod, DeployMethod, FieldLike, Wallet } from '@aztec/aztec.js';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { AztecRPC, PublicKey } from '@aztec/types';
-import { ContractAbi } from '@aztec/foundation/abi';
-${abiStatement}
+import {
+  AztecAddress,
+  AztecAddressLike,
+  CompleteAddress,
+  Contract,
+  ContractArtifact,
+  ContractBase,
+  ContractFunctionInteraction,
+  ContractInstanceWithAddress,
+  ContractMethod,
+  ContractStorageLayout,
+  ContractNotes,
+  DeployMethod,
+  EthAddress,
+  EthAddressLike,
+  FieldLike,
+  Fr,
+  FunctionSelectorLike,
+  loadContractArtifact,
+  NoirCompiledContract,
+  Point,
+  PublicKey,
+  Wallet,
+  WrappedFieldLike,
+} from '@aztec/aztec.js';
+${artifactStatement}
 
 /**
  * Type-safe interface for contract ${input.name};
@@ -186,7 +305,11 @@ export class ${input.name}Contract extends ContractBase {
 
   ${deploy}
 
-  ${abiGetter}
+  ${artifactGetter}
+
+  ${storageLayoutGetter}
+
+  ${notesGetter}
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public methods!: {

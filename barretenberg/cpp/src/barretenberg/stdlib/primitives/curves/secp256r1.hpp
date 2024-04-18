@@ -6,28 +6,26 @@
 
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 template <typename CircuitType> struct secp256r1 {
-    static constexpr proof_system::CurveType type = proof_system::CurveType::SECP256R1;
+    static constexpr bb::CurveType type = bb::CurveType::SECP256R1;
 
     typedef ::secp256r1::fq fq;
     typedef ::secp256r1::fr fr;
     typedef ::secp256r1::g1 g1;
 
-    typedef CircuitType Composer;
-    typedef witness_t<Composer> witness_ct;
-    typedef public_witness_t<Composer> public_witness_ct;
-    typedef field_t<Composer> fr_ct;
-    typedef byte_array<Composer> byte_array_ct;
-    typedef bool_t<Composer> bool_ct;
-    typedef stdlib::uint32<Composer> uint32_ct;
+    typedef CircuitType Builder;
+    typedef witness_t<Builder> witness_ct;
+    typedef public_witness_t<Builder> public_witness_ct;
+    typedef field_t<Builder> fr_ct;
+    typedef byte_array<Builder> byte_array_ct;
+    typedef bool_t<Builder> bool_ct;
+    typedef stdlib::uint32<Builder> uint32_ct;
 
-    typedef bigfield<Composer, typename ::secp256r1::Secp256r1FqParams> fq_ct;
-    typedef bigfield<Composer, typename ::secp256r1::Secp256r1FrParams> bigfr_ct;
-    typedef element<Composer, fq_ct, fr_ct, g1> g1_ct;
-    typedef element<Composer, fq_ct, bigfr_ct, g1> g1_bigfr_ct;
+    typedef bigfield<Builder, typename ::secp256r1::FqParams> fq_ct;
+    typedef bigfield<Builder, typename ::secp256r1::FrParams> bigfr_ct;
+    typedef element<Builder, fq_ct, fr_ct, g1> g1_ct;
+    typedef element<Builder, fq_ct, bigfr_ct, g1> g1_bigfr_ct;
 };
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

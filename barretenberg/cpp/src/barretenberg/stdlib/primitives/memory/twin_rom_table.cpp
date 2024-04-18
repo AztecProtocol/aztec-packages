@@ -2,16 +2,15 @@
 
 #include "../circuit_builders/circuit_builders.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-template <typename Composer>
-twin_rom_table<Composer>::twin_rom_table(const std::vector<std::array<field_pt, 2>>& table_entries)
+template <typename Builder>
+twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2>>& table_entries)
 {
-    static_assert(HasPlookup<Composer>);
-    // get the composer context
+    static_assert(HasPlookup<Builder>);
+    // get the builder context
     for (const auto& entry : table_entries) {
         if (entry[0].get_context() != nullptr) {
             context = entry[0].get_context();
@@ -25,16 +24,16 @@ twin_rom_table<Composer>::twin_rom_table(const std::vector<std::array<field_pt, 
     raw_entries = table_entries;
     length = raw_entries.size();
     // do not initialize the table yet. The input entries might all be constant,
-    // if this is the case we might not have a valid pointer to a Composer
+    // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `operator[]` is called
     // with a non-const field element.
 }
 
 // initialize the table once we perform a read. This ensures we always have a valid
-// pointer to a Composer.
-// (if both the table entries and the index are constant, we don't need a composer as we
+// pointer to a Builder.
+// (if both the table entries and the index are constant, we don't need a builder as we
 // can directly extract the desired value from `raw_entries`)
-template <typename Composer> void twin_rom_table<Composer>::initialize_table() const
+template <typename Builder> void twin_rom_table<Builder>::initialize_table() const
 {
     if (initialized) {
         return;
@@ -65,8 +64,8 @@ template <typename Composer> void twin_rom_table<Composer>::initialize_table() c
     initialized = true;
 }
 
-template <typename Composer>
-twin_rom_table<Composer>::twin_rom_table(const twin_rom_table& other)
+template <typename Builder>
+twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
     , length(other.length)
@@ -75,8 +74,8 @@ twin_rom_table<Composer>::twin_rom_table(const twin_rom_table& other)
     , context(other.context)
 {}
 
-template <typename Composer>
-twin_rom_table<Composer>::twin_rom_table(twin_rom_table&& other)
+template <typename Builder>
+twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
     , length(other.length)
@@ -85,7 +84,7 @@ twin_rom_table<Composer>::twin_rom_table(twin_rom_table&& other)
     , context(other.context)
 {}
 
-template <typename Composer> twin_rom_table<Composer>& twin_rom_table<Composer>::operator=(const twin_rom_table& other)
+template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other)
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
@@ -96,7 +95,7 @@ template <typename Composer> twin_rom_table<Composer>& twin_rom_table<Composer>:
     return *this;
 }
 
-template <typename Composer> twin_rom_table<Composer>& twin_rom_table<Composer>::operator=(twin_rom_table&& other)
+template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other)
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
@@ -107,8 +106,8 @@ template <typename Composer> twin_rom_table<Composer>& twin_rom_table<Composer>:
     return *this;
 }
 
-template <typename Composer>
-std::array<field_t<Composer>, 2> twin_rom_table<Composer>::operator[](const size_t index) const
+template <typename Builder>
+std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t index) const
 {
     if (index >= length) {
         ASSERT(context != nullptr);
@@ -118,8 +117,8 @@ std::array<field_t<Composer>, 2> twin_rom_table<Composer>::operator[](const size
     return entries[index];
 }
 
-template <typename Composer>
-std::array<field_t<Composer>, 2> twin_rom_table<Composer>::operator[](const field_pt& index) const
+template <typename Builder>
+std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_pt& index) const
 {
     if (index.is_constant()) {
         return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
@@ -139,6 +138,6 @@ std::array<field_t<Composer>, 2> twin_rom_table<Composer>::operator[](const fiel
     };
 }
 
-INSTANTIATE_STDLIB_ULTRA_TYPE(twin_rom_table);
-} // namespace stdlib
-} // namespace proof_system::plonk
+template class twin_rom_table<bb::UltraCircuitBuilder>;
+template class twin_rom_table<bb::GoblinUltraCircuitBuilder>;
+} // namespace bb::stdlib

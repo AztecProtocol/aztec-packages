@@ -1,4 +1,4 @@
-import { assert, hasOwnProperty } from './js_utils.js';
+import { assert } from './js_utils.js';
 
 /**
  * Represents a class compatible with our class conversion system.
@@ -16,6 +16,8 @@ import { assert, hasOwnProperty } from './js_utils.js';
  */
 interface StringIOClass {
   new (...args: any): any;
+
+  // TODO(#4254): Ensure that toString method is checked for as well.
 
   /**
    * Creates an IOClass from a given string.
@@ -39,6 +41,8 @@ interface StringIOClass {
  */
 interface ObjIOClass {
   new (...args: any): any;
+
+  // TODO(#4254): Ensure that toJSON method is checked for as well.
 
   /**
    * Creates an IOClass from a given JSON object.
@@ -133,7 +137,7 @@ export class ClassConverter {
   register(type: string, class_: IOClass, encoding: ClassEncoding) {
     assert(type !== 'Buffer', "'Buffer' handling is hardcoded. Cannot use as name.");
     assert(
-      hasOwnProperty(class_.prototype, 'toString') || hasOwnProperty(class_.prototype, 'toJSON'),
+      class_.prototype['toString'] || class_.prototype['toJSON'],
       `Class ${type} must define a toString() OR toJSON() method.`,
     );
     assert(
@@ -197,9 +201,13 @@ export class ClassConverter {
    */
   private lookupObject(classObj: any) {
     const nameResult = this.toName.get(classObj.constructor);
-    if (nameResult) return { type: nameResult[0], encoding: nameResult[1] };
+    if (nameResult) {
+      return { type: nameResult[0], encoding: nameResult[1] };
+    }
     const classResult = this.toClass.get(classObj.constructor.name);
-    if (classResult) return { type: classObj.constructor.name, encoding: classResult[1] };
+    if (classResult) {
+      return { type: classObj.constructor.name, encoding: classResult[1] };
+    }
     throw new Error(`Could not find class ${classObj.constructor.name} in lookup.`);
   }
 }

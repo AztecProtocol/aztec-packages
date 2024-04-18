@@ -1,7 +1,8 @@
+import { Tx, TxHash } from '@aztec/circuit-types';
+import { type TxAddedToPoolStats } from '@aztec/circuit-types/stats';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { Tx, TxHash } from '@aztec/types';
 
-import { TxPool } from './index.js';
+import { type TxPool } from './tx_pool.js';
 
 /**
  * In-memory implementation of the Transaction Pool.
@@ -35,12 +36,16 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public async addTxs(txs: Tx[]): Promise<void> {
+  public addTxs(txs: Tx[]): Promise<void> {
     for (const tx of txs) {
-      const txHash = await tx.getTxHash();
-      this.log(`Adding tx with id ${txHash.toString()}`);
+      const txHash = tx.getTxHash();
+      this.log.debug(`Adding tx with id ${txHash.toString()}`, {
+        eventName: 'tx-added-to-pool',
+        ...tx.getStats(),
+      } satisfies TxAddedToPoolStats);
       this.txs.set(txHash.toBigInt(), tx);
     }
+    return Promise.resolve();
   }
 
   /**
@@ -48,11 +53,11 @@ export class InMemoryTxPool implements TxPool {
    * @param txHashes - An array of tx hashes to be removed from the tx pool.
    * @returns The number of transactions that was deleted from the pool.
    */
-  public deleteTxs(txHashes: TxHash[]): number {
-    const numTxsRemoved = txHashes
-      .map(txHash => this.txs.delete(txHash.toBigInt()))
-      .filter(result => result === true).length;
-    return numTxsRemoved;
+  public deleteTxs(txHashes: TxHash[]): Promise<void> {
+    for (const txHash of txHashes) {
+      this.txs.delete(txHash.toBigInt());
+    }
+    return Promise.resolve();
   }
 
   /**

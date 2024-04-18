@@ -2,16 +2,23 @@ import { randomBytes } from '../random/index.js';
 import { toBigIntBE, toBufferBE } from '../bigint-array/index.js';
 import { BufferReader, uint8ArrayToHexString } from '../serialize/index.js';
 
+// TODO(#4189): Replace with implementation in yarn-project/foundation/src/fields/fields.ts
 export class Fr {
   static ZERO = new Fr(0n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
   static MAX_VALUE = this.MODULUS - 1n;
   static SIZE_IN_BYTES = 32;
+  value: Uint8Array;
 
-  constructor(public readonly value: bigint) {
-    if (value > Fr.MAX_VALUE) {
-      throw new Error(`Fr out of range ${value}.`);
+  constructor(value: Uint8Array | bigint) {
+    // We convert buffer value to bigint to be able to check it fits within modulus
+    const valueBigInt = typeof value === 'bigint' ? value : toBigIntBE(value);
+
+    if (valueBigInt > Fr.MAX_VALUE) {
+      throw new Error(`Fr out of range: ${valueBigInt}`);
     }
+
+    this.value = typeof value === 'bigint' ? toBufferBE(value) : value;
   }
 
   static random() {
@@ -21,7 +28,7 @@ export class Fr {
 
   static fromBuffer(buffer: Uint8Array | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
+    return new this(reader.readBytes(this.SIZE_IN_BYTES));
   }
 
   static fromBufferReduce(buffer: Uint8Array | BufferReader) {
@@ -34,7 +41,7 @@ export class Fr {
   }
 
   toBuffer() {
-    return toBufferBE(this.value, Fr.SIZE_IN_BYTES);
+    return this.value;
   }
 
   toString() {
@@ -42,11 +49,11 @@ export class Fr {
   }
 
   equals(rhs: Fr) {
-    return this.value === rhs.value;
+    return this.value.every((v, i) => v === rhs.value[i]);
   }
 
   isZero() {
-    return this.value === 0n;
+    return this.value.every(v => v === 0);
   }
 }
 

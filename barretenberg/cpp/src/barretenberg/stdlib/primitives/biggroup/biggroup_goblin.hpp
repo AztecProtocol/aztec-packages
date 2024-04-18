@@ -1,7 +1,6 @@
 #pragma once
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 /**
  * @brief Goblin style batch multiplication
@@ -34,7 +33,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
     auto builder = points[0].get_context();
 
     // Check that the internal accumulator is zero?
-    ASSERT(builder->op_queue.get_accumulator().is_point_at_infinity());
+    ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
 
     // Loop over all points and scalars
     size_t num_points = points.size();
@@ -92,5 +91,4 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
     return element(point_x, point_y);
 }
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

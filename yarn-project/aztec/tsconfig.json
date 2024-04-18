@@ -1,0 +1,59 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../archiver"
+    },
+    {
+      "path": "../aztec-node"
+    },
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../entrypoints"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../l1-artifacts"
+    },
+    {
+      "path": "../noir-compiler"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../pxe"
+    }
+  ],
+  "include": ["src"]
+}

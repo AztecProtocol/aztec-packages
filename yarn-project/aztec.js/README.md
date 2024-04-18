@@ -1,44 +1,42 @@
 # Aztec.js
 
-Aztec.js is a tool that provides APIs for interacting with contracts on the Aztec network. It communicates with the [AztecRPCServer](../aztec-rpc/) through an AztecRPCClient implementation, allowing developers to easily deploy contracts, view functions, and send transactions.
+Aztec.js is a library that provides APIs for managing accounts and interacting with contracts on the Aztec network. It communicates with the [Private eXecution Environment (PXE)](https://docs.aztec.network/apis/pxe/interfaces/PXE) through a `PXE` implementation, allowing developers to easily register new accounts, deploy contracts, view functions, and send transactions.
 
-### Usage
+## Installing
 
-#### Deploy a contract
-
-```typescript
-import { ContractDeployer } from '@aztec/aztec.js';
-
-const deployer = new ContractDeployer(contractAbi, aztecRpcServer);
-const tx = deployer.deploy(constructorArgs[0], constructorArgs[1]).send();
-// wait for tx to be mined
-const receipt = await tx.wait();
-console.log(`Contract deployed at ${receipt.contractAddress}`);
+```
+npm install @aztec/aztec.js
 ```
 
-#### Send a transaction
+## Usage
+
+Use the `@aztec/accounts` package in order to create and manage accounts, and acquire a `Wallet` object needed to send transactions and interact with the network.
+
+### Deploy a contract
 
 ```typescript
 import { Contract } from '@aztec/aztec.js';
 
-const contract = await Contract.at(contractAddress, contractAbi, aztecRpcServer);
-const tx = contract.methods
-    .transfer(amount, recipientAddress)
-    .send({ origin: senderAddress });
-
-// wait for tx to be mined
-await tx.wait();
-console.log(`Transferred ${amount} to ${recipientAddress}!`);
+const contract = await Contract.deploy(wallet, MyContractArtifact, [...constructorArgs]).send().deployed();
+console.log(`Contract deployed at ${contract.address}`);
 ```
 
-#### Call a view function
+### Send a transaction
 
 ```typescript
 import { Contract } from '@aztec/aztec.js';
 
-const contract = await Contract.at(contractAddress, contractAbi, aztecRpcServer);
-const balance = contract.methods
-    .getBalance(accountPublicKey))
-    .view({ from: accountAddress });
-console.log(`Account balance: ${balance}.`);
+const contract = await Contract.at(contractAddress, MyContractArtifact, wallet);
+const tx = await contract.methods.transfer(amount, recipientAddress).send().wait();
+console.log(`Transferred ${amount} to ${recipientAddress} on block ${tx.blockNumber}`);
+```
+
+### Simulate a function
+
+```typescript
+import { Contract } from '@aztec/aztec.js';
+
+const contract = await Contract.at(contractAddress, MyContractArtifact, wallet);
+const balance = await contract.methods.get_balance(wallet.getAddress()).simulate();
+console.log(`Account balance is ${balance}`);
 ```

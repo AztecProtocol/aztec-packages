@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <utility>
 
-namespace barretenberg::srs::factories {
+namespace bb::srs::factories {
 
 /**
  * Create reference strings given a path to a directory of transcript files.
@@ -18,15 +18,15 @@ template <typename Curve> class FileCrsFactory : public CrsFactory<Curve> {
     FileCrsFactory(std::string path, size_t initial_degree = 0);
     FileCrsFactory(FileCrsFactory&& other) = default;
 
-    std::shared_ptr<barretenberg::srs::factories::ProverCrs<Curve>> get_prover_crs(size_t degree) override;
+    std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> get_prover_crs(size_t degree) override;
 
-    std::shared_ptr<barretenberg::srs::factories::VerifierCrs<Curve>> get_verifier_crs(size_t degree = 0) override;
+    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> get_verifier_crs(size_t degree = 0) override;
 
   private:
     std::string path_;
     size_t degree_;
-    std::shared_ptr<barretenberg::srs::factories::ProverCrs<Curve>> prover_crs_;
-    std::shared_ptr<barretenberg::srs::factories::VerifierCrs<Curve>> verifier_crs_;
+    std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> prover_crs_;
+    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> verifier_crs_;
 };
 
 template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
@@ -42,7 +42,7 @@ template <typename Curve> class FileProverCrs : public ProverCrs<Curve> {
 
     typename Curve::AffineElement* get_monomial_points() { return monomials_.get(); }
 
-    size_t get_monomial_size() const { return num_points; }
+    [[nodiscard]] size_t get_monomial_size() const { return num_points; }
 
   private:
     size_t num_points;
@@ -86,7 +86,4 @@ template <> class FileVerifierCrs<curve::Grumpkin> : public VerifierCrs<curve::G
     std::shared_ptr<Curve::AffineElement[]> monomials_;
 };
 
-extern template class FileProverCrs<curve::BN254>;
-extern template class FileProverCrs<curve::Grumpkin>;
-
-} // namespace barretenberg::srs::factories
+} // namespace bb::srs::factories

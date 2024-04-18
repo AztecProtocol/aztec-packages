@@ -1,0 +1,11 @@
+{
+    "direnv.restart.automatic": true,
+    "redhat.telemetry.enabled": false,
+    "yaml.recommendations.show": false,
+    "yaml.schemas": {
+        "https://json.schemastore.org/github-workflow.json": "${workspaceRoot}/.github/workflows/*.yml"
+    },
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+}

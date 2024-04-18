@@ -1,23 +1,24 @@
 #pragma once
 
+#include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
-#include "barretenberg/plonk/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/composer/composer_lib.hpp"
+#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <cstddef>
 #include <utility>
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 class UltraComposer {
   public:
     using Flavor = flavor::Ultra;
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = Flavor::Curve;
+    using Trace = ExecutionTrace_<Flavor>;
 
     static constexpr std::string_view NAME_STRING = "UltraPlonk";
     static constexpr CircuitType type = CircuitType::ULTRA;
@@ -25,9 +26,6 @@ class UltraComposer {
     static constexpr size_t program_width = CircuitBuilder::NUM_WIRES;
     std::shared_ptr<plonk::proving_key> circuit_proving_key;
     std::shared_ptr<plonk::verification_key> circuit_verification_key;
-
-    // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory_;
 
     bool computed_witness = false;
 
@@ -37,15 +35,7 @@ class UltraComposer {
     // vanishing_polynomial cannot be trivially fetched here, I am directly setting this to 4 - 1 = 3.
     static constexpr size_t s_randomness = 3;
 
-    UltraComposer()
-        : UltraComposer("../srs_db/ignition"){};
-
-    UltraComposer(std::string const& crs_path)
-        : UltraComposer(std::make_unique<barretenberg::srs::factories::FileCrsFactory<Curve>>(crs_path)){};
-
-    explicit UltraComposer(std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
-        : crs_factory_(std::move(crs_factory))
-    {}
+    UltraComposer() = default;
 
     UltraComposer(std::shared_ptr<proving_key> p_key, std::shared_ptr<verification_key> v_key)
         : circuit_proving_key(std::move(p_key))
@@ -82,8 +72,6 @@ class UltraComposer {
     std::shared_ptr<plonk::proving_key> compute_proving_key(CircuitBuilder& circuit_constructor);
     std::shared_ptr<plonk::verification_key> compute_verification_key(CircuitBuilder& circuit_constructor);
 
-    void compute_witness(CircuitBuilder& circuit_constructor);
-
     UltraProver create_prover(CircuitBuilder& circuit_constructor);
     UltraVerifier create_verifier(CircuitBuilder& circuit_constructor);
 
@@ -94,6 +82,8 @@ class UltraComposer {
     UltraWithKeccakVerifier create_ultra_with_keccak_verifier(CircuitBuilder& circuit_constructor);
 
     void add_table_column_selector_poly_to_proving_key(polynomial& small, const std::string& tag);
+
+    size_t compute_dyadic_circuit_size(CircuitBuilder& circuit_constructor);
 
     /**
      * @brief Create a manifest object
@@ -106,6 +96,26 @@ class UltraComposer {
     {
         return Flavor::create_manifest(num_public_inputs);
     }
-};
 
-} // namespace proof_system::plonk
+  private:
+    /**
+     * @brief Construct a prover given a proving key and populate it with the appropriate widgets
+     */
+    template <typename settings> ProverBase<settings> construct_prover(CircuitBuilder& circuit_constructor);
+
+    /**
+     * @brief Construct sorted concatenated table-lookup polynomials for lookup argument
+     */
+    void construct_sorted_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
+
+    /**
+     * @brief Populate proving key with memory read/write records
+     */
+    void populate_memory_records(CircuitBuilder& circuit_constructor);
+
+    /**
+     * @brief Construct polynomials containing concatenation of the lookup tables
+     */
+    void construct_table_polynomials(CircuitBuilder& circuit_constructor, size_t subgroup_size);
+};
+} // namespace bb::plonk

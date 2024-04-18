@@ -1,18 +1,18 @@
+import { L2Block, type L2BlockSource, type TxEffect, type TxHash, TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
-import { L2Block, L2BlockSource, L2Tx, TxHash } from '@aztec/types';
 
 /**
  * A mocked implementation of L2BlockSource to be used in p2p tests.
  */
 export class MockBlockSource implements L2BlockSource {
   private l2Blocks: L2Block[] = [];
-  private l2Txs: L2Tx[] = [];
+  private txEffects: TxEffect[] = [];
 
   constructor(private numBlocks = 100) {
     for (let i = 0; i < this.numBlocks; i++) {
       const block = L2Block.random(i);
       this.l2Blocks.push(block);
-      this.l2Txs.push(...block.getTxs());
+      this.txEffects.push(...block.body.txEffects);
     }
   }
 
@@ -21,6 +21,14 @@ export class MockBlockSource implements L2BlockSource {
    * @returns The rollup address.
    */
   getRollupAddress(): Promise<EthAddress> {
+    return Promise.resolve(EthAddress.random());
+  }
+
+  /**
+   * Method to fetch the registry contract address at the base-layer.
+   * @returns The registry address.
+   */
+  getRegistryAddress(): Promise<EthAddress> {
     return Promise.resolve(EthAddress.random());
   }
 
@@ -37,7 +45,7 @@ export class MockBlockSource implements L2BlockSource {
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  public getL2Block(number: number) {
+  public getBlock(number: number) {
     return Promise.resolve(this.l2Blocks[number]);
   }
 
@@ -47,23 +55,39 @@ export class MockBlockSource implements L2BlockSource {
    * @param limit - The maximum number of blocks to return.
    * @returns The requested mocked L2 blocks.
    */
-  public getL2Blocks(from: number, limit: number) {
+  public getBlocks(from: number, limit: number) {
     return Promise.resolve(this.l2Blocks.slice(from, from + limit));
   }
 
   /**
-   * Gets an l2 tx.
-   * @param txHash - The txHash of the l2 tx.
-   * @returns The requested L2 tx.
+   * Gets a tx effect.
+   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
+   * @returns The requested tx effect.
    */
-  getL2Tx(txHash: TxHash) {
-    const l2Tx = this.l2Txs.find(tx => tx.txHash.equals(txHash));
-    return Promise.resolve(l2Tx);
+  public getTxEffect(txHash: TxHash) {
+    const txEffect = this.txEffects.find(tx => tx.txHash.equals(txHash));
+    return Promise.resolve(txEffect);
+  }
+
+  /**
+   * Gets a receipt of a settled tx.
+   * @param txHash - The hash of a tx we try to get the receipt for.
+   * @returns The requested tx receipt (or undefined if not found).
+   */
+  public getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
+    for (const block of this.l2Blocks) {
+      for (const txEffect of block.body.txEffects) {
+        if (txEffect.txHash.equals(txHash)) {
+          return Promise.resolve(new TxReceipt(txHash, TxStatus.MINED, '', block.hash().toBuffer(), block.number));
+        }
+      }
+    }
+    return Promise.resolve(undefined);
   }
 
   /**
    * Starts the block source. In this mock implementation, this is a noop.
-   * @returns A promise that signals the initialization of the l2 block source on compmletion.
+   * @returns A promise that signals the initialization of the l2 block source on completion.
    */
   public start(): Promise<void> {
     return Promise.resolve();

@@ -3,13 +3,12 @@
 pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IInbox} from "../src/core/interfaces/messagebridge/IInbox.sol";
+import {Inbox} from "../src/core/messagebridge/Inbox.sol";
+import {Registry} from "../src/core/messagebridge/Registry.sol";
+import {Errors} from "../src/core/libraries/Errors.sol";
 
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
+import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 
 contract RegistryTest is Test {
   address internal constant DEAD = address(0xdead);
@@ -36,18 +35,18 @@ contract RegistryTest is Test {
 
   function testUpgrade() public {
     address newRollup = address(0xbeef1);
-    address newInbox = address(0xbeef2);
+    address inbox = address(0xbeef2);
     address newOutbox = address(0xbeef3);
-    uint256 newVersion = registry.upgrade(newRollup, newInbox, newOutbox);
+    uint256 newVersion = registry.upgrade(newRollup, inbox, newOutbox);
 
     assertEq(registry.numberOfVersions(), 2, "should have 2 versions");
     DataStructures.RegistrySnapshot memory snapshot = registry.getCurrentSnapshot();
     assertEq(snapshot.rollup, newRollup, "should have newRollup");
-    assertEq(snapshot.inbox, newInbox, "should have newInbox");
+    assertEq(snapshot.inbox, inbox, "should have inbox");
     assertEq(snapshot.outbox, newOutbox, "should have newOutbox");
 
     assertEq(address(registry.getRollup()), newRollup);
-    assertEq(address(registry.getInbox()), newInbox);
+    assertEq(address(registry.getInbox()), inbox);
     assertEq(address(registry.getOutbox()), newOutbox);
     assertEq(
       registry.getVersionFor(newRollup), newVersion, "should have version newVersion for newRollup"

@@ -1,22 +1,20 @@
 #include "../../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
-using namespace barretenberg;
-using namespace proof_system;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator+(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator+(const uint_plookup& other) const
 {
 
     ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
            (context == nullptr && other.context != nullptr));
-    Composer* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
-        return uint_plookup<Composer, Native>(context, (additive_constant + other.additive_constant) & MASK);
+        return uint_plookup<Builder, Native>(context, (additive_constant + other.additive_constant) & MASK);
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
@@ -41,24 +39,24 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator+(const u
 
     ctx->create_balanced_add_gate(gate);
 
-    uint_plookup<Composer, Native> result(ctx);
+    uint_plookup<Builder, Native> result(ctx);
     result.witness_index = gate.c;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
 
     return result;
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator-(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator-(const uint_plookup& other) const
 {
 
     ASSERT(context == other.context || (context != nullptr && other.context == nullptr) ||
            (context == nullptr && other.context != nullptr));
 
-    Composer* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = (context == nullptr) ? other.context : context;
 
     if (is_constant() && other.is_constant()) {
-        return uint_plookup<Composer, Native>(context, (additive_constant - other.additive_constant) & MASK);
+        return uint_plookup<Builder, Native>(context, (additive_constant - other.additive_constant) & MASK);
     }
 
     // N.B. We assume that additive_constant is nonzero ONLY if value is constant
@@ -87,24 +85,24 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator-(const u
 
     ctx->create_balanced_add_gate(gate);
 
-    uint_plookup<Composer, Native> result(ctx);
+    uint_plookup<Builder, Native> result(ctx);
     result.witness_index = gate.c;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
 
     return result;
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator*(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator*(const uint_plookup& other) const
 {
 
-    Composer* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = (context == nullptr) ? other.context : context;
 
-    if constexpr (IsSimulator<Composer>) {
-        return uint_plookup<Composer, Native>(context, (additive_constant * other.additive_constant) & MASK);
+    if constexpr (IsSimulator<Builder>) {
+        return uint_plookup<Builder, Native>(context, (additive_constant * other.additive_constant) & MASK);
     } else {
         if (is_constant() && other.is_constant()) {
-            return uint_plookup<Composer, Native>(context, (additive_constant * other.additive_constant) & MASK);
+            return uint_plookup<Builder, Native>(context, (additive_constant * other.additive_constant) & MASK);
         }
         if (is_constant() && !other.is_constant()) {
             return other * (*this);
@@ -137,7 +135,7 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator*(const u
         // discard the high bits
         ctx->decompose_into_default_range(gate.d, width);
 
-        uint_plookup<Composer, Native> result(ctx);
+        uint_plookup<Builder, Native> result(ctx);
         result.accumulators = constrain_accumulators(ctx, gate.c);
         result.witness_index = gate.c;
         result.witness_status = WitnessStatus::OK;
@@ -146,20 +144,20 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator*(const u
     }
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator/(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator/(const uint_plookup& other) const
 {
     return divmod(other).first;
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator%(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator%(const uint_plookup& other) const
 {
     return divmod(other).second;
 }
 
-template <typename Composer, typename Native>
-std::pair<uint_plookup<Composer, Native>, uint_plookup<Composer, Native>> uint_plookup<Composer, Native>::divmod(
+template <typename Builder, typename Native>
+std::pair<uint_plookup<Builder, Native>, uint_plookup<Builder, Native>> uint_plookup<Builder, Native>::divmod(
     const uint_plookup& other) const
 {
     /**
@@ -182,29 +180,29 @@ std::pair<uint_plookup<Composer, Native>, uint_plookup<Composer, Native>> uint_p
      * We normalize a and b, as we need to be certain these values are within the range [0, 2**{width}]
      **/
 
-    Composer* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = (context == nullptr) ? other.context : context;
 
     // We want to force the divisor to be non-zero, as this is an error state
     if (other.is_constant() && other.get_value() == 0) {
         // TODO: should have an actual error handler!
         const uint32_t one = ctx->add_variable(FF::one());
-        if constexpr (IsSimulator<Composer>) {
+        if constexpr (IsSimulator<Builder>) {
             ctx->assert_equal_constant(FF::one(), FF::zero(), "plookup_arithmetic: divide by zero!");
         } else {
             ctx->assert_equal_constant(one, FF::zero(), "plookup_arithmetic: divide by zero!");
         }
     } else if (!other.is_constant()) {
-        const bool_t<Composer> is_divisor_zero = field_t<Composer>(other).is_zero();
+        const bool_t<Builder> is_divisor_zero = field_t<Builder>(other).is_zero();
         ctx->assert_equal_constant(is_divisor_zero.witness_index, FF::zero(), "plookup_arithmetic: divide by zero!");
     }
 
     if (is_constant() && other.is_constant()) {
-        const uint_plookup<Composer, Native> remainder(ctx, additive_constant % other.additive_constant);
-        const uint_plookup<Composer, Native> quotient(ctx, additive_constant / other.additive_constant);
+        const uint_plookup<Builder, Native> remainder(ctx, additive_constant % other.additive_constant);
+        const uint_plookup<Builder, Native> quotient(ctx, additive_constant / other.additive_constant);
         return std::make_pair(quotient, remainder);
     } else if (witness_index == other.witness_index) {
-        const uint_plookup<Composer, Native> remainder(context, 0);
-        const uint_plookup<Composer, Native> quotient(context, 1);
+        const uint_plookup<Builder, Native> remainder(context, 0);
+        const uint_plookup<Builder, Native> quotient(context, 1);
         return std::make_pair(quotient, remainder);
     }
 
@@ -251,26 +249,29 @@ std::pair<uint_plookup<Composer, Native>, uint_plookup<Composer, Native>> uint_p
 
     // validate delta is in the correct range
     ctx->decompose_into_default_range(delta_idx, width);
-    uint_plookup<Composer, Native> quotient(ctx);
+    uint_plookup<Builder, Native> quotient(ctx);
     quotient.witness_index = quotient_idx;
     quotient.accumulators = constrain_accumulators(ctx, quotient.witness_index);
     quotient.witness_status = WitnessStatus::OK;
 
-    uint_plookup<Composer, Native> remainder(ctx);
+    uint_plookup<Builder, Native> remainder(ctx);
     remainder.witness_index = remainder_idx;
     remainder.accumulators = constrain_accumulators(ctx, remainder.witness_index);
     remainder.witness_status = WitnessStatus::OK;
 
     return std::make_pair(quotient, remainder);
 }
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint8_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
-
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint8_t);
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint16_t);
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint32_t);
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint64_t);
-} // namespace stdlib
-} // namespace proof_system::plonk
+template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint8_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint16_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint32_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint64_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint64_t>;
+;
+} // namespace bb::stdlib

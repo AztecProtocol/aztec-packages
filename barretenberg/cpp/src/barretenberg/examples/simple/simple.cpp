@@ -6,7 +6,7 @@
 
 namespace examples::simple {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 using namespace stdlib::types;
 
 const size_t CIRCUIT_SIZE = 1 << 19;
@@ -14,13 +14,11 @@ const size_t CIRCUIT_SIZE = 1 << 19;
 void build_circuit(Builder& builder)
 {
     while (builder.get_num_gates() <= CIRCUIT_SIZE / 2) {
-        plonk::stdlib::pedersen_commitment<Builder>::compress(field_ct(witness_ct(&builder, 1)),
-                                                              field_ct(witness_ct(&builder, 1)));
+        stdlib::pedersen_hash<Builder>::hash({ field_ct(witness_ct(&builder, 1)), field_ct(witness_ct(&builder, 1)) });
     }
 }
 
-BuilderComposerPtrs create_builder_and_composer(
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory)
+BuilderComposerPtrs create_builder_and_composer()
 {
     // WARNING: Size hint is essential to perform 512k circuits!
     auto builder = std::make_unique<Builder>(CIRCUIT_SIZE);
@@ -36,7 +34,7 @@ BuilderComposerPtrs create_builder_and_composer(
     info("composer gates: ", builder->get_num_gates());
 
     info("computing proving key...");
-    auto composer = std::make_unique<Composer>(crs_factory);
+    auto composer = std::make_unique<Composer>();
     auto pk = composer->compute_proving_key(*builder);
 
     return { builder.release(), composer.release() };
@@ -52,7 +50,7 @@ proof create_proof(BuilderComposerPtrs pair)
     return proof;
 }
 
-bool verify_proof(BuilderComposerPtrs pair, proof_system::plonk::proof const& proof)
+bool verify_proof(BuilderComposerPtrs pair, bb::plonk::proof const& proof)
 {
     info("computing verification key...");
     pair.composer->compute_verification_key(*pair.builder);

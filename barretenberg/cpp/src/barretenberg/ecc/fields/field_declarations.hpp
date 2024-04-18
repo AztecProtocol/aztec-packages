@@ -1,6 +1,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/inline.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -10,7 +10,7 @@
 #include <random>
 #include <span>
 
-#ifndef DISABLE_SHENANIGANS
+#ifndef DISABLE_ASM
 #ifdef __BMI2__
 #define BBERG_NO_ASM 0
 #else
@@ -20,9 +20,10 @@
 #define BBERG_NO_ASM 1
 #endif
 
-namespace barretenberg {
+namespace bb {
 template <class Params_> struct alignas(32) field {
   public:
+    using View = field;
     using Params = Params_;
     using in_buf = const uint8_t*;
     using vec_in_buf = const uint8_t*;
@@ -88,6 +89,35 @@ template <class Params_> struct alignas(32) field {
 
     constexpr field(const uint64_t a, const uint64_t b, const uint64_t c, const uint64_t d) noexcept
         : data{ a, b, c, d } {};
+
+    /**
+     * @brief Convert a 512-bit big integer into a field element.
+     *
+     * @details Used for deriving field elements from random values. 512-bits prevents biased output as 2^512>>modulus
+     *
+     */
+    constexpr explicit field(const uint512_t& input) noexcept
+    {
+        uint256_t value = (input % modulus).lo;
+        data[0] = value.data[0];
+        data[1] = value.data[1];
+        data[2] = value.data[2];
+        data[3] = value.data[3];
+        self_to_montgomery_form();
+    }
+
+    constexpr explicit field(std::string input) noexcept
+    {
+        uint256_t value(input);
+        *this = field(value);
+    }
+
+    constexpr explicit operator bool() const
+    {
+        field out = from_montgomery_form();
+        ASSERT(out.data[0] == 0 || out.data[0] == 1);
+        return static_cast<bool>(out.data[0]);
+    }
 
     constexpr explicit operator uint32_t() const
     {
@@ -184,39 +214,39 @@ template <class Params_> struct alignas(32) field {
         return result;
     }
 
-    BBERG_INLINE constexpr field operator*(const field& other) const noexcept;
-    BBERG_INLINE constexpr field operator+(const field& other) const noexcept;
-    BBERG_INLINE constexpr field operator-(const field& other) const noexcept;
-    BBERG_INLINE constexpr field operator-() const noexcept;
+    BB_INLINE constexpr field operator*(const field& other) const noexcept;
+    BB_INLINE constexpr field operator+(const field& other) const noexcept;
+    BB_INLINE constexpr field operator-(const field& other) const noexcept;
+    BB_INLINE constexpr field operator-() const noexcept;
     constexpr field operator/(const field& other) const noexcept;
 
     // prefix increment (++x)
-    BBERG_INLINE constexpr field operator++() noexcept;
+    BB_INLINE constexpr field operator++() noexcept;
     // postfix increment (x++)
     // NOLINTNEXTLINE
-    BBERG_INLINE constexpr field operator++(int) noexcept;
+    BB_INLINE constexpr field operator++(int) noexcept;
 
-    BBERG_INLINE constexpr field& operator*=(const field& other) noexcept;
-    BBERG_INLINE constexpr field& operator+=(const field& other) noexcept;
-    BBERG_INLINE constexpr field& operator-=(const field& other) noexcept;
+    BB_INLINE constexpr field& operator*=(const field& other) noexcept;
+    BB_INLINE constexpr field& operator+=(const field& other) noexcept;
+    BB_INLINE constexpr field& operator-=(const field& other) noexcept;
     constexpr field& operator/=(const field& other) noexcept;
 
     // NOTE: comparison operators exist so that `field` is comparible with stl methods that require them.
     //       (e.g. std::sort)
     //       Finite fields do not have an explicit ordering, these should *NEVER* be used in algebraic algorithms.
-    BBERG_INLINE constexpr bool operator>(const field& other) const noexcept;
-    BBERG_INLINE constexpr bool operator<(const field& other) const noexcept;
-    BBERG_INLINE constexpr bool operator==(const field& other) const noexcept;
-    BBERG_INLINE constexpr bool operator!=(const field& other) const noexcept;
+    BB_INLINE constexpr bool operator>(const field& other) const noexcept;
+    BB_INLINE constexpr bool operator<(const field& other) const noexcept;
+    BB_INLINE constexpr bool operator==(const field& other) const noexcept;
+    BB_INLINE constexpr bool operator!=(const field& other) const noexcept;
 
-    BBERG_INLINE constexpr field to_montgomery_form() const noexcept;
-    BBERG_INLINE constexpr field from_montgomery_form() const noexcept;
+    BB_INLINE constexpr field to_montgomery_form() const noexcept;
+    BB_INLINE constexpr field from_montgomery_form() const noexcept;
 
-    BBERG_INLINE constexpr field sqr() const noexcept;
-    BBERG_INLINE constexpr void self_sqr() noexcept;
+    BB_INLINE constexpr field sqr() const noexcept;
+    BB_INLINE constexpr void self_sqr() noexcept;
 
-    BBERG_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
-    BBERG_INLINE constexpr field pow(uint64_t exponent) const noexcept;
+    BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
+    BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
     static constexpr uint256_t modulus_minus_two =
         uint256_t(Params::modulus_0 - 2ULL, Params::modulus_1, Params::modulus_2, Params::modulus_3);
     constexpr field invert() const noexcept;
@@ -229,21 +259,21 @@ template <class Params_> struct alignas(32) field {
      */
     constexpr std::pair<bool, field> sqrt() const noexcept;
 
-    BBERG_INLINE constexpr void self_neg() noexcept;
+    BB_INLINE constexpr void self_neg() noexcept;
 
-    BBERG_INLINE constexpr void self_to_montgomery_form() noexcept;
-    BBERG_INLINE constexpr void self_from_montgomery_form() noexcept;
+    BB_INLINE constexpr void self_to_montgomery_form() noexcept;
+    BB_INLINE constexpr void self_from_montgomery_form() noexcept;
 
-    BBERG_INLINE constexpr void self_conditional_negate(uint64_t predicate) noexcept;
+    BB_INLINE constexpr void self_conditional_negate(uint64_t predicate) noexcept;
 
-    BBERG_INLINE constexpr field reduce_once() const noexcept;
-    BBERG_INLINE constexpr void self_reduce_once() noexcept;
+    BB_INLINE constexpr field reduce_once() const noexcept;
+    BB_INLINE constexpr void self_reduce_once() noexcept;
 
-    BBERG_INLINE constexpr void self_set_msb() noexcept;
-    [[nodiscard]] BBERG_INLINE constexpr bool is_msb_set() const noexcept;
-    [[nodiscard]] BBERG_INLINE constexpr uint64_t is_msb_set_word() const noexcept;
+    BB_INLINE constexpr void self_set_msb() noexcept;
+    [[nodiscard]] BB_INLINE constexpr bool is_msb_set() const noexcept;
+    [[nodiscard]] BB_INLINE constexpr uint64_t is_msb_set_word() const noexcept;
 
-    [[nodiscard]] BBERG_INLINE constexpr bool is_zero() const noexcept;
+    [[nodiscard]] BB_INLINE constexpr bool is_zero() const noexcept;
 
     static constexpr field get_root_of_unity(size_t subgroup_size) noexcept;
 
@@ -251,15 +281,15 @@ template <class Params_> struct alignas(32) field {
 
     static field serialize_from_buffer(const uint8_t* buffer) { return from_buffer<field>(buffer); }
 
-    [[nodiscard]] BBERG_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
+    [[nodiscard]] BB_INLINE std::vector<uint8_t> to_buffer() const { return ::to_buffer(*this); }
 
     struct wide_array {
         uint64_t data[8]; // NOLINT
     };
-    BBERG_INLINE constexpr wide_array mul_512(const field& other) const noexcept;
-    BBERG_INLINE constexpr wide_array sqr_512() const noexcept;
+    BB_INLINE constexpr wide_array mul_512(const field& other) const noexcept;
+    BB_INLINE constexpr wide_array sqr_512() const noexcept;
 
-    BBERG_INLINE constexpr field conditionally_subtract_from_double_modulus(const uint64_t predicate) const noexcept
+    BB_INLINE constexpr field conditionally_subtract_from_double_modulus(const uint64_t predicate) const noexcept
     {
         if (predicate != 0) {
             constexpr field p{
@@ -296,11 +326,34 @@ template <class Params_> struct alignas(32) field {
      **/
     static void split_into_endomorphism_scalars(const field& k, field& k1, field& k2)
     {
-        // if the modulus is a 256-bit integer, we need to use a basis where g1, g2 have been shifted by 2^384
+        // if the modulus is a >= 255-bit integer, we need to use a basis where g1, g2 have been shifted by 2^384
         if constexpr (Params::modulus_3 >= 0x4000000000000000ULL) {
             split_into_endomorphism_scalars_384(k, k1, k2);
-            return;
+        } else {
+            std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> ret = split_into_endomorphism_scalars(k);
+            k1.data[0] = ret.first[0];
+            k1.data[1] = ret.first[1];
+
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): We should move away from this hack by
+            // returning pair of uint64_t[2] instead of a half-set field
+#if !defined(__clang__) && defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
+            k2.data[0] = ret.second[0]; // NOLINT
+            k2.data[1] = ret.second[1];
+#if !defined(__clang__) && defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         }
+    }
+
+    // NOTE: this form is only usable if the modulus is 254 bits or less, otherwise see
+    // split_into_endomorphism_scalars_384.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/851): Unify these APIs.
+    static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
+    {
+        static_assert(Params::modulus_3 < 0x4000000000000000ULL);
         field input = k.reduce_once();
 
         constexpr field endo_g1 = { Params::endo_g1_lo, Params::endo_g1_mid, Params::endo_g1_hi, 0 };
@@ -339,15 +392,14 @@ template <class Params_> struct alignas(32) field {
         field t1 = (q2_lo - q1_lo).reduce_once();
         field beta = cube_root_of_unity();
         field t2 = (t1 * beta + input).reduce_once();
-        k2.data[0] = t1.data[0];
-        k2.data[1] = t1.data[1];
-        k1.data[0] = t2.data[0];
-        k1.data[1] = t2.data[1];
+        return {
+            { t2.data[0], t2.data[1] },
+            { t1.data[0], t1.data[1] },
+        };
     }
 
     static void split_into_endomorphism_scalars_384(const field& input, field& k1_out, field& k2_out)
     {
-
         constexpr field minus_b1f{
             Params::endo_minus_b1_lo,
             Params::endo_minus_b1_mid,
@@ -406,15 +458,15 @@ template <class Params_> struct alignas(32) field {
         return os;
     }
 
-    BBERG_INLINE static void __copy(const field& a, field& r) noexcept { r = a; } // NOLINT
-    BBERG_INLINE static void __swap(field& src, field& dest) noexcept             // NOLINT
+    BB_INLINE static void __copy(const field& a, field& r) noexcept { r = a; } // NOLINT
+    BB_INLINE static void __swap(field& src, field& dest) noexcept             // NOLINT
     {
         field T = dest;
         dest = src;
         src = T;
     }
 
-    static field random_element(numeric::random::Engine* engine = nullptr) noexcept;
+    static field random_element(numeric::RNG* engine = nullptr) noexcept;
 
     static constexpr field multiplicative_generator() noexcept;
 
@@ -423,7 +475,6 @@ template <class Params_> struct alignas(32) field {
     void msgpack_unpack(auto o);
     void msgpack_schema(auto& packer) const { packer.pack_alias(Params::schema_name, "bin32"); }
 
-  private:
     static constexpr uint256_t twice_modulus = modulus + modulus;
     static constexpr uint256_t not_modulus = -modulus;
     static constexpr uint256_t twice_not_modulus = -twice_modulus;
@@ -469,68 +520,62 @@ template <class Params_> struct alignas(32) field {
         {}
     };
 
-    BBERG_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
+    BB_INLINE static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b) noexcept;
 
-    BBERG_INLINE static constexpr uint64_t mac(
+    BB_INLINE static constexpr uint64_t mac(
         uint64_t a, uint64_t b, uint64_t c, uint64_t carry_in, uint64_t& carry_out) noexcept;
 
-    BBERG_INLINE static constexpr void mac(
+    BB_INLINE static constexpr void mac(
         uint64_t a, uint64_t b, uint64_t c, uint64_t carry_in, uint64_t& out, uint64_t& carry_out) noexcept;
 
-    BBERG_INLINE static constexpr uint64_t mac_mini(uint64_t a, uint64_t b, uint64_t c, uint64_t& out) noexcept;
+    BB_INLINE static constexpr uint64_t mac_mini(uint64_t a, uint64_t b, uint64_t c, uint64_t& out) noexcept;
 
-    BBERG_INLINE static constexpr void mac_mini(
+    BB_INLINE static constexpr void mac_mini(
         uint64_t a, uint64_t b, uint64_t c, uint64_t& out, uint64_t& carry_out) noexcept;
 
-    BBERG_INLINE static constexpr uint64_t mac_discard_lo(uint64_t a, uint64_t b, uint64_t c) noexcept;
+    BB_INLINE static constexpr uint64_t mac_discard_lo(uint64_t a, uint64_t b, uint64_t c) noexcept;
 
-    BBERG_INLINE static constexpr uint64_t addc(uint64_t a,
-                                                uint64_t b,
-                                                uint64_t carry_in,
-                                                uint64_t& carry_out) noexcept;
+    BB_INLINE static constexpr uint64_t addc(uint64_t a, uint64_t b, uint64_t carry_in, uint64_t& carry_out) noexcept;
 
-    BBERG_INLINE static constexpr uint64_t sbb(uint64_t a,
-                                               uint64_t b,
-                                               uint64_t borrow_in,
-                                               uint64_t& borrow_out) noexcept;
+    BB_INLINE static constexpr uint64_t sbb(uint64_t a, uint64_t b, uint64_t borrow_in, uint64_t& borrow_out) noexcept;
 
-    BBERG_INLINE static constexpr uint64_t square_accumulate(uint64_t a,
-                                                             uint64_t b,
-                                                             uint64_t c,
-                                                             uint64_t carry_in_lo,
-                                                             uint64_t carry_in_hi,
-                                                             uint64_t& carry_lo,
-                                                             uint64_t& carry_hi) noexcept;
-    BBERG_INLINE constexpr field reduce() const noexcept;
-    BBERG_INLINE constexpr field add(const field& other) const noexcept;
-    BBERG_INLINE constexpr field subtract(const field& other) const noexcept;
-    BBERG_INLINE constexpr field subtract_coarse(const field& other) const noexcept;
-    BBERG_INLINE constexpr field montgomery_mul(const field& other) const noexcept;
-    BBERG_INLINE constexpr field montgomery_mul_big(const field& other) const noexcept;
-    BBERG_INLINE constexpr field montgomery_square() const noexcept;
+    BB_INLINE static constexpr uint64_t square_accumulate(uint64_t a,
+                                                          uint64_t b,
+                                                          uint64_t c,
+                                                          uint64_t carry_in_lo,
+                                                          uint64_t carry_in_hi,
+                                                          uint64_t& carry_lo,
+                                                          uint64_t& carry_hi) noexcept;
+    BB_INLINE constexpr field reduce() const noexcept;
+    BB_INLINE constexpr field add(const field& other) const noexcept;
+    BB_INLINE constexpr field subtract(const field& other) const noexcept;
+    BB_INLINE constexpr field subtract_coarse(const field& other) const noexcept;
+    BB_INLINE constexpr field montgomery_mul(const field& other) const noexcept;
+    BB_INLINE constexpr field montgomery_mul_big(const field& other) const noexcept;
+    BB_INLINE constexpr field montgomery_square() const noexcept;
 
 #if (BBERG_NO_ASM == 0)
-    BBERG_INLINE static field asm_mul(const field& a, const field& b) noexcept;
-    BBERG_INLINE static field asm_sqr(const field& a) noexcept;
-    BBERG_INLINE static field asm_add(const field& a, const field& b) noexcept;
-    BBERG_INLINE static field asm_sub(const field& a, const field& b) noexcept;
-    BBERG_INLINE static field asm_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BBERG_INLINE static field asm_sqr_with_coarse_reduction(const field& a) noexcept;
-    BBERG_INLINE static field asm_add_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BBERG_INLINE static field asm_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BBERG_INLINE static field asm_add_without_reduction(const field& a, const field& b) noexcept;
-    BBERG_INLINE static void asm_self_sqr(const field& a) noexcept;
-    BBERG_INLINE static void asm_self_add(const field& a, const field& b) noexcept;
-    BBERG_INLINE static void asm_self_sub(const field& a, const field& b) noexcept;
-    BBERG_INLINE static void asm_self_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BBERG_INLINE static void asm_self_sqr_with_coarse_reduction(const field& a) noexcept;
-    BBERG_INLINE static void asm_self_add_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BBERG_INLINE static void asm_self_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
-    BBERG_INLINE static void asm_self_add_without_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static field asm_mul(const field& a, const field& b) noexcept;
+    BB_INLINE static field asm_sqr(const field& a) noexcept;
+    BB_INLINE static field asm_add(const field& a, const field& b) noexcept;
+    BB_INLINE static field asm_sub(const field& a, const field& b) noexcept;
+    BB_INLINE static field asm_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static field asm_sqr_with_coarse_reduction(const field& a) noexcept;
+    BB_INLINE static field asm_add_with_coarse_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static field asm_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static field asm_add_without_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sqr(const field& a) noexcept;
+    BB_INLINE static void asm_self_add(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sub(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_mul_with_coarse_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sqr_with_coarse_reduction(const field& a) noexcept;
+    BB_INLINE static void asm_self_add_with_coarse_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_sub_with_coarse_reduction(const field& a, const field& b) noexcept;
+    BB_INLINE static void asm_self_add_without_reduction(const field& a, const field& b) noexcept;
 
-    BBERG_INLINE static void asm_conditional_negate(field& r, uint64_t predicate) noexcept;
-    BBERG_INLINE static field asm_reduce_once(const field& a) noexcept;
-    BBERG_INLINE static void asm_self_reduce_once(const field& a) noexcept;
+    BB_INLINE static void asm_conditional_negate(field& r, uint64_t predicate) noexcept;
+    BB_INLINE static field asm_reduce_once(const field& a) noexcept;
+    BB_INLINE static void asm_self_reduce_once(const field& a) noexcept;
     static constexpr uint64_t zero_reference = 0x00ULL;
 #endif
     static constexpr size_t COSET_GENERATOR_SIZE = 15;
@@ -563,4 +608,4 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
     write(buf, input.data[0]);
 }
 
-} // namespace barretenberg
+} // namespace bb

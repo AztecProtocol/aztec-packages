@@ -1,16 +1,15 @@
 #pragma once
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
-#include "barretenberg/proof_system/plookup_tables/types.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include <array>
 #include <vector>
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-template <typename Composer> class plookup_read {
-    typedef field_t<Composer> field_pt;
+template <typename Builder> class plookup_read {
+    typedef field_t<Builder> field_pt;
 
   public:
     static std::pair<field_pt, field_pt> read_pair_from_table(const plookup::MultiTableId id, const field_pt& key);
@@ -25,9 +24,4 @@ template <typename Composer> class plookup_read {
                                                                const field_pt& key_b = 0,
                                                                const bool is_2_to_1_lookup = false);
 };
-
-EXTERN_STDLIB_ULTRA_TYPE(plookup_read);
-EXTERN_STDLIB_SIMULATOR_TYPE(plookup_read);
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

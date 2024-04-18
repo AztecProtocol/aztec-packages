@@ -1,9 +1,8 @@
-import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
-import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { type Note, type PXE } from '@aztec/circuit-types';
+import { type AztecAddress, type EthAddress, Fr } from '@aztec/circuits.js';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
-import { keccak } from '@aztec/foundation/crypto';
+import { keccak256, pedersenHash } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecRPC, NotePreimage } from '@aztec/types';
 
 import fs from 'fs';
 
@@ -22,9 +21,9 @@ export class CheatCodes {
     public aztec: AztecCheatCodes,
   ) {}
 
-  static async create(rpcUrl: string, aztecRpc: AztecRPC): Promise<CheatCodes> {
+  static create(rpcUrl: string, pxe: PXE): CheatCodes {
     const ethCheatCodes = new EthCheatCodes(rpcUrl);
-    const aztecCheatCodes = new AztecCheatCodes(aztecRpc, await CircuitsWasm.get(), ethCheatCodes);
+    const aztecCheatCodes = new AztecCheatCodes(pxe, ethCheatCodes);
     return new CheatCodes(ethCheatCodes, aztecCheatCodes);
   }
 }
@@ -35,7 +34,7 @@ export class CheatCodes {
 export class EthCheatCodes {
   constructor(
     /**
-     * The RPC client to use for interacting with the chain
+     * The RPC URL to use for interacting with the chain
      */
     public rpcUrl: string,
     /**
@@ -88,8 +87,10 @@ export class EthCheatCodes {
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
     const res = await this.rpcCall('hardhat_mine', [numberOfBlocks]);
-    if (res.error) throw new Error(`Error mining: ${res.error.message}`);
-    this.logger(`Mined ${numberOfBlocks} blocks`);
+    if (res.error) {
+      throw new Error(`Error mining: ${res.error.message}`);
+    }
+    this.logger.info(`Mined ${numberOfBlocks} blocks`);
   }
 
   /**
@@ -98,8 +99,10 @@ export class EthCheatCodes {
    */
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
     const res = await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
-    if (res.error) throw new Error(`Error setting next block timestamp: ${res.error.message}`);
-    this.logger(`Set next block timestamp to ${timestamp}`);
+    if (res.error) {
+      throw new Error(`Error setting next block timestamp: ${res.error.message}`);
+    }
+    this.logger.info(`Set next block timestamp to ${timestamp}`);
   }
 
   /**
@@ -108,10 +111,12 @@ export class EthCheatCodes {
    */
   public async dumpChainState(fileName: string): Promise<void> {
     const res = await this.rpcCall('hardhat_dumpState', []);
-    if (res.error) throw new Error(`Error dumping state: ${res.error.message}`);
+    if (res.error) {
+      throw new Error(`Error dumping state: ${res.error.message}`);
+    }
     const jsonContent = JSON.stringify(res.result);
     fs.writeFileSync(`${fileName}.json`, jsonContent, 'utf8');
-    this.logger(`Dumped state to ${fileName}`);
+    this.logger.info(`Dumped state to ${fileName}`);
   }
 
   /**
@@ -121,8 +126,10 @@ export class EthCheatCodes {
   public async loadChainState(fileName: string): Promise<void> {
     const data = JSON.parse(fs.readFileSync(`${fileName}.json`, 'utf8'));
     const res = await this.rpcCall('hardhat_loadState', [data]);
-    if (res.error) throw new Error(`Error loading state: ${res.error.message}`);
-    this.logger(`Loaded state from ${fileName}`);
+    if (res.error) {
+      throw new Error(`Error loading state: ${res.error.message}`);
+    }
+    this.logger.info(`Loaded state from ${fileName}`);
   }
 
   /**
@@ -145,8 +152,10 @@ export class EthCheatCodes {
   public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
     // for the rpc call, we need to change value to be a 32 byte hex string.
     const res = await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
-    if (res.error) throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
-    this.logger(`Set storage for contract ${contract} at ${slot} to ${value}`);
+    if (res.error) {
+      throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
+    }
+    this.logger.info(`Set storage for contract ${contract} at ${slot} to ${value}`);
   }
 
   /**
@@ -158,7 +167,7 @@ export class EthCheatCodes {
   public keccak256(baseSlot: bigint, key: bigint): bigint {
     // abi encode (removing the 0x) - concat key and baseSlot (both padded to 32 bytes)
     const abiEncoded = toHex(key, true).substring(2) + toHex(baseSlot, true).substring(2);
-    return toBigIntBE(keccak(Buffer.from(abiEncoded, 'hex')));
+    return toBigIntBE(keccak256(Buffer.from(abiEncoded, 'hex')));
   }
 
   /**
@@ -167,8 +176,10 @@ export class EthCheatCodes {
    */
   public async startImpersonating(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
-    if (res.error) throw new Error(`Error impersonating ${who}: ${res.error.message}`);
-    this.logger(`Impersonating ${who}`);
+    if (res.error) {
+      throw new Error(`Error impersonating ${who}: ${res.error.message}`);
+    }
+    this.logger.info(`Impersonating ${who}`);
   }
 
   /**
@@ -177,8 +188,10 @@ export class EthCheatCodes {
    */
   public async stopImpersonating(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('hardhat_stopImpersonatingAccount', [who.toString()]);
-    if (res.error) throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
-    this.logger(`Stopped impersonating ${who}`);
+    if (res.error) {
+      throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
+    }
+    this.logger.info(`Stopped impersonating ${who}`);
   }
 
   /**
@@ -188,8 +201,10 @@ export class EthCheatCodes {
    */
   public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> {
     const res = await this.rpcCall('hardhat_setCode', [contract.toString(), bytecode]);
-    if (res.error) throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
-    this.logger(`Set bytecode for ${contract} to ${bytecode}`);
+    if (res.error) {
+      throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
+    }
+    this.logger.info(`Set bytecode for ${contract} to ${bytecode}`);
   }
 
   /**
@@ -209,13 +224,9 @@ export class EthCheatCodes {
 export class AztecCheatCodes {
   constructor(
     /**
-     * The RPC client to use for interacting with the chain
+     * The PXE Service to use for interacting with the chain
      */
-    public aztecRpc: AztecRPC,
-    /**
-     * The circuits wasm module used for pedersen hashing
-     */
-    public wasm: CircuitsWasm,
+    public pxe: PXE,
     /**
      * The eth cheat codes.
      */
@@ -234,13 +245,8 @@ export class AztecCheatCodes {
    */
   public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
     // Based on `at` function in
-    // aztec3-packages/yarn-project/aztec-nr/aztec/src/state_vars/map.nr
-    return Fr.fromBuffer(
-      pedersenPlookupCommitInputs(
-        this.wasm,
-        [new Fr(baseSlot), new Fr(key)].map(f => f.toBuffer()),
-      ),
-    );
+    // aztec3-packages/aztec-nr/aztec/src/state_vars/map.nr
+    return pedersenHash([new Fr(baseSlot), new Fr(key)]);
   }
 
   /**
@@ -248,7 +254,7 @@ export class AztecCheatCodes {
    * @returns The current block number
    */
   public async blockNumber(): Promise<number> {
-    return await this.aztecRpc.getBlockNumber();
+    return await this.pxe.getBlockNumber();
   }
 
   /**
@@ -257,7 +263,7 @@ export class AztecCheatCodes {
    * @param to - The timestamp to set the next block to (must be greater than current time)
    */
   public async warp(to: number): Promise<void> {
-    const rollupContract = (await this.aztecRpc.getNodeInfo()).rollupAddress;
+    const rollupContract = (await this.pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
     await this.eth.setNextBlockTimestamp(to);
     // also store this time on the rollup contract (slot 1 tracks `lastBlockTs`).
     // This is because when the sequencer executes public functions, it uses the timestamp stored in the rollup contract.
@@ -273,11 +279,8 @@ export class AztecCheatCodes {
    * @returns The value stored at the given slot
    */
   public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> {
-    const storageValue = await this.aztecRpc.getPublicStorageAt(who, new Fr(slot));
-    if (storageValue === undefined) {
-      throw new Error(`Storage slot ${slot} not found`);
-    }
-    return Fr.fromBuffer(storageValue);
+    const storageValue = await this.pxe.getPublicStorageAt(who, new Fr(slot));
+    return storageValue;
   }
 
   /**
@@ -287,7 +290,8 @@ export class AztecCheatCodes {
    * @param slot - The storage slot to lookup
    * @returns The notes stored at the given slot
    */
-  public loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<NotePreimage[]> {
-    return this.aztecRpc.getPrivateStorageAt(owner, contract, new Fr(slot));
+  public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
+    const extendedNotes = await this.pxe.getNotes({ owner, contractAddress: contract, storageSlot: new Fr(slot) });
+    return extendedNotes.map(extendedNote => extendedNote.note);
   }
 }

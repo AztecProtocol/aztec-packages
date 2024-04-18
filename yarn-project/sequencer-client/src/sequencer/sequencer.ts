@@ -1,24 +1,30 @@
-import { GlobalVariables } from '@aztec/circuits.js';
+import {
+  type L1ToL2MessageSource,
+  type L2Block,
+  type L2BlockSource,
+  type ProcessedTx,
+  Tx,
+  type TxValidator,
+} from '@aztec/circuit-types';
+import { type AllowedFunction, type BlockProver, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
+import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
+import { AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
-import { P2P } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
-import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
+import { Timer, elapsed } from '@aztec/foundation/timer';
+import { type P2P } from '@aztec/p2p';
+import { type PublicProcessorFactory } from '@aztec/simulator';
+import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
-import times from 'lodash.times';
-
-import { BlockBuilder } from '../block_builder/index.js';
-import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { L1Publisher } from '../publisher/l1-publisher.js';
-import { ceilPowerOfTwo } from '../utils.js';
-import { SequencerConfig } from './config.js';
-import { ProcessedTx } from './processed_tx.js';
-import { PublicProcessorFactory } from './public_processor.js';
+import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
+import { type SequencerConfig } from './config.js';
 
 /**
  * Sequencer client
- * - Wins a period of time to become the sequencer (depending on finalised protocol).
+ * - Wins a period of time to become the sequencer (depending on finalized protocol).
  * - Chooses a set of txs from the tx pool to be in the rollup.
  * - Simulate the rollup of txs.
  * - Adds proof requests to the request pool (not for this milestone).
@@ -27,35 +33,60 @@ import { PublicProcessorFactory } from './public_processor.js';
  */
 export class Sequencer {
   private runningPromise?: RunningPromise;
-  private pollingIntervalMs: number;
+  private pollingIntervalMs: number = 1000;
   private maxTxsPerBlock = 32;
   private minTxsPerBLock = 1;
+  // TODO: zero values should not be allowed for the following 2 values in PROD
+  private _coinbase = EthAddress.ZERO;
+  private _feeRecipient = AztecAddress.ZERO;
   private lastPublishedBlock = 0;
   private state = SequencerState.STOPPED;
-  private chainId: Fr;
-  private version: Fr;
+  private allowedFunctionsInSetup: AllowedFunction[] = [];
+  private allowedFunctionsInTeardown: AllowedFunction[] = [];
 
   constructor(
     private publisher: L1Publisher,
     private globalsBuilder: GlobalVariableBuilder,
     private p2pClient: P2P,
-    private worldState: WorldStateSynchroniser,
-    private blockBuilder: BlockBuilder,
+    private worldState: WorldStateSynchronizer,
+    private prover: BlockProver,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private publicProcessorFactory: PublicProcessorFactory,
-    config: SequencerConfig,
+    private txValidatorFactory: TxValidatorFactory,
+    config: SequencerConfig = {},
     private log = createDebugLogger('aztec:sequencer'),
   ) {
-    this.pollingIntervalMs = config.transactionPollingIntervalMS ?? 1_000;
+    this.updateConfig(config);
+    this.log.verbose(`Initialized sequencer with ${this.minTxsPerBLock}-${this.maxTxsPerBlock} txs per block.`);
+  }
+
+  /**
+   * Updates sequencer config.
+   * @param config - New parameters.
+   */
+  public updateConfig(config: SequencerConfig) {
+    if (config.transactionPollingIntervalMS) {
+      this.pollingIntervalMs = config.transactionPollingIntervalMS;
+    }
     if (config.maxTxsPerBlock) {
       this.maxTxsPerBlock = config.maxTxsPerBlock;
     }
     if (config.minTxsPerBlock) {
       this.minTxsPerBLock = config.minTxsPerBlock;
     }
-    this.chainId = new Fr(config.chainId);
-    this.version = new Fr(config.version);
+    if (config.coinbase) {
+      this._coinbase = config.coinbase;
+    }
+    if (config.feeRecipient) {
+      this._feeRecipient = config.feeRecipient;
+    }
+    if (config.allowedFunctionsInSetup) {
+      this.allowedFunctionsInSetup = config.allowedFunctionsInSetup;
+    }
+    if (config.allowedFunctionsInTeardown) {
+      this.allowedFunctionsInTeardown = config.allowedFunctionsInTeardown;
+    }
   }
 
   /**
@@ -67,24 +98,26 @@ export class Sequencer {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.pollingIntervalMs);
     this.runningPromise.start();
     this.state = SequencerState.IDLE;
-    this.log('Sequencer started');
+    this.log.info('Sequencer started');
   }
 
   /**
    * Stops the sequencer from processing txs and moves to STOPPED state.
    */
   public async stop(): Promise<void> {
+    this.log.debug(`Stopping sequencer`);
     await this.runningPromise?.stop();
     this.publisher.interrupt();
     this.state = SequencerState.STOPPED;
-    this.log('Stopped sequencer');
+    this.log.info('Stopped sequencer');
   }
 
   /**
    * Starts a previously stopped sequencer.
    */
   public restart() {
-    this.log('Restarting sequencer');
+    this.log.info('Restarting sequencer');
+    this.publisher.restart();
     this.runningPromise!.start();
     this.state = SequencerState.IDLE;
   }
@@ -98,7 +131,7 @@ export class Sequencer {
   }
 
   protected async initialSync() {
-    // TODO: Should we wait for worldstate to be ready, or is the caller expected to run await start?
+    // TODO: Should we wait for world state to be ready, or is the caller expected to run await start?
     this.lastPublishedBlock = await this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block);
   }
 
@@ -110,101 +143,133 @@ export class Sequencer {
       // Update state when the previous block has been synced
       const prevBlockSynced = await this.isBlockSynced();
       if (prevBlockSynced && this.state === SequencerState.PUBLISHING_BLOCK) {
-        this.log(`Block has been synced`);
+        this.log.debug(`Block has been synced`);
         this.state = SequencerState.IDLE;
       }
 
       // Do not go forward with new block if the previous one has not been mined and processed
-      if (!prevBlockSynced) return;
+      if (!prevBlockSynced) {
+        return;
+      }
 
+      const workTimer = new Timer();
       this.state = SequencerState.WAITING_FOR_TXS;
 
       // Get txs to build the new block
       const pendingTxs = await this.p2pClient.getTxs();
-      if (pendingTxs.length < this.minTxsPerBLock) return;
+      if (pendingTxs.length < this.minTxsPerBLock) {
+        return;
+      }
+      this.log.info(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
-      // Filter out invalid txs
-      const validTxs = await this.takeValidTxs(pendingTxs);
+      const historicalHeader = (await this.l2BlockSource.getBlock(-1))?.header;
+      const newBlockNumber =
+        (historicalHeader === undefined
+          ? await this.l2BlockSource.getBlockNumber()
+          : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
+
+      /**
+       * We'll call this function before running expensive operations to avoid wasted work.
+       */
+      const assertBlockHeight = async () => {
+        const currentBlockNumber = await this.l2BlockSource.getBlockNumber();
+        if (currentBlockNumber + 1 !== newBlockNumber) {
+          throw new Error('New block was emitted while building block');
+        }
+      };
+
+      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+        new Fr(newBlockNumber),
+        this._coinbase,
+        this._feeRecipient,
+      );
+
+      // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
+      const validTxs = await this.takeValidTxs(
+        pendingTxs,
+        this.txValidatorFactory.validatorForNewTxs(
+          newGlobalVariables,
+          this.allowedFunctionsInSetup,
+          this.allowedFunctionsInTeardown,
+        ),
+      );
       if (validTxs.length < this.minTxsPerBLock) {
         return;
       }
 
-      const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
-
-      this.log.info(`Building block ${blockNumber} with ${validTxs.length} transactions...`);
+      this.log.info(`Building block ${newBlockNumber} with ${validTxs.length} transactions`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
-      const prevGlobalVariables = (await this.l2BlockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+      // Get l1 to l2 messages from the contract
+      this.log.debug('Requesting L1 to L2 messages from contract');
+      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(newBlockNumber));
+      this.log.verbose(`Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newBlockNumber}`);
 
-      // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
-      const [processedTxs, failedTxs] = await processor.process(validTxs);
+      const processor = await this.publicProcessorFactory.create(historicalHeader, newGlobalVariables);
+
+      const emptyTx = processor.makeEmptyProcessedTx();
+
+      const blockBuildingTimer = new Timer();
+
+      // We must initialise the block to be a power of 2 in size
+      const numRealTxs = validTxs.length;
+      const pow2 = Math.log2(numRealTxs);
+      const totalTxs = 2 ** Math.ceil(pow2);
+      const blockSize = Math.max(2, totalTxs);
+      const blockTicket = await this.prover.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages, emptyTx);
+
+      const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
+        processor.process(validTxs, blockSize, this.prover, this.txValidatorFactory.validatorForProcessedTxs()),
+      );
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
-        this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
-        await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxData));
+        this.log.debug(`Dropping failed txs ${Tx.getHashes(failedTxData).join(', ')}`);
+        await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
       }
 
-      // Only accept processed transactions that are not double-spends
-      // public functions emitting nullifiers would pass earlier check but fail here
-      const processedValidTxs = await this.takeValidProcessedTxs(processedTxs);
-
-      if (processedValidTxs.length === 0) {
-        this.log('No txs processed correctly to build block. Exiting');
+      if (processedTxs.length === 0) {
+        this.log.verbose('No txs processed correctly to build block. Exiting');
+        this.prover.cancelBlock();
         return;
       }
 
-      // Get l1 to l2 messages from the contract
-      this.log('Requesting L1 to L2 messages from contract');
-      const l1ToL2Messages = await this.getPendingL1ToL2Messages();
-      this.log('Successfully retrieved L1 to L2 messages from contract');
+      await assertBlockHeight();
 
-      // Build the new block by running the rollup circuits
-      this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
+      // All real transactions have been added, set the block as full and complete the proving.
+      await this.prover.setBlockCompleted();
 
-      const emptyTx = await processor.makeEmptyProcessedTx();
-      const block = await this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
-      this.log(`Assembled block ${block.number}`);
+      // Here we are now waiting for the block to be proven.
+      // TODO(@PhilWindle) We should probably periodically check for things like another
+      // block being published before ours instead of just waiting on our block
+      const result = await blockTicket.provingPromise;
+      if (result.status === PROVING_STATUS.FAILURE) {
+        throw new Error(`Block proving failed, reason: ${result.reason}`);
+      }
 
-      await this.publishExtendedContractData(validTxs, block);
+      await assertBlockHeight();
+
+      // Block is proven, now finalise and publish!
+      const blockResult = await this.prover.finaliseBlock();
+      const block = blockResult.block;
+
+      await assertBlockHeight();
+
+      this.log.verbose(`Assembled block ${block.number}`, {
+        eventName: 'l2-block-built',
+        duration: workTimer.ms(),
+        publicProcessDuration: publicProcessorDuration,
+        rollupCircuitsDuration: blockBuildingTimer.ms(),
+        ...block.getStats(),
+      } satisfies L2BlockBuiltStats);
 
       await this.publishL2Block(block);
-      this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
+      this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
     } catch (err) {
-      this.log.error(err);
-      this.log.error(`Rolling back world state DB`);
+      this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
+      // Cancel any further proving on the block
+      this.prover?.cancelBlock();
       await this.worldState.getLatest().rollback();
-    }
-  }
-
-  /**
-   * Gets new extended contract data from the txs and publishes it on chain.
-   * @param validTxs - The set of real transactions being published as part of the block.
-   * @param block - The L2Block to be published.
-   */
-  protected async publishExtendedContractData(validTxs: Tx[], block: L2Block) {
-    // Publishes contract data for txs to the network and awaits the tx to be mined
-    this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
-    const newContractData = validTxs
-      .map(tx => {
-        // Currently can only have 1 new contract per tx
-        const newContract = tx.data?.end.newContracts[0];
-        if (newContract) {
-          return tx.newContracts[0];
-        }
-      })
-      .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
-
-    const blockHash = block.getCalldataHash();
-    this.log(`Publishing extended contract data with block hash ${blockHash.toString('hex')}`);
-
-    const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
-    if (publishedContractData) {
-      this.log(`Successfully published new contract data for block ${block.number}`);
-    } else if (!publishedContractData && newContractData.length) {
-      this.log(`Failed to publish new contract data for block ${block.number}`);
     }
   }
 
@@ -217,47 +282,20 @@ export class Sequencer {
     this.state = SequencerState.PUBLISHING_BLOCK;
     const publishedL2Block = await this.publisher.processL2Block(block);
     if (publishedL2Block) {
-      this.log(`Successfully published block ${block.number}`);
       this.lastPublishedBlock = block.number;
     } else {
       throw new Error(`Failed to publish block`);
     }
   }
 
-  // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
-  protected async takeValidTxs(txs: Tx[]) {
-    const validTxs = [];
-    const doubleSpendTxs = [];
-
-    // Process txs until we get to maxTxsPerBlock, rejecting double spends in the process
-    for (const tx of txs) {
-      // TODO(AD) - eventually we should add a limit to how many transactions we
-      // skip in this manner and do something more DDOS-proof (like letting the transaction fail and pay a fee).
-      if (await this.isTxDoubleSpend(tx)) {
-        this.log(`Deleting double spend tx ${await tx.getTxHash()}`);
-        doubleSpendTxs.push(tx);
-        continue;
-      }
-
-      validTxs.push(tx);
-      if (validTxs.length >= this.maxTxsPerBlock) {
-        break;
-      }
+  protected async takeValidTxs<T extends Tx | ProcessedTx>(txs: T[], validator: TxValidator<T>): Promise<T[]> {
+    const [valid, invalid] = await validator.validateTxs(txs);
+    if (invalid.length > 0) {
+      this.log.debug(`Dropping invalid txs from the p2p pool ${Tx.getHashes(invalid).join(', ')}`);
+      await this.p2pClient.deleteTxs(Tx.getHashes(invalid));
     }
 
-    // Make sure we remove these from the tx pool so we do not consider it again
-    if (doubleSpendTxs.length > 0) {
-      await this.p2pClient.deleteTxs(await Tx.getHashes([...doubleSpendTxs]));
-    }
-
-    return validTxs;
-  }
-
-  protected async takeValidProcessedTxs(txs: ProcessedTx[]) {
-    const isDoubleSpends = await Promise.all(txs.map(async tx => await this.isTxDoubleSpend(tx as unknown as Tx)));
-    const doubleSpends = txs.filter((tx, index) => isDoubleSpends[index]).map(tx => tx.hash);
-    await this.p2pClient.deleteTxs(doubleSpends);
-    return txs.filter((tx, index) => !isDoubleSpends[index]);
+    return valid.slice(0, this.maxTxsPerBlock);
   }
 
   /**
@@ -268,66 +306,19 @@ export class Sequencer {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
       this.p2pClient.getStatus().then(s => s.syncedToL2Block),
+      this.l2BlockSource.getBlockNumber(),
+      this.l1ToL2MessageSource.getBlockNumber(),
     ]);
     const min = Math.min(...syncedBlocks);
     return min >= this.lastPublishedBlock;
   }
 
-  /**
-   * Pads the set of txs to a power of two and assembles a block by calling the block builder.
-   * @param txs - Processed txs to include in the next block.
-   * @param newL1ToL2Messages - L1 to L2 messages to be part of the block.
-   * @param emptyTx - Empty tx to repeat at the end of the block to pad to a power of two.
-   * @param globalVariables - Global variables to use in the block.
-   * @returns The new block.
-   */
-  protected async buildBlock(
-    txs: ProcessedTx[],
-    newL1ToL2Messages: Fr[],
-    emptyTx: ProcessedTx,
-    globalVariables: GlobalVariables,
-  ) {
-    // Pad the txs array with empty txs to be a power of two, at least 4
-    const txsTargetSize = Math.max(ceilPowerOfTwo(txs.length), 4);
-    const emptyTxCount = txsTargetSize - txs.length;
-
-    const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
-    this.log(`Building block ${globalVariables.blockNumber}`);
-
-    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
-    return block;
+  get coinbase(): EthAddress {
+    return this._coinbase;
   }
 
-  /**
-   * Calls the archiver to pull upto `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP` message keys
-   * (archiver returns the top messages sorted by fees)
-   * @returns An array of L1 to L2 messages' messageKeys
-   */
-  protected async getPendingL1ToL2Messages(): Promise<Fr[]> {
-    return await this.l1ToL2MessageSource.getPendingL1ToL2Messages();
-  }
-
-  /**
-   * Returns true if one of the transaction nullifiers exist.
-   * Nullifiers prevent double spends in a private context.
-   * @param tx - The transaction.
-   * @returns Whether this is a problematic double spend that the L1 contract would reject.
-   */
-  protected async isTxDoubleSpend(tx: Tx): Promise<boolean> {
-    // eslint-disable-next-line @typescript-eslint/await-thenable
-    for (const nullifier of tx.data.end.newNullifiers) {
-      // Skip nullifier if it's empty
-      if (nullifier.isZero()) continue;
-      // TODO(AD): this is an exhaustive search currently
-      if (
-        (await this.worldState.getLatest().findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer())) !==
-        undefined
-      ) {
-        // Our nullifier tree has this nullifier already - this transaction is a double spend / not well-formed
-        return true;
-      }
-    }
-    return false;
+  get feeRecipient(): AztecAddress {
+    return this._feeRecipient;
   }
 }
 

@@ -6,32 +6,31 @@
 
 #include "../bool/bool.hpp"
 #include "../circuit_builders/circuit_builders.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 
-namespace test_stdlib_dynamic_array {
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 // Defining ultra-specific types for local testing.
-using Composer = proof_system::UltraCircuitBuilder;
-using bool_ct = stdlib::bool_t<Composer>;
-using field_ct = stdlib::field_t<Composer>;
-using witness_ct = stdlib::witness_t<Composer>;
-using DynamicArray_ct = stdlib::DynamicArray<Composer>;
+using Builder = UltraCircuitBuilder;
+using bool_ct = stdlib::bool_t<Builder>;
+using field_ct = stdlib::field_t<Builder>;
+using witness_ct = stdlib::witness_t<Builder>;
+using DynamicArray_ct = stdlib::DynamicArray<Builder>;
 
 TEST(DynamicArray, DynamicArrayReadWriteConsistency)
 {
 
-    Composer composer;
+    Builder builder;
     const size_t max_size = 10;
 
-    DynamicArray_ct array(&composer, max_size);
+    DynamicArray_ct array(&builder, max_size);
 
     for (size_t i = 0; i < max_size; ++i) {
-        array.push(field_ct::from_witness(&composer, i));
+        array.push(field_ct::from_witness(&builder, i));
         EXPECT_EQ(array.read(i).get_value(), i);
     }
 
@@ -61,8 +60,6 @@ TEST(DynamicArray, DynamicArrayReadWriteConsistency)
     array.conditional_pop(true);
     EXPECT_EQ(array.native_size(), max_size - 1);
 
-    bool verified = composer.check_circuit();
+    bool verified = CircuitChecker::check(builder);
     EXPECT_EQ(verified, true);
 }
-
-} // namespace test_stdlib_dynamic_array

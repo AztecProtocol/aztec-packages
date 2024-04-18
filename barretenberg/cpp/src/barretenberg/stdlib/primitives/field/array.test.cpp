@@ -1,30 +1,30 @@
 #include "array.hpp"
 #include "../bool/bool.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "field.hpp"
 #include <gtest/gtest.h>
 #include <utility>
 
-namespace test_stdlib_array {
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
 
-template <typename Composer> class stdlib_array : public testing::Test {
-    typedef stdlib::bool_t<Composer> bool_ct;
-    typedef stdlib::field_t<Composer> field_ct;
-    typedef stdlib::witness_t<Composer> witness_ct;
-    typedef stdlib::public_witness_t<Composer> public_witness_ct;
+template <typename Builder> class stdlib_array : public testing::Test {
+    using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using public_witness_ct = stdlib::public_witness_t<Builder>;
 
   public:
     static void test_array_length()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t ARRAY_LEN = 10;
         std::array<fr, ARRAY_LEN> values;
@@ -33,33 +33,33 @@ template <typename Composer> class stdlib_array : public testing::Test {
         constexpr size_t filled = 6;
         for (size_t i = 0; i < filled; i++) {
             values[i] = fr::random_element();
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
-        auto filled_len = array_length<Composer>(values_ct);
+        auto filled_len = array_length<Builder>(values_ct);
         EXPECT_EQ(filled_len.get_value(), filled);
 
-        info("composer gates = ", composer.get_num_gates());
-        bool proof_result = composer.check_circuit();
+        info("num gates = ", builder.get_num_gates());
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_array_length_null()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<field_ct, 0> values_ct;
-        auto filled_len = array_length<Composer>(values_ct);
+        auto filled_len = array_length<Builder>(values_ct);
         EXPECT_EQ(filled_len.get_value(), 0);
         EXPECT_TRUE(filled_len.is_constant());
 
-        info("composer gates = ", composer.get_num_gates());
-        bool proof_result = composer.check_circuit();
+        info("num gates = ", builder.get_num_gates());
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_array_length_fails()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t ARRAY_LEN = 10;
         std::array<fr, ARRAY_LEN> values;
@@ -68,22 +68,22 @@ template <typename Composer> class stdlib_array : public testing::Test {
         constexpr size_t filled = 6;
         for (size_t i = 0; i < filled; i++) {
             values[i] = fr::random_element();
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
 
         // Put a zero in the middle of the array, so that the array_length function complains that all zeros thereafter
         // should be zero.
         values_ct[4] = 0;
 
-        array_length<Composer>(values_ct);
+        array_length<Builder>(values_ct);
 
-        EXPECT_EQ(composer.failed(), true);
-        EXPECT_EQ(composer.err(), "Once we've hit the first zero, there must only be zeros thereafter!");
+        EXPECT_EQ(builder.failed(), true);
+        EXPECT_EQ(builder.err(), "Once we've hit the first zero, there must only be zeros thereafter!");
     }
 
     static void test_array_pop()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t ARRAY_LEN = 10;
         std::array<fr, ARRAY_LEN> values;
@@ -92,19 +92,19 @@ template <typename Composer> class stdlib_array : public testing::Test {
         constexpr size_t filled = 6;
         for (size_t i = 0; i < filled; i++) {
             values[i] = fr::random_element();
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
-        auto popped = array_pop<Composer>(values_ct);
+        auto popped = array_pop<Builder>(values_ct);
         EXPECT_EQ(popped.get_value(), values[filled - 1]);
 
-        info("composer gates = ", composer.get_num_gates());
-        bool proof_result = composer.check_circuit();
+        info("num gates = ", builder.get_num_gates());
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     };
 
     static void test_array_pop_from_empty()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t ARRAY_LEN = 10;
         std::array<fr, ARRAY_LEN> values;
@@ -113,23 +113,23 @@ template <typename Composer> class stdlib_array : public testing::Test {
         constexpr size_t filled = 0;
         for (size_t i = 0; i < filled; i++) {
             values[i] = fr::random_element();
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
         for (size_t i = filled; i < ARRAY_LEN; i++) {
             values[i] = 0;
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
 
-        auto popped = array_pop<Composer>(values_ct);
+        auto popped = array_pop<Builder>(values_ct);
         EXPECT_EQ(popped.get_value(), 0);
 
-        EXPECT_EQ(composer.failed(), true);
-        EXPECT_EQ(composer.err(), "array_pop cannot pop from an empty array");
+        EXPECT_EQ(builder.failed(), true);
+        EXPECT_EQ(builder.err(), "array_pop cannot pop from an empty array");
     };
 
     static void test_array_push()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t ARRAY_LEN = 10;
         std::array<fr, ARRAY_LEN> values;
@@ -138,25 +138,25 @@ template <typename Composer> class stdlib_array : public testing::Test {
         constexpr size_t filled = 6;
         for (size_t i = 0; i < filled; i++) {
             values[i] = fr::random_element();
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
         for (size_t i = filled; i < ARRAY_LEN; i++) {
             values[i] = 0;
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
 
-        auto value_ct = field_ct(&composer, fr::random_element());
-        array_push<Composer>(values_ct, value_ct);
+        auto value_ct = field_ct(&builder, fr::random_element());
+        array_push<Builder>(values_ct, value_ct);
         EXPECT_EQ(value_ct.get_value(), values_ct[filled].get_value());
 
-        info("composer gates = ", composer.get_num_gates());
-        bool proof_result = composer.check_circuit();
+        info("num gates = ", builder.get_num_gates());
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_array_push_optional()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t ARRAY_LEN = 10;
         std::array<std::optional<fr>, ARRAY_LEN> values;
@@ -171,8 +171,8 @@ template <typename Composer> class stdlib_array : public testing::Test {
         // Push some values into the array
         size_t num_pushes = 0;
         for (size_t i = 0; i < ARRAY_LEN; i++) {
-            auto value = field_ct(&composer, fr::random_element());
-            size_t idx = array_push<Composer>(values_ct, value);
+            auto value = field_ct(&builder, fr::random_element());
+            size_t idx = array_push<Builder>(values_ct, value);
             EXPECT_TRUE(values_ct[idx].has_value());
             EXPECT_EQ(values_ct[idx].value().get_value(), value.get_value());
             num_pushes++;
@@ -180,8 +180,8 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
         // Make sure the array is full now
         try {
-            auto value = field_ct(&composer, fr::random_element());
-            array_push<Composer>(values_ct, value);
+            auto value = field_ct(&builder, fr::random_element());
+            array_push<Builder>(values_ct, value);
             FAIL() << "array_push should have thrown an exception when trying to push to a full array";
         } catch (std::runtime_error& e) {
             EXPECT_EQ(e.what(), std::string("array_push cannot push to a full array"));
@@ -189,8 +189,8 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
         EXPECT_EQ(num_pushes, ARRAY_LEN);
 
-        info("composer gates = ", composer.get_num_gates());
-        bool proof_result = composer.check_circuit();
+        info("num gates = ", builder.get_num_gates());
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
@@ -209,7 +209,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
         // Attempt to push a value to the array
         std::shared_ptr<int> new_value = std::make_shared<int>(42);
-        EXPECT_THROW(array_push<Composer>(arr, new_value), std::runtime_error);
+        EXPECT_THROW(array_push<Builder>(arr, new_value), std::runtime_error);
 
         // Ensure that the array was not modified
         for (size_t i = 0; i < arr.size(); ++i) {
@@ -219,7 +219,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     static void test_is_array_empty()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t ARRAY_LEN = 10;
         std::array<fr, ARRAY_LEN> values;
@@ -229,30 +229,30 @@ template <typename Composer> class stdlib_array : public testing::Test {
         constexpr size_t filled = 3;
         for (size_t i = 0; i < filled; i++) {
             values[i] = fr::random_element();
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
         for (size_t i = filled; i < ARRAY_LEN; i++) {
             values[i] = 0;
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
-        auto is_empty = is_array_empty<Composer>(values_ct);
+        auto is_empty = is_array_empty<Builder>(values_ct);
         EXPECT_EQ(is_empty.get_value(), false);
 
         // Test empty array
         for (size_t i = 0; i < ARRAY_LEN; i++) {
             values[i] = 0;
-            values_ct[i] = witness_ct(&composer, values[i]);
+            values_ct[i] = witness_ct(&builder, values[i]);
         }
-        is_empty = is_array_empty<Composer>(values_ct);
+        is_empty = is_array_empty<Builder>(values_ct);
         EXPECT_EQ(is_empty.get_value(), true);
 
-        info("composer gates = ", composer.get_num_gates());
-        bool proof_result = composer.check_circuit();
+        info("num gates = ", builder.get_num_gates());
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     };
 
     template <size_t size_1, size_t size_2>
-    static auto test_push_array_to_array_helper(Composer& composer,
+    static auto test_push_array_to_array_helper(Builder& builder,
                                                 std::array<fr, size_1> const& source,
                                                 std::array<fr, size_2> const& target,
                                                 std::array<fr, size_2> const& expected_target,
@@ -261,13 +261,13 @@ template <typename Composer> class stdlib_array : public testing::Test {
         std::array<field_ct, size_1> source_ct;
         std::array<field_ct, size_2> target_ct;
         for (size_t i = 0; i < source.size(); i++) {
-            source_ct[i] = witness_ct(&composer, source[i]);
+            source_ct[i] = witness_ct(&builder, source[i]);
         }
         for (size_t i = 0; i < target.size(); i++) {
-            target_ct[i] = witness_ct(&composer, target[i]);
+            target_ct[i] = witness_ct(&builder, target[i]);
         }
 
-        push_array_to_array<Composer>(source_ct, target_ct);
+        push_array_to_array<Builder>(source_ct, target_ct);
 
         // Check that the source array has been inserted into the first available index of the target array.
         if (!expect_fail) {
@@ -277,18 +277,18 @@ template <typename Composer> class stdlib_array : public testing::Test {
         }
 
         bool proof_result = false;
-        if (!composer.failed()) {
-            info("composer gates = ", composer.get_num_gates());
-            proof_result = composer.check_circuit();
+        if (!builder.failed()) {
+            info("num gates = ", builder.get_num_gates());
+            proof_result = CircuitChecker::check(builder);
         }
 
-        return std::make_pair(proof_result, composer.err());
+        return std::make_pair(proof_result, builder.err());
     }
 
     static void test_pata_large_bench()
     {
         // Benchmark
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 64> source;
         std::array<fr, 128> target = { 0 };
@@ -301,63 +301,63 @@ template <typename Composer> class stdlib_array : public testing::Test {
         };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
 
     static void test_pata_same_size_not_full_to_not_full()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 4> source = { 1, 0, 0, 0 };
         std::array<fr, 4> target = { 3, 0, 0, 0 };
         std::array<fr, 4> expected_target = { 3, 1, 0, 0 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
 
     static void test_pata_same_size_not_full_to_not_full_2()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 4> source = { 3, 4, 0, 0 };
         std::array<fr, 4> target = { 1, 2, 0, 0 };
         std::array<fr, 4> expected_target = { 1, 2, 3, 4 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
 
     static void test_pata_same_size_not_full_to_empty()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 4> source = { 1, 2, 3, 0 };
         std::array<fr, 4> target = { 0, 0, 0, 0 };
         std::array<fr, 4> expected_target = { 1, 2, 3, 0 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
 
     static void test_pata_smaller_source_full_to_not_full()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 3> source = { 1, 2, 3 };
         std::array<fr, 6> target = { 4, 5, 6, 0, 0, 0 };
         std::array<fr, 6> expected_target = { 4, 5, 6, 1, 2, 3 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
@@ -365,28 +365,28 @@ template <typename Composer> class stdlib_array : public testing::Test {
     static void test_pata_null_source()
     {
         // null means array size is 0
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 0> source;
         std::array<fr, 4> target = { 1, 2, 0, 0 };
         std::array<fr, 4> expected_target = { 1, 2, 0, 0 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
 
     static void test_pata_null_target_fails()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 4> source = { 1, 2, 0, 0 };
         std::array<fr, 0> target;
         std::array<fr, 0> expected_target;
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_FALSE(proof_result);
         EXPECT_EQ(error, "push_array_to_array target array capacity exceeded");
@@ -394,42 +394,42 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     static void test_pata_singletons_full_to_not_full()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 1> source = { 1 };
         std::array<fr, 1> target = { 0 };
         std::array<fr, 1> expected_target = { 1 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
 
     static void test_pata_singletons_not_full_to_full()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 1> source = { 0 };
         std::array<fr, 1> target = { 1 };
         std::array<fr, 1> expected_target = { 1 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_TRUE(proof_result);
     }
 
     static void test_pata_singletons_full_to_full()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 1> source = { 2 };
         std::array<fr, 1> target = { 1 };
         std::array<fr, 1> expected_target = { 1 };
         bool proof_result;
         std::string error;
-        std::tie(proof_result, error) = test_push_array_to_array_helper(composer, source, target, expected_target);
+        std::tie(proof_result, error) = test_push_array_to_array_helper(builder, source, target, expected_target);
 
         EXPECT_FALSE(proof_result);
         EXPECT_EQ(error, "push_array_to_array target array capacity exceeded");
@@ -437,7 +437,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     static void test_pata_same_size_full_to_full_fails()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 5> source = { 1, 2, 3, 4, 5 };
         std::array<fr, 5> target = { 5, 6, 7, 8, 9 };
@@ -446,7 +446,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
         std::string error;
         bool expect_fail = true;
         std::tie(proof_result, error) =
-            test_push_array_to_array_helper(composer, source, target, expected_target, expect_fail);
+            test_push_array_to_array_helper(builder, source, target, expected_target, expect_fail);
 
         EXPECT_FALSE(proof_result);
         EXPECT_EQ(error, "push_array_to_array target array capacity exceeded");
@@ -454,7 +454,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     static void test_pata_nonzero_after_zero_source_fails()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 4> source = { 1, 0, 2, 3 };
         std::array<fr, 6> target = { 4, 5, 6, 7, 8, 0 };
@@ -463,7 +463,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
         std::string error;
         bool expect_fail = true;
         std::tie(proof_result, error) =
-            test_push_array_to_array_helper(composer, source, target, expected_target, expect_fail);
+            test_push_array_to_array_helper(builder, source, target, expected_target, expect_fail);
 
         EXPECT_FALSE(proof_result);
         EXPECT_EQ(error, "Once we've hit the first source zero, there must only be zeros thereafter!");
@@ -471,7 +471,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     static void test_pata_nonzero_after_zero_source_fails_2()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 3> source = { 1, 0, 3 };
         std::array<fr, 6> target = { 4, 5, 2, 0, 0, 0 };
@@ -480,7 +480,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
         std::string error;
         bool expect_fail = true;
         std::tie(proof_result, error) =
-            test_push_array_to_array_helper(composer, source, target, expected_target, expect_fail);
+            test_push_array_to_array_helper(builder, source, target, expected_target, expect_fail);
 
         EXPECT_FALSE(proof_result);
         EXPECT_EQ(error, "Once we've hit the first source zero, there must only be zeros thereafter!");
@@ -488,7 +488,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     static void test_pata_nonzero_after_zero_target_fails()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 3> source = { 1, 2, 3 };
         std::array<fr, 6> target = { 4, 5, 0, 6, 7, 8 };
@@ -497,7 +497,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
         std::string error;
         bool expect_fail = true;
         std::tie(proof_result, error) =
-            test_push_array_to_array_helper(composer, source, target, expected_target, expect_fail);
+            test_push_array_to_array_helper(builder, source, target, expected_target, expect_fail);
 
         EXPECT_FALSE(proof_result);
         EXPECT_EQ(error, "Once we've hit the first zero, there must only be zeros thereafter!");
@@ -505,7 +505,7 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     static void test_pata_nonzero_after_zero_target_fails_2()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::array<fr, 3> source = { 1, 0, 3 };
         std::array<fr, 6> target = { 4, 5, 0, 6, 7, 8 };
@@ -514,11 +514,11 @@ template <typename Composer> class stdlib_array : public testing::Test {
         std::string error;
         bool expect_fail = true;
         std::tie(proof_result, error) =
-            test_push_array_to_array_helper(composer, source, target, expected_target, expect_fail);
+            test_push_array_to_array_helper(builder, source, target, expected_target, expect_fail);
 
         EXPECT_FALSE(proof_result);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/666):
-        if constexpr (!proof_system::IsSimulator<Composer>) {
+        if constexpr (!IsSimulator<Builder>) {
             EXPECT_EQ(error, "Once we've hit the first zero, there must only be zeros thereafter!");
         }
     }
@@ -551,15 +551,15 @@ template <typename Composer> class stdlib_array : public testing::Test {
 
     void test_array_push_generic()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t SIZE = 5;
         std::array<MockClass, SIZE> arr{};
 
         // Push values into the array
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 1), witness_ct(&composer, 10)));
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 2), witness_ct(&composer, 20)));
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 3), witness_ct(&composer, 30)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 1), witness_ct(&builder, 10)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 2), witness_ct(&builder, 20)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 3), witness_ct(&builder, 30)));
 
         // Check the values in the array
         EXPECT_EQ(arr[0].get_values().first.get_value(), 1);
@@ -569,37 +569,34 @@ template <typename Composer> class stdlib_array : public testing::Test {
         EXPECT_EQ(arr[2].get_values().first.get_value(), 3);
         EXPECT_EQ(arr[2].get_values().second.get_value(), 30);
 
-        info("composer gates = ", composer.get_num_gates());
-        bool proof_result = composer.check_circuit();
+        info("num gates = ", builder.get_num_gates());
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     void test_array_push_generic_full()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         constexpr size_t SIZE = 5;
         std::array<MockClass, SIZE> arr{};
 
         // Push values into the array
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 1), witness_ct(&composer, 10)));
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 2), witness_ct(&composer, 20)));
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 3), witness_ct(&composer, 30)));
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 4), witness_ct(&composer, 40)));
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 5), witness_ct(&composer, 50)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 1), witness_ct(&builder, 10)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 2), witness_ct(&builder, 20)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 3), witness_ct(&builder, 30)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 4), witness_ct(&builder, 40)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 5), witness_ct(&builder, 50)));
 
         // Try to push into a full array
-        stdlib::array_push<Composer>(arr, MockClass(witness_ct(&composer, 6), witness_ct(&composer, 60)));
+        stdlib::array_push<Builder>(arr, MockClass(witness_ct(&builder, 6), witness_ct(&builder, 60)));
 
-        EXPECT_EQ(composer.failed(), true);
-        EXPECT_EQ(composer.err(), "array_push cannot push to a full array");
+        EXPECT_EQ(builder.failed(), true);
+        EXPECT_EQ(builder.err(), "array_push cannot push to a full array");
     }
 };
 
-using CircuitTypes = testing::Types<proof_system::CircuitSimulatorBN254,
-                                    proof_system::StandardCircuitBuilder,
-                                    proof_system::TurboCircuitBuilder,
-                                    proof_system::UltraCircuitBuilder>;
+typedef testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254> CircuitTypes;
 
 TYPED_TEST_SUITE(stdlib_array, CircuitTypes);
 
@@ -637,7 +634,7 @@ TYPED_TEST(stdlib_array, test_array_push_generic)
 }
 TYPED_TEST(stdlib_array, test_array_push_generic_full)
 {
-    if constexpr (proof_system::IsSimulator<TypeParam>) {
+    if constexpr (IsSimulator<TypeParam>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/666):
         GTEST_SKIP() << "Skipped for simulator";
     } else {
@@ -705,4 +702,3 @@ TYPED_TEST(stdlib_array, test_pata_nonzero_after_zero_target_fails_2)
 {
     TestFixture::test_pata_nonzero_after_zero_target_fails_2();
 }
-} // namespace test_stdlib_array

@@ -1,15 +1,10 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+FROM aztecprotocol/yarn-project AS yarn-project
+ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/cli/dest/bin/index.js"]
 
-COPY . .
+# The version has been updated in yarn-project.
+# Adding COMMIT_TAG here to rebuild versioned image.
+ARG COMMIT_TAG=""
 
-WORKDIR /usr/src/yarn-project/cli
-RUN yarn build && yarn formatting && yarn test
-
-# Prune dev dependencies. See comment in base image.
-RUN yarn cache clean
-RUN yarn workspaces focus --production > /dev/null
-
-FROM node:18-alpine
-COPY --from=builder /usr/src/ /usr/src/
-WORKDIR /usr/src/yarn-project/cli
-ENTRYPOINT ["yarn", "start"]
+RUN mkdir /cache && chmod 777 /cache
+ENV XDG_CACHE_HOME /cache
+VOLUME "/cache"

@@ -1,12 +1,11 @@
 #pragma once
 
 #include "barretenberg/crypto/hmac/hmac.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 
 #include "schnorr.hpp"
 
-namespace crypto {
-namespace schnorr {
+namespace bb::crypto {
 
 /**
  * @brief Generate the schnorr signature challenge parameter `e` given a message, signer pubkey and nonce
@@ -38,13 +37,13 @@ namespace schnorr {
  * are always private inputs to circuits) then nothing would be revealed anyway.
  */
 template <typename Hash, typename G1>
-static auto generate_schnorr_challenge(const auto& message,
+static auto schnorr_generate_challenge(const std::string& message,
                                        const typename G1::affine_element& pubkey,
                                        const typename G1::affine_element& R)
 {
     using Fq = typename G1::coordinate_field;
     // create challenge message pedersen_commitment(R.x, pubkey)
-    Fq compressed_keys = crypto::pedersen_commitment::compress_native({ R.x, pubkey.x, pubkey.y });
+    Fq compressed_keys = crypto::pedersen_hash::hash({ R.x, pubkey.x, pubkey.y });
     std::vector<uint8_t> e_buffer;
     write(e_buffer, compressed_keys);
     std::copy(message.begin(), message.end(), std::back_inserter(e_buffer));
@@ -72,7 +71,7 @@ static auto generate_schnorr_challenge(const auto& message,
  * @return signature
  */
 template <typename Hash, typename Fq, typename Fr, typename G1>
-signature construct_signature(const std::string& message, const key_pair<Fr, G1>& account)
+schnorr_signature schnorr_construct_signature(const std::string& message, const schnorr_key_pair<Fr, G1>& account)
 {
     // sanity check to ensure our hash function produces `e_raw`
     // of exactly 32 bytes.
@@ -90,12 +89,12 @@ signature construct_signature(const std::string& message, const key_pair<Fr, G1>
     // method is overloaded to utilise a suitable entropy source
     // (see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md)
     //
-    // TODO: securely erase `k`
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/895): securely erase `k`
     Fr k = Fr::random_element();
 
     typename G1::affine_element R(G1::one * k);
 
-    auto e_raw = generate_schnorr_challenge<Hash, G1>(message, public_key, R);
+    auto e_raw = schnorr_generate_challenge<Hash, G1>(message, public_key, R);
     // the conversion from e_raw results in a biased field element e
     Fr e = Fr::serialize_from_buffer(&e_raw[0]);
     Fr s = k - (private_key * e);
@@ -107,18 +106,19 @@ signature construct_signature(const std::string& message, const key_pair<Fr, G1>
     // and e = e_uint % r, where r is the order of the curve,
     // and pk as the point representing the public_key,
     // then e•pk = e_uint•pk
-    signature sig;
+    schnorr_signature sig;
     Fr::serialize_to_buffer(s, &sig.s[0]);
     std::copy(e_raw.begin(), e_raw.end(), sig.e.begin());
     return sig;
 }
 
 /**
- * @brief Verify a Schnorr signature of the sort produced by construct_signature.
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/659)zs
+ * @brief Verify a Schnorr signature of the sort produced by schnorr_construct_signature.
  */
 template <typename Hash, typename Fq, typename Fr, typename G1>
-bool verify_signature(const auto& message, const typename G1::affine_element& public_key, const signature& sig)
+bool schnorr_verify_signature(const std::string& message,
+                              const typename G1::affine_element& public_key,
+                              const schnorr_signature& sig)
 {
     using affine_element = typename G1::affine_element;
     using element = typename G1::element;
@@ -151,8 +151,7 @@ bool verify_signature(const auto& message, const typename G1::affine_element& pu
     // compare the _hashes_ rather than field elements modulo r
 
     // e = H(pedersen(r, pk.x, pk.y), m), where r = x(R)
-    auto target_e = generate_schnorr_challenge<Hash, G1>(message, public_key, R);
+    auto target_e = schnorr_generate_challenge<Hash, G1>(message, public_key, R);
     return std::equal(sig.e.begin(), sig.e.end(), target_e.begin(), target_e.end());
 }
-} // namespace schnorr
-} // namespace crypto
+} // namespace bb::crypto

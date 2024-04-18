@@ -7,13 +7,19 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../circuit-types"
     },
     {
       "path": "../foundation"
     },
     {
+      "path": "../kv-store"
+    },
+    {
       "path": "../types"
+    },
+    {
+      "path": "../circuits.js"
     }
   ],
   "include": ["src"]

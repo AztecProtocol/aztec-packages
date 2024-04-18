@@ -1,4 +1,4 @@
-import { ABIType, BasicType, ContractAbi, StructType } from '@aztec/foundation/abi';
+import { type AbiType, type BasicType, type ContractArtifact, type StructType } from '@aztec/foundation/abi';
 
 /**
  * Represents a type derived from input type T with the 'kind' property removed.
@@ -7,25 +7,25 @@ import { ABIType, BasicType, ContractAbi, StructType } from '@aztec/foundation/a
 type TypeWithoutKind<T> = Omit<{ [key in keyof T]: any }, 'kind'>;
 
 /**
- * Validates the given ContractAbi object by checking its functions and their parameters.
+ * Validates the given ContractArtifact object by checking its functions and their parameters.
  * Ensures that the ABI has at least one function, a constructor, valid bytecode, and correct parameter types.
  * Throws an error if any inconsistency is detected during the validation process.
  *
- * @param abi - The ContractAbi object to be validated.
- * @returns A boolean value indicating whether the ABI is valid or not.
+ * @param artifact - The ContractArtifact object to be validated.
+ * @returns A boolean value indicating whether the artifact is valid or not.
  */
-export function abiChecker(abi: ContractAbi) {
-  if (!abi.functions || abi.functions.length === 0) {
-    throw new Error('ABI has no functions');
+export function abiChecker(artifact: ContractArtifact) {
+  if (!artifact.functions || artifact.functions.length === 0) {
+    throw new Error('artifact has no functions');
   }
 
-  abi.functions.forEach(func => {
+  artifact.functions.forEach(func => {
     if (!('name' in func && typeof func.name === 'string' && func.name.length > 0)) {
       throw new Error('ABI function has no name');
     }
 
     // TODO: implement a better check for bytecode (right now only checks if it's > 0)
-    if (!('bytecode' in func && typeof func.bytecode === 'string' && func.bytecode.length > 0)) {
+    if (!('bytecode' in func && func.bytecode.length > 0)) {
       throw new Error('ABI function parameter has incorrect bytecode');
     }
 
@@ -39,7 +39,7 @@ export function abiChecker(abi: ContractAbi) {
   });
 
   // TODO: implement a better check for constructor (right now only checks if it has it or not)
-  if (!abi.functions.find(func => func.name === 'constructor')) {
+  if (!artifact.functions.find(func => func.name === 'constructor')) {
     throw new Error('ABI has no constructor');
   }
 
@@ -51,10 +51,10 @@ export function abiChecker(abi: ContractAbi) {
  * Throws an error if the type has an unrecognized kind or incorrectly formed attributes.
  * Additionally, checks nested types for array and struct kinds.
  *
- * @param type - The ABIType object representing the type of the ABI function parameter.
+ * @param type - The AbiType object representing the type of the ABI function parameter.
  * @returns A boolean value indicating whether the type is valid or not.
  */
-function abiParameterTypeChecker(type: ABIType): boolean {
+function abiParameterTypeChecker(type: AbiType): boolean {
   switch (type.kind) {
     case 'field':
     case 'boolean':
@@ -66,14 +66,14 @@ function abiParameterTypeChecker(type: ABIType): boolean {
     case 'array':
       return checkAttributes(type, { length: 'number', type: 'object' }) && abiParameterTypeChecker(type.type);
     case 'struct':
-      return checkAttributes(type, { fields: 'object' }) && checkStruct(type);
+      return checkAttributes(type, { fields: 'object', path: 'string' }) && checkStruct(type);
     default:
-      throw new Error('ABI function parameter has an unrecognised type');
+      throw new Error('ABI function parameter has an unrecognized type');
   }
 }
 
 /**
- * Check if the structure of the ABIType 'struct' is valid by ensuring field names are strings
+ * Check if the structure of the AbiType 'struct' is valid by ensuring field names are strings
  * and their type attribute passes the abiParameterTypeChecker. Returns true on successful validation,
  * otherwise throws an error providing insight into the incorrect formation in the struct.
  *
@@ -93,7 +93,7 @@ function checkStruct(type: StructType) {
  * Check if a provided ABI type has the correct attributes and their associated types.
  * This function compares the given 'type' object's keys with the expected attribute types
  * specified in 'incompleteAttributes', as well as the required 'kind' property.
- * Throws an error if there are any unrecognised attributes or incorrect attribute types.
+ * Throws an error if there are any unrecognized attributes or incorrect attribute types.
  *
  * @param type - The ABI type object to be checked for correct attributes.
  * @param incompleteAttributes - An object representing the expected attribute types without the 'kind' property.
@@ -104,7 +104,7 @@ function checkAttributes<T extends BasicType<string>>(type: T, incompleteAttribu
   const attributes = { ...incompleteAttributes, kind: 'string' };
 
   if (typeKeys.length !== Object.keys(attributes).length) {
-    throw new Error(`Unrecognised attribute on type ${type.kind}`);
+    throw new Error(`Unrecognized attribute on type ${type.kind}`);
   }
 
   typeKeys.forEach(element => {

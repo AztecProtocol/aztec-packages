@@ -1,22 +1,35 @@
 # barretenberg
 # copyright 2019 Spilsbury Holdings Ltd
 
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.7.0 # x-release-please-version
+    VERSION 0.34.0 # x-release-please-version
     LANGUAGES CXX C
 )
+# Insert version into `bb` config file
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/barretenberg/bb/config.hpp.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/barretenberg/bb/config.hpp
+    @ONLY
+)
+
+# Add doxygen build command
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+add_custom_target(build_docs 
+COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_SOURCE_DIR}/docs/Doxyfile
+WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+COMMENT "Generate documentation with Doxygen")
+endif(DOXYGEN_FOUND)
 
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
-option(TESTING "Build tests" ON)
-option(BENCHMARKS "Build benchmarks" ON)
-option(FUZZING "Build fuzzing harnesses" OFF)
+option(FUZZING "Build ONLY fuzzing harnesses" OFF)
 option(DISABLE_TBB "Intel Thread Building Blocks" ON)
 option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
@@ -45,22 +58,10 @@ if(FUZZING)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
 
-    set(SANITIZER_OPTIONS "")
+    add_compile_options(-fsanitize=fuzzer)
+    add_link_options(-fsanitize=fuzzer)
 
-    if(ADDRESS_SANITIZER)
-        set(SANITIZER_OPTIONS ${SANITIZER_OPTIONS} -fsanitize=address)
-    endif()
-
-    if(UNDEFINED_BEHAVIOUR_SANITIZER)
-        set(SANITIZER_OPTIONS ${SANITIZER_OPTIONS} -fsanitize=undefined -fno-sanitize=alignment)
-    endif()
-
-    add_compile_options(-fsanitize=fuzzer-no-link ${SANITIZER_OPTIONS})
-
-    set(WASM OFF)
-    set(BENCHMARKS OFF)
     set(MULTITHREADING OFF)
-    set(TESTING OFF)
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
@@ -68,7 +69,6 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
     set(WASM ON)
     set(DISABLE_ASM ON)
     set(OMP_MULTITHREADING OFF)
-    set(BENCHMARKS OFF)
     set(DISABLE_TBB 1)
     add_compile_definitions(_WASI_EMULATED_PROCESS_CLOCKS=1)
 endif()
@@ -88,7 +88,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         message(WARNING "GCC <10 is not supported")
     endif()
 else()
-    message(WARNING "Unsuported compiler, use Clang >14 or GCC >10")
+    message(WARNING "Unsupported compiler, use Clang >14 or GCC >10")
 endif()
 
 if(COVERAGE)
@@ -117,7 +117,7 @@ if(COVERAGE)
         message(FATAL_ERROR "Couldn't find ${COV_EXECUTABLE_NAME}")
     endif()
 
-    # Add profiling compile options and disable optimisations
+    # Add profiling compile options and disable optimizations
     add_compile_options(-fprofile-instr-generate -fcoverage-mapping -O0)
 
     # Add a custom target for creating the report
@@ -134,4 +134,13 @@ include(cmake/threading.cmake)
 include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
+include(cmake/msgpack.cmake)
 add_subdirectory(src)
+if (ENABLE_ASAN AND NOT(FUZZING))
+    find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-16)
+    if (NOT(LLVM_SYMBOLIZER_PATH))
+        message(WARNING "LLVM symbolizer not found, so ASAN output will be limited")
+    else()
+        message(AUTHOR_WARNING "Run `export ASAN_SYMBOLIZER_PATH=\"${LLVM_SYMBOLIZER_PATH}\"` before running tests for better ASAN output (at which lines the bugs are).")
+    endif()
+endif()

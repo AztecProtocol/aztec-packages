@@ -2,7 +2,7 @@ import { Buffer } from 'buffer';
 
 import { randomBytes } from '../crypto/index.js';
 import { MemoryFifo } from '../fifo/index.js';
-import { LogFn, createDebugOnlyLogger } from '../log/index.js';
+import { type LogFn, createDebugOnlyLogger } from '../log/index.js';
 import { getEmptyWasiSdk } from './empty_wasi_sdk.js';
 
 /**
@@ -149,9 +149,9 @@ export class WasmModule implements IWasmModule {
    */
   public addLogger(logger: LogFn) {
     const oldDebug = this.debug;
-    this.debug = (...args: any[]) => {
-      logger(...args);
-      oldDebug(...args);
+    this.debug = (msg: string) => {
+      logger(msg);
+      oldDebug(msg);
     };
   }
 
@@ -232,7 +232,9 @@ export class WasmModule implements IWasmModule {
     addr = addr >>> 0;
     const m = this.getMemory();
     let i = addr;
-    for (; m[i] !== 0; ++i);
+    while (m[i] !== 0) {
+      ++i;
+    }
     return Buffer.from(m.slice(addr, i)).toString('ascii');
   }
 

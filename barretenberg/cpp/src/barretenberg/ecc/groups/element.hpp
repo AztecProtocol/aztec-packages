@@ -1,7 +1,7 @@
 #pragma once
 
 #include "affine_element.hpp"
-#include "barretenberg/common/inline.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -10,7 +10,7 @@
 #include <random>
 #include <vector>
 
-namespace barretenberg::group_elements {
+namespace bb::group_elements {
 
 /**
  * @brief element class. Implements ecc group arithmetic using Jacobian coordinates
@@ -49,7 +49,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr operator affine_element<Fq, Fr, Params>() const noexcept;
 
-    static element random_element(numeric::random::Engine* engine = nullptr) noexcept;
+    static element random_element(numeric::RNG* engine = nullptr) noexcept;
 
     constexpr element dbl() const noexcept;
     constexpr void self_dbl() noexcept;
@@ -84,26 +84,31 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
 
     constexpr element normalize() const noexcept;
     static element infinity();
-    BBERG_INLINE constexpr element set_infinity() const noexcept;
-    BBERG_INLINE constexpr void self_set_infinity() noexcept;
-    [[nodiscard]] BBERG_INLINE constexpr bool is_point_at_infinity() const noexcept;
-    [[nodiscard]] BBERG_INLINE constexpr bool on_curve() const noexcept;
-    BBERG_INLINE constexpr bool operator==(const element& other) const noexcept;
+    BB_INLINE constexpr element set_infinity() const noexcept;
+    BB_INLINE constexpr void self_set_infinity() noexcept;
+    [[nodiscard]] BB_INLINE constexpr bool is_point_at_infinity() const noexcept;
+    [[nodiscard]] BB_INLINE constexpr bool on_curve() const noexcept;
+    BB_INLINE constexpr bool operator==(const element& other) const noexcept;
 
     static void batch_normalize(element* elements, size_t num_elements) noexcept;
+    static void batch_affine_add(const std::span<affine_element<Fq, Fr, Params>>& first_group,
+                                 const std::span<affine_element<Fq, Fr, Params>>& second_group,
+                                 const std::span<affine_element<Fq, Fr, Params>>& results) noexcept;
     static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
-        const std::vector<affine_element<Fq, Fr, Params>>& points, const Fr& exponent) noexcept;
+        const std::span<affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 
     Fq x;
     Fq y;
     Fq z;
 
   private:
-    element mul_without_endomorphism(const Fr& exponent) const noexcept;
-    element mul_with_endomorphism(const Fr& exponent) const noexcept;
+    // For test access to mul_without_endomorphism
+    friend class TestElementPrivate;
+    element mul_without_endomorphism(const Fr& scalar) const noexcept;
+    element mul_with_endomorphism(const Fr& scalar) const noexcept;
 
     template <typename = typename std::enable_if<Params::can_hash_to_curve>>
-    static element random_coordinates_on_curve(numeric::random::Engine* engine = nullptr) noexcept;
+    static element random_coordinates_on_curve(numeric::RNG* engine = nullptr) noexcept;
     // {
     //     bool found_one = false;
     //     Fq yy;
@@ -123,6 +128,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     //     return { x, y, Fq::one() };
     // }
     // for serialization: update with new fields
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
     MSGPACK_FIELDS(x, y, z);
 
     static void conditional_negate_affine(const affine_element<Fq, Fr, Params>& in,
@@ -144,21 +150,20 @@ template <class Fq, class Fr, class Params> std::ostream& operator<<(std::ostrea
 // constexpr element<Fq, Fr, Params>::one = element<Fq, Fr, Params>{ Params::one_x, Params::one_y, Fq::one() };
 // constexpr element<Fq, Fr, Params>::point_at_infinity = one.set_infinity();
 // constexpr element<Fq, Fr, Params>::curve_b = Params::b;
-} // namespace barretenberg::group_elements
+} // namespace bb::group_elements
 
 #include "./element_impl.hpp"
 
 template <class Fq, class Fr, class Params>
-barretenberg::group_elements::affine_element<Fq, Fr, Params> operator*(
-    const barretenberg::group_elements::affine_element<Fq, Fr, Params>& base, const Fr& exponent) noexcept
+bb::group_elements::affine_element<Fq, Fr, Params> operator*(
+    const bb::group_elements::affine_element<Fq, Fr, Params>& base, const Fr& exponent) noexcept
 {
-    return barretenberg::group_elements::affine_element<Fq, Fr, Params>(barretenberg::group_elements::element(base) *
-                                                                        exponent);
+    return bb::group_elements::affine_element<Fq, Fr, Params>(bb::group_elements::element(base) * exponent);
 }
 
 template <class Fq, class Fr, class Params>
-barretenberg::group_elements::affine_element<Fq, Fr, Params> operator*(
-    const barretenberg::group_elements::element<Fq, Fr, Params>& base, const Fr& exponent) noexcept
+bb::group_elements::affine_element<Fq, Fr, Params> operator*(const bb::group_elements::element<Fq, Fr, Params>& base,
+                                                             const Fr& exponent) noexcept
 {
-    return (barretenberg::group_elements::element(base) * exponent);
+    return (bb::group_elements::element(base) * exponent);
 }

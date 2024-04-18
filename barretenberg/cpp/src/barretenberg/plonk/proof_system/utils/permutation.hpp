@@ -5,7 +5,7 @@
 #include "barretenberg/polynomials/iterate_over_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 struct permutation_subgroup_element {
     uint32_t subgroup_index = 0;
@@ -19,9 +19,9 @@ struct permutation_subgroup_element {
  * instead of permutation_subgroup_element
  **/
 template <typename program_settings>
-inline void compute_permutation_lagrange_base_single(barretenberg::polynomial& output,
+inline void compute_permutation_lagrange_base_single(bb::polynomial& output,
                                                      const std::vector<uint32_t>& permutation,
-                                                     const barretenberg::evaluation_domain& small_domain)
+                                                     const bb::evaluation_domain& small_domain)
 {
     std::vector<permutation_subgroup_element> subgroup_elements;
     for (const auto& permutation_element : permutation) {
@@ -42,9 +42,9 @@ inline void compute_permutation_lagrange_base_single(barretenberg::polynomial& o
  * @tparam program_settings Program settings.
  * */
 template <typename program_settings>
-inline void compute_permutation_lagrange_base_single(barretenberg::polynomial& output,
+inline void compute_permutation_lagrange_base_single(bb::polynomial& output,
                                                      const std::vector<permutation_subgroup_element>& permutation,
-                                                     const barretenberg::evaluation_domain& small_domain)
+                                                     const bb::evaluation_domain& small_domain)
 {
     if (output.size() < permutation.size()) {
         throw_or_abort("Permutation polynomial size is insufficient to store permutations.");
@@ -56,7 +56,7 @@ inline void compute_permutation_lagrange_base_single(barretenberg::polynomial& o
     // 1 = right
     // 2 = output
     ASSERT(small_domain.log2_size > 1);
-    const barretenberg::fr* roots = small_domain.get_round_roots()[small_domain.log2_size - 2];
+    const bb::fr* roots = small_domain.get_round_roots()[small_domain.log2_size - 2];
     const size_t root_size = small_domain.size >> 1UL;
     const size_t log2_root_size = static_cast<size_t>(numeric::get_msb(root_size));
 
@@ -65,7 +65,7 @@ inline void compute_permutation_lagrange_base_single(barretenberg::polynomial& o
     // `permutation[i]` will specify the 'index' that this wire value will map to.
     // Here, 'index' refers to an element of our subgroup H.
     // We can almost use `permutation[i]` to directly index our `roots` array, which contains our subgroup elements.
-    // We first have to accomodate for the fact that `roots` only contains *half* of our subgroup elements. This is
+    // We first have to accommodate for the fact that `roots` only contains *half* of our subgroup elements. This is
     // because ω^{n/2} = -ω and we don't want to perform redundant work computing roots of unity.
 
     size_t raw_idx = permutation[i].subgroup_index;
@@ -95,17 +95,17 @@ inline void compute_permutation_lagrange_base_single(barretenberg::polynomial& o
         // As per the paper which modifies plonk to include the public inputs in a permutation argument, the permutation
         // `σ` is modified to `σ'`, where `σ'` maps all public inputs to a set of l distinct ζ elements which are
         // disjoint from H ∪ k1·H ∪ k2·H.
-        output[i] *= barretenberg::fr::external_coset_generator();
+        output[i] *= bb::fr::external_coset_generator();
     } else if (permutation[i].is_tag) {
-        output[i] *= barretenberg::fr::tag_coset_generator();
+        output[i] *= bb::fr::tag_coset_generator();
     } else {
         {
             const uint32_t column_index = permutation[i].column_index;
             if (column_index > 0) {
-                output[i] *= barretenberg::fr::coset_generator(column_index - 1);
+                output[i] *= bb::fr::coset_generator(column_index - 1);
             }
         }
     }
     ITERATE_OVER_DOMAIN_END;
 }
-} // namespace proof_system::plonk
+} // namespace bb::plonk

@@ -1,23 +1,15 @@
-import { IWasmModule } from '@aztec/foundation/wasm';
+import { BarretenbergSync } from '@aztec/bb.js';
 
-import { CircuitsWasm } from '../../../index.js';
 import { EcdsaSignature } from './signature.js';
 
 export * from './signature.js';
 
 /**
  * ECDSA signature construction and helper operations.
+ * TODO: Replace with codegen api on bb.js.
  */
 export class Ecdsa {
-  /**
-   * Creates a new Ecdsa instance.
-   * @returns New Ecdsa instance.
-   */
-  public static async new() {
-    return new this(await CircuitsWasm.get());
-  }
-
-  constructor(private wasm: IWasmModule) {}
+  private wasm = BarretenbergSync.getSingleton().getWasm();
 
   /**
    * Computes a secp256k1 public key from a private key.

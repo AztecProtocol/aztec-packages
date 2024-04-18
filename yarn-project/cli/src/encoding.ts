@@ -1,5 +1,5 @@
-import { Fr } from '@aztec/aztec.js';
-import { ABIParameter, ABIType, StructType } from '@aztec/foundation/abi';
+import { type ABIParameter, type AbiType, type StructType } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Parses a hex string into an ABI struct type.
@@ -8,7 +8,7 @@ import { ABIParameter, ABIType, StructType } from '@aztec/foundation/abi';
  * @returns An object in the ABI struct type's format.
  */
 export function parseStructString(str: string, abiType: StructType) {
-  // Assing string bytes to struct fields.
+  // Assign string bytes to struct fields.
   const buf = Buffer.from(str.replace(/^0x/i, ''), 'hex');
   const struct: any = {};
   let byteIndex = 0;
@@ -29,7 +29,7 @@ export function parseStructString(str: string, abiType: StructType) {
  * @param abiType - The type as described by the contract's ABI.
  * @returns The encoded argument.
  */
-function encodeArg(arg: string, abiType: ABIType, name: string): any {
+function encodeArg(arg: string, abiType: AbiType, name: string): any {
   const { kind } = abiType;
   if (kind === 'field' || kind === 'integer') {
     let res: bigint;
@@ -42,9 +42,16 @@ function encodeArg(arg: string, abiType: ABIType, name: string): any {
     }
     return res;
   } else if (kind === 'boolean') {
-    if (arg === 'true') return true;
-    if (arg === 'false') return false;
-    else throw Error(`Invalid boolean value passed for ${name}: ${arg}.`);
+    if (arg === 'true') {
+      return true;
+    }
+    if (arg === 'false') {
+      return false;
+    } else {
+      throw Error(`Invalid boolean value passed for ${name}: ${arg}.`);
+    }
+  } else if (kind === 'string') {
+    return arg;
   } else if (kind === 'array') {
     let arr;
     const res = [];
@@ -53,9 +60,12 @@ function encodeArg(arg: string, abiType: ABIType, name: string): any {
     } catch {
       throw new Error(`Unable to parse arg ${arg} as array for ${name} parameter`);
     }
-    if (!Array.isArray(arr)) throw Error(`Invalid argument ${arg} passed for array parameter ${name}.`);
-    if (arr.length !== abiType.length)
+    if (!Array.isArray(arr)) {
+      throw Error(`Invalid argument ${arg} passed for array parameter ${name}.`);
+    }
+    if (arr.length !== abiType.length) {
       throw Error(`Invalid array length passed for ${name}. Expected ${abiType.length}, received ${arr.length}.`);
+    }
     for (let i = 0; i < abiType.length; i += 1) {
       res.push(encodeArg(arr[i], abiType.type, name));
     }
@@ -71,13 +81,17 @@ function encodeArg(arg: string, abiType: ABIType, name: string): any {
     } catch {
       throw new Error(`Unable to parse arg ${arg} as struct`);
     }
-    if (Array.isArray(obj)) throw Error(`Array passed for arg ${name}. Expected a struct.`);
-    const res = [];
+    if (Array.isArray(obj)) {
+      throw Error(`Array passed for arg ${name}. Expected a struct.`);
+    }
+    const res: any = {};
     for (const field of abiType.fields) {
       // Remove field name from list as it's present
       const arg = obj[field.name];
-      if (!arg) throw Error(`Expected field ${field.name} not found in struct ${name}.`);
-      res.push(encodeArg(obj[field.name], field.type, field.name));
+      if (!arg) {
+        throw Error(`Expected field ${field.name} not found in struct ${name}.`);
+      }
+      res[field.name] = encodeArg(obj[field.name], field.type, field.name);
     }
     return res;
   }
@@ -91,13 +105,13 @@ function encodeArg(arg: string, abiType: ABIType, name: string): any {
 export function encodeArgs(args: any[], params: ABIParameter[]) {
   if (args.length !== params.length) {
     throw new Error(
-      `Invalid number of args provided. Expected: ${params.length}, received: ${args.length}\nReceived args: ${args}`,
+      `Invalid args provided.\nExpected args: [${params
+        .map(param => param.name + ': ' + param.type.kind)
+        .join(', ')}]\nReceived args: ${args.join(', ')}`,
     );
   }
-  return args
-    .map((arg: any, index) => {
-      const { type, name } = params[index];
-      return encodeArg(arg, type, name);
-    })
-    .flat();
+  return args.map((arg: any, index) => {
+    const { type, name } = params[index];
+    return encodeArg(arg, type, name);
+  });
 }

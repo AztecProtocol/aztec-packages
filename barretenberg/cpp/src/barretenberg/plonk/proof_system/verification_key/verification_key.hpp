@@ -9,15 +9,16 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include <map>
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 struct verification_key_data {
     uint32_t circuit_type;
     uint32_t circuit_size;
     uint32_t num_public_inputs;
-    std::map<std::string, barretenberg::g1::affine_element> commitments;
+    std::map<std::string, bb::g1::affine_element> commitments;
     bool contains_recursive_proof = false;
     std::vector<uint32_t> recursive_proof_public_input_indices;
+    bool is_recursive_circuit = false;
 
     // for serialization: update with any new fields
     MSGPACK_FIELDS(circuit_type,
@@ -25,8 +26,9 @@ struct verification_key_data {
                    num_public_inputs,
                    commitments,
                    contains_recursive_proof,
-                   recursive_proof_public_input_indices);
-    barretenberg::fr compress_native(size_t const hash_index = 0) const;
+                   recursive_proof_public_input_indices,
+                   is_recursive_circuit);
+    [[nodiscard]] bb::fr hash_native(size_t hash_index = 0) const;
 };
 
 inline std::ostream& operator<<(std::ostream& os, verification_key_data const& key)
@@ -36,7 +38,8 @@ inline std::ostream& operator<<(std::ostream& os, verification_key_data const& k
               << "key.num_public_inputs: " << static_cast<uint32_t>(key.num_public_inputs) << "\n"
               << "key.commitments: " << key.commitments << "\n"
               << "key.contains_recursive_proof: " << key.contains_recursive_proof << "\n"
-              << "key.recursive_proof_public_input_indices: " << key.recursive_proof_public_input_indices << "\n";
+              << "key.recursive_proof_public_input_indices: " << key.recursive_proof_public_input_indices << "\n"
+              << "key.is_recursive_circuit: " << key.is_recursive_circuit << "\n";
 };
 
 inline bool operator==(verification_key_data const& lhs, verification_key_data const& rhs)
@@ -49,21 +52,21 @@ struct verification_key {
     // default constructor needed for msgpack unpack
     verification_key() = default;
     verification_key(verification_key_data&& data,
-                     std::shared_ptr<barretenberg::srs::factories::VerifierCrs<curve::BN254>> const& crs);
-    verification_key(const size_t num_gates,
-                     const size_t num_inputs,
-                     std::shared_ptr<barretenberg::srs::factories::VerifierCrs<curve::BN254>> const& crs,
+                     std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& crs);
+    verification_key(size_t num_gates,
+                     size_t num_inputs,
+                     std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> const& crs,
                      CircuitType circuit_type);
 
     verification_key(const verification_key& other);
-    verification_key(verification_key&& other);
-    verification_key& operator=(verification_key&& other);
-
+    verification_key(verification_key&& other) noexcept;
+    verification_key& operator=(verification_key&& other) noexcept;
+    verification_key& operator=(const verification_key& other) = delete;
     ~verification_key() = default;
 
-    sha256::hash sha256_hash();
+    crypto::Sha256Hash sha256_hash();
 
-    verification_key_data as_data() const
+    [[nodiscard]] verification_key_data as_data() const
     {
         return {
             .circuit_type = static_cast<uint32_t>(circuit_type),
@@ -72,6 +75,7 @@ struct verification_key {
             .commitments = commitments,
             .contains_recursive_proof = contains_recursive_proof,
             .recursive_proof_public_input_indices = recursive_proof_public_input_indices,
+            .is_recursive_circuit = is_recursive_circuit,
         };
     }
 
@@ -80,40 +84,46 @@ struct verification_key {
     size_t log_circuit_size;
     size_t num_public_inputs;
 
-    barretenberg::evaluation_domain domain;
+    bb::evaluation_domain domain;
 
-    std::shared_ptr<barretenberg::srs::factories::VerifierCrs<curve::BN254>> reference_string;
+    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::BN254>> reference_string;
 
-    std::map<std::string, barretenberg::g1::affine_element> commitments;
+    std::map<std::string, bb::g1::affine_element> commitments;
 
     PolynomialManifest polynomial_manifest;
 
     // This is a member variable so as to avoid recomputing it in the different places of the verifier algorithm.
     // Note that recomputing would also have added constraints to the recursive verifier circuit.
-    barretenberg::fr z_pow_n; // ʓ^n (ʓ being the 'evaluation challenge')
+    bb::fr z_pow_n; // ʓ^n (ʓ being the 'evaluation challenge')
 
     bool contains_recursive_proof = false;
     std::vector<uint32_t> recursive_proof_public_input_indices;
+
+    bool is_recursive_circuit = false;
+
     size_t program_width = 3;
 
     // for serialization: update with new fields
     void msgpack_pack(auto& packer) const
     {
-        verification_key_data data = { static_cast<uint32_t>(circuit_type),
-                                       static_cast<uint32_t>(circuit_size),
-                                       static_cast<uint32_t>(num_public_inputs),
-                                       commitments,
-                                       contains_recursive_proof,
-                                       recursive_proof_public_input_indices };
+        verification_key_data data = {
+            static_cast<uint32_t>(circuit_type),
+            static_cast<uint32_t>(circuit_size),
+            static_cast<uint32_t>(num_public_inputs),
+            commitments,
+            contains_recursive_proof,
+            recursive_proof_public_input_indices,
+            is_recursive_circuit,
+        };
         packer.pack(data);
     }
     void msgpack_unpack(auto obj)
     {
         verification_key_data data = obj;
-        *this = verification_key{ std::move(data), barretenberg::srs::get_crs_factory()->get_verifier_crs() };
+        *this = verification_key{ std::move(data), bb::srs::get_bn254_crs_factory()->get_verifier_crs() };
     }
     // Alias verification_key as verification_key_data in the schema
-    void msgpack_schema(auto& packer) const { packer.pack_schema(proof_system::plonk::verification_key_data{}); }
+    void msgpack_schema(auto& packer) const { packer.pack_schema(bb::plonk::verification_key_data{}); }
 };
 
 template <typename B> inline void read(B& buf, verification_key& key)
@@ -121,7 +131,7 @@ template <typename B> inline void read(B& buf, verification_key& key)
     using serialize::read;
     verification_key_data vk_data;
     read(buf, vk_data);
-    key = verification_key{ std::move(vk_data), barretenberg::srs::get_crs_factory()->get_verifier_crs() };
+    key = verification_key{ std::move(vk_data), bb::srs::get_bn254_crs_factory()->get_verifier_crs() };
 }
 
 template <typename B> inline void read(B& buf, std::shared_ptr<verification_key>& key)
@@ -129,8 +139,7 @@ template <typename B> inline void read(B& buf, std::shared_ptr<verification_key>
     using serialize::read;
     verification_key_data vk_data;
     read(buf, vk_data);
-    key = std::make_shared<verification_key>(std::move(vk_data),
-                                             barretenberg::srs::get_crs_factory()->get_verifier_crs());
+    key = std::make_shared<verification_key>(std::move(vk_data), bb::srs::get_bn254_crs_factory()->get_verifier_crs());
 }
 
 template <typename B> inline void write(B& buf, verification_key const& key)
@@ -144,4 +153,4 @@ inline std::ostream& operator<<(std::ostream& os, verification_key const& key)
     return os << key.as_data();
 };
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

@@ -4,10 +4,11 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
 
-import { MemoryArchiverStore } from './archiver/archiver_store.js';
 import { Archiver, getConfigEnvVars } from './archiver/index.js';
+import { MemoryArchiverStore } from './archiver/memory_archiver_store/memory_archiver_store.js';
 
 export * from './archiver/index.js';
+export * from './rpc/index.js';
 
 const log = createDebugLogger('aztec:archiver');
 
@@ -17,21 +18,21 @@ const log = createDebugLogger('aztec:archiver');
 // eslint-disable-next-line require-await
 async function main() {
   const config = getConfigEnvVars();
-  const { rpcUrl, rollupContract, inboxContract, contractDeploymentEmitterContract, searchStartBlock } = config;
+  const { rpcUrl, l1Contracts } = config;
 
   const publicClient = createPublicClient({
     chain: localhost,
     transport: http(rpcUrl),
   });
 
-  const archiverStore = new MemoryArchiverStore();
+  const archiverStore = new MemoryArchiverStore(1000);
 
   const archiver = new Archiver(
     publicClient,
-    rollupContract,
-    inboxContract,
-    contractDeploymentEmitterContract,
-    searchStartBlock,
+    l1Contracts.rollupAddress,
+    l1Contracts.availabilityOracleAddress,
+    l1Contracts.inboxAddress,
+    l1Contracts.registryAddress,
     archiverStore,
   );
 

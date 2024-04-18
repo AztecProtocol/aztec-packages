@@ -1,33 +1,18 @@
-import { expectReserializeToMatchObject, expectSerializeToMatchSnapshot } from '../../tests/expectSerialize.js';
-import { makeBaseOrMergeRollupPublicInputs, makeBaseRollupInputs } from '../../tests/factories.js';
-import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
+import { makeBaseRollupInputs } from '../../tests/factories.js';
+import { BaseRollupInputs } from './base_rollup.js';
 
-describe('structs/base_rollup', () => {
-  it(`serializes and prints BaseRollupInputs`, async () => {
-    const baseRollupInputs = makeBaseRollupInputs();
-
-    await expectSerializeToMatchSnapshot(
-      baseRollupInputs.toBuffer(),
-      'abis__test_roundtrip_serialize_base_rollup_inputs',
-    );
+describe('BaseRollupInputs', () => {
+  it('serializes to buffer and deserializes it back', () => {
+    const expected = makeBaseRollupInputs();
+    const buffer = expected.toBuffer();
+    const res = BaseRollupInputs.fromBuffer(buffer);
+    expect(res).toEqual(expected);
   });
 
-  it(`serializes and prints BaseRollupPublicInputs`, async () => {
-    const baseRollupPublicInputs = makeBaseOrMergeRollupPublicInputs();
-
-    await expectSerializeToMatchSnapshot(
-      baseRollupPublicInputs.toBuffer(),
-      'abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs',
-    );
-  });
-
-  it(`serializes and deserializes BaseRollupPublicInputs`, async () => {
-    const baseRollupPublicInputs = makeBaseOrMergeRollupPublicInputs();
-
-    await expectReserializeToMatchObject(
-      baseRollupPublicInputs,
-      'abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs',
-      BaseOrMergeRollupPublicInputs.fromBuffer,
-    );
+  it('serializes to hex string and deserializes it back', () => {
+    const expected = makeBaseRollupInputs();
+    const str = expected.toString();
+    const res = BaseRollupInputs.fromString(str);
+    expect(res).toEqual(expected);
   });
 });

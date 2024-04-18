@@ -1,0 +1,38 @@
+{
+  "name": "@aztec/vanilla",
+  "description": "Vanilla HTML/JS App",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
+    "codegen": "${AZTEC_CLI:-aztec-cli} codegen src/contracts/target -o artifacts --ts",
+    "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src/contracts/target",
+    "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
+    "dev": "yarn prep && webpack serve --mode development",
+    "build": "yarn prep && webpack",
+    "serve": "webpack serve --no-open --mode development",
+    "test": "yarn prep && npx playwright test",
+    "formatting": "prettier --check ./src && eslint ./src",
+    "formatting:fix": "prettier -w ./src"
+  },
+  "dependencies": {
+    "@aztec/accounts": "latest",
+    "@aztec/aztec.js": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.42.0",
+    "@types/node": "^20.11.17",
+    "copy-webpack-plugin": "^11.0.0",
+    "html-webpack-plugin": "^5.6.0",
+    "stream-browserify": "^3.0.0",
+    "ts-loader": "^9.5.1",
+    "tty-browserify": "^0.0.1",
+    "typescript": "^5.0.4",
+    "util": "^0.12.5",
+    "webpack": "^5.90.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  },
+  "packageManager": "yarn@4.0.2"
+}

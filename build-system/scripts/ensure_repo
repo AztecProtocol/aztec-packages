@@ -1,32 +1,32 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Logs the shell into the ECR instance at the given region, establishes if the given repository exists, creates it if it
 # doesn't, and re-applies thie lifecycle policy (determines when images should be automatically deleted) if it does.
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 LIFECYCLE_POLICY='{
   "rules": [
     {
       "rulePriority": 1,
-      "description": "No more than 200 cache images.",
+      "description": "No more than 1000 images, regardless of tag status.",
       "selection": {
-        "tagStatus": "tagged",
-        "tagPrefixList": ["cache-"],
+        "tagStatus": "any",
         "countType": "imageCountMoreThan",
-        "countNumber": 200
+        "countNumber": 1000
       },
       "action": {
         "type": "expire"
       }
     }
   ]
-}
-'
+}'
 
 REPOSITORY=$1
 REGION=$2
 REFRESH_LIFECYCLE=${3:-}
 
-aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT.dkr.ecr.$REGION.amazonaws.com 2> /dev/null
+# Login to ECR.
+retry ecr_login $REGION
 
 # Create the repository if it doesn't exist.
 if ! aws ecr describe-repositories --region $REGION --repository-names $REPOSITORY > /dev/null 2>&1; then

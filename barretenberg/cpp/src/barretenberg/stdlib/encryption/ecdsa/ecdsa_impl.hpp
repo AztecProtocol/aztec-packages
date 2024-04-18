@@ -1,16 +1,16 @@
 #pragma once
 
-#include "../../hash/sha256/sha256.hpp"
-#include "../../primitives/bit_array/bit_array.hpp"
+#include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/hash/sha256/sha256.hpp"
+#include "barretenberg/stdlib/primitives//bit_array/bit_array.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
-namespace ecdsa {
+namespace bb::stdlib {
 
 /**
  * @brief Verify ECDSA signature. Produces unsatisfiable constraints if signature fails
  *
- * @tparam Composer
+ * @tparam Builder
  * @tparam Curve
  * @tparam Fq
  * @tparam Fr
@@ -18,16 +18,16 @@ namespace ecdsa {
  * @param message
  * @param public_key
  * @param sig
- * @return bool_t<Composer>
+ * @return bool_t<Builder>
  */
-template <typename Composer, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
-                                  const G1& public_key,
-                                  const signature<Composer>& sig)
+template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
+bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& message,
+                                       const G1& public_key,
+                                       const ecdsa_signature<Builder>& sig)
 {
-    Composer* ctx = message.get_context() ? message.get_context() : public_key.x.context;
+    Builder* ctx = message.get_context() ? message.get_context() : public_key.x.context;
 
-    if constexpr (IsSimulator<Composer>) {
+    if constexpr (IsSimulator<Builder>) {
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
         std::vector<uint8_t> r_vector = sig.r.get_value();
@@ -39,8 +39,8 @@ bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
 
         auto v = static_cast<uint8_t>(sig.v.get_value().data[0]);
 
-        bool result =
-            crypto::ecdsa::verify_signature<Sha256Hasher, typename Curve::fq, typename Curve::fr, typename Curve::g1>(
+        bool result = crypto::
+            ecdsa_verify_signature<crypto::Sha256Hasher, typename Curve::fq, typename Curve::fr, typename Curve::g1>(
                 message.get_value(), public_key.get_value(), { r_array, s_array, v });
         return { ctx, result };
     } else {
@@ -72,11 +72,11 @@ bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
          *
          */
         // Note: This check is also present in the _noassert variation of this method.
-        field_t<Composer>(sig.v).assert_is_in_set({ field_t<Composer>(27), field_t<Composer>(28) },
-                                                  "signature is non-standard");
+        field_t<Builder>(sig.v).assert_is_in_set({ field_t<Builder>(27), field_t<Builder>(28) },
+                                                 "signature is non-standard");
 
-        stdlib::byte_array<Composer> hashed_message =
-            static_cast<stdlib::byte_array<Composer>>(stdlib::sha256<Composer>(message));
+        stdlib::byte_array<Builder> hashed_message =
+            static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
 
         Fr z(hashed_message);
         z.assert_is_in_field();
@@ -104,7 +104,7 @@ bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
         // TODO(Cody): Having Plookup should not determine which curve is used.
         // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
         // other curves)
-        if constexpr (HasPlookup<Composer> && Curve::type == proof_system::CurveType::SECP256K1) {
+        if constexpr (HasPlookup<Builder> && Curve::type == bb::CurveType::SECP256K1) {
             result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
         } else {
             result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
@@ -131,14 +131,14 @@ bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
         result_mod_r.binary_basis_limbs[2].element.assert_equal(r.binary_basis_limbs[2].element);
         result_mod_r.binary_basis_limbs[3].element.assert_equal(r.binary_basis_limbs[3].element);
         result_mod_r.prime_basis_limb.assert_equal(r.prime_basis_limb);
-        return bool_t<Composer>(ctx, true);
+        return bool_t<Builder>(ctx, true);
     }
 }
 
 /**
  * @brief Verify ECDSA signature. Returns 0 if signature fails (i.e. does not produce unsatisfiable constraints)
  *
- * @tparam Composer
+ * @tparam Builder
  * @tparam Curve
  * @tparam Fq
  * @tparam Fr
@@ -146,14 +146,14 @@ bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
  * @param hashed_message
  * @param public_key
  * @param sig
- * @return bool_t<Composer>
+ * @return bool_t<Builder>
  */
-template <typename Composer, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Composer> verify_signature_prehashed_message_noassert(const stdlib::byte_array<Composer>& hashed_message,
-                                                             const G1& public_key,
-                                                             const signature<Composer>& sig)
+template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
+bool_t<Builder> ecdsa_verify_signature_prehashed_message_noassert(const stdlib::byte_array<Builder>& hashed_message,
+                                                                  const G1& public_key,
+                                                                  const ecdsa_signature<Builder>& sig)
 {
-    Composer* ctx = hashed_message.get_context() ? hashed_message.get_context() : public_key.x.context;
+    Builder* ctx = hashed_message.get_context() ? hashed_message.get_context() : public_key.x.context;
 
     Fr z(hashed_message);
     z.assert_is_in_field();
@@ -180,7 +180,7 @@ bool_t<Composer> verify_signature_prehashed_message_noassert(const stdlib::byte_
     G1 result;
     // Use special plookup secp256k1 ECDSA mul if available (this relies on k1 endomorphism, and cannot be used for
     // other curves)
-    if constexpr (HasPlookup<Composer> && Curve::type == proof_system::CurveType::SECP256K1) {
+    if constexpr (HasPlookup<Builder> && Curve::type == bb::CurveType::SECP256K1) {
         result = G1::secp256k1_ecdsa_mul(public_key, u1, u2);
     } else {
         result = G1::batch_mul({ G1::one(ctx), public_key }, { u1, u2 });
@@ -202,15 +202,15 @@ bool_t<Composer> verify_signature_prehashed_message_noassert(const stdlib::byte_
 
     result_mod_r.assert_is_in_field();
 
-    bool_t<Composer> output(ctx, true);
+    bool_t<Builder> output(ctx, true);
     output &= result_mod_r.binary_basis_limbs[0].element == (r.binary_basis_limbs[0].element);
     output &= result_mod_r.binary_basis_limbs[1].element == (r.binary_basis_limbs[1].element);
     output &= result_mod_r.binary_basis_limbs[2].element == (r.binary_basis_limbs[2].element);
     output &= result_mod_r.binary_basis_limbs[3].element == (r.binary_basis_limbs[3].element);
     output &= result_mod_r.prime_basis_limb == (r.prime_basis_limb);
 
-    field_t<Composer>(sig.v).assert_is_in_set({ field_t<Composer>(27), field_t<Composer>(28) },
-                                              "signature is non-standard");
+    field_t<Builder>(sig.v).assert_is_in_set({ field_t<Builder>(27), field_t<Builder>(28) },
+                                             "signature is non-standard");
 
     return output;
 }
@@ -218,7 +218,7 @@ bool_t<Composer> verify_signature_prehashed_message_noassert(const stdlib::byte_
 /**
  * @brief Verify ECDSA signature. Returns 0 if signature fails (i.e. does not produce unsatisfiable constraints)
  *
- * @tparam Composer
+ * @tparam Builder
  * @tparam Curve
  * @tparam Fq
  * @tparam Fr
@@ -226,19 +226,68 @@ bool_t<Composer> verify_signature_prehashed_message_noassert(const stdlib::byte_
  * @param message
  * @param public_key
  * @param sig
- * @return bool_t<Composer>
+ * @return bool_t<Builder>
  */
-template <typename Composer, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Composer> verify_signature_noassert(const stdlib::byte_array<Composer>& message,
-                                           const G1& public_key,
-                                           const signature<Composer>& sig)
+template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
+bool_t<Builder> ecdsa_verify_signature_noassert(const stdlib::byte_array<Builder>& message,
+                                                const G1& public_key,
+                                                const ecdsa_signature<Builder>& sig)
 {
-    stdlib::byte_array<Composer> hashed_message =
-        static_cast<stdlib::byte_array<Composer>>(stdlib::sha256<Composer>(message));
+    stdlib::byte_array<Builder> hashed_message =
+        static_cast<stdlib::byte_array<Builder>>(stdlib::sha256<Builder>(message));
 
-    return verify_signature_prehashed_message_noassert<Composer, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+    return ecdsa_verify_signature_prehashed_message_noassert<Builder, Curve, Fq, Fr, G1>(
+        hashed_message, public_key, sig);
 }
 
-} // namespace ecdsa
-} // namespace stdlib
-} // namespace proof_system::plonk
+/**
+ * @brief Generate a simple ecdsa verification circuit for testing purposes
+ *
+ * @tparam Builder
+ * @param builder
+ * @param num_iterations number of signature verifications to perform
+ */
+template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations)
+{
+    using curve = stdlib::secp256k1<Builder>;
+    using fr = typename curve::fr;
+    using fq = typename curve::fq;
+    using g1 = typename curve::g1;
+
+    std::string message_string = "Instructions unclear, ask again later.";
+
+    crypto::ecdsa_key_pair<fr, g1> account;
+    for (size_t i = 0; i < num_iterations; i++) {
+        // Generate unique signature for each iteration
+        account.private_key = curve::fr::random_element();
+        account.public_key = curve::g1::one * account.private_key;
+
+        crypto::ecdsa_signature signature =
+            crypto::ecdsa_construct_signature<crypto::Sha256Hasher, fq, fr, g1>(message_string, account);
+
+        bool first_result = crypto::ecdsa_verify_signature<crypto::Sha256Hasher, fq, fr, g1>(
+            message_string, account.public_key, signature);
+        static_cast<void>(first_result); // TODO(Cody): This is not used anywhere.
+
+        std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
+        std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
+        uint8_t vv = signature.v;
+
+        typename curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&builder, account.public_key);
+
+        stdlib::ecdsa_signature<Builder> sig{ typename curve::byte_array_ct(&builder, rr),
+                                              typename curve::byte_array_ct(&builder, ss),
+                                              stdlib::uint8<Builder>(&builder, vv) };
+
+        typename curve::byte_array_ct message(&builder, message_string);
+
+        // Verify ecdsa signature
+        stdlib::ecdsa_verify_signature<Builder,
+                                       curve,
+                                       typename curve::fq_ct,
+                                       typename curve::bigfr_ct,
+                                       typename curve::g1_bigfr_ct>(message, public_key, sig);
+    }
+}
+
+} // namespace bb::stdlib

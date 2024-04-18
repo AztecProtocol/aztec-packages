@@ -9,7 +9,26 @@
 #include <gtest/gtest.h>
 #include <utility>
 
-using namespace barretenberg;
+using namespace bb;
+
+/**
+ * @brief Ensure evaluate() gives consistent result for polynomials of different size but same non-zero coefficients.
+ */
+TEST(polynomials, evaluate)
+{
+    auto poly1 = polynomial(15); // non power of 2
+    auto poly2 = polynomial(64);
+    for (size_t i = 0; i < poly1.size(); ++i) {
+        poly1[i] = fr::random_element();
+        poly2[i] = poly1[i];
+    }
+
+    auto challenge = fr::random_element();
+    auto eval1 = poly1.evaluate(challenge);
+    auto eval2 = poly2.evaluate(challenge);
+
+    EXPECT_EQ(eval1, eval2);
+}
 
 TEST(polynomials, fft_with_small_degree)
 {
@@ -894,7 +913,7 @@ TEST(polynomials, fft_linear_poly_product)
 
 template <typename FF> class PolynomialTests : public ::testing::Test {};
 
-using FieldTypes = ::testing::Types<barretenberg::fr, grumpkin::fr>;
+using FieldTypes = ::testing::Types<bb::fr, grumpkin::fr>;
 
 TYPED_TEST_SUITE(PolynomialTests, FieldTypes);
 
@@ -1024,7 +1043,7 @@ TYPED_TEST(PolynomialTests, evaluate_mle)
     using FF = TypeParam;
 
     auto test_case = [](size_t N) {
-        auto& engine = numeric::random::get_debug_engine();
+        auto& engine = numeric::get_debug_randomness();
         const size_t m = numeric::get_msb(N);
         EXPECT_EQ(N, 1 << m);
         Polynomial<FF> poly(N);
@@ -1074,6 +1093,43 @@ TYPED_TEST(PolynomialTests, evaluate_mle)
     test_case(32);
     test_case(4);
     test_case(2);
+}
+
+/**
+ * @brief Test the function for partially evaluating MLE polynomials
+ *
+ */
+TYPED_TEST(PolynomialTests, partial_evaluate_mle)
+{
+    // Initialize a random polynomial
+    using FF = TypeParam;
+    size_t N = 32;
+    Polynomial<FF> poly(N);
+    for (auto& coeff : poly) {
+        coeff = FF::random_element();
+    }
+
+    // Define a random multivariate evaluation point u = (u_0, u_1, u_2, u_3, u_4)
+    auto u_0 = FF::random_element();
+    auto u_1 = FF::random_element();
+    auto u_2 = FF::random_element();
+    auto u_3 = FF::random_element();
+    auto u_4 = FF::random_element();
+    std::vector<FF> u_challenge = { u_0, u_1, u_2, u_3, u_4 };
+
+    // Show that directly computing v = p(u_0,...,u_4) yields the same result as first computing the partial evaluation
+    // in the last 3 variables g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
+
+    // Compute v = p(u_0,...,u_4)
+    auto v_expected = poly.evaluate_mle(u_challenge);
+
+    // Compute g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
+    std::vector<FF> u_part_1 = { u_0, u_1 };
+    std::vector<FF> u_part_2 = { u_2, u_3, u_4 };
+    auto partial_evaluated_poly = poly.partial_evaluate_mle(u_part_2);
+    auto v_result = partial_evaluated_poly.evaluate_mle(u_part_1);
+
+    EXPECT_EQ(v_result, v_expected);
 }
 
 TYPED_TEST(PolynomialTests, factor_roots)
@@ -1163,7 +1219,7 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
         coeff = FF::random_element();
     }
 
-    // construct a new poly FFom the original via the move constructor
+    // construct a new poly from the original via the move constructor
     Polynomial<FF> polynomial_b(std::move(polynomial_a));
 
     // verifiy that source poly is appropriately destroyed
@@ -1215,4 +1271,37 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
         EXPECT_EQ(poly[i], interesting_poly[i]);
     }
     EXPECT_EQ(poly.size(), interesting_poly.size());
+}
+
+/**
+ * @brief Test the right shift functionality of the polynomial class
+ *
+ */
+TYPED_TEST(PolynomialTests, RightShift)
+{
+    using FF = TypeParam;
+
+    // Define valid parameters for computing a right shifted polynomial
+    size_t num_coeffs = 32;
+    size_t num_nonzero_coeffs = 7;
+    size_t shift_magnitude = 21;
+    Polynomial<FF> poly(num_coeffs);
+    Polynomial<FF> right_shifted_poly(num_coeffs);
+
+    for (size_t idx = 0; idx < num_nonzero_coeffs; ++idx) {
+        poly[idx] = FF::random_element();
+    }
+
+    // evaluate the unshifted polynomial
+    auto evaluation_point = FF::random_element();
+    auto unshifted_evaluation = poly.evaluate(evaluation_point);
+
+    // compute the right shift of the original polynomial and its evaluation
+    right_shifted_poly.set_to_right_shifted(poly, shift_magnitude);
+    auto shifted_evaluation = right_shifted_poly.evaluate(evaluation_point);
+
+    // reconstruct the unshifted evaluation using that p^{shift}(X) = p(X)*X^m, where m is the shift magnitude
+    auto shifted_eval_reconstructed = unshifted_evaluation * evaluation_point.pow(shift_magnitude);
+
+    EXPECT_EQ(shifted_evaluation, shifted_eval_reconstructed);
 }

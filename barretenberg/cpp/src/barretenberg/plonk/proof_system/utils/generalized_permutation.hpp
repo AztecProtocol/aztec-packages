@@ -3,11 +3,11 @@
 #include "barretenberg/polynomials/iterate_over_domain.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 template <typename program_settings>
-inline void compute_gen_permutation_lagrange_base_single(barretenberg::polynomial& output,
+inline void compute_gen_permutation_lagrange_base_single(bb::polynomial& output,
                                                          const std::vector<uint32_t>& permutation,
-                                                         const barretenberg::evaluation_domain& small_domain)
+                                                         const bb::evaluation_domain& small_domain)
 {
     if (output.size() < permutation.size()) {
         throw_or_abort("Permutation polynomial size is insufficient to store permutations.");
@@ -18,7 +18,7 @@ inline void compute_gen_permutation_lagrange_base_single(barretenberg::polynomia
     // 0 = left
     // 1 = right
     // 2 = output
-    const barretenberg::fr* roots = small_domain.get_round_roots()[small_domain.log2_size - 2];
+    const bb::fr* roots = small_domain.get_round_roots()[small_domain.log2_size - 2];
     const size_t root_size = small_domain.size >> 1UL;
     const size_t log2_root_size = static_cast<size_t>(numeric::get_msb(root_size));
 
@@ -27,7 +27,7 @@ inline void compute_gen_permutation_lagrange_base_single(barretenberg::polynomia
     // here, 'index' refers to an element of our subgroup H
     // we can almost use permutation[i] to directly index our `roots` array, which contains our subgroup elements
     // we first have to mask off the 2 high bits, which describe which wire polynomial our permutation maps to (we'll
-    // deal with that in a bit) we then have to accomodate for the fact that, `roots` only contains *half* of our
+    // deal with that in a bit) we then have to accommodate for the fact that, `roots` only contains *half* of our
     // subgroup elements. this is because w^{n/2} = -w and we don't want to perform redundant work computing roots of
     // unity
 
@@ -59,8 +59,8 @@ inline void compute_gen_permutation_lagrange_base_single(barretenberg::polynomia
     const uint32_t column_index =
         ((permutation[i] & program_settings::permutation_mask) >> program_settings::permutation_shift);
     if (column_index > 0) {
-        output[i] *= barretenberg::fr::coset_generator(column_index - 1);
+        output[i] *= bb::fr::coset_generator(column_index - 1);
     }
     ITERATE_OVER_DOMAIN_END;
 }
-} // namespace proof_system::plonk
+} // namespace bb::plonk

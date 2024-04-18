@@ -1,6 +1,6 @@
-import { Tx, TxHash } from '@aztec/types';
+import { type Tx, type TxHash } from '@aztec/circuit-types';
 
-import { P2PService } from './service.js';
+import { type P2PService } from './service.js';
 
 /**
  * A dummy implementation of the P2P Service.
@@ -15,7 +15,7 @@ export class DummyP2PService implements P2PService {
   }
 
   /**
-   * Stops the dummy imaplementation.
+   * Stops the dummy implementation.
    * @returns A resolved promise.
    */
   public stop() {

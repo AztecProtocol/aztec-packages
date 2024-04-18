@@ -1,0 +1,9 @@
+[package]
+name = "easy_private_state"
+authors = ["aztec-labs"]
+compiler_version = ">=0.18.0"
+type = "lib"
+
+[dependencies]
+aztec = { path = "../aztec" }
+value_note = { path = "../value-note" }

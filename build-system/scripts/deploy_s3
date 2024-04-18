@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
 REPOSITORY=$1
@@ -12,7 +13,8 @@ echo "deploy_s3: Project Dir: $PROJECT_DIR"
 echo "deploy_s3: Working directory: $PWD"
 echo "deploy_s3: Extract dir: $EXTRACT_DIR"
 
-extract_repo $REPOSITORY /usr/src/$(query_manifest projectDir $REPOSITORY)/dest $EXTRACT_DIR
+retry ecr_login
+extract_repo $REPOSITORY /usr/src/$(query_manifest relativeProjectDir $REPOSITORY)/dest $EXTRACT_DIR
 
 # So a front-end app can discover it's deploy tag at runtime, we include a file called DEPLOY_TAG in the root.
 echo $DEPLOY_TAG > $EXTRACT_DIR/dest/DEPLOY_TAG
@@ -21,7 +23,7 @@ if [ -n "$IS_GLOBAL" ]; then
   TF_DIR=$ROOT_PATH/$PROJECT_DIR/terraform
   deploy_terraform "" $TF_DIR
 else
-  TF_DIR=$ROOT_PATH/$PROJECT_DIR/terraform/$VERSION_TAG
+  TF_DIR=$ROOT_PATH/$PROJECT_DIR/terraform/$DEPLOY_ENV
   deploy_terraform $REPOSITORY $TF_DIR
 fi
 

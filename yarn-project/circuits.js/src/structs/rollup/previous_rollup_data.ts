@@ -1,8 +1,9 @@
-import { ROLLUP_VK_TREE_HEIGHT } from '../../cbind/constants.gen.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { ROLLUP_VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
-import { UInt32 } from '../shared.js';
+import { type UInt32 } from '../shared.js';
 import { VerificationKey } from '../verification_key.js';
 import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 
@@ -39,5 +40,21 @@ export class PreviousRollupData {
    */
   public toBuffer(): Buffer {
     return serializeToBuffer(this.baseOrMergeRollupPublicInputs, this.proof, this.vk, this.vkIndex, this.vkSiblingPath);
+  }
+
+  /**
+   * Deserializes previous rollup data from a buffer.
+   * @param buffer - A buffer to deserialize from.
+   * @returns A new PreviousRollupData instance.
+   */
+  public static fromBuffer(buffer: Buffer | BufferReader): PreviousRollupData {
+    const reader = BufferReader.asReader(buffer);
+    return new PreviousRollupData(
+      reader.readObject(BaseOrMergeRollupPublicInputs),
+      reader.readObject(Proof),
+      reader.readObject(VerificationKey),
+      reader.readNumber(),
+      MembershipWitness.fromBuffer(reader, ROLLUP_VK_TREE_HEIGHT),
+    );
   }
 }

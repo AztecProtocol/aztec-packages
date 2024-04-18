@@ -3,106 +3,103 @@
 pragma solidity >=0.8.18;
 
 // Interfaces
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
-import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IRollup} from "./interfaces/IRollup.sol";
+import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
+import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
+import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
-import {Decoder} from "@aztec/core/libraries/Decoder.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {HeaderLib} from "./libraries/HeaderLib.sol";
+import {Hash} from "./libraries/Hash.sol";
+import {Errors} from "./libraries/Errors.sol";
+import {Constants} from "./libraries/ConstantsGen.sol";
 
 // Contracts
-import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {MockVerifier} from "../mock/MockVerifier.sol";
+import {Inbox} from "./messagebridge/Inbox.sol";
+import {Outbox} from "./messagebridge/Outbox.sol";
 
 /**
  * @title Rollup
  * @author Aztec Labs
- * @notice Rollup contract that are concerned about readability and velocity of development
+ * @notice Rollup contract that is concerned about readability and velocity of development
  * not giving a damn about gas costs.
  */
 contract Rollup is IRollup {
   MockVerifier public immutable VERIFIER;
   IRegistry public immutable REGISTRY;
+  IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
+  IInbox public immutable INBOX;
+  IOutbox public immutable OUTBOX;
   uint256 public immutable VERSION;
 
-  bytes32 public rollupStateHash;
+  bytes32 public archive; // Root of the archive tree
   uint256 public lastBlockTs;
-  // Tracks the last time time was warped on L2 ("warp" is the testing cheatocde).
+  // Tracks the last time time was warped on L2 ("warp" is the testing cheatcode).
   // See https://github.com/AztecProtocol/aztec-packages/issues/1614
   uint256 public lastWarpedBlockTs;
 
-  constructor(IRegistry _registry) {
+  constructor(IRegistry _registry, IAvailabilityOracle _availabilityOracle) {
     VERIFIER = new MockVerifier();
     REGISTRY = _registry;
+    AVAILABILITY_ORACLE = _availabilityOracle;
+    INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
+    OUTBOX = new Outbox(address(this));
     VERSION = 1;
   }
 
   /**
-   * @notice Process an incoming L2Block and progress the state
+   * @notice Process an incoming L2 block and progress the state
+   * @param _header - The L2 block header
+   * @param _archive - A root of the archive tree after the L2 block is applied
    * @param _proof - The proof of correct execution
-   * @param _l2Block - The L2Block data, formatted as outlined in `Decoder.sol`
    */
-  function process(bytes memory _proof, bytes calldata _l2Block) external override(IRollup) {
-    _constrainGlobals(_l2Block);
-    (
-      uint256 l2BlockNumber,
-      bytes32 oldStateHash,
-      bytes32 newStateHash,
-      bytes32 publicInputHash,
-      bytes32[] memory l2ToL1Msgs,
-      bytes32[] memory l1ToL2Msgs
-    ) = Decoder.decode(_l2Block);
+  function process(bytes calldata _header, bytes32 _archive, bytes memory _proof)
+    external
+    override(IRollup)
+  {
+    // Decode and validate header
+    HeaderLib.Header memory header = HeaderLib.decode(_header);
+    HeaderLib.validate(header, VERSION, lastBlockTs, archive);
 
-    // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
-    if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
-      revert Errors.Rollup__InvalidStateHash(rollupStateHash, oldStateHash);
+    // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
+    if (!AVAILABILITY_ORACLE.isAvailable(header.contentCommitment.txsEffectsHash)) {
+      revert Errors.Rollup__UnavailableTxs(header.contentCommitment.txsEffectsHash);
     }
 
     bytes32[] memory publicInputs = new bytes32[](1);
-    publicInputs[0] = publicInputHash;
+    publicInputs[0] = _computePublicInputHash(_header, _archive);
 
+    // @todo @benesjan We will need `nextAvailableLeafIndex` of archive to verify the proof. This value is equal to
+    // current block number which is stored in the header (header.globalVariables.blockNumber).
     if (!VERIFIER.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 
-    rollupStateHash = newStateHash;
+    archive = _archive;
     lastBlockTs = block.timestamp;
 
-    // @todo (issue #605) handle fee collector
-    IInbox inbox = REGISTRY.getInbox();
-    inbox.batchConsume(l1ToL2Msgs, msg.sender);
+    bytes32 inHash = INBOX.consume();
+    if (header.contentCommitment.inHash != inHash) {
+      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
+    }
 
-    IOutbox outbox = REGISTRY.getOutbox();
-    outbox.sendL1Messages(l2ToL1Msgs);
+    // We assume here that the number of L2 to L1 messages per tx is 2. Therefore we just need a tree that is one height
+    // larger (as we can just extend the tree one layer down to hold all the L2 to L1 messages)
+    uint256 l2ToL1TreeHeight = header.contentCommitment.txTreeHeight + 1;
+    OUTBOX.insert(
+      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeHeight
+    );
 
-    emit L2BlockProcessed(l2BlockNumber);
+    emit L2BlockProcessed(header.globalVariables.blockNumber);
   }
 
-  function _constrainGlobals(bytes calldata _l2Block) internal view {
-    uint256 chainId = uint256(bytes32(_l2Block[:0x20]));
-    uint256 version = uint256(bytes32(_l2Block[0x20:0x40]));
-    uint256 ts = uint256(bytes32(_l2Block[0x60:0x80]));
-    // block number already constrained by start state hash
-
-    if (block.chainid != chainId) {
-      revert Errors.Rollup__InvalidChainId(chainId, block.chainid);
-    }
-
-    if (version != VERSION) {
-      revert Errors.Rollup__InvalidVersion(version, VERSION);
-    }
-
-    if (ts > block.timestamp) {
-      revert Errors.Rollup__TimestampInFuture();
-    }
-
-    // @todo @LHerskind consider if this is too strict
-    // This will make multiple l2 blocks in the same l1 block impractical.
-    // e.g., the first block will update timestamp which will make the second fail.
-    // Could possibly allow multiple blocks if in same l1 block
-    if (ts < lastBlockTs) {
-      revert Errors.Rollup__TimestampTooOld();
-    }
+  function _computePublicInputHash(bytes calldata _header, bytes32 _archive)
+    internal
+    pure
+    returns (bytes32)
+  {
+    return Hash.sha256ToField(bytes.concat(_header, _archive));
   }
 }

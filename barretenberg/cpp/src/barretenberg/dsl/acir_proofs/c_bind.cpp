@@ -6,6 +6,8 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_proofs/goblin_acir_composer.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <cstdint>
@@ -14,15 +16,20 @@
 WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
 {
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
-    auto composer = acir_format::create_circuit(constraint_system, 1 << 19);
-    *exact = htonl((uint32_t)composer.get_num_gates());
-    *total = htonl((uint32_t)composer.get_total_circuit_size());
-    *subgroup = htonl((uint32_t)composer.get_circuit_subgroup_size(composer.get_total_circuit_size()));
+    auto builder = acir_format::create_circuit(constraint_system, 1 << 19);
+    *exact = htonl((uint32_t)builder.get_num_gates());
+    *total = htonl((uint32_t)builder.get_total_circuit_size());
+    *subgroup = htonl((uint32_t)builder.get_circuit_subgroup_size(builder.get_total_circuit_size()));
 }
 
 WASM_EXPORT void acir_new_acir_composer(uint32_t const* size_hint, out_ptr out)
 {
     *out = new acir_proofs::AcirComposer(ntohl(*size_hint));
+}
+
+WASM_EXPORT void acir_new_goblin_acir_composer(out_ptr out)
+{
+    *out = new acir_proofs::GoblinAcirComposer();
 }
 
 WASM_EXPORT void acir_delete_acir_composer(in_ptr acir_composer_ptr)
@@ -34,30 +41,83 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    acir_composer->create_circuit(constraint_system);
 
-    acir_composer->init_proving_key(barretenberg::srs::get_crs_factory(), constraint_system);
+    acir_composer->init_proving_key();
 }
 
 WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
                                    uint8_t const* acir_vec,
                                    uint8_t const* witness_vec,
-                                   bool const* is_recursive,
                                    uint8_t** out)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
-    auto proof_data =
-        acir_composer->create_proof(barretenberg::srs::get_crs_factory(), constraint_system, witness, *is_recursive);
+    acir_composer->create_circuit(constraint_system, witness);
+
+    acir_composer->init_proving_key();
+    auto proof_data = acir_composer->create_proof();
     *out = to_heap_buffer(proof_data);
+}
+
+WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
+{
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness);
+
+    UltraProver prover{ builder };
+    auto proof = prover.construct_proof();
+
+    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.instance->proving_key);
+    UltraVerifier verifier{ verification_key };
+
+    *result = verifier.verify_proof(proof);
+}
+
+WASM_EXPORT void acir_prove_and_verify_goblin_ultra_honk(uint8_t const* acir_vec,
+                                                         uint8_t const* witness_vec,
+                                                         bool* result)
+{
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+
+    auto builder = acir_format::create_circuit<GoblinUltraCircuitBuilder>(constraint_system, 0, witness);
+
+    GoblinUltraProver prover{ builder };
+    auto proof = prover.construct_proof();
+
+    auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(prover.instance->proving_key);
+    GoblinUltraVerifier verifier{ verification_key };
+
+    *result = verifier.verify_proof(proof);
+}
+
+WASM_EXPORT void acir_goblin_prove(in_ptr acir_composer_ptr,
+                                   uint8_t const* acir_vec,
+                                   uint8_t const* witness_vec,
+                                   uint8_t** out)
+{
+    auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+
+    acir_composer->create_circuit(constraint_system, witness);
+    auto proof = acir_composer->accumulate_and_prove();
+    auto proof_data_buf = to_buffer</*include_size=*/true>(
+        proof); // template parameter needs to be set so that vector deserialization from
+                // buffer, which reads the size at the beginning can be done properly
+    *out = to_heap_buffer(proof_data_buf);
 }
 
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto vk_data = from_buffer<plonk::verification_key_data>(vk_buf);
-    acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
+    acir_composer->load_verification_key(std::move(vk_data));
 }
 
 WASM_EXPORT void acir_init_verification_key(in_ptr acir_composer_ptr)
@@ -74,14 +134,29 @@ WASM_EXPORT void acir_get_verification_key(in_ptr acir_composer_ptr, uint8_t** o
     *out = to_heap_buffer(to_buffer(*vk));
 }
 
-WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr,
-                                   uint8_t const* proof_buf,
-                                   bool const* is_recursive,
-                                   bool* result)
+WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* acir_vec, uint8_t** out)
+{
+    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    acir_composer->create_circuit(constraint_system);
+    auto pk = acir_composer->init_proving_key();
+    // We flatten to a vector<uint8_t> first, as that's how we treat it on the calling side.
+    *out = to_heap_buffer(to_buffer(*pk));
+}
+
+WASM_EXPORT void acir_goblin_verify(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
+{
+    auto acir_composer = reinterpret_cast<acir_proofs::GoblinAcirComposer*>(*acir_composer_ptr);
+    auto proof_data_buf = from_buffer<std::vector<uint8_t>>(proof_buf);
+    auto proof = from_buffer<std::vector<bb::fr>>(proof_data_buf);
+    *result = acir_composer->verify(proof);
+}
+
+WASM_EXPORT void acir_verify_proof(in_ptr acir_composer_ptr, uint8_t const* proof_buf, bool* result)
 {
     auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
     auto proof = from_buffer<std::vector<uint8_t>>(proof_buf);
-    *result = acir_composer->verify_proof(proof, *is_recursive);
+    *result = acir_composer->verify_proof(proof);
 }
 
 WASM_EXPORT void acir_get_solidity_verifier(in_ptr acir_composer_ptr, out_str_buf out)

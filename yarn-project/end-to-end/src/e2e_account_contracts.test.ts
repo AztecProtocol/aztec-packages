@@ -1,136 +1,101 @@
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { EcdsaAccountContract } from '@aztec/accounts/ecdsa';
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import {
-  Account,
-  AccountContract,
-  AuthWitnessAccountContract,
-  AuthWitnessAccountEntrypoint,
-  AuthWitnessEntrypointWallet,
-  AztecRPC,
-  EcdsaAccountContract,
+  type AccountContract,
+  AccountManager,
+  AccountWallet,
+  type CompleteAddress,
+  type DebugLogger,
   Fr,
-  SchnorrAccountContract,
-  SingleKeyAccountContract,
-  Wallet,
+  type GrumpkinPrivateKey,
+  GrumpkinScalar,
+  type PXE,
+  type Wallet,
 } from '@aztec/aztec.js';
-import { CompleteAddress, GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
-import { toBigInt } from '@aztec/foundation/serialize';
-import { ChildContract } from '@aztec/noir-contracts/types';
-
-import { randomBytes } from 'crypto';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { ChildContract } from '@aztec/noir-contracts.js/Child';
 
 import { setup } from './fixtures/utils.js';
 
 function itShouldBehaveLikeAnAccountContract(
   getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
   walletSetup: (
-    rpc: AztecRPC,
+    pxe: PXE,
     encryptionPrivateKey: GrumpkinPrivateKey,
     accountContract: AccountContract,
-    address?: CompleteAddress,
-  ) => Promise<{ account: Account; wallet: Wallet }>,
+  ) => Promise<Wallet>,
+  walletAt: (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => Promise<Wallet>,
 ) {
   describe(`behaves like an account contract`, () => {
-    let context: Awaited<ReturnType<typeof setup>>;
     let child: ChildContract;
-    let account: Account;
     let wallet: Wallet;
     let encryptionPrivateKey: GrumpkinPrivateKey;
 
+    let pxe: PXE;
+    let logger: DebugLogger;
+    let teardown: () => Promise<void>;
+
     beforeEach(async () => {
-      context = await setup(0);
+      ({ logger, pxe, teardown } = await setup(0));
       encryptionPrivateKey = GrumpkinScalar.random();
 
-      ({ account, wallet } = await walletSetup(
-        context.aztecRpcServer,
-        encryptionPrivateKey,
-        getAccountContract(encryptionPrivateKey),
-      ));
+      wallet = await walletSetup(pxe, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
       child = await ChildContract.deploy(wallet).send().deployed();
     }, 60_000);
 
-    afterEach(async () => {
-      await context.aztecNode?.stop();
-      if (context.aztecRpcServer instanceof AztecRPCServer) {
-        await context.aztecRpcServer.stop();
-      }
-    });
+    afterEach(() => teardown());
 
     it('calls a private function', async () => {
-      const { logger } = context;
-      logger('Calling private function...');
-      const tx = child.methods.value(42).send();
-      expect(await tx.isMined({ interval: 0.1 })).toBeTruthy();
+      logger.info('Calling private function...');
+      await child.methods.value(42).send().wait({ interval: 0.1 });
     }, 60_000);
 
     it('calls a public function', async () => {
-      const { logger, aztecRpcServer } = context;
-      logger('Calling public function...');
-      const tx = child.methods.pubIncValue(42).send();
-      expect(await tx.isMined({ interval: 0.1 })).toBeTruthy();
-      expect(toBigInt((await aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
+      logger.info('Calling public function...');
+      await child.methods.pub_inc_value(42).send().wait({ interval: 0.1 });
+      const storedValue = await pxe.getPublicStorageAt(child.address, new Fr(1));
+      expect(storedValue).toEqual(new Fr(42n));
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {
-      const accountAddress = await account.getCompleteAddress();
-      const { wallet: invalidWallet } = await walletSetup(
-        context.aztecRpcServer,
-        encryptionPrivateKey,
-        getAccountContract(GrumpkinScalar.random()),
-        accountAddress,
-      );
+      const accountAddress = wallet.getCompleteAddress();
+      const invalidWallet = await walletAt(pxe, getAccountContract(GrumpkinScalar.random()), accountAddress);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
-      await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
-        /Cannot satisfy constraint.*/,
-      );
+      await expect(childWithInvalidWallet.methods.value(42).prove()).rejects.toThrow(/Cannot satisfy constraint.*/);
     });
   });
 }
 
 describe('e2e_account_contracts', () => {
-  const base = async (
-    rpc: AztecRPC,
-    encryptionPrivateKey: GrumpkinPrivateKey,
-    accountContract: AccountContract,
-    address?: CompleteAddress,
-  ) => {
-    const account = new Account(rpc, encryptionPrivateKey, accountContract, address);
-    const wallet = !address ? await account.deploy().then(tx => tx.getWallet()) : await account.getWallet();
-    return { account, wallet };
+  const walletSetup = async (pxe: PXE, encryptionPrivateKey: GrumpkinPrivateKey, accountContract: AccountContract) => {
+    const account = new AccountManager(pxe, encryptionPrivateKey, accountContract);
+    return await account.waitSetup();
+  };
+
+  const walletAt = async (pxe: PXE, accountContract: AccountContract, address: CompleteAddress) => {
+    const nodeInfo = await pxe.getNodeInfo();
+    const entrypoint = accountContract.getInterface(address, nodeInfo);
+    return new AccountWallet(pxe, entrypoint);
   };
 
   describe('schnorr single-key account', () => {
     itShouldBehaveLikeAnAccountContract(
       (encryptionKey: GrumpkinPrivateKey) => new SingleKeyAccountContract(encryptionKey),
-      base,
+      walletSetup,
+      walletAt,
     );
   });
 
   describe('schnorr multi-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()), base);
+    itShouldBehaveLikeAnAccountContract(
+      () => new SchnorrAccountContract(GrumpkinScalar.random()),
+      walletSetup,
+      walletAt,
+    );
   });
 
   describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)), base);
-  });
-
-  describe('eip single-key account', () => {
-    itShouldBehaveLikeAnAccountContract(
-      (encryptionKey: GrumpkinPrivateKey) => new AuthWitnessAccountContract(encryptionKey),
-      async (
-        rpc: AztecRPC,
-        encryptionPrivateKey: GrumpkinPrivateKey,
-        accountContract: AccountContract,
-        address?: CompleteAddress,
-      ) => {
-        const account = new Account(rpc, encryptionPrivateKey, accountContract, address);
-        if (!address) {
-          const tx = await account.deploy();
-          await tx.wait();
-        }
-        const entryPoint = (await account.getEntrypoint()) as unknown as AuthWitnessAccountEntrypoint;
-        const wallet = new AuthWitnessEntrypointWallet(rpc, entryPoint, await account.getCompleteAddress());
-        return { account, wallet };
-      },
-    );
+    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)), walletSetup, walletAt);
   });
 });

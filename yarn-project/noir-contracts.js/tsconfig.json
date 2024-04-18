@@ -1,0 +1,24 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": ".",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../noir-compiler"
+    }
+  ],
+  "include": [
+    "src",
+    "artifacts",
+    "artifacts/*.json"
+  ],
+  "exclude": [
+    "dest"
+  ]
+}

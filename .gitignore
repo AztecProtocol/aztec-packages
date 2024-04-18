@@ -1,9 +1,20 @@
 dest
 node_modules
 .cache
+scripts/.earthly
 .pnp.cjs
 .pnp.loader.mjs
 build/
 .idea
 cmake-build-debug
+.terraform*
 .bootstrapped
+.tsbuildinfo
+
+# Local Netlify folder
+.netlify
+
+.graphite*
+.DS_Store
+
+**/*.dockerignore

@@ -1,0 +1,47 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../circuit-types"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../key-store"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../noir-compiler"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../types"
+    },
+    {
+      "path": "../noir-contracts.js"
+    }
+  ],
+  "include": ["src"]
+}

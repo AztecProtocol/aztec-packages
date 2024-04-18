@@ -5,12 +5,16 @@ const lightCodeTheme = require("prism-react-renderer/themes/github");
 const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const math = require("remark-math");
 const katex = require("rehype-katex");
+const path = require("path");
+const fs = require("fs");
+const macros = require("./src/katex-macros.js");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: "Aztec Docs",
-  tagline: "Ethereum, encrypted",
-  url: "https://aztec-docs-dev.netlify.app/",
+  title: "Privacy-first zkRollup | Aztec Documentation",
+  tagline:
+    "Aztec introduces a privacy-centric zkRollup solution for Ethereum, enhancing confidentiality and scalability within the Ethereum ecosystem.",
+  url: "https://docs.aztec.network/",
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
@@ -49,7 +53,16 @@ const config = {
           },
           routeBasePath: "/",
           remarkPlugins: [math],
-          rehypePlugins: [katex],
+          rehypePlugins: [
+            [
+              katex,
+              {
+                throwOnError: true,
+                globalGroup: true,
+                macros,
+              },
+            ],
+          ],
         },
         blog: false,
         theme: {
@@ -73,6 +86,35 @@ const config = {
     },
   ],
   plugins: [
+    async function loadVersions(context, options) {
+      // ...
+      return {
+        name: "load-versions",
+        async loadContent() {
+          try {
+            const aztecVersionPath = path.resolve(
+              __dirname,
+              "../.release-please-manifest.json"
+            );
+            const aztecVersion = JSON.parse(
+              fs.readFileSync(aztecVersionPath).toString()
+            )["."];
+            return {
+              "aztec-packages": `aztec-packages-v${aztecVersion}`,
+            };
+          } catch (err) {
+            throw new Error(
+              `Error loading versions in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
+            );
+          }
+        },
+        async contentLoaded({ content, actions }) {
+          // await actions.createData("versions.json", JSON.stringify(content));
+          actions.setGlobalData({ versions: content });
+        },
+        /* other lifecycle API */
+      };
+    },
     [
       "@docusaurus/plugin-ideal-image",
       {
@@ -81,6 +123,49 @@ const config = {
         min: 640, // min resized image's size. if original is lower, use that size.
         steps: 2, // the max number of images generated between min and max (inclusive)
         disableInDev: false,
+      },
+    ],
+    [
+      "docusaurus-plugin-typedoc",
+      {
+        id: "apis/pxe",
+        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
+        entryPointStrategy: "expand",
+        out: "apis/pxe",
+        disableSources: true,
+        frontmatter: { sidebar_label: "Private Execution Environment (PXE)" },
+      },
+    ],
+    [
+      "docusaurus-plugin-typedoc",
+      {
+        id: "apis/aztec-js",
+        entryPoints: [
+          "../yarn-project/aztec.js/src/contract/index.ts",
+          "../yarn-project/aztec.js/src/account/index.ts",
+        ],
+        tsconfig: "../yarn-project/aztec.js/tsconfig.json",
+        entryPointStrategy: "resolve",
+        out: "apis/aztec-js",
+        disableSources: true,
+      },
+    ],
+    [
+      "docusaurus-plugin-typedoc",
+      {
+        id: "apis/accounts",
+        entryPoints: [
+          "../yarn-project/accounts/src/defaults/index.ts",
+          "../yarn-project/accounts/src/ecdsa/index.ts",
+          "../yarn-project/accounts/src/schnorr/index.ts",
+          "../yarn-project/accounts/src/single_key/index.ts",
+          "../yarn-project/accounts/src/testing/index.ts",
+        ],
+        tsconfig: "../yarn-project/accounts/tsconfig.json",
+        entryPointStrategy: "resolve",
+        out: "apis/accounts",
+        disableSources: true,
       },
     ],
     // ["./src/plugins/plugin-embed-code", {}],
@@ -94,10 +179,11 @@ const config = {
           content: "aztec, noir, privacy, encrypted, ethereum, blockchain",
         },
       ],
+      image: "img/docs-preview-image.png",
       algolia: {
-        appId: "YOMNCJ88NY",
-        apiKey: "ef5490899a6f9618f55c7997ba5b35b4",
-        indexName: "aztec--dev",
+        appId: "CL4NK79B0W",
+        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
+        indexName: "aztec",
       },
       colorMode: {
         defaultMode: "light",
@@ -119,9 +205,15 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "intro",
+            docId: "welcome",
             position: "left",
             label: "Aztec Protocol",
+          },
+          {
+            type: "docSidebar",
+            sidebarId: "protocolSpecSidebar",
+            position: "left",
+            label: "Protocol Specification",
           },
         ],
       },
@@ -135,6 +227,14 @@ const config = {
                 label: "Introduction",
                 to: "/",
               },
+              {
+                label: "Developer Quickstart",
+                to: "/developers/getting_started/quickstart",
+              },
+              {
+                label: "Aztec.nr",
+                to: "https://github.com/AztecProtocol/aztec-nr",
+              },
             ],
           },
           {
@@ -143,6 +243,10 @@ const config = {
               {
                 label: "Discourse",
                 href: "https://discourse.aztec.network",
+              },
+              {
+                label: "Discord",
+                href: "https://discord.gg/DgWG2DBMyB",
               },
               {
                 label: "Twitter",
@@ -160,6 +264,10 @@ const config = {
               {
                 label: "GitHub",
                 href: "https://github.com/AztecProtocol",
+              },
+              {
+                label: "Awesome Aztec",
+                to: "https://github.com/AztecProtocol/awesome-aztec",
               },
               {
                 label: "Grants",
@@ -198,6 +306,17 @@ const config = {
           {
             className: "code-block-error-line",
             line: "this-will-error",
+          },
+          // This could be used to have release-please modify the current version in code blocks.
+          // However doing so requires to manually add each md file to release-please-config.json/extra-files
+          // which is easy to forget an error prone, so instead we rely on the AztecPackagesVersion() function.
+          {
+            line: "x-release-please-version",
+            block: {
+              start: "x-release-please-start-version",
+              end: "x-release-please-end",
+            },
+            className: "not-allowed-to-be-empty",
           },
         ],
       },

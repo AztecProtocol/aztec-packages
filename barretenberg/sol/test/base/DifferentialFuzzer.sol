@@ -11,13 +11,13 @@ contract DifferentialFuzzer is TestBase {
     enum PlonkFlavour {
         Invalid,
         Standard,
-        Turbo,
         Ultra
     }
     enum CircuitFlavour {
         Invalid,
         Blake,
         Add2,
+        Ecdsa,
         Recursive
     }
 
@@ -50,8 +50,6 @@ contract DifferentialFuzzer is TestBase {
     function get_plonk_flavour() internal view returns (string memory) {
         if (plonkFlavour == PlonkFlavour.Standard) {
             return "standard";
-        } else if (plonkFlavour == PlonkFlavour.Turbo) {
-            return "turbo";
         } else if (plonkFlavour == PlonkFlavour.Ultra) {
             return "ultra";
         } else {
@@ -66,12 +64,14 @@ contract DifferentialFuzzer is TestBase {
             return "add2";
         } else if (circuitFlavour == CircuitFlavour.Recursive) {
             return "recursive";
+        } else if (circuitFlavour == CircuitFlavour.Ecdsa) {
+            return "ecdsa";
         } else {
             revert("Invalid circuit flavour");
         }
     }
 
-    // Encode inputs as a comma seperated string for the ffi call
+    // Encode inputs as a comma separated string for the ffi call
     function get_inputs() internal view returns (string memory input_params) {
         input_params = "";
         if (inputs.length > 0) {

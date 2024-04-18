@@ -2,10 +2,10 @@
 #include "barretenberg/serialize/test_helper.hpp"
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
+using namespace bb;
 
 // Used to ensure variables are evaluated at runtime and not compile time.
-// If EXPECT_EQ macro params are evaluated at compile-time, compiler can optimise them away.
+// If EXPECT_EQ macro params are evaluated at compile-time, compiler can optimize them away.
 // This triggers compiler errors due to the gtest suite expecting at least one test statement in a TEST macro
 void shallow_copy(const fq& in, fq& out)
 {
@@ -16,7 +16,7 @@ void shallow_copy(const fq& in, fq& out)
 };
 TEST(fq, Msgpack)
 {
-    auto [actual, expected] = msgpack_roundtrip(barretenberg::fq{ 1ULL, 2ULL, 3ULL, 4ULL });
+    auto [actual, expected] = msgpack_roundtrip(bb::fq{ 1ULL, 2ULL, 3ULL, 4ULL });
     EXPECT_EQ(actual, expected);
 }
 

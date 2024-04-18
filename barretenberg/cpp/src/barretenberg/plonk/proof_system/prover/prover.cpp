@@ -7,9 +7,9 @@
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include <chrono>
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 
 /**
  * Create ProverBase from proving key, witness and manifest.
@@ -127,7 +127,7 @@ template <typename settings> void ProverBase<settings>::compute_quotient_commitm
     //
     // NOTE: If in future there is a need to cut off more zeros off the vanishing polynomial, the degree of
     // the quotient polynomial t(X) will increase, so the degrees of t_{high}, t_{mid}, t_{low} could also
-    // increase according to the type of the composer type we are using. Currently, for TurboPLONK and Ultra-
+    // increase according to the type of the composer type we are using. Currently, for Ultra-
     // PLONK, the degree of t(X) is (4n - 1) and hence each t_{low}, t_{mid}, t_{high}, t_{higher} each is of
     // degree (n - 1) (and thus contains n coefficients). Therefore, we are on the brink!
     // If we need to cut out more zeros off the vanishing polynomial, sizes of coefficients of individual
@@ -138,7 +138,7 @@ template <typename settings> void ProverBase<settings>::compute_quotient_commitm
         auto coefficients = key->quotient_polynomial_parts[i].data();
         std::string quotient_tag = "T_" + std::to_string(i + 1);
         // Set flag that determines domain size (currently n or n+1) in pippenger (see process_queue()).
-        // Note: After blinding, all t_i have size n+1 representation (degree n) except t_4 in Turbo/Ultra.
+        // Note: After blinding, all t_i have size n+1 representation (degree n) except t_4 in Ultra.
         fr domain_size_flag = i > 2 ? key->circuit_size : (key->circuit_size + 1);
         commitment_scheme->commit(coefficients, quotient_tag, domain_size_flag, queue);
     }
@@ -191,7 +191,7 @@ template <typename settings> void ProverBase<settings>::execute_preamble_round()
         // Why do we need 2 random scalars in witness polynomials? The reason is: our witness polynomials are
         // evaluated at only 1 point (\scripted{z}), so adding a random degree-1 polynomial suffices.
         //
-        // NOTE: In TurboPlonk and UltraPlonk, the witness polynomials are evaluated at 2 points and thus
+        // NOTE: In UltraPlonk, the witness polynomials are evaluated at 2 points and thus
         // we need to add 3 random scalars in them.
         //
         // We start adding random scalars in `wire` polynomials from index (n - k) upto (n - k + 2).
@@ -303,8 +303,8 @@ template <typename settings> void ProverBase<settings>::execute_second_round()
         }
 
         // compute poly w_4 from w_4_lagrange and add it to the cache
-        barretenberg::polynomial w_4(key->circuit_size);
-        barretenberg::polynomial_arithmetic::copy_polynomial(&w_4_lagrange[0], &w_4[0], circuit_size, circuit_size);
+        bb::polynomial w_4(key->circuit_size);
+        bb::polynomial_arithmetic::copy_polynomial(&w_4_lagrange[0], &w_4[0], circuit_size, circuit_size);
         w_4.ifft(key->small_domain);
         key->polynomial_store.put(wire_tag, std::move(w_4));
         key->polynomial_store.put(wire_tag + "_lagrange", std::move(w_4_lagrange));
@@ -346,7 +346,7 @@ template <typename settings> void ProverBase<settings>::execute_third_round()
             .work_type = work_queue::WorkType::FFT,
             .mul_scalars = nullptr,
             .tag = wire_tag,
-            .constant = barretenberg::fr(0),
+            .constant = bb::fr(0),
             .index = 0,
         });
     }
@@ -382,7 +382,7 @@ template <typename settings> void ProverBase<settings>::execute_fourth_round()
     quotient_poly_parts.push_back(&key->quotient_polynomial_parts[1][0]);
     quotient_poly_parts.push_back(&key->quotient_polynomial_parts[2][0]);
     quotient_poly_parts.push_back(&key->quotient_polynomial_parts[3][0]);
-    barretenberg::polynomial_arithmetic::divide_by_pseudo_vanishing_polynomial(
+    bb::polynomial_arithmetic::divide_by_pseudo_vanishing_polynomial(
         quotient_poly_parts, key->small_domain, key->large_domain);
 
     polynomial_arithmetic::coset_ifft(quotient_poly_parts, key->large_domain);
@@ -397,7 +397,7 @@ template <typename settings> void ProverBase<settings>::execute_fourth_round()
     add_blinding_to_quotient_polynomial_parts();
 
     compute_quotient_commitments();
-} // namespace proof_system::plonk
+} // namespace bb::plonk
 
 template <typename settings> void ProverBase<settings>::execute_fifth_round()
 {
@@ -573,9 +573,8 @@ template <typename settings> void ProverBase<settings>::add_plookup_memory_recor
 }
 
 template class ProverBase<standard_settings>;
-template class ProverBase<turbo_settings>;
 template class ProverBase<ultra_settings>;
 template class ProverBase<ultra_to_standard_settings>;
 template class ProverBase<ultra_with_keccak_settings>;
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

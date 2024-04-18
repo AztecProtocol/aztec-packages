@@ -1,6 +1,6 @@
 #pragma once
-#include "barretenberg/proof_system/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
+#include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include <array>
 
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
@@ -9,17 +9,8 @@
 #include "../../primitives/field/field.hpp"
 #include "../../primitives/packed_byte_array/packed_byte_array.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib::blake2s_plookup {
 
-namespace blake2s_plookup {
+template <typename Builder> byte_array<Builder> blake2s(const byte_array<Builder>& input);
 
-template <typename Composer> byte_array<Composer> blake2s(const byte_array<Composer>& input);
-
-#define BLAKE2S_ULTRA(ULTRA_TYPE) byte_array<ULTRA_TYPE> blake2s(const byte_array<ULTRA_TYPE>& input)
-
-EXTERN_STDLIB_ULTRA_METHOD(BLAKE2S_ULTRA)
-} // namespace blake2s_plookup
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib::blake2s_plookup

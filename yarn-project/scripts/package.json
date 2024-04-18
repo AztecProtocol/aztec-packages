@@ -1,0 +1,72 @@
+{
+  "name": "@aztec/scripts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": "./dest/index.js",
+  "bin": {
+    "bench-aggregate": "./dest/bin/bench-aggregate.js",
+    "bench-comment": "./dest/bin/bench-comment.js",
+    "bench-markdown": "./dest/bin/bench-markdown.js",
+    "docs-preview-comment": "./dest/bin/docs-preview.js"
+  },
+  "scripts": {
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
+    "start:dev": "tsc-watch -p tsconfig.json --onSuccess 'yarn start'",
+    "start": "node ./dest/index.js",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
+    "generate:noir-circuits": "echo Noop",
+    "generate:noir-contracts": "echo Noop",
+    "generate:l1-contracts": "echo Noop",
+    "generate:why-these-noops": "echo These noops are here because `yarn workspaces foreach` runs the specified command in the packages that contain it only if two or more packages define it, otherwise it's run everywhere. So we just define these noops as commands to ensure they behave as they should when running watch.sh.",
+    "generate:why-these-comments": "echo JSON does not support comments, so we just define these commands for documentation sake."
+  },
+  "inherits": [
+    "../package.common.json",
+    "./package.local.json"
+  ],
+  "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "fs-extra": "^11.1.1",
+    "lodash.pick": "^4.4.0",
+    "tslib": "^2.4.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.5.0",
+    "@types/jest": "^29.5.0",
+    "@types/lodash.pick": "^4.4.7",
+    "@types/node": "^18.14.6",
+    "jest": "^29.5.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts",
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest"
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ]
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

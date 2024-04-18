@@ -1,6 +1,4 @@
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
-
-import { LeafData, StandardIndexedTree } from '../../index.js';
+import { StandardIndexedTree } from '../standard_indexed_tree.js';
 
 /**
  * A testing utility which is here to store the original implementation of StandardIndexedTree.appendLeaves method
@@ -14,10 +12,20 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
    * @returns Empty promise.
    * @remarks This method is inefficient and is here mostly for testing. Use batchInsert instead.
    */
-  public async appendLeaves(leaves: Buffer[]): Promise<void> {
+  public appendLeaves(leaves: Buffer[]): Promise<void> {
     for (const leaf of leaves) {
-      await this.appendLeaf(leaf);
+      this.appendLeaf(leaf);
     }
+
+    return Promise.resolve();
+  }
+
+  private appendEmptyLeaf() {
+    const newSize = (this.cachedSize ?? this.size) + 1n;
+    if (newSize - 1n > this.maxIndex) {
+      throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
+    }
+    this.cachedSize = newSize;
   }
 
   /**
@@ -25,40 +33,49 @@ export class StandardIndexedTreeWithAppend extends StandardIndexedTree {
    * @param leaf - The leaf to append.
    * @returns Empty promise.
    */
-  private async appendLeaf(leaf: Buffer): Promise<void> {
-    const newValue = toBigIntBE(leaf);
+  private appendLeaf(leaf: Buffer): void {
+    const newLeaf = this.leafFactory.fromBuffer(leaf);
 
     // Special case when appending zero
-    if (newValue === 0n) {
-      const newSize = (this.cachedSize ?? this.size) + 1n;
-      if (newSize - 1n > this.maxIndex) {
-        throw Error(`Can't append beyond max index. Max index: ${this.maxIndex}`);
-      }
-      this.cachedSize = newSize;
+    if (newLeaf.getKey() === 0n) {
+      this.appendEmptyLeaf();
       return;
     }
 
-    const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
-    const previousLeafCopy = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
-
-    if (previousLeafCopy === undefined) {
+    const lowLeafIndex = this.findIndexOfPreviousKey(newLeaf.getKey(), true);
+    if (lowLeafIndex === undefined) {
       throw new Error(`Previous leaf not found!`);
     }
-    const newLeaf = {
-      value: newValue,
-      nextIndex: previousLeafCopy.nextIndex,
-      nextValue: previousLeafCopy.nextValue,
-    } as LeafData;
-    if (indexOfPrevious.alreadyPresent) {
-      return;
-    }
-    // insert a new leaf at the highest index and update the values of our previous leaf copy
+
+    const isUpdate = lowLeafIndex.alreadyPresent;
+    const lowLeafPreimage = this.getLatestLeafPreimageCopy(lowLeafIndex.index, true)!;
     const currentSize = this.getNumLeaves(true);
-    previousLeafCopy.nextIndex = BigInt(currentSize);
-    previousLeafCopy.nextValue = newLeaf.value;
-    this.cachedLeaves[Number(currentSize)] = newLeaf;
-    this.cachedLeaves[Number(indexOfPrevious.index)] = previousLeafCopy;
-    await this.updateLeaf(previousLeafCopy, BigInt(indexOfPrevious.index));
-    await this.updateLeaf(newLeaf, this.getNumLeaves(true));
+
+    if (isUpdate) {
+      const newLowLeaf = lowLeafPreimage.asLeaf().updateTo(newLeaf);
+      const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+        newLowLeaf,
+        lowLeafPreimage.getNextKey(),
+        lowLeafPreimage.getNextIndex(),
+      );
+
+      this.updateLeaf(newLowLeafPreimage, BigInt(lowLeafIndex.index));
+      this.appendEmptyLeaf();
+    } else {
+      const newLeafPreimage = this.leafPreimageFactory.fromLeaf(
+        newLeaf,
+        lowLeafPreimage.getNextKey(),
+        lowLeafPreimage.getNextIndex(),
+      );
+
+      // insert a new leaf at the highest index and update the values of our previous leaf copy
+      const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+        lowLeafPreimage.asLeaf(),
+        newLeaf.getKey(),
+        BigInt(currentSize),
+      );
+      this.updateLeaf(newLowLeafPreimage, BigInt(lowLeafIndex.index));
+      this.updateLeaf(newLeafPreimage, currentSize);
+    }
   }
 }

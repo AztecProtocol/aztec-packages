@@ -16,6 +16,9 @@
         "CC": "clang",
         "CXX": "clang++",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      },
+      "cacheVariables": {
+        "TARGET_ARCH": "skylake"
       }
     },
     {
@@ -43,11 +46,50 @@
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",
       "inherits": "clang16",
+      "binaryDir": "build",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CFLAGS": "-gdwarf-4",
+        "CXXFLAGS": "-gdwarf-4",
+        "LDFLAGS": "-gdwarf-4"
+      },
+      "cacheVariables": {
+        "ENABLE_ASAN": "OFF",
+        "DISABLE_ASM": "ON"
+      }
+    },
+    {
+      "name": "clang16-dbg-fast",
+      "displayName": "Optimized debug build with Clang-16",
+      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "inherits": "clang16-dbg",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CFLAGS": "-O2 -gdwarf",
+        "CXXFLAGS": "-O2 -gdwarf-4",
+        "LDFLAGS": "-O2 -gdwarf-4"
+      }
+    },
+    {
+      "name": "clang16-assert",
+      "displayName": "Build with Clang-16 using RelWithAssert",
+      "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
+      "inherits": "clang16",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "Debugging build with address sanitizer on Clang-16",
+      "description": "Build with address sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-asan",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "cacheVariables": {
-        "ENABLE_ASAN": "OFF",
+        "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
       }
     },
@@ -56,6 +98,7 @@
       "displayName": "Build with GCC",
       "description": "Build with globally installed GCC",
       "inherits": "default",
+      "binaryDir": "build-gcc",
       "environment": {
         "CC": "gcc",
         "CXX": "g++"
@@ -72,6 +115,16 @@
       }
     },
     {
+      "name": "gcc13",
+      "displayName": "Build with GCC-13",
+      "description": "Build with globally installed GCC-13",
+      "inherits": "default",
+      "environment": {
+        "CC": "gcc-13",
+        "CXX": "g++-13"
+      }
+    },
+    {
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
@@ -82,10 +135,22 @@
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
-      "inherits": "default",
+      "inherits": "clang16",
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON"
+      }
+    },
+    {
+      "name": "fuzzing-asan",
+      "displayName": "Build with fuzzing",
+      "description": "Build default preset but with fuzzing enabled",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-fuzzing",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "ENABLE_ASAN": "ON",
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -96,6 +161,68 @@
       "binaryDir": "build-smt",
       "cacheVariables": {
         "SMT": "ON"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "Debugging build with thread sanitizer on Clang-16",
+      "description": "Build with thread sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-tsan",
+      "environment": {
+        "CFLAGS": "-fsanitize=thread",
+        "CXXFLAGS": "-fsanitize=thread",
+        "LDFLAGS": "-fsanitize=thread"
+      }
+    },
+    {
+      "name": "ubsan",
+      "displayName": "Debugging build with undefined behaviour sanitizer on Clang-16",
+      "description": "Build with undefined behaviour sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-ubsan",
+      "generator": "Unix Makefiles",
+      "environment": {
+        "CFLAGS": "-fsanitize=undefined",
+        "CXXFLAGS": "-fsanitize=undefined",
+        "LDFLAGS": "-fsanitize=undefined"
+      }
+    },
+    {
+      "name": "msan",
+      "displayName": "Debugging build with memory sanitizer on Clang-16",
+      "description": "Build with thread sanitizer on clang16 with debugging information",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-msan",
+      "environment": {
+        "CFLAGS": "-fsanitize=memory",
+        "CXXFLAGS": "-fsanitize=memory",
+        "LDFLAGS": "-fsanitize=memory"
+      },
+      "cacheVariables": {
+        "HAVE_STD_REGEX": "ON",
+        "CMAKE_CXX_FLAGS": "$env{MSAN_CFLAGS}",
+        "CMAKE_EXE_LINKER_FLAGS": "$env{MSAN_LFLAGS}"
+      }
+    },
+    {
+      "name": "op-count",
+      "displayName": "Release build with operation counts",
+      "description": "Build with op counting",
+      "inherits": "clang16",
+      "binaryDir": "build-op-count",
+      "environment": {
+        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
+      }
+    },
+    {
+      "name": "op-count-time",
+      "displayName": "Release build with time and clock counts",
+      "description": "Build with op counting",
+      "inherits": "clang16",
+      "binaryDir": "build-op-count-time",
+      "environment": {
+        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
       }
     },
     {
@@ -110,6 +237,18 @@
       }
     },
     {
+      "name": "gperftools",
+      "displayName": "Debugging build with gperftools on Clang-16",
+      "description": "Build with gperf",
+      "inherits": "clang16",
+      "binaryDir": "build-gperftools",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_EXE_LINKER_FLAGS": "-ltcmalloc",
+        "CXXFLAGS": "-fno-omit-frame-pointer"
+      }
+    },
+    {
       "name": "wasm",
       "displayName": "Build for WASM",
       "description": "Build with wasi-sdk to create wasm",
@@ -117,7 +256,7 @@
       "generator": "Ninja",
       "toolchainFile": "cmake/toolchains/wasm32-wasi.cmake",
       "environment": {
-        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk-20.0",
+        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk",
         "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
         "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
         "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
@@ -150,12 +289,46 @@
       "inherits": "wasm",
       "binaryDir": "build-wasm-threads",
       "environment": {
-        "WASI_SDK_PREFIX": "${sourceDir}/src/wasi-sdk-20.0+threads",
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
         "MULTITHREADING": "ON"
       }
+    },
+    {
+      "name": "xray",
+      "displayName": "Build with multi-threaded XRay Profiling",
+      "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
+      "generator": "Unix Makefiles",
+      "inherits": "clang16",
+      "environment": {
+        "CFLAGS": "-fxray-instrument",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1"
+      },
+      "binaryDir": "build-xray"
+    },
+    {
+      "name": "xray-verbose",
+      "displayName": "Build with detailed XRay Profiling",
+      "description": "Build with Clang and enable detailed LLVM XRay for profiling",
+      "inherits": "xray",
+      "environment": {
+        "CFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1",
+        "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1",
+        "LDFLAGS": "-fxray-instrument -fxray-instruction-threshold=100 -finline-max-stacksize=150 -DXRAY=1"
+      },
+      "binaryDir": "build-xray-verbose"
+    },
+    {
+      "name": "xray-1thread",
+      "displayName": "Build with single-threaded XRay Profiling",
+      "description": "Build with Clang and enable single-threaded LLVM XRay for profiling",
+      "inherits": "xray",
+      "cacheVariables": {
+        "MULTITHREADING": "OFF"
+      },
+      "binaryDir": "build-xray-1thread"
     }
   ],
   "buildPresets": [
@@ -176,9 +349,34 @@
       "configurePreset": "clang16"
     },
     {
+      "name": "op-count-time",
+      "inherits": "default",
+      "configurePreset": "op-count-time"
+    },
+    {
+      "name": "op-count",
+      "inherits": "default",
+      "configurePreset": "op-count"
+    },
+    {
       "name": "clang16-dbg",
       "inherits": "default",
       "configurePreset": "clang16-dbg"
+    },
+    {
+      "name": "clang16-dbg-fast",
+      "inherits": "default",
+      "configurePreset": "clang16-dbg-fast"
+    },
+    {
+      "name": "clang16-assert",
+      "inherits": "default",
+      "configurePreset": "clang16-assert"
+    },
+    {
+      "name": "asan",
+      "inherits": "default",
+      "configurePreset": "asan"
     },
     {
       "name": "gcc",
@@ -191,19 +389,49 @@
       "configurePreset": "gcc10"
     },
     {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
+    },
+    {
       "name": "bench",
       "inherits": "clang16",
       "configurePreset": "bench"
     },
     {
       "name": "fuzzing",
-      "inherits": "default",
+      "inherits": "clang16",
       "configurePreset": "fuzzing"
     },
-    { 
+    {
+      "name": "fuzzing-asan",
+      "inherits": "clang16-dbg",
+      "configurePreset": "fuzzing-asan"
+    },
+    {
+      "name": "gperftools",
+      "inherits": "clang16",
+      "configurePreset": "gperftools"
+    },
+    {
       "name": "smt-verification",
       "inherits": "clang16",
       "configurePreset": "smt-verification"
+    },
+    {
+      "name": "msan",
+      "inherits": "default",
+      "configurePreset": "msan"
+    },
+    {
+      "name": "tsan",
+      "inherits": "default",
+      "configurePreset": "tsan"
+    },
+    {
+      "name": "ubsan",
+      "inherits": "default",
+      "configurePreset": "ubsan"
     },
     {
       "name": "coverage",
@@ -220,8 +448,7 @@
         "acvm_backend.wasm",
         "barretenberg",
         "wasi",
-        "env",
-        "honk_tests"
+        "env"
       ]
     },
     {
@@ -229,14 +456,33 @@
       "configurePreset": "wasm-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": [
+        "barretenberg.wasm"
+      ]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": [
+        "barretenberg.wasm"
+      ]
+    },
+    {
+      "name": "xray",
+      "configurePreset": "xray",
+      "inherits": "default"
+    },
+    {
+      "name": "xray-verbose",
+      "configurePreset": "xray-verbose",
+      "inherits": "default"
+    },
+    {
+      "name": "xray-1thread",
+      "configurePreset": "xray-1thread",
+      "inherits": "default"
     }
   ],
   "testPresets": [
@@ -261,6 +507,11 @@
       "configurePreset": "clang16-dbg"
     },
     {
+      "name": "asan",
+      "inherits": "default",
+      "configurePreset": "asan"
+    },
+    {
       "name": "gcc",
       "inherits": "default",
       "configurePreset": "gcc"
@@ -271,6 +522,11 @@
       "configurePreset": "gcc10"
     },
     {
+      "name": "gcc13",
+      "inherits": "default",
+      "configurePreset": "gcc13"
+    },
+    {
       "name": "bench",
       "inherits": "clang16",
       "configurePreset": "bench"
@@ -279,6 +535,11 @@
       "name": "fuzzing",
       "inherits": "default",
       "configurePreset": "fuzzing"
+    },
+    {
+      "name": "fuzzing-asan",
+      "inherits": "clang16-dbg",
+      "configurePreset": "fuzzing-asan"
     },
     {
       "name": "smt-verification",

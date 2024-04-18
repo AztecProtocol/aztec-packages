@@ -1,15 +1,15 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { BufferReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
+import { GeneratorIndex, TX_REQUEST_LENGTH } from '../constants.gen.js';
 import { FunctionData } from './function_data.js';
 import { TxContext } from './tx_context.js';
 
 /**
  * Transaction request.
- * @see cpp/src/aztec3/circuits/abis/tx_request.hpp.
  */
 export class TxRequest {
   constructor(
@@ -44,22 +44,41 @@ export class TxRequest {
    * @returns The buffer.
    */
   toBuffer() {
-    const fields = TxRequest.getFields(this);
-    return serializeToBuffer([...fields]);
+    return serializeToBuffer([...TxRequest.getFields(this)]);
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...TxRequest.getFields(this));
+    if (fields.length !== TX_REQUEST_LENGTH) {
+      throw new Error(`Invalid number of fields for TxRequest. Expected ${TX_REQUEST_LENGTH}, got ${fields.length}`);
+    }
+    return fields;
   }
 
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
-   * @returns The deserialised TxRequest object.
+   * @returns The deserialized TxRequest object.
    */
   static fromBuffer(buffer: Buffer | BufferReader): TxRequest {
     const reader = BufferReader.asReader(buffer);
     return new TxRequest(
       reader.readObject(AztecAddress),
       reader.readObject(FunctionData),
-      reader.readFr(),
+      Fr.fromBuffer(reader),
       reader.readObject(TxContext),
     );
+  }
+
+  hash() {
+    return pedersenHash(this.toFields(), GeneratorIndex.TX_REQUEST);
+  }
+
+  static empty() {
+    return new TxRequest(AztecAddress.ZERO, FunctionData.empty(), Fr.zero(), TxContext.empty());
+  }
+
+  isEmpty() {
+    return this.origin.isZero() && this.functionData.isEmpty() && this.argsHash.isZero() && this.txContext.isEmpty();
   }
 }

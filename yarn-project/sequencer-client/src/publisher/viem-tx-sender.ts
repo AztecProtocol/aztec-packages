@@ -1,38 +1,42 @@
+import { type L2Block } from '@aztec/circuit-types';
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { BLOB_SIZE_IN_BYTES, ExtendedContractData } from '@aztec/types';
+import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import {
-  GetContractReturnType,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
+  type GetContractReturnType,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
   createPublicClient,
   createWalletClient,
   getAddress,
   getContract,
+  hexToBytes,
   http,
 } from 'viem';
-import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import * as chains from 'viem/chains';
 
-import { TxSenderConfig } from './config.js';
-import { L1PublisherTxSender, MinimalTransactionReceipt, L1ProcessArgs as ProcessTxArgs } from './l1-publisher.js';
+import { type TxSenderConfig } from './config.js';
+import {
+  type L1PublisherTxSender,
+  type MinimalTransactionReceipt,
+  type L1ProcessArgs as ProcessTxArgs,
+  type TransactionStats,
+} from './l1-publisher.js';
 
 /**
  * Pushes transactions to the L1 rollup contract using viem.
  */
 export class ViemTxSender implements L1PublisherTxSender {
-  private rollupContract: GetContractReturnType<
-    typeof RollupAbi,
-    PublicClient<HttpTransport, chains.Chain>,
+  private availabilityOracleContract: GetContractReturnType<
+    typeof AvailabilityOracleAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
-  private contractDeploymentEmitterContract: GetContractReturnType<
-    typeof ContractDeploymentEmitterAbi,
-    PublicClient<HttpTransport, chains.Chain>,
+  private rollupContract: GetContractReturnType<
+    typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
 
@@ -41,13 +45,7 @@ export class ViemTxSender implements L1PublisherTxSender {
   private account: PrivateKeyAccount;
 
   constructor(config: TxSenderConfig) {
-    const {
-      rpcUrl,
-      apiKey,
-      publisherPrivateKey,
-      rollupContract: rollupContractAddress,
-      contractDeploymentEmitterContract: contractDeploymentEmitterContractAddress,
-    } = config;
+    const { rpcUrl, apiKey, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, apiKey);
     this.account = privateKeyToAccount(publisherPrivateKey);
     const walletClient = createWalletClient({
@@ -61,18 +59,39 @@ export class ViemTxSender implements L1PublisherTxSender {
       transport: http(chain.rpcUrl),
     });
 
+    this.availabilityOracleContract = getContract({
+      address: getAddress(l1Contracts.availabilityOracleAddress.toString()),
+      abi: AvailabilityOracleAbi,
+      client: walletClient,
+    });
     this.rollupContract = getContract({
-      address: getAddress(rollupContractAddress.toString()),
+      address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
-      publicClient: this.publicClient,
-      walletClient,
+      client: walletClient,
     });
-    this.contractDeploymentEmitterContract = getContract({
-      address: getAddress(contractDeploymentEmitterContractAddress.toString()),
-      abi: ContractDeploymentEmitterAbi,
-      publicClient: this.publicClient,
-      walletClient,
-    });
+  }
+
+  async getCurrentArchive(): Promise<Buffer> {
+    const archive = await this.rollupContract.read.archive();
+    return Buffer.from(archive.replace('0x', ''), 'hex');
+  }
+
+  checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
+    const args = [`0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`] as const;
+    return this.availabilityOracleContract.read.isAvailable(args);
+  }
+
+  async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
+    const tx = await this.publicClient.getTransaction({ hash: txHash as Hex });
+    if (!tx) {
+      return undefined;
+    }
+    const calldata = hexToBytes(tx.input);
+    return {
+      transactionHash: tx.hash,
+      calldataSize: calldata.length,
+      calldataGas: getCalldataGasUsage(calldata),
+    };
   }
 
   /**
@@ -85,17 +104,36 @@ export class ViemTxSender implements L1PublisherTxSender {
       hash: txHash as Hex,
     });
 
-    // TODO: check for confirmations
-
     if (receipt) {
       return {
         status: receipt.status === 'success',
         transactionHash: txHash,
+        gasUsed: receipt.gasUsed,
+        gasPrice: receipt.effectiveGasPrice,
+        logs: receipt.logs,
       };
     }
 
-    this.log('Receipt not found for tx hash', txHash);
+    this.log.debug(`Receipt not found for tx hash ${txHash}`);
     return undefined;
+  }
+
+  /**
+   * Publishes tx effects to Availability Oracle.
+   * @param encodedBody - Encoded block body.
+   * @returns The hash of the mined tx.
+   */
+  async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
+    const args = [`0x${encodedBody.toString('hex')}`] as const;
+
+    const gas = await this.availabilityOracleContract.estimateGas.publish(args, {
+      account: this.account,
+    });
+    const hash = await this.availabilityOracleContract.write.publish(args, {
+      gas,
+      account: this.account,
+    });
+    return hash;
   }
 
   /**
@@ -104,7 +142,11 @@ export class ViemTxSender implements L1PublisherTxSender {
    * @returns The hash of the mined tx.
    */
   async sendProcessTx(encodedData: ProcessTxArgs): Promise<string | undefined> {
-    const args = [`0x${encodedData.proof.toString('hex')}`, `0x${encodedData.inputs.toString('hex')}`] as const;
+    const args = [
+      `0x${encodedData.header.toString('hex')}`,
+      `0x${encodedData.archive.toString('hex')}`,
+      `0x${encodedData.proof.toString('hex')}`,
+    ] as const;
 
     const gas = await this.rollupContract.estimateGas.process(args, {
       account: this.account,
@@ -114,46 +156,6 @@ export class ViemTxSender implements L1PublisherTxSender {
       account: this.account,
     });
     return hash;
-  }
-
-  /**
-   * Sends a tx to the contract deployment emitter contract with contract deployment data such as bytecode. Returns once the tx has been mined.
-   * @param l2BlockNum - Number of the L2 block that owns this encrypted logs.
-   * @param l2BlockHash - The hash of the block corresponding to this data.
-   * @param newExtendedContractData - Data to publish.
-   * @returns The hash of the mined tx.
-   */
-  async sendEmitContractDeploymentTx(
-    l2BlockNum: number,
-    l2BlockHash: Buffer,
-    newExtendedContractData: ExtendedContractData[],
-  ): Promise<(string | undefined)[]> {
-    const hashes: string[] = [];
-    for (const extendedContractData of newExtendedContractData) {
-      const args = [
-        BigInt(l2BlockNum),
-        extendedContractData.contractData.contractAddress.toString() as Hex,
-        extendedContractData.contractData.portalContractAddress.toString() as Hex,
-        `0x${l2BlockHash.toString('hex')}`,
-        extendedContractData.partialAddress.toString(true),
-        extendedContractData.publicKey.x.toString(true),
-        extendedContractData.publicKey.y.toString(true),
-        `0x${extendedContractData.bytecode.toString('hex')}`,
-      ] as const;
-
-      const codeSize = extendedContractData.bytecode.length;
-      this.log(`Bytecode is ${codeSize} bytes and require ${codeSize / BLOB_SIZE_IN_BYTES} blobs`);
-
-      const gas = await this.contractDeploymentEmitterContract.estimateGas.emitContractDeployment(args, {
-        account: this.account,
-      });
-      const hash = await this.contractDeploymentEmitterContract.write.emitContractDeployment(args, {
-        gas,
-        account: this.account,
-      });
-      hashes.push(hash);
-    }
-    return hashes;
   }
 
   /**
@@ -170,4 +172,13 @@ export class ViemTxSender implements L1PublisherTxSender {
 
     throw new Error(`Chain with id ${chainId} not found`);
   }
+}
+
+/**
+ * Returns cost of calldata usage in Ethereum.
+ * @param data - Calldata.
+ * @returns 4 for each zero byte, 16 for each nonzero.
+ */
+function getCalldataGasUsage(data: Uint8Array) {
+  return data.filter(byte => byte === 0).length * 4 + data.filter(byte => byte !== 0).length * 16;
 }

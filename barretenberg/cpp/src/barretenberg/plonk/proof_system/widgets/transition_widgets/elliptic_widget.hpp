@@ -2,7 +2,7 @@
 
 #include "./transition_widget.hpp"
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 namespace widget {
 
 /**
@@ -72,14 +72,14 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
 
   private:
     typedef containers::challenge_array<Field, num_independent_relations> challenge_array;
-    typedef containers::coefficient_array<Field> coefficient_array;
 
   public:
     inline static std::set<PolynomialIndex> const& get_required_polynomial_ids()
     {
         static const std::set<PolynomialIndex> required_polynomial_ids = {
-            PolynomialIndex::Q_1, PolynomialIndex::Q_3, PolynomialIndex::Q_4, PolynomialIndex::Q_ELLIPTIC,
-            PolynomialIndex::W_1, PolynomialIndex::W_2, PolynomialIndex::W_3, PolynomialIndex::W_4
+            PolynomialIndex::Q_1, PolynomialIndex::Q_3,        PolynomialIndex::Q_4,
+            PolynomialIndex::Q_M, PolynomialIndex::Q_ELLIPTIC, PolynomialIndex::W_1,
+            PolynomialIndex::W_2, PolynomialIndex::W_3,        PolynomialIndex::W_4
         };
         return required_polynomial_ids;
     }
@@ -92,10 +92,10 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
      * @param linear_terms Output array
      * @param i Gate index
      */
-    inline static void compute_linear_terms(PolyContainer& polynomials,
-                                            const challenge_array& challenges,
-                                            coefficient_array& linear_terms,
-                                            const size_t i = 0)
+    inline static void accumulate_contribution(PolyContainer& polynomials,
+                                               const challenge_array& challenges,
+                                               Field& quotient,
+                                               const size_t i = 0)
     {
         const Field& x_1 =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::W_2>(polynomials, i);
@@ -105,89 +105,53 @@ template <class Field, class Getters, typename PolyContainer> class EllipticKern
         const Field& y_2 = Getters::template get_value<EvaluationType::SHIFTED, PolynomialIndex::W_4>(polynomials, i);
         const Field& x_3 = Getters::template get_value<EvaluationType::SHIFTED, PolynomialIndex::W_2>(polynomials, i);
         const Field& y_3 = Getters::template get_value<EvaluationType::SHIFTED, PolynomialIndex::W_3>(polynomials, i);
+        const Field& q_elliptic =
+            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_ELLIPTIC>(polynomials, i);
 
-        // Endomorphism coefficient for when we add and multiply by beta at the same time
-        const Field& q_beta =
-            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_3>(polynomials, i);
-        // Square of endomorphism coefficient
-        const Field& q_beta_sqr =
-            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_4>(polynomials, i);
         // sign
         const Field& q_sign =
             Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_1>(polynomials, i);
 
-        // TODO: Can this be implemented more efficiently?
-        // It seems that Zac wanted to group the elements by selectors to use several linear terms initially,
-        // but in the end we are using one, so there is no reason why we can't optimize computation in another way
+        // ecc add gate is active when q_elliptic = 1 and q_m = 0
+        // ecc double gate is active when q_elliptic = 1 and q_m = 1
+        const Field& q_is_double =
+            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_M>(polynomials, i);
 
-        Field beta_term = -x_2 * x_1 * (x_3 + x_3 + x_1); // -x_1 * x_2 * (2 * x_3 + x_1)
-        Field beta_sqr_term = x_2.sqr();                  // x_2^2
-        Field leftovers = beta_sqr_term;                  // x_2^2
-        beta_sqr_term *= (x_3 - x_1);                     // x_2^2 * (x_3 - x_1)
-        Field sign_term = y_2 * y_1;                      // y_1 * y_2
-        sign_term += sign_term;                           // 2 * y_1 * y_2
-        beta_term *= q_beta;                              // -β * x_1 * x_2 * (2 * x_3 + x_1)
-        beta_sqr_term *= q_beta_sqr;                      // β^2 * x_2^2 * (x_3 - x_1)
-        sign_term *= q_sign;                              // 2 * y_1 * y_2 * sign
-        leftovers *= x_2;                                 // x_2^3
-        leftovers += x_1.sqr() * (x_3 + x_1);             // x_2^3 + x_1 * (x_3 + x_1)
-        leftovers -= (y_2.sqr() + y_1.sqr());             // x_2^3 + x_1 * (x_3 + x_1) - y_2^2 - y_1^2
+        Field x_diff = x_2 - x_1;
+        Field y1_sqr = y_1.sqr();
+        Field y2_sqr = y_2.sqr();
+        Field y1y2 = y_1 * y_2 * q_sign;
+        Field x_identity_add = (x_3 + x_2 + x_1) * x_diff.sqr() - y1_sqr - y2_sqr + y1y2 + y1y2;
+        Field y_identity_add = (y_3 + y_1) * x_diff + (x_3 - x_1) * (y_2 * q_sign - y_1);
 
-        // Can be found in class description
-        Field x_identity = beta_term + beta_sqr_term + sign_term + leftovers;
-        x_identity *= challenges.alpha_powers[0];
+        // x-coordinate identity
+        // (x3 + 2x1)(4y^2) - (9x^4) = 0
+        // This is degree 4...but
+        // we can use x^3 = y^2 - b
+        // (x3 + 2x1)(4y ^ 2) - (9x(y ^ 2 - b)) is degree 3
+        const Field x_pow_4 = (y_1 * y_1 - grumpkin::g1::curve_b) * x_1;
+        Field x_identity_double = (x_3 + x_1 + x_1) * (y_1 + y_1) * (y_1 + y_1) - x_pow_4 * Field(9);
 
-        beta_term = x_2 * (y_3 + y_1) * q_beta;  // β * x_2 * (y_3 + y_1)
-        sign_term = -y_2 * (x_1 - x_3) * q_sign; // - signt * y_2 * (x_1 - x_3)
-        // TODO: remove extra additions if we decide to stay with this implementation
-        leftovers = -x_1 * (y_3 + y_1) + y_1 * (x_1 - x_3); // -x_1 * y_3 - x_1 * y_1 + y_1 * x_1 - y_1 * x_3
+        // Y identity: (x1 - x3)(3x^2) - (2y1)(y1 + y3) = 0
+        const Field x_pow_2 = (x_1 * x_1);
+        Field y_identity_double = x_pow_2 * (x_1 - x_3) * 3 - (y_1 + y_1) * (y_1 + y_3);
 
-        Field y_identity = beta_term + sign_term + leftovers;
-        y_identity *= challenges.alpha_powers[1];
+        auto x_identity =
+            (q_is_double * (x_identity_double - x_identity_add) + x_identity_add) * challenges.alpha_powers[0];
+        auto y_identity =
+            (q_is_double * (y_identity_double - y_identity_add) + y_identity_add) * challenges.alpha_powers[1];
+        Field identity = x_identity + y_identity;
 
-        linear_terms[0] = x_identity + y_identity;
-    }
-
-    /**
-     * @brief Return the linear term multiplied by elliptic curve addition selector value at gate
-     *
-     * @param polynomials Polynomial container or simulator
-     * @param linear_terms Array of linear terms
-     * @param i Gate index
-     * @return Field
-     */
-    inline static Field sum_linear_terms(PolyContainer& polynomials,
-                                         const challenge_array&,
-                                         coefficient_array& linear_terms,
-                                         const size_t i = 0)
-    {
-        const Field& q_elliptic =
-            Getters::template get_value<EvaluationType::NON_SHIFTED, PolynomialIndex::Q_ELLIPTIC>(polynomials, i);
-        return linear_terms[0] * q_elliptic;
-    }
-
-    inline static void compute_non_linear_terms(PolyContainer&, const challenge_array&, Field&, const size_t = 0) {}
-
-    /**
-     * @brief Update opening scalars with the linear term from elliptic gate
-     *
-     * @param linear_terms Contains input scalar
-     * @param scalars Output map for updates
-     */
-    inline static void update_kate_opening_scalars(coefficient_array& linear_terms,
-                                                   std::map<std::string, Field>& scalars,
-                                                   const challenge_array&)
-    {
-        scalars["Q_ELLIPTIC"] += linear_terms[0];
+        quotient += identity * q_elliptic;
     }
 };
 
 } // namespace widget
 
 template <typename Settings>
-using ProverEllipticWidget = widget::TransitionWidget<barretenberg::fr, Settings, widget::EllipticKernel>;
+using ProverEllipticWidget = widget::TransitionWidget<bb::fr, Settings, widget::EllipticKernel>;
 
 template <typename Field, typename Group, typename Transcript, typename Settings>
 using VerifierEllipticWidget = widget::GenericVerifierWidget<Field, Transcript, Settings, widget::EllipticKernel>;
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

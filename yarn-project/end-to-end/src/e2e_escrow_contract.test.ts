@@ -1,23 +1,33 @@
-import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AccountWallet, AztecAddress, BatchCall, generatePublicKey } from '@aztec/aztec.js';
-import { CompleteAddress, Fr, GrumpkinPrivateKey, GrumpkinScalar, getContractDeploymentInfo } from '@aztec/circuits.js';
-import { DebugLogger } from '@aztec/foundation/log';
-import { EscrowContractAbi } from '@aztec/noir-contracts/artifacts';
-import { EscrowContract, PrivateTokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, PublicKey } from '@aztec/types';
+import {
+  type AccountWallet,
+  type AztecAddress,
+  BatchCall,
+  type DebugLogger,
+  ExtendedNote,
+  Fr,
+  type GrumpkinPrivateKey,
+  GrumpkinScalar,
+  Note,
+  type PXE,
+  type PublicKey,
+  computeMessageSecretHash,
+  generatePublicKey,
+} from '@aztec/aztec.js';
+import { computePartialAddress } from '@aztec/circuits.js';
+import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
-  let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let pxe: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
-  let accounts: CompleteAddress[];
-  let logger: DebugLogger;
 
-  let privateTokenContract: PrivateTokenContract;
+  let logger: DebugLogger;
+  let teardown: () => Promise<void>;
+
+  let token: TokenContract;
   let escrowContract: EscrowContract;
   let owner: AztecAddress;
   let recipient: AztecAddress;
@@ -28,41 +38,55 @@ describe('e2e_escrow_contract', () => {
   beforeEach(async () => {
     // Setup environment
     ({
-      aztecNode,
-      aztecRpcServer,
-      accounts,
+      teardown,
+      pxe,
       wallets: [wallet, recipientWallet],
       logger,
     } = await setup(2));
-    owner = accounts[0].address;
-    recipient = accounts[1].address;
+    owner = wallet.getAddress();
+    recipient = recipientWallet.getAddress();
 
-    // Generate private key for escrow contract, register key in rpc server, and deploy
+    // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     escrowPrivateKey = GrumpkinScalar.random();
-    escrowPublicKey = await generatePublicKey(escrowPrivateKey);
-    const salt = Fr.random();
-    const deployInfo = await getContractDeploymentInfo(EscrowContractAbi, [owner], salt, escrowPublicKey);
-    await aztecRpcServer.registerAccount(escrowPrivateKey, deployInfo.completeAddress.partialAddress);
+    escrowPublicKey = generatePublicKey(escrowPrivateKey);
+    const escrowDeployment = EscrowContract.deployWithPublicKey(escrowPublicKey, wallet, owner);
+    const escrowInstance = escrowDeployment.getInstance();
+    await pxe.registerAccount(escrowPrivateKey, computePartialAddress(escrowInstance));
+    escrowContract = await escrowDeployment.send().deployed();
+    logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
-    escrowContract = await EscrowContract.deployWithPublicKey(wallet, escrowPublicKey, owner)
-      .send({ contractAddressSalt: salt })
-      .deployed();
-    logger(`Escrow contract deployed at ${escrowContract.address}`);
+    // Deploy Token contract and mint funds for the escrow contract
+    token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
-    // Deploy Private Token contract and mint funds for the escrow contract
-    privateTokenContract = await PrivateTokenContract.deploy(wallet, 100n, escrowContract.address).send().deployed();
-    logger(`Token contract deployed at ${privateTokenContract.address}`);
+    const mintAmount = 100n;
+    const secret = Fr.random();
+    const secretHash = computeMessageSecretHash(secret);
+
+    const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+    const note = new Note([new Fr(mintAmount), secretHash]);
+
+    const extendedNote = new ExtendedNote(
+      note,
+      owner,
+      token.address,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
+      receipt.txHash,
+    );
+    await pxe.addNote(extendedNote);
+
+    await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait();
+
+    logger.info(`Token contract deployed at ${token.address}`);
   }, 100_000);
 
-  afterEach(async () => {
-    await aztecNode?.stop();
-    if (aztecRpcServer instanceof AztecRPCServer) await aztecRpcServer.stop();
-  }, 30_000);
+  afterEach(() => teardown(), 30_000);
 
   const expectBalance = async (who: AztecAddress, expectedBalance: bigint) => {
-    const balance = await privateTokenContract.methods.getBalance(who).view({ from: who });
-    logger(`Account ${who} balance: ${balance}`);
+    const balance = await token.methods.balance_of_private(who).simulate({ from: who });
+    logger.info(`Account ${who} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
@@ -71,8 +95,8 @@ describe('e2e_escrow_contract', () => {
     await expectBalance(recipient, 0n);
     await expectBalance(escrowContract.address, 100n);
 
-    logger(`Withdrawing funds from token contract to ${recipient}`);
-    await escrowContract.methods.withdraw(privateTokenContract.address, 30, recipient).send().wait();
+    logger.info(`Withdrawing funds from token contract to ${recipient}`);
+    await escrowContract.methods.withdraw(token.address, 30, recipient).send().wait();
 
     await expectBalance(owner, 0n);
     await expectBalance(recipient, 30n);
@@ -81,21 +105,36 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract
-        .withWallet(recipientWallet)
-        .methods.withdraw(privateTokenContract.address, 30, recipient)
-        .simulate(),
-    ).rejects.toThrowError();
+      escrowContract.withWallet(recipientWallet).methods.withdraw(token.address, 30, recipient).prove(),
+    ).rejects.toThrow();
   }, 60_000);
 
   it('moves funds using multiple keys on the same tx (#1010)', async () => {
-    logger(`Minting funds in token contract to ${owner}`);
-    await privateTokenContract.methods.mint(50, owner).send().wait();
+    logger.info(`Minting funds in token contract to ${owner}`);
+    const mintAmount = 50n;
+    const secret = Fr.random();
+    const secretHash = computeMessageSecretHash(secret);
+
+    const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
+
+    const note = new Note([new Fr(mintAmount), secretHash]);
+    const extendedNote = new ExtendedNote(
+      note,
+      owner,
+      token.address,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
+      receipt.txHash,
+    );
+    await pxe.addNote(extendedNote);
+
+    await token.methods.redeem_shield(owner, mintAmount, secret).send().wait();
+
     await expectBalance(owner, 50n);
 
     const actions = [
-      privateTokenContract.methods.transfer(10, recipient).request(),
-      escrowContract.methods.withdraw(privateTokenContract.address, 20, recipient).request(),
+      token.methods.transfer(owner, recipient, 10, 0).request(),
+      escrowContract.methods.withdraw(token.address, 20, recipient).request(),
     ];
 
     await new BatchCall(wallet, actions).send().wait();

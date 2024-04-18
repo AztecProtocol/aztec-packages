@@ -3,9 +3,9 @@
 #include "../../fields/field.hpp"
 #include "../../groups/group.hpp"
 
-namespace secp256r1 {
+namespace bb::secp256r1 {
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
-struct Secp256r1FqParams {
+struct FqParams {
     static constexpr uint64_t modulus_0 = 0xFFFFFFFFFFFFFFFFULL;
     static constexpr uint64_t modulus_1 = 0x00000000FFFFFFFFULL;
     static constexpr uint64_t modulus_2 = 0X0000000000000000ULL;
@@ -43,8 +43,9 @@ struct Secp256r1FqParams {
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
+using fq = field<FqParams>;
 
-struct Secp256r1FrParams {
+struct FrParams {
     static constexpr uint64_t modulus_0 = 0xF3B9CAC2FC632551ULL;
     static constexpr uint64_t modulus_1 = 0xBCE6FAADA7179E84ULL;
     static constexpr uint64_t modulus_2 = 0xFFFFFFFFFFFFFFFFULL;
@@ -83,11 +84,9 @@ struct Secp256r1FrParams {
     static constexpr uint64_t primitive_root_2 = 0UL;
     static constexpr uint64_t primitive_root_3 = 0UL;
 };
+using fr = field<FrParams>;
 
-using fq = barretenberg::field<Secp256r1FqParams>;
-using fr = barretenberg::field<Secp256r1FrParams>;
-
-struct Secp256r1G1Params {
+struct G1Params {
     static constexpr bool USE_ENDOMORPHISM = false;
     static constexpr bool can_hash_to_curve = true;
     static constexpr bool small_elements = true;
@@ -103,13 +102,10 @@ struct Secp256r1G1Params {
     static constexpr fq one_y =
         fq(0xCBB6406837BF51F5, 0x2BCE33576B315ECE, 0x8EE7EB4A7C0F9E16, 0x4FE342E2FE1A7F9B).to_montgomery_form();
 };
+using g1 = group<fq, fr, G1Params>;
+} // namespace bb::secp256r1
 
-using g1 = barretenberg::
-    group<barretenberg::field<Secp256r1FqParams>, barretenberg::field<Secp256r1FrParams>, Secp256r1G1Params>;
-g1::affine_element get_generator(size_t generator_index);
-} // namespace secp256r1
-
-namespace curve {
+namespace bb::curve {
 class SECP256R1 {
   public:
     using ScalarField = secp256r1::fr;
@@ -118,6 +114,6 @@ class SECP256R1 {
     using Element = typename Group::element;
     using AffineElement = typename Group::affine_element;
 };
-} // namespace curve
+} // namespace bb::curve
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

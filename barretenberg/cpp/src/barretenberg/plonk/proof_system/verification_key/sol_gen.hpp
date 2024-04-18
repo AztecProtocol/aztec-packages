@@ -1,4 +1,4 @@
-namespace proof_system {
+namespace bb {
 
 /**
  * Write a solidity file containing the vk params to the given stream.
@@ -8,13 +8,13 @@ inline void output_vk_sol_standard(std::ostream& os,
                                    std::shared_ptr<plonk::verification_key> const& key,
                                    std::string const& class_name)
 {
-    const auto print_u256 = [&](const std::string& offset, const barretenberg::fr& element, const std::string& name) {
+    const auto print_u256 = [&](const std::string& offset, const bb::fr& element, const std::string& name) {
         os << "            mstore(add(_vk, " << offset << "), " << element << ") // " << name << std::endl;
     };
 
     const auto print_g1 = [&](const std::string& offsetX,
                               const std::string& offsetY,
-                              const barretenberg::g1::affine_element& element,
+                              const bb::g1::affine_element& element,
                               const std::string& name) {
         os << "            mstore(add(_vk, " << offsetX << "), " << element.x << ") // " << name << ".x" << std::endl;
         os << "            mstore(add(_vk, " << offsetY << "), " << element.y << ") // " << name << ".y" << std::endl;
@@ -67,13 +67,13 @@ inline void output_vk_sol_standard(std::ostream& os,
  **/
 inline void output_vk_sol_ultra(std::ostream& os, std::shared_ptr<plonk::verification_key> const& key, std::string const& class_name)
 {
-    const auto print_u256 = [&](const std::string& offset, const barretenberg::fr& element, const std::string& name) {
+    const auto print_u256 = [&](const std::string& offset, const bb::fr& element, const std::string& name) {
         os << "            mstore(add(_vk, " << offset << "), " << element << ") // " << name << std::endl;
     };
 
     const auto print_g1 = [&](const std::string& offsetX,
                               const std::string& offsetY,
-                              const barretenberg::g1::affine_element& element,
+                              const bb::g1::affine_element& element,
                               const std::string& name) {
         os << "            mstore(add(_vk, " << offsetX << "), " << element.x << ") // " << name << ".x" << std::endl;
         os << "            mstore(add(_vk, " << offsetY << "), " << element.y << ") // " << name << ".y" << std::endl;
@@ -149,18 +149,14 @@ inline void output_vk_sol(std::ostream& os, std::shared_ptr<plonk::verification_
         return output_vk_sol_standard(os, key, class_name);
         break;
     }
-    // case CircuitType::TURBO: {
-    //     return output_vk_sol_turbo(os, key, class_name);
-    //     break;
-    // }
     case CircuitType::ULTRA: {
         return output_vk_sol_ultra(os, key, class_name);
         break;
     }
     default: {
-        std::cerr << "proof_system::output_vk_sol unsupported composer type. Defaulting to standard composer" << std::endl;
+        std::cerr << "bb::output_vk_sol unsupported composer type. Defaulting to standard composer" << std::endl;
         return output_vk_sol_standard(os, key, class_name);
     }
     }
 }
-} // namespace proof_system
+} // namespace bb

@@ -1,13 +1,13 @@
 import { InterruptError } from '../errors/index.js';
 
 /**
- * InterruptableSleep is a utility class that allows you to create an interruptible sleep function.
+ * InterruptibleSleep is a utility class that allows you to create an interruptible sleep function.
  * The sleep function can be interrupted at any time by calling the `interrupt` method, which can
  * also specify whether the sleep should throw an error or just return. This is useful when you need
  * to terminate long-running processes or perform cleanup tasks in response to external events.
  *
  * @example
- * const sleeper = new InterruptableSleep();
+ * const sleeper = new InterruptibleSleep();
  *
  * async function longRunningTask() \{
  *   try \{
@@ -20,10 +20,8 @@ import { InterruptError } from '../errors/index.js';
  *
  * setTimeout(() =\> sleeper.interrupt(true), 1500); // Interrupt the sleep after 1.5 seconds
  */
-export class InterruptableSleep {
-  private interruptResolve: (shouldThrow: boolean) => void = () => {};
-  private interruptPromise = new Promise<boolean>(resolve => (this.interruptResolve = resolve));
-  private timeouts: NodeJS.Timeout[] = [];
+export class InterruptibleSleep {
+  private interrupts: Array<(shouldThrow: boolean) => void> = [];
 
   /**
    * Sleep for a specified amount of time in milliseconds.
@@ -33,13 +31,18 @@ export class InterruptableSleep {
    * @param ms - The number of milliseconds to sleep.
    * @returns A Promise that resolves after the specified time has passed.
    */
-  public async sleep(ms: number) {
-    let timeout!: NodeJS.Timeout;
-    const promise = new Promise<boolean>(resolve => (timeout = setTimeout(() => resolve(false), ms)));
-    this.timeouts.push(timeout);
-    const shouldThrow = await Promise.race([promise, this.interruptPromise]);
-    clearTimeout(timeout);
-    this.timeouts.splice(this.timeouts.indexOf(timeout), 1);
+  public async sleep(ms: number): Promise<void> {
+    let interruptResolve: (shouldThrow: boolean) => void;
+    const interruptPromise = new Promise<boolean>(resolve => {
+      interruptResolve = resolve;
+      this.interrupts.push(resolve);
+    });
+
+    const timeoutPromise = new Promise<boolean>(resolve => setTimeout(() => resolve(false), ms));
+    const shouldThrow = await Promise.race([interruptPromise, timeoutPromise]);
+
+    this.interrupts = this.interrupts.filter(res => res !== interruptResolve);
+
     if (shouldThrow) {
       throw new InterruptError('Interrupted.');
     }
@@ -52,20 +55,21 @@ export class InterruptableSleep {
    *
    * @param sleepShouldThrow - A boolean value indicating whether the sleep operation should throw an error when interrupted. Default is false.
    */
-  public interrupt(sleepShouldThrow = false) {
-    this.interruptResolve(sleepShouldThrow);
-    this.interruptPromise = new Promise(resolve => (this.interruptResolve = resolve));
+  public interrupt(sleepShouldThrow = false): void {
+    this.interrupts.forEach(resolve => resolve(sleepShouldThrow));
+    this.interrupts = [];
   }
 }
 
 /**
  * Puts the current execution context to sleep for a specified duration.
  * This simulates a blocking sleep operation by using an asynchronous function and a Promise that resolves after the given duration.
- * The sleep function can be interrupted by the 'interrupt' method of the InterruptableSleep class.
+ * The sleep function can be interrupted by the 'interrupt' method of the InterruptibleSleep class.
  *
  * @param ms - The duration in milliseconds for which the sleep operation should last.
+ * @param returnValue - The return value of the promise.
  * @returns A Promise that resolves after the specified duration, allowing the use of 'await' to pause execution.
  */
-export function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+export function sleep<T>(ms: number, returnValue?: T): Promise<T | undefined> {
+  return new Promise(resolve => setTimeout(() => resolve(returnValue), ms));
 }

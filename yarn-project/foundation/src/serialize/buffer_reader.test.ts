@@ -3,7 +3,7 @@ import { jest } from '@jest/globals';
 import { randomBytes } from '../crypto/index.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { BufferReader } from './buffer_reader.js';
-import { serializeBufferArrayToVector } from './free_funcs.js';
+import { serializeArrayOfBufferableToVector } from './serialize.js';
 
 const ARRAY = Array.from(Array(32)).map((_, idx) => (idx % 2 === 0 ? 0 : 1));
 const BUFFER = Buffer.from(ARRAY);
@@ -44,13 +44,13 @@ describe('buffer reader', () => {
 
   describe('readFr', () => {
     it('should get Fr from buffer', () => {
-      expect(bufferReader.readFr()).toEqual(Fr.fromBuffer(BUFFER));
+      expect(Fr.fromBuffer(bufferReader)).toEqual(Fr.fromBuffer(BUFFER));
     });
   });
 
   describe('readFq', () => {
     it('should get Fq from buffer', () => {
-      expect(bufferReader.readFq()).toEqual(Fq.fromBuffer(BUFFER));
+      expect(Fq.fromBuffer(bufferReader)).toEqual(Fq.fromBuffer(BUFFER));
     });
   });
 
@@ -64,7 +64,7 @@ describe('buffer reader', () => {
         uintBuf.writeUInt32BE(num, 0);
         return uintBuf;
       });
-      const uintArrVec = serializeBufferArrayToVector(uintBufArr);
+      const uintArrVec = serializeArrayOfBufferableToVector(uintBufArr);
       vectorBufferReader = new BufferReader(uintArrVec);
     });
 

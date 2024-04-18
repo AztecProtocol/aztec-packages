@@ -1,5 +1,45 @@
 import { inflate } from 'pako';
 
+import { type FunctionSelector } from './function_selector.js';
+
+/**
+ * A basic value.
+ */
+export interface BasicValue<T extends string, V> {
+  /**
+   * The kind of the value.
+   */
+  kind: T;
+  value: V;
+}
+
+/**
+ * An exported value.
+ */
+export type AbiValue =
+  | BasicValue<'boolean', boolean>
+  | BasicValue<'string', string>
+  | BasicValue<'array', AbiValue[]>
+  | TupleValue
+  | IntegerValue
+  | StructValue;
+
+export type TypedStructFieldValue<T> = { name: string; value: T };
+
+export interface StructValue {
+  kind: 'struct';
+  fields: TypedStructFieldValue<AbiValue>[];
+}
+
+export interface TupleValue {
+  kind: 'tuple';
+  fields: AbiValue[];
+}
+
+export interface IntegerValue extends BasicValue<'integer', string> {
+  sign: boolean;
+}
+
 /**
  * A named type.
  */
@@ -11,7 +51,7 @@ export interface ABIVariable {
   /**
    * The type of the variable.
    */
-  type: ABIType;
+  type: AbiType;
 }
 
 /**
@@ -45,7 +85,7 @@ export interface BasicType<T extends string> {
 /**
  * A variable type.
  */
-export type ABIType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
+export type AbiType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
 
 /**
  * An integer type.
@@ -72,7 +112,7 @@ export interface ArrayType extends BasicType<'array'> {
   /**
    * The type of the array elements.
    */
-  type: ABIType;
+  type: AbiType;
 }
 
 /**
@@ -93,6 +133,10 @@ export interface StructType extends BasicType<'struct'> {
    * The fields of the struct.
    */
   fields: ABIVariable[];
+  /**
+   * Fully qualified name of the struct.
+   */
+  path: string;
 }
 
 /**
@@ -105,7 +149,7 @@ export enum FunctionType {
 }
 
 /**
- * The ABI entry of a function.
+ * The abi entry of a function.
  */
 export interface FunctionAbi {
   /**
@@ -127,15 +171,29 @@ export interface FunctionAbi {
   /**
    * The types of the return values.
    */
-  returnTypes: ABIType[];
+  returnTypes: AbiType[];
+  /**
+   * Whether the function is flagged as an initializer.
+   */
+  isInitializer: boolean;
+}
+
+/**
+ * The artifact entry of a function.
+ */
+export interface FunctionArtifact extends FunctionAbi {
   /**
    * The ACIR bytecode of the function.
    */
-  bytecode: string;
+  bytecode: Buffer;
   /**
    * The verification key of the function.
    */
   verificationKey?: string;
+  /**
+   * Maps opcodes to source code pointers
+   */
+  debugSymbols: string;
 }
 
 /**
@@ -200,37 +258,35 @@ export type DebugFileMap = Record<
 >;
 
 /**
- * The debug metadata of an ABI.
+ * Defines artifact of a contract.
  */
-export interface DebugMetadata {
-  /**
-   * The DebugInfo object, deflated as JSON, compressed using gzip and serialized with base64.
-   */
-  debugSymbols: string[];
-  /**
-   * The map of file ID to the source code and path of the file.
-   */
-  fileMap: DebugFileMap;
-}
-
-/**
- * Defines ABI of a contract.
- */
-export interface ContractAbi {
+export interface ContractArtifact {
   /**
    * The name of the contract.
    */
   name: string;
+
+  /**
+   * The version of compiler used to create this artifact
+   */
+  aztecNrVersion?: string;
+
   /**
    * The functions of the contract.
    */
-  functions: FunctionAbi[];
+  functions: FunctionArtifact[];
+  /**
+   * The outputs of the contract.
+   */
+  outputs: {
+    structs: Record<string, AbiType[]>;
+    globals: Record<string, AbiValue[]>;
+  };
 
   /**
-   * The debug metadata of the contract.
-   * It's used to include the relevant source code section when a constraint is not met during simulation.
+   * The map of file ID to the source code and path of the file.
    */
-  debug?: DebugMetadata;
+  fileMap: DebugFileMap;
 }
 
 /**
@@ -247,23 +303,107 @@ export interface FunctionDebugMetadata {
   files: DebugFileMap;
 }
 
+/** A function artifact with optional debug metadata */
+export interface FunctionArtifactWithDebugMetadata extends FunctionArtifact {
+  /** Debug metadata for the function. */
+  debug?: FunctionDebugMetadata;
+}
+
 /**
- * Gets the debug metadata of a given function from the contract abi
- * @param abi - The contract abi
+ * Gets a function artifact given its name or selector.
+ */
+export function getFunctionArtifact(
+  artifact: ContractArtifact,
+  functionNameOrSelector: string | FunctionSelector,
+): FunctionArtifact {
+  const functionArtifact = artifact.functions.find(f =>
+    typeof functionNameOrSelector === 'string'
+      ? f.name === functionNameOrSelector
+      : functionNameOrSelector.equals(f.name, f.parameters),
+  );
+  if (!functionArtifact) {
+    throw new Error(`Unknown function ${functionNameOrSelector}`);
+  }
+  return functionArtifact;
+}
+
+/** @deprecated Use getFunctionArtifact instead */
+export function getFunctionArtifactWithSelector(artifact: ContractArtifact, selector: FunctionSelector) {
+  return getFunctionArtifact(artifact, selector);
+}
+
+/**
+ * Gets a function artifact including debug metadata given its name or selector.
+ */
+export function getFunctionArtifactWithDebugMetadata(
+  artifact: ContractArtifact,
+  functionNameOrSelector: string | FunctionSelector,
+): FunctionArtifactWithDebugMetadata {
+  const functionArtifact = getFunctionArtifact(artifact, functionNameOrSelector);
+  const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
+  return { ...functionArtifact, debug: debugMetadata };
+}
+
+/**
+ * Gets the debug metadata of a given function from the contract artifact
+ * @param artifact - The contract build artifact
  * @param functionName - The name of the function
  * @returns The debug metadata of the function
  */
-export function getFunctionDebugMetadata(abi: ContractAbi, functionName: string): FunctionDebugMetadata | undefined {
-  const functionIndex = abi.functions.findIndex(f => f.name === functionName);
-  if (abi.debug && functionIndex !== -1) {
+export function getFunctionDebugMetadata(
+  contractArtifact: ContractArtifact,
+  functionArtifact: FunctionArtifact,
+): FunctionDebugMetadata | undefined {
+  if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
     const debugSymbols = JSON.parse(
-      inflate(Buffer.from(abi.debug.debugSymbols[functionIndex], 'base64'), { to: 'string' }),
+      inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string', raw: true }),
     );
-    const files = abi.debug.fileMap;
-    return {
-      debugSymbols,
-      files,
-    };
+    return { debugSymbols, files: contractArtifact.fileMap };
   }
   return undefined;
+}
+
+/**
+ * Returns an initializer from the contract, assuming there is at least one. If there are multiple initializers,
+ * it returns the one named "constructor" or "initializer"; if there is none with that name, it returns the first
+ * initializer it finds, prioritizing initializers with no arguments and then private ones.
+ * @param contractArtifact - The contract artifact.
+ * @returns An initializer function, or none if there are no functions flagged as initializers in the contract.
+ */
+export function getDefaultInitializer(contractArtifact: ContractArtifact): FunctionArtifact | undefined {
+  const initializers = contractArtifact.functions.filter(f => f.isInitializer);
+  return initializers.length > 1
+    ? initializers.find(f => f.name === 'constructor') ??
+        initializers.find(f => f.name === 'initializer') ??
+        initializers.find(f => f.parameters?.length === 0) ??
+        initializers.find(f => f.functionType === FunctionType.SECRET) ??
+        initializers[0]
+    : initializers[0];
+}
+
+/**
+ * Returns an initializer from the contract.
+ * @param initializerNameOrArtifact - The name of the constructor, or the artifact of the constructor, or undefined
+ * to pick the default initializer.
+ */
+export function getInitializer(
+  contract: ContractArtifact,
+  initializerNameOrArtifact: string | undefined | FunctionArtifact,
+): FunctionArtifact | undefined {
+  if (typeof initializerNameOrArtifact === 'string') {
+    const found = contract.functions.find(f => f.name === initializerNameOrArtifact);
+    if (!found) {
+      throw new Error(`Constructor method ${initializerNameOrArtifact} not found in contract artifact`);
+    } else if (!found.isInitializer) {
+      throw new Error(`Method ${initializerNameOrArtifact} is not an initializer`);
+    }
+    return found;
+  } else if (initializerNameOrArtifact === undefined) {
+    return getDefaultInitializer(contract);
+  } else {
+    if (!initializerNameOrArtifact.isInitializer) {
+      throw new Error(`Method ${initializerNameOrArtifact.name} is not an initializer`);
+    }
+    return initializerNameOrArtifact;
+  }
 }

@@ -7,6 +7,8 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/srs/io.hpp"
 
+using namespace bb;
+
 const std::string protocol_name = "BARRETENBERG_GRUMPKIN_IPA_CRS";
 /**
  * @brief Generates a monomial basis Grumpkin SRS.
@@ -32,7 +34,7 @@ int main(int argc, char** argv)
     // write the files to the dir that was given.
     std::filesystem::create_directories(std::filesystem::path(srs_path) / "monomial");
 
-    std::vector<grumpkin::g1::affine_element> srs(subgroup_size);
+    std::vector<bb::grumpkin::g1::affine_element> srs(subgroup_size);
 
     std::vector<uint8_t> hash_input;
 
@@ -51,7 +53,7 @@ int main(int argc, char** argv)
             hash_input.insert(hash_input.end(),
                               reinterpret_cast<uint8_t*>(&point_attempt_le_order),
                               reinterpret_cast<uint8_t*>(&point_attempt_le_order) + sizeof(uint64_t));
-            auto hash_result = sha256::sha256(hash_input);
+            auto hash_result = crypto::sha256(hash_input);
             uint256_t hash_result_uint(ntohll(*reinterpret_cast<uint64_t*>(hash_result.data())),
                                        ntohll(*reinterpret_cast<uint64_t*>(hash_result.data() + sizeof(uint64_t))),
                                        ntohll(*reinterpret_cast<uint64_t*>(hash_result.data() + 2 * sizeof(uint64_t))),
@@ -69,11 +71,10 @@ int main(int argc, char** argv)
         }
     }
 
-    barretenberg::srs::Manifest manifest{
-        0, 1, static_cast<uint32_t>(subgroup_size), 0, static_cast<uint32_t>(subgroup_size), 0, 0
-    };
+    bb::srs::Manifest manifest{ 0, 1, static_cast<uint32_t>(subgroup_size), 0, static_cast<uint32_t>(subgroup_size),
+                                0, 0 };
 
-    barretenberg::srs::IO<curve::Grumpkin>::write_transcript(&srs[0], manifest, srs_path);
+    bb::srs::IO<bb::curve::Grumpkin>::write_transcript(&srs[0], manifest, srs_path);
 
     return 0;
 }

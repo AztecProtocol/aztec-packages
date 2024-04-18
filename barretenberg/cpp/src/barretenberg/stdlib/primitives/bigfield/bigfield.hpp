@@ -1,24 +1,21 @@
 #pragma once
 
+#include "../byte_array/byte_array.hpp"
+#include "../circuit_builders/circuit_builders_fwd.hpp"
+#include "../field/field.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
-#include "../byte_array/byte_array.hpp"
-#include "../field/field.hpp"
+namespace bb::stdlib {
 
-#include "../circuit_builders/circuit_builders_fwd.hpp"
-
-namespace proof_system::plonk {
-namespace stdlib {
-
-template <typename Composer, typename T> class bigfield {
+template <typename Builder, typename T> class bigfield {
 
   public:
     typedef T TParams;
-    typedef barretenberg::field<T> native;
+    typedef bb::field<T> native;
 
     struct Basis {
         uint512_t modulus;
@@ -27,7 +24,7 @@ template <typename Composer, typename T> class bigfield {
 
     struct Limb {
         Limb() {}
-        Limb(const field_t<Composer>& input, const uint256_t max = uint256_t(0))
+        Limb(const field_t<Builder>& input, const uint256_t max = uint256_t(0))
             : element(input)
         {
             if (input.witness_index == IS_CONSTANT) {
@@ -48,22 +45,22 @@ template <typename Composer, typename T> class bigfield {
         Limb& operator=(const Limb& other) = default;
         Limb& operator=(Limb&& other) = default;
 
-        field_t<Composer> element;
+        field_t<Builder> element;
         uint256_t maximum_value;
     };
 
-    bigfield(const field_t<Composer>& low_bits,
-             const field_t<Composer>& high_bits,
+    bigfield(const field_t<Builder>& low_bits,
+             const field_t<Builder>& high_bits,
              const bool can_overflow = false,
              const size_t maximum_bitlength = 0);
-    bigfield(Composer* parent_context = nullptr);
-    bigfield(Composer* parent_context, const uint256_t& value);
+    bigfield(Builder* parent_context = nullptr);
+    bigfield(Builder* parent_context, const uint256_t& value);
 
     // we assume the limbs have already been normalized!
-    bigfield(const field_t<Composer>& a,
-             const field_t<Composer>& b,
-             const field_t<Composer>& c,
-             const field_t<Composer>& d,
+    bigfield(const field_t<Builder>& a,
+             const field_t<Builder>& b,
+             const field_t<Builder>& c,
+             const field_t<Builder>& d,
              const bool can_overflow = false)
     {
         context = a.context;
@@ -79,11 +76,11 @@ template <typename Composer, typename T> class bigfield {
     };
 
     // we assume the limbs have already been normalized!
-    bigfield(const field_t<Composer>& a,
-             const field_t<Composer>& b,
-             const field_t<Composer>& c,
-             const field_t<Composer>& d,
-             const field_t<Composer>& prime_limb,
+    bigfield(const field_t<Builder>& a,
+             const field_t<Builder>& b,
+             const field_t<Builder>& c,
+             const field_t<Builder>& d,
+             const field_t<Builder>& prime_limb,
              const bool can_overflow = false)
     {
         context = a.context;
@@ -95,21 +92,20 @@ template <typename Composer, typename T> class bigfield {
         prime_basis_limb = prime_limb;
     };
 
-    bigfield(const byte_array<Composer>& bytes);
+    bigfield(const byte_array<Builder>& bytes);
     bigfield(const bigfield& other);
     bigfield(bigfield&& other);
 
-    static bigfield create_from_u512_as_witness(Composer* ctx,
+    static bigfield create_from_u512_as_witness(Builder* ctx,
                                                 const uint512_t& value,
                                                 const bool can_overflow = false,
                                                 const size_t maximum_bitlength = 0);
 
-    static bigfield from_witness(Composer* ctx, const barretenberg::field<T>& input)
+    static bigfield from_witness(Builder* ctx, const bb::field<T>& input)
     {
         uint256_t input_u256(input);
-        field_t<Composer> low(witness_t<Composer>(ctx, barretenberg::fr(input_u256.slice(0, NUM_LIMB_BITS * 2))));
-        field_t<Composer> hi(
-            witness_t<Composer>(ctx, barretenberg::fr(input_u256.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4))));
+        field_t<Builder> low(witness_t<Builder>(ctx, bb::fr(input_u256.slice(0, NUM_LIMB_BITS * 2))));
+        field_t<Builder> hi(witness_t<Builder>(ctx, bb::fr(input_u256.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4))));
         return bigfield(low, hi);
     }
 
@@ -130,16 +126,15 @@ template <typename Composer, typename T> class bigfield {
 
     static constexpr uint256_t prime_basis_maximum_limb =
         uint256_t(modulus_u512.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
-    static constexpr Basis prime_basis{ uint512_t(barretenberg::fr::modulus), barretenberg::fr::modulus.get_msb() + 1 };
+    static constexpr Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };
     static constexpr Basis binary_basis{ uint512_t(1) << LOG2_BINARY_MODULUS, LOG2_BINARY_MODULUS };
     static constexpr Basis target_basis{ modulus_u512, modulus_u512.get_msb() + 1 };
-    static constexpr barretenberg::fr shift_1 = barretenberg::fr(uint256_t(1) << NUM_LIMB_BITS);
-    static constexpr barretenberg::fr shift_2 = barretenberg::fr(uint256_t(1) << (NUM_LIMB_BITS * 2));
-    static constexpr barretenberg::fr shift_3 = barretenberg::fr(uint256_t(1) << (NUM_LIMB_BITS * 3));
-    static constexpr barretenberg::fr shift_right_1 = barretenberg::fr(1) / shift_1;
-    static constexpr barretenberg::fr shift_right_2 = barretenberg::fr(1) / shift_2;
-    static constexpr barretenberg::fr negative_prime_modulus_mod_binary_basis =
-        -barretenberg::fr(uint256_t(modulus_u512));
+    static constexpr bb::fr shift_1 = bb::fr(uint256_t(1) << NUM_LIMB_BITS);
+    static constexpr bb::fr shift_2 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 2));
+    static constexpr bb::fr shift_3 = bb::fr(uint256_t(1) << (NUM_LIMB_BITS * 3));
+    static constexpr bb::fr shift_right_1 = bb::fr(1) / shift_1;
+    static constexpr bb::fr shift_right_2 = bb::fr(1) / shift_2;
+    static constexpr bb::fr negative_prime_modulus_mod_binary_basis = -bb::fr(uint256_t(modulus_u512));
     static constexpr uint512_t negative_prime_modulus = binary_basis.modulus - target_basis.modulus;
     static constexpr uint256_t neg_modulus_limbs_u256[4]{
         uint256_t(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
@@ -147,18 +142,18 @@ template <typename Composer, typename T> class bigfield {
         uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
         uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
     };
-    static constexpr barretenberg::fr neg_modulus_limbs[4]{
-        barretenberg::fr(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
-        barretenberg::fr(negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
-        barretenberg::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
-        barretenberg::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+    static constexpr bb::fr neg_modulus_limbs[4]{
+        bb::fr(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
+        bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
+        bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
+        bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
     };
 
-    byte_array<Composer> to_byte_array() const
+    byte_array<Builder> to_byte_array() const
     {
-        byte_array<Composer> result(get_context());
-        field_t<Composer> lo = binary_basis_limbs[0].element + (binary_basis_limbs[1].element * shift_1);
-        field_t<Composer> hi = binary_basis_limbs[2].element + (binary_basis_limbs[3].element * shift_1);
+        byte_array<Builder> result(get_context());
+        field_t<Builder> lo = binary_basis_limbs[0].element + (binary_basis_limbs[1].element * shift_1);
+        field_t<Builder> hi = binary_basis_limbs[2].element + (binary_basis_limbs[3].element * shift_1);
         // n.b. this only works if NUM_LIMB_BITS * 2 is divisible by 8
         //
         // We are packing two bigfield limbs each into the field elements `lo` and `hi`.
@@ -167,15 +162,15 @@ template <typename Composer, typename T> class bigfield {
         // Therefore, it is necessary for (NUM_LIMB_BITS * 2) to be divisible by 8 for correctly
         // converting `lo` and `hi` to `byte_array`s.
         ASSERT((NUM_LIMB_BITS * 2 / 8) * 8 == NUM_LIMB_BITS * 2);
-        result.write(byte_array<Composer>(hi, 32 - (NUM_LIMB_BITS / 4)));
-        result.write(byte_array<Composer>(lo, (NUM_LIMB_BITS / 4)));
+        result.write(byte_array<Builder>(hi, 32 - (NUM_LIMB_BITS / 4)));
+        result.write(byte_array<Builder>(lo, (NUM_LIMB_BITS / 4)));
         return result;
     }
 
     uint512_t get_value() const;
     uint512_t get_maximum_value() const;
 
-    bigfield add_to_lower_limb(const field_t<Composer>& other, uint256_t other_maximum_value) const;
+    bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
     bigfield operator+(const bigfield& other) const;
     bigfield operator-(const bigfield& other) const;
     bigfield operator*(const bigfield& other) const;
@@ -244,8 +239,8 @@ template <typename Composer, typename T> class bigfield {
     static bigfield div_without_denominator_check(const std::vector<bigfield>& numerators, const bigfield& denominator);
     static bigfield div_check_denominator_nonzero(const std::vector<bigfield>& numerators, const bigfield& denominator);
 
-    bigfield conditional_negate(const bool_t<Composer>& predicate) const;
-    bigfield conditional_select(const bigfield& other, const bool_t<Composer>& predicate) const;
+    bigfield conditional_negate(const bool_t<Builder>& predicate) const;
+    bigfield conditional_select(const bigfield& other, const bool_t<Builder>& predicate) const;
 
     void assert_is_in_field() const;
     void assert_less_than(const uint256_t upper_limit) const;
@@ -286,22 +281,20 @@ template <typename Composer, typename T> class bigfield {
         auto msb = multiple_of_modulus.get_msb();
 
         bigfield result(nullptr, uint256_t(0));
-        result.binary_basis_limbs[0] = Limb(barretenberg::fr(multiple_of_modulus.slice(0, NUM_LIMB_BITS).lo));
-        result.binary_basis_limbs[1] =
-            Limb(barretenberg::fr(multiple_of_modulus.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo));
-        result.binary_basis_limbs[2] =
-            Limb(barretenberg::fr(multiple_of_modulus.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo));
-        result.binary_basis_limbs[3] = Limb(barretenberg::fr(multiple_of_modulus.slice(3 * NUM_LIMB_BITS, msb + 1).lo));
-        result.prime_basis_limb = field_t<Composer>((multiple_of_modulus % uint512_t(field_t<Composer>::modulus)).lo);
+        result.binary_basis_limbs[0] = Limb(bb::fr(multiple_of_modulus.slice(0, NUM_LIMB_BITS).lo));
+        result.binary_basis_limbs[1] = Limb(bb::fr(multiple_of_modulus.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS).lo));
+        result.binary_basis_limbs[2] = Limb(bb::fr(multiple_of_modulus.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS).lo));
+        result.binary_basis_limbs[3] = Limb(bb::fr(multiple_of_modulus.slice(3 * NUM_LIMB_BITS, msb + 1).lo));
+        result.prime_basis_limb = field_t<Builder>((multiple_of_modulus % uint512_t(field_t<Builder>::modulus)).lo);
         return result;
     }
 
     /**
      * Create a witness form a constant. This way the value of the witness is fixed and public.
      **/
-    void convert_constant_to_fixed_witness(Composer* composer)
+    void convert_constant_to_fixed_witness(Builder* builder)
     {
-        context = composer;
+        context = builder;
         for (auto& limb : binary_basis_limbs) {
             limb.element.convert_constant_to_fixed_witness(context);
         }
@@ -319,7 +312,7 @@ template <typename Composer, typename T> class bigfield {
         prime_basis_limb.fix_witness();
     }
 
-    Composer* get_context() const { return context; }
+    Builder* get_context() const { return context; }
 
     static constexpr uint512_t get_maximum_unreduced_value(const size_t num_products = 1)
     {
@@ -430,15 +423,14 @@ template <typename Composer, typename T> class bigfield {
     static constexpr uint64_t MAX_ADDITION_LOG = 10;
     // the rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
     // starting with this max limb size
-    static constexpr uint64_t MAX_UNREDUCED_LIMB_SIZE =
-        (barretenberg::fr::modulus.get_msb() + 1) / 2 - MAX_ADDITION_LOG;
+    static constexpr uint64_t MAX_UNREDUCED_LIMB_SIZE = (bb::fr::modulus.get_msb() + 1) / 2 - MAX_ADDITION_LOG;
 
     static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_SIZE; }
 
     static_assert(MAX_UNREDUCED_LIMB_SIZE < (NUM_LIMB_BITS * 2));
-    Composer* context;
+    Builder* context;
     mutable Limb binary_basis_limbs[4];
-    mutable field_t<Composer> prime_basis_limb;
+    mutable field_t<Builder> prime_basis_limb;
 
   private:
     static std::pair<uint512_t, uint512_t> compute_quotient_remainder_values(const bigfield& a,
@@ -502,7 +494,6 @@ template <typename C, typename T> inline std::ostream& operator<<(std::ostream& 
     return os << v.get_value();
 }
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib
 
 #include "bigfield_impl.hpp"

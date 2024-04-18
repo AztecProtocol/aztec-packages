@@ -1,4 +1,4 @@
-import { GrumpkinPrivateKey, PublicKey } from '@aztec/circuits.js';
+import { type GrumpkinPrivateKey, type PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 /**
@@ -6,7 +6,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
  * @param privateKey - The private key.
  * @returns The generated public key.
  */
-export async function generatePublicKey(privateKey: GrumpkinPrivateKey): Promise<PublicKey> {
-  const grumpkin = await Grumpkin.new();
+export function generatePublicKey(privateKey: GrumpkinPrivateKey): PublicKey {
+  const grumpkin = new Grumpkin();
   return grumpkin.mul(grumpkin.generator(), privateKey);
 }

@@ -1,8 +1,7 @@
-import { randomBytes } from '@aztec/foundation/crypto';
-import { TxHash } from '@aztec/types';
+import { randomTxHash } from '@aztec/circuit-types';
 
 import { expect } from '@jest/globals';
-import { Ed25519PeerId, PeerId } from '@libp2p/interface-peer-id';
+import { type Ed25519PeerId, type PeerId } from '@libp2p/interface-peer-id';
 import { mock } from 'jest-mock-extended';
 
 import { KnownTxLookup } from './known_txs.js';
@@ -13,16 +12,12 @@ const createMockPeerId = (peerId: string): PeerId => {
   });
 };
 
-const createTxHash = () => {
-  return new TxHash(randomBytes(32));
-};
-
 describe('Known Txs', () => {
   it('Returns false when a peer has not seen a tx', () => {
     const knownTxs = new KnownTxLookup();
 
     const peer = createMockPeerId('Peer 1');
-    const txHash = createTxHash();
+    const txHash = randomTxHash();
 
     expect(knownTxs.hasPeerSeenTx(peer, txHash.toString())).toEqual(false);
   });
@@ -32,7 +27,7 @@ describe('Known Txs', () => {
 
     const peer = createMockPeerId('Peer 1');
     const peer2 = createMockPeerId('Peer 2');
-    const txHash = createTxHash();
+    const txHash = randomTxHash();
 
     knownTxs.addPeerForTx(peer, txHash.toString());
 

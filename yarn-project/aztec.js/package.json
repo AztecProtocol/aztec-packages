@@ -4,9 +4,21 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "node": "./dest/index.js",
-    "import": "./dest/index.js",
-    "default": "./dest/main.js"
+    ".": "./dest/index.js",
+    "./interfaces/pxe": "./dest/api/interfaces/pxe.js",
+    "./abi": "./dest/api/abi.js",
+    "./account": "./dest/api/account.js",
+    "./aztec_address": "./dest/api/aztec_address.js",
+    "./deployment": "./dest/api/deployment.js",
+    "./entrypoint": "./dest/api/entrypoint.js",
+    "./eth_address": "./dest/api/eth_address.js",
+    "./ethereum": "./dest/api/ethereum.js",
+    "./fee": "./dest/api/fee.js",
+    "./fields": "./dest/api/fields.js",
+    "./init": "./dest/api/init.js",
+    "./log_id": "./dest/api/log_id.js",
+    "./tx_hash": "./dest/api/tx_hash.js",
+    "./wallet": "./dest/api/wallet.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -19,39 +31,43 @@
     "build": "yarn clean && tsc -b && webpack",
     "build:web": "webpack",
     "build:dev": "tsc -b --watch",
-    "clean": "rm -rf ./dest .tsbuildinfo",
+    "build:ts": "tsc -b",
+    "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
+    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
   },
   "inherits": [
     "../package.common.json",
     "./package.local.json"
   ],
   "jest": {
-    "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.m?js$": "$1"
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest"
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ]
   },
   "dependencies": {
+    "@aztec/circuit-types": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/protocol-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
-    "lodash.every": "^4.6.0",
-    "lodash.partition": "^4.6.0",
-    "lodash.zip": "^4.2.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
-    "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
-    "@types/lodash.every": "^4.6.7",
-    "@types/lodash.partition": "^4.6.0",
-    "@types/lodash.zip": "^4.2.7",
     "@types/node": "^18.7.23",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",
@@ -60,7 +76,6 @@
     "process": "^0.11.10",
     "resolve-typescript-plugin": "^2.0.1",
     "stream-browserify": "^3.0.0",
-    "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
     "tty-browserify": "^0.0.1",

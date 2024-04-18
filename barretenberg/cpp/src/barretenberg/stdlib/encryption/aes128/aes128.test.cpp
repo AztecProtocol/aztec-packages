@@ -1,19 +1,19 @@
 #include "aes128.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/aes128/aes128.hpp"
-#include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
-// #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+// #include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
 
-using Composer = proof_system::CircuitSimulatorBN254;
+using Builder = bb::UltraCircuitBuilder;
 
 TEST(stdlib_aes128, encrypt_64_bytes)
 {
-    typedef stdlib::field_t<Composer> field_pt;
-    typedef stdlib::witness_t<Composer> witness_pt;
+    typedef stdlib::field_t<Builder> field_pt;
+    typedef stdlib::witness_t<Builder> witness_pt;
 
     uint8_t key[16]{ 0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c };
     uint8_t out[64]{ 0x76, 0x49, 0xab, 0xac, 0x81, 0x19, 0xb2, 0x46, 0xce, 0xe9, 0x8e, 0x9b, 0x12, 0xe9, 0x19, 0x7d,
@@ -35,17 +35,17 @@ TEST(stdlib_aes128, encrypt_64_bytes)
         return converted;
     };
 
-    auto composer = Composer();
+    auto builder = Builder();
 
     std::vector<field_pt> in_field{
-        witness_pt(&composer, fr(convert_bytes(in))),
-        witness_pt(&composer, fr(convert_bytes(in + 16))),
-        witness_pt(&composer, fr(convert_bytes(in + 32))),
-        witness_pt(&composer, fr(convert_bytes(in + 48))),
+        witness_pt(&builder, fr(convert_bytes(in))),
+        witness_pt(&builder, fr(convert_bytes(in + 16))),
+        witness_pt(&builder, fr(convert_bytes(in + 32))),
+        witness_pt(&builder, fr(convert_bytes(in + 48))),
     };
 
-    field_pt key_field(witness_pt(&composer, fr(convert_bytes(key))));
-    field_pt iv_field(witness_pt(&composer, fr(convert_bytes(iv))));
+    field_pt key_field(witness_pt(&builder, fr(convert_bytes(key))));
+    field_pt iv_field(witness_pt(&builder, fr(convert_bytes(iv))));
 
     std::vector<fr> expected{
         convert_bytes(out), convert_bytes(out + 16), convert_bytes(out + 32), convert_bytes(out + 48)
@@ -57,8 +57,8 @@ TEST(stdlib_aes128, encrypt_64_bytes)
         EXPECT_EQ(result[i].get_value(), expected[i]);
     }
 
-    std::cout << "composer gates = " << composer.get_num_gates() << std::endl;
+    std::cout << "num gates = " << builder.get_num_gates() << std::endl;
 
-    bool proof_result = composer.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }

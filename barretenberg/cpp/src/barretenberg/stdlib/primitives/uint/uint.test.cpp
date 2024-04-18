@@ -1,23 +1,22 @@
 #include "uint.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <functional>
 #include <gtest/gtest.h>
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
-using namespace proof_system;
+using namespace bb;
 
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
 // NOTE: We only test width 32, but widths 8, 16, 32 and 64 can all be tested.
 //       In widths 8, 16, 32: all tests pass.
-//       In width 64, the following tests fail for UltraPlonkComposer.
+//       In width 64, the following tests fail for UltraPlonkBuilder.
 //           test_xor_special, test_xor_more_constants, test_and_constants, test_and_special, test_or_special,
 //           test_ror_special, test_hash_rounds, test_and, test_xor, test_or.
 // They fail with 'C++ exception with description"Last key slice greater than 64" thrown in the test body."'
-namespace test_stdlib_uint {
+
 typedef uint32_t uint_native;
 size_t uint_native_width = 8 * sizeof(uint_native);
 uint_native uint_native_max = static_cast<uint_native>((static_cast<uint256_t>(1) << uint_native_width) - 1);
@@ -74,13 +73,13 @@ uint_native rotate(uint_native value, size_t rotation)
                           static_cast<uint_native>(value << (uint_native_width - rotation))
                     : value;
 }
-template <typename Composer> class stdlib_uint : public testing::Test {
-    typedef typename std::conditional<std::same_as<Composer, UltraCircuitBuilder>,
-                                      stdlib::uint_plookup<Composer, uint_native>,
-                                      stdlib::uint<Composer, uint_native>>::type uint_ct;
-    typedef stdlib::bool_t<Composer> bool_ct;
-    typedef stdlib::witness_t<Composer> witness_ct;
-    typedef stdlib::byte_array<Composer> byte_array_ct;
+template <typename Builder> class stdlib_uint : public testing::Test {
+    using uint_ct = typename std::conditional<std::same_as<Builder, StandardCircuitBuilder>,
+                                              stdlib::uint<Builder, uint_native>,
+                                              stdlib::uint_plookup<Builder, uint_native>>::type;
+    using bool_ct = stdlib::bool_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using byte_array_ct = stdlib::byte_array<Builder>;
 
     static inline std::vector<uint_native> special_values{ 0U,
                                                            1U,
@@ -90,7 +89,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
                                                            static_cast<uint_native>((1 << uint_native_width / 2) + 1),
                                                            uint_native_max };
 
-    static std::vector<uint_ct> get_special_uints(Composer* ctx)
+    static std::vector<uint_ct> get_special_uints(Builder* ctx)
     {
         std::vector<uint_ct> special_uints;
         for (size_t i = 0; i != special_values.size(); ++i) {
@@ -103,7 +102,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
     static void test_weak_normalize()
     {
         auto run_test = [](bool constant_only, bool add_constant) {
-            Composer composer = Composer();
+            Builder builder = Builder();
             uint_ct a;
             uint_native a_val = get_random<uint_native>();
             uint_native const_a = get_random<uint_native>();
@@ -113,7 +112,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
                 a = const_a;
                 expected = const_a;
             } else {
-                a = witness_ct(&composer, a_val);
+                a = witness_ct(&builder, a_val);
                 expected = a_val;
                 if (add_constant) {
                     a += const_a;
@@ -122,7 +121,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             };
 
             EXPECT_EQ(uint256_t(expected), a.get_value());
-            bool verified = composer.check_circuit();
+            bool verified = CircuitChecker::check(builder);
             EXPECT_EQ(verified, true);
         };
 
@@ -133,12 +132,12 @@ template <typename Composer> class stdlib_uint : public testing::Test {
 
     static void test_byte_array_conversion()
     {
-        Composer composer = Composer();
-        uint_ct a = witness_ct(&composer, 0x7f6f5f4f10111213);
+        Builder builder = Builder();
+        uint_ct a = witness_ct(&builder, 0x7f6f5f4f10111213);
         std::string longest_expected = { 0x7f, 0x6f, 0x5f, 0x4f, 0x10, 0x11, 0x12, 0x13 };
         // truncate, so we are running different tests for different choices of uint_native
         std::string expected = longest_expected.substr(longest_expected.length() - sizeof(uint_native));
-        byte_array_ct arr(&composer);
+        byte_array_ct arr(&builder);
         arr.write(static_cast<byte_array_ct>(a));
 
         EXPECT_EQ(arr.size(), sizeof(uint_native));
@@ -147,16 +146,16 @@ template <typename Composer> class stdlib_uint : public testing::Test {
 
     static void test_input_output_consistency()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         for (size_t i = 1; i < 1024; i *= 2) {
             uint_native a_expected = (uint_native)i;
             uint_native b_expected = (uint_native)i;
 
-            uint_ct a = witness_ct(&composer, a_expected);
-            uint_ct b = witness_ct(&composer, b_expected);
+            uint_ct a = witness_ct(&builder, a_expected);
+            uint_ct b = witness_ct(&builder, b_expected);
 
-            byte_array_ct arr(&composer);
+            byte_array_ct arr(&builder);
 
             arr.write(static_cast<byte_array_ct>(a));
             arr.write(static_cast<byte_array_ct>(b));
@@ -173,9 +172,9 @@ template <typename Composer> class stdlib_uint : public testing::Test {
 
     static void test_create_from_wires()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        uint_ct a = uint_ct(&composer,
+        uint_ct a = uint_ct(&builder,
                             std::vector<bool_ct>{
                                 bool_ct(false),
                                 bool_ct(false),
@@ -184,7 +183,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
                                 bool_ct(false),
                                 bool_ct(false),
                                 bool_ct(false),
-                                witness_ct(&composer, true),
+                                witness_ct(&builder, true),
                             });
 
         EXPECT_EQ(a.at(0).get_value(), false);
@@ -197,10 +196,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
      * */
     static void test_add_special()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, 1U);
-        witness_ct second_input(&composer, 0U);
+        witness_ct first_input(&builder, 1U);
+        witness_ct second_input(&builder, 0U);
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -217,7 +216,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
         }
 
-        auto special_uints = get_special_uints(&composer);
+        auto special_uints = get_special_uints(&builder);
         for (size_t i = 0; i != special_values.size(); ++i) {
             uint_native x = special_values[i];
             uint_ct x_ct = special_uints[i];
@@ -234,16 +233,16 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             }
         };
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
     static void test_sub_special()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct a_val(&composer, static_cast<uint_native>(4));
-        // witness_ct b_val(&composer, static_cast<uint_native>(5));
+        witness_ct a_val(&builder, static_cast<uint_native>(4));
+        // witness_ct b_val(&builder, static_cast<uint_native>(5));
         uint_native const_a = 1;
         uint_native const_b = 2;
         uint_ct a = uint_ct(a_val) + const_a;
@@ -251,7 +250,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         uint_ct b = const_b;
         uint_ct diff = a - b;
 
-        auto special_uints = get_special_uints(&composer);
+        auto special_uints = get_special_uints(&builder);
         for (size_t i = 0; i != special_values.size(); ++i) {
             uint_native x = special_values[i];
             uint_ct x_ct = special_uints[i];
@@ -268,7 +267,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             }
         };
 
-        bool verified = composer.check_circuit();
+        bool verified = CircuitChecker::check(builder);
 
         EXPECT_EQ(verified, true);
     }
@@ -288,12 +287,12 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             expected[6] = expected[3] + expected[4];
             expected[7] = expected[4] + expected[5];
         }
-        Composer composer = Composer();
+        Builder builder = Builder();
         uint_ct result[8];
         for (size_t i = 2; i < n; ++i) {
-            result[0] = uint_ct(&composer, witnesses[3 * i]);
-            result[1] = (witness_ct(&composer, witnesses[3 * i + 1]));
-            result[2] = (witness_ct(&composer, witnesses[3 * i + 2]));
+            result[0] = uint_ct(&builder, witnesses[3 * i]);
+            result[1] = (witness_ct(&builder, witnesses[3 * i + 1]));
+            result[2] = (witness_ct(&builder, witnesses[3 * i + 2]));
             result[3] = result[0] + result[1];
             result[4] = result[1] + result[0];
             result[5] = result[1] + result[2];
@@ -305,7 +304,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             EXPECT_EQ(result[i].get_value(), expected[i]);
         }
 
-        bool proof_valid = composer.check_circuit();
+        bool proof_valid = CircuitChecker::check(builder);
         EXPECT_EQ(proof_valid, true);
     }
 
@@ -320,10 +319,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c_expected = a_expected * b_expected;
         }
 
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, 1U);
-        witness_ct second_input(&composer, 2U);
+        witness_ct first_input(&builder, 1U);
+        witness_ct second_input(&builder, 2U);
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -333,10 +332,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = c;
             c = a * b;
         }
-        auto c_result = static_cast<uint_native>(c.get_value());
+        uint_native c_result = static_cast<uint_native>(c.get_value());
         EXPECT_EQ(c_result, c_expected);
 
-        auto special_uints = get_special_uints(&composer);
+        auto special_uints = get_special_uints(&builder);
         for (size_t i = 0; i != special_values.size(); ++i) {
             uint_native x = special_values[i];
             uint_ct x_ct = special_uints[i];
@@ -353,7 +352,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             }
         };
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -361,13 +360,13 @@ template <typename Composer> class stdlib_uint : public testing::Test {
     {
         uint_native max = uint_native_max;
 
-        Composer composer = Composer();
-        uint_ct a = witness_ct(&composer, max);
+        Builder builder = Builder();
+        uint_ct a = witness_ct(&builder, max);
         a = a + max;
         uint_ct b = a;
         uint_ct c = a * b;
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -383,10 +382,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a_expected = c_expected ^ a_expected;
         }
 
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&composer, static_cast<uint_native>(0xfafab007eac21343));
+        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
+        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -397,24 +396,24 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c ^ a;
         }
-        auto a_result = static_cast<uint_native>(a.get_value());
+        uint_native a_result = static_cast<uint_native>(a.get_value());
 
         EXPECT_EQ(a_result, a_expected);
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
     static void test_xor_constants()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         uint_native a_expected = static_cast<uint_native>(0x10000000a3b10422);
         uint_native b_expected = static_cast<uint_native>(0xfafab007eac21343);
         uint_native c_expected = a_expected ^ b_expected;
 
-        uint_ct const_a(&composer, static_cast<uint_native>(0x10000000a3b10422));
-        uint_ct const_b(&composer, static_cast<uint_native>(0xfafab007eac21343));
+        uint_ct const_a(&builder, static_cast<uint_native>(0x10000000a3b10422));
+        uint_ct const_b(&builder, static_cast<uint_native>(0xfafab007eac21343));
         uint_ct c = const_a ^ const_b;
         c.get_witness_index();
 
@@ -433,10 +432,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
                          (static_cast<uint_native>(0x10000000a3b10422) ^ static_cast<uint_native>(0xfafab007eac21343));
         }
 
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&composer, static_cast<uint_native>(0xfafab007eac21343));
+        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
+        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -448,9 +447,9 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = c;
             c = (a + b) ^ (const_a ^ const_b);
         }
-        auto c_result = static_cast<uint_native>(c.get_value());
+        uint_native c_result = static_cast<uint_native>(c.get_value());
         EXPECT_EQ(c_result, c_expected);
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -468,10 +467,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             // static_cast<uint_native>(0xfafab007eac21343));
         }
 
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&composer, static_cast<uint_native>(0xfafab007eac21343));
+        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
+        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -483,9 +482,9 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = c;
             c = (~a & const_a) + (b & const_b);
         }
-        auto c_result = static_cast<uint_native>(c.get_value());
+        uint_native c_result = static_cast<uint_native>(c.get_value());
         EXPECT_EQ(c_result, c_expected);
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -501,10 +500,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a_expected = c_expected & a_expected;
         }
 
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&composer, static_cast<uint_native>(0xfafab007eac21343));
+        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
+        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -515,10 +514,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c & a;
         }
-        auto a_result = static_cast<uint_native>(a.get_value());
+        uint_native a_result = static_cast<uint_native>(a.get_value());
         EXPECT_EQ(a_result, a_expected);
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -534,10 +533,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a_expected = c_expected | a_expected;
         }
 
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&composer, static_cast<uint_native>(0xfafab007eac21343));
+        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
+        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -548,10 +547,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c | a;
         }
-        auto a_result = static_cast<uint_native>(a.get_value());
+        uint_native a_result = static_cast<uint_native>(a.get_value());
         EXPECT_EQ(a_result, a_expected);
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -579,32 +578,32 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             }
             bool c_expected = a_expected > b_expected;
 
-            Composer composer = Composer();
+            Builder builder = Builder();
 
             uint_ct a;
             uint_ct b;
             if (lhs_constant) {
                 a = uint_ct(nullptr, a_expected);
             } else {
-                a = witness_ct(&composer, a_expected);
+                a = witness_ct(&builder, a_expected);
             }
             if (rhs_constant) {
                 b = uint_ct(nullptr, b_expected);
             } else {
-                b = witness_ct(&composer, b_expected);
+                b = witness_ct(&builder, b_expected);
             }
             // mix in some constant terms for good measure
-            a *= uint_ct(&composer, 2);
-            a += uint_ct(&composer, 1);
-            b *= uint_ct(&composer, 2);
-            b += uint_ct(&composer, 1);
+            a *= uint_ct(&builder, 2);
+            a += uint_ct(&builder, 1);
+            b *= uint_ct(&builder, 2);
+            b += uint_ct(&builder, 1);
 
             bool_ct c = a > b;
 
             bool c_result = static_cast<bool>(c.get_value());
             EXPECT_EQ(c_result, c_expected);
 
-            bool result = composer.check_circuit();
+            bool result = CircuitChecker::check(builder);
             EXPECT_EQ(result, true);
         };
 
@@ -641,10 +640,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a_expected = rotate(c_expected, i % 31) + rotate(a_expected, (i + 1) % 31);
         }
 
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        witness_ct first_input(&composer, static_cast<uint_native>(0x10000000a3b10422));
-        witness_ct second_input(&composer, static_cast<uint_native>(0xfafab007eac21343));
+        witness_ct first_input(&builder, static_cast<uint_native>(0x10000000a3b10422));
+        witness_ct second_input(&builder, static_cast<uint_native>(0xfafab007eac21343));
 
         uint_ct a = first_input;
         uint_ct b = second_input;
@@ -655,10 +654,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c.ror(static_cast<uint_native>(i % 31)) + a.ror(static_cast<uint_native>((i + 1) % 31));
         }
-        auto a_result = static_cast<uint_native>(a.get_value());
+        uint_native a_result = static_cast<uint_native>(a.get_value());
         EXPECT_EQ(a_result, a_expected);
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -667,7 +666,6 @@ template <typename Composer> class stdlib_uint : public testing::Test {
      *
      * @details Notes that the static casts have to be there becuase of -Wc++11-narrowing flag.
      *
-     * TurboPLONK:     19896 gates
      * StandardPLONK: 210363 gates
      */
     static void test_hash_rounds()
@@ -747,22 +745,22 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             b_alt = a_alt;
             a_alt = temp1_alt + temp2_alt;
         }
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         std::vector<uint_ct> w;
         std::vector<uint_ct> k;
         for (size_t i = 0; i < 64; ++i) {
-            w.emplace_back(uint_ct(witness_ct(&composer, w_alt[i])));
-            k.emplace_back(uint_ct(&composer, k_constants[i % 64]));
+            w.emplace_back(uint_ct(witness_ct(&builder, w_alt[i])));
+            k.emplace_back(uint_ct(&builder, k_constants[i % 64]));
         }
-        uint_ct a = witness_ct(&composer, round_values[0]);
-        uint_ct b = witness_ct(&composer, round_values[1]);
-        uint_ct c = witness_ct(&composer, round_values[2]);
-        uint_ct d = witness_ct(&composer, round_values[3]);
-        uint_ct e = witness_ct(&composer, round_values[4]);
-        uint_ct f = witness_ct(&composer, round_values[5]);
-        uint_ct g = witness_ct(&composer, round_values[6]);
-        uint_ct h = witness_ct(&composer, round_values[7]);
+        uint_ct a = witness_ct(&builder, round_values[0]);
+        uint_ct b = witness_ct(&builder, round_values[1]);
+        uint_ct c = witness_ct(&builder, round_values[2]);
+        uint_ct d = witness_ct(&builder, round_values[3]);
+        uint_ct e = witness_ct(&builder, round_values[4]);
+        uint_ct f = witness_ct(&builder, round_values[5]);
+        uint_ct g = witness_ct(&builder, round_values[6]);
+        uint_ct h = witness_ct(&builder, round_values[7]);
         for (size_t i = 0; i < 64; ++i) {
             uint_ct S1 =
                 e.ror(7U % uint_native_width) ^ e.ror(11U % uint_native_width) ^ e.ror(25U % uint_native_width);
@@ -787,14 +785,14 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = temp1 + temp2;
         }
 
-        auto a_result = static_cast<uint_native>(a.get_value());
-        auto b_result = static_cast<uint_native>(b.get_value());
-        auto c_result = static_cast<uint_native>(c.get_value());
-        auto d_result = static_cast<uint_native>(d.get_value());
-        auto e_result = static_cast<uint_native>(e.get_value());
-        auto f_result = static_cast<uint_native>(f.get_value());
-        auto g_result = static_cast<uint_native>(g.get_value());
-        auto h_result = static_cast<uint_native>(h.get_value());
+        uint_native a_result = static_cast<uint_native>(a.get_value()); // PROBLEM
+        uint_native b_result = static_cast<uint_native>(b.get_value());
+        uint_native c_result = static_cast<uint_native>(c.get_value());
+        uint_native d_result = static_cast<uint_native>(d.get_value());
+        uint_native e_result = static_cast<uint_native>(e.get_value());
+        uint_native f_result = static_cast<uint_native>(f.get_value());
+        uint_native g_result = static_cast<uint_native>(g.get_value());
+        uint_native h_result = static_cast<uint_native>(h.get_value());
 
         EXPECT_EQ(a_result, a_alt);
         EXPECT_EQ(b_result, b_alt);
@@ -805,7 +803,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         EXPECT_EQ(g_result, g_alt);
         EXPECT_EQ(h_result, h_alt);
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -816,14 +814,14 @@ template <typename Composer> class stdlib_uint : public testing::Test {
      */
     static void test_add()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto add_integers = [&composer](bool lhs_constant = false, bool rhs_constant = false) {
+        const auto add_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = get_random<uint_native>();
             uint_native expected = a_val + b_val;
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
             uint_ct c = a + b;
             c = c.normalize();
 
@@ -837,22 +835,22 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         add_integers(true, false);
         add_integers(true, true);
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_sub()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto sub_integers = [&composer](bool lhs_constant = false, bool rhs_constant = false) {
+        const auto sub_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = get_random<uint_native>();
             uint_native const_shift_val = get_random<uint_native>();
             uint_native expected = a_val - (b_val + const_shift_val);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct b_shift = uint_ct(&composer, const_shift_val);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct b_shift = uint_ct(&builder, const_shift_val);
             uint_ct c = b + b_shift;
             uint_ct d = a - c;
             d = d.normalize();
@@ -867,27 +865,27 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         sub_integers(true, false);
         sub_integers(true, true);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_mul()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto mul_integers = [&composer](bool lhs_constant = false, bool rhs_constant = false) {
+        const auto mul_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = get_random<uint_native>();
             uint_native const_a = get_random<uint_native>();
             uint_native const_b = get_random<uint_native>();
             uint_native expected =
                 static_cast<uint_native>(a_val + const_a) * static_cast<uint_native>(b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
-            uint_ct b_shift = uint_ct(&composer, const_b);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
             uint_ct e = c * d;
@@ -903,21 +901,21 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         mul_integers(true, false);
         mul_integers(true, true);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_divide()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto divide_integers = [&composer](bool lhs_constant = false,
-                                                 bool rhs_constant = false,
-                                                 bool dividend_is_divisor = false,
-                                                 bool dividend_zero = false,
-                                                 bool divisor_zero = false) {
+        const auto divide_integers = [&builder](bool lhs_constant = false,
+                                                bool rhs_constant = false,
+                                                bool dividend_is_divisor = false,
+                                                bool dividend_zero = false,
+                                                bool divisor_zero = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = dividend_is_divisor ? a_val : get_random<uint_native>();
             uint_native const_a = dividend_zero ? 0 - a_val : get_random<uint_native>();
@@ -925,10 +923,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
                 divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random<uint_native>());
             uint_native expected =
                 static_cast<uint_native>(a_val + const_a) / static_cast<uint_native>(b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
-            uint_ct b_shift = uint_ct(&composer, const_b);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
             uint_ct e = c / d;
@@ -959,21 +957,21 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         divide_integers(true, false, false, true, false);
         divide_integers(true, true, false, true, false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_modulo()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto mod_integers = [&composer](bool lhs_constant = false,
-                                              bool rhs_constant = false,
-                                              bool dividend_is_divisor = false,
-                                              bool dividend_zero = false,
-                                              bool divisor_zero = false) {
+        const auto mod_integers = [&builder](bool lhs_constant = false,
+                                             bool rhs_constant = false,
+                                             bool dividend_is_divisor = false,
+                                             bool dividend_zero = false,
+                                             bool divisor_zero = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = dividend_is_divisor ? a_val : get_random<uint_native>();
             uint_native const_a = dividend_zero ? 0 - a_val : get_random<uint_native>();
@@ -981,10 +979,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
                 divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random<uint_native>());
             uint_native expected =
                 static_cast<uint_native>(a_val + const_a) % static_cast<uint_native>(b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
-            uint_ct b_shift = uint_ct(&composer, const_b);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
             uint_ct e = c % d;
@@ -1010,9 +1008,9 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         mod_integers(true, false, false, true, false);
         mod_integers(true, true, false, true, false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
@@ -1024,23 +1022,23 @@ template <typename Composer> class stdlib_uint : public testing::Test {
                                         bool dividend_is_divisor = false,
                                         bool dividend_zero = false,
                                         bool divisor_zero = false) {
-            Composer composer = Composer();
+            Builder builder = Builder();
 
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = dividend_is_divisor ? a_val : get_random<uint_native>();
             uint_native const_a = dividend_zero ? 0 - a_val : get_random<uint_native>();
             uint_native const_b =
                 divisor_zero ? 0 - b_val : (dividend_is_divisor ? const_a : get_random<uint_native>());
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
-            uint_ct b_shift = uint_ct(&composer, const_b);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
             uint_ct e = c / d;
             e = e.normalize();
 
-            bool proof_result = composer.check_circuit();
+            bool proof_result = CircuitChecker::check(builder);
             EXPECT_EQ(proof_result, false);
         };
 
@@ -1068,9 +1066,9 @@ template <typename Composer> class stdlib_uint : public testing::Test {
 
     static void test_divide_special()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        auto special_uints = get_special_uints(&composer);
+        auto special_uints = get_special_uints(&builder);
 
         for (size_t i = 0; i != special_values.size(); ++i) {
             uint_native x = special_values[i];
@@ -1094,7 +1092,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             }
         };
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
 
@@ -1107,12 +1105,12 @@ template <typename Composer> class stdlib_uint : public testing::Test {
      */
     static void div_remainder_constraint()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         uint_native val = get_random<uint_native>();
 
-        uint_ct a = witness_ct(&composer, val);
-        uint_ct b = witness_ct(&composer, val);
+        uint_ct a = witness_ct(&builder, val);
+        uint_ct b = witness_ct(&builder, val);
 
         const uint32_t dividend_idx = a.get_witness_index();
         const uint32_t divisor_idx = b.get_witness_index();
@@ -1122,31 +1120,31 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         const uint256_t q = 0;
         const uint256_t r = val;
 
-        const uint32_t quotient_idx = composer.add_variable(q);
-        const uint32_t remainder_idx = composer.add_variable(r);
+        const uint32_t quotient_idx = builder.add_variable(q);
+        const uint32_t remainder_idx = builder.add_variable(r);
 
         // In this example there are no additive constaints, so we just replace them by zero below.
 
         // constraint: qb + const_b q + 0 b - a + r - const_a == 0
         // i.e., a + const_a = q(b + const_b) + r
-        composer.create_big_mul_gate({ .a = quotient_idx,  // q
-                                       .b = divisor_idx,   // b
-                                       .c = dividend_idx,  // a
-                                       .d = remainder_idx, // r
-                                       .mul_scaling = fr::one(),
-                                       .a_scaling = b.get_additive_constant(),
-                                       .b_scaling = fr::zero(),
-                                       .c_scaling = fr::neg_one(),
-                                       .d_scaling = fr::one(),
-                                       .const_scaling = -a.get_additive_constant() });
+        builder.create_big_mul_gate({ .a = quotient_idx,  // q
+                                      .b = divisor_idx,   // b
+                                      .c = dividend_idx,  // a
+                                      .d = remainder_idx, // r
+                                      .mul_scaling = fr::one(),
+                                      .a_scaling = b.get_additive_constant(),
+                                      .b_scaling = fr::zero(),
+                                      .c_scaling = fr::neg_one(),
+                                      .d_scaling = fr::one(),
+                                      .const_scaling = -a.get_additive_constant() });
 
         // set delta = (b + const_b - r)
 
         // constraint: b - r - delta + const_b == 0
         const uint256_t delta = divisor - r - 1;
-        const uint32_t delta_idx = composer.add_variable(delta);
+        const uint32_t delta_idx = builder.add_variable(delta);
 
-        composer.create_add_gate({
+        builder.create_add_gate({
             .a = divisor_idx,   // b
             .b = remainder_idx, // r
             .c = delta_idx,     // d
@@ -1157,39 +1155,39 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         });
 
         // validate delta is in the correct range
-        stdlib::field_t<Composer>::from_witness_index(&composer, delta_idx)
+        stdlib::field_t<Builder>::from_witness_index(&builder, delta_idx)
             .create_range_constraint(uint_native_width,
                                      "delta range constraint fails in div_remainder_constraint test");
 
         // normalize witness quotient and remainder
         // minimal bit range for quotient: from 0 (in case a = b-1) to width (when b = 1).
-        uint_ct quotient(&composer);
-        composer.create_range_constraint(
+        uint_ct quotient(&builder);
+        builder.create_range_constraint(
             quotient_idx, uint_native_width, "quotient range constraint fails in div_remainder_constraint test");
 
         // constrain remainder to lie in [0, 2^width-1]
-        uint_ct remainder(&composer);
-        composer.create_range_constraint(
+        uint_ct remainder(&builder);
+        builder.create_range_constraint(
             remainder_idx, uint_native_width, "remainder range constraint fails in div_remainder_constraint test");
 
-        bool result = composer.check_circuit();
+        bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
 
     static void test_and()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto and_integers = [&composer](bool lhs_constant = false, bool rhs_constant = false) {
+        const auto and_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = get_random<uint_native>();
             uint_native const_a = get_random<uint_native>();
             uint_native const_b = get_random<uint_native>();
             uint_native expected = (a_val + const_a) & (b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
-            uint_ct b_shift = uint_ct(&composer, const_b);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
             uint_ct e = c & d;
@@ -1205,26 +1203,26 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         and_integers(true, false);
         and_integers(true, true);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_xor()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto xor_integers = [&composer](bool lhs_constant = false, bool rhs_constant = false) {
+        const auto xor_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = get_random<uint_native>();
             uint_native const_a = get_random<uint_native>();
             uint_native const_b = get_random<uint_native>();
             uint_native expected = (a_val + const_a) ^ (b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
-            uint_ct b_shift = uint_ct(&composer, const_b);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
             uint_ct e = c ^ d;
@@ -1240,26 +1238,26 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         xor_integers(true, false);
         xor_integers(true, true);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_or()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto or_integers = [&composer](bool lhs_constant = false, bool rhs_constant = false) {
+        const auto or_integers = [&builder](bool lhs_constant = false, bool rhs_constant = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native b_val = get_random<uint_native>();
             uint_native const_a = get_random<uint_native>();
             uint_native const_b = get_random<uint_native>();
             uint_native expected = (a_val + const_a) | (b_val + const_b);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct b = rhs_constant ? uint_ct(&composer, b_val) : witness_ct(&composer, b_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
-            uint_ct b_shift = uint_ct(&composer, const_b);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct b = rhs_constant ? uint_ct(&builder, b_val) : witness_ct(&builder, b_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
+            uint_ct b_shift = uint_ct(&builder, const_b);
             uint_ct c = a + a_shift;
             uint_ct d = b + b_shift;
             uint_ct e = c | d;
@@ -1279,22 +1277,22 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         or_integers(true, false);
         or_integers(true, true);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_not()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto not_integers = [&composer](bool lhs_constant = false, bool = false) {
+        const auto not_integers = [&builder](bool lhs_constant = false, bool = false) {
             uint_native a_val = get_random<uint_native>();
             uint_native const_a = get_random<uint_native>();
             uint_native expected = ~(a_val + const_a);
-            uint_ct a = lhs_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
+            uint_ct a = lhs_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
             uint_ct e = ~c;
             e = e.normalize();
@@ -1309,27 +1307,27 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         not_integers(true, false);
         not_integers(true, true);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_gt()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
         const auto compare_integers =
-            [&composer](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
+            [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
                 uint_native const_a = get_random<uint_native>();
                 uint_native const_b = get_random<uint_native>();
                 uint_native a_val = get_random<uint_native>();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) > static_cast<uint_native>(a_val + const_a);
-                uint_ct a = witness_ct(&composer, a_val);
-                uint_ct b = witness_ct(&composer, b_val);
-                uint_ct a_shift = uint_ct(&composer, const_a);
-                uint_ct b_shift = uint_ct(&composer, const_b);
+                uint_ct a = witness_ct(&builder, a_val);
+                uint_ct b = witness_ct(&builder, b_val);
+                uint_ct a_shift = uint_ct(&builder, const_a);
+                uint_ct b_shift = uint_ct(&builder, const_b);
                 uint_ct c = a + a_shift;
                 uint_ct d = b + b_shift;
                 bool_ct e = d > c;
@@ -1348,28 +1346,28 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);  //      b > a
         compare_integers(true, false, false);  //      b = a
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_lt()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         const auto compare_integers =
-            [&composer](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
+            [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
                 uint_native const_a = get_random<uint_native>();
                 uint_native const_b = get_random<uint_native>();
                 uint_native a_val = get_random<uint_native>();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) < static_cast<uint_native>(a_val + const_a);
-                uint_ct a = witness_ct(&composer, a_val);
-                uint_ct b = witness_ct(&composer, b_val);
-                uint_ct a_shift = uint_ct(&composer, const_a);
-                uint_ct b_shift = uint_ct(&composer, const_b);
+                uint_ct a = witness_ct(&builder, a_val);
+                uint_ct b = witness_ct(&builder, b_val);
+                uint_ct a_shift = uint_ct(&builder, const_a);
+                uint_ct b_shift = uint_ct(&builder, const_b);
                 uint_ct c = a + a_shift;
                 uint_ct d = b + b_shift;
                 bool_ct e = d < c;
@@ -1389,28 +1387,28 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_gte()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         const auto compare_integers =
-            [&composer](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
+            [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
                 uint_native const_a = get_random<uint_native>();
                 uint_native const_b = get_random<uint_native>();
                 uint_native a_val = get_random<uint_native>();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) >= static_cast<uint_native>(a_val + const_a);
-                uint_ct a = witness_ct(&composer, a_val);
-                uint_ct b = witness_ct(&composer, b_val);
-                uint_ct a_shift = uint_ct(&composer, const_a);
-                uint_ct b_shift = uint_ct(&composer, const_b);
+                uint_ct a = witness_ct(&builder, a_val);
+                uint_ct b = witness_ct(&builder, b_val);
+                uint_ct a_shift = uint_ct(&builder, const_a);
+                uint_ct b_shift = uint_ct(&builder, const_b);
                 uint_ct c = a + a_shift;
                 uint_ct d = b + b_shift;
                 bool_ct e = d >= c;
@@ -1429,28 +1427,28 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_lte()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         const auto compare_integers =
-            [&composer](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
+            [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
                 uint_native const_a = get_random<uint_native>();
                 uint_native const_b = get_random<uint_native>();
                 uint_native a_val = get_random<uint_native>();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) <= static_cast<uint_native>(a_val + const_a);
-                uint_ct a = witness_ct(&composer, a_val);
-                uint_ct b = witness_ct(&composer, b_val);
-                uint_ct a_shift = uint_ct(&composer, const_a);
-                uint_ct b_shift = uint_ct(&composer, const_b);
+                uint_ct a = witness_ct(&builder, a_val);
+                uint_ct b = witness_ct(&builder, b_val);
+                uint_ct a_shift = uint_ct(&builder, const_a);
+                uint_ct b_shift = uint_ct(&builder, const_b);
                 uint_ct c = a + a_shift;
                 uint_ct d = b + b_shift;
                 bool_ct e = d <= c;
@@ -1470,28 +1468,28 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_equality_operator()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         const auto compare_integers =
-            [&composer](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
+            [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
                 uint_native const_a = get_random<uint_native>();
                 uint_native const_b = get_random<uint_native>();
                 uint_native a_val = get_random<uint_native>();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) == static_cast<uint_native>(a_val + const_a);
-                uint_ct a = witness_ct(&composer, a_val);
-                uint_ct b = witness_ct(&composer, b_val);
-                uint_ct a_shift = uint_ct(&composer, const_a);
-                uint_ct b_shift = uint_ct(&composer, const_b);
+                uint_ct a = witness_ct(&builder, a_val);
+                uint_ct b = witness_ct(&builder, b_val);
+                uint_ct a_shift = uint_ct(&builder, const_a);
+                uint_ct b_shift = uint_ct(&builder, const_b);
                 uint_ct c = a + a_shift;
                 uint_ct d = b + b_shift;
                 bool_ct e = d == c;
@@ -1511,28 +1509,28 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_not_equality_operator()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
         const auto compare_integers =
-            [&composer](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
+            [&builder](bool force_equal = false, bool force_gt = false, bool force_lt = false) {
                 uint_native const_a = get_random<uint_native>();
                 uint_native const_b = get_random<uint_native>();
                 uint_native a_val = get_random<uint_native>();
                 uint_native b_val = impose_comparison(const_a, const_b, a_val, force_equal, force_gt, force_lt);
 
                 bool expected = static_cast<uint_native>(b_val + const_b) != static_cast<uint_native>(a_val + const_a);
-                uint_ct a = witness_ct(&composer, a_val);
-                uint_ct b = witness_ct(&composer, b_val);
-                uint_ct a_shift = uint_ct(&composer, const_a);
-                uint_ct b_shift = uint_ct(&composer, const_b);
+                uint_ct a = witness_ct(&builder, a_val);
+                uint_ct b = witness_ct(&builder, b_val);
+                uint_ct a_shift = uint_ct(&builder, const_a);
+                uint_ct b_shift = uint_ct(&builder, const_b);
                 uint_ct c = a + a_shift;
                 uint_ct d = b + b_shift;
                 bool_ct e = d != c;
@@ -1552,22 +1550,22 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         compare_integers(false, true, false);
         compare_integers(true, false, false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_logical_not()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto not_integer = [&composer](bool force_zero) {
+        const auto not_integer = [&builder](bool force_zero) {
             uint_native const_a = get_random<uint_native>();
             uint_native a_val = force_zero ? 0 - const_a : get_random<uint_native>();
             bool expected = !static_cast<uint_native>(const_a + a_val);
-            uint_ct a = witness_ct(&composer, a_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
+            uint_ct a = witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
             bool_ct e = !c;
             bool result = bool(e.get_value());
@@ -1580,22 +1578,22 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         not_integer(false);
         not_integer(false);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_right_shift()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto shift_integer = [&composer](const bool is_constant, const uint_native shift) {
+        const auto shift_integer = [&builder](const bool is_constant, const uint_native shift) {
             uint_native const_a = get_random<uint_native>();
             uint_native a_val = get_random<uint_native>();
             uint_native expected = static_cast<uint_native>(a_val + const_a) >> shift;
-            uint_ct a = is_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
             uint_ct d = c >> shift;
             uint_native result = uint_native(d.get_value());
@@ -1608,22 +1606,22 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             shift_integer(true, i);
         }
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_left_shift()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto shift_integer = [&composer](const bool is_constant, const uint_native shift) {
+        const auto shift_integer = [&builder](const bool is_constant, const uint_native shift) {
             uint_native const_a = get_random<uint_native>();
             uint_native a_val = get_random<uint_native>();
             uint_native expected = static_cast<uint_native>((a_val + const_a) << shift);
-            uint_ct a = is_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
             uint_ct d = c << shift;
             uint_native result = uint_native(d.get_value());
@@ -1636,17 +1634,17 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             shift_integer(false, i);
         }
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_ror()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto ror_integer = [&composer](const bool is_constant, const uint_native rotation) {
+        const auto ror_integer = [&builder](const bool is_constant, const uint_native rotation) {
             const auto ror = [](const uint_native in, const uint_native rval) {
                 return rval ? (in >> rval) | (in << (uint_native_width - rval)) : in;
             };
@@ -1654,8 +1652,8 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             uint_native const_a = get_random<uint_native>();
             uint_native a_val = get_random<uint_native>();
             uint_native expected = static_cast<uint_native>(ror(static_cast<uint_native>(const_a + a_val), rotation));
-            uint_ct a = is_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
             uint_ct d = c.ror(rotation);
             uint_native result = uint_native(d.get_value());
@@ -1668,17 +1666,17 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             ror_integer(false, i);
         }
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
     static void test_rol()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto rol_integer = [&composer](const bool is_constant, const uint_native rotation) {
+        const auto rol_integer = [&builder](const bool is_constant, const uint_native rotation) {
             const auto rol = [](const uint_native in, const uint_native rval) {
                 return rval ? (in << rval) | (in >> (uint_native_width - rval)) : in;
             };
@@ -1686,8 +1684,8 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             uint_native const_a = get_random<uint_native>();
             uint_native a_val = get_random<uint_native>();
             uint_native expected = static_cast<uint_native>(rol(static_cast<uint_native>(const_a + a_val), rotation));
-            uint_ct a = is_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
             uint_ct d = c.rol(rotation);
             uint_native result = uint_native(d.get_value());
@@ -1700,9 +1698,9 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             rol_integer(false, i);
         }
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 
@@ -1711,16 +1709,16 @@ template <typename Composer> class stdlib_uint : public testing::Test {
      */
     static void test_at()
     {
-        Composer composer = Composer();
+        Builder builder = Builder();
 
-        const auto bit_test = [&composer](const bool is_constant) {
+        const auto bit_test = [&builder](const bool is_constant) {
             // construct a sum of uint_ct's, where at least one is a constant,
             // and validate its correctness bitwise
             uint_native const_a = get_random<uint_native>();
             uint_native a_val = get_random<uint_native>();
             uint_native c_val = const_a + a_val;
-            uint_ct a = is_constant ? uint_ct(&composer, a_val) : witness_ct(&composer, a_val);
-            uint_ct a_shift = uint_ct(&composer, const_a);
+            uint_ct a = is_constant ? uint_ct(&builder, a_val) : witness_ct(&builder, a_val);
+            uint_ct a_shift = uint_ct(&builder, const_a);
             uint_ct c = a + a_shift;
             for (size_t i = 0; i < uint_native_width; ++i) {
                 bool_ct result = c.at(i);
@@ -1733,17 +1731,14 @@ template <typename Composer> class stdlib_uint : public testing::Test {
         bit_test(false);
         bit_test(true);
 
-        printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("builder gates = %zu\n", builder.get_num_gates());
 
-        bool proof_result = composer.check_circuit();
+        bool proof_result = CircuitChecker::check(builder);
         EXPECT_EQ(proof_result, true);
     }
 };
 
-using CircuitTypes = testing::Types<proof_system::CircuitSimulatorBN254,
-                                    proof_system::StandardCircuitBuilder,
-                                    proof_system::TurboCircuitBuilder,
-                                    proof_system::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 
 TYPED_TEST_SUITE(stdlib_uint, CircuitTypes);
 
@@ -1924,30 +1919,28 @@ TYPED_TEST(stdlib_uint, test_at)
 // There was one plookup-specific test in the ./plookup/uint_plookup.test.cpp
 TEST(stdlib_uint32, test_accumulators_plookup_uint32)
 {
-    using Builder = proof_system::UltraCircuitBuilder;
-    using uint32_ct = proof_system::plonk::stdlib::uint32<Builder>;
-    using witness_ct = proof_system::plonk::stdlib::witness_t<Builder>;
+    using uint32_ct = stdlib::uint32<bb::UltraCircuitBuilder>;
+    using witness_ct = stdlib::witness_t<bb::UltraCircuitBuilder>;
 
-    Builder composer;
+    UltraCircuitBuilder builder;
 
     uint32_t a_val = engine.get_random_uint32();
     uint32_t b_val = engine.get_random_uint32();
-    uint32_ct a = witness_ct(&composer, a_val);
-    uint32_ct b = witness_ct(&composer, b_val);
+    uint32_ct a = witness_ct(&builder, a_val);
+    uint32_ct b = witness_ct(&builder, b_val);
     a = a ^ b;
     uint32_t val = a_val ^ b_val;
     uint32_t MASK = (1U << uint32_ct::bits_per_limb) - 1;
     const auto accumulators = a.get_accumulators();
     for (size_t i = 0; i < uint32_ct::num_accumulators(); ++i) {
-        const uint64_t result = uint256_t(composer.get_variable(accumulators[i])).data[0];
+        const uint64_t result = uint256_t(builder.get_variable(accumulators[i])).data[0];
         const uint64_t expected = val & MASK;
         val = val >> uint32_ct::bits_per_limb;
         EXPECT_EQ(result, expected);
     }
 
-    info("composer gates = ", composer.get_num_gates());
+    info("builder gates = ", builder.get_num_gates());
 
-    bool proof_result = composer.check_circuit();
+    bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
-} // namespace test_stdlib_uint

@@ -1,38 +1,44 @@
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { SiblingPath } from '@aztec/types';
+import { SiblingPath } from '@aztec/circuit-types';
+import { type TreeInsertionStats } from '@aztec/circuit-types/stats';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { type FromBuffer } from '@aztec/foundation/serialize';
+import { Timer } from '@aztec/foundation/timer';
+import { type IndexedTreeLeaf, type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
+import { type Hasher } from '@aztec/types/interfaces';
 
-import { IndexedTree, LeafData } from '../interfaces/indexed_tree.js';
+import {
+  type BatchInsertionResult,
+  type IndexedTree,
+  type LowLeafWitnessData,
+  type PreimageFactory,
+} from '../interfaces/indexed_tree.js';
+import { IndexedTreeSnapshotBuilder } from '../snapshots/indexed_tree_snapshot.js';
+import { type IndexedTreeSnapshot } from '../snapshots/snapshot_builder.js';
 import { TreeBase } from '../tree_base.js';
 
-const log = createDebugLogger('aztec:standard-indexed-tree');
-
-const indexToKeyLeaf = (name: string, index: bigint) => {
-  return `${name}:leaf:${index}`;
+export const buildDbKeyForPreimage = (name: string, index: bigint) => {
+  return `${name}:leaf_by_index:${toBufferBE(index, 32).toString('hex')}` as const;
 };
 
-const zeroLeaf: LeafData = {
-  value: 0n,
-  nextValue: 0n,
-  nextIndex: 0n,
+export const buildDbKeyForLeafIndex = (name: string, key: bigint) => {
+  return `${name}:leaf_index_by_leaf_key:${toBufferBE(key, 32).toString('hex')}` as const;
 };
 
 /**
- * All of the data to be return during batch insertion.
+ * Factory for creating leaves.
  */
-export interface LowLeafWitnessData<N extends number> {
+export interface LeafFactory {
   /**
-   * Preimage of the low nullifier that proves non membership.
+   * Creates a new leaf from a buffer.
+   * @param key - Key of the leaf.
    */
-  leafData: LeafData;
+  buildDummy(key: bigint): IndexedTreeLeaf;
   /**
-   * Sibling path to prove membership of low nullifier.
+   * Creates a new leaf from a buffer.
+   * @param buffer - Buffer to create a leaf from.
    */
-  siblingPath: SiblingPath<N>;
-  /**
-   * The index of low nullifier.
-   */
-  index: bigint;
+  fromBuffer(buffer: Buffer): IndexedTreeLeaf;
 }
 
 /**
@@ -40,39 +46,45 @@ export interface LowLeafWitnessData<N extends number> {
  * @param treeHeight - Height of tree for sibling path.
  * @returns An empty witness.
  */
-function getEmptyLowLeafWitness<N extends number>(treeHeight: N): LowLeafWitnessData<N> {
+function getEmptyLowLeafWitness<N extends number>(
+  treeHeight: N,
+  leafPreimageFactory: PreimageFactory,
+): LowLeafWitnessData<N> {
   return {
-    leafData: zeroLeaf,
+    leafPreimage: leafPreimageFactory.empty(),
     index: 0n,
     siblingPath: new SiblingPath(treeHeight, Array(treeHeight).fill(toBufferBE(0n, 32))),
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const encodeTreeValue = (leafData: LeafData) => {
-  const valueAsBuffer = toBufferBE(leafData.value, 32);
-  const indexAsBuffer = toBufferBE(leafData.nextIndex, 32);
-  const nextValueAsBuffer = toBufferBE(leafData.nextValue, 32);
-  return Buffer.concat([valueAsBuffer, indexAsBuffer, nextValueAsBuffer]);
-};
-
-const decodeTreeValue = (buf: Buffer) => {
-  const value = toBigIntBE(buf.subarray(0, 32));
-  const nextIndex = toBigIntBE(buf.subarray(32, 64));
-  const nextValue = toBigIntBE(buf.subarray(64, 96));
-  return {
-    value,
-    nextIndex,
-    nextValue,
-  } as LeafData;
+export const noopDeserializer: FromBuffer<Buffer> = {
+  fromBuffer: (buf: Buffer) => buf,
 };
 
 /**
- * Indexed merkle tree.
+ * Standard implementation of an indexed tree.
  */
-export class StandardIndexedTree extends TreeBase implements IndexedTree {
-  protected leaves: LeafData[] = [];
-  protected cachedLeaves: { [key: number]: LeafData } = {};
+export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree {
+  #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.store, this, this.leafPreimageFactory);
+
+  protected cachedLeafPreimages: { [key: string]: IndexedTreeLeafPreimage } = {};
+  protected leaves: AztecMap<ReturnType<typeof buildDbKeyForPreimage>, Buffer>;
+  protected leafIndex: AztecMap<ReturnType<typeof buildDbKeyForLeafIndex>, bigint>;
+
+  public constructor(
+    store: AztecKVStore,
+    hasher: Hasher,
+    name: string,
+    depth: number,
+    size: bigint = 0n,
+    protected leafPreimageFactory: PreimageFactory,
+    protected leafFactory: LeafFactory,
+    root?: Buffer,
+  ) {
+    super(store, hasher, name, depth, size, noopDeserializer, root);
+    this.leaves = store.openMap(`tree_${name}_leaves`);
+    this.leafIndex = store.openMap(`tree_${name}_leaf_index`);
+  }
 
   /**
    * Appends the given leaves to the tree.
@@ -80,7 +92,7 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @returns Empty promise.
    * @remarks Use batchInsert method instead.
    */
-  public appendLeaves(_leaves: Buffer[]): Promise<void> {
+  appendLeaves(_leaves: Buffer[]): Promise<void> {
     throw new Error('Not implemented');
   }
 
@@ -108,86 +120,132 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * @param includeUncommitted - Indicates whether to include uncommitted leaves in the computation.
    * @returns The value of the leaf at the given index or undefined if the leaf is empty.
    */
-  public getLeafValue(index: bigint, includeUncommitted: boolean): Promise<Buffer | undefined> {
-    const leaf = this.getLatestLeafDataCopy(Number(index), includeUncommitted);
-    if (!leaf) return Promise.resolve(undefined);
-    return Promise.resolve(toBufferBE(leaf.value, 32));
+  public getLeafValue(index: bigint, includeUncommitted: boolean): Buffer | undefined {
+    const preimage = this.getLatestLeafPreimageCopy(index, includeUncommitted);
+    return preimage && preimage.toBuffer();
   }
 
   /**
    * Finds the index of the largest leaf whose value is less than or equal to the provided value.
-   * @param newValue - The new value to be inserted into the tree.
+   * @param newKey - The new key to be inserted into the tree.
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
    * @returns The found leaf index and a flag indicating if the corresponding leaf's value is equal to `newValue`.
    */
-  findIndexOfPreviousValue(
-    newValue: bigint,
+  findIndexOfPreviousKey(
+    newKey: bigint,
     includeUncommitted: boolean,
-  ): {
-    /**
-     * The index of the found leaf.
-     */
-    index: number;
-    /**
-     * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-     */
-    alreadyPresent: boolean;
-  } {
-    const numLeaves = this.getNumLeaves(includeUncommitted);
-    const diff: bigint[] = [];
+  ):
+    | {
+        /**
+         * The index of the found leaf.
+         */
+        index: bigint;
+        /**
+         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
+         */
+        alreadyPresent: boolean;
+      }
+    | undefined {
+    let lowLeafIndex = this.getDbLowLeafIndex(newKey);
+    let lowLeafPreimage = lowLeafIndex !== undefined ? this.getDbPreimage(lowLeafIndex) : undefined;
 
-    for (let i = 0; i < numLeaves; i++) {
-      const storedLeaf = this.getLatestLeafDataCopy(i, includeUncommitted)!;
-
-      // The stored leaf can be undefined if it addresses an empty leaf
-      // If the leaf is empty we do the same as if the leaf was larger
-      if (storedLeaf === undefined) {
-        diff.push(newValue);
-      } else if (storedLeaf.value > newValue) {
-        diff.push(newValue);
-      } else if (storedLeaf.value === newValue) {
-        return { index: i, alreadyPresent: true };
-      } else {
-        diff.push(newValue - storedLeaf.value);
+    if (includeUncommitted) {
+      const cachedLowLeafIndex = this.getCachedLowLeafIndex(newKey);
+      if (cachedLowLeafIndex !== undefined) {
+        const cachedLowLeafPreimage = this.getCachedPreimage(cachedLowLeafIndex)!;
+        if (!lowLeafPreimage || cachedLowLeafPreimage.getKey() > lowLeafPreimage.getKey()) {
+          lowLeafIndex = cachedLowLeafIndex;
+          lowLeafPreimage = cachedLowLeafPreimage;
+        }
       }
     }
-    const minIndex = this.findMinIndex(diff);
-    return { index: minIndex, alreadyPresent: false };
+
+    if (lowLeafIndex === undefined || !lowLeafPreimage) {
+      return undefined;
+    }
+
+    return {
+      index: lowLeafIndex,
+      alreadyPresent: lowLeafPreimage.getKey() === newKey,
+    };
+  }
+
+  private getCachedLowLeafIndex(key: bigint): bigint | undefined {
+    const indexes = Object.getOwnPropertyNames(this.cachedLeafPreimages);
+    const lowLeafIndexes = indexes
+      .map(index => ({
+        index: BigInt(index),
+        key: this.cachedLeafPreimages[index].getKey(),
+      }))
+      .filter(({ key: candidateKey }) => candidateKey <= key)
+      .sort((a, b) => Number(b.key - a.key));
+    return lowLeafIndexes[0]?.index;
+  }
+
+  private getCachedLeafIndex(key: bigint): bigint | undefined {
+    const index = Object.keys(this.cachedLeafPreimages).find(index => {
+      return this.cachedLeafPreimages[index].getKey() === key;
+    });
+    if (index) {
+      return BigInt(index);
+    }
+    return undefined;
+  }
+
+  private getDbLowLeafIndex(key: bigint): bigint | undefined {
+    const values = Array.from(
+      this.leafIndex.values({
+        end: buildDbKeyForLeafIndex(this.getName(), key),
+        limit: 1,
+        reverse: true,
+      }),
+    );
+
+    return values[0];
+  }
+
+  private getDbPreimage(index: bigint): IndexedTreeLeafPreimage | undefined {
+    const value = this.leaves.get(buildDbKeyForPreimage(this.getName(), index));
+    return value ? this.leafPreimageFactory.fromBuffer(value) : undefined;
+  }
+
+  private getCachedPreimage(index: bigint): IndexedTreeLeafPreimage | undefined {
+    return this.cachedLeafPreimages[index.toString()];
   }
 
   /**
-   * Gets the latest LeafData copy.
-   * @param index - Index of the leaf of which to obtain the LeafData copy.
+   * Gets the latest LeafPreimage copy.
+   * @param index - Index of the leaf of which to obtain the LeafPreimage copy.
    * @param includeUncommitted - If true, the uncommitted changes are included in the search.
-   * @returns A copy of the leaf data at the given index or undefined if the leaf was not found.
+   * @returns A copy of the leaf preimage at the given index or undefined if the leaf was not found.
    */
-  public getLatestLeafDataCopy(index: number, includeUncommitted: boolean): LeafData | undefined {
-    const leaf = !includeUncommitted ? this.leaves[index] : this.cachedLeaves[index] ?? this.leaves[index];
-    return leaf
-      ? ({
-          value: leaf.value,
-          nextIndex: leaf.nextIndex,
-          nextValue: leaf.nextValue,
-        } as LeafData)
-      : undefined;
+  public getLatestLeafPreimageCopy(index: bigint, includeUncommitted: boolean): IndexedTreeLeafPreimage | undefined {
+    const preimage = !includeUncommitted
+      ? this.getDbPreimage(index)
+      : this.getCachedPreimage(index) ?? this.getDbPreimage(index);
+    return preimage && this.leafPreimageFactory.clone(preimage);
   }
 
   /**
-   * Finds the index of the minimum value in an array.
-   * @param values - The collection of values to be searched.
-   * @returns The index of the minimum value in the array.
+   * Returns the index of a leaf given its value, or undefined if no leaf with that value is found.
+   * @param value - The leaf value to look for.
+   * @param includeUncommitted - Indicates whether to include uncommitted data.
+   * @returns The index of the first leaf found with a given value (undefined if not found).
    */
-  private findMinIndex(values: bigint[]) {
-    if (!values.length) {
-      return 0;
+  public findLeafIndex(value: Buffer, includeUncommitted: boolean): bigint | undefined {
+    const leaf = this.leafFactory.fromBuffer(value);
+    let index = this.leafIndex.get(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()));
+
+    if (includeUncommitted && index === undefined) {
+      const cachedIndex = this.getCachedLeafIndex(leaf.getKey());
+      index = cachedIndex;
     }
-    let minIndex = 0;
-    for (let i = 1; i < values.length; i++) {
-      if (values[minIndex] > values[i]) {
-        minIndex = i;
-      }
-    }
-    return minIndex;
+
+    return index;
+  }
+
+  public findLeafIndexAfter(_leaf: Buffer, _startIndex: bigint, _includeUncommitted: boolean): bigint | undefined {
+    throw new Error('Method not implemented for indexed trees');
   }
 
   /**
@@ -209,90 +267,56 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
       throw new Error(`Prefilled size must be at least 1!`);
     }
 
-    const leaves: LeafData[] = [];
+    const leaves: IndexedTreeLeafPreimage[] = [];
     for (let i = 0n; i < prefilledSize; i++) {
-      const newLeaf = {
-        value: toBigIntBE(Buffer.from([Number(i)])),
-        nextIndex: i + 1n,
-        nextValue: i + 1n,
-      };
-      leaves.push(newLeaf);
+      const newLeaf = this.leafFactory.buildDummy(i);
+      const newLeafPreimage = this.leafPreimageFactory.fromLeaf(newLeaf, i + 1n, i + 1n);
+      leaves.push(newLeafPreimage);
     }
 
-    // Make the first leaf have 0 value
-    leaves[0].value = 0n;
-
     // Make the last leaf point to the first leaf
-    leaves[prefilledSize - 1].nextIndex = 0n;
-    leaves[prefilledSize - 1].nextValue = 0n;
+    leaves[prefilledSize - 1] = this.leafPreimageFactory.fromLeaf(leaves[prefilledSize - 1].asLeaf(), 0n, 0n);
 
-    await this.encodeAndAppendLeaves(leaves, true);
+    this.encodeAndAppendLeaves(leaves, true);
     await this.commit();
-  }
-
-  /**
-   * Loads Merkle tree data from a database and assigns them to this object.
-   */
-  public async initFromDb(): Promise<void> {
-    const startingIndex = 0n;
-    const values: LeafData[] = [];
-    const promise = new Promise<void>((resolve, reject) => {
-      this.db
-        .createReadStream({
-          gte: indexToKeyLeaf(this.getName(), startingIndex),
-          lte: indexToKeyLeaf(this.getName(), 2n ** BigInt(this.getDepth())),
-        })
-        .on('data', function (data) {
-          const index = Number(data.key);
-          values[index] = decodeTreeValue(data.value);
-        })
-        .on('close', function () {})
-        .on('end', function () {
-          resolve();
-        })
-        .on('error', function () {
-          log.error('stream error');
-          reject();
-        });
-    });
-    await promise;
-    this.leaves = values;
   }
 
   /**
    * Commits all the leaves to the database and removes them from a cache.
    */
-  private async commitLeaves(): Promise<void> {
-    const batch = this.db.batch();
-    const keys = Object.getOwnPropertyNames(this.cachedLeaves);
-    for (const key of keys) {
-      const index = Number(key);
-      batch.put(key, this.cachedLeaves[index]);
-      this.leaves[index] = this.cachedLeaves[index];
-    }
-    await batch.write();
-    this.clearCachedLeaves();
+  private commitLeaves(): Promise<void> {
+    return this.store.transaction(() => {
+      const keys = Object.getOwnPropertyNames(this.cachedLeafPreimages);
+      for (const key of keys) {
+        const leaf = this.cachedLeafPreimages[key];
+        const index = BigInt(key);
+        void this.leaves.set(buildDbKeyForPreimage(this.getName(), index), leaf.toBuffer());
+        void this.leafIndex.set(buildDbKeyForLeafIndex(this.getName(), leaf.getKey()), index);
+      }
+      this.clearCachedLeaves();
+    });
   }
 
   /**
    * Clears the cache.
    */
   private clearCachedLeaves() {
-    this.cachedLeaves = {};
+    this.cachedLeafPreimages = {};
   }
 
   /**
    * Updates a leaf in the tree.
-   * @param leaf - New contents of the leaf.
+   * @param preimage - New contents of the leaf.
    * @param index - Index of the leaf to be updated.
    */
-  protected async updateLeaf(leaf: LeafData, index: bigint) {
+  protected updateLeaf(preimage: IndexedTreeLeafPreimage, index: bigint) {
     if (index > this.maxIndex) {
       throw Error(`Index out of bounds. Index ${index}, max index: ${this.maxIndex}.`);
     }
 
-    const encodedLeaf = this.encodeLeaf(leaf, true);
-    await this.addLeafToCacheAndHashToRoot(encodedLeaf, index);
+    this.cachedLeafPreimages[index.toString()] = preimage;
+    const encodedLeaf = this.encodeLeaf(preimage, true);
+    this.addLeafToCacheAndHashToRoot(encodedLeaf, index);
     const numLeaves = this.getNumLeaves(true);
     if (index >= numLeaves) {
       this.cachedSize = index + 1n;
@@ -309,8 +333,6 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * allow the circuit to incrementally update the tree and perform a batch insertion.
    *
    * This offers massive circuit performance savings over doing incremental insertions.
-   *
-   * A description of the algorithm can be found here: https://colab.research.google.com/drive/1A0gizduSi4FIiIJZ8OylwIpO9-OTqV-R
    *
    * WARNING: This function has side effects, it will insert values into the tree.
    *
@@ -331,83 +353,114 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    * roots.
    *
    * This become tricky when two items that are being batch inserted need to update the same low nullifier, or need to use
-   * a value that is part of the same batch insertion as their low nullifier. In this case a zero low nullifier path is given
-   * to the circuit, and it must determine from the set of batch inserted values if the insertion is valid.
+   * a value that is part of the same batch insertion as their low nullifier. What we do to avoid this case is to
+   * update the existing leaves in the tree with the nullifiers in high to low order, ensuring that this case never occurs.
+   * The circuit has to sort the nullifiers (or take a hint of the sorted nullifiers and prove that it's a valid permutation).
+   * Then we just batch insert the new nullifiers in the original order.
    *
    * The following example will illustrate attempting to insert 2,3,20,19 into a tree already containing 0,5,10,15
    *
    * The example will explore two cases. In each case the values low nullifier will exist within the batch insertion,
    * One where the low nullifier comes before the item in the set (2,3), and one where it comes after (20,19).
    *
+   * First, we sort the nullifiers high to low, that's 20,19,3,2
+   *
    * The original tree:                       Pending insertion subtree
    *
-   *  index     0       2       3       4         -       -       -       -
+   *  index     0       1       2       3         -       -       -       -
    *  -------------------------------------      ----------------------------
    *  val       0       5      10      15         -       -       -       -
    *  nextIdx   1       2       3       0         -       -       -       -
    *  nextVal   5      10      15       0         -       -       -       -
    *
    *
-   * Inserting 2: (happy path)
+   * Inserting 20:
+   * 1. Find the low nullifier (3) - provide inclusion proof
+   * 2. Update its pointers
+   * 3. Insert 20 into the pending subtree
+   *
+   *  index     0       1       2       3         -       -       6       -
+   *  -------------------------------------      ----------------------------
+   *  val       0       5      10      15         -       -      20       -
+   *  nextIdx   1       2       3       6         -       -       0       -
+   *  nextVal   5      10      15      20         -       -       0       -
+   *
+   * Inserting 19:
+   * 1. Find the low nullifier (3) - provide inclusion proof
+   * 2. Update its pointers
+   * 3. Insert 19 into the pending subtree
+   *
+   *  index     0       1       2       3         -       -       6       7
+   *  -------------------------------------      ----------------------------
+   *  val       0       5      10      15         -       -      20      19
+   *  nextIdx   1       2       3       7         -       -       0       6
+   *  nextVal   5      10      15      19         -       -       0      20
+   *
+   * Inserting 3:
+   * 1. Find the low nullifier (0) - provide inclusion proof
+   * 2. Update its pointers
+   * 3. Insert 3 into the pending subtree
+   *
+   *  index     0       1       2       3         -       5       6       7
+   *  -------------------------------------      ----------------------------
+   *  val       0       5      10      15         -       3      20      19
+   *  nextIdx   5       2       3       7         -       1       0       6
+   *  nextVal   3      10      15      19         -       5       0      20
+   *
+   * Inserting 2:
    * 1. Find the low nullifier (0) - provide inclusion proof
    * 2. Update its pointers
    * 3. Insert 2 into the pending subtree
    *
-   *  index     0       2       3       4         5       -       -       -
+   *  index     0       1       2       3         4       5       6       7
    *  -------------------------------------      ----------------------------
-   *  val       0       5      10      15         2       -       -       -
-   *  nextIdx   5       2       3       0         2       -       -       -
-   *  nextVal   2      10      15       0         5       -       -       -
-   *
-   * Inserting 3: The low nullifier exists within the insertion current subtree
-   * 1. When looking for the low nullifier for 3, we will receive 0 again as we have not inserted 2 into the main tree
-   *    This is problematic, as we cannot use either 0 or 2 as our inclusion proof.
-   *    Why cant we?
-   *      - Index 0 has a val 0 and nextVal of 2. This is NOT enough to prove non inclusion of 2.
-   *      - Our existing tree is in a state where we cannot prove non inclusion of 3.
-   *    We do not provide a non inclusion proof to out circuit, but prompt it to look within the insertion subtree.
-   * 2. Update pending insertion subtree
-   * 3. Insert 3 into pending subtree
-   *
-   * (no inclusion proof provided)
-   *  index     0       2       3       4         5       6       -       -
-   *  -------------------------------------      ----------------------------
-   *  val       0       5      10      15         2       3       -       -
-   *  nextIdx   5       2       3       0         6       2       -       -
-   *  nextVal   2      10      15       0         3       5       -       -
-   *
-   * Inserting 20: (happy path)
-   * 1. Find the low nullifier (15) - provide inclusion proof
-   * 2. Update its pointers
-   * 3. Insert 20 into the pending subtree
-   *
-   *  index     0       2       3       4         5       6       7       -
-   *  -------------------------------------      ----------------------------
-   *  val       0       5      10      15         2       3      20       -
-   *  nextIdx   5       2       3       7         6       2       0       -
-   *  nextVal   2      10      15      20         3       5       0       -
-   *
-   * Inserting 19:
-   * 1. In this case we can find a low nullifier, but we are updating a low nullifier that has already been updated
-   *    We can provide an inclusion proof of this intermediate tree state.
-   * 2. Update its pointers
-   * 3. Insert 19 into the pending subtree
-   *
-   *  index     0       2       3       4         5       6       7       8
-   *  -------------------------------------      ----------------------------
-   *  val       0       5      10      15         2       3      20       19
-   *  nextIdx   5       2       3       8         6       2       0       7
-   *  nextVal   2      10      15      19         3       5       0       20
+   *  val       0       5      10      15         2       3      20      19
+   *  nextIdx   4       2       3       7         5       1       0       6
+   *  nextVal   2      10      15      19         3       5       0      20
    *
    * Perform subtree insertion
    *
-   *  index     0       2       3       4       5       6       7       8
+   *  index     0       1       2       3       4       5       6       7
    *  ---------------------------------------------------------------------
-   *  val       0       5      10      15       2       3      20       19
-   *  nextIdx   5       2       3       8       6       2       0       7
-   *  nextVal   2      10      15      19       3       5       0       20
+   *  val       0       5      10      15       2       3      20      19
+   *  nextIdx   4       2       3       7       5       1       0       6
+   *  nextVal   2      10      15      19       3       5       0      20
    *
-   * TODO: this implementation will change once the zero value is changed from h(0,0,0). Changes incoming over the next sprint
+   * For leaves that allow updating the process is exactly the same. When a leaf is inserted that is already present,
+   * the low leaf will be the leaf that is being updated, and it'll get updated and an empty leaf will be inserted instead.
+   * For example:
+   *
+   * Initial state:
+   *
+   *  index     0       1       2       3        4       5       6       7
+   *  ---------------------------------------------------------------------
+   *  slot      0       0       0       0        0       0       0       0
+   *  value     0       0       0       0        0       0       0       0
+   *  nextIdx   0       0       0       0        0       0       0       0
+   *  nextSlot  0       0       0       0        0       0       0       0.
+   *
+   *
+   *  Add new value 30:5:
+   *
+   *  index     0       1       2       3        4       5       6       7
+   *  ---------------------------------------------------------------------
+   *  slot      0       30      0       0        0       0       0       0
+   *  value     0       5       0       0        0       0       0       0
+   *  nextIdx   1       0       0       0        0       0       0       0
+   *  nextSlot  30      0       0       0        0       0       0       0.
+   *
+   *
+   *  Update the value of 30 to 10 (insert 30:10):
+   *
+   *  index     0       1       2       3        4       5       6       7
+   *  ---------------------------------------------------------------------
+   *  slot      0       30      0       0        0       0       0       0
+   *  value     0       10      0       0        0       0       0       0
+   *  nextIdx   1       0       0       0        0       0       0       0
+   *  nextSlot  30      0       0       0        0       0       0       0.
+   *
+   *  The low leaf is 30, so we update it to 10, and insert an empty leaf at index 2.
+   *
    * @param leaves - Values to insert into the tree.
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
@@ -419,104 +472,92 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
   >(
     leaves: Buffer[],
     subtreeHeight: SubtreeHeight,
-  ): Promise<
-    | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
-    | [undefined, SiblingPath<SubtreeSiblingPathHeight>]
-  > {
-    // Keep track of touched low leaves
-    const touched = new Map<number, bigint[]>();
-
-    const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight);
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+    this.hasher.reset();
+    const timer = new Timer();
+    const insertedKeys = new Map<bigint, boolean>();
+    const emptyLowLeafWitness = getEmptyLowLeafWitness(this.getDepth() as TreeHeight, this.leafPreimageFactory);
     // Accumulators
-    const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = [];
-    const pendingInsertionSubtree: LeafData[] = [];
+    const lowLeavesWitnesses: LowLeafWitnessData<TreeHeight>[] = leaves.map(() => emptyLowLeafWitness);
+    const pendingInsertionSubtree: IndexedTreeLeafPreimage[] = leaves.map(() => this.leafPreimageFactory.empty());
 
     // Start info
     const startInsertionIndex = this.getNumLeaves(true);
 
-    // Get insertion path for each leaf
-    for (let i = 0; i < leaves.length; i++) {
-      const newValue = toBigIntBE(leaves[i]);
+    const leavesToInsert = leaves.map(leaf => this.leafFactory.fromBuffer(leaf));
+    const sortedDescendingLeafTuples = leavesToInsert
+      .map((leaf, index) => ({ leaf, index }))
+      .sort((a, b) => Number(b.leaf.getKey() - a.leaf.getKey()));
+    const sortedDescendingLeaves = sortedDescendingLeafTuples.map(leafTuple => leafTuple.leaf);
 
-      // Keep space and just insert zero values
-      if (newValue === 0n) {
-        pendingInsertionSubtree.push(zeroLeaf);
-        lowLeavesWitnesses.push(emptyLowLeafWitness);
+    // Get insertion path for each leaf
+    for (let i = 0; i < leavesToInsert.length; i++) {
+      const newLeaf = sortedDescendingLeaves[i];
+      const originalIndex = leavesToInsert.indexOf(newLeaf);
+
+      if (newLeaf.isEmpty()) {
         continue;
       }
 
-      const indexOfPrevious = this.findIndexOfPreviousValue(newValue, true);
-
-      // If a touched node has a value that is less than the current value
-      const prevNodes = touched.get(indexOfPrevious.index);
-      if (prevNodes && prevNodes.some(v => v < newValue)) {
-        // check the pending low nullifiers for a low nullifier that works
-        // This is the case where the next value is less than the pending
-        for (let j = 0; j < pendingInsertionSubtree.length; j++) {
-          if (pendingInsertionSubtree[j].value === 0n) continue;
-
-          if (
-            pendingInsertionSubtree[j].value < newValue &&
-            (pendingInsertionSubtree[j].nextValue > newValue || pendingInsertionSubtree[j].nextValue === 0n)
-          ) {
-            // add the new value to the pending low nullifiers
-            const currentLowLeaf: LeafData = {
-              value: newValue,
-              nextValue: pendingInsertionSubtree[j].nextValue,
-              nextIndex: pendingInsertionSubtree[j].nextIndex,
-            };
-
-            pendingInsertionSubtree.push(currentLowLeaf);
-
-            // Update the pending low leaf to point at the new value
-            pendingInsertionSubtree[j].nextValue = newValue;
-            pendingInsertionSubtree[j].nextIndex = startInsertionIndex + BigInt(i);
-
-            break;
-          }
-        }
-
-        // Any node updated in this space will need to calculate its low nullifier from a previously inserted value
-        lowLeavesWitnesses.push(emptyLowLeafWitness);
+      if (insertedKeys.has(newLeaf.getKey())) {
+        throw new Error('Cannot insert duplicated keys in the same batch');
       } else {
-        // Update the touched mapping
-        if (prevNodes) {
-          prevNodes.push(newValue);
-          touched.set(indexOfPrevious.index, prevNodes);
-        } else {
-          touched.set(indexOfPrevious.index, [newValue]);
-        }
+        insertedKeys.set(newLeaf.getKey(), true);
+      }
 
-        // get the low leaf
-        const lowLeaf = this.getLatestLeafDataCopy(indexOfPrevious.index, true);
-        if (lowLeaf === undefined) {
-          return [undefined, await this.getSubtreeSiblingPath(subtreeHeight, true)];
-        }
-        const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
-
-        const witness: LowLeafWitnessData<TreeHeight> = {
-          leafData: { ...lowLeaf },
-          index: BigInt(indexOfPrevious.index),
-          siblingPath,
+      const indexOfPrevious = this.findIndexOfPreviousKey(newLeaf.getKey(), true);
+      if (indexOfPrevious === undefined) {
+        return {
+          lowLeavesWitnessData: undefined,
+          sortedNewLeaves: sortedDescendingLeafTuples.map(leafTuple => leafTuple.leaf.toBuffer()),
+          sortedNewLeavesIndexes: sortedDescendingLeafTuples.map(leafTuple => leafTuple.index),
+          newSubtreeSiblingPath: await this.getSubtreeSiblingPath(subtreeHeight, true),
         };
+      }
 
-        // Update the running paths
-        lowLeavesWitnesses.push(witness);
+      const isUpdate = indexOfPrevious.alreadyPresent;
 
-        const currentLowLeaf: LeafData = {
-          value: newValue,
-          nextValue: lowLeaf.nextValue,
-          nextIndex: lowLeaf.nextIndex,
-        };
+      // get the low leaf (existence checked in getting index)
+      const lowLeafPreimage = this.getLatestLeafPreimageCopy(indexOfPrevious.index, true)!;
+      const siblingPath = await this.getSiblingPath<TreeHeight>(BigInt(indexOfPrevious.index), true);
 
-        pendingInsertionSubtree.push(currentLowLeaf);
+      const witness: LowLeafWitnessData<TreeHeight> = {
+        leafPreimage: lowLeafPreimage,
+        index: BigInt(indexOfPrevious.index),
+        siblingPath,
+      };
 
-        lowLeaf.nextValue = newValue;
-        lowLeaf.nextIndex = startInsertionIndex + BigInt(i);
+      // Update the running paths
+      lowLeavesWitnesses[i] = witness;
 
-        const lowLeafIndex = indexOfPrevious.index;
-        this.cachedLeaves[lowLeafIndex] = lowLeaf;
-        await this.updateLeaf(lowLeaf, BigInt(lowLeafIndex));
+      if (isUpdate) {
+        const newLowLeaf = lowLeafPreimage.asLeaf().updateTo(newLeaf);
+
+        const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+          newLowLeaf,
+          lowLeafPreimage.getNextKey(),
+          lowLeafPreimage.getNextIndex(),
+        );
+
+        this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
+
+        pendingInsertionSubtree[originalIndex] = this.leafPreimageFactory.empty();
+      } else {
+        const newLowLeafPreimage = this.leafPreimageFactory.fromLeaf(
+          lowLeafPreimage.asLeaf(),
+          newLeaf.getKey(),
+          startInsertionIndex + BigInt(originalIndex),
+        );
+
+        this.updateLeaf(newLowLeafPreimage, indexOfPrevious.index);
+
+        const currentPendingPreimageLeaf = this.leafPreimageFactory.fromLeaf(
+          newLeaf,
+          lowLeafPreimage.getNextKey(),
+          lowLeafPreimage.getNextIndex(),
+        );
+
+        pendingInsertionSubtree[originalIndex] = currentPendingPreimageLeaf;
       }
     }
 
@@ -528,8 +569,24 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     // Perform batch insertion of new pending values
     // Note: In this case we set `hash0Leaf` param to false because batch insertion algorithm use forced null leaf
     // inclusion. See {@link encodeLeaf} for  a more through param explanation.
-    await this.encodeAndAppendLeaves(pendingInsertionSubtree, false);
-    return [lowLeavesWitnesses, newSubtreeSiblingPath];
+    this.encodeAndAppendLeaves(pendingInsertionSubtree, false);
+
+    this.log.debug(`Inserted ${leaves.length} leaves into ${this.getName()} tree`, {
+      eventName: 'tree-insertion',
+      duration: timer.ms(),
+      batchSize: leaves.length,
+      treeName: this.getName(),
+      treeDepth: this.getDepth(),
+      treeType: 'indexed',
+      ...this.hasher.stats(),
+    } satisfies TreeInsertionStats);
+
+    return {
+      lowLeavesWitnessData: lowLeavesWitnesses,
+      sortedNewLeaves: sortedDescendingLeafTuples.map(leafTuple => leafTuple.leaf.toBuffer()),
+      sortedNewLeavesIndexes: sortedDescendingLeafTuples.map(leafTuple => leafTuple.index),
+      newSubtreeSiblingPath,
+    };
   }
 
   async getSubtreeSiblingPath<SubtreeHeight extends number, SubtreeSiblingPathHeight extends number>(
@@ -543,21 +600,29 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
     return fullSiblingPath.getSubtreeSiblingPath(subtreeHeight);
   }
 
+  snapshot(blockNumber: number): Promise<IndexedTreeSnapshot> {
+    return this.#snapshotBuilder.snapshot(blockNumber);
+  }
+
+  getSnapshot(blockNumber: number): Promise<IndexedTreeSnapshot> {
+    return this.#snapshotBuilder.getSnapshot(blockNumber);
+  }
+
   /**
    * Encodes leaves and appends them to a tree.
-   * @param leaves - Leaves to encode.
+   * @param preimages - Leaves to encode.
    * @param hash0Leaf - Indicates whether 0 value leaf should be hashed. See {@link encodeLeaf}.
    * @returns Empty promise
    */
-  private async encodeAndAppendLeaves(leaves: LeafData[], hash0Leaf: boolean): Promise<void> {
-    const startInsertionIndex = Number(this.getNumLeaves(true));
+  private encodeAndAppendLeaves(preimages: IndexedTreeLeafPreimage[], hash0Leaf: boolean): void {
+    const startInsertionIndex = this.getNumLeaves(true);
 
-    const serialisedLeaves = leaves.map((leaf, i) => {
-      this.cachedLeaves[startInsertionIndex + i] = leaf;
-      return this.encodeLeaf(leaf, hash0Leaf);
+    const hashedLeaves = preimages.map((preimage, i) => {
+      this.cachedLeafPreimages[(startInsertionIndex + BigInt(i)).toString()] = preimage;
+      return this.encodeLeaf(preimage, hash0Leaf);
     });
 
-    await super.appendLeaves(serialisedLeaves);
+    super.appendLeaves(hashedLeaves);
   }
 
   /**
@@ -568,14 +633,12 @@ export class StandardIndexedTree extends TreeBase implements IndexedTree {
    *                    nullifier it is improbable that a valid nullifier would be 0.
    * @returns Leaf encoded in a buffer.
    */
-  private encodeLeaf(leaf: LeafData, hash0Leaf: boolean): Buffer {
+  private encodeLeaf(leaf: IndexedTreeLeafPreimage, hash0Leaf: boolean): Buffer {
     let encodedLeaf;
-    if (!hash0Leaf && leaf.value == 0n) {
+    if (!hash0Leaf && leaf.getKey() == 0n) {
       encodedLeaf = toBufferBE(0n, 32);
     } else {
-      encodedLeaf = this.hasher.compressInputs(
-        [leaf.value, leaf.nextIndex, leaf.nextValue].map(val => toBufferBE(val, 32)),
-      );
+      encodedLeaf = this.hasher.hashInputs(leaf.toHashInputs());
     }
     return encodedLeaf;
   }

@@ -15,7 +15,17 @@ struct PedersenConstraint {
     friend bool operator==(PedersenConstraint const& lhs, PedersenConstraint const& rhs) = default;
 };
 
-void create_pedersen_constraint(Builder& builder, const PedersenConstraint& input);
+struct PedersenHashConstraint {
+    std::vector<uint32_t> scalars;
+    uint32_t hash_index;
+
+    uint32_t result;
+
+    friend bool operator==(PedersenHashConstraint const& lhs, PedersenHashConstraint const& rhs) = default;
+};
+
+template <typename Builder> void create_pedersen_constraint(Builder& builder, const PedersenConstraint& input);
+template <typename Builder> void create_pedersen_hash_constraint(Builder& builder, const PedersenHashConstraint& input);
 
 template <typename B> inline void read(B& buf, PedersenConstraint& constraint)
 {

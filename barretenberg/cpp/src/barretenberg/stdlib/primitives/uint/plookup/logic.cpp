@@ -1,39 +1,38 @@
 #include "../../circuit_builders/circuit_builders.hpp"
 #include "uint.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-using namespace plookup;
+using namespace bb::plookup;
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator&(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator&(const uint_plookup& other) const
 {
     return logic_operator(other, LogicOp::AND);
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator^(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator^(const uint_plookup& other) const
 {
     return logic_operator(other, LogicOp::XOR);
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator|(const uint_plookup& other) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator|(const uint_plookup& other) const
 {
     return (*this + other) - (*this & other);
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator~() const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator~() const
 {
     return uint_plookup(context, MASK) - *this;
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator>>(const size_t shift) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator>>(const size_t shift) const
 {
     if (shift >= width) {
         return uint_plookup(context, 0);
@@ -75,27 +74,27 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator>>(const 
         context->create_new_range_constraint(slice_lo_idx, (1ULL << slice_bit_position) - 1);
     }
     context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_hi_limb - slice_bit_position)) - 1);
-    std::vector<field_t<Composer>> sublimbs;
-    sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, slice_hi_idx));
+    std::vector<field_t<Builder>> sublimbs;
+    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_hi_idx));
 
     const size_t start = accumulator_index + 1;
-    field_t<Composer> coefficient(context, uint64_t(1ULL << (start * bits_per_limb - shift)));
-    field_t<Composer> shifter(context, uint64_t(1ULL << bits_per_limb));
+    field_t<Builder> coefficient(context, uint64_t(1ULL << (start * bits_per_limb - shift)));
+    field_t<Builder> shifter(context, uint64_t(1ULL << bits_per_limb));
     for (size_t i = accumulator_index + 1; i < num_accumulators(); ++i) {
-        sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, accumulators[i]) *
-                              field_t<Composer>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
+                              field_t<Builder>(coefficient));
         coefficient *= shifter;
     }
 
-    uint32_t result_index = field_t<Composer>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
     return result;
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator<<(const size_t shift) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::operator<<(const size_t shift) const
 {
     if (shift >= width) {
         return uint_plookup(context, 0);
@@ -146,27 +145,27 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator<<(const 
         context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_hi_limb - slice_bit_position)) - 1);
     }
 
-    std::vector<field_t<Composer>> sublimbs;
-    sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, slice_lo_idx) *
-                          field_t<Composer>(context, 1ULL << ((accumulator_index)*bits_per_limb + shift)));
+    std::vector<field_t<Builder>> sublimbs;
+    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_lo_idx) *
+                          field_t<Builder>(context, 1ULL << ((accumulator_index)*bits_per_limb + shift)));
 
-    field_t<Composer> coefficient(context, uint64_t(1ULL << shift));
-    field_t<Composer> shifter(context, uint64_t(1ULL << bits_per_limb));
+    field_t<Builder> coefficient(context, uint64_t(1ULL << shift));
+    field_t<Builder> shifter(context, uint64_t(1ULL << bits_per_limb));
     for (size_t i = 0; i < accumulator_index; ++i) {
-        sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, accumulators[i]) *
-                              field_t<Composer>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
+                              field_t<Builder>(coefficient));
         coefficient *= shifter;
     }
 
-    uint32_t result_index = field_t<Composer>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
     return result;
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::ror(const size_t target_rotation) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::ror(const size_t target_rotation) const
 {
     const size_t rotation = target_rotation & (width - 1);
 
@@ -214,45 +213,44 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::ror(const size_t 
         context->create_new_range_constraint(slice_lo_idx, (1ULL << slice_bit_position) - 1);
     }
     context->create_new_range_constraint(slice_hi_idx, (1ULL << (bits_per_hi_limb - slice_bit_position)) - 1);
-    std::vector<field_t<Composer>> sublimbs;
-    sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, slice_hi_idx));
+    std::vector<field_t<Builder>> sublimbs;
+    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_hi_idx));
 
     const size_t start = accumulator_index + 1;
-    field_t<Composer> coefficient(context, uint64_t(1ULL << (start * bits_per_limb - shift)));
-    field_t<Composer> shifter(context, uint64_t(1ULL << bits_per_limb));
+    field_t<Builder> coefficient(context, uint64_t(1ULL << (start * bits_per_limb - shift)));
+    field_t<Builder> shifter(context, uint64_t(1ULL << bits_per_limb));
     for (size_t i = accumulator_index + 1; i < num_accumulators(); ++i) {
-        sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, accumulators[i]) *
-                              field_t<Composer>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
+                              field_t<Builder>(coefficient));
         coefficient *= shifter;
     }
 
-    coefficient = field_t<Composer>(context, uint64_t(1ULL << (width - shift)));
+    coefficient = field_t<Builder>(context, uint64_t(1ULL << (width - shift)));
     for (size_t i = 0; i < accumulator_index; ++i) {
-        sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, accumulators[i]) *
-                              field_t<Composer>(coefficient));
+        sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, accumulators[i]) *
+                              field_t<Builder>(coefficient));
         coefficient *= shifter;
     }
-    sublimbs.emplace_back(field_t<Composer>::from_witness_index(context, slice_lo_idx) *
-                          field_t<Composer>(coefficient));
+    sublimbs.emplace_back(field_t<Builder>::from_witness_index(context, slice_lo_idx) * field_t<Builder>(coefficient));
 
-    uint32_t result_index = field_t<Composer>::accumulate(sublimbs).normalize().get_witness_index();
+    uint32_t result_index = field_t<Builder>::accumulate(sublimbs).normalize().get_witness_index();
     uint_plookup result(context);
     result.witness_index = result_index;
     result.witness_status = WitnessStatus::WEAK_NORMALIZED;
     return result;
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::rol(const size_t target_rotation) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::rol(const size_t target_rotation) const
 {
     return ror(width - (target_rotation & (width - 1)));
 }
 
-template <typename Composer, typename Native>
-uint_plookup<Composer, Native> uint_plookup<Composer, Native>::logic_operator(const uint_plookup& other,
-                                                                              const LogicOp op_type) const
+template <typename Builder, typename Native>
+uint_plookup<Builder, Native> uint_plookup<Builder, Native>::logic_operator(const uint_plookup& other,
+                                                                            const LogicOp op_type) const
 {
-    Composer* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = (context == nullptr) ? other.context : context;
 
     // we need to ensure that we can decompose our integers into (width / 2) quads
     // we don't need to completely normalize, however, as our quaternary decomposition will do that by default
@@ -274,20 +272,20 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::logic_operator(co
     }
 
     if (is_constant() && other.is_constant()) {
-        return uint_plookup<Composer, Native>(ctx, out);
+        return uint_plookup<Builder, Native>(ctx, out);
     }
 
-    ReadData<field_t<Composer>> lookup;
+    ReadData<field_t<Builder>> lookup;
     if (op_type == XOR) {
-        lookup = plookup_read<Composer>::get_lookup_accumulators(
-            MultiTableId::UINT32_XOR, field_t<Composer>(*this), field_t<Composer>(other), true);
+        lookup = plookup_read<Builder>::get_lookup_accumulators(
+            MultiTableId::UINT32_XOR, field_t<Builder>(*this), field_t<Builder>(other), true);
     } else {
-        lookup = plookup_read<Composer>::get_lookup_accumulators(
-            MultiTableId::UINT32_AND, field_t<Composer>(*this), field_t<Composer>(other), true);
+        lookup = plookup_read<Builder>::get_lookup_accumulators(
+            MultiTableId::UINT32_AND, field_t<Builder>(*this), field_t<Builder>(other), true);
     }
-    uint_plookup<Composer, Native> result(ctx);
+    uint_plookup<Builder, Native> result(ctx);
     // result.accumulators.resize(num_accumulators());
-    field_t<Composer> scaling_factor(context, barretenberg::fr(1ULL << bits_per_limb));
+    field_t<Builder> scaling_factor(context, bb::fr(1ULL << bits_per_limb));
 
     // N.B. THIS LOOP ONLY WORKS IF THE LOGIC TABLE SLICE SIZE IS HALF THAT OF `bits_per_limb`
     for (size_t i = 0; i < num_accumulators(); ++i) {
@@ -327,15 +325,17 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::logic_operator(co
     return result;
 }
 
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint8_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
-INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
+template class uint_plookup<bb::UltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint8_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint8_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint16_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint16_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint32_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint32_t>;
+template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
+template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint64_t>;
+template class uint_plookup<bb::CircuitSimulatorBN254, uint64_t>;
 
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint8_t);
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint16_t);
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint32_t);
-INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint64_t);
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

@@ -1,52 +1,6 @@
 [
   {
-    "functionName": "pedersen___init",
-    "inArgs": [],
-    "outArgs": [],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen___compress_fields",
-    "inArgs": [
-      {
-        "name": "left",
-        "type": "fr::in_buf"
-      },
-      {
-        "name": "right",
-        "type": "fr::in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen___plookup_compress_fields",
-    "inArgs": [
-      {
-        "name": "left",
-        "type": "fr::in_buf"
-      },
-      {
-        "name": "right",
-        "type": "fr::in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen___compress",
+    "functionName": "pedersen_commit",
     "inArgs": [
       {
         "name": "inputs_buffer",
@@ -56,29 +10,13 @@
     "outArgs": [
       {
         "name": "output",
-        "type": "fr::out_buf"
+        "type": "affine_element::out_buf"
       }
     ],
     "isAsync": false
   },
   {
-    "functionName": "pedersen___plookup_compress",
-    "inArgs": [
-      {
-        "name": "inputs_buffer",
-        "type": "fr::vec_in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "output",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen___compress_with_hash_index",
+    "functionName": "pedersen_hash",
     "inArgs": [
       {
         "name": "inputs_buffer",
@@ -98,39 +36,7 @@
     "isAsync": false
   },
   {
-    "functionName": "pedersen___commit",
-    "inArgs": [
-      {
-        "name": "inputs_buffer",
-        "type": "fr::vec_in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "output",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen___plookup_commit",
-    "inArgs": [
-      {
-        "name": "inputs_buffer",
-        "type": "fr::vec_in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "output",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen___plookup_commit_with_hash_index",
+    "functionName": "pedersen_hashes",
     "inArgs": [
       {
         "name": "inputs_buffer",
@@ -150,69 +56,11 @@
     "isAsync": false
   },
   {
-    "functionName": "pedersen___buffer_to_field",
+    "functionName": "pedersen_hash_buffer",
     "inArgs": [
       {
-        "name": "data",
+        "name": "input_buffer",
         "type": "const uint8_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "r",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen_hash_init",
-    "inArgs": [],
-    "outArgs": [],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen_hash_pair",
-    "inArgs": [
-      {
-        "name": "left",
-        "type": "fr::in_buf"
-      },
-      {
-        "name": "right",
-        "type": "fr::in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen_hash_multiple",
-    "inArgs": [
-      {
-        "name": "inputs_buffer",
-        "type": "fr::vec_in_buf"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "output",
-        "type": "fr::out_buf"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "pedersen_hash_multiple_with_hash_index",
-    "inArgs": [
-      {
-        "name": "inputs_buffer",
-        "type": "fr::vec_in_buf"
       },
       {
         "name": "hash_index",
@@ -228,16 +76,48 @@
     "isAsync": false
   },
   {
-    "functionName": "pedersen_hash_to_tree",
+    "functionName": "poseidon2_hash",
     "inArgs": [
       {
-        "name": "data",
+        "name": "inputs_buffer",
         "type": "fr::vec_in_buf"
       }
     ],
     "outArgs": [
       {
-        "name": "out",
+        "name": "output",
+        "type": "fr::out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "poseidon2_hashes",
+    "inArgs": [
+      {
+        "name": "inputs_buffer",
+        "type": "fr::vec_in_buf"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "output",
+        "type": "fr::out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "poseidon2_permutation",
+    "inArgs": [
+      {
+        "name": "input_state",
+        "type": "fr::vec_in_buf"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "output_state",
         "type": "fr::vec_out_buf"
       }
     ],
@@ -463,7 +343,7 @@
       },
       {
         "name": "round_two_buf",
-        "type": "fr::vec_in_buf"
+        "type": "fq::vec_in_buf"
       }
     ],
     "outArgs": [
@@ -483,6 +363,62 @@
     "isAsync": false
   },
   {
+    "functionName": "aes_encrypt_buffer_cbc",
+    "inArgs": [
+      {
+        "name": "input",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "iv",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "key",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "length",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "r",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "aes_decrypt_buffer_cbc",
+    "inArgs": [
+      {
+        "name": "input",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "iv",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "key",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "length",
+        "type": "const uint32_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "r",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "srs_init_srs",
     "inArgs": [
       {
@@ -496,6 +432,21 @@
       {
         "name": "g2_point_buf",
         "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [],
+    "isAsync": false
+  },
+  {
+    "functionName": "srs_init_grumpkin_srs",
+    "inArgs": [
+      {
+        "name": "points_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "num_points",
+        "type": "const uint32_t *"
       }
     ],
     "outArgs": [],
@@ -530,18 +481,6 @@
         "type": "uint32_t *"
       }
     ],
-    "isAsync": false
-  },
-  {
-    "functionName": "test_thread_abort",
-    "inArgs": [],
-    "outArgs": [],
-    "isAsync": false
-  },
-  {
-    "functionName": "test_abort",
-    "inArgs": [],
-    "outArgs": [],
     "isAsync": false
   },
   {
@@ -587,6 +526,17 @@
         "type": "const uint32_t *"
       }
     ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "out_ptr"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_new_goblin_acir_composer",
+    "inArgs": [],
     "outArgs": [
       {
         "name": "out",
@@ -654,10 +604,70 @@
       {
         "name": "witness_buf",
         "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_prove_and_verify_ultra_honk",
+    "inArgs": [
+      {
+        "name": "constraint_system_buf",
+        "type": "const uint8_t *"
       },
       {
-        "name": "is_recursive",
-        "type": "const bool *"
+        "name": "witness_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_prove_and_verify_goblin_ultra_honk",
+    "inArgs": [
+      {
+        "name": "constraint_system_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_goblin_prove",
+    "inArgs": [
+      {
+        "name": "acir_composer_ptr",
+        "type": "in_ptr"
+      },
+      {
+        "name": "constraint_system_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [
@@ -711,6 +721,26 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_get_proving_key",
+    "inArgs": [
+      {
+        "name": "acir_composer_ptr",
+        "type": "in_ptr"
+      },
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_verify_proof",
     "inArgs": [
       {
@@ -720,10 +750,26 @@
       {
         "name": "proof_buf",
         "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_goblin_verify",
+    "inArgs": [
+      {
+        "name": "acir_composer_ptr",
+        "type": "in_ptr"
       },
       {
-        "name": "is_recursive",
-        "type": "const bool *"
+        "name": "proof_buf",
+        "type": "const uint8_t *"
       }
     ],
     "outArgs": [

@@ -8,6 +8,8 @@
 #include <thread>
 #include <vector>
 
+#include "barretenberg/common/compiler_hints.hpp"
+
 namespace {
 
 class ThreadPool {
@@ -50,7 +52,7 @@ class ThreadPool {
     std::condition_variable complete_condition_;
     bool stop = false;
 
-    void worker_loop(size_t thread_index);
+    BB_NO_PROFILE void worker_loop(size_t thread_index);
 
     void do_iterations()
     {
@@ -113,6 +115,7 @@ void ThreadPool::worker_loop(size_t /*unused*/)
 }
 } // namespace
 
+namespace bb {
 /**
  * A thread pooled strategy that uses std::mutex for protection. Each worker increments the "iteration" and processes.
  * The main thread acts as a worker also, and when it completes, it spins until thread workers are done.
@@ -125,3 +128,4 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     pool.start_tasks(num_iterations, func);
     // info("done");
 }
+} // namespace bb

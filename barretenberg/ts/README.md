@@ -13,17 +13,22 @@ Note there are two independent WASM builds, one with threading enabled and one w
 memory flag is set within the WASM itself. If you're running in a context where you can't have shared memory, we want
 to fallback to single threaded performance.
 
-Performance for 2^19 (small witness generation phase):
+The following output is from `bench_acir_tests.sh` script.
 
-- 16 core (not hyperthreads) x86: ~15s.
-- 10 core M1 Mac Pro: ~20s.
+Table represents time in ms to build circuit and proof for each test on n threads.
+Ignores proving key construction.
 
-Linear scaling was observed up to 32 cores.
-
-Witness generation phase is not multithreaded, and an interesting 512k circuit can take ~12s. This results in:
-
-- 16 core (not hyperthreads) x86: ~28s.
-- 10 core M1 Mac Pro: ~32s.
+```
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+| Test                     | Gate Count | Subgroup Size |         1 |         4 |        16 |        32 |        64 |
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+| sha256                   | 38799      | 65536         |     18764 |      5116 |      1854 |      1524 |      1635 |
+| ecdsa_secp256k1          | 41049      | 65536         |     19129 |      5595 |      2255 |      2097 |      2166 |
+| ecdsa_secp256r1          | 67331      | 131072        |     38815 |     11257 |      4744 |      3633 |      3702 |
+| schnorr                  | 33740      | 65536         |     18649 |      5244 |      2019 |      1498 |      1702 |
+| double_verify_proof      | 505513     | 524288        |    149652 |     45702 |     20811 |     16979 |     15679 |
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+```
 
 ## Using as a standalone binary
 
@@ -57,7 +62,7 @@ Commands:
   contract [options]          Output solidity verification key contract.
   write_vk [options]          Output verification key.
   proof_as_fields [options]   Return the proof as fields elements
-  vk_as_fields [options]      Return the verifiation key represented as fields elements. Also return the verification key hash.
+  vk_as_fields [options]      Return the verification key represented as field elements. Also return the verification key hash.
   help [command]              display help for command
 ```
 
@@ -84,7 +89,7 @@ To create the API and do a blake2s hash:
 ```typescript
 import { Crs, Barretenberg, RawBuffer } from './index.js';
 
-const api = await Barretenberg.new(/* num_threads */ 1);
+const api = await Barretenberg.new(/* num_threads */ { threads: 1 });
 const input = Buffer.from('hello world!');
 const result = await api.blake2s(input);
 await api.destroy();
@@ -104,15 +109,6 @@ in size) is loaded and keeps page load times responsive.
 const { Barretenberg, RawBuffer, Crs } = await import('@aztec/bb.js');
 ```
 
-### CommonJS Usage
-
-The import syntax is slightly different in a CommonJS environment.
-
-```typescript
-const { loadModule } = await import('@aztec/bb.js');
-const { Barretenberg, RawBuffer, Crs } = await loadModule();
-```
-
 ## Development
 
 Create a symlink to the root script `bb.js-dev` in your path. You can now run the current state of the code from
@@ -123,4 +119,4 @@ If you change the C++ code run `yarn build:wasm` to rebuild the webassembly.
 To run the tests run `yarn test`.
 
 To run a continuous "stress test" run `yarn simple_test` to do 10 full pk/proof/vk iterations. This is useful for
-inspecting memory growth as the we continuously use the library.
+inspecting memory growth as we continuously use the library.

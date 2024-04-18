@@ -1,17 +1,23 @@
-import { AztecRPC, Tx, TxExecutionRequest } from '@aztec/types';
+import { type PXE, type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 
+import { type FeeOptions } from '../entrypoint/entrypoint.js';
 import { SentTx } from './sent_tx.js';
 
 /**
  * Represents options for calling a (constrained) function in a contract.
  * Allows the user to specify the sender address and nonce for a transaction.
  */
-export interface SendMethodOptions {
+export type SendMethodOptions = {
   /**
    * Wether to skip the simulation of the public part of the transaction.
    */
   skipPublicSimulation?: boolean;
-}
+
+  /**
+   * The fee options for the transaction.
+   */
+  fee?: FeeOptions;
+};
 
 /**
  * Base class for an interaction with a contract, be it a deployment, a function call, or a batch.
@@ -21,7 +27,7 @@ export abstract class BaseContractInteraction {
   protected tx?: Tx;
   protected txRequest?: TxExecutionRequest;
 
-  constructor(protected rpc: AztecRPC) {}
+  constructor(protected pxe: PXE) {}
 
   /**
    * Create a transaction execution request ready to be simulated.
@@ -31,13 +37,13 @@ export abstract class BaseContractInteraction {
   public abstract create(options?: SendMethodOptions): Promise<TxExecutionRequest>;
 
   /**
-   * Simulates a transaction execution request and returns a tx object ready to be sent.
+   * Proves a transaction execution request and returns a tx object ready to be sent.
    * @param options - optional arguments to be used in the creation of the transaction
    * @returns The resulting transaction
    */
-  public async simulate(options: SendMethodOptions = {}): Promise<Tx> {
+  public async prove(options: SendMethodOptions = {}): Promise<Tx> {
     const txRequest = this.txRequest ?? (await this.create(options));
-    this.tx = await this.rpc.simulateTx(txRequest, !options.skipPublicSimulation);
+    this.tx = await this.pxe.proveTx(txRequest, !options.skipPublicSimulation);
     return this.tx;
   }
 
@@ -52,10 +58,10 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}) {
     const promise = (async () => {
-      const tx = this.tx ?? (await this.simulate(options));
-      return this.rpc.sendTx(tx);
+      const tx = this.tx ?? (await this.prove(options));
+      return this.pxe.sendTx(tx);
     })();
 
-    return new SentTx(this.rpc, promise);
+    return new SentTx(this.pxe, promise);
   }
 }

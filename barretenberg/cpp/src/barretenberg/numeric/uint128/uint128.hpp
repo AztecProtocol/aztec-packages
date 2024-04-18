@@ -1,12 +1,13 @@
 #pragma once
+#include <cstdint>
 #include <iomanip>
 #include <ostream>
 
 #ifdef __i386__
 #include "barretenberg/common/serialize.hpp"
-#include <cstdint>
+#include <concepts>
 
-namespace numeric {
+namespace bb::numeric {
 
 class alignas(32) uint128_t {
   public:
@@ -37,7 +38,7 @@ class alignas(32) uint128_t {
     constexpr ~uint128_t() = default;
     explicit constexpr operator bool() const { return static_cast<bool>(data[0]); };
 
-    template <typename T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
+    template <std::integral T> explicit constexpr operator T() const { return static_cast<T>(data[0]); };
 
     [[nodiscard]] constexpr bool get_bit(uint64_t bit_index) const;
     [[nodiscard]] constexpr uint64_t get_msb() const;
@@ -186,7 +187,7 @@ template <typename B> inline void write(B& it, uint128_t const& value)
     write(it, value.data[0]);
 }
 
-} // namespace numeric
+} // namespace bb::numeric
 
 #include "./uint128_impl.hpp"
 

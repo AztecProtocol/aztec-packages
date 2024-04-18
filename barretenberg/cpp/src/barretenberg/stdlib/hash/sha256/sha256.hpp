@@ -5,33 +5,24 @@
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include "sha256_plookup.hpp"
 #include <array>
-// namespace proof_system::plonk
+// namespace bb
 
-namespace proof_system::plonk {
-namespace stdlib {
-template <typename Composer> class bit_array;
+namespace bb::stdlib {
+template <typename Builder> class bit_array;
 
-template <typename Composer>
-std::array<uint32<Composer>, 8> sha256_block(const std::array<uint32<Composer>, 8>& h_init,
-                                             const std::array<uint32<Composer>, 16>& input);
+template <typename Builder>
+std::array<uint32<Builder>, 8> sha256_block(const std::array<uint32<Builder>, 8>& h_init,
+                                            const std::array<uint32<Builder>, 16>& input);
 
-template <typename Composer> byte_array<Composer> sha256_block(const byte_array<Composer>& input);
-template <typename Composer> packed_byte_array<Composer> sha256(const packed_byte_array<Composer>& input);
+template <typename Builder> byte_array<Builder> sha256_block(const byte_array<Builder>& input);
+template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_array<Builder>& input);
 
-template <typename Composer> field_t<Composer> sha256_to_field(const packed_byte_array<Composer>& input)
+template <typename Builder> field_t<Builder> sha256_to_field(const packed_byte_array<Builder>& input)
 {
-    std::vector<field_t<Composer>> slices = stdlib::sha256<Composer>(input).to_unverified_byte_slices(16);
+    std::vector<field_t<Builder>> slices = stdlib::sha256<Builder>(input).to_unverified_byte_slices(16);
     return slices[1] + (slices[0] * (uint256_t(1) << 128));
 }
 
-#define SHA256_BLOCK(circuit_type) byte_array<circuit_type> sha256_block(const byte_array<circuit_type>& input)
-#define SHA256(circuit_type) packed_byte_array<circuit_type> sha256(const packed_byte_array<circuit_type>& input)
+template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations);
 
-EXTERN_STDLIB_METHOD(SHA256_BLOCK)
-EXTERN_STDLIB_METHOD(SHA256)
-
-EXTERN_STDLIB_SIMULATOR_METHOD(SHA256_BLOCK)
-EXTERN_STDLIB_SIMULATOR_METHOD(SHA256)
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

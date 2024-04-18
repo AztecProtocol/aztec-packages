@@ -3,8 +3,7 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "sha256_plookup.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 namespace internal {
 constexpr uint32_t init_constants[8]{ 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
                                       0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
@@ -28,7 +27,7 @@ constexpr size_t get_num_blocks(const size_t num_bits)
 }
 } // namespace internal
 
-template <typename Composer> void prepare_constants(std::array<uint32<Composer>, 8>& input)
+template <typename Builder> void prepare_constants(std::array<uint32<Builder>, 8>& input)
 {
     input[0] = internal::init_constants[0];
     input[1] = internal::init_constants[1];
@@ -40,11 +39,11 @@ template <typename Composer> void prepare_constants(std::array<uint32<Composer>,
     input[7] = internal::init_constants[7];
 }
 
-template <typename Composer>
-std::array<uint32<Composer>, 8> sha256_block(const std::array<uint32<Composer>, 8>& h_init,
-                                             const std::array<uint32<Composer>, 16>& input)
+template <typename Builder>
+std::array<uint32<Builder>, 8> sha256_block(const std::array<uint32<Builder>, 8>& h_init,
+                                            const std::array<uint32<Builder>, 16>& input)
 {
-    typedef uint32<Composer> uint32;
+    typedef uint32<Builder> uint32;
     std::array<uint32, 64> w;
 
     /**
@@ -112,38 +111,38 @@ std::array<uint32<Composer>, 8> sha256_block(const std::array<uint32<Composer>, 
     return output;
 }
 
-template <typename Composer> byte_array<Composer> sha256_block(const byte_array<Composer>& input)
+template <typename Builder> byte_array<Builder> sha256_block(const byte_array<Builder>& input)
 {
-    typedef uint32<Composer> uint32;
+    typedef uint32<Builder> uint32;
 
     ASSERT(input.size() == 64);
 
     std::array<uint32, 8> hash;
-    prepare_constants<Composer>(hash);
+    prepare_constants<Builder>(hash);
 
     std::array<uint32, 16> hash_input;
     for (size_t i = 0; i < 16; ++i) {
         hash_input[i] = uint32(input.slice(i * 4, 4));
     }
-    hash = sha256_block<Composer>(hash, hash_input);
+    hash = sha256_block<Builder>(hash, hash_input);
 
-    byte_array<Composer> result(input.get_context());
+    byte_array<Builder> result(input.get_context());
     for (size_t i = 0; i < 8; ++i) {
-        result.write(static_cast<byte_array<Composer>>(hash[i]));
+        result.write(static_cast<byte_array<Builder>>(hash[i]));
     }
 
     return result;
 }
 
-template <typename Composer> packed_byte_array<Composer> sha256(const packed_byte_array<Composer>& input)
+template <typename Builder> packed_byte_array<Builder> sha256(const packed_byte_array<Builder>& input)
 {
-    if constexpr (HasPlookup<Composer>) {
+    if constexpr (HasPlookup<Builder>) {
         return sha256_plookup::sha256(input);
     }
-    typedef field_t<Composer> field_pt;
-    typedef uint32<Composer> uint32;
+    typedef field_t<Builder> field_pt;
+    typedef uint32<Builder> uint32;
 
-    Composer* ctx = input.get_context();
+    Builder* ctx = input.get_context();
 
     auto message_schedule(input);
 
@@ -166,23 +165,47 @@ template <typename Composer> packed_byte_array<Composer> sha256(const packed_byt
     constexpr size_t slices_per_block = 16;
 
     std::array<uint32, 8> rolling_hash;
-    prepare_constants<Composer>(rolling_hash);
+    prepare_constants<Builder>(rolling_hash);
     for (size_t i = 0; i < num_blocks; ++i) {
         std::array<uint32, 16> hash_input;
         for (size_t j = 0; j < 16; ++j) {
             hash_input[j] = uint32(slices[i * slices_per_block + j]);
         }
-        rolling_hash = sha256_block<Composer>(rolling_hash, hash_input);
+        rolling_hash = sha256_block<Builder>(rolling_hash, hash_input);
     }
 
     std::vector<field_pt> output(rolling_hash.begin(), rolling_hash.end());
-    return packed_byte_array<Composer>(output, 4);
+    return packed_byte_array<Builder>(output, 4);
 }
 
-INSTANTIATE_STDLIB_METHOD(SHA256_BLOCK)
-INSTANTIATE_STDLIB_METHOD(SHA256)
+/**
+ * @brief Generate a simple sha256 circuit for testing purposes
+ *
+ * @tparam Builder
+ * @param builder
+ * @param num_iterations number of hashes to perform
+ */
+template <typename Builder> void generate_sha256_test_circuit(Builder& builder, size_t num_iterations)
+{
+    std::string in;
+    in.resize(32);
+    stdlib::packed_byte_array<Builder> input(&builder, in);
+    for (size_t i = 0; i < num_iterations; i++) {
+        input = stdlib::sha256<Builder>(input);
+    }
+}
 
-INSTANTIATE_STDLIB_SIMULATOR_METHOD(SHA256_BLOCK)
-INSTANTIATE_STDLIB_SIMULATOR_METHOD(SHA256)
-} // namespace stdlib
-} // namespace proof_system::plonk
+template byte_array<bb::StandardCircuitBuilder> sha256_block(const byte_array<bb::StandardCircuitBuilder>& input);
+template byte_array<bb::UltraCircuitBuilder> sha256_block(const byte_array<bb::UltraCircuitBuilder>& input);
+template byte_array<bb::GoblinUltraCircuitBuilder> sha256_block(const byte_array<bb::GoblinUltraCircuitBuilder>& input);
+template byte_array<bb::CircuitSimulatorBN254> sha256_block(const byte_array<bb::CircuitSimulatorBN254>& input);
+template packed_byte_array<bb::StandardCircuitBuilder> sha256(
+    const packed_byte_array<bb::StandardCircuitBuilder>& input);
+template packed_byte_array<bb::UltraCircuitBuilder> sha256(const packed_byte_array<bb::UltraCircuitBuilder>& input);
+template packed_byte_array<bb::GoblinUltraCircuitBuilder> sha256(
+    const packed_byte_array<bb::GoblinUltraCircuitBuilder>& input);
+template packed_byte_array<bb::CircuitSimulatorBN254> sha256(const packed_byte_array<bb::CircuitSimulatorBN254>& input);
+template void generate_sha256_test_circuit(bb::UltraCircuitBuilder&, size_t);
+template void generate_sha256_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
+template void generate_sha256_test_circuit(bb::CircuitSimulatorBN254&, size_t);
+} // namespace bb::stdlib

@@ -2,13 +2,12 @@
 
 #include "../circuit_builders/circuit_builders.hpp"
 
-using namespace barretenberg;
+using namespace bb;
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 namespace {
-template <typename Composer> Composer* get_context_from_fields(const std::vector<field_t<Composer>>& input)
+template <typename Builder> Builder* get_context_from_fields(const std::vector<field_t<Builder>>& input)
 {
     for (const auto& element : input) {
         if (element.get_context()) {
@@ -19,8 +18,8 @@ template <typename Composer> Composer* get_context_from_fields(const std::vector
 }
 } // namespace
 
-template <typename Composer>
-packed_byte_array<Composer>::packed_byte_array(Composer* parent_context, const size_t n)
+template <typename Builder>
+packed_byte_array<Builder>::packed_byte_array(Builder* parent_context, const size_t n)
     : context(parent_context)
     , num_bytes(n)
 {
@@ -28,8 +27,8 @@ packed_byte_array<Composer>::packed_byte_array(Composer* parent_context, const s
     limbs = std::vector<field_pt>(num_elements);
 }
 
-template <typename Composer>
-packed_byte_array<Composer>::packed_byte_array(const std::vector<field_pt>& input, const size_t bytes_per_input)
+template <typename Builder>
+packed_byte_array<Builder>::packed_byte_array(const std::vector<field_pt>& input, const size_t bytes_per_input)
     : context(get_context_from_fields(input))
     , num_bytes(bytes_per_input * input.size())
 {
@@ -56,8 +55,8 @@ packed_byte_array<Composer>::packed_byte_array(const std::vector<field_pt>& inpu
     }
 }
 
-template <typename Composer>
-packed_byte_array<Composer>::packed_byte_array(Composer* parent_context, const std::vector<uint8_t>& input)
+template <typename Builder>
+packed_byte_array<Builder>::packed_byte_array(Builder* parent_context, const std::vector<uint8_t>& input)
     : context(parent_context)
     , num_bytes(input.size())
 {
@@ -79,8 +78,8 @@ packed_byte_array<Composer>::packed_byte_array(Composer* parent_context, const s
     }
 }
 
-template <typename Composer>
-packed_byte_array<Composer>::packed_byte_array(const byte_array_pt& input)
+template <typename Builder>
+packed_byte_array<Builder>::packed_byte_array(const byte_array_pt& input)
     : context(input.get_context())
     , num_bytes(input.size())
 {
@@ -99,27 +98,27 @@ packed_byte_array<Composer>::packed_byte_array(const byte_array_pt& input)
     }
 }
 
-template <typename Composer>
-packed_byte_array<Composer>::packed_byte_array(Composer* parent_context, const std::string& input)
+template <typename Builder>
+packed_byte_array<Builder>::packed_byte_array(Builder* parent_context, const std::string& input)
     : packed_byte_array(parent_context, std::vector<uint8_t>(input.begin(), input.end()))
 {}
 
-template <typename Composer>
-packed_byte_array<Composer>::packed_byte_array(const packed_byte_array& other)
+template <typename Builder>
+packed_byte_array<Builder>::packed_byte_array(const packed_byte_array& other)
     : context(other.context)
     , num_bytes(other.num_bytes)
     , limbs(other.limbs.begin(), other.limbs.end())
 {}
 
-template <typename Composer>
-packed_byte_array<Composer>::packed_byte_array(packed_byte_array&& other)
+template <typename Builder>
+packed_byte_array<Builder>::packed_byte_array(packed_byte_array&& other)
     : context(other.context)
     , num_bytes(other.num_bytes)
     , limbs(other.limbs.begin(), other.limbs.end())
 {}
 
-template <typename Composer>
-packed_byte_array<Composer>& packed_byte_array<Composer>::operator=(const packed_byte_array& other)
+template <typename Builder>
+packed_byte_array<Builder>& packed_byte_array<Builder>::operator=(const packed_byte_array& other)
 {
     context = other.context;
     num_bytes = other.num_bytes;
@@ -127,8 +126,7 @@ packed_byte_array<Composer>& packed_byte_array<Composer>::operator=(const packed
     return *this;
 }
 
-template <typename Composer>
-packed_byte_array<Composer>& packed_byte_array<Composer>::operator=(packed_byte_array&& other)
+template <typename Builder> packed_byte_array<Builder>& packed_byte_array<Builder>::operator=(packed_byte_array&& other)
 {
     context = other.context;
     num_bytes = other.num_bytes;
@@ -136,8 +134,8 @@ packed_byte_array<Composer>& packed_byte_array<Composer>::operator=(packed_byte_
     return *this;
 }
 
-template <typename Composer>
-packed_byte_array<Composer> packed_byte_array<Composer>::from_field_element_vector(const std::vector<field_pt>& input)
+template <typename Builder>
+packed_byte_array<Builder> packed_byte_array<Builder>::from_field_element_vector(const std::vector<field_pt>& input)
 {
     packed_byte_array result(get_context_from_fields(input), input.size() * 32);
 
@@ -154,7 +152,7 @@ packed_byte_array<Composer> packed_byte_array<Composer>::from_field_element_vect
     return result;
 }
 
-template <typename Composer> packed_byte_array<Composer>::operator byte_array_pt() const
+template <typename Builder> packed_byte_array<Builder>::operator byte_array_pt() const
 {
     std::vector<field_pt> bytes;
 
@@ -175,8 +173,8 @@ template <typename Composer> packed_byte_array<Composer>::operator byte_array_pt
     return byte_array_pt(context, bytes);
 }
 
-template <typename Composer>
-void packed_byte_array<Composer>::append(const field_pt& to_append, const size_t bytes_to_append)
+template <typename Builder>
+void packed_byte_array<Builder>::append(const field_pt& to_append, const size_t bytes_to_append)
 {
     const size_t current_capacity = limbs.size() * BYTES_PER_ELEMENT;
     const size_t current_size = size();
@@ -219,9 +217,8 @@ void packed_byte_array<Composer>::append(const field_pt& to_append, const size_t
     num_bytes += bytes_to_append;
 }
 
-template <typename Composer>
-std::vector<field_t<Composer>> packed_byte_array<Composer>::to_unverified_byte_slices(
-    const size_t bytes_per_slice) const
+template <typename Builder>
+std::vector<field_t<Builder>> packed_byte_array<Builder>::to_unverified_byte_slices(const size_t bytes_per_slice) const
 {
     std::vector<field_pt> slices;
     for (size_t i = 0; i < limbs.size(); ++i) {
@@ -251,7 +248,7 @@ std::vector<field_t<Composer>> packed_byte_array<Composer>::to_unverified_byte_s
     return slices;
 }
 
-template <typename Composer> std::string packed_byte_array<Composer>::get_value() const
+template <typename Builder> std::string packed_byte_array<Builder>::get_value() const
 {
     std::string bytes(num_bytes, 0);
     for (size_t i = 0; i < limbs.size(); ++i) {
@@ -268,8 +265,9 @@ template <typename Composer> std::string packed_byte_array<Composer>::get_value(
     return bytes;
 }
 
-INSTANTIATE_STDLIB_TYPE(packed_byte_array);
-INSTANTIATE_STDLIB_SIMULATOR_TYPE(packed_byte_array);
+template class packed_byte_array<bb::CircuitSimulatorBN254>;
+template class packed_byte_array<bb::StandardCircuitBuilder>;
+template class packed_byte_array<bb::UltraCircuitBuilder>;
+template class packed_byte_array<bb::GoblinUltraCircuitBuilder>;
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

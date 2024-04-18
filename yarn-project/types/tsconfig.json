@@ -5,13 +5,13 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },
+  "include": ["src"],
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../ethereum"
     },
     {
       "path": "../foundation"
     }
-  ],
-  "include": ["src"]
+  ]
 }

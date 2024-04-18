@@ -1,21 +1,22 @@
 #pragma once
 
+#include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/composer/composer_lib.hpp"
-#include "barretenberg/plonk/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/prover/prover.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
 #include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
-#include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include <utility>
 
-namespace proof_system::plonk {
+namespace bb::plonk {
 class StandardComposer {
   public:
     using Flavor = plonk::flavor::Standard;
 
     using CircuitBuilder = StandardCircuitBuilder;
+    using Trace = ExecutionTrace_<Flavor>;
 
     static constexpr std::string_view NAME_STRING = "StandardPlonk";
     static constexpr size_t NUM_RESERVED_GATES = 4; // equal to the number of evaluations leaked
@@ -24,19 +25,16 @@ class StandardComposer {
     std::shared_ptr<plonk::verification_key> circuit_verification_key;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory_;
+    std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> crs_factory_;
 
     bool computed_witness = false;
 
-    StandardComposer()
-        : StandardComposer(std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>>(
-              new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition")))
-    {}
-    StandardComposer(std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory)
+    StandardComposer() { crs_factory_ = bb::srs::get_bn254_crs_factory(); }
+    StandardComposer(std::shared_ptr<bb::srs::factories::CrsFactory<curve::BN254>> crs_factory)
         : crs_factory_(std::move(crs_factory))
     {}
 
-    StandardComposer(std::unique_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>>&& crs_factory)
+    StandardComposer(std::unique_ptr<bb::srs::factories::CrsFactory<curve::BN254>>&& crs_factory)
         : crs_factory_(std::move(crs_factory))
     {}
     StandardComposer(std::shared_ptr<plonk::proving_key> p_key, std::shared_ptr<plonk::verification_key> v_key)
@@ -57,13 +55,12 @@ class StandardComposer {
         };
         return result;
     }
-    std::shared_ptr<plonk::proving_key> compute_proving_key(const CircuitBuilder& circuit_constructor);
-    std::shared_ptr<plonk::verification_key> compute_verification_key(const CircuitBuilder& circuit_constructor);
+    std::shared_ptr<plonk::proving_key> compute_proving_key(CircuitBuilder& circuit_constructor);
+    std::shared_ptr<plonk::verification_key> compute_verification_key(CircuitBuilder& circuit_constructor);
 
-    plonk::Verifier create_verifier(const CircuitBuilder& circuit_constructor);
-    plonk::Prover create_prover(const CircuitBuilder& circuit_constructor);
+    plonk::Verifier create_verifier(CircuitBuilder& circuit_constructor);
+    plonk::Prover create_prover(CircuitBuilder& circuit_constructor);
 
-    void compute_witness(const CircuitBuilder& circuit_constructor, const size_t minimum_circuit_size = 0);
     /**
      * Create a manifest, which specifies proof rounds, elements and who supplies them.
      *
@@ -156,4 +153,4 @@ class StandardComposer {
     }
 };
 
-} // namespace proof_system::plonk
+} // namespace bb::plonk

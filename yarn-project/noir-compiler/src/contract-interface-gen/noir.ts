@@ -1,18 +1,16 @@
 import {
-  ABIParameter,
-  ABIVariable,
-  ContractAbi,
-  FunctionAbi,
+  type ABIParameter,
+  type ABIVariable,
+  type ContractArtifact,
+  type FunctionArtifact,
   FunctionSelector,
   FunctionType,
-  StructType,
+  type StructType,
 } from '@aztec/foundation/abi';
+import { times } from '@aztec/foundation/collection';
 
 import camelCase from 'lodash.camelcase';
 import capitalize from 'lodash.capitalize';
-import compact from 'lodash.compact';
-import times from 'lodash.times';
-import upperFirst from 'lodash.upperfirst';
 
 /**
  * Returns whether this function type corresponds to a private call.
@@ -29,25 +27,36 @@ function isPrivateCall(functionType: FunctionType) {
  * @param functionType - Type of the function.
  * @returns A code string.
  */
-function generateCallStatement(selector: FunctionSelector, functionType: FunctionType) {
+function generateCallStatement(
+  selector: FunctionSelector,
+  functionType: FunctionType,
+  callingContext: 'private' | 'public',
+) {
   const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
+  const args = [
+    'self.address',
+    `FunctionSelector::from_field(${selector.toString()})`,
+    'serialized_args',
+    ...(callingContext === 'private' ? [] : ['GasOpts::default()']),
+  ];
   return `
-    context.${callMethod}(self.address, 0x${selector.toString()}, serialised_args)`;
+    context.${callMethod}(${args.join(', ')})`;
 }
 
 /**
  * Formats a string as pascal case.
  * @param str - A string.
- * @returns A capitalised camelcase string.
+ * @returns A capitalized camelcase string.
  */
 function toPascalCase(str: string) {
-  return upperFirst(camelCase(str));
+  const camel = camelCase(str);
+  return camel[0].toUpperCase() + camel.slice(1);
 }
 
 /**
  * Returns a struct name given a list of fragments.
  * @param fragments - Fragments.
- * @returns The concatenation of the capitalised fragments.
+ * @returns The concatenation of the capitalized fragments.
  */
 function getStructName(...fragments: string[]) {
   return fragments.map(toPascalCase).join('') + 'Struct';
@@ -85,29 +94,29 @@ function getTypeName(param: ABIVariable, ...parentNames: string[]): string {
  * @param functionData - Parent function.
  * @returns A Noir string with the param name and type to be used in a function call.
  */
-function generateParameter(param: ABIParameter, functionData: FunctionAbi) {
+function generateParameter(param: ABIParameter, functionData: FunctionArtifact) {
   const typename = getTypeName(param, functionData.name);
   return `${param.name}: ${typename}`;
 }
 
 /**
- * Collects all parameters for a given function and flattens them according to how they should be serialised.
+ * Collects all parameters for a given function and flattens them according to how they should be serialized.
  * @param parameters - Parameters for a function.
  * @returns List of parameters flattened to basic data types.
  */
-function collectParametersForSerialisation(parameters: ABIVariable[]) {
+function collectParametersForSerialization(parameters: ABIVariable[]) {
   const flattened: string[] = [];
   for (const parameter of parameters) {
     const { name } = parameter;
     if (parameter.type.kind === 'array') {
       const nestedType = parameter.type.type;
       const nested = times(parameter.type.length, i =>
-        collectParametersForSerialisation([{ name: `${name}[${i}]`, type: nestedType }]),
+        collectParametersForSerialization([{ name: `${name}[${i}]`, type: nestedType }]),
       );
       flattened.push(...nested.flat());
     } else if (parameter.type.kind === 'struct') {
       const nested = parameter.type.fields.map(field =>
-        collectParametersForSerialisation([{ name: `${name}.${field.name}`, type: field.type }]),
+        collectParametersForSerialization([{ name: `${name}.${field.name}`, type: field.type }]),
       );
       flattened.push(...nested.flat());
     } else if (parameter.type.kind === 'string') {
@@ -122,14 +131,14 @@ function collectParametersForSerialisation(parameters: ABIVariable[]) {
 }
 
 /**
- * Generates Noir code for serialising the parameters into an array of fields.
- * @param parameters - Parameters to serialise.
- * @returns The serialisation code.
+ * Generates Noir code for serializing the parameters into an array of fields.
+ * @param parameters - Parameters to serialize.
+ * @returns The serialization code.
  */
-function generateSerialisation(parameters: ABIParameter[]) {
-  const flattened = collectParametersForSerialisation(parameters);
-  const declaration = `    let mut serialised_args = [0; ${flattened.length}];`;
-  const lines = flattened.map((param, i) => `    serialised_args[${i}] = ${param};`);
+function generateSerialization(parameters: ABIParameter[]) {
+  const flattened = collectParametersForSerialization(parameters);
+  const declaration = `    let mut serialized_args = [0; ${flattened.length}];`;
+  const lines = flattened.map((param, i) => `    serialized_args[${i}] = ${param};`);
   return [declaration, ...lines].join('\n');
 }
 
@@ -139,22 +148,24 @@ function generateSerialisation(parameters: ABIParameter[]) {
  * @param kind - Whether this interface will be used from private or public functions.
  * @returns A code string.
  */
-function generateFunctionInterface(functionData: FunctionAbi, kind: 'private' | 'public') {
+function generateFunctionInterface(functionData: FunctionArtifact, kind: 'private' | 'public') {
   const { name, parameters } = functionData;
   const selector = FunctionSelector.fromNameAndParameters(name, parameters);
-  const serialisation = generateSerialisation(parameters);
-  const contextType = kind === 'private' ? '&mut PrivateContext' : 'PublicContext';
-  const callStatement = generateCallStatement(selector, functionData.functionType);
+  const serialization = generateSerialization(parameters);
+  const contextType = kind === 'private' ? '&mut PrivateContext' : '&mut PublicContext';
+  const callStatement = generateCallStatement(selector, functionData.functionType, kind);
   const allParams = ['self', `context: ${contextType}`, ...parameters.map(p => generateParameter(p, functionData))];
   const isPrivate = isPrivateCall(functionData.functionType);
   const isSync = (isPrivate && kind === 'private') || (!isPrivate && kind === 'public');
-  const retType = isSync ? `-> [Field; RETURN_VALUES_LENGTH] ` : ``;
+  // TODO: When return typing data is available in the artifact, we can instead codegen the concrete return type for public and private.
+  const generics = !isPrivate && isSync ? `<RETURN_LENGTH>` : ``;
+  const retType = isPrivate ? `-> PackedReturns` : isSync ? `-> FunctionReturns<RETURN_LENGTH> ` : ``;
 
   return `
-  fn ${name}(
+  pub fn ${name}${generics}(
     ${allParams.join(',\n    ')}
   ) ${retType}{
-${serialisation}
+${serialization}
 ${callStatement}
   }
   `;
@@ -166,8 +177,11 @@ ${callStatement}
  */
 function generateStaticImports() {
   return `use dep::std;
-use dep::aztec::context::{ PrivateContext, PublicContext };
-use dep::aztec::constants_gen::RETURN_VALUES_LENGTH;`;
+use dep::aztec::context::{ PrivateContext, PublicContext, PackedReturns, FunctionReturns, gas::GasOpts };
+use dep::aztec::protocol_types::{
+  address::AztecAddress,
+  abis::function_selector::FunctionSelector,
+};`;
 }
 
 /**
@@ -189,7 +203,7 @@ function generateContractStructName(contractName: string, kind: 'private' | 'pub
 function generateContractInterfaceStruct(contractName: string, kind: 'private' | 'public') {
   return `// Interface for calling ${contractName} functions from a ${kind} context
 struct ${generateContractStructName(contractName, kind)} {
-  address: Field,
+  address: AztecAddress,
 }
 `;
 }
@@ -203,7 +217,7 @@ struct ${generateContractStructName(contractName, kind)} {
  */
 function generateContractInterfaceImpl(contractName: string, kind: 'private' | 'public', functions: string[]) {
   return `impl ${generateContractStructName(contractName, kind)} {
-  fn at(address: Field) -> Self {
+  pub fn at(address: AztecAddress) -> Self {
       Self {
           address,
       }
@@ -258,7 +272,7 @@ function collectStructs(params: ABIVariable[], parentNames: string[]): StructInf
  * @param methods - Contract methods to generate (private ones will be excluded if kind is public)
  * @returns Code.
  */
-function generateContractStruct(abiName: string, kind: 'private' | 'public', methods: FunctionAbi[]) {
+function generateContractStruct(abiName: string, kind: 'private' | 'public', methods: FunctionArtifact[]) {
   const contractStruct: string = generateContractInterfaceStruct(abiName, kind);
   const applicableMethods = methods.filter(m => kind === 'private' || !isPrivateCall(m.functionType));
   const functionInterfaces = applicableMethods.map(m => generateFunctionInterface(m, kind));
@@ -272,19 +286,15 @@ ${contractImpl}
 
 /**
  * Generates the Noir code to represent an interface for calling a contract.
- * @param abi - The compiled Aztec.nr artifact.
+ * @param artifact - The compiled Aztec.nr artifact.
  * @returns The corresponding ts code.
  */
-export function generateNoirContractInterface(abi: ContractAbi) {
-  // We don't allow calling a constructor, internal fns, or unconstrained fns from other contracts
-  const methods = compact(
-    abi.functions.filter(
-      f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
-    ),
-  );
+export function generateNoirContractInterface(artifact: ContractArtifact) {
+  // We don't allow calling internal fns or unconstrained fns from other contracts
+  const methods = artifact.functions.filter(f => !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED);
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
-  const privateContractStruct = generateContractStruct(abi.name, 'private', methods);
-  const publicContractStruct = generateContractStruct(abi.name, 'public', methods);
+  const privateContractStruct = generateContractStruct(artifact.name, 'private', methods);
+  const publicContractStruct = generateContractStruct(artifact.name, 'public', methods);
 
   return `/* Autogenerated file, do not edit! */
   

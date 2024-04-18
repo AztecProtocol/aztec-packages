@@ -1,17 +1,27 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 # Navigate to script folder
 cd "$(dirname "$0")"
 
-# Clean.
-rm -rf ./build
-rm -rf ./build-wasm
+CMD=${1:-}
+
+if [ -n "$CMD" ]; then
+  if [ "$CMD" = "clean" ]; then
+    git clean -ffdx
+    exit 0
+  else
+    echo "Unknown command: $CMD"
+    exit 1
+  fi
+fi
 
 # Determine system.
 if [[ "$OSTYPE" == "darwin"* ]]; then
   OS=macos
 elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+  OS=linux
+elif [[ "$OSTYPE" == "linux-musl" ]]; then
   OS=linux
 else
   echo "Unknown OS: $OSTYPE"
@@ -19,44 +29,86 @@ else
 fi
 
 # Download ignition transcripts.
-(cd ./srs_db && ./download_ignition.sh 3)
+(cd ./srs_db && ./download_ignition.sh 0)
+
+# Install wasi-sdk.
+./scripts/install-wasi-sdk.sh
+
+# Attempt to just pull artefacts from CI and exit on success.
+[ -n "${USE_CACHE:-}" ] && ./bootstrap_cache.sh && exit
 
 # Pick native toolchain file.
 ARCH=$(uname -m)
 if [ "$OS" == "macos" ]; then
   PRESET=default
 else
-  if [ "$(which clang++-15)" != "" ]; then
+  if [ "$(which clang++-16)" != "" ]; then
     PRESET=clang16
   else
     PRESET=default
   fi
 fi
 
+# Remove cmake cache files.
+rm -f {build,build-wasm,build-wasm-threads}/CMakeCache.txt
+
 echo "#################################"
 echo "# Building with preset: $PRESET"
 echo "# When running cmake directly, remember to use: --build --preset $PRESET"
 echo "#################################"
 
-# Build native.
-cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
-cmake --build --preset $PRESET ${@/#/--target }
+function build_native {
+  cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
+  cmake --build --preset $PRESET --target bb
+}
 
-cd ./build
-# The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
-# If tests require more points, the parameter can be increased here.
-cmake --build . --parallel --target grumpkin_srs_gen
-./bin/grumpkin_srs_gen 8192
-echo "Generated Grumpkin SRS successfully"
-cd ../
+function build_wasm {
+  cmake --preset wasm
+  cmake --build --preset wasm
+}
 
-# Install wasi-sdk.
-./scripts/install-wasi-sdk.sh
+function build_wasm_threads {
+  cmake --preset wasm-threads
+  cmake --build --preset wasm-threads
+}
 
-# Build WASM.
-cmake --preset wasm
-cmake --build --preset wasm
+g="\033[32m"  # Green
+b="\033[34m"  # Blue
+p="\033[35m"  # Purple
+r="\033[0m"   # Reset
 
-# Build WASM with new threading.
-cmake --preset wasm-threads
-cmake --build --preset wasm-threads
+AVAILABLE_MEMORY=0
+
+case "$(uname)" in
+  Linux*)
+    # Check available memory on Linux
+    AVAILABLE_MEMORY=$(awk '/MemFree/ { printf $2 }' /proc/meminfo)
+    ;;
+  *)
+    echo "Parallel builds not supported on this operating system"
+    ;;
+esac
+# This value may be too low.
+# If builds fail with an amount of free memory greater than this value then it should be increased.
+MIN_PARALLEL_BUILD_MEMORY=32000000
+
+if [[ AVAILABLE_MEMORY -lt MIN_PARALLEL_BUILD_MEMORY ]]; then
+  echo "System does not have enough memory for parallel builds, falling back to sequential"
+  build_native 
+  build_wasm
+  build_wasm_threads
+else
+  (build_native > >(awk -v g="$g" -v r="$r" '{print g "native: " r $0}')) &
+  (build_wasm > >(awk -v b="$b" -v r="$r" '{print b "wasm: " r $0}')) &
+  (build_wasm_threads > >(awk -v p="$p" -v r="$r" '{print p "wasm_threads: "r $0}')) &
+
+  for job in $(jobs -p); do
+    wait $job || exit 1
+  done
+fi
+
+if [ ! -d ./srs_db/grumpkin ]; then
+  # The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
+  # If tests require more points, the parameter can be increased here.
+  cd ./build && cmake --build . --parallel --target grumpkin_srs_gen && ./bin/grumpkin_srs_gen 8192
+fi

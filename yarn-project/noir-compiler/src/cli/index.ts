@@ -1,3 +1,1 @@
-export { compileContract } from './contract.js';
-export { generateNoirInterface } from './noir-interface.js';
-export { generateTypescriptInterface } from './typescript.js';
+export * from './add_noir_compiler_commander_actions.js';

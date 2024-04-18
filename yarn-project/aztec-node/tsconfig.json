@@ -10,10 +10,19 @@
       "path": "../archiver"
     },
     {
+      "path": "../circuit-types"
+    },
+    {
       "path": "../circuits.js"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
     },
     {
       "path": "../l1-artifacts"
@@ -25,7 +34,13 @@
       "path": "../p2p"
     },
     {
+      "path": "../prover-client"
+    },
+    {
       "path": "../sequencer-client"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../types"

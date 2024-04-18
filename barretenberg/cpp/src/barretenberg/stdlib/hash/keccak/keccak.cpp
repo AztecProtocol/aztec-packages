@@ -1,11 +1,11 @@
 #include "keccak.hpp"
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
+#include "barretenberg/stdlib/primitives/logic/logic.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
-using namespace plookup;
+using namespace bb::plookup;
 
 /**
  * @brief Normalize a base-11 limb and left-rotate by keccak::ROTATIONS[lane_index] bits.
@@ -21,11 +21,11 @@ using namespace plookup;
  * @tparam lane_index What keccak lane are we working on?
  * @param limb Input limb we want to normalize and rotate
  * @param msb (return parameter) The most significant bit of the normalized and rotated limb
- * @return field_t<Composer> The normalized and rotated output
+ * @return field_t<Builder> The normalized and rotated output
  */
-template <typename Composer>
+template <typename Builder>
 template <size_t lane_index>
-field_t<Composer> keccak<Composer>::normalize_and_rotate(const field_ct& limb, field_ct& msb)
+field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, field_ct& msb)
 {
     // left_bits = the number of bits that wrap around 11^64 (left_bits)
     constexpr size_t left_bits = ROTATIONS[lane_index];
@@ -90,13 +90,13 @@ field_t<Composer> keccak<Composer>::normalize_and_rotate(const field_ct& limb, f
      * stdlib::plookup cannot derive witnesses in the above pattern without a substantial rewrite,
      * so we do it manually in this method!
      **/
-    plookup::ReadData<barretenberg::fr> lookup;
+    plookup::ReadData<bb::fr> lookup;
 
     // compute plookup witness values for a given slice
     // (same lambda can be used to compute witnesses for left and right slices)
     auto compute_lookup_witnesses_for_limb = [&]<size_t limb_bits, size_t num_lookups>(uint256_t& normalized) {
         // (use a constexpr loop to make some pow and div operations compile-time)
-        barretenberg::constexpr_for<0, num_lookups, 1>([&]<size_t i> {
+        bb::constexpr_for<0, num_lookups, 1>([&]<size_t i> {
             constexpr size_t num_bits_processed = i * max_bits_per_table;
 
             // How many bits can this slice contain?
@@ -121,7 +121,7 @@ field_t<Composer> keccak<Composer>::normalize_and_rotate(const field_ct& limb, f
             const uint64_t normalized_msb = (static_cast<uint64_t>(normalized_slice) / msb_divisor);
             lookup[ColumnIdx::C3].push_back(normalized_msb);
 
-            // We need to provide a key/value object for this lookup in order for the Composer
+            // We need to provide a key/value object for this lookup in order for the Builder
             // to compute the plookup sorted list commitment
             const auto [input_quotient, input_slice] = input.divmod(divisor);
             lookup.key_entries.push_back(
@@ -140,7 +140,7 @@ field_t<Composer> keccak<Composer>::normalize_and_rotate(const field_ct& limb, f
     compute_lookup_witnesses_for_limb.template operator()<right_bits, num_right_tables>(right_normalized);
     compute_lookup_witnesses_for_limb.template operator()<left_bits, num_left_tables>(left_normalized);
 
-    // Call composer method to create plookup constraints.
+    // Call builder method to create plookup constraints.
     // The MultiTable table index can be derived from `lane_idx`
     // Each lane_idx has a different rotation amount, which changes sizes of left/right slices
     // and therefore the selector constants required (i.e. the Q1, Q2, Q3 values in the earlier example)
@@ -154,15 +154,15 @@ field_t<Composer> keccak<Composer>::normalize_and_rotate(const field_ct& limb, f
                                        accumulator_witnesses[ColumnIdx::C3][num_left_tables + num_right_tables - 1]);
 
     // Extract the witness that maps to the normalized right slice
-    const field_t<Composer> right_output =
-        field_t<Composer>::from_witness_index(limb.get_context(), accumulator_witnesses[ColumnIdx::C2][0]);
+    const field_t<Builder> right_output =
+        field_t<Builder>::from_witness_index(limb.get_context(), accumulator_witnesses[ColumnIdx::C2][0]);
 
     if (num_left_tables == 0) {
         // if the left slice size is 0 bits (i.e. no rotation), return `right_output`
         return right_output;
     } else {
         // Extract the normalized left slice
-        const field_t<Composer> left_output = field_t<Composer>::from_witness_index(
+        const field_t<Builder> left_output = field_t<Builder>::from_witness_index(
             limb.get_context(), accumulator_witnesses[ColumnIdx::C2][num_right_tables]);
 
         // Stitch the right/left slices together to create our rotated output
@@ -184,10 +184,10 @@ field_t<Composer> keccak<Composer>::normalize_and_rotate(const field_ct& limb, f
  * The equivalent of XOR(A, ROTL(B, 1)) is A.twist + 2B.twist (in base-11 form)
  * The output is present in bit slices 1-64
  *
- * @tparam Composer
+ * @tparam Builder
  * @param internal
  */
-template <typename Composer> void keccak<Composer>::compute_twisted_state(keccak_state& internal)
+template <typename Builder> void keccak<Builder>::compute_twisted_state(keccak_state& internal)
 {
     for (size_t i = 0; i < NUM_KECCAK_LANES; ++i) {
         internal.twisted_state[i] = ((internal.state[i] * 11) + internal.state_msb[i]).normalize();
@@ -197,7 +197,7 @@ template <typename Composer> void keccak<Composer>::compute_twisted_state(keccak
 /**
  * @brief THETA round
  *
- * @tparam Composer
+ * @tparam Builder
  *
  * THETA consists of XOR operations as well as left rotations by 1 bit.
  *
@@ -241,7 +241,7 @@ template <typename Composer> void keccak<Composer>::compute_twisted_state(keccak
  *
  * Total cost of theta = 20.5 gates per 5 lanes + 25 = 127.5 per round
  */
-template <typename Composer> void keccak<Composer>::theta(keccak_state& internal)
+template <typename Builder> void keccak<Builder>::theta(keccak_state& internal)
 {
     std::array<field_ct, 5> C;
     std::array<field_ct, 5> D;
@@ -320,11 +320,11 @@ template <typename Composer> void keccak<Composer>::theta(keccak_state& internal
             // | hi | mid | lo | X  |
             // | P0 | P1  | P2 | Y  |
             // To save a gate, we would need to place the wires for the first KECCAK_THETA_OUTPUT plookup gate
-            // at P0, P1, P2. This is fiddly composer logic that is circuit-width-dependent
+            // at P0, P1, P2. This is fiddly builder logic that is circuit-width-dependent
             // (this would save 120 gates per hash block... not worth making the code less readable for that)
-            D[i] = plookup_read<Composer>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
+            D[i] = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_THETA_OUTPUT, mid);
         } else {
-            const auto accumulators = plookup_read<Composer>::get_lookup_accumulators(KECCAK_THETA_OUTPUT, D[i]);
+            const auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_THETA_OUTPUT, D[i]);
             D[i] = accumulators[ColumnIdx::C2][0];
 
             // Ensure input to lookup is < 11^64,
@@ -335,8 +335,8 @@ template <typename Composer> void keccak<Composer>::theta(keccak_state& internal
             // prevents an extra range table from being created
             constexpr uint256_t maximum = BASE.pow(64 % plookup::keccak_tables::Theta::TABLE_BITS);
             const field_ct target = -most_significant_slice + maximum;
-            ASSERT(((uint256_t(1) << Composer::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1) > maximum);
-            target.create_range_constraint(Composer::DEFAULT_PLOOKUP_RANGE_BITNUM,
+            ASSERT(((uint256_t(1) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM) - 1) > maximum);
+            target.create_range_constraint(Builder::DEFAULT_PLOOKUP_RANGE_BITNUM,
                                            "input to KECCAK_THETA_OUTPUT too large!");
         }
     }
@@ -352,7 +352,7 @@ template <typename Composer> void keccak<Composer>::theta(keccak_state& internal
 /**
  * @brief RHO round
  *
- * @tparam Composer
+ * @tparam Builder
  *
  * The limbs of internal.state are represented via base-11 integers
  *  limb = \sum_{i=0}^63 b_i * 11^i
@@ -375,7 +375,7 @@ template <typename Composer> void keccak<Composer>::theta(keccak_state& internal
  * N.B. Can reduce lookup costs by using larger lookup tables.
  * Current algo is optimized for lookup tables where sum of all table sizes is < 2^64
  */
-template <typename Composer> void keccak<Composer>::rho(keccak_state& internal)
+template <typename Builder> void keccak<Builder>::rho(keccak_state& internal)
 {
     constexpr_for<0, NUM_KECCAK_LANES, 1>(
         [&]<size_t i>() { internal.state[i] = normalize_and_rotate<i>(internal.state[i], internal.state_msb[i]); });
@@ -387,10 +387,10 @@ template <typename Composer> void keccak<Composer>::rho(keccak_state& internal)
  * PI permutes the keccak lanes. Adds 0 constraints as this is simply a
  * re-ordering of witnesses
  *
- * @tparam Composer
+ * @tparam Builder
  * @param internal
  */
-template <typename Composer> void keccak<Composer>::pi(keccak_state& internal)
+template <typename Builder> void keccak<Builder>::pi(keccak_state& internal)
 {
     std::array<field_ct, NUM_KECCAK_LANES> B;
 
@@ -424,9 +424,9 @@ template <typename Composer> void keccak<Composer>::pi(keccak_state& internal)
  *
  * N.B. the KECCAK_CHI_OUTPUT table also has a column for the most significant bit of each lookup.
  *      We use this to create a 'twisted representation of each hash lane (see THETA comments for more details)
- * @tparam Composer
+ * @tparam Builder
  */
-template <typename Composer> void keccak<Composer>::chi(keccak_state& internal)
+template <typename Builder> void keccak<Builder>::chi(keccak_state& internal)
 {
     // (cost = 12 * 25 = 300?)
     auto& state = internal.state;
@@ -443,7 +443,7 @@ template <typename Composer> void keccak<Composer>::chi(keccak_state& internal)
         }
         for (size_t x = 0; x < 5; ++x) {
             // Normalize lane outputs and assign to internal.state
-            auto accumulators = plookup_read<Composer>::get_lookup_accumulators(KECCAK_CHI_OUTPUT, lane_outputs[x]);
+            auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_CHI_OUTPUT, lane_outputs[x]);
             internal.state[y * 5 + x] = accumulators[ColumnIdx::C2][0];
             internal.state_msb[y * 5 + x] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
         }
@@ -455,11 +455,11 @@ template <typename Composer> void keccak<Composer>::chi(keccak_state& internal)
  *
  * XOR first hash limb with a precomputed constant.
  * We re-use the RHO_OUTPUT table to normalize after this operation
- * @tparam Composer
+ * @tparam Builder
  * @param internal
  * @param round
  */
-template <typename Composer> void keccak<Composer>::iota(keccak_state& internal, size_t round)
+template <typename Builder> void keccak<Builder>::iota(keccak_state& internal, size_t round)
 {
     const field_ct xor_result = internal.state[0] + SPARSE_RC[round];
 
@@ -472,7 +472,7 @@ template <typename Composer> void keccak<Composer>::iota(keccak_state& internal,
     }
 }
 
-template <typename Composer> void keccak<Composer>::keccakf1600(keccak_state& internal)
+template <typename Builder> void keccak<Builder>::keccakf1600(keccak_state& internal)
 {
     for (size_t i = 0; i < NUM_KECCAK_ROUNDS; ++i) {
         theta(internal);
@@ -483,11 +483,11 @@ template <typename Composer> void keccak<Composer>::keccakf1600(keccak_state& in
     }
 }
 
-template <typename Composer>
-void keccak<Composer>::sponge_absorb(keccak_state& internal,
-                                     const std::vector<field_ct>& input_buffer,
-                                     const std::vector<field_ct>& msb_buffer,
-                                     const field_ct& num_blocks_with_data)
+template <typename Builder>
+void keccak<Builder>::sponge_absorb(keccak_state& internal,
+                                    const std::vector<field_ct>& input_buffer,
+                                    const std::vector<field_ct>& msb_buffer,
+                                    const field_ct& num_blocks_with_data)
 {
     const size_t l = input_buffer.size();
 
@@ -532,13 +532,13 @@ void keccak<Composer>::sponge_absorb(keccak_state& internal,
     }
 }
 
-template <typename Composer> byte_array<Composer> keccak<Composer>::sponge_squeeze(keccak_state& internal)
+template <typename Builder> byte_array<Builder> keccak<Builder>::sponge_squeeze(keccak_state& internal)
 {
     byte_array_ct result(internal.context);
 
     // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
     for (size_t i = 0; i < 4; ++i) {
-        field_ct output_limb = plookup_read<Composer>::read_from_1_to_2_table(KECCAK_FORMAT_OUTPUT, internal.state[i]);
+        field_ct output_limb = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_FORMAT_OUTPUT, internal.state[i]);
         byte_array_ct limb_bytes(output_limb, 8);
         byte_array_ct little_endian_limb_bytes(internal.context, 8);
         little_endian_limb_bytes.set_byte(0, limb_bytes[7]);
@@ -561,13 +561,13 @@ template <typename Composer> byte_array<Composer> keccak<Composer>::sponge_squee
  *        (0x1 inserted after the final byte of input data)
  *        (0x80 inserted at the end of the final block)
  *
- * @tparam Composer
+ * @tparam Builder
  * @param input
  * @param num_bytes
- * @return std::vector<field_t<Composer>>
+ * @return std::vector<field_t<Builder>>
  */
-template <typename Composer>
-std::vector<field_t<Composer>> keccak<Composer>::format_input_lanes(byte_array_ct& _input, const uint32_ct& num_bytes)
+template <typename Builder>
+std::vector<field_t<Builder>> keccak<Builder>::format_input_lanes(byte_array_ct& _input, const uint32_ct& num_bytes)
 {
     byte_array_ct input(_input);
 
@@ -677,7 +677,7 @@ std::vector<field_t<Composer>> keccak<Composer>::format_input_lanes(byte_array_c
 
     // validate the number of lanes is less than the default plookup size (we use the default size to do a cheap `<`
     // check later on. Should be fine as this translates to ~2MB of input data)
-    ASSERT(uint256_t(sliced_buffer.size()) < (uint256_t(1ULL) << Composer::DEFAULT_PLOOKUP_RANGE_BITNUM));
+    ASSERT(uint256_t(sliced_buffer.size()) < (uint256_t(1ULL) << Builder::DEFAULT_PLOOKUP_RANGE_BITNUM));
 
     // If the terminating input byte index matches the terminating block byte index, we set the byte to 0x80.
     // If we trigger this case, set `terminating_index_limb_addition` to 0 so that we do not write `0x01 + 0x80`
@@ -689,7 +689,7 @@ std::vector<field_t<Composer>> keccak<Composer>::format_input_lanes(byte_array_c
     for (size_t i = 0; i < sliced_buffer.size(); ++i) {
         // If i > terminating_index, limb must be 0
         bool_ct limb_must_be_zeroes =
-            terminating_index.template ranged_less_than<Composer::DEFAULT_PLOOKUP_RANGE_BITNUM>(field_ct(i));
+            terminating_index.template ranged_less_than<Builder::DEFAULT_PLOOKUP_RANGE_BITNUM>(field_ct(i));
         // Is i == terminating_limb_index?
         bool_ct is_terminating_limb = terminating_index == field_ct(i);
 
@@ -721,8 +721,94 @@ std::vector<field_t<Composer>> keccak<Composer>::format_input_lanes(byte_array_c
     return lanes;
 }
 
-template <typename Composer>
-stdlib::byte_array<Composer> keccak<Composer>::hash(byte_array_ct& input, const uint32_ct& num_bytes)
+// Returns the keccak f1600 permutation of the input state
+// We first convert the state into 'extended' representation, along with the 'twisted' state
+// and then we call keccakf1600() with this keccak 'internal state'
+// Finally, we convert back the state from the extented representation
+template <typename Builder>
+std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>::permutation_opcode(
+    std::array<field_t<Builder>, NUM_KECCAK_LANES> state, Builder* ctx)
+{
+    std::vector<field_t<Builder>> converted_buffer(NUM_KECCAK_LANES);
+    std::vector<field_t<Builder>> msb_buffer(NUM_KECCAK_LANES);
+    // populate keccak_state, convert our 64-bit lanes into an extended base-11 representation
+    keccak_state internal;
+    internal.context = ctx;
+    for (size_t i = 0; i < state.size(); ++i) {
+        const auto accumulators = plookup_read<Builder>::get_lookup_accumulators(KECCAK_FORMAT_INPUT, state[i]);
+        internal.state[i] = accumulators[ColumnIdx::C2][0];
+        internal.state_msb[i] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
+    }
+    compute_twisted_state(internal);
+    keccakf1600(internal);
+    // we convert back to the normal lanes
+    return extended_2_normal(internal);
+}
+
+// This function is similar to sponge_absorb()
+// but it uses permutation_opcode() instead of calling directly keccakf1600().
+// As a result, this function is less efficient and should only be used to test permutation_opcode()
+template <typename Builder>
+void keccak<Builder>::sponge_absorb_with_permutation_opcode(keccak_state& internal,
+                                                            std::vector<field_t<Builder>>& input_buffer,
+                                                            const size_t input_size)
+{
+    // populate keccak_state
+    const size_t num_blocks = input_size / (BLOCK_SIZE / 8);
+    for (size_t i = 0; i < num_blocks; ++i) {
+        if (i == 0) {
+            for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
+                internal.state[j] = input_buffer[j];
+            }
+            for (size_t j = LIMBS_PER_BLOCK; j < NUM_KECCAK_LANES; ++j) {
+                internal.state[j] = witness_ct::create_constant_witness(internal.context, 0);
+            }
+        } else {
+            for (size_t j = 0; j < LIMBS_PER_BLOCK; ++j) {
+                internal.state[j] = stdlib::logic<Builder>::create_logic_constraint(
+                    internal.state[j], input_buffer[i * LIMBS_PER_BLOCK + j], 64, true);
+            }
+        }
+        internal.state = permutation_opcode(internal.state, internal.context);
+    }
+}
+
+// This function computes the keccak hash, like the hash() function
+// but it uses permutation_opcode() instead of calling directly keccakf1600().
+// As a result, this function is less efficient and should only be used to test permutation_opcode()
+template <typename Builder>
+stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_array_ct& input,
+                                                                           const uint32_ct& num_bytes)
+{
+    auto ctx = input.get_context();
+
+    ASSERT(uint256_t(num_bytes.get_value()) == input.size());
+
+    if (ctx == nullptr) {
+        // if buffer is constant compute hash and return w/o creating constraints
+        byte_array_ct output(nullptr, 32);
+        const std::vector<uint8_t> result = hash_native(input.get_value());
+        for (size_t i = 0; i < 32; ++i) {
+            output.set_byte(i, result[i]);
+        }
+        return output;
+    }
+
+    // convert the input byte array into 64-bit keccak lanes (+ apply padding)
+    auto formatted_slices = format_input_lanes(input, num_bytes);
+
+    keccak_state internal;
+    internal.context = ctx;
+    uint32_ct num_blocks_with_data = (num_bytes + BLOCK_SIZE) / BLOCK_SIZE;
+    sponge_absorb_with_permutation_opcode(internal, formatted_slices, formatted_slices.size());
+
+    auto result = sponge_squeeze_for_permutation_opcode(internal.state, ctx);
+
+    return result;
+}
+
+template <typename Builder>
+stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const uint32_ct& num_bytes)
 {
     auto ctx = input.get_context();
 
@@ -737,7 +823,7 @@ stdlib::byte_array<Composer> keccak<Composer>::hash(byte_array_ct& input, const 
         return output;
     };
 
-    if constexpr (IsSimulator<Composer>) {
+    if constexpr (IsSimulator<Builder>) {
         return constant_case();
     }
 
@@ -756,7 +842,7 @@ stdlib::byte_array<Composer> keccak<Composer>::hash(byte_array_ct& input, const 
     internal.context = ctx;
     for (size_t i = 0; i < formatted_slices.size(); ++i) {
         const auto accumulators =
-            plookup_read<Composer>::get_lookup_accumulators(KECCAK_FORMAT_INPUT, formatted_slices[i]);
+            plookup_read<Builder>::get_lookup_accumulators(KECCAK_FORMAT_INPUT, formatted_slices[i]);
         converted_buffer[i] = accumulators[ColumnIdx::C2][0];
         msb_buffer[i] = accumulators[ColumnIdx::C3][accumulators[ColumnIdx::C3].size() - 1];
     }
@@ -769,7 +855,68 @@ stdlib::byte_array<Composer> keccak<Composer>::hash(byte_array_ct& input, const 
     return result;
 }
 
-INSTANTIATE_STDLIB_ULTRA_TYPE(keccak)
-INSTANTIATE_STDLIB_SIMULATOR_TYPE(keccak)
-} // namespace stdlib
-} // namespace proof_system::plonk
+// Convert the 'extended' representation of the internal Keccak state into the usual array of 64 bits lanes
+template <typename Builder>
+std::array<field_t<Builder>, keccak<Builder>::NUM_KECCAK_LANES> keccak<Builder>::extended_2_normal(
+    keccak_state& internal)
+{
+    std::array<field_t<Builder>, NUM_KECCAK_LANES> conversion;
+
+    // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
+    for (size_t i = 0; i < internal.state.size(); ++i) {
+        field_ct output_limb = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_FORMAT_OUTPUT, internal.state[i]);
+        conversion[i] = output_limb;
+    }
+
+    return conversion;
+}
+
+// This function is the same as sponge_squeeze, except that it does not convert
+// from extended representation and assumes the input has already being converted
+template <typename Builder>
+stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opcode(
+    std::array<field_t<Builder>, NUM_KECCAK_LANES> lanes, Builder* context)
+{
+    byte_array_ct result(context);
+
+    // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
+    for (size_t i = 0; i < 4; ++i) {
+        byte_array_ct limb_bytes(lanes[i], 8);
+        byte_array_ct little_endian_limb_bytes(context, 8);
+        little_endian_limb_bytes.set_byte(0, limb_bytes[7]);
+        little_endian_limb_bytes.set_byte(1, limb_bytes[6]);
+        little_endian_limb_bytes.set_byte(2, limb_bytes[5]);
+        little_endian_limb_bytes.set_byte(3, limb_bytes[4]);
+        little_endian_limb_bytes.set_byte(4, limb_bytes[3]);
+        little_endian_limb_bytes.set_byte(5, limb_bytes[2]);
+        little_endian_limb_bytes.set_byte(6, limb_bytes[1]);
+        little_endian_limb_bytes.set_byte(7, limb_bytes[0]);
+        result.write(little_endian_limb_bytes);
+    }
+    return result;
+}
+
+/**
+ * @brief Generate a simple keccak circuit for testing purposes
+ *
+ * @tparam Builder
+ * @param builder
+ * @param num_iterations number of hashes to perform
+ */
+template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations)
+{
+    std::string in = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
+
+    stdlib::byte_array<Builder> input(&builder, in);
+    for (size_t i = 0; i < num_iterations; i++) {
+        input = stdlib::keccak<Builder>::hash(input);
+    }
+}
+
+template class keccak<bb::CircuitSimulatorBN254>;
+template class keccak<bb::UltraCircuitBuilder>;
+template class keccak<bb::GoblinUltraCircuitBuilder>;
+template void generate_keccak_test_circuit(bb::UltraCircuitBuilder&, size_t);
+template void generate_keccak_test_circuit(bb::GoblinUltraCircuitBuilder&, size_t);
+
+} // namespace bb::stdlib

@@ -2,30 +2,38 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <gtest/gtest.h>
 
-namespace barretenberg::test_pow {
+using namespace bb;
 
-using FF = barretenberg::fr;
-
-TEST(SumcheckPow, FullPowConsistency)
+TEST(PowPolynomial, FullPowConsistency)
 {
     constexpr size_t d = 5;
-
-    FF zeta = FF::random_element();
-
-    PowUnivariate<FF> pow_univariate(zeta);
-    std::array<FF, d> variables{};
-    for (auto& u_i : variables) {
-        u_i = FF::random_element();
-        pow_univariate.partially_evaluate(u_i);
+    std::vector<fr> betas(d);
+    for (auto& beta : betas) {
+        beta = fr::random_element();
     }
 
-    FF zeta_power = zeta;
-    FF expected_eval = 1;
+    PowPolynomial<fr> pow_polynomial(betas);
+    std::array<fr, d> variables{};
     for (auto& u_i : variables) {
-        expected_eval *= FF(1) - u_i + u_i * zeta_power;
-        zeta_power *= zeta_power;
+        u_i = fr::random_element();
+        pow_polynomial.partially_evaluate(u_i);
     }
 
-    EXPECT_EQ(pow_univariate.partial_evaluation_constant, expected_eval);
+    size_t beta_idx = 0;
+    fr expected_eval = 1;
+    for (auto& u_i : variables) {
+        expected_eval *= fr(1) - u_i + u_i * pow_polynomial.betas[beta_idx];
+        beta_idx++;
+    }
+
+    EXPECT_EQ(pow_polynomial.partial_evaluation_result, expected_eval);
 }
-} // namespace barretenberg::test_pow
+
+TEST(PowPolynomial, PowPolynomialsOnPowers)
+{
+    auto betas = std::vector<fr>{ 2, 4, 16 };
+    auto pow = PowPolynomial(betas);
+    pow.compute_values();
+    auto expected_values = std::vector<fr>{ 1, 2, 4, 8, 16, 32, 64, 128 };
+    EXPECT_EQ(expected_values, pow.pow_betas);
+}

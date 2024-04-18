@@ -2,7 +2,7 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, mapTuple } from '@aztec/foundation/serialize';
 
-import { Signature } from '../index.js';
+import { type Signature } from '../signature/index.js';
 
 /**
  * Schnorr signature used for transactions.
@@ -79,7 +79,7 @@ export class SchnorrSignature implements Signature {
   }
 
   /**
-   * Deserialises from a buffer.
+   * Deserializes from a buffer.
    * @param buffer - The buffer representation of the object.
    * @returns The new object.
    */
@@ -97,8 +97,8 @@ export class SchnorrSignature implements Signature {
   }
 
   /**
-   * Converts the signature to an array of fields.
-   * @returns The signature components as an array of fields
+   * Converts the signature to an array of three fields.
+   * @returns The signature components as an array of three fields
    */
   toFields(): Fr[] {
     const sig = this.toBuffer();

@@ -4,7 +4,10 @@ import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
 import { Command } from 'commander';
-import acvmInfoJson from './info.json' assert { type: 'json' };
+import { acvmInfoJson } from './info.js';
+import { Timer, writeBenchmark } from './benchmark/index.js';
+import path from 'path';
+import { GrumpkinCrs } from './crs/node/index.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
@@ -15,6 +18,7 @@ const debug = createDebug('bb.js');
 // aware of this discrepancy, when creating proofs in bb versus
 // creating the same proofs in the node CLI.
 const MAX_CIRCUIT_SIZE = 2 ** 19;
+const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
 function getBytecode(bytecodePath: string) {
   const encodedCircuit = readFileSync(bytecodePath);
@@ -40,11 +44,12 @@ async function computeCircuitSize(bytecodePath: string, api: Barretenberg) {
   return { exact, total, subgroup };
 }
 
-async function init(bytecodePath: string, crsPath: string) {
-  const api = await Barretenberg.new();
+async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1) {
+  const api = await Barretenberg.new({ threads });
 
   const circuitSize = await getGates(bytecodePath, api);
-  const subgroupSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
+  const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
   if (subgroupSize > MAX_CIRCUIT_SIZE) {
     throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
   }
@@ -63,11 +68,26 @@ async function init(bytecodePath: string, crsPath: string) {
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
 
   const acirComposer = await api.acirNewAcirComposer(subgroupSize);
-  return { api, acirComposer, circuitSize: subgroupSize };
+  return { api, acirComposer, circuitSize, subgroupSize };
+}
+
+async function initGoblin(bytecodePath: string, crsPath: string) {
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
+  const hardcodedGrumpkinSubgroupSizeHack = 262144;
+  const initData = await init(bytecodePath, crsPath, hardcodedGrumpkinSubgroupSizeHack);
+  const { api } = initData;
+  initData.acirComposer = await api.acirNewGoblinAcirComposer();
+
+  // Plus 1 needed! (Move +1 into Crs?)
+  // Need both grumpkin and bn254 SRS's currently
+  const grumpkinCrs = await GrumpkinCrs.new(hardcodedGrumpkinSubgroupSizeHack + 1, crsPath);
+  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
+
+  return initData;
 }
 
 async function initLite() {
-  const api = await Barretenberg.new(1);
+  const api = await Barretenberg.new({ threads: 1 });
 
   // Plus 1 needed! (Move +1 into Crs?)
   const crs = await Crs.new(1);
@@ -79,36 +99,101 @@ async function initLite() {
   return { api, acirComposer };
 }
 
-export async function proveAndVerify(bytecodePath: string, witnessPath: string, crsPath: string, isRecursive: boolean) {
-  const { api, acirComposer } = await init(bytecodePath, crsPath);
+export async function proveAndVerify(bytecodePath: string, witnessPath: string, crsPath: string) {
+  /* eslint-disable camelcase */
+  const acir_test = path.basename(process.cwd());
+
+  const { api, acirComposer, circuitSize, subgroupSize } = await init(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const proof = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
+
+    const pkTimer = new Timer();
+    await api.acirInitProvingKey(acirComposer, bytecode);
+    writeBenchmark('pk_construction_time', pkTimer.ms(), { acir_test, threads });
+    writeBenchmark('gate_count', circuitSize, { acir_test, threads });
+    writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
+
+    const proofTimer = new Timer();
+    const proof = await api.acirCreateProof(acirComposer, bytecode, witness);
+    writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
 
     debug(`verifying...`);
-    const verified = await api.acirVerifyProof(acirComposer, proof, isRecursive);
+    const verified = await api.acirVerifyProof(acirComposer, proof);
     debug(`verified: ${verified}`);
     return verified;
   } finally {
     await api.destroy();
   }
+  /* eslint-enable camelcase */
 }
 
-export async function prove(
-  bytecodePath: string,
-  witnessPath: string,
-  crsPath: string,
-  isRecursive: boolean,
-  outputPath: string,
-) {
+export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+  /* eslint-disable camelcase */
+  const { api } = await init(bytecodePath, crsPath);
+  try {
+    const bytecode = getBytecode(bytecodePath);
+    const witness = getWitness(witnessPath);
+
+    const verified = await api.acirProveAndVerifyUltraHonk(bytecode, witness);
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
+export async function proveAndVerifyGoblinUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+  /* eslint-disable camelcase */
+  const { api } = await init(bytecodePath, crsPath);
+  try {
+    const bytecode = getBytecode(bytecodePath);
+    const witness = getWitness(witnessPath);
+
+    const verified = await api.acirProveAndVerifyGoblinUltraHonk(bytecode, witness);
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
+export async function proveAndVerifyGoblin(bytecodePath: string, witnessPath: string, crsPath: string) {
+  /* eslint-disable camelcase */
+  const acir_test = path.basename(process.cwd());
+
+  const { api, acirComposer, circuitSize, subgroupSize } = await initGoblin(bytecodePath, crsPath);
+  try {
+    debug(`creating proof...`);
+    const bytecode = getBytecode(bytecodePath);
+    const witness = getWitness(witnessPath);
+
+    writeBenchmark('gate_count', circuitSize, { acir_test, threads });
+    writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
+
+    const proofTimer = new Timer();
+    const proof = await api.acirGoblinProve(acirComposer, bytecode, witness);
+    writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
+
+    debug(`verifying...`);
+    const verified = await api.acirGoblinVerify(acirComposer, proof);
+    debug(`verified: ${verified}`);
+    console.log({ verified });
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+  /* eslint-enable camelcase */
+}
+
+export async function prove(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
   const { api, acirComposer } = await init(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const proof = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
+    const proof = await api.acirCreateProof(acirComposer, bytecode, witness);
     debug(`done.`);
 
     if (outputPath === '-') {
@@ -124,9 +209,17 @@ export async function prove(
 }
 
 export async function gateCount(bytecodePath: string) {
-  const api = await Barretenberg.new(1);
+  const api = await Barretenberg.new({ threads: 1 });
   try {
-    process.stdout.write(`${await getGates(bytecodePath, api)}`);
+    const numberOfGates = await getGates(bytecodePath, api);
+
+    // Create an 8-byte buffer and write the number into it.
+    // Writing number directly to stdout will result in a variable sized
+    // input depending on the size.
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigInt64LE(BigInt(numberOfGates));
+
+    process.stdout.write(buffer);
   } finally {
     await api.destroy();
   }
@@ -143,11 +236,11 @@ export function acvmInfo(outputPath: string) {
   }
 }
 
-export async function verify(proofPath: string, isRecursive: boolean, vkPath: string) {
+export async function verify(proofPath: string, vkPath: string) {
   const { api, acirComposer } = await initLite();
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
-    const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath), isRecursive);
+    const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath));
     debug(`verified: ${verified}`);
     return verified;
   } finally {
@@ -189,6 +282,25 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
     } else {
       writeFileSync(outputPath, vk);
       debug(`vk written to: ${outputPath}`);
+    }
+  } finally {
+    await api.destroy();
+  }
+}
+
+export async function writePk(bytecodePath: string, crsPath: string, outputPath: string) {
+  const { api, acirComposer } = await init(bytecodePath, crsPath);
+  try {
+    debug('initing proving key...');
+    const bytecode = getBytecode(bytecodePath);
+    const pk = await api.acirGetProvingKey(acirComposer, bytecode);
+
+    if (outputPath === '-') {
+      process.stdout.write(pk);
+      debug(`pk written to stdout`);
+    } else {
+      writeFileSync(outputPath, pk);
+      debug(`pk written to: ${outputPath}`);
     }
   } finally {
     await api.destroy();
@@ -262,10 +374,42 @@ program
   .description('Generate a proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .option('-r, --recursive', 'prove and verify using recursive prover and verifier', false)
-  .action(async ({ bytecodePath, witnessPath, recursive, crsPath }) => {
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
     handleGlobalOptions();
-    const result = await proveAndVerify(bytecodePath, witnessPath, crsPath, recursive);
+    const result = await proveAndVerify(bytecodePath, witnessPath, crsPath);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('prove_and_verify_ultra_honk')
+  .description('Generate an UltraHonk proof and verify it. Process exits with success or failure code.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+    handleGlobalOptions();
+    const result = await proveAndVerifyUltraHonk(bytecodePath, witnessPath, crsPath);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('prove_and_verify_goblin_ultra_honk')
+  .description('Generate a GUH proof and verify it. Process exits with success or failure code.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+    handleGlobalOptions();
+    const result = await proveAndVerifyGoblinUltraHonk(bytecodePath, witnessPath, crsPath);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('prove_and_verify_goblin')
+  .description('Generate a Goblin proof and verify it. Process exits with success or failure code.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
+  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
+    handleGlobalOptions();
+    const result = await proveAndVerifyGoblin(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -274,11 +418,10 @@ program
   .description('Generate a proof and write it to a file.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .option('-r, --recursive', 'prove using recursive prover', false)
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, witnessPath, recursive, outputPath, crsPath }) => {
+  .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
     handleGlobalOptions();
-    await prove(bytecodePath, witnessPath, crsPath, recursive, outputPath);
+    await prove(bytecodePath, witnessPath, crsPath, outputPath);
   });
 
 program
@@ -294,11 +437,10 @@ program
   .command('verify')
   .description('Verify a proof. Process exists with success or failure code.')
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
-  .option('-r, --recursive', 'prove using recursive prover', false)
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
-  .action(async ({ proofPath, recursive, vk }) => {
+  .action(async ({ proofPath, vk }) => {
     handleGlobalOptions();
-    const result = await verify(proofPath, recursive, vk);
+    const result = await verify(proofPath, vk);
     process.exit(result ? 0 : 1);
   });
 
@@ -321,6 +463,16 @@ program
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
     handleGlobalOptions();
     await writeVk(bytecodePath, crsPath, outputPath);
+  });
+
+program
+  .command('write_pk')
+  .description('Output proving key.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
+  .action(async ({ bytecodePath, outputPath, crsPath }) => {
+    handleGlobalOptions();
+    await writePk(bytecodePath, crsPath, outputPath);
   });
 
 program

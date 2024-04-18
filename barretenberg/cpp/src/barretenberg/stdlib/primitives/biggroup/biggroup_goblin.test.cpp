@@ -2,6 +2,7 @@
 #include <type_traits>
 
 #include "../biggroup/biggroup.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -9,12 +10,11 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <memory>
 
-namespace test_stdlib_biggroup_goblin {
 namespace {
-auto& engine = numeric::random::get_debug_engine();
+auto& engine = numeric::get_debug_randomness();
 }
 
-using namespace proof_system::plonk;
+using namespace bb;
 
 template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
     using element_ct = typename Curve::Element;
@@ -30,7 +30,7 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
         info("builder gates = ", builder.get_num_gates());
-        EXPECT_EQ(builder.check_circuit(), expected_result);
+        EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
   public:
@@ -41,7 +41,6 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
      */
     static void test_goblin_style_batch_mul()
     {
-        const bool goblin_flag = true; // used to indicate goblin-style in batch_mul
         const size_t num_points = 5;
         Builder builder;
 
@@ -59,7 +58,7 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
             circuit_scalars.push_back(scalar_ct::from_witness(&builder, scalars[i]));
         }
 
-        element_ct result_point = element_ct::template batch_mul<goblin_flag>(circuit_points, circuit_scalars);
+        element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
 
         element expected_point = g1::one;
         expected_point.self_set_infinity();
@@ -78,7 +77,7 @@ template <typename Curve> class stdlib_biggroup_goblin : public testing::Test {
     }
 };
 
-using TestTypes = testing::Types<stdlib::bn254<proof_system::UltraCircuitBuilder>>;
+using TestTypes = testing::Types<stdlib::bn254<bb::GoblinUltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup_goblin, TestTypes);
 
@@ -86,4 +85,3 @@ HEAVY_TYPED_TEST(stdlib_biggroup_goblin, batch_mul)
 {
     TestFixture::test_goblin_style_batch_mul();
 }
-} // namespace test_stdlib_biggroup_goblin

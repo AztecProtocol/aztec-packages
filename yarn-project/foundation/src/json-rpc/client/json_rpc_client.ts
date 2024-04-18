@@ -2,23 +2,24 @@
 //  Dev dependency just for the somewhat complex RemoteObject type
 //  This takes a {foo(): T} and makes {foo(): Promise<T>}
 //  while avoiding Promise of Promise.
-import { RemoteObject } from 'comlink';
+import { type RemoteObject } from 'comlink';
+import { format } from 'util';
 
-import { DebugLogger, createDebugLogger } from '../../log/index.js';
+import { type DebugLogger, createDebugLogger } from '../../log/index.js';
 import { NoRetryError, makeBackoff, retry } from '../../retry/index.js';
-import { ClassConverter, JsonClassConverterInput, StringClassConverterInput } from '../class_converter.js';
+import { ClassConverter, type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
 
 export { JsonStringify } from '../convert.js';
 
-const debug = createDebugLogger('json-rpc:json_rpc_client');
+const log = createDebugLogger('json-rpc:json_rpc_client');
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.
  * @param host - The host URL.
  * @param method - The RPC method name.
  * @param body - The RPC payload.
- * @param noRetry - Whether to throw a `NoRetryError` in case the response is not ok and the body contains an error
+ * @param noRetry - Whether to throw a `NoRetryError` in case the response is a 5xx error and the body contains an error
  *                  message (see `retry` function for more details).
  * @returns The parsed JSON response, or throws an error.
  */
@@ -29,7 +30,7 @@ export async function defaultFetch(
   useApiEndpoints: boolean,
   noRetry = false,
 ) {
-  debug(`JsonRpcClient.fetch`, host, rpcMethod, '->', body);
+  log.debug(format(`JsonRpcClient.fetch`, host, rpcMethod, '->', body));
   let resp: Response;
   if (useApiEndpoints) {
     resp = await fetch(`${host}/${rpcMethod}`, {
@@ -55,10 +56,10 @@ export async function defaultFetch(
     throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
   if (!resp.ok) {
-    if (noRetry) {
-      throw new NoRetryError(responseJson.error);
+    if (noRetry || (resp.status >= 400 && resp.status < 500)) {
+      throw new NoRetryError('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
     } else {
-      throw new Error(responseJson.error);
+      throw new Error('(JSON-RPC PROPAGATED) ' + responseJson.error.message);
     }
   }
 
@@ -76,7 +77,7 @@ export function makeFetch(retries: number[], noRetry: boolean, log?: DebugLogger
   return async (host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) => {
     return await retry(
       () => defaultFetch(host, rpcMethod, body, useApiEndpoints, noRetry),
-      'JsonRpcClient request',
+      `JsonRpcClient request ${rpcMethod} to ${host}`,
       makeBackoff(retries),
       log,
       true,
@@ -87,12 +88,19 @@ export function makeFetch(retries: number[], noRetry: boolean, log?: DebugLogger
 /**
  * Creates a Proxy object that delegates over RPC and satisfies RemoteObject<T>.
  * The server should have ran new JsonRpcServer().
+ * @param host - The host URL.
+ * @param stringClassMap - A map of class names to string representations.
+ * @param objectClassMap - A map of class names to class constructors.
+ * @param useApiEndpoints - Whether to use the API endpoints or the default RPC endpoint.
+ * @param namespaceMethods - String value (or false/empty) to namespace all methods sent to the server. e.g. 'getInfo' -\> 'pxe_getInfo'
+ * @param fetch - The fetch implementation to use.
  */
 export function createJsonRpcClient<T extends object>(
   host: string,
   stringClassMap: StringClassConverterInput,
   objectClassMap: JsonClassConverterInput,
   useApiEndpoints: boolean,
+  namespaceMethods?: string | false,
   fetch = defaultFetch,
 ) {
   const classConverter = new ClassConverter(stringClassMap, objectClassMap);
@@ -104,9 +112,9 @@ export function createJsonRpcClient<T extends object>(
       method,
       params: params.map(param => convertToJsonObj(classConverter, param)),
     };
-    debug(`JsonRpcClient.request`, method, '<-', params);
+    log.debug(format(`JsonRpcClient.request`, method, '<-', params));
     const res = await fetch(host, method, body, useApiEndpoints);
-    debug(`JsonRpcClient.result`, method, '->', res);
+    log.debug(format(`JsonRpcClient.result`, method, '->', res));
     if (res.error) {
       throw res.error;
     }
@@ -121,10 +129,16 @@ export function createJsonRpcClient<T extends object>(
   return new Proxy(
     {},
     {
-      get: (target, rpcMethod: string) => {
-        if (['then', 'catch'].includes(rpcMethod)) return Reflect.get(target, rpcMethod);
+      get: (target, method: string) => {
+        let rpcMethod = method;
+        if (namespaceMethods) {
+          rpcMethod = `${namespaceMethods}_${method}`;
+        }
+        if (['then', 'catch'].includes(method)) {
+          return Reflect.get(target, method);
+        }
         return (...params: any[]) => {
-          debug(`JsonRpcClient.constructor`, 'proxy', rpcMethod, '<-', params);
+          log.debug(format(`JsonRpcClient.constructor`, 'proxy', rpcMethod, '<-', params));
           return request(rpcMethod, params);
         };
       },

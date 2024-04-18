@@ -1,5 +1,5 @@
+import { type L1ContractAddresses } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { L1Addresses } from '@aztec/types';
 
 /**
  * There are 2 polling intervals used in this configuration. The first is the archiver polling interval, archiverPollingIntervalMS.
@@ -11,7 +11,7 @@ import { L1Addresses } from '@aztec/types';
 /**
  * The archiver configuration.
  */
-export interface ArchiverConfig extends L1Addresses {
+export interface ArchiverConfig {
   /**
    * The url of the Ethereum RPC node.
    */
@@ -33,9 +33,17 @@ export interface ArchiverConfig extends L1Addresses {
   viemPollingIntervalMS?: number;
 
   /**
-   * Eth block from which we start scanning for L2Blocks.
+   * The deployed L1 contract addresses
    */
-  searchStartBlock: number;
+  l1Contracts: L1ContractAddresses;
+
+  /**
+   * Optional dir to store data. If omitted will store in memory.
+   */
+  dataDirectory?: string;
+
+  /** The max number of logs that can be obtained in 1 "getUnencryptedLogs" call. */
+  maxLogs?: number;
 }
 
 /**
@@ -48,22 +56,36 @@ export function getConfigEnvVars(): ArchiverConfig {
     ETHEREUM_HOST,
     ARCHIVER_POLLING_INTERVAL_MS,
     ARCHIVER_VIEM_POLLING_INTERVAL_MS,
+    AVAILABILITY_ORACLE_CONTRACT_ADDRESS,
     ROLLUP_CONTRACT_ADDRESS,
-    CONTRACT_DEPLOYMENT_EMITTER_ADDRESS,
-    SEARCH_START_BLOCK,
     API_KEY,
     INBOX_CONTRACT_ADDRESS,
+    OUTBOX_CONTRACT_ADDRESS,
+    REGISTRY_CONTRACT_ADDRESS,
+    GAS_TOKEN_CONTRACT_ADDRESS,
+    GAS_PORTAL_CONTRACT_ADDRESS,
+    DATA_DIRECTORY,
   } = process.env;
+  // Populate the relevant addresses for use by the archiver.
+  const addresses: L1ContractAddresses = {
+    availabilityOracleAddress: AVAILABILITY_ORACLE_CONTRACT_ADDRESS
+      ? EthAddress.fromString(AVAILABILITY_ORACLE_CONTRACT_ADDRESS)
+      : EthAddress.ZERO,
+    rollupAddress: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    registryAddress: REGISTRY_CONTRACT_ADDRESS ? EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    inboxAddress: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    outboxAddress: OUTBOX_CONTRACT_ADDRESS ? EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    gasTokenAddress: GAS_TOKEN_CONTRACT_ADDRESS ? EthAddress.fromString(GAS_TOKEN_CONTRACT_ADDRESS) : EthAddress.ZERO,
+    gasPortalAddress: GAS_PORTAL_CONTRACT_ADDRESS
+      ? EthAddress.fromString(GAS_PORTAL_CONTRACT_ADDRESS)
+      : EthAddress.ZERO,
+  };
   return {
-    rpcUrl: ETHEREUM_HOST || 'http://127.0.0.1:8545/',
+    rpcUrl: ETHEREUM_HOST || '',
     archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS ? +ARCHIVER_POLLING_INTERVAL_MS : 1_000,
     viemPollingIntervalMS: ARCHIVER_VIEM_POLLING_INTERVAL_MS ? +ARCHIVER_VIEM_POLLING_INTERVAL_MS : 1_000,
-    rollupContract: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    inboxContract: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
-    contractDeploymentEmitterContract: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
-      ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
-      : EthAddress.ZERO,
-    searchStartBlock: SEARCH_START_BLOCK ? +SEARCH_START_BLOCK : 0,
     apiKey: API_KEY,
+    l1Contracts: addresses,
+    dataDirectory: DATA_DIRECTORY,
   };
 }

@@ -2,14 +2,13 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
-// N.B. Only works with the UltraPlonkComposer at the moment!
-template <typename Composer> class rom_table {
+// N.B. Only works with the UltraPlonkBuilder at the moment!
+template <typename Builder> class rom_table {
   private:
-    typedef field_t<Composer> field_pt;
+    typedef field_t<Builder> field_pt;
 
   public:
     rom_table(){};
@@ -30,18 +29,14 @@ template <typename Composer> class rom_table {
 
     size_t size() const { return length; }
 
-    Composer* get_context() const { return context; }
+    Builder* get_context() const { return context; }
 
   private:
     std::vector<field_pt> raw_entries;
     mutable std::vector<field_pt> entries;
     size_t length = 0;
-    mutable size_t rom_id = 0; // Composer identifier for this ROM table
+    mutable size_t rom_id = 0; // Builder identifier for this ROM table
     mutable bool initialized = false;
-    mutable Composer* context = nullptr;
+    mutable Builder* context = nullptr;
 };
-
-EXTERN_STDLIB_ULTRA_TYPE(rom_table);
-
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

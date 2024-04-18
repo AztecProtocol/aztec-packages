@@ -7,12 +7,12 @@
 #include <functional>
 #include <utility>
 
-namespace proof_system::plonk::stdlib {
+namespace bb::stdlib {
 
-template <typename Composer> class logic {
+template <typename Builder> class logic {
   public:
-    using field_pt = field_t<Composer>;
-    using witness_pt = witness_t<Composer>;
+    using field_pt = field_t<Builder>;
+    using witness_pt = witness_t<Builder>;
 
   public:
     static field_pt create_logic_constraint(
@@ -27,8 +27,4 @@ template <typename Composer> class logic {
                 return std::make_pair(left_chunk, right_chunk);
             });
 };
-
-EXTERN_STDLIB_TYPE(logic);
-EXTERN_STDLIB_SIMULATOR_TYPE(logic);
-
-} // namespace proof_system::plonk::stdlib
+} // namespace bb::stdlib

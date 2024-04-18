@@ -2,16 +2,14 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
-namespace test_secp256k1 {
-
+using namespace bb;
 namespace {
-auto& engine = numeric::random::get_debug_engine();
-}
+auto& engine = numeric::get_debug_randomness();
 
-constexpr uint256_t test_fq_mod(secp256k1::Secp256k1FqParams::modulus_0,
-                                secp256k1::Secp256k1FqParams::modulus_1,
-                                secp256k1::Secp256k1FqParams::modulus_2,
-                                secp256k1::Secp256k1FqParams::modulus_3);
+constexpr uint256_t test_fq_mod(secp256k1::FqParams::modulus_0,
+                                secp256k1::FqParams::modulus_1,
+                                secp256k1::FqParams::modulus_2,
+                                secp256k1::FqParams::modulus_3);
 
 uint256_t get_fq_element()
 {
@@ -21,6 +19,7 @@ uint256_t get_fq_element()
     }
     return res;
 }
+} // namespace
 
 TEST(secp256k1, TestAdd)
 {
@@ -392,7 +391,7 @@ TEST(secp256k1, GroupExponentiationConsistencyCheck)
 TEST(secp256k1, DeriveGenerators)
 {
     constexpr size_t num_generators = 128;
-    auto result = secp256k1::g1::derive_generators<num_generators>();
+    auto result = secp256k1::g1::derive_generators("test generators", num_generators);
 
     const auto is_unique = [&result](const secp256k1::g1::affine_element& y, const size_t j) {
         for (size_t i = 0; i < result.size(); ++i) {
@@ -504,5 +503,3 @@ TEST(secp256k1, MontgomeryMulBigBug)
     secp256k1::fq expected(uint256_t{ 0x60381e557e100000, 0x0, 0x0, 0x0 });
     EXPECT_EQ((a_sqr == expected), true);
 }
-
-} // namespace test_secp256k1

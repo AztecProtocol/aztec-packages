@@ -9,6 +9,7 @@
 #include "./scalar_multiplication.hpp"
 
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/groups/wnaf.hpp"
@@ -93,7 +94,7 @@
     current_offset += 16;                                                                                              \
     schedule_it += 16;
 
-namespace barretenberg::scalar_multiplication {
+namespace bb::scalar_multiplication {
 
 /**
  * The pippppenger point table computes for each point P = (x,y), a point P' = (\beta * x, -y) which enables us
@@ -880,6 +881,7 @@ typename Curve::Element pippenger(typename Curve::ScalarField* scalars,
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases)
 {
+    BB_OP_COUNT_TRACK();
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
 
@@ -955,7 +957,7 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(typename Cur
                                                                     pippenger_runtime_state<Curve>& state)
 {
     std::vector<typename Curve::AffineElement> G_mod(num_initial_points * 2);
-    barretenberg::scalar_multiplication::generate_pippenger_point_table<Curve>(points, &G_mod[0], num_initial_points);
+    bb::scalar_multiplication::generate_pippenger_point_table<Curve>(points, &G_mod[0], num_initial_points);
     return pippenger(scalars, &G_mod[0], num_initial_points, state, false);
 }
 
@@ -1062,6 +1064,6 @@ template curve::Grumpkin::Element pippenger_without_endomorphism_basis_points<cu
     const size_t num_initial_points,
     pippenger_runtime_state<curve::Grumpkin>& state);
 
-} // namespace barretenberg::scalar_multiplication
+} // namespace bb::scalar_multiplication
 
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays, google-readability-casting)

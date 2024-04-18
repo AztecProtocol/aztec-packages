@@ -1,4 +1,4 @@
-import { BufferReader } from '../serialize/buffer_reader.js';
+import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
 /**
@@ -66,24 +66,29 @@ export class Point {
     return [this.x, this.y];
   }
 
+  static fromFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new this(reader.readField(), reader.readField());
+  }
+
   /**
    * Returns the contents of the point as BigInts.
    * @returns The point as BigInts
    */
   toBigInts() {
     return {
-      x: this.x.value,
-      y: this.y.value,
+      x: this.x.toBigInt(),
+      y: this.y.toBigInt(),
     };
   }
 
   /**
-   * Converts the Point instance to a Buffer representaion of the coordinates.
+   * Converts the Point instance to a Buffer representation of the coordinates.
    * The outputs buffer length will be 64, the length of both coordinates not represented as fields.
    * @returns A Buffer representation of the Point instance.
    */
   toBuffer() {
-    return Buffer.concat([this.x.toBuffer(), this.y.toBuffer()]);
+    return serializeToBuffer([this.x, this.y]);
   }
 
   /**
@@ -120,6 +125,10 @@ export class Point {
   equals(rhs: Point) {
     return this.x.equals(rhs.x) && this.y.equals(rhs.y);
   }
+
+  isZero() {
+    return this.x.isZero() && this.y.isZero();
+  }
 }
 
 /**
@@ -128,7 +137,9 @@ export class Point {
  * @returns Whether it looks like a point.
  */
 export function isPoint(obj: object): obj is Point {
-  if (!obj) return false;
+  if (!obj) {
+    return false;
+  }
   const point = obj as Point;
   return point.kind === 'point' && point.x !== undefined && point.y !== undefined;
 }

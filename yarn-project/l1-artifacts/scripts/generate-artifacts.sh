@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail;
 
 target_dir=./generated
@@ -10,16 +10,16 @@ target_dir=./generated
 #   - a .{CONTRACT_NAME}Abi.ts containing the contract ABI.
 
 CONTRACTS=(
-  "l1-contracts:DecoderHelper"
+  "l1-contracts:AvailabilityOracle"
   "l1-contracts:Registry"
   "l1-contracts:Inbox"
   "l1-contracts:Outbox"
   "l1-contracts:Rollup"
-  "l1-contracts:ContractDeploymentEmitter"
   "l1-contracts:TokenPortal"
   "l1-contracts:PortalERC20"
   "l1-contracts:UniswapPortal"
   "l1-contracts:IERC20"
+  "l1-contracts:GasPortal"
 )
 
 

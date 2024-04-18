@@ -4,13 +4,8 @@
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
 #include <array>
 
-namespace proof_system::plonk {
-class UltraPlonkComposer;
-} // namespace proof_system::plonk
-
-namespace proof_system::plonk {
-namespace stdlib {
-template <typename Composer> class bit_array;
+namespace bb::stdlib {
+template <typename Builder> class bit_array;
 
 /**
  * @brief KECCAAAAAAAAAAK
@@ -22,15 +17,15 @@ template <typename Composer> class bit_array;
  * Current cost 17,329 constraints for a 1-block hash
  * using small(ish) lookup tables (total size < 2^64)
  *
- * @tparam Composer
+ * @tparam Builder
  */
-template <typename Composer> class keccak {
+template <typename Builder> class keccak {
   public:
-    using witness_ct = stdlib::witness_t<Composer>;
-    using field_ct = stdlib::field_t<Composer>;
-    using bool_ct = stdlib::bool_t<Composer>;
-    using byte_array_ct = stdlib::byte_array<Composer>;
-    using uint32_ct = stdlib::uint32<Composer>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
+    using byte_array_ct = stdlib::byte_array<Builder>;
+    using uint32_ct = stdlib::uint32<Builder>;
 
     // base of extended representation we use for efficient logic operations
     static constexpr uint256_t BASE = 11;
@@ -162,10 +157,10 @@ template <typename Composer> class keccak {
         std::array<field_ct, NUM_KECCAK_LANES> state;
         std::array<field_ct, NUM_KECCAK_LANES> state_msb;
         std::array<field_ct, NUM_KECCAK_LANES> twisted_state;
-        Composer* context;
+        Builder* context;
     };
 
-    template <size_t lane_index> static field_t<Composer> normalize_and_rotate(const field_ct& limb, field_ct& msb);
+    template <size_t lane_index> static field_t<Builder> normalize_and_rotate(const field_ct& limb, field_ct& msb);
     static void compute_twisted_state(keccak_state& internal);
     static void theta(keccak_state& state);
     static void rho(keccak_state& state);
@@ -193,10 +188,19 @@ template <typename Composer> class keccak {
         memcpy((void*)&output[0], (void*)&hash_result.word64s[0], 32);
         return output;
     }
+
+    // exposing keccak f1600 permutation
+    static byte_array_ct hash_using_permutation_opcode(byte_array_ct& input, const uint32_ct& num_bytes);
+    static std::array<field_ct, NUM_KECCAK_LANES> permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> state,
+                                                                     Builder* context);
+    static void sponge_absorb_with_permutation_opcode(keccak_state& internal,
+                                                      std::vector<field_ct>& input_buffer,
+                                                      const size_t input_size);
+    static std::array<field_ct, NUM_KECCAK_LANES> extended_2_normal(keccak_state& internal);
+    static byte_array_ct sponge_squeeze_for_permutation_opcode(std::array<field_ct, NUM_KECCAK_LANES> lanes,
+                                                               Builder* context);
 };
 
-EXTERN_STDLIB_ULTRA_TYPE(keccak)
-EXTERN_STDLIB_SIMULATOR_TYPE(keccak)
+template <typename Builder> void generate_keccak_test_circuit(Builder& builder, size_t num_iterations);
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib

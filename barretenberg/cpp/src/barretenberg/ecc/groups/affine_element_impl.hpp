@@ -1,25 +1,13 @@
 #pragma once
 #include "./element.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
-#include "barretenberg/crypto/sha256/sha256.hpp"
 
-namespace barretenberg::group_elements {
+namespace bb::group_elements {
 template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>::affine_element(const Fq& a, const Fq& b) noexcept
-    : x(a)
-    , y(b)
-{}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>::affine_element(const affine_element& other) noexcept
-    : x(other.x)
-    , y(other.y)
-{}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>::affine_element(affine_element&& other) noexcept
-    : x(other.x)
-    , y(other.y)
+constexpr affine_element<Fq, Fr, T>::affine_element(const Fq& x, const Fq& y) noexcept
+    : x(x)
+    , y(y)
 {}
 
 template <class Fq, class Fr, class T>
@@ -78,25 +66,6 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator+(
     const affine_element<Fq, Fr, T>& other) const noexcept
 {
     return affine_element(element<Fq, Fr, T>(*this) + element<Fq, Fr, T>(other));
-}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>& affine_element<Fq, Fr, T>::operator=(const affine_element& other) noexcept
-{
-    if (this == &other) {
-        return *this;
-    }
-    x = other.x;
-    y = other.y;
-    return *this;
-}
-
-template <class Fq, class Fr, class T>
-constexpr affine_element<Fq, Fr, T>& affine_element<Fq, Fr, T>::operator=(affine_element&& other) noexcept
-{
-    x = other.x;
-    y = other.y;
-    return *this;
 }
 
 template <class Fq, class Fr, class T>
@@ -201,71 +170,121 @@ constexpr bool affine_element<Fq, Fr, T>::operator>(const affine_element& other)
 }
 
 template <class Fq, class Fr, class T>
-template <typename>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed) noexcept
+constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::derive_from_x_coordinate(
+    const Fq& x, bool sign_bit) noexcept
 {
-    static_assert(static_cast<bool>(T::can_hash_to_curve));
-
-    Fq input(seed, 0, 0, 0);
-    keccak256 c = hash_field_element(&input.data[0]);
-    uint256_t hash{ c.word64s[0], c.word64s[1], c.word64s[2], c.word64s[3] };
-
-    uint256_t x_coordinate = hash;
-
-    if constexpr (Fq::modulus.data[3] < 0x8000000000000000ULL) {
-        x_coordinate.data[3] = x_coordinate.data[3] & (~0x8000000000000000ULL);
-    }
-
-    bool y_bit = hash.get_bit(255);
-
-    Fq x_out = Fq(x_coordinate);
-    Fq y_out = (x_out.sqr() * x_out + T::b);
+    auto yy = x.sqr() * x + T::b;
     if constexpr (T::has_a) {
-        y_out += (x_out * T::a);
+        yy += (x * T::a);
     }
+    auto [found_root, y] = yy.sqrt();
 
-    // When the sqrt of y_out doesn't exist, return 0.
-    auto [is_quadratic_remainder, y_out_] = y_out.sqrt();
-    if (!is_quadratic_remainder) {
-        return affine_element(Fq::zero(), Fq::zero());
+    if (found_root) {
+        if (uint256_t(y).get_bit(0) != sign_bit) {
+            y = -y;
+        }
+        return affine_element(x, y);
     }
-    if (uint256_t(y_out_).get_bit(0) != y_bit) {
-        y_out_ = -y_out_;
-    }
+    return std::nullopt;
+}
 
-    return affine_element<Fq, Fr, T>(x_out, y_out_);
+/**
+ * @brief Hash a seed buffer into a point
+ *
+ * @details ALGORITHM DESCRIPTION:
+ *          1. Initialize unsigned integer `attempt_count = 0`
+ *          2. Copy seed into a buffer whose size is 2 bytes greater than `seed` (initialized to 0)
+ *          3. Interpret `attempt_count` as a byte and write into buffer at [buffer.size() - 2]
+ *          4. Compute Blake3s hash of buffer
+ *          5. Set the end byte of the buffer to `1`
+ *          6. Compute Blake3s hash of buffer
+ *          7. Interpret the two hash outputs as the high / low 256 bits of a 512-bit integer (big-endian)
+ *          8. Derive x-coordinate of point by reducing the 512-bit integer modulo the curve's field modulus (Fq)
+ *          9. Compute y^2 from the curve formula y^2 = x^3 + ax + b (a, b are curve params. for BN254, a = 0, b = 3)
+ *          10. IF y^2 IS NOT A QUADRATIC RESIDUE
+ *              10a. increment `attempt_count` by 1 and go to step 2
+ *          11. IF y^2 IS A QUADRATIC RESIDUE
+ *              11a. derive y coordinate via y = sqrt(y)
+ *              11b. Interpret most significant bit of 512-bit integer as a 'parity' bit
+ *              11c. If parity bit is set AND y's most significant bit is not set, invert y
+ *              11d. If parity bit is not set AND y's most significant bit is set, invert y
+ *              N.B. last 2 steps are because the sqrt() algorithm can return 2 values,
+ *                   we need to a way to canonically distinguish between these 2 values and select a "preferred" one
+ *              11e. return (x, y)
+ *
+ * @note This algorihm is constexpr: we can hash-to-curve (and derive generators) at compile-time!
+ * @tparam Fq
+ * @tparam Fr
+ * @tparam T
+ * @param seed Bytes that uniquely define the point being generated
+ * @param attempt_count
+ * @return constexpr affine_element<Fq, Fr, T>
+ */
+template <class Fq, class Fr, class T>
+constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed,
+                                                                             uint8_t attempt_count) noexcept
+    requires SupportsHashToCurve<T>
+
+{
+    std::vector<uint8_t> target_seed(seed);
+    // expand by 2 bytes to cover incremental hash attempts
+    const size_t seed_size = seed.size();
+    for (size_t i = 0; i < 2; ++i) {
+        target_seed.push_back(0);
+    }
+    target_seed[seed_size] = attempt_count;
+    target_seed[seed_size + 1] = 0;
+    const auto hash_hi = blake3::blake3s_constexpr(&target_seed[0], target_seed.size());
+    target_seed[seed_size + 1] = 1;
+    const auto hash_lo = blake3::blake3s_constexpr(&target_seed[0], target_seed.size());
+    // custom serialize methods as common/serialize.hpp is not constexpr!
+    const auto read_uint256 = [](const uint8_t* in) {
+        const auto read_limb = [](const uint8_t* in, uint64_t& out) {
+            for (size_t i = 0; i < 8; ++i) {
+                out += static_cast<uint64_t>(in[i]) << ((7 - i) * 8);
+            }
+        };
+        uint256_t out = 0;
+        read_limb(&in[0], out.data[3]);
+        read_limb(&in[8], out.data[2]);
+        read_limb(&in[16], out.data[1]);
+        read_limb(&in[24], out.data[0]);
+        return out;
+    };
+    // interpret 64 byte hash output as a uint512_t, reduce to Fq element
+    //(512 bits of entropy ensures result is not biased as 512 >> Fq::modulus.get_msb())
+    Fq x(uint512_t(read_uint256(&hash_lo[0]), read_uint256(&hash_hi[0])));
+    bool sign_bit = hash_hi[0] > 127;
+    std::optional<affine_element> result = derive_from_x_coordinate(x, sign_bit);
+    if (result.has_value()) {
+        return result.value();
+    }
+    return hash_to_curve(seed, attempt_count + 1);
 }
 
 template <typename Fq, typename Fr, typename T>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::random::Engine* engine) noexcept
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::RNG* engine) noexcept
 {
     if (engine == nullptr) {
-        engine = &numeric::random::get_engine();
+        engine = &numeric::get_randomness();
     }
 
-    bool found_one = false;
-    Fq yy;
     Fq x;
     Fq y;
-    while (!found_one) {
+    while (true) {
         // Sample a random x-coordinate and check if it satisfies curve equation.
         x = Fq::random_element(engine);
-        yy = x.sqr() * x + T::b;
-        if constexpr (T::has_a) {
-            yy += (x * T::a);
-        }
-        auto [found_root, y1] = yy.sqrt();
-        y = y1;
-
         // Negate the y-coordinate based on a randomly sampled bit.
-        bool random_bit = (engine->get_random_uint8() & 1) != 0;
-        if (random_bit) {
-            y = -y;
-        }
+        bool sign_bit = (engine->get_random_uint8() & 1) != 0;
 
-        found_one = found_root;
+        std::optional<affine_element> result = derive_from_x_coordinate(x, sign_bit);
+
+        if (result.has_value()) {
+            return result.value();
+        }
     }
+    throw_or_abort("affine_element::random_element error");
     return affine_element<Fq, Fr, T>(x, y);
 }
 
-} // namespace barretenberg::group_elements
+} // namespace bb::group_elements

@@ -1,7 +1,8 @@
 version: '3'
 services:
   p2p-bootstrap:
-    image: 278380418400.dkr.ecr.eu-west-2.amazonaws.com/p2p-bootstrap:latest
+    image: aztecprotocol/aztec:latest
+    command: 'start --p2p-bootstrap'
     ports:
       - '40400:40400'
     environment:

@@ -1,4 +1,3 @@
-#include "../../../transcript/transcript.hpp"
 #include "../prover/prover.hpp"
 #include "../utils/permutation.hpp"
 #include "../widgets/transition_widgets/arithmetic_widget.hpp"
@@ -7,14 +6,15 @@
 #include "barretenberg/plonk/composer/standard_composer.hpp"
 #include "barretenberg/plonk/proof_system/commitment_scheme/kate_commitment_scheme.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include <gtest/gtest.h>
 
-namespace verifier_helpers {
+namespace bb::plonk {
 
-using namespace barretenberg;
-using namespace proof_system::plonk;
+using namespace bb;
+using namespace bb::plonk;
 
 plonk::Verifier generate_verifier(std::shared_ptr<proving_key> circuit_proving_key)
 {
@@ -28,7 +28,7 @@ plonk::Verifier generate_verifier(std::shared_ptr<proving_key> circuit_proving_k
     poly_coefficients[6] = circuit_proving_key->polynomial_store.get("sigma_2").data();
     poly_coefficients[7] = circuit_proving_key->polynomial_store.get("sigma_3").data();
 
-    std::vector<barretenberg::g1::affine_element> commitments;
+    std::vector<g1::affine_element> commitments;
     scalar_multiplication::pippenger_runtime_state<curve::BN254> state(circuit_proving_key->circuit_size);
     commitments.resize(8);
 
@@ -40,7 +40,7 @@ plonk::Verifier generate_verifier(std::shared_ptr<proving_key> circuit_proving_k
                                                            state));
     }
 
-    auto crs = std::make_shared<barretenberg::srs::factories::FileVerifierCrs<curve::BN254>>("../srs_db/ignition");
+    auto crs = std::make_shared<bb::srs::factories::FileVerifierCrs<curve::BN254>>("../srs_db/ignition");
     std::shared_ptr<verification_key> circuit_verification_key =
         std::make_shared<verification_key>(circuit_proving_key->circuit_size,
                                            circuit_proving_key->num_public_inputs,
@@ -76,7 +76,7 @@ plonk::Prover generate_test_data(const size_t n)
 
     // even indices = mul gates, odd incides = add gates
 
-    auto crs = std::make_shared<barretenberg::srs::factories::FileProverCrs<curve::BN254>>(n + 1, "../srs_db/ignition");
+    auto crs = std::make_shared<bb::srs::factories::FileProverCrs<curve::BN254>>(n + 1, "../srs_db/ignition");
     std::shared_ptr<proving_key> key = std::make_shared<proving_key>(n, 0, crs, CircuitType::STANDARD);
 
     polynomial w_l(n);
@@ -238,15 +238,15 @@ plonk::Prover generate_test_data(const size_t n)
     state.commitment_scheme = std::move(kate_commitment_scheme);
     return state;
 }
-} // namespace verifier_helpers
+} // namespace bb::plonk
 
 TEST(verifier, verify_arithmetic_proof_small)
 {
     size_t n = 8;
 
-    plonk::Prover state = verifier_helpers::generate_test_data(n);
+    plonk::Prover state = bb::plonk::generate_test_data(n);
 
-    auto verifier = verifier_helpers::generate_verifier(state.key);
+    auto verifier = bb::plonk::generate_verifier(state.key);
 
     // construct proof
     plonk::proof proof = state.construct_proof();
@@ -262,9 +262,9 @@ TEST(verifier, verify_arithmetic_proof)
 {
     size_t n = 1 << 14;
 
-    plonk::Prover state = verifier_helpers::generate_test_data(n);
+    plonk::Prover state = bb::plonk::generate_test_data(n);
 
-    auto verifier = verifier_helpers::generate_verifier(state.key);
+    auto verifier = bb::plonk::generate_verifier(state.key);
 
     // construct proof
     plonk::proof proof = state.construct_proof();
@@ -280,9 +280,9 @@ TEST(verifier, verify_damaged_proof)
 {
     size_t n = 8;
 
-    plonk::Prover state = verifier_helpers::generate_test_data(n);
+    plonk::Prover state = bb::plonk::generate_test_data(n);
 
-    auto verifier = verifier_helpers::generate_verifier(state.key);
+    auto verifier = bb::plonk::generate_verifier(state.key);
 
     // Create empty proof
     plonk::proof proof = {};

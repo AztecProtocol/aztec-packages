@@ -12,10 +12,8 @@
  *
  * constexpr_for : loop over a range , where the size_t iterator `i` is a constexpr variable
  * constexpr_find : find if an element is in an array
- * concatenate_arrays : smoosh multiple std::array objects into a single std::array
- *
  */
-namespace barretenberg {
+namespace bb {
 
 /**
  * @brief Implements a loop using a compile-time iterator. Requires c++20.
@@ -85,11 +83,11 @@ template <size_t Start, size_t End, size_t Inc, class F> constexpr void constexp
          * The compiler has no alias `X.template <tparam>(args)` for `X.template operator()<tparam>(args)` so we must
          * write it explicitly here
          *
-         * To summarise what the next line tells the compiler...
+         * To summarize what the next line tells the compiler...
          * 1. I want to call a member of `f` that expects one or more template parameters
          * 2. The member of `f` that I want to call is the function operator
          * 3. The template parameter is `Start`
-         * 4. The funtion operator itself contains no arguments
+         * 4. The function operator itself contains no arguments
          */
         f.template operator()<Start>();
 
@@ -122,31 +120,6 @@ template <const auto& container, auto key> constexpr bool constexpr_find()
 }
 
 /**
- * @brief merges multiple std::arrays into a single array.
- * Array lengths can be different but array type must match
- * Method is constexpr and should concat constexpr arrays at compile time
- *
- * @tparam Type the array type
- * @tparam sizes template parameter pack of size_t value params
- * @param arrays
- * @return constexpr auto
- *
- * @details template params should be autodeducted. Example use case:
- *
- * ```
- *   std::array<int, 2> a{1, 2};
- *   std::array<int, 3> b{1,3, 5};
- *   std::array<int, 5> c = concatenate(a, b);
- * ```
- */
-template <typename Type, std::size_t... sizes>
-constexpr auto concatenate_arrays(const std::array<Type, sizes>&... arrays)
-{
-    return std::apply([](auto... elems) -> std::array<Type, (sizes + ...)> { return { { elems... } }; },
-                      std::tuple_cat(std::tuple_cat(arrays)...));
-}
-
-/**
  * @brief Create a constexpr array object whose elements contain a default value
  *
  * @tparam T type contained in the array
@@ -159,7 +132,7 @@ constexpr auto concatenate_arrays(const std::array<Type, sizes>&... arrays)
  * 1. HAS NO CONSTEXPR DEFAULT CONSTRUCTOR
  * 2. HAS A CONSTEXPR COPY CONSTRUCTOR
  *
- * An example of this is barretenberg::field_t
+ * An example of this is bb::field_t
  * (the default constructor does not default assign values to the field_t member variables for efficiency reasons, to
  * reduce the time require to construct large arrays of field elements. This means the default constructor for field_t
  * cannot be constexpr)
@@ -186,4 +159,4 @@ template <typename T, size_t N> constexpr std::array<T, N> create_empty_array()
 {
     return create_array(T(0), std::make_index_sequence<N>());
 }
-}; // namespace barretenberg
+}; // namespace bb

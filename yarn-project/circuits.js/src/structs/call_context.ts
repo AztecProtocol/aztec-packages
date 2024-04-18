@@ -1,20 +1,17 @@
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { BufferReader } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
-import { FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { Fr } from './index.js';
+import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
+import { GasSettings } from './gas_settings.js';
 
 /**
  * Call context.
- * @see abis/call_context.hpp
  */
 export class CallContext {
-  /**
-   * Address of the portal contract to the storage contract.
-   */
-  public portalContractAddress: EthAddress;
   constructor(
     /**
      * Address of the account which represents the entity who invoked the call.
@@ -28,9 +25,12 @@ export class CallContext {
     public storageContractAddress: AztecAddress,
     /**
      * Address of the portal contract to the storage contract.
-     * Union type is a kludge until C++ has an eth address type.
      */
-    portalContractAddress: EthAddress | Fr,
+    public portalContractAddress: EthAddress,
+    /**
+     * Function selector of the function being called.
+     */
+    public functionSelector: FunctionSelector,
     /**
      * Determines whether the call is a delegate call (see Ethereum's delegate call opcode for more information).
      */
@@ -40,24 +40,45 @@ export class CallContext {
      */
     public isStaticCall: boolean,
     /**
-     * Determines whether the call is a contract deployment.
+     * The start side effect counter for this call context.
      */
-    public isContractDeployment: boolean,
-  ) {
-    this.portalContractAddress =
-      portalContractAddress instanceof EthAddress ? portalContractAddress : EthAddress.fromField(portalContractAddress);
-  }
+    public sideEffectCounter: number,
+
+    /** Gas settings for this tx. */
+    public gasSettings: GasSettings,
+
+    /** Accumulated transaction fee, only set during teardown phase. */
+    public transactionFee: Fr,
+  ) {}
 
   /**
    * Returns a new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    * @returns A new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, Fr.ZERO, false, false, false);
+    return new CallContext(
+      AztecAddress.ZERO,
+      AztecAddress.ZERO,
+      EthAddress.ZERO,
+      FunctionSelector.empty(),
+      false,
+      false,
+      0,
+      GasSettings.empty(),
+      Fr.ZERO,
+    );
   }
 
   isEmpty() {
-    return this.msgSender.isZero() && this.storageContractAddress.isZero() && this.portalContractAddress.isZero();
+    return (
+      this.msgSender.isZero() &&
+      this.storageContractAddress.isZero() &&
+      this.portalContractAddress.isZero() &&
+      this.functionSelector.isEmpty() &&
+      Fr.ZERO &&
+      this.gasSettings.isEmpty() &&
+      this.transactionFee.isZero()
+    );
   }
 
   static from(fields: FieldsOf<CallContext>): CallContext {
@@ -69,9 +90,12 @@ export class CallContext {
       fields.msgSender,
       fields.storageContractAddress,
       fields.portalContractAddress,
+      fields.functionSelector,
       fields.isDelegateCall,
       fields.isStaticCall,
-      fields.isContractDeployment,
+      fields.sideEffectCounter,
+      fields.gasSettings,
+      fields.transactionFee,
     ] as const;
   }
 
@@ -83,20 +107,62 @@ export class CallContext {
     return serializeToBuffer(...CallContext.getFields(this));
   }
 
+  toFields(): Fr[] {
+    const fields = serializeToFields(...CallContext.getFields(this));
+    if (fields.length !== CALL_CONTEXT_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for CallContext. Expected ${CALL_CONTEXT_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
   /**
-   * Deserialise this from a buffer.
-   * @param buffer - The bufferable type from which to deserialise.
-   * @returns The deserialised instance of PublicCallRequest.
+   * Deserialize this from a buffer.
+   * @param buffer - The bufferable type from which to deserialize.
+   * @returns The deserialized instance of PublicCallRequest.
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new CallContext(
-      new AztecAddress(reader.readBytes(32)),
-      new AztecAddress(reader.readBytes(32)),
-      new EthAddress(reader.readBytes(32)),
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(EthAddress),
+      reader.readObject(FunctionSelector),
       reader.readBoolean(),
       reader.readBoolean(),
+      reader.readNumber(),
+      reader.readObject(GasSettings),
+      reader.readObject(Fr),
+    );
+  }
+
+  static fromFields(fields: Fr[] | FieldReader): CallContext {
+    const reader = FieldReader.asReader(fields);
+    return new CallContext(
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readObject(EthAddress),
+      reader.readObject(FunctionSelector),
       reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readU32(),
+      reader.readObject(GasSettings),
+      reader.readField(),
+    );
+  }
+
+  equals(callContext: CallContext) {
+    return (
+      callContext.msgSender.equals(this.msgSender) &&
+      callContext.storageContractAddress.equals(this.storageContractAddress) &&
+      callContext.portalContractAddress.equals(this.portalContractAddress) &&
+      callContext.functionSelector.equals(this.functionSelector) &&
+      callContext.isDelegateCall === this.isDelegateCall &&
+      callContext.isStaticCall === this.isStaticCall &&
+      callContext.sideEffectCounter === this.sideEffectCounter &&
+      this.gasSettings.equals(callContext.gasSettings) &&
+      callContext.transactionFee.equals(this.transactionFee)
     );
   }
 }

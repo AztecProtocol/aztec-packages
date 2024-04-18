@@ -1,0 +1,100 @@
+VERSION 0.8
+
+deps:
+    LOCALLY
+    LET packages = $(git ls-files "**/package*.json" package*.json)
+    LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
+    FROM node:18.19.0
+    # copy bb-js and noir-packages
+    COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
+    COPY ../noir/+packages/packages /usr/src/noir/packages
+    WORKDIR /usr/src/yarn-project
+    COPY --dir .yarn .yarnrc.yml yarn.lock .
+    FOR file IN $packages
+        COPY $file $file
+    END
+    RUN yarn install --immutable
+    FOR file IN $tsconfigs
+        COPY $file $file
+    END
+    COPY scripts/update_package_jsons.mjs scripts/update_package_jsons.mjs
+    RUN yarn prepare:check
+
+    # We install a symlink to yarn-project's node_modules at a location that all portalled packages can find as they
+    # walk up the tree as part of module resolution. The supposedly idiomatic way of supporting module resolution
+    # correctly for portalled packages, is to use --preserve-symlinks when running node.
+    # This does kind of work, but jest doesn't honor it correctly, so this seems like a neat workaround.
+    # Also, --preserve-symlinks causes duplication of portalled instances such as bb.js, and breaks the singleton logic
+    # by initialising the module more than once. So at present I don't see a viable alternative.
+    RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
+
+build:
+    # Prefetch targets to not wait for +deps.
+    BUILD ../barretenberg/cpp/+preset-release
+    BUILD ../noir/+nargo
+    BUILD ../noir-projects/+build
+    BUILD ../l1-contracts/+build
+    FROM +deps
+    RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
+
+    COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../noir/+nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
+    COPY --dir ../noir-projects/+build/. /usr/src/noir-projects
+    COPY ../l1-contracts/+build/usr/src/l1-contracts /usr/src/l1-contracts
+
+    WORKDIR /usr/src/yarn-project
+    COPY . .
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    RUN ./bootstrap.sh full
+
+aztec-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/cli @aztec/aztec --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
+
+aztec-prod-slim:
+    FROM node:18.19.1-slim
+    COPY +aztec-prod/usr/src /usr/src
+
+aztec:
+    FROM +aztec-prod-slim
+    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
+    EXPOSE 8080
+
+cli:
+    FROM +aztec-prod-slim
+    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/cli/dest/bin/index.js"]
+    EXPOSE 8080
+
+end-to-end-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
+
+end-to-end:
+    FROM node:18.19.1-slim
+    RUN apt-get update && apt-get install jq chromium netcat-openbsd -y
+    ENV CHROME_BIN="/usr/bin/chromium"
+    COPY ../foundry/+build/usr/src/foundry/bin/anvil /usr/src/foundry/bin/anvil
+    COPY +end-to-end-prod/usr/src /usr/src
+    WORKDIR /usr/src/yarn-project/end-to-end
+    ENTRYPOINT ["yarn", "test"]
+
+all:
+    BUILD +aztec
+    BUILD +cli
+    BUILD +end-to-end
+
+# for use with yarn-project/end-to-end and its e2e_mode=cache option
+export-end-to-end:
+    # Prefetch targets to build in parallel.
+    BUILD +end-to-end
+    BUILD +aztec
+    ARG EARTHLY_GIT_HASH
+    # pushes the foundry image to local docker images
+    FROM ../foundry/+build
+    SAVE IMAGE aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
+    FROM +end-to-end
+    SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
+    FROM +aztec
+    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH

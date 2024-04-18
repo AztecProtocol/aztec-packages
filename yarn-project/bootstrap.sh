@@ -1,40 +1,51 @@
-#!/bin/bash
+#!/usr/bin/env bash
+[ -n "${BUILD_SYSTEM_DEBUG:-}" ] && set -x # conditionally trace
 set -eu
 
-# Navigate to script folder
+# Check node version.
+node_version=$(node -v | tr -d 'v')
+major=${node_version%%.*}
+rest=${node_version#*.}
+minor=${rest%%.*}
+
+YELLOW="\033[93m"
+BLUE="\033[34m"
+GREEN="\033[32m"
+BOLD="\033[1m"
+RESET="\033[0m"
+
+if ((major < 18 || (major == 18 && minor < 19))); then
+  echo "Node.js version is less than 18.19. Exiting."
+  exit 1
+fi
+
 cd "$(dirname "$0")"
 
-if [ "$(uname)" = "Darwin" ]; then
-  # works around https://github.com/AztecProtocol/aztec3-packages/issues/158
-  echo "Note: not sourcing nvm on Mac, see github #158"
-else
-  \. ~/.nvm/nvm.sh
-fi
-set +eu # nvm runs in our context - don't assume it's compatible with these flags
-nvm install
-set -eu
+CMD=${1:-}
 
+if [ "$CMD" = "clean" ]; then
+  git clean -fdx
+  exit 0
+elif [ "$CMD" = "full" ]; then
+  yarn install --immutable
+  yarn build
+  exit 0
+elif [[ -n "$CMD" && "$CMD" != "fast" ]]; then
+  echo "Unknown command: $CMD"
+  exit 1
+fi
+
+# Fast build does not delete everything first.
+# It regenerates all generated code, then performs an incremental tsc build.
+echo -e "${BLUE}${BOLD}Attempting fast incremental build...${RESET}"
+echo
 yarn install --immutable
 
-# Build the necessary dependencies for Aztec.nr contracts typegen.
-for DIR in foundation noir-compiler circuits.js; do
-  echo "Building $DIR..."
-  cd $DIR
+if ! yarn build:fast; then
+  echo -e "${YELLOW}${BOLD}Incremental build failed for some reason, attempting full build...${RESET}"
+  echo
   yarn build
-  cd ..
-done
-
-# Run remake bindings before building Aztec.nr contracts or l1 contracts as they depend on files created by it.
-yarn --cwd circuits.js remake-bindings
-yarn --cwd circuits.js remake-constants
-
-(cd noir-contracts && ./bootstrap.sh)
-(cd .. && l1-contracts/bootstrap.sh)
-
-# Until we push .yarn/cache, we still need to install.
-yarn
-# We do not need to build individual packages, yarn build will build the root tsconfig.json
-yarn build
+fi
 
 echo
-echo "Success! You can now e.g. run anvil and end-to-end tests"
+echo -e "${GREEN}Yarn project successfully built!${RESET}"

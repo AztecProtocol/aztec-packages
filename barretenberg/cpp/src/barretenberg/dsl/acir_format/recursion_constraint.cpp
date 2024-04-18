@@ -1,18 +1,19 @@
 #include "recursion_constraint.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
-#include "barretenberg/stdlib/recursion/aggregation_state/aggregation_state.hpp"
-#include "barretenberg/stdlib/recursion/verifier/verifier.hpp"
-#include "barretenberg/transcript/transcript_wrappers.hpp"
+#include "barretenberg/plonk/transcript/transcript_wrappers.hpp"
+#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/plonk_recursion/verifier/verifier.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 
 namespace acir_format {
 
-using namespace proof_system::plonk;
+using namespace bb::plonk;
 
 // `NUM_LIMB_BITS_IN_FIELD_SIMULATION` is the limb size when simulating a non-native field using the bigfield class
 // A aggregation object is two acir_format::g1_ct types where each coordinate in a point is a non-native field.
 // Each field is represented as four limbs. We split those limbs in half when serializing to/from buffer.
-static constexpr uint64_t TWO_LIMBS_BITS_IN_FIELD_SIMULATION = NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2;
-static constexpr uint64_t FOUR_LIMBS_BITS_IN_FIELD_SIMULATION = NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4;
+static constexpr uint64_t TWO_LIMBS_BITS_IN_FIELD_SIMULATION = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2;
+static constexpr uint64_t FOUR_LIMBS_BITS_IN_FIELD_SIMULATION = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4;
 
 void generate_dummy_proof() {}
 /**
@@ -28,11 +29,14 @@ void generate_dummy_proof() {}
  *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
-void create_recursion_constraints(Builder& builder,
-                                  const RecursionConstraint& input,
-                                  bool has_valid_witness_assignments)
+std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
+    Builder& builder,
+    const RecursionConstraint& input,
+    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object,
+    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
+    bool has_valid_witness_assignments)
 {
-    const auto& nested_aggregation_indices = input.nested_aggregation_object;
+    const auto& nested_aggregation_indices = nested_aggregation_object;
     bool nested_aggregation_indices_all_zero = true;
     for (const auto& idx : nested_aggregation_indices) {
         nested_aggregation_indices_all_zero &= (idx == 0);
@@ -46,26 +50,40 @@ void create_recursion_constraints(Builder& builder,
         const std::vector<fr> dummy_key = export_dummy_key_in_recursion_format(
             PolynomialManifest(Builder::CIRCUIT_TYPE), inner_proof_contains_recursive_proof);
         const auto manifest = Composer::create_manifest(input.public_inputs.size());
-        const std::vector<barretenberg::fr> dummy_proof =
+        std::vector<bb::fr> dummy_proof =
             export_dummy_transcript_in_recursion_format(manifest, inner_proof_contains_recursive_proof);
-        for (size_t i = 0; i < input.proof.size(); ++i) {
-            const auto proof_field_idx = input.proof[i];
+
+        for (size_t i = 0; i < input.public_inputs.size(); ++i) {
+            const auto public_input_idx = input.public_inputs[i];
             // if we do NOT have a witness assignment (i.e. are just building the proving/verification keys),
-            // we add our dummy proof values as Builder variables.
+            // we add our dummy public input values as Builder variables.
             // if we DO have a valid witness assignment, we use the real witness assignment
-            barretenberg::fr dummy_field =
-                has_valid_witness_assignments ? builder.get_variable(proof_field_idx) : dummy_proof[i];
+            bb::fr dummy_field =
+                has_valid_witness_assignments ? builder.get_variable(public_input_idx) : dummy_proof[i];
             // Create a copy constraint between our dummy field and the witness index provided by RecursionConstraint.
             // This will make the RecursionConstraint idx equal to `dummy_field`.
             // In the case of a valid witness assignment, this does nothing (as dummy_field = real value)
             // In the case of no valid witness assignment, this makes sure that the RecursionConstraint witness indices
             // will not trigger basic errors (check inputs are on-curve, check we are not inverting 0)
+            //
+            // Failing to do these copy constraints on public inputs will trigger these basic errors
+            // in the case of a nested proof, as an aggregation object is expected to be two G1 points even
+            // in the case of no valid witness assignments.
+            builder.assert_equal(builder.add_variable(dummy_field), public_input_idx);
+        }
+        // Remove the public inputs from the dummy proof
+        // The proof supplied to the recursion constraint will already be stripped of public inputs
+        // while the barretenberg API works with public inputs prepended to the proof.
+        dummy_proof.erase(dummy_proof.begin(),
+                          dummy_proof.begin() + static_cast<std::ptrdiff_t>(input.public_inputs.size()));
+        for (size_t i = 0; i < input.proof.size(); ++i) {
+            const auto proof_field_idx = input.proof[i];
+            bb::fr dummy_field = has_valid_witness_assignments ? builder.get_variable(proof_field_idx) : dummy_proof[i];
             builder.assert_equal(builder.add_variable(dummy_field), proof_field_idx);
         }
         for (size_t i = 0; i < input.key.size(); ++i) {
             const auto key_field_idx = input.key[i];
-            barretenberg::fr dummy_field =
-                has_valid_witness_assignments ? builder.get_variable(key_field_idx) : dummy_key[i];
+            bb::fr dummy_field = has_valid_witness_assignments ? builder.get_variable(key_field_idx) : dummy_key[i];
             builder.assert_equal(builder.add_variable(dummy_field), key_field_idx);
         }
     }
@@ -73,7 +91,7 @@ void create_recursion_constraints(Builder& builder,
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    const auto& aggregation_input = input.input_aggregation_object;
+    const auto& aggregation_input = input_aggregation_object;
     aggregation_state_ct previous_aggregation;
 
     // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
@@ -112,7 +130,13 @@ void create_recursion_constraints(Builder& builder,
     }
 
     std::vector<field_ct> proof_fields;
-    proof_fields.reserve(input.proof.size());
+    // Prepend the public inputs to the proof fields because this is how the
+    // core barretenberg library processes proofs (with the public inputs first and not separated)
+    proof_fields.reserve(input.proof.size() + input.public_inputs.size());
+    for (const auto& idx : input.public_inputs) {
+        auto field = field_ct::from_witness_index(&builder, idx);
+        proof_fields.emplace_back(field);
+    }
     for (const auto& idx : input.proof) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
@@ -122,12 +146,13 @@ void create_recursion_constraints(Builder& builder,
     std::shared_ptr<verification_key_ct> vkey = verification_key_ct::from_field_elements(
         &builder, key_fields, inner_proof_contains_recursive_proof, nested_aggregation_indices);
     vkey->program_width = noir_recursive_settings::program_width;
+
     Transcript_ct transcript(&builder, manifest, proof_fields, input.public_inputs.size());
-    aggregation_state_ct result = proof_system::plonk::stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
+    aggregation_state_ct result = bb::stdlib::recursion::verify_proof_<bn254, noir_recursive_settings>(
         &builder, vkey, transcript, previous_aggregation);
 
     // Assign correct witness value to the verification key hash
-    vkey->compress().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
+    vkey->hash().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
 
     ASSERT(result.public_inputs.size() == input.public_inputs.size());
 
@@ -136,12 +161,14 @@ void create_recursion_constraints(Builder& builder,
         result.public_inputs[i].assert_equal(field_ct::from_witness_index(&builder, input.public_inputs[i]));
     }
 
-    // Assign the recursive proof outputs to `output_aggregation_object`
-    for (size_t i = 0; i < result.proof_witness_indices.size(); ++i) {
-        const auto lhs = field_ct::from_witness_index(&builder, result.proof_witness_indices[i]);
-        const auto rhs = field_ct::from_witness_index(&builder, input.output_aggregation_object[i]);
-        lhs.assert_equal(rhs);
-    }
+    // We want to return an array, so just copy the vector into the array
+    ASSERT(result.proof_witness_indices.size() == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> resulting_output_aggregation_object;
+    std::copy(result.proof_witness_indices.begin(),
+              result.proof_witness_indices.begin() + RecursionConstraint::AGGREGATION_OBJECT_SIZE,
+              resulting_output_aggregation_object.begin());
+
+    return resulting_output_aggregation_object;
 }
 
 /**
@@ -149,9 +176,9 @@ void create_recursion_constraints(Builder& builder,
  *        This method exports the key formatted in the manner our recursive verifier expects.
  *        NOTE: only used by the dsl at the moment. Might be cleaner to make this a dsl function?
  *
- * @return std::vector<barretenberg::fr>
+ * @return std::vector<bb::fr>
  */
-std::vector<barretenberg::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey)
+std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey)
 {
     std::vector<fr> output;
     output.emplace_back(vkey->domain.root);
@@ -187,7 +214,7 @@ std::vector<barretenberg::fr> export_key_in_recursion_format(std::shared_ptr<ver
         .contains_recursive_proof = vkey->contains_recursive_proof,
         .recursive_proof_public_input_indices = vkey->recursive_proof_public_input_indices,
     };
-    output.emplace_back(vkey_data.compress_native(0)); // key_hash
+    output.emplace_back(vkey_data.hash_native(0)); // key_hash
     return output;
 }
 
@@ -199,10 +226,10 @@ std::vector<barretenberg::fr> export_key_in_recursion_format(std::shared_ptr<ver
  *        We want a non-zero circuit size as this element will be inverted by the circuit
  *        and we do not want an "inverting 0" error thrown
  *
- * @return std::vector<barretenberg::fr>
+ * @return std::vector<bb::fr>
  */
-std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
-                                                                   const bool contains_recursive_proof)
+std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
+                                                         const bool contains_recursive_proof)
 {
     std::vector<fr> output;
     output.emplace_back(1); // domain.domain (will be inverted)
@@ -225,8 +252,8 @@ std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const Polynom
             // This check can also trigger a runtime error due to causing 0 to be inverted.
             // When creating dummy verification key points we must be mindful of the above and make sure that each
             // transcript point is unique.
-            auto scalar = barretenberg::fr::random_element();
-            const auto element = barretenberg::g1::affine_element(barretenberg::g1::one * scalar);
+            auto scalar = bb::fr::random_element();
+            const auto element = bb::g1::affine_element(bb::g1::one * scalar);
             auto g1_as_fields = export_g1_affine_element_as_fields(element);
             output.emplace_back(g1_as_fields.x_lo);
             output.emplace_back(g1_as_fields.x_hi);
@@ -241,14 +268,14 @@ std::vector<barretenberg::fr> export_dummy_key_in_recursion_format(const Polynom
 }
 
 /**
- * @brief Returns transcript represented as a vector of barretenberg::fr.
+ * @brief Returns transcript represented as a vector of bb::fr.
  *        Used to represent recursive proofs (i.e. proof represented as circuit-native field elements)
  *
- * @return std::vector<barretenberg::fr>
+ * @return std::vector<bb::fr>
  */
-std::vector<barretenberg::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript)
+std::vector<bb::fr> export_transcript_in_recursion_format(const transcript::StandardTranscript& transcript)
 {
-    std::vector<barretenberg::fr> fields;
+    std::vector<bb::fr> fields;
     const auto num_rounds = transcript.get_manifest().get_num_rounds();
     for (size_t i = 0; i < num_rounds; ++i) {
         for (const auto& manifest_element : transcript.get_manifest().get_round_manifest(i).elements) {
@@ -280,18 +307,18 @@ std::vector<barretenberg::fr> export_transcript_in_recursion_format(const transc
  * errors being thrown.
  *
  * @param manifest
- * @return std::vector<barretenberg::fr>
+ * @return std::vector<bb::fr>
  */
-std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
-                                                                          const bool contains_recursive_proof)
+std::vector<bb::fr> export_dummy_transcript_in_recursion_format(const transcript::Manifest& manifest,
+                                                                const bool contains_recursive_proof)
 {
-    std::vector<barretenberg::fr> fields;
+    std::vector<bb::fr> fields;
     const auto num_rounds = manifest.get_num_rounds();
     for (size_t i = 0; i < num_rounds; ++i) {
         for (const auto& manifest_element : manifest.get_round_manifest(i).elements) {
             if (!manifest_element.derived_by_verifier) {
                 if (manifest_element.num_bytes == 32 && manifest_element.name != "public_inputs") {
-                    // auto scalar = barretenberg::fr::random_element();
+                    // auto scalar = bb::fr::random_element();
                     fields.emplace_back(0);
                 } else if (manifest_element.num_bytes == 64 && manifest_element.name != "public_inputs") {
                     // the std::biggroup class creates unsatisfiable constraints when identical points are
@@ -300,8 +327,8 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
                     // identical. And prover points should contain randomness for an honest Prover). This check can
                     // also trigger a runtime error due to causing 0 to be inverted. When creating dummy proof
                     // points we must be mindful of the above and make sure that each point is unique.
-                    auto scalar = barretenberg::fr::random_element();
-                    const auto group_element = barretenberg::g1::affine_element(barretenberg::g1::one * scalar);
+                    auto scalar = bb::fr::random_element();
+                    const auto group_element = bb::g1::affine_element(bb::g1::one * scalar);
                     auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
                     fields.emplace_back(g1_as_fields.x_lo);
                     fields.emplace_back(g1_as_fields.x_hi);
@@ -314,10 +341,15 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
                     // is composed of two valid G1 points on the curve. Without this conditional we will get a
                     // runtime error that we are attempting to invert 0.
                     if (contains_recursive_proof) {
-                        ASSERT(num_public_inputs == RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                        // When setting up the ACIR we emplace back the nested aggregation object
+                        // fetched from the proof onto the public inputs. Thus, we can expect the
+                        // nested aggregation object to always be at the end of the public inputs.
+                        for (size_t k = 0; k < num_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++k) {
+                            fields.emplace_back(0);
+                        }
                         for (size_t k = 0; k < RecursionConstraint::NUM_AGGREGATION_ELEMENTS; ++k) {
-                            auto scalar = barretenberg::fr::random_element();
-                            const auto group_element = barretenberg::g1::affine_element(barretenberg::g1::one * scalar);
+                            auto scalar = bb::fr::random_element();
+                            const auto group_element = bb::g1::affine_element(bb::g1::one * scalar);
                             auto g1_as_fields = export_g1_affine_element_as_fields(group_element);
                             fields.emplace_back(g1_as_fields.x_lo);
                             fields.emplace_back(g1_as_fields.x_hi);
@@ -326,7 +358,7 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
                         }
                     } else {
                         for (size_t j = 0; j < num_public_inputs; ++j) {
-                            // auto scalar = barretenberg::fr::random_element();
+                            // auto scalar = bb::fr::random_element();
                             fields.emplace_back(0);
                         }
                     }
@@ -337,14 +369,21 @@ std::vector<barretenberg::fr> export_dummy_transcript_in_recursion_format(const 
     return fields;
 }
 
-G1AsFields export_g1_affine_element_as_fields(const barretenberg::g1::affine_element& group_element)
+size_t recursion_proof_size_without_public_inputs()
+{
+    const auto manifest = Composer::create_manifest(0);
+    auto dummy_transcript = export_dummy_transcript_in_recursion_format(manifest, false);
+    return dummy_transcript.size();
+}
+
+G1AsFields export_g1_affine_element_as_fields(const bb::g1::affine_element& group_element)
 {
     const uint256_t x = group_element.x;
     const uint256_t y = group_element.y;
-    const barretenberg::fr x_lo = x.slice(0, TWO_LIMBS_BITS_IN_FIELD_SIMULATION);
-    const barretenberg::fr x_hi = x.slice(TWO_LIMBS_BITS_IN_FIELD_SIMULATION, FOUR_LIMBS_BITS_IN_FIELD_SIMULATION);
-    const barretenberg::fr y_lo = y.slice(0, TWO_LIMBS_BITS_IN_FIELD_SIMULATION);
-    const barretenberg::fr y_hi = y.slice(TWO_LIMBS_BITS_IN_FIELD_SIMULATION, FOUR_LIMBS_BITS_IN_FIELD_SIMULATION);
+    const bb::fr x_lo = x.slice(0, TWO_LIMBS_BITS_IN_FIELD_SIMULATION);
+    const bb::fr x_hi = x.slice(TWO_LIMBS_BITS_IN_FIELD_SIMULATION, FOUR_LIMBS_BITS_IN_FIELD_SIMULATION);
+    const bb::fr y_lo = y.slice(0, TWO_LIMBS_BITS_IN_FIELD_SIMULATION);
+    const bb::fr y_hi = y.slice(TWO_LIMBS_BITS_IN_FIELD_SIMULATION, FOUR_LIMBS_BITS_IN_FIELD_SIMULATION);
 
     return G1AsFields{ x_lo, x_hi, y_lo, y_hi };
 }

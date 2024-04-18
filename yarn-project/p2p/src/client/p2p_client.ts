@@ -1,9 +1,11 @@
+import { type L2Block, L2BlockDownloader, type L2BlockSource, type Tx, type TxHash } from '@aztec/circuit-types';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { L2Block, L2BlockContext, L2BlockDownloader, L2BlockSource, Tx, TxHash } from '@aztec/types';
+import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
 import { getP2PConfigEnvVars } from '../config.js';
-import { P2PService } from '../service/service.js';
-import { TxPool } from '../tx_pool/index.js';
+import { type P2PService } from '../service/service.js';
+import { type TxPool } from '../tx_pool/index.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -16,7 +18,7 @@ export enum P2PClientState {
 }
 
 /**
- * The synchronisation status of the P2P client.
+ * The synchronization status of the P2P client.
  */
 export interface P2PSyncState {
   /**
@@ -102,31 +104,30 @@ export class P2PClient implements P2P {
    */
   private runningPromise!: Promise<void>;
 
-  /**
-   * Store the ID of the latest block the client has synced to.
-   */
-  private currentL2BlockNum = 0;
-
   private currentState = P2PClientState.IDLE;
   private syncPromise = Promise.resolve();
   private latestBlockNumberAtStart = -1;
   private syncResolve?: () => void = undefined;
+  private synchedBlockNumber: AztecSingleton<number>;
 
   /**
    * In-memory P2P client constructor.
-   * @param l2BlockSource - P2P client's source for fetching existing block data.
+   * @param store - The client's instance of the KV store.
+   * @param l2BlockSource - P2P client's source for fetching existing blocks.
    * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
    * @param p2pService - The concrete instance of p2p networking to use.
    * @param log - A logger.
    */
   constructor(
+    store: AztecKVStore,
     private l2BlockSource: L2BlockSource,
     private txPool: TxPool,
     private p2pService: P2PService,
     private log = createDebugLogger('aztec:p2p'),
   ) {
-    const { p2pBlockCheckIntervalMS: checkInterval, l2QueueSize } = getP2PConfigEnvVars();
-    this.blockDownloader = new L2BlockDownloader(l2BlockSource, l2QueueSize, checkInterval);
+    const { p2pBlockCheckIntervalMS: checkInterval, p2pL2QueueSize } = getP2PConfigEnvVars();
+    this.blockDownloader = new L2BlockDownloader(l2BlockSource, p2pL2QueueSize, checkInterval);
+    this.synchedBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
   }
 
   /**
@@ -144,7 +145,7 @@ export class P2PClient implements P2P {
     // get the current latest block number
     this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
 
-    const blockToDownloadFrom = this.currentL2BlockNum + 1;
+    const blockToDownloadFrom = this.getSyncedBlockNum() + 1;
 
     // if there are blocks to be retrieved, go to a synching state
     if (blockToDownloadFrom <= this.latestBlockNumberAtStart) {
@@ -152,25 +153,31 @@ export class P2PClient implements P2P {
       this.syncPromise = new Promise(resolve => {
         this.syncResolve = resolve;
       });
-      this.log(`Starting sync from ${blockToDownloadFrom}, latest block ${this.latestBlockNumberAtStart}`);
+      this.log.verbose(`Starting sync from ${blockToDownloadFrom}, latest block ${this.latestBlockNumberAtStart}`);
     } else {
       // if no blocks to be retrieved, go straight to running
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
       await this.p2pService.start();
-      this.log(`Next block ${blockToDownloadFrom} already beyond latest block at ${this.latestBlockNumberAtStart}`);
+      this.log.verbose(
+        `Next block ${blockToDownloadFrom} already beyond latest block at ${this.latestBlockNumberAtStart}`,
+      );
     }
+
+    // publish any txs in TxPool after its doing initial sync
+    this.syncPromise = this.syncPromise.then(() => this.publishStoredTxs());
 
     // start looking for further blocks
     const blockProcess = async () => {
       while (!this.stopping) {
-        const blocks = await this.blockDownloader.getL2Blocks();
+        const blocks = await this.blockDownloader.getBlocks();
         await this.handleL2Blocks(blocks);
       }
     };
     this.runningPromise = blockProcess();
     this.blockDownloader.start(blockToDownloadFrom);
-    this.log(`Started block downloader from block ${blockToDownloadFrom}`);
+    this.log.verbose(`Started block downloader from block ${blockToDownloadFrom}`);
+
     return this.syncPromise;
   }
 
@@ -179,12 +186,15 @@ export class P2PClient implements P2P {
    * 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
   public async stop() {
-    this.log('Stopping p2p client...');
+    this.log.debug('Stopping p2p client...');
     this.stopping = true;
     await this.p2pService.stop();
+    this.log.debug('Stopped p2p service');
     await this.blockDownloader.stop();
+    this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
+    this.log.info('P2P client stopped...');
   }
 
   /**
@@ -229,7 +239,7 @@ export class P2PClient implements P2P {
     if (!ready) {
       throw new Error('P2P client not ready');
     }
-    this.txPool.deleteTxs(txHashes);
+    await this.txPool.deleteTxs(txHashes);
   }
 
   /**
@@ -245,7 +255,7 @@ export class P2PClient implements P2P {
    * @returns Block number of latest L2 Block we've synced with.
    */
   public getSyncedBlockNum() {
-    return this.currentL2BlockNum;
+    return this.synchedBlockNumber.get() ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
   /**
@@ -255,7 +265,7 @@ export class P2PClient implements P2P {
   public getStatus(): Promise<P2PSyncState> {
     return Promise.resolve({
       state: this.currentState,
-      syncedToL2Block: this.currentL2BlockNum,
+      syncedToL2Block: this.getSyncedBlockNum(),
     } as P2PSyncState);
   }
 
@@ -264,14 +274,12 @@ export class P2PClient implements P2P {
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private reconcileTxPool(blocks: L2Block[]): Promise<void> {
-    for (let i = 0; i < blocks.length; i++) {
-      const blockContext = new L2BlockContext(blocks[i]);
-      const txHashes = blockContext.getTxHashes();
-      this.txPool.deleteTxs(txHashes);
+  private async reconcileTxPool(blocks: L2Block[]): Promise<void> {
+    for (const block of blocks) {
+      const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
+      await this.txPool.deleteTxs(txHashes);
       this.p2pService.settledTxs(txHashes);
     }
-    return Promise.resolve();
   }
 
   /**
@@ -284,9 +292,11 @@ export class P2PClient implements P2P {
       return Promise.resolve();
     }
     await this.reconcileTxPool(blocks);
-    this.currentL2BlockNum = blocks[blocks.length - 1].number;
-    this.log(`Synched to block ${this.currentL2BlockNum}`);
-    if (this.currentState === P2PClientState.SYNCHING && this.currentL2BlockNum >= this.latestBlockNumberAtStart) {
+    const lastBlockNum = blocks[blocks.length - 1].number;
+    await this.synchedBlockNumber.set(lastBlockNum);
+    this.log.debug(`Synched to block ${lastBlockNum}`);
+
+    if (this.currentState === P2PClientState.SYNCHING && lastBlockNum >= this.latestBlockNumberAtStart) {
       this.setCurrentState(P2PClientState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
@@ -301,6 +311,18 @@ export class P2PClient implements P2P {
    */
   private setCurrentState(newState: P2PClientState) {
     this.currentState = newState;
-    this.log(`Moved to state ${P2PClientState[this.currentState]}`);
+    this.log.debug(`Moved to state ${P2PClientState[this.currentState]}`);
+  }
+
+  private async publishStoredTxs() {
+    if (!this.isReady()) {
+      return;
+    }
+
+    const txs = this.txPool.getAllTxs();
+    if (txs.length > 0) {
+      this.log.debug(`Publishing ${txs.length} previously stored txs`);
+      await Promise.all(txs.map(tx => this.p2pService.propagateTx(tx)));
+    }
   }
 }

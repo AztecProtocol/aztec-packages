@@ -7,19 +7,64 @@ As the spec solidifies, this should be less of an issue. Aztec and Barretenberg 
 
 **This code is highly experimental, use at your own risk!**
 
+### Benchmarks!
+
+Table represents time in ms to build circuit and proof for each test on n threads.
+Ignores proving key construction.
+
+#### x86_64
+
+```
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+| Test                     | Gate Count | Subgroup Size |         1 |         4 |        16 |        32 |        64 |
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+| sha256                   | 38799      | 65536         |      5947 |      1653 |       729 |       476 |       388 |
+| ecdsa_secp256k1          | 41049      | 65536         |      6005 |      2060 |       963 |       693 |       583 |
+| ecdsa_secp256r1          | 67331      | 131072        |     12186 |      3807 |      1612 |      1351 |      1137 |
+| schnorr                  | 33740      | 65536         |      5817 |      1696 |       688 |       532 |       432 |
+| double_verify_proof      | 505513     | 524288        |     47841 |     15824 |      7970 |      6784 |      6082 |
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+```
+
+#### WASM
+
+```
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+| Test                     | Gate Count | Subgroup Size |         1 |         4 |        16 |        32 |        64 |
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+| sha256                   | 38799      | 65536         |     18764 |      5116 |      1854 |      1524 |      1635 |
+| ecdsa_secp256k1          | 41049      | 65536         |     19129 |      5595 |      2255 |      2097 |      2166 |
+| ecdsa_secp256r1          | 67331      | 131072        |     38815 |     11257 |      4744 |      3633 |      3702 |
+| schnorr                  | 33740      | 65536         |     18649 |      5244 |      2019 |      1498 |      1702 |
+| double_verify_proof      | 505513     | 524288        |    149652 |     45702 |     20811 |     16979 |     15679 |
++--------------------------+------------+---------------+-----------+-----------+-----------+-----------+-----------+
+```
+
 ### Dependencies
 
 - cmake >= 3.24
 - Ninja (used by the presets as the default generator)
 - clang >= 16 or gcc >= 10
 - clang-format
+- libstdc++ >= 12
 - libomp (if multithreading is required. Multithreading can be disabled using the compiler flag `-DMULTITHREADING 0`)
+
+#### Ubuntu
 
 To install on Ubuntu, run:
 
 ```
-sudo apt-get install cmake clang clang-format ninja-build
+sudo apt-get install cmake clang clang-format ninja-build libstdc++-12-dev
 ```
+
+The default cmake version on 22.04 is 3.22.1, so it must be updated. You can get the latest version [here](https://cmake.org/download).
+
+#### MacOS
+
+When running MacOS Sonoma 14.2.1 the following steps are necessary:
+
+- update bash with `brew install bash`
+- update [cmake](https://cmake.org/download)
 
 ### Installing openMP (Linux)
 
@@ -174,7 +219,7 @@ Fuzzing build turns off building tests and benchmarks, since they are incompatib
 
 To turn on address sanitizer add `-DADDRESS_SANITIZER=ON`. Note that address sanitizer can be used to explore crashes.
 Sometimes you might have to specify the address of llvm-symbolizer. You have to do it with `export ASAN_SYMBOLIZER_PATH=<PATH_TO_SYMBOLIZER>`.
-For undefined behaviour sanitizer `-DUNDEFINED_BEHAVIOUR_SANITIZER=ON`.
+For undefined behavior sanitizer `-DUNDEFINED_BEHAVIOUR_SANITIZER=ON`.
 Note that the fuzzer can be orders of magnitude slower with ASan (2-3x slower) or UBSan on, so it is best to run a non-sanitized build first, minimize the testcase and then run it for a bit of time with sanitizers.
 
 ### Test coverage build
@@ -208,10 +253,37 @@ A default configuration for VS Code is provided by the file [`barretenberg.code-
 
 ### Integration tests with Aztec in Monorepo
 
-CI will automatically run integration tests against Aztec. The tests in `circuits/cpp` folder use the embedded barretenberg, and can be used to integration test it.
+CI will automatically run integration tests against Aztec. It is located in the `barretenberg` folder.
 
 ### Integration tests with Aztec in Barretenberg Standalone Repo
 
-CI will automatically run integration tests against Aztec's circuits which live [here](https://github.com/AztecProtocol/aztec-packages/tree/master/circuits). To change which Aztec branch or commit for CI to test against, modify [`.aztec-packages-commit`](./cpp/.aztec-packages-commit).
-
 When working on a PR, you may want to point this file to a different Aztec branch or commit, but then it should probably be pointed back to master before merging.
+
+### Testing locally in docker
+
+A common issue that arises is that our CI system has a different compiler version e.g. namely for GCC. If you need to mimic the CI operating system locally you can use bootstrap_docker.sh or run dockerfiles directly. However, there is a more efficient workflow for iterative development:
+
+```
+cd barretenberg/cpp
+./scripts/docker_interactive.sh
+mv build build-native # your native build folders are mounted, but will not work! have to clear them
+cmake --preset gcc ;  cmake --build build
+```
+
+This will allow you to rebuild as efficiently as if you were running native code, and not have to see a full compile cycle.
+
+### Building docs
+
+If doxygen is installed on the system, you can use the **build_docs** target to build documentation, which can be configured in vscode CMake extension or using
+
+```bash
+cmake --build . --target build_docs
+```
+
+in the cpp/build directory. The documentation will be generated in cpp/docs/build folder. You can then run a python http server in the folder:
+
+```bash
+python3 -m http.server <port>
+```
+
+and tunnel the port through ssh.

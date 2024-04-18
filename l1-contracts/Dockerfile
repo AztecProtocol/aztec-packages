@@ -1,26 +1,27 @@
-FROM node:18-alpine
-RUN apk update && apk add --no-cache build-base git python3 curl bash jq
+# Building requires foundry.
+FROM ubuntu:lunar
 
-COPY . .
-RUN yarn && yarn lint
+RUN apt update && apt install curl git jq bash nodejs npm python3.11-full python3-pip -y
 
-FROM ghcr.io/foundry-rs/foundry:nightly-c331b5eeee1b4151ef7354a081667e2d770b37f5 as builder
+# Use virtualenv, do not try to use pipx, it's not working.
+# RUN python3 -m venv /root/.venv
+# RUN /root/.venv/bin/pip3 install slither-analyzer==0.10.0 slitherin==0.5.0
+RUN curl -L https://foundry.paradigm.xyz | bash
 
-# Required for foundry
-RUN apk update && apk add git
+# Set env variables for foundry and venv
+ENV PATH="${PATH}:/root/.foundry/bin:/root/.venv/bin"
+RUN foundryup --version nightly-de33b6af53005037b463318d2628b5cfcaf39916
 
 WORKDIR /usr/src/l1-contracts
-
-# Install foundry
 COPY . .
 RUN git init
+RUN forge clean && forge fmt --check && forge build && forge test --no-match-contract UniswapPortalTest
 
-# Install deps
-RUN forge install --no-commit \
-  https://github.com/foundry-rs/forge-std \
-  https://github.com/openzeppelin/openzeppelin-contracts
+RUN npm install --global yarn
+RUN yarn && yarn lint
 
-# Run build and tests
-RUN forge clean && forge fmt --check && forge build && forge test
+# RUN git add . && yarn slither && yarn slither-has-diff
+RUN forge build
 
-WORKDIR /usr/src/l1-contracts
+FROM scratch
+COPY --from=0 /usr/src/l1-contracts/ /usr/src/l1-contracts/

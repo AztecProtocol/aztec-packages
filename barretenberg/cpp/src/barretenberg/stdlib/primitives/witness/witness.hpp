@@ -1,52 +1,51 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/stdlib/primitives//circuit_builders/circuit_builders.hpp"
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace bb::stdlib {
 
 // indicates whether a witness index actually contains a constant
 static constexpr uint32_t IS_CONSTANT = UINT32_MAX;
 
-template <typename ComposerContext> class witness_t {
+template <typename Builder> class witness_t {
   public:
     witness_t() = default;
 
-    witness_t(ComposerContext* parent_context, const barretenberg::fr& in)
+    witness_t(Builder* parent_context, const bb::fr& in)
     {
         context = parent_context;
         witness = in;
-        if constexpr (!IsSimulator<ComposerContext>) {
+        if constexpr (!IsSimulator<Builder>) {
             witness_index = context->add_variable(witness);
         }
     }
 
-    witness_t(ComposerContext* parent_context, const bool in)
+    witness_t(Builder* parent_context, const bool in)
     {
         context = parent_context;
         if (in) {
-            barretenberg::fr::__copy(barretenberg::fr::one(), witness);
+            bb::fr::__copy(bb::fr::one(), witness);
         } else {
-            barretenberg::fr::__copy(barretenberg::fr::zero(), witness);
+            bb::fr::__copy(bb::fr::zero(), witness);
         }
-        if constexpr (!IsSimulator<ComposerContext>) {
+        if constexpr (!IsSimulator<Builder>) {
             witness_index = context->add_variable(witness);
         }
     }
 
-    witness_t(ComposerContext* parent_context, IntegralOrEnum auto const in)
+    witness_t(Builder* parent_context, IntegralOrEnum auto const in)
     {
         context = parent_context;
-        witness = barretenberg::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
-        if constexpr (!IsSimulator<ComposerContext>) {
+        witness = bb::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
+        if constexpr (!IsSimulator<Builder>) {
             witness_index = context->add_variable(witness);
         }
     }
 
-    static witness_t create_constant_witness(ComposerContext* parent_context, const barretenberg::fr& in)
+    static witness_t create_constant_witness(Builder* parent_context, const bb::fr& in)
     {
         witness_t out(parent_context, in);
-        if constexpr (IsSimulator<ComposerContext>) {
+        if constexpr (IsSimulator<Builder>) {
             parent_context->assert_equal_constant(out.witness, in, "Failed to create constant witness.");
         } else {
             parent_context->assert_equal_constant(out.witness_index, in, "Failed to create constant witness.");
@@ -54,47 +53,46 @@ template <typename ComposerContext> class witness_t {
         return out;
     }
 
-    barretenberg::fr witness;
+    bb::fr witness;
     uint32_t witness_index = IS_CONSTANT;
-    ComposerContext* context = nullptr;
+    Builder* context = nullptr;
 };
 
-template <typename ComposerContext> class public_witness_t : public witness_t<ComposerContext> {
+template <typename Builder> class public_witness_t : public witness_t<Builder> {
   public:
-    using witness_t<ComposerContext>::context;
-    using witness_t<ComposerContext>::witness;
-    using witness_t<ComposerContext>::witness_index;
+    using witness_t<Builder>::context;
+    using witness_t<Builder>::witness;
+    using witness_t<Builder>::witness_index;
 
     public_witness_t() = default;
-    public_witness_t(ComposerContext* parent_context, const barretenberg::fr& in)
+    public_witness_t(Builder* parent_context, const bb::fr& in)
     {
         context = parent_context;
-        barretenberg::fr::__copy(in, witness);
-        if constexpr (!IsSimulator<ComposerContext>) {
+        bb::fr::__copy(in, witness);
+        if constexpr (!IsSimulator<Builder>) {
             witness_index = context->add_public_variable(witness);
         }
     }
 
-    public_witness_t(ComposerContext* parent_context, const bool in)
+    public_witness_t(Builder* parent_context, const bool in)
     {
         context = parent_context;
         if (in) {
-            barretenberg::fr::__copy(barretenberg::fr::one(), witness);
+            bb::fr::__copy(bb::fr::one(), witness);
         } else {
-            barretenberg::fr::__copy(barretenberg::fr::zero(), witness);
+            bb::fr::__copy(bb::fr::zero(), witness);
         }
         witness_index = context->add_public_variable(witness);
     }
 
-    template <typename T> public_witness_t(ComposerContext* parent_context, T const in)
+    template <typename T> public_witness_t(Builder* parent_context, T const in)
     {
         context = parent_context;
-        witness = barretenberg::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
-        if constexpr (!IsSimulator<ComposerContext>) {
+        witness = bb::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
+        if constexpr (!IsSimulator<Builder>) {
             witness_index = context->add_public_variable(witness);
         }
     }
 };
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace bb::stdlib
