@@ -27,7 +27,7 @@ while ! pgrep Runner.Worker > /dev/null; do
   if [ $elapsed_time -ge $MAX_WAIT_TIME ]; then
     echo "Found no runner for $MAX_WAIT_TIME, shutting down now."
     /run/spot_runner_graceful_exit.sh
-    echo shutdown now
+    shutdown now
     exit
   fi
 

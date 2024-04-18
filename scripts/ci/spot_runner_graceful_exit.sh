@@ -44,7 +44,7 @@ while [[ $i -lt $RUNNER_GRACEFUL_STOP_TIMEOUT ]]; do
   i=$((i+1))
 done
 
-if pgrep Runner.Listener > dev/null; then
+if pgrep Runner.Listener > /dev/null; then
   # The below procedure fixes the runner to correctly notify the Actions service for the cancellation of this runner.
   # It enables you to see `Error: The operation was canceled.` in the worklow job log, in case a job was still running on this runner when the
   # termination is requested.

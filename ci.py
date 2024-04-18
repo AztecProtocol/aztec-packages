@@ -57,7 +57,7 @@ def ssh_into_machine(suffix):
 
     # SSH command using the public IP
     ssh_cmd = f"ssh -o StrictHostKeychecking=no -i {ssh_key_path} ubuntu@{instance_ip}"
-    print(f"Connecting to {instance_ip}...")
+    print(f"Connecting to {instance_ip}. Consider delaying the impeding shutdown.")
     ssh_process = subprocess.Popen(ssh_cmd, shell=True)
     ssh_process.wait()  # Wait for the SSH session to complete
 
@@ -78,11 +78,18 @@ def manage_ci_workflows():
     print("Most recent CI run details:")
     print(result.stdout)
 
-    action = input("Enter action 'cancel', 'force-cancel' or 'view' (default)") or 'view'
+    action = input("Enter action 'cancel', 'rerun', 'rerun-all', 'force-cancel' or 'view' (default)") or 'view'
     print(f"\nWill perform {action}")
     run_id = input(f"Enter the run ID to {action}: ")
+
     if action.lower() == 'cancel':
         subprocess.run(f"gh run cancel {run_id}", shell=True)
+    if action.lower() == 'rerun':
+        # needed so the spot runners still work
+        subprocess.run('gh workflow run start-spot.yml', shell=True)
+        subprocess.run(f"gh run rerun {run_id} --failed", shell=True)
+    elif action.lower() == 'rerun-all':
+        subprocess.run(f"gh run rerun {run_id}", shell=True)
     elif action.lower() == 'force-cancel':
         subprocess.run('gh api --method POST -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" ' +
             '/repos/AztecProtocol/aztec-packages/actions/runs/' + run_id + '/force-cancel', shell=True)
