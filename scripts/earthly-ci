@@ -18,7 +18,7 @@ OUTPUT_FILE=$(mktemp)
 if $INTERACTIVE ; then
   # don't play nice with tee if interactive
   NO_COLOR=1 earthly $@
-elif ! earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
+elif ! NO_COLOR=1 earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
   # we try earthly once, capturing output
   # if we get one of our (unfortunate) known failures, handle retries
   # TODO potentially handle other intermittent errors here
