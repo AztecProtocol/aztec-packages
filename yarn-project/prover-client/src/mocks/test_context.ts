@@ -14,7 +14,7 @@ import {
   WASMSimulator,
   type WorldStatePublicDB,
 } from '@aztec/simulator';
-import { type MerkleTreeOperations, MerkleTrees, type TreeInfo } from '@aztec/world-state';
+import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
