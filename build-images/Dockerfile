@@ -16,7 +16,7 @@ RUN make build/wasi-libc.BUILT
 RUN make build/compiler-rt.BUILT
 RUN make build/libcxx.BUILT
 RUN make build/config.BUILT
-RUN mv build/install/opt/wasi-sdk /opt/wasi-sdk
+RUN cp -r build/install/opt/wasi-sdk /opt/wasi-sdk
 
 ########################################################################################################################
 # Build foundry.
@@ -28,7 +28,7 @@ RUN ulimit -n 65535 && \
     cd foundry && cargo build --profile local && \
     mkdir -p /opt/foundry/bin && \
     for t in forge cast anvil chisel; do \
-        mv ./target/local/$t /opt/foundry/bin/$t; \
+        cp -r ./target/local/$t /opt/foundry/bin/$t; \
         strip /opt/foundry/bin/$t; \
     done
 
