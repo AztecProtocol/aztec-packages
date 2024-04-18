@@ -16,7 +16,7 @@ export const INITIAL_TEST_SECRET_KEYS = [
 export const INITIAL_TEST_ENCRYPTION_KEYS = INITIAL_TEST_SECRET_KEYS.map(secretKey =>
   sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]),
 );
-// TODO(#5726): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
+// TODO(#5837): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
 export const INITIAL_TEST_SIGNING_KEYS = INITIAL_TEST_ENCRYPTION_KEYS;
 
 export const INITIAL_TEST_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
@@ -48,7 +48,7 @@ export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountW
       return registeredAccounts.find(registered => registered.publicKey.equals(publicKey)) != undefined;
     }).map(secretKey => {
       const signingKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
-      // TODO(#5726): use actual salt here instead of harcoding Fr.ZERO
+      // TODO(#5726): use actual salt here instead of hardcoding Fr.ZERO
       return getSchnorrAccount(pxe, secretKey, signingKey, Fr.ZERO).getWallet();
     }),
   );

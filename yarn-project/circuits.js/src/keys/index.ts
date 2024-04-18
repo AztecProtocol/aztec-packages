@@ -14,6 +14,11 @@ export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinSca
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
+export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
+  // TODO(#5837): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
+  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+}
+
 /**
  * Computes secret and public keys and public keys hash from a secret key.
  * @param secretKey - The secret key to derive keys from.

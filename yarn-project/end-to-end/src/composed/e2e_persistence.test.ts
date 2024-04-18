@@ -1,15 +1,15 @@
 import { getUnsafeSchnorrAccount, getUnsafeSchnorrWallet } from '@aztec/accounts/single_key';
 import {
-  type AccountWallet,
-  type ContractInstanceWithAddress,
   ExtendedNote,
   Note,
-  type TxHash,
   computeMessageSecretHash,
   waitForAccountSynch,
+  type AccountWallet,
+  type ContractInstanceWithAddress,
+  type TxHash,
 } from '@aztec/aztec.js';
 import { type Salt } from '@aztec/aztec.js/account';
-import { type AztecAddress, type CompleteAddress, Fr, deriveKeys } from '@aztec/circuits.js';
+import { Fr, deriveSigningKey, type AztecAddress, type CompleteAddress } from '@aztec/circuits.js';
 import { type DeployL1Contracts } from '@aztec/ethereum';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -18,7 +18,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { type EndToEndContext, setup } from '../fixtures/utils.js';
+import { setup, type EndToEndContext } from '../fixtures/utils.js';
 
 jest.setTimeout(60_000);
 
@@ -106,8 +106,7 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await contextSetup();
-      // TODO(#5726): come up with a standard way to derive signing keys
-      const signingKey = deriveKeys(ownerSecretKey).masterIncomingViewingSecretKey;
+      const signingKey = deriveSigningKey(ownerSecretKey);
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
       contract = await TokenContract.at(contractAddress, ownerWallet);
     }, timeout);
@@ -289,8 +288,7 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory });
-      // TODO(#5726): come up with a standard way to derive signing keys
-      const signingKey = deriveKeys(ownerSecretKey).masterIncomingViewingSecretKey;
+      const signingKey = deriveSigningKey(ownerSecretKey);
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
       contract = await TokenContract.at(contractAddress, ownerWallet);
 
