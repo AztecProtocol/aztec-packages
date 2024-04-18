@@ -67,8 +67,6 @@ TEST_F(AvmEnvironmentTests, kernelSender)
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_sender(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        // When the sender selector is active, we should expect all of the memory operations to write in the expected
-        // registers
         std::vector<Row>::const_iterator sender_row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_sender == FF(1); });
         EXPECT_TRUE(sender_row != trace.end());
@@ -88,8 +86,6 @@ TEST_F(AvmEnvironmentTests, kernelAddress)
     uint32_t dst_offset = 42;
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_address(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        // When the sender selector is active, we should expect all of the memory operations to write in the expected
-        // registers
         std::vector<Row>::const_iterator address_row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_address == FF(1); });
         EXPECT_TRUE(address_row != trace.end());
@@ -108,8 +104,6 @@ TEST_F(AvmEnvironmentTests, kernelPortal)
     uint32_t dst_offset = 42;
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_portal(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        // When the sender selector is active, we should expect all of the memory operations to write in the expected
-        // registers
         std::vector<Row>::const_iterator portal_row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_portal == FF(1); });
         EXPECT_TRUE(portal_row != trace.end());
@@ -128,8 +122,6 @@ TEST_F(AvmEnvironmentTests, kernelFunction)
     uint32_t dst_offset = 42;
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_function(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        // When the sender selector is active, we should expect all of the memory operations to write in the expected
-        // registers
         std::vector<Row>::const_iterator function_row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_function_selector == FF(1); });
         EXPECT_TRUE(function_row != trace.end());
@@ -148,8 +140,6 @@ TEST_F(AvmEnvironmentTests, kernelFeePerDa)
     uint32_t dst_offset = 42;
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_fee_per_da_gas(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        // When the sender selector is active, we should expect all of the memory operations to write in the expected
-        // registers
         std::vector<Row>::const_iterator fee_row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_da_gas == FF(1); });
         EXPECT_TRUE(fee_row != trace.end());
@@ -168,8 +158,6 @@ TEST_F(AvmEnvironmentTests, kernelFeePerL1)
     uint32_t dst_offset = 42;
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_fee_per_l1_gas(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        // When the sender selector is active, we should expect all of the memory operations to write in the expected
-        // registers
         std::vector<Row>::const_iterator fee_row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_l1_gas == FF(1); });
         EXPECT_TRUE(fee_row != trace.end());
@@ -188,8 +176,6 @@ TEST_F(AvmEnvironmentTests, kernelFeePerL2)
     uint32_t dst_offset = 42;
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_fee_per_l2_gas(dst_offset); };
     auto checks = [=](const std::vector<Row>& trace) {
-        // When the sender selector is active, we should expect all of the memory operations to write in the expected
-        // registers
         std::vector<Row>::const_iterator fee_row = std::ranges::find_if(
             trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fee_per_l2_gas == FF(1); });
         EXPECT_TRUE(fee_row != trace.end());
