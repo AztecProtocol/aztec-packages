@@ -15,7 +15,7 @@ Along the way you will:
 - Install Aztec developer tools
 - Setup a new Noir contract project
 - Add base Aztec dependencies
--
+- 
 
 ## Setup
 
@@ -23,17 +23,19 @@ Along the way you will:
 
 Please ensure that the you already have [Installed the Sandbox](https://docs.aztec.network/developers/getting_started/quickstart#install-the-sandbox).
 
-And if using VSCode, see [here](https://docs.aztec.network/developers/contracts/main#install-noir-lsp-recommended) to install Noir LSP and select `aztec-nargo`.
+And if using VSCode, see [here](https://docs.aztec.network/developers/contracts/main#install-noir-lsp-recommended) to install Noir LSP, where you'll benefit from syntax highlighting, profiling, and more.
 
 ### Create an Aztec project
 
-Create a new Aztec contract project named "crowdfunding":
+Use `aztec-nargo` in a terminal to create a new Aztec contract project named "crowdfunding":
 
 ```sh
 aztec-nargo new --contract crowdfunding
 ```
 
 Inside the new `crowdfunding` directory you will have a base to implement the Aztec smart contract.
+
+Use `aztec-nargo --help` to see other commands.
 
 ## Private donations
 
@@ -54,7 +56,9 @@ Inside the new `crowdfunding` directory you will have a base to implement the Az
 
 #### Initialize
 
-Rename the contract from `Main`, to `Crowdfunding`.
+Open the project in your preferred editor. If using VSCode and the LSP, you'll be able to select the `aztec-nargo` binary to use (instead of `nargo`).
+
+In `main.nr`, rename the contract from `Main`, to `Crowdfunding`.
 
 #include_code empty-contract /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
@@ -91,13 +95,14 @@ A word about versions:
 
 More about versions [here](https://docs.aztec.network/developers/versions-updating).
 
-Inside the Crowdfunding contract definition, use the dependency that defines the address type `AztecAddress`
+Inside the Crowdfunding contract definition, use the dependency that defines the address type `AztecAddress` (same syntax as Rust)
 
 ```rust
 use dep::aztec::protocol_types::address::AztecAddress;
 ```
 
-The `aztec::protocol_types` can be browsed [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
+The `aztec::protocol_types` can be browsed [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src). And like rust dependencies, the relative path inside the dependency corresponds to `address::AztecAddress`.
+
 
 #### Storage
 
@@ -105,13 +110,17 @@ To retain the initializer parameters in the contract's Storage, we'll need to de
 
 #include_code storage /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-There is an additional type, `ValueNote` that we will use later, so also include this at the start of your contract
+The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
+
+(See [here](https://docs.aztec.network/developers/contracts/resources/dependencies) for common dependencies).
+
+---
+
+Back in main.nr, reference `use` of the type
 
 ```rust
 use dep::value_note::value_note::ValueNote;
 ```
-
-This dependency is from the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr)
 
 Now complete the initializer by setting the storage variables with the parameters:
 
@@ -123,7 +132,7 @@ Now complete the initializer by setting the storage variables with the parameter
 
 To check that the donation occurs before the campaign deadline, we must access the public `timestamp`. It is one of several [Public Global Variables](https://docs.aztec.network/developers/contracts/references/globals#public-global-variables).
 
-Declare a public (internal) function
+Declare an Aztec function that is public and internal
 
 ```rust
 #include_code deadline-header /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
@@ -135,8 +144,9 @@ Read the deadline from storage and assert that the `timestamp` from this context
 
 #include_code deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
+---
 
-Since donations are private, they will have the user's private context which has these [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables). So from the private context we must do some extra work to call the (public internal) `_check_deadline` function.
+Since donations are to be private, the donate function will have the user's private context which has these [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables). So from the private context we must do some extra work to call the (public internal) `_check_deadline` function.
 
 ```rust
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
@@ -144,7 +154,7 @@ Since donations are private, they will have the user's private context which has
 }
 ```
 
-From the private context we call `call_public_function` (defined in [private_context.nr](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/aztec-nr/aztec/src/context) ~[here](https://docs.aztec.network/developers/contracts/references/aztec-nr/aztec/context/private_context#call_public_function)~). Passing the address of the contract and the function signature (name and param types).
+From the private context we call `call_public_function` (defined [here](https://docs.aztec.network/developers/contracts/references/aztec-nr/aztec/context/private_context#call_public_function)). Passing the address of the contract and the function signature (name and param types).
 
 We've not yet added the `FunctionSelector` type, so do that now
 
