@@ -12,6 +12,7 @@
     "./keys": "./dest/keys/index.js",
     "./barretenberg": "./dest/barretenberg/index.js",
     "./testing": "./dest/tests/index.js",
+    "./testing/fixtures": "./dest/tests/fixtures.js",
     "./interfaces": "./dest/interfaces/index.js",
     "./utils": "./dest/utils/index.js",
     "./types": "./dest/types/index.js",
