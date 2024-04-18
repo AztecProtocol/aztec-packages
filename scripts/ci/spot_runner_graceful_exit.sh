@@ -29,7 +29,7 @@ for RUNNER_DIR in /run/*-ec2-* ; do
   done
   echo "Observed that the runner has been registered."
   RUNNER_TOKEN=$(cat $RUNNER_DIR/.runner-token)
-  $RUNNER_DIR/config.sh remove --token "$RUNNER_TOKEN"
+  $RUNNER_DIR/config.sh remove --token "$RUNNER_TOKEN" || true
   popd
 done
 
@@ -56,9 +56,8 @@ if pgrep Runner.Listener > dev/null; then
   # hang for 10 minutes or so.
   # After 10 minutes, the Actions UI just shows the failure icon for the step, without `Error: The operation was canceled.`,
   # not even showing `Error: The operation was canceled.`, which is confusing.
-  runner_listener_pid=$(pgrep Runner.Listener)
-  echo "Sending SIGTERM to the actions runner agent ($runner_listener_pid)."
-  kill -TERM "$runner_listener_pid"
+  echo "Sending SIGTERM to the actions runner agent $(pgrep Runner.Listener)."
+  kill -TERM $(pgrep Runner.Listener)
 
   echo "SIGTERM sent. If the runner is still running a job, you'll probably see \"Error: The operation was canceled.\" in its log."
   echo "Waiting for the actions runner agent to stop."
