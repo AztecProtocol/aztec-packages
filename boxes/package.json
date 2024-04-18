@@ -1,11 +1,7 @@
 {
   "name": "create-aztec-app",
   "packageManager": "yarn@4.1.0",
-<<<<<<< HEAD
   "version": "0.3.16",
-=======
-  "version": "0.3.15",
->>>>>>> 550a5ec5a2 (chore: adding wait-for-sandbox.sh script)
   "type": "module",
   "scripts": {
     "compile": "yarn workspaces foreach -A -v run compile",

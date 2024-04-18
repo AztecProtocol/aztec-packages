@@ -166,6 +166,5 @@
     "**/l1-contracts/lib/**": true,
     "**/barretenberg/cpp/build*/**": true
   },
-  "workbench.editor.enablePreviewFromQuickOpen": true,
-  "cmake.sourceDirectory": "/Users/zpedro/Documents/GitHub/aztec-packages/barretenberg/cpp"
+  "cmake.sourceDirectory": "/mnt/user-data/adam/aztec-packages/barretenberg/cpp"
 }
