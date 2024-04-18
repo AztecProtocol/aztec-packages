@@ -14,6 +14,48 @@ export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinSca
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
+/**
+ * Computes secret and public keys and public keys hash from a secret key.
+ * @param secretKey - The secret key to derive keys from.
+ * @returns The derived keys.
+ */
+export function deriveKeys(secretKey: Fr) {
+  const curve = new Grumpkin();
+  // First we derive master secret keys -  we use sha512 here because this derivation will never take place
+  // in a circuit
+  const masterNullifierSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NSK_M]);
+  const masterIncomingViewingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  const masterOutgoingViewingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.OVSK_M]);
+  const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.TSK_M]);
+
+  // Then we derive master public keys
+  const masterNullifierPublicKey = curve.mul(curve.generator(), masterNullifierSecretKey);
+  const masterIncomingViewingPublicKey = curve.mul(curve.generator(), masterIncomingViewingSecretKey);
+  const masterOutgoingViewingPublicKey = curve.mul(curve.generator(), masterOutgoingViewingSecretKey);
+  const masterTaggingPublicKey = curve.mul(curve.generator(), masterTaggingSecretKey);
+
+  // We hash the public keys to get the public keys hash
+  const publicKeysHash = poseidon2Hash([
+    masterNullifierPublicKey,
+    masterIncomingViewingPublicKey,
+    masterOutgoingViewingPublicKey,
+    masterTaggingPublicKey,
+    GeneratorIndex.PUBLIC_KEYS_HASH,
+  ]);
+
+  return {
+    masterNullifierSecretKey,
+    masterIncomingViewingSecretKey,
+    masterOutgoingViewingSecretKey,
+    masterTaggingSecretKey,
+    masterNullifierPublicKey,
+    masterIncomingViewingPublicKey,
+    masterOutgoingViewingPublicKey,
+    masterTaggingPublicKey,
+    publicKeysHash,
+  };
+}
+
 // TODO(#5726): nuke all that follows?
 /**
  *  Derives the public key of a secret key.

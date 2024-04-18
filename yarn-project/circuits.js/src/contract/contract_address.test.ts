@@ -2,14 +2,13 @@ import { ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/f
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers, updateInlineTestData } from '@aztec/foundation/testing';
 
-import { AztecAddress, EthAddress } from '../index.js';
+import { AztecAddress, EthAddress, deriveKeys } from '../index.js';
 import {
   computeContractAddressFromInstance,
   computeContractAddressFromPartial,
   computeInitializationHash,
   computePartialAddress,
   computeSaltedInitializationHash,
-  deriveKeys,
 } from './contract_address.js';
 
 describe('ContractAddress', () => {

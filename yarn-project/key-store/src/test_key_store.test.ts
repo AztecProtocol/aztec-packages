@@ -1,13 +1,11 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { openTmpStore } from '@aztec/kv-store/utils';
 
 import { TestKeyStore } from './test_key_store.js';
 
 describe('TestKeyStore', () => {
   it('Adds account and returns keys', async () => {
-    const db = openTmpStore();
-    const keyStore = new TestKeyStore(new Grumpkin(), db);
+    const keyStore = new TestKeyStore(openTmpStore());
 
     // Arbitrary fixed values
     const sk = new Fr(8923n);

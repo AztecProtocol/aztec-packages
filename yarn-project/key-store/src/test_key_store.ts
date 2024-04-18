@@ -8,9 +8,9 @@ import {
   type PartialAddress,
   Point,
   computeAppNullifierSecretKey,
+  deriveKeys,
 } from '@aztec/circuits.js';
-import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 /**
@@ -20,7 +20,7 @@ import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 export class TestKeyStore implements KeyStore {
   #keys: AztecMap<string, Buffer>;
 
-  constructor(private curve: Grumpkin, database: AztecKVStore) {
+  constructor(database: AztecKVStore) {
     this.#keys = database.openMap('key_store');
   }
 
@@ -41,27 +41,17 @@ export class TestKeyStore implements KeyStore {
    * @returns The account's address.
    */
   public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<AztecAddress> {
-    // First we derive master secret keys -  we use sha512 here because this derivation will never take place
-    // in a circuit
-    const masterNullifierSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.NSK_M]);
-    const masterIncomingViewingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.IVSK_M]);
-    const masterOutgoingViewingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.OVSK_M]);
-    const masterTaggingSecretKey = sha512ToGrumpkinScalar([sk, GeneratorIndex.TSK_M]);
-
-    // Then we derive master public keys
-    const masterNullifierPublicKey = this.curve.mul(this.curve.generator(), masterNullifierSecretKey);
-    const masterIncomingViewingPublicKey = this.curve.mul(this.curve.generator(), masterIncomingViewingSecretKey);
-    const masterOutgoingViewingPublicKey = this.curve.mul(this.curve.generator(), masterOutgoingViewingSecretKey);
-    const masterTaggingPublicKey = this.curve.mul(this.curve.generator(), masterTaggingSecretKey);
-
-    // We hash the public keys to get the public keys hash
-    const publicKeysHash = poseidon2Hash([
+    const {
+      publicKeysHash,
+      masterNullifierSecretKey,
+      masterIncomingViewingSecretKey,
+      masterOutgoingViewingSecretKey,
+      masterTaggingSecretKey,
       masterNullifierPublicKey,
       masterIncomingViewingPublicKey,
       masterOutgoingViewingPublicKey,
       masterTaggingPublicKey,
-      GeneratorIndex.PUBLIC_KEYS_HASH,
-    ]);
+    } = deriveKeys(sk);
 
     // We hash the partial address and the public keys hash to get the account address
     // TODO(#5726): Move the following line to AztecAddress class?
