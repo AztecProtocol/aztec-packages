@@ -1,4 +1,5 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
+// Trigger a change!
 contract Test {
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
