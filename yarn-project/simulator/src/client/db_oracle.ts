@@ -66,14 +66,12 @@ export interface DBOracle extends CommitmentsDB {
   popCapsule(): Promise<Fr[]>;
 
   /**
-   * Retrieve the nullifier key pair associated with a specific account.
-   * The function only allows access to the secret keys of the transaction creator,
-   * and throws an error if the address does not match the account address of the key pair.
+   * Retrieve nullifier keys associated with a specific account and app/contract address.
    *
    * @param accountAddress - The account address.
    * @param contractAddress - The contract address.
    * @returns A Promise that resolves to the nullifier key pair.
-   * @throws An Error if the input address does not match the account address of the key pair.
+   * @throws An error if the account is not registered in the database.
    */
   getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys>;
 

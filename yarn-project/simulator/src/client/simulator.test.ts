@@ -34,7 +34,6 @@ describe('Simulator', () => {
 
     contractAddress = AztecAddress.random();
 
-    // We disabled the AztecAddress preimage check in oracle to get it working
     const ownerPartialAddress = Fr.random();
     const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
     owner = ownerCompleteAddress.address;

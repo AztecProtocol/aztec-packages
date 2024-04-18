@@ -3,7 +3,6 @@ import type * as AztecAccountsSchnorr from '@aztec/accounts/schnorr';
 import type * as AztecAccountsSingleKey from '@aztec/accounts/single_key';
 import type * as AztecAccountsTesting from '@aztec/accounts/testing';
 import * as AztecJs from '@aztec/aztec.js';
-import { deriveKeys } from '@aztec/circuits.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { contractArtifactToBuffer } from '@aztec/types/abi';
 
@@ -218,6 +217,7 @@ export const browserTestSuite = (
             createPXEClient,
             getSchnorrAccount,
             Contract,
+            deriveKeys,
             Fr,
             ExtendedNote,
             Note,

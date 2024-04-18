@@ -32,7 +32,7 @@ export async function createAccount(
   log(`Address:         ${address.toString()}`);
   log(`Public key:      ${publicKey.toString()}`);
   if (!secretKey) {
-    log(`Private key:     ${actualSecretKey.toString()}`);
+    log(`Secret key:     ${actualSecretKey.toString()}`);
   }
   log(`Partial address: ${partialAddress.toString()}`);
 }

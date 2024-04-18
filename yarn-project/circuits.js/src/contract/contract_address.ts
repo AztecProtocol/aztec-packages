@@ -62,7 +62,7 @@ export function computeSaltedInitializationHash(
 /**
  * Computes a contract address from its partial address and public keys hash.
  * @param args - The hash of the public keys or the plain public key to be hashed, along with the partial address.
- * @returns The partially constructed contract address.
+ * @returns The contract address.
  */
 export function computeContractAddressFromPartial(
   args: ({ publicKeysHash: Fr } | { secretKey: Fr }) & { partialAddress: Fr },

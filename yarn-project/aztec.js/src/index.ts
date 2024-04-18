@@ -82,7 +82,7 @@ export {
 
 export { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 
-export { deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
+export { deriveKeys, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
 
 export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 

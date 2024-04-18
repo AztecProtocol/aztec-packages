@@ -171,9 +171,6 @@ describe('Private Execution test suite', () => {
   beforeAll(() => {
     logger = createDebugLogger('aztec:test:private_execution');
 
-    // I need: secret key to compute complete address, master nullifier public key, app nullifier secret key
-    // to get app nullifier secret key I need masterNullifierSecretKey
-
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
 
