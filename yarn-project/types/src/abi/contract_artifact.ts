@@ -206,6 +206,7 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion?: string): ContractArtifact {
   return {
     name: contract.name,
+    noirVersion: contract.noir_version,
     functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
     outputs: contract.outputs,
     fileMap: contract.file_map,

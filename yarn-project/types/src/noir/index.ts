@@ -74,6 +74,7 @@ export interface NoirCompiledContract {
   };
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
+  noir_version: string;
 }
 
 /**

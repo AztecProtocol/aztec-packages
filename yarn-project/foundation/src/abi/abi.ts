@@ -297,6 +297,8 @@ export interface ContractArtifact {
    * The map of file ID to the source code and path of the file.
    */
   fileMap: DebugFileMap;
+
+  noirVersion?: string;
 }
 
 /**
