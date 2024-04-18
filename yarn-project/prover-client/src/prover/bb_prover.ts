@@ -253,10 +253,6 @@ export class BBNativeRollupProver implements CircuitProver {
     const proofFileName = `${bbWorkingDirectory}/proof`;
     const verificationKeyPath = this.verificationKeyDirectories.get(circuitType);
 
-    if (verificationKeyPath === undefined) {
-      throw new Error(`Verification Key undefined for: ${circuitType}`);
-    }
-
     await fs.writeFile(proofFileName, proof.buffer);
 
     const logFunction = (message: string) => {
@@ -264,18 +260,6 @@ export class BBNativeRollupProver implements CircuitProver {
     };
 
     const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
-
-    try {
-      await fs.access(proofFileName, fs.constants.R_OK);
-    } catch (err) {
-      logger.error(`Failed to read proof at ${proofFileName}`);
-    }
-
-    try {
-      await fs.access(verificationKeyPath, fs.constants.R_OK);
-    } catch (err) {
-      logger.error(`Failed to read vk at ${verificationKeyPath}`);
-    }
 
     await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
 

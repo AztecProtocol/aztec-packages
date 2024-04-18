@@ -27,7 +27,6 @@ import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixt
 
 export class TestContext {
   constructor(
-    public publicMockDb: MockProxy<MerkleTreeOperations>,
     public publicExecutor: MockProxy<PublicExecutor>,
     public publicContractsDB: MockProxy<ContractsDataSourcePublicDB>,
     public publicWorldStateDB: MockProxy<WorldStatePublicDB>,
@@ -54,11 +53,9 @@ export class TestContext {
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-    const db = mock<MerkleTreeOperations>();
-    const root = Buffer.alloc(32, 5);
-    db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
+    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const processor = new PublicProcessor(
-      db,
+      actualDb,
       publicExecutor,
       publicKernel,
       GlobalVariables.empty(),
@@ -66,8 +63,6 @@ export class TestContext {
       publicContractsDB,
       publicWorldStateDB,
     );
-
-    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
 
     let localProver: CircuitProver;
     const config = await getEnvironmentConfig(logger);
@@ -90,7 +85,6 @@ export class TestContext {
     const orchestrator = await ProvingOrchestrator.new(actualDb, localProver);
 
     return new this(
-      db,
       publicExecutor,
       publicContractsDB,
       publicWorldStateDB,
