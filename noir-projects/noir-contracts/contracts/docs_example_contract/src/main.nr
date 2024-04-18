@@ -115,10 +115,9 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        context.call_private_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_private()")
-        ).unpack_into()
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().call(&mut context);
+        leader.points += 1;
+        leader
     }
 
     #[aztec(public)]
@@ -127,15 +126,20 @@ contract DocsExample {
         // and returns the response.
         // Used to test that we can retrieve values through calls and 
         // correctly return them in the simulation
-        context.call_public_function_no_args(
-            context.this_address(),
-            FunctionSelector::from_signature("get_shared_immutable_constrained_public()")
-        ).deserialize_into()
+        let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().call(&mut context);
+        leader.points += 1;
+        leader
     }
 
     #[aztec(public)]
     fn get_shared_immutable_constrained_public() -> pub Leader {
         storage.shared_immutable.read_public()
+    }
+
+    #[aztec(public)]
+    fn get_shared_immutable_constrained_public_multiple() -> pub [Leader; 5] {
+        let a = storage.shared_immutable.read_public();
+        [a, a, a, a, a]
     }
 
     #[aztec(private)]
@@ -178,7 +182,7 @@ contract DocsExample {
     }
 
     #[aztec(private)]
-    fn insert_notes(amounts: [u8; 10]) {
+    fn insert_notes(amounts: [u8; 3]) {
         for i in 0..amounts.len() {
             let mut note = CardNote::new(amounts[i], 1, context.msg_sender());
             storage.set.insert(&mut note, true);
@@ -210,12 +214,7 @@ contract DocsExample {
     fn update_legendary_card(randomness: Field, points: u8) {
         let mut new_card = CardNote::new(points, randomness, context.msg_sender());
         storage.legendary_card.replace(&mut new_card, true);
-
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]
@@ -234,11 +233,7 @@ contract DocsExample {
         storage.legendary_card.replace(&mut new_card, true);
         // docs:end:state_vars-PrivateMutableReplace
 
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("update_leader((Field),u8)"),
-            [context.msg_sender().to_field(), points as Field]
-        );
+        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
     #[aztec(private)]
