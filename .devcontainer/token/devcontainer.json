@@ -25,6 +25,5 @@
       "target": "/root/workspace/.devcontainer/scripts",
       "type": "bind"
     }
-  ],
-  "forwardPorts": [8080]
+  ]
 }
