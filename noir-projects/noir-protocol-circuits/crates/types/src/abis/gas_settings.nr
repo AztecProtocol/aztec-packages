@@ -2,8 +2,8 @@ use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress}, abis::gas::Gas,
     abis::gas_fees::GasFees,
     constants::{
-    GAS_SETTINGS_LENGTH, DIMENSION_GAS_SETTINGS_LENGTH, DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT,
-    DEFAULT_MAX_FEE_PER_GAS, DEFAULT_INCLUSION_FEE
+    GAS_SETTINGS_LENGTH, DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT, DEFAULT_MAX_FEE_PER_GAS,
+    DEFAULT_INCLUSION_FEE
 },
     hash::pedersen_hash, traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered,
     utils::reader::Reader

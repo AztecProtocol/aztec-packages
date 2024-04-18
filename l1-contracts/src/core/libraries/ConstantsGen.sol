@@ -95,10 +95,10 @@ library Constants {
   uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DEFAULT_INCLUSION_FEE = 0;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
-  uint256 internal constant DIMENSION_GAS_SETTINGS_LENGTH = 3;
   uint256 internal constant GAS_FEES_LENGTH = 3;
   uint256 internal constant GAS_LENGTH = 3;
-  uint256 internal constant GAS_SETTINGS_LENGTH = 1 + 3 * DIMENSION_GAS_SETTINGS_LENGTH;
+  uint256 internal constant GAS_SETTINGS_LENGTH =
+    GAS_LENGTH * 2 + GAS_FEES_LENGTH /* inclusion_fee */ + 1;
   uint256 internal constant CALL_CONTEXT_LENGTH = 7;
   uint256 internal constant CONTENT_COMMITMENT_LENGTH = 4;
   uint256 internal constant CONTRACT_INSTANCE_LENGTH = 6;
