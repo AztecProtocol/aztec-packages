@@ -33,4 +33,6 @@ for PROJECT in "${PROJECTS[@]}"; do
   tar zxfv noir-repo/$PPATH/package.tgz -C packages && mv packages/package packages/${PROJECT#*/}
 done
 
-$ROOT/scripts/fix_incremental_ts.sh
+if [ -x $ROOT/scripts/fix_incremental_ts.sh ]; then
+  $ROOT/scripts/fix_incremental_ts.sh
+fi

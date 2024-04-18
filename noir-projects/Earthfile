@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ubuntu:lunar
+FROM ubuntu:noble
 
 # Install nargo
 COPY ../noir/+nargo/nargo /usr/bin/nargo

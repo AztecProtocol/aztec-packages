@@ -4,7 +4,7 @@ deps:
     LOCALLY
     LET packages = $(git ls-files "**/package*.json" package*.json)
     LET tsconfigs = $(git ls-files "**/tsconfig*.json" tsconfig*.json)
-    FROM node:18.19.0
+    FROM ../build-images+build
     # copy bb-js and noir-packages
     COPY ../barretenberg/ts/+build/build /usr/src/barretenberg/ts
     COPY ../noir/+packages/packages /usr/src/noir/packages
@@ -74,8 +74,8 @@ end-to-end-prod:
 end-to-end:
     FROM node:18.19.1-slim
     RUN apt-get update && apt-get install jq chromium netcat-openbsd -y
-    ENV CHROME_BIN="/usr/bin/chromium"
-    COPY ../foundry/+build/usr/src/foundry/bin/anvil /usr/src/foundry/bin/anvil
+    ENV CHROME_BIN="/usr/bin/chromium" PATH=/opt/foundry/bin:$PATH
+    COPY ../build-images+build/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
@@ -92,7 +92,7 @@ export-end-to-end:
     BUILD +aztec
     ARG EARTHLY_GIT_HASH
     # pushes the foundry image to local docker images
-    FROM ../foundry/+build
+    FROM ../build-images+build
     SAVE IMAGE aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
     FROM +end-to-end
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH

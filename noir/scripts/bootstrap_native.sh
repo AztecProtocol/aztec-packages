@@ -21,4 +21,6 @@ else
   cargo build --release
 fi
 
-../scripts/fix_incremental_ts.sh
+if [ -x ../scripts/fix_incremental_ts.sh ]; then
+  ../scripts/fix_incremental_ts.sh
+fi
