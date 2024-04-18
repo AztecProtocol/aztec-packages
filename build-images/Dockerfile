@@ -48,6 +48,7 @@ RUN apt update && \
         gawk \
         unzip \
         netcat-openbsd \
+        parallel \
         # C++ (clang=18, which we will move to. 16 is for current build.)
         build-essential \
         cmake \
@@ -119,6 +120,7 @@ RUN apt update && \
         sudo \
         clangd-16 \
         man \
+        python3-blessed \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install earthly.
