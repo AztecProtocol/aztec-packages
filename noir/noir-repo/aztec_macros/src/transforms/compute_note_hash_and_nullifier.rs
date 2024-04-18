@@ -66,25 +66,32 @@ pub fn inject_compute_note_hash_and_nullifier(
 
         // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
         // contract might use. These are the types that are marked as #[aztec(note)].
-        let notes = fetch_notes(context)
-            .iter()
-            .map(|(path, typ)| {
-                let serialized_len = get_serialized_length(
-                    &traits,
-                    "NoteInterface",
-                    &Type::Struct(typ.clone(), vec![]),
-                    &context.def_interner,
-                )
-                .expect(&format!(
-                    "Failed to get serialized length for note type {}",
-                    path.to_string()
-                ));
-                (path.to_string(), serialized_len)
-            })
-            .collect::<Vec<_>>();
+        let mut note_types = vec![];
+        let mut note_lengths = vec![];
 
-        let note_types = notes.iter().map(|(path, _)| path.clone()).collect::<Vec<_>>();
-        let max_note_length = notes.iter().map(|(_, len)| len).max().unwrap_or(&0).clone();
+        for (path, typ) in fetch_notes(context) {
+            let serialized_len = get_serialized_length(
+                &traits,
+                "NoteInterface",
+                &Type::Struct(typ.clone(), vec![]),
+                &context.def_interner,
+            )
+            .map_err(|_err| {
+                (
+                    AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
+                        secondary_message: Some(format!(
+                            "Failed to get serialized length for note type {}",
+                            path
+                        )),
+                    },
+                    file_id,
+                )
+            })?;
+            note_types.push(path.to_string());
+            note_lengths.push(serialized_len);
+        }
+
+        let max_note_length = *note_lengths.iter().max().unwrap_or(&0);
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
         let func = generate_compute_note_hash_and_nullifier(&note_types, max_note_length);
