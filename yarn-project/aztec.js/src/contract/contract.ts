@@ -43,7 +43,7 @@ export class Contract extends ContractBase {
   }
 
   /**
-   * Creates a tx to deploy a new instance of a contract using the specified public key to derive the address.
+   * Creates a tx to deploy a new instance of a contract using the specified public keys hash to derive the address.
    * @param publicKeysHash - Hash of public keys to use for deriving the address.
    * @param wallet - The wallet for executing the deployment.
    * @param artifact - Build artifact of the contract.

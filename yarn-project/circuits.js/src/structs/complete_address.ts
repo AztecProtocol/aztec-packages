@@ -37,7 +37,7 @@ export class CompleteAddress {
   }
 
   static random() {
-    // TODO(benesjan): clean this up
+    // TODO(#5834): the following should be cleaned up
     const secretKey = Fr.random();
     const partialAddress = Fr.random();
     const address = computeContractAddressFromPartial({ secretKey, partialAddress });
@@ -67,6 +67,7 @@ export class CompleteAddress {
     return new CompleteAddress(address, publicKey, partialAddress);
   }
 
+  // TODO(#5834): re-enable validation
   // /** Throws if the address is not correctly derived from the public key and partial address.*/
   // public validate() {
   //   const expectedAddress = computeContractAddressFromPartial(this);

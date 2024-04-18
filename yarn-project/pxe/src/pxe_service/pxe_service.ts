@@ -182,7 +182,6 @@ export class PXEService implements PXE {
       this.log.info(`Account:\n "${completeAddress.address.toString()}"\n already registered.`);
       return completeAddress;
     } else {
-      // TODO(benesjan): we will have to handle app siloing here
       const masterIncomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(account);
       this.synchronizer.addAccount(masterIncomingViewingPublicKey, this.keyStore, this.config.l2StartingBlock);
       this.log.info(`Registered account ${completeAddress.address.toString()}`);

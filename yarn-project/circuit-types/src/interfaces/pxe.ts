@@ -95,7 +95,7 @@ export interface PXE {
    *
    * @param address - The address of account.
    * @returns The public keys hash of the requested account if found.
-   * TODO(benesjan): probably should be merged with getRegisteredAccount
+   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
    */
   getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined>;
 

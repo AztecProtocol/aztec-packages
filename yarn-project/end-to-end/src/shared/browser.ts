@@ -247,7 +247,7 @@ export const browserTestSuite = (
             knownAccounts.push(newAccount);
           }
           const owner = knownAccounts[0];
-          // TODO(benesjan): this is shit, expose it on account
+          // TODO(#5726): this is messy, maybe we should expose publicKeysHash on account
           const publicKeysHash = deriveKeys(INITIAL_TEST_SECRET_KEYS[0]).publicKeysHash;
           const ownerAddress = owner.getAddress();
           const tx = new DeployMethod(

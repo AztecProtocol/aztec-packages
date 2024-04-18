@@ -56,7 +56,7 @@ describe('Simulator', () => {
     const artifact = getFunctionArtifact(TokenContractArtifact, 'compute_note_hash_and_nullifier');
     const nonce = Fr.random();
     const storageSlot = Fr.random();
-    const noteTypeId = new Fr(8411110710111078111116101n); // TokenNote TODO(benesjan): This can be imported from artifact now
+    const noteTypeId = new Fr(8411110710111078111116101n); // TODO(#5833): This can be imported from artifact now
 
     const createNote = (amount = 123n) => new Note([new Fr(amount), owner.toField(), Fr.random()]);
 
@@ -68,7 +68,7 @@ describe('Simulator', () => {
       const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      // TODO(benesjan): all the pedersen hashes in notes should be replaced with poseidon2
+      // TODO(#5832): all the pedersen hashes in notes should be replaced with poseidon2
       const innerNullifier = pedersenHash([uniqueSiloedNoteHash, appNullifierSecretKey]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);

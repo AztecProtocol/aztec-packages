@@ -74,7 +74,7 @@ describe('ContractAddress', () => {
 
     expect(address).toMatchSnapshot();
 
-    // TODO(benesjan): the following was removed from aztec_address.nr, should it be re-introduced
+    // TODO(#5834): the following was removed from aztec_address.nr, should it be re-introduced?
     // // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     // updateInlineTestData(
     //   'noir-projects/noir-protocol-circuits/crates/types/src/address/aztec_address.nr',

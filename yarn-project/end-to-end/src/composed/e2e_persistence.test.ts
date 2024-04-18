@@ -106,7 +106,7 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await contextSetup();
-      // TODO(benesjan):
+      // TODO(#5726): come up with a standard way to derive signing keys
       const signingKey = deriveKeys(ownerSecretKey).masterIncomingViewingSecretKey;
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
       contract = await TokenContract.at(contractAddress, ownerWallet);
@@ -289,7 +289,7 @@ describe('Aztec persistence', () => {
 
     beforeEach(async () => {
       context = await setup(0, { dataDirectory, deployL1ContractsValues }, { dataDirectory });
-      // TODO(benesjan):
+      // TODO(#5726): come up with a standard way to derive signing keys
       const signingKey = deriveKeys(ownerSecretKey).masterIncomingViewingSecretKey;
       ownerWallet = await getUnsafeSchnorrWallet(context.pxe, ownerAddress.address, signingKey);
       contract = await TokenContract.at(contractAddress, ownerWallet);

@@ -106,7 +106,6 @@ export interface KeyStore {
    * @param masterIncomingViewingPublicKey - The master nullifier public key to get secret key for.
    * @returns A Promise that resolves to the master nullifier secret key.
    * @dev Used when feeding the master nullifier secret key to the kernel circuit for nullifier keys verification.
-   * TODO(benesjan): will need to be updated once we have app siloing of viewing keys
    */
   getMasterIncomingViewingSecretKeyForPublicKey(masterIncomingViewingPublicKey: PublicKey): Promise<GrumpkinPrivateKey>;
 
