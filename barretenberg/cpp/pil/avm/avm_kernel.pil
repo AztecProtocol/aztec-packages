@@ -6,11 +6,10 @@ namespace avm_kernel(256);
     pol commit kernel_sel;
 
     // The general pattern for environment lookups is as follows:
-    // - If we are performing an environment lookup, then we set q_environment_lookup
-    // - We can toggle what index in the 
+    //  Each kernel opcode related to some fixed positions in the `public kernel_inputs` polynomial
+    //  We can lookup into a fixed index of this polynomial by including constraints that force the value
+    //  of kernel_sel to the value relevant to the given opcode that is active
 
-    // Note we are currently using arbitrary opcodes for each
-    // For this demo, caller is stored at index 0
     #[SENDER_KERNEL]
     avm_main.sel_op_sender * (kernel_sel - constants.SENDER_SELECTOR) = 0;
 
@@ -32,9 +31,8 @@ namespace avm_kernel(256);
     #[FEE_L2_GAS_KERNEL]
     avm_main.sel_op_fee_per_l2_gas  * (kernel_sel - constants.FEE_PER_L2_GAS_SELECTOR) = 0;
 
-    // TODO: temporarily have a column to add the public inputs to a lookup table
-    // NOTE: WE SHOULD NOT NEED THIS - every thing in the column will be added to the table
-    // We should be able to have this always be on
+    // Note: in the future, with some codegen adjustments, this column will not be needed
+    // as we can just add every entry in the public kernel_inputs to the lookup table
     pol commit q_public_input_kernel_add_to_table;
 
     #[LOOKUP_INTO_KERNEL]

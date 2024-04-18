@@ -1,6 +1,7 @@
 
+// NOTE: the constants in this file line up to the indexes of values in the 
+// `PublicKernelInputs.nr` object
 namespace constants(256);
-
     pol SENDER_SELECTOR = 0;
     pol ADDRESS_SELECTOR = 1;
     pol PORTAL_SELECTOR = 2;
