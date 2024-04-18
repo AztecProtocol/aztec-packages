@@ -1,16 +1,12 @@
-import { createPXEClient, AccountManager, Fr, Wallet } from '@aztec/aztec.js';
+import { createPXEClient, AccountManager, Fr, Wallet, deriveMasterIncomingViewingSecretKey } from '@aztec/aztec.js';
 
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
 import { VanillaContract } from '../artifacts/Vanilla';
-// TODO(benesjan): nuke this deps from here and package.json
-import { GeneratorIndex } from '@aztec/circuits.js';
-import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 
 const secretKey = Fr.random();
 const pxe = createPXEClient(process.env.PXE_URL || 'http://localhost:8080');
 
-// TODO(benesjan): implement separate function for computing this
-const encryptionPrivateKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(secretKey);
 const account = new AccountManager(pxe, secretKey, new SingleKeyAccountContract(encryptionPrivateKey));
 let contract: any = null;
 let wallet: Wallet | null = null;

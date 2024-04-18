@@ -1,5 +1,5 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidon2Hash, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { Grumpkin } from '../barretenberg/crypto/grumpkin/index.js';
@@ -10,7 +10,11 @@ export function computeAppNullifierSecretKey(masterNullifierSecretKey: GrumpkinP
   return poseidon2Hash([masterNullifierSecretKey.high, masterNullifierSecretKey.low, app, GeneratorIndex.NSK_M]);
 }
 
-// TODO(benesjan): nuke all that follows?
+export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
+  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+}
+
+// TODO(#5726): nuke all that follows?
 /**
  *  Derives the public key of a secret key.
  */

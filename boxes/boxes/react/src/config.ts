@@ -1,9 +1,7 @@
-import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
+import { Fr, createPXEClient, deriveMasterIncomingViewingSecretKey } from '@aztec/aztec.js';
 import { BoxReactContractArtifact } from '../artifacts/BoxReact';
 import { AccountManager } from '@aztec/aztec.js/account';
 import { SingleKeyAccountContract } from '@aztec/accounts/single_key';
-import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
-import { GeneratorIndex } from '@aztec/circuits.js/constants';
 
 const SECRET_KEY = Fr.random();
 
@@ -17,8 +15,7 @@ export class PrivateEnv {
     private pxeURL: string,
   ) {
     this.pxe = createPXEClient(this.pxeURL);
-    // TODO(benesjan): implement separate function for computing this
-    const encryptionPrivateKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+    const encryptionPrivateKey = deriveMasterIncomingViewingSecretKey(secretKey);
     this.accountContract = new SingleKeyAccountContract(encryptionPrivateKey);
     this.account = new AccountManager(this.pxe, this.secretKey, this.accountContract);
   }
