@@ -19,7 +19,7 @@ import {
   PrivateContextInputs,
   PublicCallRequest,
   type SideEffect,
-  TxContext,
+  type TxContext,
 } from '@aztec/circuits.js';
 import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';

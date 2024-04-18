@@ -10,7 +10,6 @@ import {
   CompleteAddress,
   Fr,
   FunctionData,
-  GasSettings,
   INITIAL_L2_BLOCK_NUM,
   Point,
   TxContext,
