@@ -2,7 +2,7 @@
 import json
 import sys
 
-TIME_COUNTERS_USED = ["batch_mul_with_endomorphism(t)", "commit(t)", "Goblin::merge(t)"]
+TIME_COUNTERS_USED = ["commit(t)", "Goblin::merge(t)"]
 
 def modify_benchmark_data(file_paths, prefixes):
     combined_results = {"benchmarks": []}
