@@ -1,7 +1,7 @@
 # Adapted from https://github.com/actions/actions-runner-controller/blob/master/runner/graceful-stop.sh
 #!/bin/bash
 
-set -eux
+set -eu
 
 export RUNNER_ALLOW_RUNASROOT=1
 # This should be short so that the job is cancelled immediately, instead of hanging for 10 minutes or so and failing without any error message.
@@ -67,18 +67,4 @@ if pgrep Runner.Listener > dev/null; then
   done
 fi
 
-# This message is supposed to be output only after the runner agent output:
-#   2022-08-27 02:04:37Z: Job test3 completed with result: Canceled
-# because this graceful stopping logic is basically intended to let the runner agent have some time
-# needed to "Cancel" it.
-# At the times we didn't have this logic, the runner agent was even unable to output the Cancelled message hence
-# unable to gracefully stop, hence the workflow job hanged like forever.
-echo "The actions runner process exited."
-
-if [ "$RUNNER_INIT_PID" != "" ]; then
-  echo "Holding on until runner init (pid $RUNNER_INIT_PID) exits, so that there will hopefully be no zombie processes remaining."
-  # We don't need to kill -TERM $RUNNER_INIT_PID as the init is supposed to exit by itself once the foreground process(=the runner agent) exists.
-  wait "$RUNNER_INIT_PID" || :
-fi
-
-echo "Graceful stop completed."
+echo "Graceful github runner stop completed."

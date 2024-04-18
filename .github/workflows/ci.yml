@@ -122,7 +122,6 @@ jobs:
       ec2_instance_type: m6a.4xlarge
       ec2_ami_id: ami-04d8422a9ba4de80f
       ec2_instance_ttl: 15 # refreshed by jobs
-      ec2_linger_time: 1
     secrets: inherit
 
   bb-bench:

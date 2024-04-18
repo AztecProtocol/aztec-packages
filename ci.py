@@ -56,7 +56,7 @@ def ssh_into_machine(suffix):
         return
 
     # SSH command using the public IP
-    ssh_cmd = f"ssh -i {ssh_key_path} ubuntu@{instance_ip}"
+    ssh_cmd = f"ssh -o StrictHostKeychecking=no -i {ssh_key_path} ubuntu@{instance_ip}"
     print(f"Connecting to {instance_ip}...")
     ssh_process = subprocess.Popen(ssh_cmd, shell=True)
     ssh_process.wait()  # Wait for the SSH session to complete

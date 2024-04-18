@@ -23,10 +23,6 @@ on:
       ec2_instance_ttl:
         required: true
         type: number
-      # how much time to linger with no jobs before enacting an immediate shutdown
-      ec2_linger_time:
-        type: number
-        default: 5
       ec2_subnet_id:
         default: subnet-4cfabd25
         type: string
@@ -101,15 +97,18 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: ./scripts/attach_ebs_cache.sh ${{ inputs.runner_label }} ${{ inputs.ebs_cache_size_gb }}
 
-      - name: Configure and Restart Docker
+      - name: Configure Machine
         shell: bash
         run: |
-          # We need to restart after attaching disk cache
-          # Both only happen once, so we just make sure this happens once
+          # One-time config
           if ! [ -f /etc/docker/daemon.json ] ; then
             echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > /etc/docker/daemon.json
             sudo service docker restart
             echo "Configured docker daemon for making many networks."
+            # Run maybe_exit_spot.sh every minute
+            cp scripts/ci/spot_runner_graceful_exit.sh /run/spot_runner_graceful_exit.sh
+            cp scripts/ci/maybe_exit_spot.sh /run/maybe_exit_spot.sh
+            echo "* * * * * /run/maybe_exit_spot.sh" | crontab -
           else
             echo "Docker daemon already configured."
           fi
