@@ -56,4 +56,9 @@ contract ContractInstanceDeployer {
         dep::aztec::oracle::debug_log::debug_log_array_with_prefix("ContractInstanceDeployed", event_payload);
         emit_unencrypted_log_from_private(&mut context, event_payload);
     }
+
+    #[aztec(private)]
+    fn foo() -> pub Field {
+        1
+    }
 }
