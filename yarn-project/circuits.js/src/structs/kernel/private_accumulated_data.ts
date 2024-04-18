@@ -13,7 +13,6 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
 } from '../../constants.gen.js';
 import { CallRequest } from '../call_request.js';
-import { Gas } from '../gas.js';
 import { SideEffect, SideEffectLinkedToNoteHash } from '../side_effects.js';
 
 /**
