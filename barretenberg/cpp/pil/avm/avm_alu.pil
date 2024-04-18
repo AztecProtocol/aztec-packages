@@ -497,11 +497,6 @@ namespace avm_alu(256);
     #[OP_CAST_PREV_LINE]
     op_cast_prev' = op_cast;
 
-    // TODO: If a lookup selector with value > 1 is enabled, then we do not need this constraint.
-    //       Otherwise, melding two op_cast with a common row might lead to disabling
-    #[OP_CAST_PREV_MUT_EXCL]
-    op_cast_prev * op_cast = 0;
-
     #[ALU_OP_CAST]
     op_cast * (SUM_TAG + ff_tag * ia - ic) = 0;
 
@@ -510,3 +505,8 @@ namespace avm_alu(256);
 
     #[OP_CAST_RNG_CHECK_P_SUB_A_HIGH]
     op_cast * (a_hi' - p_sub_a_hi) = 0;
+
+    // 128-bit multiplication and CAST need two rows in ALU trace. We need to ensure
+    // that another ALU operation does not start in the second row.
+    #[TWO_LINE_OP_NO_OVERLAP]
+    (op_mul * ff_tag + op_cast) * alu_sel' = 0;

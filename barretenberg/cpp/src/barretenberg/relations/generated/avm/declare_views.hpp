@@ -219,6 +219,7 @@
     [[maybe_unused]] auto lookup_u16_14_counts = View(new_term.lookup_u16_14_counts);                                  \
     [[maybe_unused]] auto avm_alu_a_hi_shift = View(new_term.avm_alu_a_hi_shift);                                      \
     [[maybe_unused]] auto avm_alu_a_lo_shift = View(new_term.avm_alu_a_lo_shift);                                      \
+    [[maybe_unused]] auto avm_alu_alu_sel_shift = View(new_term.avm_alu_alu_sel_shift);                                \
     [[maybe_unused]] auto avm_alu_b_hi_shift = View(new_term.avm_alu_b_hi_shift);                                      \
     [[maybe_unused]] auto avm_alu_b_lo_shift = View(new_term.avm_alu_b_lo_shift);                                      \
     [[maybe_unused]] auto avm_alu_cmp_rng_ctr_shift = View(new_term.avm_alu_cmp_rng_ctr_shift);                        \

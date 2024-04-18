@@ -12,6 +12,7 @@ template <typename FF> struct Avm_aluRow {
     FF avm_alu_a_lo{};
     FF avm_alu_a_lo_shift{};
     FF avm_alu_alu_sel{};
+    FF avm_alu_alu_sel_shift{};
     FF avm_alu_b_hi{};
     FF avm_alu_b_hi_shift{};
     FF avm_alu_b_lo{};
@@ -181,16 +182,16 @@ inline std::string get_relation_label_avm_alu(int index)
         return "OP_CAST_PREV_LINE";
 
     case 50:
-        return "OP_CAST_PREV_MUT_EXCL";
-
-    case 51:
         return "ALU_OP_CAST";
 
-    case 52:
+    case 51:
         return "OP_CAST_RNG_CHECK_P_SUB_A_LOW";
 
-    case 53:
+    case 52:
         return "OP_CAST_RNG_CHECK_P_SUB_A_HIGH";
+
+    case 53:
+        return "TWO_LINE_OP_NO_OVERLAP";
     }
     return std::to_string(index);
 }
@@ -201,7 +202,7 @@ template <typename FF_> class avm_aluImpl {
 
     static constexpr std::array<size_t, 54> SUBRELATION_PARTIAL_LENGTHS{
         2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 5, 5, 5, 6, 6, 8, 3, 4, 4, 5, 4, 4, 3, 4,
-        3, 3, 4, 3, 6, 5, 3, 3, 3, 3, 4, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 5, 3, 3,
+        3, 3, 4, 3, 6, 5, 3, 3, 3, 3, 4, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2, 5, 3, 3, 4,
     };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -763,14 +764,6 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(50);
 
-            auto tmp = (avm_alu_op_cast_prev * avm_alu_op_cast);
-            tmp *= scaling_factor;
-            std::get<50>(evals) += tmp;
-        }
-        // Contribution 51
-        {
-            Avm_DECLARE_VIEWS(51);
-
             auto tmp =
                 (avm_alu_op_cast *
                  (((((((avm_alu_u8_tag * avm_alu_u8_r0) +
@@ -791,13 +784,21 @@ template <typename FF_> class avm_aluImpl {
                    (avm_alu_ff_tag * avm_alu_ia)) -
                   avm_alu_ic));
             tmp *= scaling_factor;
+            std::get<50>(evals) += tmp;
+        }
+        // Contribution 51
+        {
+            Avm_DECLARE_VIEWS(51);
+
+            auto tmp = (avm_alu_op_cast * (avm_alu_a_lo_shift - avm_alu_p_sub_a_lo));
+            tmp *= scaling_factor;
             std::get<51>(evals) += tmp;
         }
         // Contribution 52
         {
             Avm_DECLARE_VIEWS(52);
 
-            auto tmp = (avm_alu_op_cast * (avm_alu_a_lo_shift - avm_alu_p_sub_a_lo));
+            auto tmp = (avm_alu_op_cast * (avm_alu_a_hi_shift - avm_alu_p_sub_a_hi));
             tmp *= scaling_factor;
             std::get<52>(evals) += tmp;
         }
@@ -805,7 +806,7 @@ template <typename FF_> class avm_aluImpl {
         {
             Avm_DECLARE_VIEWS(53);
 
-            auto tmp = (avm_alu_op_cast * (avm_alu_a_hi_shift - avm_alu_p_sub_a_hi));
+            auto tmp = (((avm_alu_op_mul * avm_alu_ff_tag) + avm_alu_op_cast) * avm_alu_alu_sel_shift);
             tmp *= scaling_factor;
             std::get<53>(evals) += tmp;
         }

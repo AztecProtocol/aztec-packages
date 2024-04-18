@@ -268,6 +268,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_u16_14_counts{};
     FF avm_alu_a_hi_shift{};
     FF avm_alu_a_lo_shift{};
+    FF avm_alu_alu_sel_shift{};
     FF avm_alu_b_hi_shift{};
     FF avm_alu_b_lo_shift{};
     FF avm_alu_cmp_rng_ctr_shift{};
@@ -315,7 +316,7 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 252;
+    static constexpr size_t num_fixed_columns = 253;
     static constexpr size_t num_polys = 215;
     std::vector<Row> rows;
 
@@ -520,6 +521,7 @@ class AvmCircuitBuilder {
 
         polys.avm_alu_a_hi_shift = Polynomial(polys.avm_alu_a_hi.shifted());
         polys.avm_alu_a_lo_shift = Polynomial(polys.avm_alu_a_lo.shifted());
+        polys.avm_alu_alu_sel_shift = Polynomial(polys.avm_alu_alu_sel.shifted());
         polys.avm_alu_b_hi_shift = Polynomial(polys.avm_alu_b_hi.shifted());
         polys.avm_alu_b_lo_shift = Polynomial(polys.avm_alu_b_lo.shifted());
         polys.avm_alu_cmp_rng_ctr_shift = Polynomial(polys.avm_alu_cmp_rng_ctr.shifted());
