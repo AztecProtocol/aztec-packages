@@ -160,11 +160,6 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
     .addOption(pxeOption)
     .option(
-      '-sk, --secret-key <string>',
-      'Optional secret key used to derive public keys for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using the keys derived from this secret key.',
-      parseField,
-    )
-    .option(
       '-p, --portal-address <hex string>',
       'Optional L1 portal address to link the contract to.',
       parseEthereumAddress,
@@ -180,8 +175,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .action(
-      async (artifactPath, { json, rpcUrl, args: rawArgs, portalAddress, salt, wait, secretKey, initializer }) => {
-        // TODO(#5726): should we just pass publicKeysHash instead of secretKey here and in deploy func?
+      async (artifactPath, { json, rpcUrl, args: rawArgs, portalAddress, salt, wait, privateKey, initializer }) => {
+        // TODO(#5726): everywhere here in CLI we consume private key instead of secret key --> we should accept
+        // secret key everywhere and derive the rest. Also unlike before the keys change the public key is now always
+        // derived and set for the contract. We should allow setting zero public key again. Remove the hack on the next
+        // line.
+        const secretKey = Fr.fromBufferReduce(privateKey.toBuffer());
         const { deploy } = await import('./cmds/deploy.js');
         await deploy(
           artifactPath,
