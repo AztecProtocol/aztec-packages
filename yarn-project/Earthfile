@@ -98,3 +98,7 @@ export-end-to-end:
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
     FROM +aztec
     SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH
+
+test:
+    FROM +build
+    RUN yarn formatting && yarn test
