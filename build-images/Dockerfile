@@ -9,8 +9,14 @@ RUN apt update && apt install -y \
     cargo
 RUN git clone --depth 1 --recursive --branch wasi-sdk-22 \
         https://github.com/WebAssembly/wasi-sdk.git
-RUN cd wasi-sdk && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk && MAKEFLAGS="-j$(nproc)" make -e build strip && \
-    mv build/install/opt/wasi-sdk /opt/wasi-sdk
+RUN cd wasi-sdk && mkdir -p /wasi-sdk/build/install/opt/wasi-sdk
+ENV MAKEFLAGS="-j$(nproc)"
+RUN make build/llvm.BUILT
+RUN make build/wasi-libc.BUILT
+RUN make build/compiler-rt.BUILT
+RUN make build/libcxx.BUILT
+RUN make build/config.BUILT
+RUN mv build/install/opt/wasi-sdk /opt/wasi-sdk
 
 ########################################################################################################################
 # Build foundry.
