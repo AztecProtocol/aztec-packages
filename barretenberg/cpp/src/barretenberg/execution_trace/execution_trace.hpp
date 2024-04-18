@@ -41,8 +41,9 @@ template <class Flavor> class ExecutionTrace_ {
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
      *
      * @param builder
+     * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
-    static void populate(Builder& builder, ProvingKey&);
+    static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
 
   private:
     /**
@@ -78,9 +79,10 @@ template <class Flavor> class ExecutionTrace_ {
      *
      * @param builder
      * @param dyadic_circuit_size
+     * @param is_structured whether or not the trace is to be structured with a fixed block size
      * @return TraceData
      */
-    static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size);
+    static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size, bool is_structured = false);
 
     /**
      * @brief Populate the public inputs block

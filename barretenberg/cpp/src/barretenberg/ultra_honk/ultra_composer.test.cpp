@@ -86,6 +86,40 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
 }
 
 /**
+ * @brief Test proof construction/verification for a structured execution trace
+ *
+ */
+TEST_F(UltraHonkComposerTests, StructuredTrace)
+{
+    auto builder = UltraCircuitBuilder();
+    size_t num_gates = 1;
+
+    // Add some arbitrary arithmetic gates that utilize public inputs
+    for (size_t i = 0; i < num_gates; ++i) {
+        fr a = fr::random_element();
+        uint32_t a_idx = builder.add_public_variable(a);
+
+        fr b = fr::random_element();
+        fr c = fr::random_element();
+        fr d = a + b + c;
+        uint32_t b_idx = builder.add_variable(b);
+        uint32_t c_idx = builder.add_variable(c);
+        uint32_t d_idx = builder.add_variable(d);
+
+        builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+    }
+
+    // Construct an instance with a structured execution trace
+    auto instance = std::make_shared<ProverInstance>(builder, /*is_structured=*/true);
+    // builder.blocks.summarize();
+    UltraProver prover(instance);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    UltraVerifier verifier(verification_key);
+    auto proof = prover.construct_proof();
+    EXPECT_TRUE(verifier.verify_proof(proof));
+}
+
+/**
  * @brief Test simple circuit with public inputs
  *
  */
