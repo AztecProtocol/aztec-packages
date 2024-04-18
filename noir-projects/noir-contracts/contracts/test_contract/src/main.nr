@@ -7,8 +7,13 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE}, traits::Serialize
+        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}, traits::Serialize
     };
+
+    use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
+
+    use dep::aztec::state_vars::shared_mutable::SharedMutablePrivateGetter;
+
     // docs:start:unencrypted_import
     use dep::aztec::prelude::emit_unencrypted_log;
     // docs:end:unencrypted_import
@@ -268,10 +273,20 @@ contract Test {
     }
 
     #[aztec(public)]
-    fn consume_mint_public_message(to: AztecAddress, amount: Field, secret: Field) {
+    fn consume_mint_public_message(
+        to: AztecAddress,
+        amount: Field,
+        secret: Field,
+        message_leaf_index: Field
+    ) {
         let content_hash = get_mint_public_content_hash(to, amount);
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
+        context.consume_l1_to_l2_message(
+            content_hash,
+            secret,
+            context.this_portal_address(),
+            message_leaf_index
+        );
     }
 
     #[aztec(private)]
@@ -293,10 +308,11 @@ contract Test {
     fn consume_message_from_arbitrary_sender_public(
         content: Field,
         secret: Field,
-        sender: EthAddress
+        sender: EthAddress,
+        message_leaf_index: Field
     ) {
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content, secret, sender);
+        context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
     #[aztec(private)]
@@ -374,6 +390,42 @@ contract Test {
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
+    }
+
+    #[aztec(private)]
+    fn test_shared_mutable_private_getter_for_registry_contract(
+        contract_address_to_read: AztecAddress,
+        storage_slot_of_shared_mutable: Field,
+        address_to_get_in_registry: AztecAddress,
+    ) {
+        // We have to derive this slot to get the location of the shared mutable inside the Map
+        let derived_slot = dep::aztec::hash::pedersen_hash([storage_slot_of_shared_mutable, address_to_get_in_registry.to_field()], 0);
+        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
+        let registry_private_getter: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(context, contract_address_to_read, derived_slot);
+        let nullifier_public_key = registry_private_getter.get_current_value_in_private();
+
+        emit_unencrypted_log_from_private(&mut context, nullifier_public_key);
+    }
+
+    #[aztec(private)]
+    fn test_shared_mutable_private_getter(
+        contract_address_to_read: AztecAddress,
+        storage_slot_of_shared_mutable: Field,
+    ) {
+        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
+        let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(context, contract_address_to_read, storage_slot_of_shared_mutable);
+        let authorized = test.get_current_value_in_private();
+
+        emit_unencrypted_log_from_private(&mut context, authorized);
+    }
+
+    #[aztec(public)]
+    fn delay() {
+        // We use this as a util function to "mine a block"
+        dep::aztec::log::emit_unencrypted_log(
+            &mut context,
+            "dummy"
+        );
     }
 
     // Purely exists for testing

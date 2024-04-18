@@ -21,10 +21,11 @@ use crate::{
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-    VK_TREE_HEIGHT
+    VK_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
     hash::silo_nullifier, header::Header, mocked::{AggregationObject, Proof, VerificationKey},
-    tests::fixtures, transaction::tx_context::TxContext, traits::Empty
+    partial_state_reference::PartialStateReference, tests::fixtures, transaction::tx_context::TxContext,
+    traits::Empty
 };
 
 struct FixtureBuilder {
@@ -40,6 +41,8 @@ struct FixtureBuilder {
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
     encrypted_logs_hash: Field,
     unencrypted_logs_hash: Field,
     encrypted_log_preimages_length: Field,
@@ -67,6 +70,9 @@ struct FixtureBuilder {
     // Counters.
     min_revertible_side_effect_counter: u32,
     counter: u32,
+
+    // States.
+    start_state: PartialStateReference,
 }
 
 impl FixtureBuilder {
@@ -81,6 +87,8 @@ impl FixtureBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,
@@ -101,6 +109,7 @@ impl FixtureBuilder {
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter: 0,
+            start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
             gas_settings: GasSettings::empty()
         }
@@ -119,8 +128,8 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes,
             new_nullifiers: self.new_nullifiers,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_logs_hashes: self.encrypted_logs_hashes,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             private_call_stack: self.private_call_stack,
@@ -135,8 +144,8 @@ impl FixtureBuilder {
             new_note_hashes: self.new_note_hashes,
             new_nullifiers: self.new_nullifiers,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_logs_hashes: self.encrypted_logs_hashes,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: self.public_data_update_requests,
@@ -231,6 +240,7 @@ impl FixtureBuilder {
             rollup_validation_requests,
             end,
             constants,
+            start_state: self.start_state,
             revert_code: self.revert_code
         }
     }
@@ -267,17 +277,21 @@ impl FixtureBuilder {
         }
     }
 
+    pub fn add_public_data_update_request(&mut self, leaf_slot: Field, value: Field) {
+        let update_request = PublicDataUpdateRequest { leaf_slot, new_value: value };
+        self.public_data_update_requests.push(update_request);
+    }
+
     pub fn append_public_data_update_requests(&mut self, num_updates: u64) {
         let value_offset = self.public_data_update_requests.len();
         for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if i < num_updates {
-                let update_request = PublicDataUpdateRequest {
-                    // The default leaf index is its index + 23.
-                    leaf_slot: (value_offset + i + 23) as Field,
-                    // The default value is its index + 678.
-                    new_value: (value_offset + i + 678) as Field
-                };
-                self.public_data_update_requests.push(update_request);
+                // The default leaf index is its index + 23.
+                // The default value is its index + 678.
+                self.add_public_data_update_request(
+                    (value_offset + i + 23) as Field,
+                    (value_offset + i + 678) as Field
+                );
             }
         }
     }
@@ -326,12 +340,32 @@ impl FixtureBuilder {
         self.nullifier_non_existent_read_requests.push(read_request);
     }
 
+    pub fn add_read_request_for_pending_public_data(&mut self, public_date_update_request_index: u64) -> u64 {
+        let new_read_request_index = self.public_data_reads.len();
+        let public_write = self.public_data_update_requests.get(public_date_update_request_index);
+        let read_request = PublicDataRead { leaf_slot: public_write.leaf_slot, value: public_write.new_value };
+        self.public_data_reads.push(read_request);
+        new_read_request_index
+    }
+
     pub fn set_encrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        self.encrypted_logs_hashes.push(side_effect);
+        self.encrypted_log_preimages_length += preimages_length;
+    }
+
+    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+        let side_effect = SideEffect { value: hash, counter: self.next_counter() };
+        self.unencrypted_logs_hashes.push(side_effect);
+        self.unencrypted_log_preimages_length += preimages_length;
+    }
+
+    pub fn set_encrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
         self.encrypted_logs_hash = hash;
         self.encrypted_log_preimages_length = preimages_length;
     }
 
-    pub fn set_unencrypted_logs(&mut self, hash: Field, preimages_length: Field) {
+    pub fn set_unencrypted_logs_hash(&mut self, hash: Field, preimages_length: Field) {
         self.unencrypted_logs_hash = hash;
         self.unencrypted_log_preimages_length = preimages_length;
     }
@@ -399,6 +433,8 @@ impl Empty for FixtureBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
+            encrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_logs_hashes: BoundedVec::new(),
             encrypted_logs_hash: 0,
             unencrypted_logs_hash: 0,
             encrypted_log_preimages_length: 0,
@@ -419,6 +455,7 @@ impl Empty for FixtureBuilder {
             revert_code: 0,
             min_revertible_side_effect_counter: 0,
             counter: 0,
+            start_state: PartialStateReference::empty(),
             gas_settings: GasSettings::empty(),
             gas_used: Gas::empty(),
         }

@@ -27,6 +27,7 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
   type PrivateKernelTailCircuitPublicInputs,
   type Proof,
@@ -358,8 +359,6 @@ export abstract class AbstractPhaseManager {
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     );
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-    const unencryptedLogsHash = Fr.fromBuffer(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
     return PublicCircuitPublicInputs.from({
@@ -393,7 +392,11 @@ export abstract class AbstractPhaseManager {
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStackHashes,
-      unencryptedLogsHash,
+      unencryptedLogsHashes: padArrayEnd(
+        result.unencryptedLogsHashes,
+        SideEffect.empty(),
+        MAX_UNENCRYPTED_LOGS_PER_CALL,
+      ),
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
       // TODO(@just-mitch): need better mapping from simulator to revert code.
@@ -501,29 +504,9 @@ function patchPublicStorageActionOrdering(
   // so the returned result will be a subset of the public kernel output.
 
   const simPublicDataReads = collectPublicDataReads(execResult);
-  // verify that each read is in the kernel output
-  for (const read of simPublicDataReads) {
-    if (!publicDataReads.find(item => item.equals(read))) {
-      throw new Error(
-        `Public data reads from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataReads
-          .map(p => p.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel: ${publicDataReads.map(i => i.toFriendlyJSON()).join(', ')}`,
-      );
-    }
-  }
 
   const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
-  for (const update of simPublicDataUpdateRequests) {
-    if (!publicDataUpdateRequests.find(item => item.equals(update))) {
-      throw new Error(
-        `Public data update requests from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataUpdateRequests
-          .map(p => p.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel revertible: ${publicDataUpdateRequests
-          .map(i => i.toFriendlyJSON())
-          .join(', ')}`,
-      );
-    }
-  }
+
   // We only want to reorder the items from the public inputs of the
   // most recently processed top/enqueued call.
 

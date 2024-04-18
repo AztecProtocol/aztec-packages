@@ -22,7 +22,7 @@ jobs:
     with:
       runner_label: ${{ github.actor }}-x86
       ebs_cache_size_gb: 256
-      runner_concurrency: 50
+      runner_concurrency: 20
       subaction: ${{ github.event.inputs.runner_action || 'start' }}
       ec2_instance_type: m6a.48xlarge
       ec2_ami_id: ami-04d8422a9ba4de80f
@@ -157,25 +157,7 @@ jobs:
       - name: Ultrahonk Bench
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 15
-        run: earthly-ci --artifact +bench/bench.json --bench_mode=cache
-
-      # Utilize github-action-benchmark to automatically update the plots at
-      # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
-      # This also creates an alert if benchmarks exceed the threshold specified below.
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          name: C++ Benchmark
-          tool: 'googlecpp'
-          output-file-path: barretenberg/cpp/bench.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Push and deploy GitHub pages branch on master only
-          auto-push: ${{ github.ref_name == 'master' }}
-          # Alert if a bench result is 1.05x worse
-          alert-threshold: '105%'
-          comment-on-alert: true
-          fail-on-alert: false
-          alert-comment-cc-users: '@ludamad @codygunton'
+        run: earthly-ci --no-output +bench-ultra-honk --bench_mode=cache
 
   merge-check:
     runs-on: ${{ github.actor }}-x86

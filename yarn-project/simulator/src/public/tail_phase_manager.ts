@@ -1,14 +1,23 @@
-import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
-  type Fr,
+  type PublicKernelRequest,
+  PublicKernelType,
+  type Tx,
+  UnencryptedFunctionL2Logs,
+  type UnencryptedL2Log,
+} from '@aztec/circuit-types';
+import {
+  Fr,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
   MAX_NEW_NOTE_HASHES_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  type MAX_UNENCRYPTED_LOGS_PER_TX,
   type Proof,
   type PublicKernelCircuitPublicInputs,
   PublicKernelTailCircuitPrivateInputs,
-  type SideEffect,
+  SideEffect,
   makeEmptyProof,
   mergeAccumulatedData,
   sortByCounter,
@@ -47,7 +56,8 @@ export class TailPhaseManager extends AbstractPhaseManager {
         throw err;
       },
     );
-
+    // Temporary hack. Should sort them in the tail circuit.
+    this.patchLogsOrdering(tx, previousPublicKernelOutput);
     // commit the state updates from this transaction
     await this.publicStateDB.commit();
 
@@ -71,6 +81,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
+    // Temporary hack. Should sort them in the tail circuit.
+    previousOutput.end.unencryptedLogsHashes = this.sortLogsHashes<typeof MAX_UNENCRYPTED_LOGS_PER_TX>(
+      previousOutput.end.unencryptedLogsHashes,
+    );
     const [inputs, output] = await this.simulate(previousOutput, previousProof);
 
     // Temporary hack. Should sort them in the tail circuit.
@@ -88,27 +102,59 @@ export class TailPhaseManager extends AbstractPhaseManager {
     previousOutput: PublicKernelCircuitPublicInputs,
     previousProof: Proof,
   ): Promise<[PublicKernelTailCircuitPrivateInputs, KernelCircuitPublicInputs]> {
+    const inputs = await this.buildPrivateInputs(previousOutput, previousProof);
+    // We take a deep copy (clone) of these to pass to the prover
+    return [inputs.clone(), await this.publicKernel.publicKernelCircuitTail(inputs)];
+  }
+
+  private async buildPrivateInputs(previousOutput: PublicKernelCircuitPublicInputs, previousProof: Proof) {
     const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
 
     const { validationRequests, endNonRevertibleData, end } = previousOutput;
-    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
-      validationRequests.nullifierReadRequests,
-      endNonRevertibleData.newNullifiers,
-      end.newNullifiers,
-    );
-    const nullifierNonExistentReadRequestHints = await this.hintsBuilder.getNullifierNonExistentReadRequestHints(
-      validationRequests.nullifierNonExistentReadRequests,
+
+    const pendingNullifiers = mergeAccumulatedData(
+      MAX_NEW_NULLIFIERS_PER_TX,
       endNonRevertibleData.newNullifiers,
       end.newNullifiers,
     );
 
-    // We take a deep copy (clone) of these to pass to the prover
-    const inputs = new PublicKernelTailCircuitPrivateInputs(
+    const nullifierReadRequestHints = await this.hintsBuilder.getNullifierReadRequestHints(
+      validationRequests.nullifierReadRequests,
+      pendingNullifiers,
+    );
+
+    const nullifierNonExistentReadRequestHints = await this.hintsBuilder.getNullifierNonExistentReadRequestHints(
+      validationRequests.nullifierNonExistentReadRequests,
+      pendingNullifiers,
+    );
+
+    const pendingPublicDataWrites = mergeAccumulatedData(
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+      endNonRevertibleData.publicDataUpdateRequests,
+      end.publicDataUpdateRequests,
+    );
+
+    const publicDataHints = await this.hintsBuilder.getPublicDataHints(
+      validationRequests.publicDataReads,
+      pendingPublicDataWrites,
+    );
+
+    const publicDataReadRequestHints = this.hintsBuilder.getPublicDataReadRequestHints(
+      validationRequests.publicDataReads,
+      pendingPublicDataWrites,
+      publicDataHints,
+    );
+
+    const currentState = await this.db.getStateReference();
+
+    return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
       nullifierReadRequestHints,
       nullifierNonExistentReadRequestHints,
+      publicDataHints,
+      publicDataReadRequestHints,
+      currentState.partial,
     );
-    return [inputs.clone(), await this.publicKernel.publicKernelCircuitTail(inputs)];
   }
 
   private sortNoteHashes<N extends number>(noteHashes: Tuple<SideEffect, N>): Tuple<Fr, N> {
@@ -116,5 +162,36 @@ export class TailPhaseManager extends AbstractPhaseManager {
       Fr,
       N
     >;
+  }
+
+  private sortLogsHashes<N extends number>(unencryptedLogsHashes: Tuple<SideEffect, N>): Tuple<SideEffect, N> {
+    return sortByCounter(unencryptedLogsHashes.map(n => ({ ...n, counter: n.counter.toNumber() }))).map(
+      h => new SideEffect(h.value, new Fr(h.counter)),
+    ) as Tuple<SideEffect, N>;
+  }
+
+  // As above, this is a hack for unencrypted logs ordering, now they are sorted. Since the public kernel
+  // cannot keep track of side effects that happen after or before a nested call, we override the gathered logs.
+  // As a sanity check, we at least verify that the elements are the same, so we are only tweaking their ordering.
+  // See same fn in pxe_service.ts
+  // Added as part of resolving #5017
+  private patchLogsOrdering(tx: Tx, publicInputs: PublicKernelCircuitPublicInputs) {
+    const unencLogs = tx.unencryptedLogs.unrollLogs();
+    const sortedUnencLogs = publicInputs.end.unencryptedLogsHashes;
+
+    const finalUnencLogs: UnencryptedL2Log[] = [];
+    sortedUnencLogs.forEach((sideEffect: SideEffect) => {
+      if (!sideEffect.isEmpty()) {
+        const isLog = (log: UnencryptedL2Log) => Fr.fromBuffer(log.hash()).equals(sideEffect.value);
+        const thisLogIndex = unencLogs.findIndex(isLog);
+        finalUnencLogs.push(unencLogs[thisLogIndex]);
+      }
+    });
+    const unencryptedLogs = new UnencryptedFunctionL2Logs(finalUnencLogs);
+
+    tx.unencryptedLogs.functionLogs[0] = unencryptedLogs;
+    for (let i = 1; i < tx.unencryptedLogs.functionLogs.length; i++) {
+      tx.unencryptedLogs.functionLogs[i] = UnencryptedFunctionL2Logs.empty();
+    }
   }
 }
