@@ -7,8 +7,8 @@ use noirc_frontend::{
         resolution::{path_resolver::StandardPathResolver, resolver::Resolver},
         type_check::type_check_func,
     },
-    macros_api::{FileId, HirContext, MacroError, ModuleDefId, StructId},
-    node_interner::{FuncId, TraitId},
+    macros_api::{FileId, HirContext, MacroError, ModuleDefId, NodeInterner, StructId},
+    node_interner::{FuncId, TraitId, TraitImplKind},
     ItemVisibility, LetStatement, NoirFunction, Shared, Signedness, StructType, Type,
 };
 
@@ -308,4 +308,48 @@ fn find_non_contract_dependencies_bfs(
                     }
                 })
         })
+}
+
+pub fn get_serialized_length(
+    traits: &[TraitId],
+    trait_name: &str,
+    typ: &Type,
+    interner: &NodeInterner,
+) -> Result<u64, MacroError> {
+    let serialized_trait_impl_kind = traits
+        .iter()
+        .find_map(|&trait_id| {
+            let r#trait = interner.get_trait(trait_id);
+            if r#trait.name.0.contents == trait_name && r#trait.generics.len() == 1 {
+                interner.lookup_all_trait_implementations(typ, trait_id).into_iter().next()
+            } else {
+                None
+            }
+        })
+        .ok_or(MacroError {
+            primary_message: format!("Type {} must implement {} trait", typ, trait_name),
+            secondary_message: None,
+            span: None,
+        })?;
+
+    let serialized_trait_impl_id = match serialized_trait_impl_kind {
+        TraitImplKind::Normal(trait_impl_id) => Ok(trait_impl_id),
+        _ => Err(MacroError {
+            primary_message: format!("{} trait impl for {} must not be assumed", trait_name, typ),
+            secondary_message: None,
+            span: None,
+        }),
+    }?;
+
+    let serialized_trait_impl_shared = interner.get_trait_implementation(*serialized_trait_impl_id);
+    let serialized_trait_impl = serialized_trait_impl_shared.borrow();
+
+    match serialized_trait_impl.trait_generics.first().unwrap() {
+        Type::Constant(value) => Ok(*value),
+        _ => Err(MacroError {
+            primary_message: format!("{} length for {} must be a constant", trait_name, typ),
+            secondary_message: None,
+            span: None,
+        }),
+    }
 }

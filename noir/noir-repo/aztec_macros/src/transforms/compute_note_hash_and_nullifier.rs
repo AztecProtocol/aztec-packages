@@ -7,7 +7,10 @@ use noirc_frontend::{
 
 use crate::utils::{
     errors::AztecMacroError,
-    hir_utils::{collect_crate_functions, fetch_notes, get_contract_module_data, inject_fn},
+    hir_utils::{
+        collect_crate_functions, collect_traits, fetch_notes, get_contract_module_data,
+        get_serialized_length, inject_fn,
+    },
 };
 
 // Check if "compute_note_hash_and_nullifier(AztecAddress,Field,Field,Field,[Field; N]) -> [Field; 4]" is defined
@@ -59,13 +62,32 @@ pub fn inject_compute_note_hash_and_nullifier(
             return Ok(());
         }
 
+        let traits: Vec<_> = collect_traits(context);
+
         // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
         // contract might use. These are the types that are marked as #[aztec(note)].
-        let note_types =
-            fetch_notes(context).iter().map(|(path, _)| path.to_string()).collect::<Vec<_>>();
+        let notes = fetch_notes(context)
+            .iter()
+            .map(|(path, typ)| {
+                let serialized_len = get_serialized_length(
+                    &traits,
+                    "NoteInterface",
+                    &Type::Struct(typ.clone(), vec![]),
+                    &context.def_interner,
+                )
+                .expect(&format!(
+                    "Failed to get serialized length for note type {}",
+                    path.to_string()
+                ));
+                (path.to_string(), serialized_len)
+            })
+            .collect::<Vec<_>>();
+
+        let note_types = notes.iter().map(|(path, _)| path.clone()).collect::<Vec<_>>();
+        let max_note_length = notes.iter().map(|(_, len)| len).max().unwrap_or(&0).clone();
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
-        let func = generate_compute_note_hash_and_nullifier(&note_types);
+        let func = generate_compute_note_hash_and_nullifier(&note_types, max_note_length);
 
         // And inject the newly created function into the contract.
 
@@ -85,8 +107,12 @@ pub fn inject_compute_note_hash_and_nullifier(
     Ok(())
 }
 
-fn generate_compute_note_hash_and_nullifier(note_types: &[String]) -> NoirFunction {
-    let function_source = generate_compute_note_hash_and_nullifier_source(note_types);
+fn generate_compute_note_hash_and_nullifier(
+    note_types: &[String],
+    max_note_length: u64,
+) -> NoirFunction {
+    let function_source =
+        generate_compute_note_hash_and_nullifier_source(note_types, max_note_length);
 
     let (function_ast, errors) = parse_program(&function_source);
     if !errors.is_empty() {
@@ -98,25 +124,30 @@ fn generate_compute_note_hash_and_nullifier(note_types: &[String]) -> NoirFuncti
     function_ast.functions.remove(0)
 }
 
-fn generate_compute_note_hash_and_nullifier_source(note_types: &[String]) -> String {
+fn generate_compute_note_hash_and_nullifier_source(
+    note_types: &[String],
+    max_note_length: u64,
+) -> String {
     // TODO(#4649): The serialized_note parameter is a fixed-size array, but we don't know what length it should have.
     // For now we hardcode it to 20, which is the same as MAX_NOTE_FIELDS_LENGTH.
 
     if note_types.is_empty() {
         // Even if the contract does not include any notes, other parts of the stack expect for this function to exist,
         // so we include a dummy version.
-        "
+        format!(
+            "
         unconstrained fn compute_note_hash_and_nullifier(
             contract_address: dep::aztec::protocol_types::address::AztecAddress,
             nonce: Field,
             storage_slot: Field,
             note_type_id: Field,
-            serialized_note: [Field; 20]
-        ) -> pub [Field; 4] {
+            serialized_note: [Field; {}]
+        ) -> pub [Field; 4] {{
             assert(false, \"This contract does not use private notes\");
             [0, 0, 0, 0]
-        }"
-        .to_string()
+        }}",
+            max_note_length
+        )
     } else {
         // For contracts that include notes we do a simple if-else chain comparing note_type_id with the different
         // get_note_type_id of each of the note types.
@@ -141,12 +172,13 @@ fn generate_compute_note_hash_and_nullifier_source(note_types: &[String]) -> Str
                 nonce: Field,
                 storage_slot: Field,
                 note_type_id: Field,
-                serialized_note: [Field; 20]
+                serialized_note: [Field; {}]
             ) -> pub [Field; 4] {{
                 let note_header = dep::aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
 
                 {}
             }}",
+            max_note_length,
             full_if_statement
         )
     }
