@@ -26,6 +26,8 @@ library Constants {
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_CALL = 2;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL = 2;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL = 1;
+  uint256 internal constant MAX_ENCRYPTED_LOGS_PER_CALL = 4;
+  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_CALL = 4;
   uint256 internal constant MAX_NEW_NOTE_HASHES_PER_TX = 64;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 64;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
@@ -37,8 +39,11 @@ library Constants {
   uint256 internal constant MAX_NULLIFIER_READ_REQUESTS_PER_TX = 8;
   uint256 internal constant MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX = 8;
   uint256 internal constant MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX = 4;
+  uint256 internal constant MAX_ENCRYPTED_LOGS_PER_TX = 8;
+  uint256 internal constant MAX_UNENCRYPTED_LOGS_PER_TX = 8;
   uint256 internal constant NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
   uint256 internal constant NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
+  uint256 internal constant MAX_PUBLIC_DATA_HINTS = 64;
   uint256 internal constant NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
   uint256 internal constant VK_TREE_HEIGHT = 3;
   uint256 internal constant FUNCTION_TREE_HEIGHT = 5;
@@ -69,7 +74,7 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
   uint256 internal constant NESTED_CALL_L2_GAS_BUFFER = 20000;
-  uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 16000;
+  uint256 internal constant MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 16200;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS = 3000;
   uint256 internal constant MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS = 3000;
   uint256 internal constant REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS = 19;
@@ -83,18 +88,18 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x203aed03ec472e76ba6bee002b1f4de553f0f91be5677f569c720aed3e996429;
+    0x1b5ecf3d26907648cf737f4304759b8c5850478e839e72f8ce1f5791b286e8f2;
   uint256 internal constant L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = 17;
   uint256 internal constant MAX_NOTE_FIELDS_LENGTH = 20;
   uint256 internal constant GET_NOTE_ORACLE_RETURN_LENGTH = 23;
   uint256 internal constant MAX_NOTES_PER_PAGE = 10;
   uint256 internal constant VIEW_NOTE_ORACLE_RETURN_LENGTH = 212;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
-  uint256 internal constant CALL_CONTEXT_LENGTH = 18;
+  uint256 internal constant CALL_CONTEXT_LENGTH = 21;
   uint256 internal constant GAS_SETTINGS_LENGTH = 10;
   uint256 internal constant DIMENSION_GAS_SETTINGS_LENGTH = 3;
   uint256 internal constant GAS_FEES_LENGTH = 3;
-  uint256 internal constant GAS_USED_LENGTH = 3;
+  uint256 internal constant GAS_LENGTH = 3;
   uint256 internal constant CONTENT_COMMITMENT_LENGTH = 4;
   uint256 internal constant CONTRACT_INSTANCE_LENGTH = 6;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
@@ -110,13 +115,13 @@ library Constants {
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_LENGTH = 3;
   uint256 internal constant NULLIFIER_KEY_VALIDATION_REQUEST_CONTEXT_LENGTH = 4;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 220;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 217;
-  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 209;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 238;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 235;
+  uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 222;
   uint256 internal constant STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant TX_CONTEXT_DATA_LENGTH = 4;
-  uint256 internal constant TX_REQUEST_LENGTH = 8;
-  uint256 internal constant ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH = 22;
+  uint256 internal constant TX_REQUEST_LENGTH = 18;
+  uint256 internal constant ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH = 25;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

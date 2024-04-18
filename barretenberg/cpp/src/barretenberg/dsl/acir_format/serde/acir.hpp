@@ -54,7 +54,7 @@ struct BlackBoxFuncCall {
 
     struct SHA256 {
         std::vector<Program::FunctionInput> inputs;
-        std::vector<Program::Witness> outputs;
+        std::array<Program::Witness, 32> outputs;
 
         friend bool operator==(const SHA256&, const SHA256&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -63,7 +63,7 @@ struct BlackBoxFuncCall {
 
     struct Blake2s {
         std::vector<Program::FunctionInput> inputs;
-        std::vector<Program::Witness> outputs;
+        std::array<Program::Witness, 32> outputs;
 
         friend bool operator==(const Blake2s&, const Blake2s&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -72,7 +72,7 @@ struct BlackBoxFuncCall {
 
     struct Blake3 {
         std::vector<Program::FunctionInput> inputs;
-        std::vector<Program::Witness> outputs;
+        std::array<Program::Witness, 32> outputs;
 
         friend bool operator==(const Blake3&, const Blake3&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -82,7 +82,7 @@ struct BlackBoxFuncCall {
     struct SchnorrVerify {
         Program::FunctionInput public_key_x;
         Program::FunctionInput public_key_y;
-        std::vector<Program::FunctionInput> signature;
+        std::array<Program::FunctionInput, 64> signature;
         std::vector<Program::FunctionInput> message;
         Program::Witness output;
 
@@ -112,10 +112,10 @@ struct BlackBoxFuncCall {
     };
 
     struct EcdsaSecp256k1 {
-        std::vector<Program::FunctionInput> public_key_x;
-        std::vector<Program::FunctionInput> public_key_y;
-        std::vector<Program::FunctionInput> signature;
-        std::vector<Program::FunctionInput> hashed_message;
+        std::array<Program::FunctionInput, 32> public_key_x;
+        std::array<Program::FunctionInput, 32> public_key_y;
+        std::array<Program::FunctionInput, 64> signature;
+        std::array<Program::FunctionInput, 32> hashed_message;
         Program::Witness output;
 
         friend bool operator==(const EcdsaSecp256k1&, const EcdsaSecp256k1&);
@@ -124,10 +124,10 @@ struct BlackBoxFuncCall {
     };
 
     struct EcdsaSecp256r1 {
-        std::vector<Program::FunctionInput> public_key_x;
-        std::vector<Program::FunctionInput> public_key_y;
-        std::vector<Program::FunctionInput> signature;
-        std::vector<Program::FunctionInput> hashed_message;
+        std::array<Program::FunctionInput, 32> public_key_x;
+        std::array<Program::FunctionInput, 32> public_key_y;
+        std::array<Program::FunctionInput, 64> signature;
+        std::array<Program::FunctionInput, 32> hashed_message;
         Program::Witness output;
 
         friend bool operator==(const EcdsaSecp256r1&, const EcdsaSecp256r1&);
@@ -160,7 +160,7 @@ struct BlackBoxFuncCall {
     struct Keccak256 {
         std::vector<Program::FunctionInput> inputs;
         Program::FunctionInput var_message_size;
-        std::vector<Program::Witness> outputs;
+        std::array<Program::Witness, 32> outputs;
 
         friend bool operator==(const Keccak256&, const Keccak256&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -168,8 +168,8 @@ struct BlackBoxFuncCall {
     };
 
     struct Keccakf1600 {
-        std::vector<Program::FunctionInput> inputs;
-        std::vector<Program::Witness> outputs;
+        std::array<Program::FunctionInput, 25> inputs;
+        std::array<Program::Witness, 25> outputs;
 
         friend bool operator==(const Keccakf1600&, const Keccakf1600&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -257,9 +257,9 @@ struct BlackBoxFuncCall {
     };
 
     struct Sha256Compression {
-        std::vector<Program::FunctionInput> inputs;
-        std::vector<Program::FunctionInput> hash_values;
-        std::vector<Program::Witness> outputs;
+        std::array<Program::FunctionInput, 16> inputs;
+        std::array<Program::FunctionInput, 8> hash_values;
+        std::array<Program::Witness, 8> outputs;
 
         friend bool operator==(const Sha256Compression&, const Sha256Compression&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -966,6 +966,9 @@ struct BrilligOpcode {
     };
 
     struct Trap {
+        uint64_t revert_data_offset;
+        uint64_t revert_data_size;
+
         friend bool operator==(const Trap&, const Trap&);
         std::vector<uint8_t> bincodeSerialize() const;
         static Trap bincodeDeserialize(std::vector<uint8_t>);
@@ -6060,6 +6063,12 @@ namespace Program {
 
 inline bool operator==(const BrilligOpcode::Trap& lhs, const BrilligOpcode::Trap& rhs)
 {
+    if (!(lhs.revert_data_offset == rhs.revert_data_offset)) {
+        return false;
+    }
+    if (!(lhs.revert_data_size == rhs.revert_data_size)) {
+        return false;
+    }
     return true;
 }
 
@@ -6086,7 +6095,10 @@ template <>
 template <typename Serializer>
 void serde::Serializable<Program::BrilligOpcode::Trap>::serialize(const Program::BrilligOpcode::Trap& obj,
                                                                   Serializer& serializer)
-{}
+{
+    serde::Serializable<decltype(obj.revert_data_offset)>::serialize(obj.revert_data_offset, serializer);
+    serde::Serializable<decltype(obj.revert_data_size)>::serialize(obj.revert_data_size, serializer);
+}
 
 template <>
 template <typename Deserializer>
@@ -6094,6 +6106,8 @@ Program::BrilligOpcode::Trap serde::Deserializable<Program::BrilligOpcode::Trap>
     Deserializer& deserializer)
 {
     Program::BrilligOpcode::Trap obj;
+    obj.revert_data_offset = serde::Deserializable<decltype(obj.revert_data_offset)>::deserialize(deserializer);
+    obj.revert_data_size = serde::Deserializable<decltype(obj.revert_data_size)>::deserialize(deserializer);
     return obj;
 }
 
