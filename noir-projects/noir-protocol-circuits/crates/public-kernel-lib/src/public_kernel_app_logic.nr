@@ -448,7 +448,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         // Transaction gas limit is 1k
-        builder.previous_kernel.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
 
         // Revertible has already used 300
         builder.previous_kernel.gas_used = Gas::new(300, 300, 300);

@@ -500,7 +500,7 @@ mod tests {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
 
         // Transaction gas limit is 1k
-        builder.previous_kernel.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
 
         // Revertible has already used 100
         builder.previous_revertible.gas_used = Gas::new(100, 100, 100);

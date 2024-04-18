@@ -35,7 +35,6 @@ struct FixtureBuilder {
     // Constant data.
     historical_header: Header,
     tx_context: TxContext,
-    gas_settings: GasSettings,
     
     // Accumulated data.
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
@@ -110,8 +109,7 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: 0,
             counter: 0,
             start_state: PartialStateReference::empty(),
-            gas_used: Gas::empty(),
-            gas_settings: GasSettings::empty()
+            gas_used: Gas::empty()
         }
     }
 
@@ -452,7 +450,6 @@ impl Empty for FixtureBuilder {
             min_revertible_side_effect_counter: 0,
             counter: 0,
             start_state: PartialStateReference::empty(),
-            gas_settings: GasSettings::empty(),
             gas_used: Gas::empty(),
         }
     }

@@ -191,6 +191,10 @@ pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: 
     // ]
     // );
 
+    // println(
+    //     f"Updating revertible gas: tx_gas_limits={tx_gas_limits} call_gas_left={call_gas_left} accum_end_non_revertible_gas_used={accum_end_non_revertible_gas_used}"
+    // );
+
     circuit_outputs.end.gas_used = tx_gas_limits
         .sub(call_gas_left)
         .sub(accum_end_non_revertible_gas_used);
