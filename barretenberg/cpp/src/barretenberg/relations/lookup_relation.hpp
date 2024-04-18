@@ -33,7 +33,7 @@ template <typename FF_> class LookupRelationImpl {
     };
 
     /**
-     * @brief Returns true if the contribution from all subrelation for the provided inputs is identically zero
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)

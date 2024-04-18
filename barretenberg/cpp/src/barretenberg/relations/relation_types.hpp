@@ -113,7 +113,7 @@ consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_part
 
 /**
  * @brief Check if the relation has a static skip method to determine if accumulation of its result can be
- * optimised based on a single check
+ * optimised away based on a single check
  *
  * @details The skip function should return true if relation can be skipped and false if it can't
  * @tparam Relation The relation type

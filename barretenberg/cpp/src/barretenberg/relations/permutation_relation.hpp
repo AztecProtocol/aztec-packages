@@ -18,7 +18,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
     };
 
     /**
-     * @brief Returns true if the contribution from all subrelation for the provided inputs is identically zero
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -27,7 +27,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
         // non-trivial copy constraints.
         return (in.z_perm.value_at(0) == in.z_perm_shift.value_at(0) &&
                 in.z_perm.value_at(1) == in.z_perm_shift.value_at(1));
-        // return true;
     }
 
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }

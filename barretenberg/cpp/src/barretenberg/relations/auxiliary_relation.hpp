@@ -50,7 +50,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
     };
 
     /**
-     * @brief Returns true if the contribution from all subrelation for the provided inputs is identically zero
+     * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
