@@ -95,12 +95,13 @@ export function computeFunctionArtifactHash(
     | (Pick<FunctionArtifact, 'bytecode'> & { functionMetadataHash: Fr; selector: FunctionSelector }),
 ) {
   const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
-  const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  const bytecodeHash = sha256Fr(fn.bytecode);
   const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
   const functionArtifactHash = sha256Fr(
-    Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]),
+    Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash.toBuffer()]),
   );
   getLogger().debug(`Computing function artifact hash`, { selector, bytecodeHash, metadataHash, functionArtifactHash });
+  getLogger().debug(`Bytecode for function ${selector}: ${fn.bytecode.toString('base64')}`);
   return functionArtifactHash;
 }
 
