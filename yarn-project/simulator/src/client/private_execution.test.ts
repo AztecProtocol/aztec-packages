@@ -195,11 +195,6 @@ describe('Private Execution test suite', () => {
     trees = {};
     oracle = mock<DBOracle>();
     oracle.getNullifierKeys.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
-      // return Promise.resolve({
-      //   masterNullifierPublicKey: await keyStore.getMasterNullifierPublicKey(accountAddress),
-      //   appNullifierSecretKey: await keyStore.getAppNullifierSecretKey(accountAddress, contractAddress),
-      // });
-
       if (accountAddress.equals(ownerCompleteAddress.address)) {
         return Promise.resolve({
           masterNullifierPublicKey: ownerMasterNullifierPublicKey,
