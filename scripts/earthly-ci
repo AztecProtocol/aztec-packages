@@ -17,7 +17,7 @@ OUTPUT_FILE=$(mktemp)
 # capture output to handle earthly edge cases
 if $INTERACTIVE ; then
   # don't play nice with tee if interactive
-  earthly $@
+  NO_COLOR=1 earthly $@
 elif ! earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
   # we try earthly once, capturing output
   # if we get one of our (unfortunate) known failures, handle retries
@@ -26,7 +26,7 @@ elif ! earthly $@ 2>&1 | tee $OUTPUT_FILE >&2 ; then
     # TODO when earthly is overloaded we sometimes get
     # 'failed to solve: failed to get edge: inconsistent graph state'
     echo "Got 'inconsistent graph state'. Restarting earthly. See https://github.com/earthly/earthly/issues/2454'"
-    earthly $@
+    NO_COLOR=1 earthly $@
     # TODO handle
     # could not configure satellite: failed getting org: unable to authenticate: failed to execute login request: Post
   else
