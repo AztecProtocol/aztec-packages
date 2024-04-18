@@ -94,9 +94,9 @@ export function computeFunctionArtifactHash(
     | (Pick<FunctionArtifact, 'bytecode'> & { functionMetadataHash: Fr; selector: FunctionSelector }),
 ) {
   const selector = 'selector' in fn ? fn.selector : FunctionSelector.fromNameAndParameters(fn);
-  const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
-  const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
-  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
+  const _bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
+  const _metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
+  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer()]));
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {
