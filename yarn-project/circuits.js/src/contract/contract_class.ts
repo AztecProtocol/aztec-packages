@@ -1,5 +1,6 @@
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractClass, type ContractClassWithId } from '@aztec/types/contracts';
 
 import { computeArtifactHash } from './artifact_hash.js';
@@ -39,7 +40,11 @@ export function getContractClassFromArtifact(
     packedBytecode,
     privateFunctions,
   };
-  return { ...contractClass, ...computeContractClassIdWithPreimage(contractClass) };
+
+  const classIdWithPreimage = computeContractClassIdWithPreimage(contractClass);
+
+  getLogger().debug('Computed contract class', classIdWithPreimage);
+  return { ...contractClass, ...classIdWithPreimage };
 }
 
 export function getContractClassPrivateFunctionFromArtifact(
@@ -58,4 +63,8 @@ export function getContractClassPrivateFunctionFromArtifact(
 export function computeVerificationKeyHash(_verificationKeyInBase64: string) {
   // return Fr.fromBuffer(hashVK(Buffer.from(verificationKeyInBase64, 'hex')));
   return Fr.ZERO;
+}
+
+function getLogger() {
+  return createDebugLogger('aztec:circuits:contract_class');
 }

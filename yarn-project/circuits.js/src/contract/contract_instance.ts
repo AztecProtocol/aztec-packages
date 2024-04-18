@@ -2,6 +2,7 @@ import { type ContractArtifact, type FunctionArtifact, getDefaultInitializer } f
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance, type ContractInstanceWithAddress } from '@aztec/types/contracts';
 
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
@@ -52,7 +53,10 @@ export function getContractInstanceFromDeployParams(
     version: 1,
   };
 
-  return { ...instance, address: computeContractAddressFromInstance(instance) };
+  const address = computeContractAddressFromInstance(instance);
+
+  getLogger().debug('Computed contract instance', { address, ...instance });
+  return { ...instance, address };
 }
 
 function getConstructorArtifact(
@@ -67,4 +71,8 @@ function getConstructorArtifact(
     return found;
   }
   return requestedConstructorArtifact ?? getDefaultInitializer(artifact);
+}
+
+function getLogger() {
+  return createDebugLogger('aztec:circuits:contract_instance');
 }
