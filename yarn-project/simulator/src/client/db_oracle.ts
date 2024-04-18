@@ -114,15 +114,6 @@ export interface DBOracle extends CommitmentsDB {
   ): Promise<FunctionArtifactWithDebugMetadata | undefined>;
 
   /**
-   * Retrieves the portal contract address associated with the given contract address.
-   * Throws an error if the input contract address is not found or invalid.
-   *
-   * @param contractAddress - The address of the contract whose portal address is to be fetched.
-   * @returns A Promise that resolves to an EthAddress instance, representing the portal contract address.
-   */
-  getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
-
-  /**
    * Gets the index of a nullifier in the nullifier tree.
    * @param nullifier - The nullifier.
    * @returns - The index of the nullifier. Undefined if it does not exist in the tree.

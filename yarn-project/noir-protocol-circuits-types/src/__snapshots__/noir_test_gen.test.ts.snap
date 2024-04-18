@@ -4371,7 +4371,7 @@ exports[`Data generation for noir tests Computes contract info for defaultContra
   portal_contract_address: EthAddress { inner: 0x0000000000000000000000000000000000005ba0 },
   contract_class_id: ContractClassId { inner: 0x0ce2a998337b1e6da1ac1d802a8bb9e10b7d705d210e61efb9642855009814a6 },
   public_keys_hash: PublicKeysHash { inner: 0x000000000000000000000000000000000000000000000000000000000000b26e },
-  salted_initialization_hash: SaltedInitializationHash { inner: 0x0b095458845137ebf1e6061c8c0ba1d907241a3b56dc1d3e73d2fea78f04a036 },
+  salted_initialization_hash: SaltedInitializationHash { inner: 0x25765504545d2cdaaa6544eb24bc78a3e20384452f2525669f196a1a42f45906 },
   deployer: AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }
 }"
 `;
@@ -4387,7 +4387,7 @@ exports[`Data generation for noir tests Computes contract info for parentContrac
   portal_contract_address: EthAddress { inner: 0x0000000000000000000000000000000000000913 },
   contract_class_id: ContractClassId { inner: 0x1f1f963a350e2c883cc6730c19fc5d5b47a40694d805cbb0720fa76fe295df90 },
   public_keys_hash: PublicKeysHash { inner: 0x00000000000000000000000000000000000000000000000000000000000011c1 },
-  salted_initialization_hash: SaltedInitializationHash { inner: 0x04643e65513869350552499ed3412df59540dffe3cd698203deee8900b53bcec },
+  salted_initialization_hash: SaltedInitializationHash { inner: 0x0b1d457cdacb66e76eccb29a4e34dff5ae10b9d3d2f0d85b59aa8cf68bd1cf86 },
   deployer: AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }
 }"
 `;

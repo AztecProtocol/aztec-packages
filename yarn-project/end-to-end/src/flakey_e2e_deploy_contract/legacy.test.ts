@@ -85,18 +85,6 @@ describe('e2e_deploy_contract legacy', () => {
     await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(/dropped/);
   }, 60_000);
 
-  it('should deploy a contract connected to a portal contract', async () => {
-    const deployer = new ContractDeployer(TestContractArtifact, wallet);
-    const portalContract = EthAddress.random();
-
-    // ContractDeployer was instantiated with wallet so we don't have to pass it to wait(...)
-    const receipt = await deployer.deploy().send().wait();
-    const address = receipt.contract.address;
-
-    const expectedPortal = portalContract.toString();
-    expect((await pxe.getContractInstance(address))?.portalContractAddress.toString()).toEqual(expectedPortal);
-  }, 60_000);
-
   it('should not deploy a contract which failed the public part of the execution', async () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     const artifact = TokenContractArtifact;

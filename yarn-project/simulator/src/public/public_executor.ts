@@ -95,11 +95,6 @@ export class ContractsDataSourcePublicDB implements PublicContractsDB {
     }
     return contractClass.publicFunctions.find(f => f.selector.equals(selector))?.bytecode;
   }
-
-  async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    const contract = await this.getContractInstance(address);
-    return contract?.portalContractAddress;
-  }
 }
 
 /**

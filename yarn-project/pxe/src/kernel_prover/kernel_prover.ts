@@ -208,7 +208,6 @@ export class KernelProver {
     noteHashReadRequestMembershipWitnesses: NoteHashReadRequestMembershipWitness[],
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;
-    const { portalContractAddress } = publicInputs.callContext;
 
     // Pad with empty items to reach max/const length expected by circuit.
     const privateCallStack = padArrayEnd(
@@ -251,7 +250,6 @@ export class KernelProver {
         i => noteHashReadRequestMembershipWitnesses[i],
         0,
       ),
-      portalContractAddress: portalContractAddress.toField(),
       acirHash,
     });
   }

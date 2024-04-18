@@ -20,7 +20,6 @@ describe('AVM WitGen and Proof Generation', () => {
   const callContext = CallContext.from({
     msgSender: AztecAddress.random(),
     storageContractAddress: AztecAddress.random(),
-    portalContractAddress: EthAddress.random(),
     functionSelector: FunctionSelector.empty(),
     isDelegateCall: false,
     isStaticCall: false,

@@ -60,7 +60,6 @@ export class AcirSimulator {
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
-   * @param portalContractAddress - The address of the portal contract.
    * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
    * @returns The result of the execution.
    */

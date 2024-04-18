@@ -22,7 +22,7 @@ import { DeploySentTx } from './deploy_sent_tx.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
- * Allows specifying a portal contract, contract address salt, and additional send method options.
+ * Allows specifying a contract address salt, and additional send method options.
  */
 export type DeployOptions = {
   /** An optional salt value used to deterministically calculate the contract address. */
@@ -73,7 +73,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * the transaction for deployment. The resulting signed transaction can be
    * later sent using the `send()` method.
    *
-   * @param options - An object containing optional deployment settings, including portalContract, contractAddressSalt, and from.
+   * @param options - An object containing optional deployment settings, contractAddressSalt, and from.
    * @returns A Promise resolving to an object containing the signed transaction data and other relevant information.
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
@@ -183,7 +183,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * This function extends the 'send' method from the ContractFunctionInteraction class,
    * allowing us to send a transaction specifically for contract deployment.
    *
-   * @param options - An object containing various deployment options such as portalContract, contractAddressSalt, and from.
+   * @param options - An object containing various deployment options such as contractAddressSalt and from.
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
   public override send(options: DeployOptions = {}): DeploySentTx<TContract> {

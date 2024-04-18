@@ -197,12 +197,10 @@ export class PublicExecutionContext extends TypedOracle {
       `Public function call: addr=${targetContractAddress} selector=${functionSelector} args=${args.join(',')}`,
     );
 
-    const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
     const functionData = new FunctionData(functionSelector, /*isPrivate=*/ false);
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
-      portalContractAddress: portalAddress,
       functionSelector,
       isDelegateCall,
       isStaticCall,

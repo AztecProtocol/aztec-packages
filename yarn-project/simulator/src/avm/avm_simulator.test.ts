@@ -767,7 +767,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         deployer: AztecAddress.fromBigInt(0x456n),
         contractClassId: new Fr(0x789),
         initializationHash: new Fr(0x101112),
-        portalContractAddress: EthAddress.fromField(new Fr(0x131415)),
         publicKeysHash: new Fr(0x161718),
       };
 

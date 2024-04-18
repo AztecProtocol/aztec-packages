@@ -278,8 +278,6 @@ describe('Private Execution test suite', () => {
       oracle.getFunctionArtifact.mockImplementation((_, selector: FunctionSelector) =>
         Promise.resolve(getFunctionArtifact(StatefulTestContractArtifact, selector)),
       );
-
-      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
@@ -443,7 +441,6 @@ describe('Private Execution test suite', () => {
       const childSelector = FunctionSelector.fromNameAndParameters(childArtifact.name, childArtifact.parameters);
 
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve(childArtifact));
-      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
       logger.info(`Parent deployed at ${parentAddress.toShortString()}`);
       logger.info(`Calling child function ${childSelector.toString()} at ${childAddress.toShortString()}`);
@@ -454,7 +451,6 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
       expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([childAddress, childSelector]);
-      expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].returnValues).toEqual([new Fr(privateIncrement)]);
 
@@ -497,7 +493,6 @@ describe('Private Execution test suite', () => {
       );
 
       oracle.getFunctionArtifact.mockResolvedValue(testCodeGenArtifact);
-      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
 
       logger.info(`Calling importer main function`);
       const args = [testAddress];
@@ -505,7 +500,6 @@ describe('Private Execution test suite', () => {
 
       expect(result.returnValues).toEqual([argsHash]);
       expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([testAddress, testCodeGenSelector]);
-      expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([testAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].returnValues).toEqual([argsHash]);
     });
@@ -771,14 +765,12 @@ describe('Private Execution test suite', () => {
       const childContractArtifact = ChildContractArtifact.functions.find(fn => fn.name === 'pub_set_value')!;
       expect(childContractArtifact).toBeDefined();
       const childAddress = AztecAddress.random();
-      const childPortalContractAddress = EthAddress.random();
       const childSelector = FunctionSelector.fromNameAndParameters(
         childContractArtifact.name,
         childContractArtifact.parameters,
       );
       const parentAddress = AztecAddress.random();
 
-      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
       oracle.getFunctionArtifact.mockImplementation(() => Promise.resolve({ ...childContractArtifact, isInternal }));
 
       const args = [childAddress, childSelector, 42n];
@@ -799,7 +791,6 @@ describe('Private Execution test suite', () => {
         callContext: CallContext.from({
           msgSender: parentAddress,
           storageContractAddress: childAddress,
-          portalContractAddress: childPortalContractAddress,
           functionSelector: childSelector,
           isDelegateCall: false,
           isStaticCall: false,
@@ -808,7 +799,6 @@ describe('Private Execution test suite', () => {
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
           storageContractAddress: parentAddress,
-          portalContractAddress: EthAddress.ZERO,
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
           isDelegateCall: false,
           isStaticCall: false,
@@ -914,8 +904,6 @@ describe('Private Execution test suite', () => {
         getThenNullifyArtifact.name,
         getThenNullifyArtifact.parameters,
       );
-
-      oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
       const args = [amountToTransfer, owner, insertFnSelector.toField(), getThenNullifyFnSelector.toField()];
       const result = await runSimulator({

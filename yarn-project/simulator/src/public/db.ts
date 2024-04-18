@@ -62,13 +62,6 @@ export interface PublicContractsDB {
   getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined>;
 
   /**
-   * Returns the portal contract address for an L2 address.
-   * @param address - The L2 contract address.
-   * @returns The portal contract address or undefined if not found.
-   */
-  getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined>;
-
-  /**
    * Returns a publicly deployed contract instance.
    * @param address - Address of the contract.
    * @returns The contract instance or undefined if not found.

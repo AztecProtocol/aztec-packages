@@ -90,7 +90,6 @@ describe('ACIR public execution simulator', () => {
     CallContext.from({
       storageContractAddress,
       msgSender: AztecAddress.random(),
-      portalContractAddress: EthAddress.random(),
       functionSelector: FunctionSelector.empty(),
       isDelegateCall: false,
       isStaticCall: false,
@@ -427,10 +426,7 @@ describe('ACIR public execution simulator', () => {
           crossChainMsgSender ?? preimage.sender.sender,
         ]);
 
-      const computeCallContext = () =>
-        makeCallContext(contractAddress, {
-          portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-        });
+      const computeCallContext = () => makeCallContext(contractAddress);
 
       const computeGlobalVariables = () =>
         new GlobalVariables(
