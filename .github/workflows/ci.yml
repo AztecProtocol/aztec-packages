@@ -22,7 +22,7 @@ jobs:
     with:
       runner_label: ${{ github.actor }}-x86
       ebs_cache_size_gb: 256
-      runner_concurrency: 50
+      runner_concurrency: 20
       subaction: ${{ github.event.inputs.runner_action || 'start' }}
       ec2_instance_type: m6a.32xlarge
       ec2_ami_id: ami-04d8422a9ba4de80f
@@ -168,3 +168,18 @@ jobs:
     needs: [e2e, bb-native-tests, bb-bench]
     steps:
       - run: echo Pull request merging now allowed.
+
+  notify:
+    needs: [e2e, bb-native-tests, bb-bench]
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' && failure() }}
+    steps:
+      - name: Send notification to aztec3-ci channel if workflow failed on master
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}
