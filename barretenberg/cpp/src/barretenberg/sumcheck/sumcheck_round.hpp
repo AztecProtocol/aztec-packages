@@ -169,8 +169,6 @@ template <typename Flavor> class SumcheckProverRound {
                 extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
 
                 // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
-                FF pow_challenge = pow_challenges[edge_idx >> 1];
-
                 // Compute the i-th edge's univariate contribution to \f$T^i(X_i)\f$ as defined in
                 // `bb::PowPolynomial`, scale it by the pow polynomial's constant and zeta power "c_l ⋅
                 // ζ_{l+1}ⁱ" and add it to the accumulators for Sˡ(Xₗ)
@@ -331,8 +329,12 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF target_total_sum = 0;
 
     TupleOfArraysOfValues relation_evaluations;
-
-    explicit SumcheckVerifierRound() { Utils::zero_elements(relation_evaluations); };
+    // Verifier constructor
+    explicit SumcheckVerifierRound(FF target_total_sum = 0)
+        : target_total_sum(target_total_sum)
+    {
+        Utils::zero_elements(relation_evaluations);
+    };
     /**
      * @brief Check that the round target sum is correct
      * @details The verifier receives the claimed evaluations of the round univariate \f$ \tilde{S}^i \f$ at \f$X_i =
