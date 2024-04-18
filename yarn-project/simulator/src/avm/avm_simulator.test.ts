@@ -20,7 +20,6 @@ import {
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
-  initL1ToL2MessageOracleInput,
   initMachineState,
   randomMemoryBytes,
   randomMemoryFields,
@@ -106,6 +105,18 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(4), new Fr(6)]);
   });
 
+  it('Assertion message', async () => {
+    const calldata: Fr[] = [new Fr(20)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('assert_nullifier_exists');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(true);
+    expect(results.revertReason?.message).toEqual("Reverted with output: Nullifier doesn't exist!");
+    expect(results.output).toEqual([..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))));
+  });
+
   describe.each([
     ['set_opcode_u8', 8n],
     ['set_opcode_u32', 1n << 30n],
@@ -124,23 +135,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe.each([
-    [
-      'sha256_hash',
-      /*input=*/ randomMemoryBytes(10),
-      /*output=*/ (bytes: Uint8[]) => [...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)),
-    ],
-    [
-      'keccak_hash',
-      /*input=*/ randomMemoryBytes(10),
-      /*output=*/ (bytes: Uint8[]) => [...keccak256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)),
-    ],
-    ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ (fields: Fieldable[]) => [poseidon2Hash(fields)]],
-    ['pedersen_hash', /*input=*/ randomMemoryFields(10), /*output=*/ (fields: Fieldable[]) => [pedersenHash(fields)]],
-    [
-      'pedersen_hash_with_index',
-      /*input=*/ randomMemoryFields(10),
-      /*output=*/ (fields: Fieldable[]) => [pedersenHash(fields, /*index=*/ 20)],
-    ],
+    ['sha256_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ sha256FromMemoryBytes],
+    ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
+    ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
+    ['pedersen_hash', /*input=*/ randomMemoryFields(10), /*output=*/ pedersenFromMemoryFields],
+    ['pedersen_hash_with_index', /*input=*/ randomMemoryFields(10), /*output=*/ indexedPedersenFromMemoryFields],
   ])('Hashes in noir contracts', (name: string, input: MemoryValue[], output: (msg: any[]) => Fr[]) => {
     it(`Should execute contract function that performs ${name}`, async () => {
       const calldata = input.map(e => e.toFr());
@@ -187,11 +186,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     it('sender', async () => {
       const sender = AztecAddress.fromField(new Fr(1));
       await testEnvGetter('sender', sender, 'get_sender');
-    });
-
-    it('origin', async () => {
-      const origin = AztecAddress.fromField(new Fr(1));
-      await testEnvGetter('origin', origin, 'get_origin');
     });
 
     it('portal', async () => {
@@ -454,6 +448,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toMatch(/Attempted to emit duplicate nullifier/);
       // Only the first nullifier should be in the trace, second one failed to add
       expect(context.persistableState.flush().newNullifiers).toEqual([
         expect.objectContaining({
@@ -488,9 +483,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const calldata = [msgHash, leafIndex];
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.commitmentsDb, 'getL1ToL2MembershipWitness')
-        .mockResolvedValue(initL1ToL2MessageOracleInput(leafIndex.toBigInt()));
+      jest.spyOn(context.persistableState.hostStorage.commitmentsDb, 'getL1ToL2LeafValue').mockResolvedValue(msgHash);
       const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
@@ -899,8 +892,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      // TODO(fcarreiro): revertReason lost in translation between results.
-      // expect(results.revertReason).toEqual(/StaticCallStorageAlterError/);
+      expect(results.revertReason?.message).toMatch(/Nested static call failed/);
     });
   });
 });
@@ -921,4 +913,24 @@ function getAvmNestedCallsTestContractBytecode(functionName: string): Buffer {
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
   );
   return artifact.bytecode;
+}
+
+function sha256FromMemoryBytes(bytes: Uint8[]): Fr[] {
+  return [...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b));
+}
+
+function keccak256FromMemoryBytes(bytes: Uint8[]): Fr[] {
+  return [...keccak256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b));
+}
+
+function poseidon2FromMemoryFields(fields: Fieldable[]): Fr[] {
+  return [poseidon2Hash(fields)];
+}
+
+function pedersenFromMemoryFields(fields: Fieldable[]): Fr[] {
+  return [pedersenHash(fields)];
+}
+
+function indexedPedersenFromMemoryFields(fields: Fieldable[]): Fr[] {
+  return [pedersenHash(fields, /*index=*/ 20)];
 }

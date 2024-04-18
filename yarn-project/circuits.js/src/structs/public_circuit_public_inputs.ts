@@ -22,11 +22,13 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+import { Gas } from './gas.js';
 import { Header } from './header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { ReadRequest } from './read_request.js';
@@ -100,7 +102,7 @@ export class PublicCircuitPublicInputs {
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Fr,
+    public unencryptedLogsHashes: Tuple<SideEffect, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
     /**
      * Length of the unencrypted log preimages emitted in this function call.
      */
@@ -119,6 +121,9 @@ export class PublicCircuitPublicInputs {
      * Flag indicating if the call was reverted.
      */
     public revertCode: RevertCode,
+
+    /** How much gas was left after execution. */
+    public gasLeft: Gas,
   ) {}
 
   /**
@@ -149,11 +154,12 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
-      Fr.ZERO,
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect.empty),
       Fr.ZERO,
       Header.empty(),
       AztecAddress.ZERO,
       RevertCode.OK,
+      Gas.empty(),
     );
   }
 
@@ -176,11 +182,12 @@ export class PublicCircuitPublicInputs {
       isArrayEmpty(this.newL2ToL1Msgs, item => item.isEmpty()) &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
-      this.unencryptedLogsHash.isZero() &&
+      isArrayEmpty(this.unencryptedLogsHashes, item => item.isEmpty()) &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
       this.proverAddress.isZero() &&
-      this.revertCode.isOK()
+      this.revertCode.isOK() &&
+      this.gasLeft.isEmpty()
     );
   }
 
@@ -204,11 +211,12 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
-      fields.unencryptedLogsHash,
+      fields.unencryptedLogsHashes,
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
       fields.proverAddress,
       fields.revertCode,
+      fields.gasLeft,
     ] as const;
   }
 
@@ -251,11 +259,12 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readObject(Fr),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
       reader.readObject(Fr),
       reader.readObject(Header),
       reader.readObject(AztecAddress),
       reader.readObject(RevertCode),
+      reader.readObject(Gas),
     );
   }
 
@@ -276,11 +285,12 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
-      reader.readField(),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
       reader.readField(),
       Header.fromFields(reader),
       AztecAddress.fromFields(reader),
       RevertCode.fromFields(reader),
+      Gas.fromFields(reader),
     );
   }
 
