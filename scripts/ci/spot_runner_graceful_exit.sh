@@ -18,9 +18,10 @@ echo "Executing graceful shutdown of github action runners."
 # glob for all our installed runner directories
 for RUNNER_DIR in /run/*-ec2-* ; do
   pushd $RUNNER_DIR
-  $RUNNER_DIR/config.sh remove --token "$(cat $RUNNER_DIR/.runner-token)" || true
+  ./config.sh remove --token "$(cat $RUNNER_DIR/.runner-token)" || true &
   popd
 done
+wait
 
 if pgrep Runner.Listener > /dev/null; then
   # The below procedure fixes the runner to correctly notify the Actions service for the cancellation of this runner.
@@ -34,7 +35,7 @@ echo "Cleaning up lingering runner registrations."
 for RUNNER_DIR in /run/*-ec2-* ; do
   pushd $RUNNER_DIR
   while [ -f .runner ] ; do
-    $RUNNER_DIR/config.sh remove --token "$(cat $RUNNER_DIR/.runner-token)" || true
+    ./config.sh remove --token "$(cat $RUNNER_DIR/.runner-token)" || true
     sleep 1
   done
   popd
