@@ -110,7 +110,6 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +test --hardware_concurrency=64
 
-
   # push benchmarking binaries to dockerhub registry
   bb-bench-binaries:
     needs: setup
