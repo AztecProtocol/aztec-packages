@@ -100,13 +100,11 @@ describe('Private Execution test suite', () => {
     args = [],
     msgSender = AztecAddress.ZERO,
     contractAddress = defaultContractAddress,
-    portalContractAddress = EthAddress.ZERO,
     txContext = {},
   }: {
     artifact: FunctionArtifact;
     msgSender?: AztecAddress;
     contractAddress?: AztecAddress;
-    portalContractAddress?: EthAddress;
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
@@ -121,7 +119,7 @@ describe('Private Execution test suite', () => {
       authWitnesses: [],
     });
 
-    return acirSimulator.run(txRequest, artifact, contractAddress, portalContractAddress, msgSender);
+    return acirSimulator.run(txRequest, artifact, contractAddress, msgSender);
   };
 
   const insertLeaves = async (leaves: Fr[], name = 'noteHash') => {
@@ -556,7 +554,12 @@ describe('Private Execution test suite', () => {
         );
 
       const computeArgs = () =>
-        encodeArguments(artifact, [secretHashForRedeemingNotes, bridgedAmount, secretForL1ToL2MessageConsumption]);
+        encodeArguments(artifact, [
+          secretHashForRedeemingNotes,
+          bridgedAmount,
+          secretForL1ToL2MessageConsumption,
+          crossChainMsgSender ?? preimage.sender.sender,
+        ]);
 
       const mockOracles = async (updateHeader = true) => {
         const tree = await insertLeaves([preimage.hash()], 'l1ToL2Messages');
@@ -577,7 +580,6 @@ describe('Private Execution test suite', () => {
           contractAddress,
           artifact,
           args,
-          portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
           txContext: { version: new Fr(1n), chainId: new Fr(1n) },
         });
 
@@ -602,7 +604,6 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
@@ -624,7 +625,6 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
@@ -645,7 +645,6 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
@@ -665,7 +664,6 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(2n) },
           }),
         ).rejects.toThrow('Message not in state');
@@ -685,7 +683,6 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(2n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
@@ -706,7 +703,6 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
@@ -727,7 +723,6 @@ describe('Private Execution test suite', () => {
             contractAddress,
             artifact,
             args,
-            portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
             txContext: { version: new Fr(1n), chainId: new Fr(1n) },
           }),
         ).rejects.toThrow('Message not in state');
@@ -1020,18 +1015,6 @@ describe('Private Execution test suite', () => {
   });
 
   describe('Context oracles', () => {
-    it("Should be able to get and return the contract's portal contract address", async () => {
-      const portalContractAddress = EthAddress.random();
-
-      // Tweak the contract artifact so we can extract return values
-      const artifact = getFunctionArtifact(TestContractArtifact, 'get_portal_contract_address');
-
-      const args: Fr[] = [];
-
-      const result = await runSimulator({ artifact, args, portalContractAddress });
-      expect(result.returnValues).toEqual([portalContractAddress.toField()]);
-    });
-
     it('this_address should return the current context address', async () => {
       const contractAddress = AztecAddress.random();
 
@@ -1041,17 +1024,6 @@ describe('Private Execution test suite', () => {
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], contractAddress });
       expect(result.returnValues).toEqual([contractAddress.toField()]);
-    });
-
-    it("this_portal_address should return the current context's portal address", async () => {
-      const portalContractAddress = EthAddress.random();
-
-      // Tweak the contract artifact so we can extract return values
-      const artifact = getFunctionArtifact(TestContractArtifact, 'get_this_portal_address');
-
-      // Overwrite the oracle return value
-      const result = await runSimulator({ artifact, args: [], portalContractAddress });
-      expect(result.returnValues).toEqual([portalContractAddress.toField()]);
     });
   });
 

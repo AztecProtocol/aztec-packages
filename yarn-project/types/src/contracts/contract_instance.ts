@@ -17,7 +17,7 @@ export interface ContractInstance {
   /** Hash of the selector and arguments to the constructor. */
   initializationHash: Fr;
   /** Optional address of the L1 portal contract. */
-  portalContractAddress: EthAddress;
+  portalContractAddress: EthAddress; // @todo @LHerskind Purge
   /** Optional hash of the struct of public keys used for encryption and nullifying by this contract. */
   publicKeysHash: Fr;
   /** Optional deployer address or zero if this was a universal deploy. */

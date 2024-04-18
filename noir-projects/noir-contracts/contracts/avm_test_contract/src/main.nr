@@ -207,11 +207,6 @@ contract AvmTest {
     }
 
     #[aztec(public-vm)]
-    fn get_portal() -> pub EthAddress {
-        context.this_portal_address()
-    }
-
-    #[aztec(public-vm)]
     fn get_fee_per_l1_gas() -> pub Field {
         context.fee_per_l1_gas()
     }

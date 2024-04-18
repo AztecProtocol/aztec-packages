@@ -552,6 +552,7 @@ export class PXEService implements PXE {
       contractAddress,
       execRequest.functionData.selector,
     );
+    // @todo @LHerskind purge 
     const portalContract = await this.contractDataOracle.getPortalContractAddress(contractAddress);
 
     return {
@@ -567,11 +568,11 @@ export class PXEService implements PXE {
   async #simulate(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
-    const { contractAddress, functionArtifact, portalContract } = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionArtifact} = await this.#getSimulationParameters(txRequest);
 
     this.log.debug('Executing simulator...');
     try {
-      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, portalContract, msgSender);
+      const result = await this.simulator.run(txRequest, functionArtifact, contractAddress, msgSender);
       this.log.verbose(`Simulation completed for ${contractAddress.toString()}:${functionArtifact.name}`);
       return result;
     } catch (err) {

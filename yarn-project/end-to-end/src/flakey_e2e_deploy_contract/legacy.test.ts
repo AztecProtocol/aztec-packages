@@ -90,7 +90,7 @@ describe('e2e_deploy_contract legacy', () => {
     const portalContract = EthAddress.random();
 
     // ContractDeployer was instantiated with wallet so we don't have to pass it to wait(...)
-    const receipt = await deployer.deploy().send({ portalContract }).wait();
+    const receipt = await deployer.deploy().send().wait();
     const address = receipt.contract.address;
 
     const expectedPortal = portalContract.toString();

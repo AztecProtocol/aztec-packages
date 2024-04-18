@@ -7,6 +7,8 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { CALL_CONTEXT_LENGTH } from '../constants.gen.js';
 
+// @todo @lherskind Purge the portalContractAddress in here
+
 /**
  * Call context.
  */

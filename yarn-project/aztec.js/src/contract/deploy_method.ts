@@ -6,7 +6,6 @@ import {
   getContractInstanceFromDeployParams,
 } from '@aztec/circuits.js';
 import { type ContractArtifact, type FunctionArtifact, getInitializer } from '@aztec/foundation/abi';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -26,8 +25,6 @@ import { DeploySentTx } from './deploy_sent_tx.js';
  * Allows specifying a portal contract, contract address salt, and additional send method options.
  */
 export type DeployOptions = {
-  /** The Ethereum address of the Portal contract. */
-  portalContract?: EthAddress;
   /** An optional salt value used to deterministically calculate the contract address. */
   contractAddressSalt?: Fr;
   /** Set to true to *not* include the sender in the address computation. */
@@ -209,7 +206,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       this.instance = getContractInstanceFromDeployParams(this.artifact, {
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
-        portalAddress: options.portalContract,
         publicKeysHash: this.publicKeysHash,
         constructorArtifact: this.constructorArtifact,
         deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),

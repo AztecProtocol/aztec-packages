@@ -96,13 +96,11 @@ describe('e2e_deploy_contract contract class registration', () => {
       const deployInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
         const initArgs = [wallet.getAddress(), 42] as StatefulContractCtorArgs;
         const salt = Fr.random();
-        const portalAddress = EthAddress.random();
         const publicKeysHash = Fr.random();
         const instance = getContractInstanceFromDeployParams(artifact, {
           constructorArgs: initArgs,
           salt,
           publicKeysHash,
-          portalAddress,
           constructorArtifact: opts.constructorName,
           deployer: opts.deployer,
         });
@@ -122,7 +120,6 @@ describe('e2e_deploy_contract contract class registration', () => {
         const registered = await t.registerContract(wallet, StatefulTestContract, {
           constructorName: opts.constructorName,
           salt: instance.salt,
-          portalAddress: instance.portalContractAddress,
           publicKeysHash,
           initArgs,
           deployer: opts.deployer,

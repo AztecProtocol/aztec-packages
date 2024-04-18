@@ -345,11 +345,10 @@ describe('ACIR public execution simulator', () => {
       const createL2ToL1MessagePublicArtifact = TestContractArtifact.functions.find(
         f => f.name === 'create_l2_to_l1_message_public',
       )!;
-      const args = encodeArguments(createL2ToL1MessagePublicArtifact, params);
-
       const portalContractAddress = EthAddress.random();
+      const args = encodeArguments(createL2ToL1MessagePublicArtifact, [...params, portalContractAddress]);
 
-      const callContext = makeCallContext(contractAddress, { portalContractAddress });
+      const callContext = makeCallContext(contractAddress);
 
       publicContracts.getBytecode.mockResolvedValue(createL2ToL1MessagePublicArtifact.bytecode);
 
@@ -419,7 +418,14 @@ describe('ACIR public execution simulator', () => {
           secret,
         );
 
-      const computeArgs = () => encodeArguments(mintPublicArtifact, [tokenRecipient, bridgedAmount, secret, leafIndex]);
+      const computeArgs = () =>
+        encodeArguments(mintPublicArtifact, [
+          tokenRecipient,
+          bridgedAmount,
+          secret,
+          leafIndex,
+          crossChainMsgSender ?? preimage.sender.sender,
+        ]);
 
       const computeCallContext = () =>
         makeCallContext(contractAddress, {
