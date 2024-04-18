@@ -39,6 +39,8 @@ impl PublicKernelSetupCircuitPrivateInputs {
         // validate the inputs unique to having a previous private kernel
         self.validate_inputs();
 
+        common::update_non_revertible_gas_used(self.public_call, &mut public_inputs);
+
         // Pops the item from the call stack and validates it against the current execution.
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
         common::validate_call_against_request(self.public_call, call_request);
@@ -46,13 +48,6 @@ impl PublicKernelSetupCircuitPrivateInputs {
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
-
-        common::accumulate_unencrypted_logs(
-            self.public_call,
-            self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-            self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-            &mut public_inputs
-        );
 
         public_inputs.finish()
     }
@@ -68,13 +63,13 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        call_request::CallRequest, function_selector::FunctionSelector,
+        call_request::CallRequest, function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         public_call_data::PublicCallData, read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::compute_logs_hash,
+        contrakt::storage_read::StorageRead,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::{arrays::{array_eq, array_length}}
     };
@@ -442,25 +437,24 @@ mod tests {
         // Logs for the previous call stack.
         let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        let prev_unencrypted_logs_hash = 956;
+        let prev_unencrypted_logs_hash = 956; 
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_revertible.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_revertible.set_unencrypted_logs(
+        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.set_unencrypted_logs(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
 
         let public_inputs = builder.execute();
-
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
+        
+        assert_eq(public_inputs.end_non_revertible.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
         assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+            public_inputs.end_non_revertible.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
-        assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
-
-        let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end_non_revertible.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
+        assert_eq(public_inputs.end_non_revertible.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash);
+        assert_eq(public_inputs.end_non_revertible.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test]
@@ -495,5 +489,32 @@ mod tests {
         builder.public_call.public_inputs.revert_code = 1;
 
         builder.failed();
+    }
+
+    #[test]
+    fn updates_non_revertible_gas_used() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        // Transaction gas limit is 1k
+        builder.previous_kernel.gas_settings.da.gas_limit = 1000;
+        builder.previous_kernel.gas_settings.l1.gas_limit = 1000;
+        builder.previous_kernel.gas_settings.l2.gas_limit = 1000;
+
+        // Revertible has already used 100
+        builder.previous_revertible.gas_used = Gas::new(100, 100, 100);
+
+        // And non-revertible has used another 200
+        builder.previous_kernel.gas_used = Gas::new(200, 200, 200);
+
+        // So this call starts with 700 gas left
+        builder.public_call.public_inputs.call_context.gas_left = Gas::new(700, 700, 700);
+
+        // And uses 300, ending with 400 left
+        builder.public_call.public_inputs.gas_left = Gas::new(400, 400, 400);
+
+        // So the updated gas used by non-revertible must go up by 300, and revertible must stay the same
+        let output = builder.execute();
+        assert_eq(output.end_non_revertible.gas_used, Gas::new(500, 500, 500));
+        assert_eq(output.end.gas_used, Gas::new(100, 100, 100));
     }
 }
