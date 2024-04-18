@@ -107,7 +107,6 @@ if (optsKeys.length % 2) {
 }
 
 program.action(async (options) => {
-  console.log(options)
   const { projectType, projectName, skipSandbox } = options;
   // SETUP: Initialize global variables
   await init(options);
@@ -116,8 +115,8 @@ program.action(async (options) => {
 
   if (skipSandbox) return;
   // STEP 2: Install the Sandbox
-  await sandboxInstallOrUpdate({ skipQuestion: sandbox });
+  await sandboxInstallOrUpdate({ skipQuestion: skipSandbox });
   // STEP 3: Running the Sandbox
-  await sandboxRun({ skipQuestion: sandbox });
+  await sandboxRun({ skipQuestion: skipSandbox });
 });
 program.parse();

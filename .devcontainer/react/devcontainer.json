@@ -4,14 +4,20 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "onCreateCommand": "curl -s install.aztec.network | NON_INTERACTIVE=1 BIN_PATH=/usr/local/bin bash -s && echo 'y' | npx create-aztec-app -t app -n react -s && cd react && yarn",
-  "postAttachCommand": "(nohup /usr/local/bin/aztec sandbox &) && cd react",
+  "onCreateCommand": "cp -R /root/workspace /root/scripts && rm -rf /root/workspace/* && sh /root/scripts/onCreateCommand.sh app react",
+  "postAttachCommand": "sh /root/scripts/postAttachCommand.sh app react",
   "customizations": {
     "vscode": {
       "settings": {},
       "extensions": ["noir-lang.vscode-noir"]
     }
   },
-  "workspaceMount": "source=${localWorkspaceFolder}/.devcontainer/react,target=/root/workspace,type=bind",
-  "workspaceFolder": "/root/workspace"
+  "hostRequirements": {
+    "cpus": 8,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder}/.devcontainer/scripts,target=/root/workspace,type=bind",
+  "workspaceFolder": "/root/workspace",
+  "forwardPorts": [8080]
 }
