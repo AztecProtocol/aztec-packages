@@ -1720,10 +1720,13 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
     // Add public inputs into the kernel column
     // edge case: If the number of public inputs is more than the trace then we pad to its size
-    if (main_trace.size() < kernel_trace_builder.kernel_inputs.size()) {
-        auto diff = kernel_trace_builder.kernel_inputs.size() - main_trace.size();
+    size_t initial_size = main_trace.size();
+    size_t number_of_kernel_inputs = kernel_trace_builder.kernel_inputs.size();
+    if (initial_size < number_of_kernel_inputs) {
+        auto diff = number_of_kernel_inputs - initial_size;
         for (size_t i = 0; i < diff; ++i) {
-            main_trace.push_back(Row{});
+            // We need clk to increment for kernel lookups to remain valid
+            main_trace.push_back(Row{ .avm_main_clk = initial_size + i });
         }
     }
     auto kernel_inputs_size = std::min(main_trace.size(), kernel_trace_builder.kernel_inputs.size());
@@ -1731,7 +1734,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
     // We add the lookup counts in the index of the kernel inputs selectors that are active
     for (uint32_t selector_index : KERNEL_INPUTS_SELECTORS) {
         auto& dest = main_trace.at(selector_index);
-        dest.lookup_into_environment_counts =
+        dest.lookup_into_kernel_counts =
             FF(kernel_trace_builder.kernel_selector_counter[static_cast<uint32_t>(selector_index)]);
         dest.avm_kernel_q_public_input_kernel_add_to_table = FF(1);
     }

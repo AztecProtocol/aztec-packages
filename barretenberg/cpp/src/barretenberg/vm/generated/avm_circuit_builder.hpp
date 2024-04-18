@@ -20,7 +20,7 @@
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
-#include "barretenberg/relations/generated/avm/lookup_into_environment.hpp"
+#include "barretenberg/relations/generated/avm/lookup_into_kernel.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_1.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_10.hpp"
@@ -240,7 +240,7 @@ template <typename FF> struct AvmFullRow {
     FF perm_main_mem_ind_d{};
     FF lookup_byte_lengths{};
     FF lookup_byte_operations{};
-    FF lookup_into_environment{};
+    FF lookup_into_kernel{};
     FF incl_main_tag_err{};
     FF incl_mem_tag_err{};
     FF lookup_u8_0{};
@@ -262,7 +262,7 @@ template <typename FF> struct AvmFullRow {
     FF lookup_u16_14{};
     FF lookup_byte_lengths_counts{};
     FF lookup_byte_operations_counts{};
-    FF lookup_into_environment_counts{};
+    FF lookup_into_kernel_counts{};
     FF incl_main_tag_err_counts{};
     FF incl_mem_tag_err_counts{};
     FF lookup_u8_0_counts{};
@@ -524,7 +524,7 @@ class AvmCircuitBuilder {
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
             polys.lookup_byte_operations_counts[i] = rows[i].lookup_byte_operations_counts;
-            polys.lookup_into_environment_counts[i] = rows[i].lookup_into_environment_counts;
+            polys.lookup_into_kernel_counts[i] = rows[i].lookup_into_kernel_counts;
             polys.incl_main_tag_err_counts[i] = rows[i].incl_main_tag_err_counts;
             polys.incl_mem_tag_err_counts[i] = rows[i].incl_mem_tag_err_counts;
             polys.lookup_u8_0_counts[i] = rows[i].lookup_u8_0_counts;
@@ -710,8 +710,7 @@ class AvmCircuitBuilder {
                 "LOOKUP_BYTE_OPERATIONS")) {
             return false;
         }
-        if (!evaluate_logderivative.template operator()<lookup_into_environment_relation<FF>>(
-                "LOOKUP_INTO_ENVIRONMENT")) {
+        if (!evaluate_logderivative.template operator()<lookup_into_kernel_relation<FF>>("LOOKUP_INTO_KERNEL")) {
             return false;
         }
         if (!evaluate_logderivative.template operator()<incl_main_tag_err_relation<FF>>("INCL_MAIN_TAG_ERR")) {

@@ -190,7 +190,7 @@
     [[maybe_unused]] auto perm_main_mem_ind_d = View(new_term.perm_main_mem_ind_d);                                    \
     [[maybe_unused]] auto lookup_byte_lengths = View(new_term.lookup_byte_lengths);                                    \
     [[maybe_unused]] auto lookup_byte_operations = View(new_term.lookup_byte_operations);                              \
-    [[maybe_unused]] auto lookup_into_environment = View(new_term.lookup_into_environment);                            \
+    [[maybe_unused]] auto lookup_into_kernel = View(new_term.lookup_into_kernel);                                      \
     [[maybe_unused]] auto incl_main_tag_err = View(new_term.incl_main_tag_err);                                        \
     [[maybe_unused]] auto incl_mem_tag_err = View(new_term.incl_mem_tag_err);                                          \
     [[maybe_unused]] auto lookup_u8_0 = View(new_term.lookup_u8_0);                                                    \
@@ -212,7 +212,7 @@
     [[maybe_unused]] auto lookup_u16_14 = View(new_term.lookup_u16_14);                                                \
     [[maybe_unused]] auto lookup_byte_lengths_counts = View(new_term.lookup_byte_lengths_counts);                      \
     [[maybe_unused]] auto lookup_byte_operations_counts = View(new_term.lookup_byte_operations_counts);                \
-    [[maybe_unused]] auto lookup_into_environment_counts = View(new_term.lookup_into_environment_counts);              \
+    [[maybe_unused]] auto lookup_into_kernel_counts = View(new_term.lookup_into_kernel_counts);                        \
     [[maybe_unused]] auto incl_main_tag_err_counts = View(new_term.incl_main_tag_err_counts);                          \
     [[maybe_unused]] auto incl_mem_tag_err_counts = View(new_term.incl_mem_tag_err_counts);                            \
     [[maybe_unused]] auto lookup_u8_0_counts = View(new_term.lookup_u8_0_counts);                                      \

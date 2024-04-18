@@ -37,6 +37,6 @@ namespace avm_kernel(256);
     // We should be able to have this always be on
     pol commit q_public_input_kernel_add_to_table;
 
-    #[LOOKUP_INTO_ENVIRONMENT]
+    #[LOOKUP_INTO_KERNEL]
     // TODO: FIX not having the trailing is_public breaking compilation :(
     avm_main.q_kernel_lookup { avm_main.ia, kernel_sel } in q_public_input_kernel_add_to_table { kernel_inputs__is_public, avm_main.clk };

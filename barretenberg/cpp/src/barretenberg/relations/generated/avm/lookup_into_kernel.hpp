@@ -23,7 +23,7 @@ namespace bb {
  * FF>>;)`
  *
  */
-class lookup_into_environment_lookup_settings {
+class lookup_into_kernel_lookup_settings {
   public:
     /**
      * @brief The number of read terms (how many lookups we perform) in each row
@@ -133,8 +133,8 @@ class lookup_into_environment_lookup_settings {
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.lookup_into_environment,
-                                     in.lookup_into_environment_counts,
+        return std::forward_as_tuple(in.lookup_into_kernel,
+                                     in.lookup_into_kernel_counts,
                                      in.avm_main_q_kernel_lookup,
                                      in.avm_kernel_q_public_input_kernel_add_to_table,
                                      in.avm_main_ia,
@@ -153,8 +153,8 @@ class lookup_into_environment_lookup_settings {
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
 
-        return std::forward_as_tuple(in.lookup_into_environment,
-                                     in.lookup_into_environment_counts,
+        return std::forward_as_tuple(in.lookup_into_kernel,
+                                     in.lookup_into_kernel_counts,
                                      in.avm_main_q_kernel_lookup,
                                      in.avm_kernel_q_public_input_kernel_add_to_table,
                                      in.avm_main_ia,
@@ -165,7 +165,7 @@ class lookup_into_environment_lookup_settings {
 };
 
 template <typename FF_>
-using lookup_into_environment_relation = GenericLookupRelation<lookup_into_environment_lookup_settings, FF_>;
-template <typename FF_> using lookup_into_environment = GenericLookup<lookup_into_environment_lookup_settings, FF_>;
+using lookup_into_kernel_relation = GenericLookupRelation<lookup_into_kernel_lookup_settings, FF_>;
+template <typename FF_> using lookup_into_kernel = GenericLookup<lookup_into_kernel_lookup_settings, FF_>;
 
 } // namespace bb
