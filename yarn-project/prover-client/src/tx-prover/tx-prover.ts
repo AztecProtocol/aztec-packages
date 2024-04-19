@@ -22,7 +22,7 @@ export class TxProver implements ProverClient {
     private worldStateSynchronizer: WorldStateSynchronizer,
     simulationProvider: SimulationProvider,
     protected vks: VerificationKeys,
-    agentCount = 1,
+    agentCount = 4,
     agentPollIntervalMS = 10,
   ) {
     this.proverPool = new ProverPool(

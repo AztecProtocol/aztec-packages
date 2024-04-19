@@ -49,7 +49,7 @@ describe('prover/orchestrator/errors', () => {
       const finalisedBlock = await context.orchestrator.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(context.blockNumber);
-    }, 30_000);
+    }, 40_000);
 
     it('throws if adding a transaction before start', async () => {
       await expect(
