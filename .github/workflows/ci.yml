@@ -150,10 +150,10 @@ jobs:
     if: always()  # Ensures this job runs regardless of the success or failure of dependencies.
     steps:
       - run: |
-          echo "E2E Test Status: ${{ needs.e2e.outputs.status }}"
-          echo "Native Tests Status: ${{ needs.bb-native-tests.outputs.status }}"
-          echo "Bench Tests Status: ${{ needs.bb-bench.outputs.status }}"
-          if [[ "${{ needs.e2e.outputs.status }}" != 'success' || "${{ needs.bb-native-tests.outputs.status }}" != 'success' || "${{ needs.bb-bench.outputs.status }}" != 'success' ]]; then
+          echo "E2E Test Status: ${{ needs.e2e.result }}"
+          echo "Native Tests Status: ${{ needs.bb-native-tests.result }}"
+          echo "Bench Tests Status: ${{ needs.bb-bench.result }}"
+          if [[ "${{ needs.e2e.result }}" != 'success' || "${{ needs.bb-native-tests.result }}" != 'success' || "${{ needs.bb-bench.result }}" != 'success' ]]; then
             echo "Pull request merging not allowed due to failures."
             exit 1
           fi
