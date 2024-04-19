@@ -12,7 +12,6 @@ import {
 } from '@aztec/circuit-types';
 import {
   CallContext,
-  EthAddress,
   FunctionData,
   FunctionSelector,
   type Header,

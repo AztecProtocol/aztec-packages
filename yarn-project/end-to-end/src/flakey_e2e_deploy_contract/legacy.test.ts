@@ -2,7 +2,6 @@ import {
   AztecAddress,
   ContractDeployer,
   type DebugLogger,
-  EthAddress,
   Fr,
   type PXE,
   TxStatus,

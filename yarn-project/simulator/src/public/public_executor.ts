@@ -3,7 +3,6 @@ import {
   type AztecAddress,
   ContractClassRegisteredEvent,
   ContractInstanceDeployedEvent,
-  type EthAddress,
   Fr,
   type FunctionSelector,
   type L1_TO_L2_MSG_TREE_HEIGHT,

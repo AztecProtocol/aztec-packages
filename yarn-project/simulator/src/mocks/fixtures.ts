@@ -5,7 +5,6 @@ import {
   CallContext,
   CallRequest,
   type ContractStorageUpdateRequest,
-  EthAddress,
   Fr,
   FunctionData,
   Gas,

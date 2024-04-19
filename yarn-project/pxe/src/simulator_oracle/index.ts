@@ -11,7 +11,6 @@ import {
 import {
   type AztecAddress,
   type CompleteAddress,
-  type EthAddress,
   type Fr,
   type FunctionSelector,
   type Header,

@@ -1,7 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import {
   AztecAddress,
-  EthAddress,
   FunctionSelector,
   NOTE_HASH_TREE_HEIGHT,
   computeContractAddressFromInstance,

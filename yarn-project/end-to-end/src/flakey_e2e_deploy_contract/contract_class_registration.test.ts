@@ -5,7 +5,6 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type DebugLogger,
-  EthAddress,
   Fr,
   type PXE,
   TxStatus,

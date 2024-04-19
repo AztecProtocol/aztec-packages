@@ -44,22 +44,12 @@ export class CallContext {
    * @returns A new instance of CallContext with zero msg sender, storage contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(
-      AztecAddress.ZERO,
-      AztecAddress.ZERO,
-      FunctionSelector.empty(),
-      false,
-      false,
-      0,
-    );
+    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, FunctionSelector.empty(), false, false, 0);
   }
 
   isEmpty() {
     return (
-      this.msgSender.isZero() &&
-      this.storageContractAddress.isZero() &&
-      this.functionSelector.isEmpty() &&
-      Fr.ZERO
+      this.msgSender.isZero() && this.storageContractAddress.isZero() && this.functionSelector.isEmpty() && Fr.ZERO
     );
   }
 

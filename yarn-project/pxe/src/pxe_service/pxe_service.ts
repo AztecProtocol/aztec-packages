@@ -558,14 +558,14 @@ export class PXEService implements PXE {
       functionArtifact: {
         ...functionArtifact,
         debug,
-      }
+      },
     };
   }
 
   async #simulate(txRequest: TxExecutionRequest, msgSender?: AztecAddress): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
 
-    const { contractAddress, functionArtifact} = await this.#getSimulationParameters(txRequest);
+    const { contractAddress, functionArtifact } = await this.#getSimulationParameters(txRequest);
 
     this.log.debug('Executing simulator...');
     try {
