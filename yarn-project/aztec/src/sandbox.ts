@@ -31,7 +31,7 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
-import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
+import { deployCanonicalKeyRegistry, getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import {
@@ -181,26 +181,6 @@ async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: 
   await batch.send().wait();
 
   logger.info(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
-}
-
-/**
- * Deploys the contract to pay for gas on L2.
- */
-async function deployCanonicalKeyRegistry(deployer: Wallet) {
-  const canonicalKeyRegistry = getCanonicalKeyRegistry();
-
-  if (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)) {
-    return;
-  }
-
-  const batch = new BatchCall(deployer, [
-    (await registerContractClass(deployer, canonicalKeyRegistry.artifact)).request(),
-    deployInstance(deployer, canonicalKeyRegistry.instance).request(),
-  ]);
-
-  await batch.send().wait();
-
-  logger.info(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
 }
 
 /** Sandbox settings. */
