@@ -6,7 +6,21 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.36.0
+
+### [Aztec.nr] Oracles
+
+Oracle `get_nullifier_secret_key` was renamed to `get_app_nullifier_secret_key` and `request_nullifier_secret_key` function on PrivateContext was renamed as `request_app_nullifier_secret_key`.
+
+```diff
+- let secret = get_nullifier_secret_key(self.owner);
++ let secret = get_app_nullifier_secret_key(self.owner);
+```
+
+```diff
+- let secret = context.request_nullifier_secret_key(self.owner);
++ let secret = context.request_app_nullifier_secret_key(self.owner);
+```
 
 ### [Aztec.nr] Contract interfaces
 
@@ -64,6 +78,30 @@ The `request_max_block_number` function has been renamed to `set_tx_max_block_nu
 + context.set_tx_max_block_number(value);
 ```
 
+### [Aztec.nr] Get portal address
+
+The `get_portal_address` oracle was removed. If you need to get the portal address of SomeContract, add the following methods to it
+
+```
+#[aztec(private)]
+fn get_portal_address() -> EthAddress {
+    context.this_portal_address()
+}
+
+#[aztec(public)]
+fn get_portal_address_public() -> EthAddress {
+    context.this_portal_address()
+}
+```
+
+and change the call to `get_portal_address`
+
+```diff
+- let portal_address = get_portal_address(contract_address);
++ let portal_address = SomeContract::at(contract_address).get_portal_address().call(&mut context);
+```
+
+
 ### [Aztec.nr] Required gas limits for public-to-public calls
 
 When calling a public function from another public function using the `call_public_function` method, you must now specify how much gas you're allocating to the nested call. This will later allow you to limit the amount of gas consumed by the nested call, and handle any out of gas errors.
@@ -78,6 +116,20 @@ Note that gas limits are not yet enforced. For now, it is suggested you use `dep
 ```
 
 Note that this is not required when enqueuing a public function from a private one, since top-level enqueued public functions will always consume all gas available for the transaction, as it is not possible to handle any out-of-gas errors.
+
+### [Aztec.nr] Emmiting unencrypted logs
+
+The `emit_unencrypted_logs` function is now a context method.
+
+```diff
+- use dep::aztec::log::emit_unencrypted_log;
+- use dep::aztec::log::emit_unencrypted_log_from_private;
+
+- emit_unencrypted_log(context, log1);
+- emit_unencrypted_log_from_private(context, log2);
++ context.emit_unencrypted_log(log1);
++ context.emit_unencrypted_log(log2);
+```
 
 ## 0.33
 
