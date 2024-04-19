@@ -228,7 +228,9 @@ describe('e2e_note_getter', () => {
         const viewNotesManyResult = await contract.methods
           .call_view_notes_many(storageSlot, activeOrNullified)
           .simulate();
-        const getNotesManyResult = await contract.methods.call_get_notes_many(storageSlot, activeOrNullified).simulate();
+        const getNotesManyResult = await contract.methods
+          .call_get_notes_many(storageSlot, activeOrNullified)
+          .simulate();
 
         // We can't be sure in which order the notes will be returned, so we simply sort them to test equality. Note
         // however that both view_notes and get_notes get the exact same result.
