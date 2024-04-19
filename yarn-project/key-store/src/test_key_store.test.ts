@@ -36,6 +36,11 @@ describe('TestKeyStore', () => {
       `"0x076429010fdebfa522b053267f654a4c5daf18589915d96f7e5001d63ea2033f27f915f254560c84450aa38e93c3162be52492d05b316e75f542e3b302117360"`,
     );
 
+    const publicKeysHash = await keyStore.getPublicKeysHash(accountAddress);
+    expect(publicKeysHash.toString()).toMatchInlineSnapshot(
+      `"0x1ba15945655812587b5c16a6a8125193c901c2c31a4ac4edaed202726c0d4c89"`,
+    );
+
     // Arbitrary app contract address
     const appAddress = AztecAddress.fromBigInt(624n);
 

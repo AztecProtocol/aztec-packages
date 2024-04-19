@@ -210,7 +210,7 @@ export class PXEService implements PXE {
 
   public async getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined> {
     const accounts = await this.keyStore.getAccounts();
-    if (!accounts.includes(address)) {
+    if (!accounts.some(account => account.equals(address))) {
       return undefined;
     }
     return this.keyStore.getPublicKeysHash(address);
