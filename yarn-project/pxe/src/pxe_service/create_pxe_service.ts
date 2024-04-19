@@ -14,6 +14,7 @@ import { join } from 'path';
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { PXEService } from './pxe_service.js';
+import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 
 /**
  * Create and start an PXEService instance with the given AztecNode.
@@ -49,6 +50,7 @@ export async function createPXEService(
     getCanonicalInstanceDeployer(),
     getCanonicalMultiCallEntrypointContract(),
     getCanonicalGasToken(l1Contracts.gasPortalAddress),
+    getCanonicalKeyRegistry(),
   ]) {
     await server.registerContract(contract);
   }

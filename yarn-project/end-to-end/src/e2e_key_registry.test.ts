@@ -6,6 +6,7 @@ import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { jest } from '@jest/globals';
 
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
+import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 const TIMEOUT = 100_000;
 
@@ -22,7 +23,7 @@ describe('SharedMutablePrivateGetter', () => {
   beforeAll(async () => {
     ({ teardown, pxe, wallets } = await setup(2));
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
-    keyRegistry = await KeyRegistryContract.deploy(wallets[0]).send().deployed();
+    keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
   }, 120_000);

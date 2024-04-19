@@ -47,7 +47,10 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
+
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -260,10 +263,14 @@ async function setupWithRemoteEnvironment(
   const cheatCodes = CheatCodes.create(config.rpcUrl, pxeClient!);
   const teardown = () => Promise.resolve();
 
+  const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
+  // this contract might already have been deployed
+  // the following deployin functions are idempotent
+  await deployCanonicalKeyRegistry(
+    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
+  );
+
   if (enableGas) {
-    const { chainId, protocolVersion } = await pxeClient.getNodeInfo();
-    // this contract might already have been deployed
-    // the following function is idempotent
     await deployCanonicalGasToken(
       new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
     );
@@ -396,6 +403,11 @@ export async function setup(
 
   logger.verbose('Creating a pxe...');
   const { pxe, wallets } = await setupPXEService(numberOfAccounts, aztecNode!, pxeOpts, logger);
+
+  logger.verbose('Deploying key registry...');
+  await deployCanonicalKeyRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.chainId, config.version)),
+  );
 
   if (enableGas) {
     logger.verbose('Deploying gas token...');
@@ -586,4 +598,22 @@ export async function deployCanonicalGasToken(deployer: Wallet) {
 
   await expect(deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalGasToken.instance.address)).resolves.toBeDefined();
+}
+
+export async function deployCanonicalKeyRegistry(deployer: Wallet) {
+  const canonicalKeyRegistry = getCanonicalKeyRegistry();
+
+  if (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)) {
+    return;
+  }
+
+  await new BatchCall(deployer, [
+    (await registerContractClass(deployer, canonicalKeyRegistry.artifact)).request(),
+    deployInstance(deployer, canonicalKeyRegistry.instance).request(),
+  ])
+  .send()
+  .wait();
+
+  await expect(deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(canonicalKeyRegistry.instance.address)).resolves.toBeDefined();
 }
