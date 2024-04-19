@@ -5,16 +5,17 @@ import {
   CompleteAddress,
   FunctionData,
   GasSettings,
+  type GrumpkinPrivateKey,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PartialStateReference,
   PublicCallRequest,
+  type PublicKey,
   StateReference,
   TxContext,
-  computeNullifierSecretKey,
-  computeSiloedNullifierSecretKey,
-  derivePublicKey,
+  computeAppNullifierSecretKey,
+  deriveKeys,
   getContractInstanceFromDeployParams,
   nonEmptySideEffects,
   sideEffectArrayToValueArray,
@@ -33,7 +34,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
 import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -51,7 +52,7 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { type KeyPair, MessageLoadOracleInputs } from '../acvm/index.js';
+import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { type DBOracle } from './db_oracle.js';
@@ -70,14 +71,17 @@ describe('Private Execution test suite', () => {
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
-  const ownerPk = GrumpkinScalar.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-  const recipientPk = GrumpkinScalar.fromString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
+  const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+  const recipientSk = Fr.fromString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
   let owner: AztecAddress;
   let recipient: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
   let recipientCompleteAddress: CompleteAddress;
-  let ownerNullifierKeyPair: KeyPair;
-  let recipientNullifierKeyPair: KeyPair;
+
+  let ownerMasterNullifierPublicKey: PublicKey;
+  let recipientMasterNullifierPublicKey: PublicKey;
+  let ownerMasterNullifierSecretKey: GrumpkinPrivateKey;
+  let recipientMasterNullifierSecretKey: GrumpkinPrivateKey;
 
   const treeHeights: { [name: string]: number } = {
     noteHash: NOTE_HASH_TREE_HEIGHT,
@@ -86,10 +90,9 @@ describe('Private Execution test suite', () => {
 
   let trees: { [name: keyof typeof treeHeights]: AppendOnlyTree<Fr> } = {};
   const txContextFields: FieldsOf<TxContext> = {
-    isFeePaymentTx: false,
-    isRebatePaymentTx: false,
     chainId: new Fr(10),
     version: new Fr(20),
+    gasSettings: GasSettings.default(),
   };
 
   const runSimulator = ({
@@ -116,7 +119,6 @@ describe('Private Execution test suite', () => {
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       packedArguments: [packedArguments],
       authWitnesses: [],
-      gasSettings: GasSettings.default(),
     });
 
     return acirSimulator.run(txRequest, artifact, contractAddress, portalContractAddress, msgSender);
@@ -167,39 +169,38 @@ describe('Private Execution test suite', () => {
   beforeAll(() => {
     logger = createDebugLogger('aztec:test:private_execution');
 
-    ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
-    recipientCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(recipientPk, Fr.random());
+    const ownerPartialAddress = Fr.random();
+    ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
+
+    const allOwnerKeys = deriveKeys(ownerSk);
+    ownerMasterNullifierPublicKey = allOwnerKeys.masterNullifierPublicKey;
+    ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
+
+    const recipientPartialAddress = Fr.random();
+    recipientCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(recipientSk, recipientPartialAddress);
+
+    const allRecipientKeys = deriveKeys(recipientSk);
+    recipientMasterNullifierPublicKey = allRecipientKeys.masterNullifierPublicKey;
+    recipientMasterNullifierSecretKey = allRecipientKeys.masterNullifierSecretKey;
 
     owner = ownerCompleteAddress.address;
     recipient = recipientCompleteAddress.address;
-
-    const ownerNullifierSecretKey = computeNullifierSecretKey(ownerPk);
-    ownerNullifierKeyPair = {
-      secretKey: ownerNullifierSecretKey,
-      publicKey: derivePublicKey(ownerNullifierSecretKey),
-    };
-
-    const recipientNullifierSecretKey = computeNullifierSecretKey(recipientPk);
-    recipientNullifierKeyPair = {
-      secretKey: recipientNullifierSecretKey,
-      publicKey: derivePublicKey(recipientNullifierSecretKey),
-    };
   });
 
   beforeEach(() => {
     trees = {};
     oracle = mock<DBOracle>();
-    oracle.getNullifierKeyPair.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
+    oracle.getNullifierKeys.mockImplementation((accountAddress: AztecAddress, contractAddress: AztecAddress) => {
       if (accountAddress.equals(ownerCompleteAddress.address)) {
         return Promise.resolve({
-          publicKey: ownerNullifierKeyPair.publicKey,
-          secretKey: computeSiloedNullifierSecretKey(ownerNullifierKeyPair.secretKey, contractAddress),
+          masterNullifierPublicKey: ownerMasterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
         });
       }
       if (accountAddress.equals(recipientCompleteAddress.address)) {
         return Promise.resolve({
-          publicKey: recipientNullifierKeyPair.publicKey,
-          secretKey: computeSiloedNullifierSecretKey(recipientNullifierKeyPair.secretKey, contractAddress),
+          masterNullifierPublicKey: recipientMasterNullifierPublicKey,
+          appNullifierSecretKey: computeAppNullifierSecretKey(recipientMasterNullifierSecretKey, contractAddress),
         });
       }
       throw new Error(`Unknown address ${accountAddress}`);
@@ -433,7 +434,7 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(ChildContractArtifact, 'value');
       const result = await runSimulator({ args: [initialValue], artifact });
 
-      expect(result.returnValues).toEqual([initialValue + privateIncrement]);
+      expect(result.returnValues).toEqual([new Fr(initialValue + privateIncrement)]);
     });
 
     it('parent should call child', async () => {
@@ -452,12 +453,12 @@ describe('Private Execution test suite', () => {
       const args = [childAddress, childSelector];
       const result = await runSimulator({ args, artifact: parentArtifact });
 
-      expect(result.returnValues).toEqual([privateIncrement]);
+      expect(result.returnValues).toEqual([new Fr(privateIncrement)]);
 
       expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([childAddress, childSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].returnValues).toEqual([privateIncrement]);
+      expect(result.nestedExecutions[0].returnValues).toEqual([new Fr(privateIncrement)]);
 
       // check that Aztec.nr calculated the call stack item hash like cpp does
       const expectedCallStackItemHash = result.nestedExecutions[0].callStackItem.hash();
@@ -486,12 +487,12 @@ describe('Private Execution test suite', () => {
       logger.info(`Calling testCodeGen function`);
       const result = await runSimulator({ args, artifact: testCodeGenArtifact });
 
-      expect(result.returnValues).toEqual([argsHash.toBigInt()]);
+      expect(result.returnValues).toEqual([argsHash]);
     });
 
     it('test function should be callable through autogenerated interface', async () => {
       const testAddress = AztecAddress.random();
-      const parentArtifact = getFunctionArtifact(ImportTestContractArtifact, 'main');
+      const parentArtifact = getFunctionArtifact(ImportTestContractArtifact, 'main_contract');
       const testCodeGenSelector = FunctionSelector.fromNameAndParameters(
         testCodeGenArtifact.name,
         testCodeGenArtifact.parameters,
@@ -504,11 +505,11 @@ describe('Private Execution test suite', () => {
       const args = [testAddress];
       const result = await runSimulator({ args, artifact: parentArtifact });
 
-      expect(result.returnValues).toEqual([argsHash.toBigInt()]);
+      expect(result.returnValues).toEqual([argsHash]);
       expect(oracle.getFunctionArtifact.mock.calls[0]).toEqual([testAddress, testCodeGenSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([testAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].returnValues).toEqual([argsHash.toBigInt()]);
+      expect(result.nestedExecutions[0].returnValues).toEqual([argsHash]);
     });
   });
 
@@ -796,10 +797,6 @@ describe('Private Execution test suite', () => {
       // Alter function data to match the manipulated oracle
       const functionData = FunctionData.fromAbi(childContractArtifact);
 
-      const transactionFee = new Fr(0);
-      const gasSettings = GasSettings.default();
-      const gasLeft = gasSettings.getInitialAvailable();
-
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
         functionData: functionData,
@@ -809,24 +806,18 @@ describe('Private Execution test suite', () => {
           storageContractAddress: childAddress,
           portalContractAddress: childPortalContractAddress,
           functionSelector: childSelector,
-          gasLeft,
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,
-          transactionFee,
-          gasSettings,
         }),
         parentCallContext: CallContext.from({
           msgSender: parentAddress,
           storageContractAddress: parentAddress,
           portalContractAddress: EthAddress.ZERO,
           functionSelector: FunctionSelector.fromNameAndParameters(parentArtifact.name, parentArtifact.parameters),
-          gasLeft,
           isDelegateCall: false,
           isStaticCall: false,
           sideEffectCounter: 1,
-          transactionFee,
-          gasSettings,
         }),
       });
 
@@ -899,17 +890,12 @@ describe('Private Execution test suite', () => {
       const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.noteHashReadRequests)[0];
       expect(readRequest).toEqual(innerNoteHash);
 
-      expect(result.returnValues).toEqual([amountToTransfer]);
+      expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
-      const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
-        ownerNullifierKeyPair.secretKey,
-        contractAddress,
-      );
       const expectedNullifier = pedersenHash([
         innerNoteHash,
-        siloedNullifierSecretKey.low,
-        siloedNullifierSecretKey.high,
+        computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
@@ -974,17 +960,12 @@ describe('Private Execution test suite', () => {
       const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];
       expect(readRequest.value).toEqual(innerNoteHash);
 
-      expect(execGetThenNullify.returnValues).toEqual([amountToTransfer]);
+      expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
-      const siloedNullifierSecretKey = computeSiloedNullifierSecretKey(
-        ownerNullifierKeyPair.secretKey,
-        contractAddress,
-      );
       const expectedNullifier = pedersenHash([
         innerNoteHash,
-        siloedNullifierSecretKey.low,
-        siloedNullifierSecretKey.high,
+        computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
@@ -1013,7 +994,6 @@ describe('Private Execution test suite', () => {
     it('gets the public key for an address', async () => {
       // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'get_public_key');
-      artifact.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
 
       // Generate a partial address, pubkey, and resulting address
       const completeAddress = CompleteAddress.random();
@@ -1022,7 +1002,7 @@ describe('Private Execution test suite', () => {
 
       oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual([pubKey.x.toBigInt(), pubKey.y.toBigInt()]);
+      expect(result.returnValues).toEqual([pubKey.x, pubKey.y]);
     });
   });
 
@@ -1042,18 +1022,14 @@ describe('Private Execution test suite', () => {
   describe('Context oracles', () => {
     it("Should be able to get and return the contract's portal contract address", async () => {
       const portalContractAddress = EthAddress.random();
-      const aztecAddressToQuery = AztecAddress.random();
 
       // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'get_portal_contract_address');
-      artifact.returnTypes = [{ kind: 'field' }];
 
-      const args = [aztecAddressToQuery.toField()];
+      const args: Fr[] = [];
 
-      // Overwrite the oracle return value
-      oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
-      const result = await runSimulator({ artifact, args });
-      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
+      const result = await runSimulator({ artifact, args, portalContractAddress });
+      expect(result.returnValues).toEqual([portalContractAddress.toField()]);
     });
 
     it('this_address should return the current context address', async () => {
@@ -1061,11 +1037,10 @@ describe('Private Execution test suite', () => {
 
       // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'get_this_address');
-      artifact.returnTypes = [{ kind: 'field' }];
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], contractAddress });
-      expect(result.returnValues).toEqual([contractAddress.toField().toBigInt()]);
+      expect(result.returnValues).toEqual([contractAddress.toField()]);
     });
 
     it("this_portal_address should return the current context's portal address", async () => {
@@ -1073,11 +1048,10 @@ describe('Private Execution test suite', () => {
 
       // Tweak the contract artifact so we can extract return values
       const artifact = getFunctionArtifact(TestContractArtifact, 'get_this_portal_address');
-      artifact.returnTypes = [{ kind: 'field' }];
 
       // Overwrite the oracle return value
       const result = await runSimulator({ artifact, args: [], portalContractAddress });
-      expect(result.returnValues).toEqual([portalContractAddress.toField().toBigInt()]);
+      expect(result.returnValues).toEqual([portalContractAddress.toField()]);
     });
   });
 

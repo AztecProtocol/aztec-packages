@@ -3,9 +3,7 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   FunctionData,
-  Gas,
   GasFees,
-  GasSettings,
   GlobalVariables,
   type Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -48,7 +46,6 @@ describe('ACIR public execution simulator', () => {
   let executor: PublicExecutor;
   let header: Header;
 
-  const gasLeft = new Gas(1e9, 1e9, 1e9);
   const globalVariables = GlobalVariables.empty();
 
   beforeEach(() => {
@@ -93,14 +90,11 @@ describe('ACIR public execution simulator', () => {
     CallContext.from({
       storageContractAddress,
       msgSender: AztecAddress.random(),
-      gasLeft,
       portalContractAddress: EthAddress.random(),
       functionSelector: FunctionSelector.empty(),
       isDelegateCall: false,
       isStaticCall: false,
       sideEffectCounter: 0,
-      gasSettings: GasSettings.empty(),
-      transactionFee: Fr.ZERO,
       ...overrides,
     });
 
@@ -148,11 +142,13 @@ describe('ACIR public execution simulator', () => {
         // There should be 2 storage updates, one for the recipient's balance and one for the total supply
         expect(result.contractStorageUpdateRequests).toEqual([
           {
+            contractAddress,
             storageSlot: recipientBalanceStorageSlot,
             newValue: expectedBalance,
             sideEffectCounter: 3,
           },
           {
+            contractAddress,
             storageSlot: totalSupplyStorageSlot,
             newValue: expectedTotalSupply,
             sideEffectCounter: 4,
@@ -165,6 +161,7 @@ describe('ACIR public execution simulator', () => {
         // the updates
         expect(result.contractStorageReads).toEqual([
           {
+            contractAddress,
             storageSlot: isMinterStorageSlot,
             currentValue: isMinter,
             sideEffectCounter: 0,
@@ -223,11 +220,13 @@ describe('ACIR public execution simulator', () => {
 
         expect(result.contractStorageUpdateRequests).toEqual([
           {
+            contractAddress,
             storageSlot: senderStorageSlot,
             newValue: expectedSenderBalance,
             sideEffectCounter: 1, // 1 read (sender balance)
           },
           {
+            contractAddress,
             storageSlot: recipientStorageSlot,
             newValue: expectedRecipientBalance,
             sideEffectCounter: 3, // 1 read (sender balance), 1 write (new sender balance), 1 read (recipient balance)
@@ -392,6 +391,7 @@ describe('ACIR public execution simulator', () => {
       const tokenRecipient = AztecAddress.random();
       let bridgedAmount = 20n;
       let secret = new Fr(1);
+      let leafIndex: bigint;
 
       let crossChainMsgRecipient: AztecAddress | undefined;
       let crossChainMsgSender: EthAddress | undefined;
@@ -405,6 +405,7 @@ describe('ACIR public execution simulator', () => {
       beforeEach(() => {
         bridgedAmount = 20n;
         secret = new Fr(1);
+        leafIndex = 0n;
 
         crossChainMsgRecipient = undefined;
         crossChainMsgSender = undefined;
@@ -418,7 +419,7 @@ describe('ACIR public execution simulator', () => {
           secret,
         );
 
-      const computeArgs = () => encodeArguments(mintPublicArtifact, [tokenRecipient, bridgedAmount, secret]);
+      const computeArgs = () => encodeArguments(mintPublicArtifact, [tokenRecipient, bridgedAmount, secret, leafIndex]);
 
       const computeCallContext = () =>
         makeCallContext(contractAddress, {
@@ -450,7 +451,7 @@ describe('ACIR public execution simulator', () => {
           root = pedersenHash([root, sibling]);
         }
         commitmentsDb.getL1ToL2MembershipWitness.mockImplementation(() => {
-          return Promise.resolve(new MessageLoadOracleInputs(0n, siblingPath));
+          return Promise.resolve(new MessageLoadOracleInputs(leafIndex, siblingPath));
         });
 
         if (updateState) {

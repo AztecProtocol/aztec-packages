@@ -1,5 +1,6 @@
 import {
   MerkleTreeId,
+  type ProcessReturnValues,
   type PublicKernelRequest,
   type SimulationError,
   type Tx,
@@ -26,6 +27,7 @@ import {
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
   MembershipWitness,
   type PrivateKernelTailCircuitPublicInputs,
   type Proof,
@@ -47,13 +49,6 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
-import {
-  type AbiType,
-  type DecodedReturn,
-  type FunctionArtifact,
-  type ProcessReturnValues,
-  decodeReturnValues,
-} from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -236,12 +231,10 @@ export abstract class AbstractPhaseManager {
     // separate public callstacks to be proven by separate public kernel sequences
     // and submitted separately to the base rollup?
 
-    const returns = [];
+    let returns: ProcessReturnValues = undefined;
 
     for (const enqueuedCall of enqueuedCalls) {
       const executionStack: (PublicExecution | PublicExecutionResult)[] = [enqueuedCall];
-
-      let currentReturn: DecodedReturn | undefined = undefined;
 
       // Keep track of which result is for the top/enqueued call
       let enqueuedExecutionResult: PublicExecutionResult | undefined;
@@ -301,21 +294,12 @@ export abstract class AbstractPhaseManager {
 
         if (!enqueuedExecutionResult) {
           enqueuedExecutionResult = result;
-
-          // TODO(#5450) Need to use the proper return values here
-          const returnTypes: AbiType[] = [
-            { kind: 'array', length: result.returnValues.length, type: { kind: 'field' } },
-          ];
-          const mockArtifact = { returnTypes } as any as FunctionArtifact;
-
-          currentReturn = decodeReturnValues(mockArtifact, result.returnValues);
+          returns = result.returnValues;
         }
       }
       // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
       patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!, this.phase);
-
-      returns.push(currentReturn);
     }
 
     // TODO(#3675): This should be done in a public kernel circuit
@@ -375,8 +359,6 @@ export abstract class AbstractPhaseManager {
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     );
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-    const unencryptedLogsHash = Fr.fromBuffer(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
     return PublicCircuitPublicInputs.from({
@@ -410,12 +392,19 @@ export abstract class AbstractPhaseManager {
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStackHashes,
-      unencryptedLogsHash,
+      unencryptedLogsHashes: padArrayEnd(
+        result.unencryptedLogsHashes,
+        SideEffect.empty(),
+        MAX_UNENCRYPTED_LOGS_PER_CALL,
+      ),
       unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
       // TODO(@just-mitch): need better mapping from simulator to revert code.
       revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
-      gasLeft: Gas.from(result.gasLeft),
+      // TODO(palla/gas): Set proper values
+      startGasLeft: Gas.test(),
+      endGasLeft: Gas.test(),
+      transactionFee: Fr.ZERO,
     });
   }
 
@@ -518,29 +507,9 @@ function patchPublicStorageActionOrdering(
   // so the returned result will be a subset of the public kernel output.
 
   const simPublicDataReads = collectPublicDataReads(execResult);
-  // verify that each read is in the kernel output
-  for (const read of simPublicDataReads) {
-    if (!publicDataReads.find(item => item.equals(read))) {
-      throw new Error(
-        `Public data reads from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataReads
-          .map(p => p.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel: ${publicDataReads.map(i => i.toFriendlyJSON()).join(', ')}`,
-      );
-    }
-  }
 
   const simPublicDataUpdateRequests = collectPublicDataUpdateRequests(execResult);
-  for (const update of simPublicDataUpdateRequests) {
-    if (!publicDataUpdateRequests.find(item => item.equals(update))) {
-      throw new Error(
-        `Public data update requests from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataUpdateRequests
-          .map(p => p.toFriendlyJSON())
-          .join(', ')}\nFrom public kernel revertible: ${publicDataUpdateRequests
-          .map(i => i.toFriendlyJSON())
-          .join(', ')}`,
-      );
-    }
-  }
+
   // We only want to reorder the items from the public inputs of the
   // most recently processed top/enqueued call.
 

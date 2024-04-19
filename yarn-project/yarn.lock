@@ -103,7 +103,6 @@ __metadata:
     debug: ^4.3.4
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
-    lmdb: ^2.9.2
     lodash.groupby: ^4.6.0
     lodash.omit: ^4.5.0
     ts-node: ^10.9.1
@@ -556,7 +555,7 @@ __metadata:
     "@types/node": ^18.7.23
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
-    lmdb: ^2.9.2
+    lmdb: ^3.0.6
     ts-node: ^10.9.1
     typescript: ^5.0.4
   languageName: unknown
@@ -607,6 +606,7 @@ __metadata:
     "@types/jest": ^29.5.0
     "@types/lodash.camelcase": ^4.3.7
     "@types/lodash.capitalize": ^4.2.7
+    "@types/lodash.uniqby": ^4.7.9
     "@types/node": ^18.7.23
     "@types/pako": ^2.0.0
     "@types/semver": ^7.5.4
@@ -616,6 +616,7 @@ __metadata:
     jest: ^29.5.0
     lodash.camelcase: ^4.3.0
     lodash.capitalize: ^4.2.1
+    lodash.uniqby: ^4.7.0
     memfs: ^4.6.0
     pako: ^2.1.0
     semver: ^7.5.4
@@ -2563,44 +2564,44 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-darwin-arm64@npm:2.9.2":
-  version: 2.9.2
-  resolution: "@lmdb/lmdb-darwin-arm64@npm:2.9.2"
+"@lmdb/lmdb-darwin-arm64@npm:3.0.6":
+  version: 3.0.6
+  resolution: "@lmdb/lmdb-darwin-arm64@npm:3.0.6"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-darwin-x64@npm:2.9.2":
-  version: 2.9.2
-  resolution: "@lmdb/lmdb-darwin-x64@npm:2.9.2"
+"@lmdb/lmdb-darwin-x64@npm:3.0.6":
+  version: 3.0.6
+  resolution: "@lmdb/lmdb-darwin-x64@npm:3.0.6"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-linux-arm64@npm:2.9.2":
-  version: 2.9.2
-  resolution: "@lmdb/lmdb-linux-arm64@npm:2.9.2"
+"@lmdb/lmdb-linux-arm64@npm:3.0.6":
+  version: 3.0.6
+  resolution: "@lmdb/lmdb-linux-arm64@npm:3.0.6"
   conditions: os=linux & cpu=arm64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-linux-arm@npm:2.9.2":
-  version: 2.9.2
-  resolution: "@lmdb/lmdb-linux-arm@npm:2.9.2"
+"@lmdb/lmdb-linux-arm@npm:3.0.6":
+  version: 3.0.6
+  resolution: "@lmdb/lmdb-linux-arm@npm:3.0.6"
   conditions: os=linux & cpu=arm
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-linux-x64@npm:2.9.2":
-  version: 2.9.2
-  resolution: "@lmdb/lmdb-linux-x64@npm:2.9.2"
+"@lmdb/lmdb-linux-x64@npm:3.0.6":
+  version: 3.0.6
+  resolution: "@lmdb/lmdb-linux-x64@npm:3.0.6"
   conditions: os=linux & cpu=x64
   languageName: node
   linkType: hard
 
-"@lmdb/lmdb-win32-x64@npm:2.9.2":
-  version: 2.9.2
-  resolution: "@lmdb/lmdb-win32-x64@npm:2.9.2"
+"@lmdb/lmdb-win32-x64@npm:3.0.6":
+  version: 3.0.6
+  resolution: "@lmdb/lmdb-win32-x64@npm:3.0.6"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
@@ -3631,6 +3632,15 @@ __metadata:
   dependencies:
     "@types/lodash": "*"
   checksum: 452374b3db98bb805e77b3a53955aa76c1e78a7d48c400b08d48b6424ed9328ad826d98364b82506ea2756089320503d3a5797a1456bcdac11451763be536e62
+  languageName: node
+  linkType: hard
+
+"@types/lodash.uniqby@npm:^4.7.9":
+  version: 4.7.9
+  resolution: "@types/lodash.uniqby@npm:4.7.9"
+  dependencies:
+    "@types/lodash": "*"
+  checksum: 24cc8af36e0d4c52b7294c7ba7d814c89ce2c8118d94350bbed21031fef850fa1a280bfd2b30a47e0b5f7aa6ac649a36a5089aa76bc23787963a5ee6443f631e
   languageName: node
   linkType: hard
 
@@ -9674,16 +9684,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lmdb@npm:^2.9.2":
-  version: 2.9.2
-  resolution: "lmdb@npm:2.9.2"
+"lmdb@npm:^3.0.6":
+  version: 3.0.6
+  resolution: "lmdb@npm:3.0.6"
   dependencies:
-    "@lmdb/lmdb-darwin-arm64": 2.9.2
-    "@lmdb/lmdb-darwin-x64": 2.9.2
-    "@lmdb/lmdb-linux-arm": 2.9.2
-    "@lmdb/lmdb-linux-arm64": 2.9.2
-    "@lmdb/lmdb-linux-x64": 2.9.2
-    "@lmdb/lmdb-win32-x64": 2.9.2
+    "@lmdb/lmdb-darwin-arm64": 3.0.6
+    "@lmdb/lmdb-darwin-x64": 3.0.6
+    "@lmdb/lmdb-linux-arm": 3.0.6
+    "@lmdb/lmdb-linux-arm64": 3.0.6
+    "@lmdb/lmdb-linux-x64": 3.0.6
+    "@lmdb/lmdb-win32-x64": 3.0.6
     msgpackr: ^1.9.9
     node-addon-api: ^6.1.0
     node-gyp: latest
@@ -9705,7 +9715,7 @@ __metadata:
       optional: true
   bin:
     download-lmdb-prebuilds: bin/download-prebuilds.js
-  checksum: b2471c4d2c36f15a27233ae1eece86fcbb40613574ec54245cf697b16b1b35c70c72e4092dc739407df145f14b7c1b6b56c4281a439c314e79a5338df8b2b63b
+  checksum: e8ab5bbef94e254ec1fa85deec251c4b34047786c87f54abd842cd12c3f29d55f62828512a4b69046075a624a25b2327e232072be702a68fcb3d8183e0175cca
   languageName: node
   linkType: hard
 
@@ -9841,6 +9851,13 @@ __metadata:
   version: 4.3.2
   resolution: "lodash.times@npm:4.3.2"
   checksum: d26a9022e025d6061d356d3098fd80cdc062e7bf896bbbb56e643b2ae39156bf19b6167a4b046aa924b6d572a1e717853e552342ce34016fc5183308e329b575
+  languageName: node
+  linkType: hard
+
+"lodash.uniqby@npm:^4.7.0":
+  version: 4.7.0
+  resolution: "lodash.uniqby@npm:4.7.0"
+  checksum: 659264545a95726d1493123345aad8cbf56e17810fa9a0b029852c6d42bc80517696af09d99b23bef1845d10d95e01b8b4a1da578f22aeba7a30d3e0022a4938
   languageName: node
   linkType: hard
 

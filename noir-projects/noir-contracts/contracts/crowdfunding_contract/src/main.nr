@@ -1,13 +1,11 @@
 contract Crowdfunding {
-    mod interfaces;
 
     use dep::aztec::{
-        log::emit_unencrypted_log_from_private,
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize},
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
     };
     use dep::value_note::value_note::ValueNote;
-    use interfaces::Token;
+    use dep::token::Token;
 
     #[aztec(event)]
     struct WithdrawalProcessed {
@@ -51,21 +49,15 @@ contract Crowdfunding {
     #[aztec(private)]
     fn donate(amount: u64) {
         // 1) Check that the deadline has not passed
-        context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("_check_deadline()"),
-            []
-        );
+        Crowdfunding::at(context.this_address())._check_deadline().enqueue(&mut context);
 
         // 2) Transfer the donation tokens from donor to this contract
-        let donation_token = Token::at(storage.donation_token.read_private());
-        donation_token.transfer(
-            &mut context,
+        Token::at(storage.donation_token.read_private()).transfer(
             context.msg_sender(),
             context.this_address(),
             amount as Field,
             0
-        );
+        ).call(&mut context);
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
@@ -81,17 +73,10 @@ contract Crowdfunding {
         assert(context.msg_sender() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
-        let donation_token = Token::at(storage.donation_token.read_private());
-        donation_token.transfer(
-            &mut context,
-            context.this_address(),
-            operator_address,
-            amount as Field,
-            0
-        );
+        Token::at(storage.donation_token.read_private()).transfer(context.this_address(), operator_address, amount as Field, 0).call(&mut context);
 
         // 3) Emit an unencrypted event so that anyone can audit how much the operator has withdrawn
         let event = WithdrawalProcessed { amount, who: operator_address };
-        emit_unencrypted_log_from_private(&mut context, event.serialize());
+        context.emit_unencrypted_log(event.serialize());
     }
 }
