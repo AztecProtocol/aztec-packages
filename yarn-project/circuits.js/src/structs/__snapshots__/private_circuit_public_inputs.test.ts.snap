@@ -1,5 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`PrivateCircuitPublicInputs computes empty inputs hash 1`] = `Fr<0x1a8a79ded7551b8db7d9eb1a9abbe68dda39b6ad6df89ee83dddf5c38a1fcebb>`;
+exports[`PrivateCircuitPublicInputs computes empty inputs hash 1`] = `Fr<0x0a61fd8a00a3d160e723b316437484bf643f8ed7952031e493717e1f0f1f9345>`;
 
-exports[`PrivateCircuitPublicInputs hash matches snapshot 1`] = `Fr<0x03be42efae6aa9e6c9cc47da7a33db2c6ae89524cf0f170034380615c41db547>`;
+exports[`PrivateCircuitPublicInputs hash matches snapshot 1`] = `Fr<0x16cda30b8402ab87d4892f801a91868ec9571748441c6e4abc796d17418bd1cc>`;
