@@ -858,7 +858,6 @@ workflows:
           requires:
             - end-to-end
             - aztec-package
-            - cli
           <<: *defaults
 
       # Everything that must complete before deployment.
