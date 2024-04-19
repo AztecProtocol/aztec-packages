@@ -77,7 +77,12 @@ export {
 
 export { computeMessageSecretHash } from '@aztec/circuits.js/hash';
 
-export { deriveKeys, deriveMasterIncomingViewingSecretKey } from '@aztec/circuits.js/keys';
+export {
+  computeAppNullifierSecretKey,
+  deriveKeys,
+  deriveMasterIncomingViewingSecretKey,
+  deriveMasterNullifierSecretKey,
+} from '@aztec/circuits.js/keys';
 
 export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
