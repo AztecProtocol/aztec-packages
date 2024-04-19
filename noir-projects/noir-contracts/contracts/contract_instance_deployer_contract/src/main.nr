@@ -59,6 +59,6 @@ contract ContractInstanceDeployer {
 
     #[aztec(private)]
     fn foo() -> pub Field {
-        1
+        2
     }
 }
