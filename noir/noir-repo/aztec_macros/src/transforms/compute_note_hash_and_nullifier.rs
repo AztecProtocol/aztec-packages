@@ -1,7 +1,7 @@
 use noirc_errors::{Location, Span};
 use noirc_frontend::{
     graph::CrateId,
-    macros_api::{FileId, HirContext},
+    macros_api::{FileId, HirContext, HirExpression, HirLiteral},
     parse_program, FunctionReturnType, NoirFunction, Type, UnresolvedTypeData,
 };
 
@@ -69,8 +69,39 @@ pub fn inject_compute_note_hash_and_nullifier(
         let mut note_types = vec![];
         let mut note_lengths = vec![];
 
+        let max_note_length_const = context
+            .def_interner
+            .get_all_globals()
+            .iter()
+            .find_map(|global_info| {
+                if global_info.ident.0.contents == "MAX_NOTE_FIELDS_LENGTH" {
+                    let stmt = context.def_interner.get_global_let_statement(global_info.id);
+                    if let Some(let_stmt) = stmt {
+                        let expression = context.def_interner.expression(&let_stmt.expression);
+                        match expression {
+                            HirExpression::Literal(HirLiteral::Integer(value, _)) => {
+                                Some(value.to_u128())
+                            }
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .ok_or((
+                AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
+                    secondary_message: Some(
+                        "Failed to find MAX_NOTE_FIELDS_LENGTH constant".to_string(),
+                    ),
+                },
+                file_id,
+            ))?;
+
         for (path, typ) in fetch_notes(context) {
-            let serialized_len = get_serialized_length(
+            let serialized_len: u128 = get_serialized_length(
                 &traits,
                 "NoteInterface",
                 &Type::Struct(typ.clone(), vec![]),
@@ -86,12 +117,28 @@ pub fn inject_compute_note_hash_and_nullifier(
                     },
                     file_id,
                 )
-            })?;
+            })?
+            .into();
+
+            if serialized_len > max_note_length_const {
+                return Err((
+                   AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
+                        secondary_message: Some(format!(
+                            "Note type {} as {} fields, which is more than the maximum allowed length of {}.",
+                            path,
+                            serialized_len,
+                            max_note_length_const
+                        )),
+                    },
+                    file_id,
+                ));
+            }
+
             note_types.push(path.to_string());
             note_lengths.push(serialized_len);
         }
 
-        let max_note_length = *note_lengths.iter().max().unwrap_or(&0);
+        let max_note_length: u128 = *note_lengths.iter().max().unwrap_or(&0);
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
         let func = generate_compute_note_hash_and_nullifier(&note_types, max_note_length);
@@ -116,7 +163,7 @@ pub fn inject_compute_note_hash_and_nullifier(
 
 fn generate_compute_note_hash_and_nullifier(
     note_types: &[String],
-    max_note_length: u64,
+    max_note_length: u128,
 ) -> NoirFunction {
     let function_source =
         generate_compute_note_hash_and_nullifier_source(note_types, max_note_length);
@@ -133,7 +180,7 @@ fn generate_compute_note_hash_and_nullifier(
 
 fn generate_compute_note_hash_and_nullifier_source(
     note_types: &[String],
-    max_note_length: u64,
+    max_note_length: u128,
 ) -> String {
     // TODO(#4649): The serialized_note parameter is a fixed-size array, but we don't know what length it should have.
     // For now we hardcode it to 20, which is the same as MAX_NOTE_FIELDS_LENGTH.
