@@ -214,11 +214,13 @@ fn get_serialized_length(
             secondary_message: Some("State storage variable must be generic".to_string()),
         })?;
 
-    let is_note = traits.iter().any(|&trait_id| {
-        let r#trait = interner.get_trait(trait_id);
-        r#trait.name.0.contents == "NoteInterface"
-            && !interner.lookup_all_trait_implementations(stored_in_state, trait_id).is_empty()
-    });
+    let is_note = match stored_in_state {
+        Type::Struct(typ, _) => interner
+            .struct_attributes(&typ.borrow().id)
+            .iter()
+            .any(|attr| is_custom_attribute(attr, "aztec(note)")),
+        _ => false,
+    };
 
     // Maps and (private) Notes always occupy a single slot. Someone could store a Note in PublicMutable for whatever reason though.
     if struct_name == "Map" || (is_note && struct_name != "PublicMutable") {
@@ -504,7 +506,7 @@ pub fn generate_storage_layout(
     let (struct_ast, errors) = parse_program(&storage_fields_source);
     if !errors.is_empty() {
         dbg!(errors);
-        return Err(AztecMacroError::CouldNotImplementNoteInterface {
+        return Err(AztecMacroError::CouldNotExportStorageLayout {
             secondary_message: Some("Failed to parse Noir macro code (struct StorageLayout). This is either a bug in the compiler or the Noir macro code".to_string()),
             span: None
         });
