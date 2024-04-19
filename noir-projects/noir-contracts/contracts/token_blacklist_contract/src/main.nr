@@ -1,15 +1,12 @@
 mod types;
 
-// Minimal token implementation that supports `AuthWit` accounts and the slow update tree.
+// Minimal token implementation that supports `AuthWit` accounts and SharedMutable variables.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
 // The designated caller is ALWAYS used here, and not based on a flag as cross-chain.
 // message hash = H([caller, contract, selector, ...args])
 // To be read as `caller` calls function at `contract` defined by `selector` with `args`
 // Including a nonce in the message hash ensures that the message can only be used once.
-// The slow updates tree are used for access control related to minters and blacklist.
-
-// TODO's: https://github.com/AztecProtocol/aztec-packages/issues/3210
-// We are currently unable to do constructor -> private calls
+// The SharedMutables are used for access control related to minters and blacklist.
 
 contract TokenBlacklist {
     // Libs
