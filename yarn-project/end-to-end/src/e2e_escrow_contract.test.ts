@@ -8,8 +8,9 @@ import {
   Note,
   type PXE,
   computeMessageSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
-import { computePartialAddress, deriveKeys } from '@aztec/circuits.js';
+import { computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 

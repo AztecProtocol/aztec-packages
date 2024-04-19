@@ -13,6 +13,7 @@ import {
   TxStatus,
   type Wallet,
   computeMessageSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
 import {
   type AztecAddress,
@@ -20,7 +21,6 @@ import {
   DimensionGasSettings,
   Fq,
   GasSettings,
-  deriveKeys,
 } from '@aztec/circuits.js';
 import {
   TokenContract as BananaCoin,

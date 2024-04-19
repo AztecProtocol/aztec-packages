@@ -9,8 +9,9 @@ import {
   type PXE,
   type TxHash,
   computeMessageSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
-import { computePartialAddress, deriveKeys } from '@aztec/circuits.js';
+import { computePartialAddress } from '@aztec/circuits.js';
 import { InclusionProofsContract } from '@aztec/noir-contracts.js';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';

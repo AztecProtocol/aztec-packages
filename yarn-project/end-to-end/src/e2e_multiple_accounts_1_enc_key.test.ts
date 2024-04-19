@@ -11,8 +11,8 @@ import {
   type PXE,
   type Wallet,
   computeMessageSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
-import { deriveKeys } from '@aztec/circuits.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
