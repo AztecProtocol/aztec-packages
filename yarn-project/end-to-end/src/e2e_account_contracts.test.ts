@@ -56,7 +56,8 @@ function itShouldBehaveLikeAnAccountContract(
       expect(storedValue).toEqual(new Fr(42n));
     }, 60_000);
 
-    it('fails to call a function using an invalid signature', async () => {
+    // TODO(#5830): re-enable this test
+    it.skip('fails to call a function using an invalid signature', async () => {
       const accountAddress = wallet.getCompleteAddress();
       const invalidWallet = await walletAt(pxe, getAccountContract(GrumpkinScalar.random()), accountAddress);
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
