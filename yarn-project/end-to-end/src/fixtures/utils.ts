@@ -48,9 +48,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
-
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-
 import { type SequencerClient } from '@aztec/sequencer-client';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -611,8 +609,8 @@ export async function deployCanonicalKeyRegistry(deployer: Wallet) {
     (await registerContractClass(deployer, canonicalKeyRegistry.artifact)).request(),
     deployInstance(deployer, canonicalKeyRegistry.instance).request(),
   ])
-  .send()
-  .wait();
+    .send()
+    .wait();
 
   await expect(deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalKeyRegistry.instance.address)).resolves.toBeDefined();

@@ -2,11 +2,11 @@ import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js'
 import { GeneratorIndex } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
+import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 import { jest } from '@jest/globals';
 
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 const TIMEOUT = 100_000;
 

@@ -7,6 +7,7 @@ import { initStoreForRollup } from '@aztec/kv-store/utils';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
+import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointContract } from '@aztec/protocol-contracts/multi-call-entrypoint';
 
 import { join } from 'path';
@@ -14,7 +15,6 @@ import { join } from 'path';
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { PXEService } from './pxe_service.js';
-import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 
 /**
  * Create and start an PXEService instance with the given AztecNode.

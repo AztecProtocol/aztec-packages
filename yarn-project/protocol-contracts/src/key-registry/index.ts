@@ -1,4 +1,5 @@
 import { type AztecAddress } from '@aztec/circuits.js';
+
 import { type ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
 import { KeyRegistryArtifact } from './artifact.js';
 
