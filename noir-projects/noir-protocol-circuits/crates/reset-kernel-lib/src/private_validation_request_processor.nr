@@ -1,3 +1,4 @@
+use dep::std::hash::poseidon2::Poseidon2::hash as poseidon2_hash;
 use crate::{nullifier_read_request_reset::NullifierReadRequestHints, reset::read_request::reset_read_requests};
 use dep::types::{
     abis::{side_effect::{SideEffect, SideEffectLinkedToNoteHash}, validation_requests::ValidationRequests},
@@ -62,20 +63,19 @@ impl PrivateValidationRequestProcessor {
             let request = requests[i];
             if !is_empty(request) {
                 let master_nullifier_secret_key = self.master_nullifier_secret_keys[i];
-                // First we check that derived public key matches master nullifier public key
-                let derived_nullifier_public_key = master_nullifier_secret_key.derive_public_key();
+                // First we check that derived public key matches master nullifier public key from request
+                let master_nullifier_public_key = master_nullifier_secret_key.derive_public_key();
                 assert(
-                    derived_nullifier_public_key.eq(request.master_nullifier_public_key), "Cannot derive master nullifier public key from the secret key."
+                    master_nullifier_public_key.eq(request.master_nullifier_public_key), "Failed to derive matching master nullifier public key from the secret key."
                 );
 
-                // Then we check that siloing the master secret key with the contract address gives the app secret key
-
+                // Then we check that siloing the master secret key with the contract address gives the app nullifier secret key
                 let app_nullifier_secret_key_preimage = [
                     master_nullifier_secret_key.high, master_nullifier_secret_key.low, request.contract_address.to_field(), GENERATOR_INDEX__NSK_M
                 ];
-                let derived_app_nullifier_secret_key = dep::std::hash::poseidon2::Poseidon2::hash(app_nullifier_secret_key_preimage, app_nullifier_secret_key_preimage.len());
+                let app_nullifier_secret_key = poseidon2_hash(app_nullifier_secret_key_preimage, app_nullifier_secret_key_preimage.len());
                 assert(
-                    derived_app_nullifier_secret_key.eq(request.app_nullifier_secret_key), "Cannot derive app nullifier secret key from the secret key."
+                    app_nullifier_secret_key.eq(request.app_nullifier_secret_key), "Failed to derive matching app nullifier secret key from the secret key."
                 );
             }
         }

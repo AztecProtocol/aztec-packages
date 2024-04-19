@@ -70,7 +70,7 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @param accountAddress - The account address.
    * @param contractAddress - The contract address.
-   * @returns A Promise that resolves to the nullifier key pair.
+   * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
   getNullifierKeys(accountAddress: AztecAddress, contractAddress: AztecAddress): Promise<NullifierKeys>;

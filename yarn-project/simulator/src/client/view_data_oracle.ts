@@ -14,7 +14,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-import { type NoteData, TypedOracle } from '../acvm/index.js';
+import { type NoteData, type NullifierKeys, TypedOracle } from '../acvm/index.js';
 import { type DBOracle } from './db_oracle.js';
 import { pickNotes } from './pick_notes.js';
 
@@ -38,11 +38,10 @@ export class ViewDataOracle extends TypedOracle {
    * Retrieve nullifier keys associated with a specific account and app/contract address.
    *
    * @param accountAddress - The account address.
-   * @param contractAddress - The contract address.
-   * @returns A Promise that resolves to the nullifier key pair.
+   * @returns A Promise that resolves to nullifier keys of a requested account and contract.
    * @throws An error if the account is not registered in the database.
    */
-  public override getNullifierKeys(account: AztecAddress) {
+  public override getNullifierKeys(account: AztecAddress): Promise<NullifierKeys> {
     return this.db.getNullifierKeys(account, this.contractAddress);
   }
 

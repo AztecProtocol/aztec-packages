@@ -33,6 +33,7 @@ export class CompleteAddress {
 
   static create(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialAddress) {
     const completeAddress = new CompleteAddress(address, publicKey, partialAddress);
+    // TODO(#5834): re-enable validation
     // completeAddress.validate();
     return completeAddress;
   }

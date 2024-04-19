@@ -30,7 +30,7 @@ export async function addContract(
     initializationHash,
     contractClassId: getContractClassFromArtifact(artifact).id,
     portalContractAddress: portalContract ?? EthAddress.ZERO,
-    publicKeysHash: publicKeysHash ?? Fr.ZERO,
+    publicKeysHash: publicKeysHash ?? Fr.ZERO, // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5862)
     address,
     deployer: deployer ?? AztecAddress.ZERO,
   };
