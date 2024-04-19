@@ -114,7 +114,6 @@ RUN apt update && \
         software-properties-common \
         gnupg \
         htop \
-        parallel \
         cgroup-tools \
         neovim \
         sudo \
