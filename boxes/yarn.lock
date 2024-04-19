@@ -151,30 +151,6 @@ __metadata:
   languageName: node
   linkType: soft
 
-"@aztec/noir-compiler@npm:^0.35.1, @aztec/noir-compiler@npm:latest":
-  version: 0.35.1
-  resolution: "@aztec/noir-compiler@npm:0.35.1"
-  dependencies:
-    "@aztec/circuits.js": "npm:0.35.1"
-    "@aztec/foundation": "npm:0.35.1"
-    "@aztec/types": "npm:0.35.1"
-    "@iarna/toml": "npm:^2.2.5"
-    base64-js: "npm:^1.5.1"
-    commander: "npm:^9.0.0"
-    fs-extra: "npm:^11.1.1"
-    lodash.camelcase: "npm:^4.3.0"
-    lodash.capitalize: "npm:^4.2.1"
-    memfs: "npm:^4.6.0"
-    pako: "npm:^2.1.0"
-    semver: "npm:^7.5.4"
-    tslib: "npm:^2.4.0"
-    unzipit: "npm:^1.4.3"
-  bin:
-    aztec-compile: dest/cli.js
-  checksum: 10c0/1d64770e21be35e187823e390f2b5dc3a74a475d4d45bbb8be073f12f3a6018d890e4d2afee6b5feee7463c1f58680530d259b90dae0acb6cb068702dd3886c2
-  languageName: node
-  linkType: hard
-
 "@aztec/protocol-contracts@portal:../yarn-project/protocol-contracts::locator=create-aztec-app%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/protocol-contracts@portal:../yarn-project/protocol-contracts::locator=create-aztec-app%40workspace%3A."
@@ -193,7 +169,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@aztec/noir-compiler": "npm:latest"
     "@playwright/test": "npm:1.42.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^20.5.9"
@@ -255,7 +230,6 @@ __metadata:
   dependencies:
     "@aztec/accounts": "npm:latest"
     "@aztec/aztec.js": "npm:latest"
-    "@aztec/noir-compiler": "npm:^0.35.1"
     "@playwright/test": "npm:1.42.0"
     "@types/node": "npm:^20.11.17"
     copy-webpack-plugin: "npm:^11.0.0"
@@ -2744,7 +2718,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"base64-js@npm:^1.3.1, base64-js@npm:^1.5.1":
+"base64-js@npm:^1.3.1":
   version: 1.5.1
   resolution: "base64-js@npm:1.5.1"
   checksum: 10c0/f23823513b63173a001030fae4f2dabe283b99a9d324ade3ad3d148e218134676f1ee8568c877cd79ec1c53158dcf2d2ba527a97c606618928ba99dd930102bf
@@ -3455,13 +3429,6 @@ __metadata:
   version: 8.3.0
   resolution: "commander@npm:8.3.0"
   checksum: 10c0/8b043bb8322ea1c39664a1598a95e0495bfe4ca2fad0d84a92d7d1d8d213e2a155b441d2470c8e08de7c4a28cf2bc6e169211c49e1b21d9f7edc6ae4d9356060
-  languageName: node
-  linkType: hard
-
-"commander@npm:^9.0.0":
-  version: 9.5.0
-  resolution: "commander@npm:9.5.0"
-  checksum: 10c0/5f7784fbda2aaec39e89eb46f06a999e00224b3763dc65976e05929ec486e174fe9aac2655f03ba6a5e83875bd173be5283dc19309b7c65954701c02025b3c1d
   languageName: node
   linkType: hard
 
@@ -5039,17 +5006,6 @@ __metadata:
     jsonfile: "npm:^6.0.1"
     universalify: "npm:^2.0.0"
   checksum: 10c0/5f579466e7109719d162a9249abbeffe7f426eb133ea486e020b89bc6d67a741134076bf439983f2eb79276ceaf6bd7b7c1e43c3fd67fe889863e69072fb0a5e
-  languageName: node
-  linkType: hard
-
-"fs-extra@npm:^11.1.1":
-  version: 11.2.0
-  resolution: "fs-extra@npm:11.2.0"
-  dependencies:
-    graceful-fs: "npm:^4.2.0"
-    jsonfile: "npm:^6.0.1"
-    universalify: "npm:^2.0.0"
-  checksum: 10c0/d77a9a9efe60532d2e790e938c81a02c1b24904ef7a3efb3990b835514465ba720e99a6ea56fd5e2db53b4695319b644d76d5a0e9988a2beef80aa7b1da63398
   languageName: node
   linkType: hard
 
@@ -7276,20 +7232,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lodash.camelcase@npm:^4.3.0":
-  version: 4.3.0
-  resolution: "lodash.camelcase@npm:4.3.0"
-  checksum: 10c0/fcba15d21a458076dd309fce6b1b4bf611d84a0ec252cb92447c948c533ac250b95d2e00955801ebc367e5af5ed288b996d75d37d2035260a937008e14eaf432
-  languageName: node
-  linkType: hard
-
-"lodash.capitalize@npm:^4.2.1":
-  version: 4.2.1
-  resolution: "lodash.capitalize@npm:4.2.1"
-  checksum: 10c0/b289326497c2e24d6b8afa2af2ca4e068ef6ef007ade36bfb6f70af77ce10ea3f090eeee947d5fdcf2db4bcfa4703c8c10a5857a2b39e308bddfd1d11ad35970
-  languageName: node
-  linkType: hard
-
 "lodash.chunk@npm:^4.2.0":
   version: 4.2.0
   resolution: "lodash.chunk@npm:4.2.0"
@@ -7565,15 +7507,6 @@ __metadata:
   dependencies:
     fs-monkey: "npm:^1.0.4"
   checksum: 10c0/038fc81bce17ea92dde15aaa68fa0fdaf4960c721ce3ffc7c2cb87a259333f5159784ea48b3b72bf9e054254d9d0d0d5209d0fdc3d07d08653a09933b168fbd7
-  languageName: node
-  linkType: hard
-
-"memfs@npm:^4.6.0":
-  version: 4.8.2
-  resolution: "memfs@npm:4.8.2"
-  dependencies:
-    tslib: "npm:^2.0.0"
-  checksum: 10c0/8880e7ebfb3aa26abe42b245dd87ba1d20de96713fdcc4d71dcc1dc4cddeba45e1f3f5da5571c2db179c657a09e38e0003f45eead3aa3e669a237559a0e70000
   languageName: node
   linkType: hard
 
@@ -10809,15 +10742,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"unzipit@npm:^1.4.3":
-  version: 1.4.3
-  resolution: "unzipit@npm:1.4.3"
-  dependencies:
-    uzip-module: "npm:^1.0.2"
-  checksum: 10c0/6f710615aaafb6283d5f489950e54d158deaa1c8757ba486d98ddc76f3ae3b7eab24cd24017185dd5f4edcd2df43b04431bca009538d4116c60229b60db8dd3b
-  languageName: node
-  linkType: hard
-
 "update-browserslist-db@npm:^1.0.13":
   version: 1.0.13
   resolution: "update-browserslist-db@npm:1.0.13"
@@ -10891,13 +10815,6 @@ __metadata:
   bin:
     uuid: dist/bin/uuid
   checksum: 10c0/bcbb807a917d374a49f475fae2e87fdca7da5e5530820ef53f65ba1d12131bd81a92ecf259cc7ce317cbe0f289e7d79fdfebcef9bfa3087c8c8a2fa304c9be54
-  languageName: node
-  linkType: hard
-
-"uzip-module@npm:^1.0.2":
-  version: 1.0.3
-  resolution: "uzip-module@npm:1.0.3"
-  checksum: 10c0/206e09cf620aa178e5d8ab20425d1a4f4484de9a86673e8a5913087b7b0febb12d49a22b15574a3c5b0c9d911a0d600c9f51651de2a78ffbc6e0345b8ef3af8d
   languageName: node
   linkType: hard
 

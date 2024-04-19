@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile",
-    "codegen": "yarn aztec-compile codegen src/contracts/target -o artifacts",
+    "codegen": "${AZTEC_CLI:-aztec-cli} codegen src/contracts/target -o artifacts",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
     "dev": "yarn prep && webpack serve --mode development",
@@ -18,8 +18,7 @@
   },
   "dependencies": {
     "@aztec/accounts": "latest",
-    "@aztec/aztec.js": "latest",
-    "@aztec/noir-compiler": "latest"
+    "@aztec/aztec.js": "latest"
   },
   "devDependencies": {
     "@playwright/test": "1.42.0",
