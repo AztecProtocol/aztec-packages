@@ -60,6 +60,10 @@ template <class Flavor> class ProverInstance_ {
         for (auto& poly : proving_key.polynomials.get_unshifted()) {
             poly = Polynomial(dyadic_circuit_size);
         }
+        for (auto [shifted, to_be_shifted] :
+             zip_view(proving_key.polynomials.get_shifted(), proving_key.polynomials.get_to_be_shifted())) {
+            shifted = to_be_shifted.shifted();
+        }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         Trace::populate(circuit, proving_key);

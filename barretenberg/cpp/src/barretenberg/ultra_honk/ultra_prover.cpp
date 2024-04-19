@@ -82,13 +82,15 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof
     // instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
     for (auto [pp_poly, pppk_poly] :
-         zip_view(instance->prover_polynomials.get_unshifted(), instance->proving_key.polynomials.get_unshifted())) {
+         zip_view(instance->prover_polynomials.get_all(), instance->proving_key.polynomials.get_all())) {
         pp_poly = pppk_poly.share();
     }
 
-    for (auto [pp_poly, pppk_poly] :
-         zip_view(instance->prover_polynomials.get_shifted(), instance->proving_key.polynomials.get_to_be_shifted())) {
-        pp_poly = pppk_poly.shifted();
+    size_t idx = 0;
+    for (auto& poly : instance->prover_polynomials.get_all()) {
+        info(idx);
+        info(poly.sumup());
+        idx++;
     }
 
     // Fiat-Shamir: alpha
