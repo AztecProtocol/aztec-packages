@@ -54,8 +54,8 @@ pub fn transform_function(
     }
 
     // Add access to the storage struct
-    if storage_struct_name.is_some() {
-        let storage_def = abstract_storage(storage_struct_name.unwrap(), &ty.to_lowercase(), false);
+    if let Some(storage_struct_name) = storage_struct_name {
+        let storage_def = abstract_storage(storage_struct_name, &ty.to_lowercase(), false);
         func.def.body.statements.insert(0, storage_def);
     }
 

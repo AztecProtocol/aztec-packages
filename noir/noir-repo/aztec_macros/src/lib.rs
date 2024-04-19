@@ -97,8 +97,8 @@ fn transform_module(
     let storage_defined = maybe_storage_struct_name.is_some();
 
     if let Some(ref storage_struct_name) = maybe_storage_struct_name {
-        if !check_for_storage_implementation(module, &storage_struct_name) {
-            generate_storage_implementation(module, &storage_struct_name)?;
+        if !check_for_storage_implementation(module, storage_struct_name) {
+            generate_storage_implementation(module, storage_struct_name)?;
         }
         // Make sure we're only generating the storage layout for the root crate
         // In case we got a contract importing other contracts for their interface, we
