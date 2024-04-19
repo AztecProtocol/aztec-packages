@@ -64,6 +64,14 @@ TEST_F(ECCVMComposerTests, BaseCase)
     bool verified = verifier.verify_proof(proof);
 
     ASSERT_TRUE(verified);
+};
+size_t idx = 0;
+while (idx < 1) {
+    info("\nrun number: ", idx);
+    numeric::get_debug_randomness(/*reset=*/true, { idx });
+    run_test();
+    idx++;
+}
 }
 
 TEST_F(ECCVMComposerTests, EqFails)

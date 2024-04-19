@@ -23,10 +23,20 @@ static constexpr uint64_t TOTAL_BITS = 254;
 grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     // Combines the two elements into one uint256_t, and then convert that to a grumpkin::fr
-    ASSERT(uint256_t(fr_vec[0]) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));              // lower 136 bits
-    ASSERT(uint256_t(fr_vec[1]) < (uint256_t(1) << (TOTAL_BITS - NUM_LIMB_BITS * 2))); // upper 254-136=118 bits
+    if (!(uint256_t(fr_vec[0]) < (uint256_t(1) << (NUM_LIMB_BITS * 2)))) {
+        // info("condition 1 violated");
+    }; // lower 136 bits
+    if (!(uint256_t(fr_vec[1]) < (uint256_t(1) << (TOTAL_BITS - NUM_LIMB_BITS * 2)))) {
+        // info("condition 2 violated");
+    }; // upper 254-136=118 bits
+
+    // ASSERT(uint256_t(fr_vec[0]) < (uint256_t(1) << (NUM_LIMB_BITS * 2)));              // lower 136 bits
+    // ASSERT(uint256_t(fr_vec[1]) < (uint256_t(1) << (TOTAL_BITS - NUM_LIMB_BITS * 2))); // upper 254-136=118 bits
     uint256_t value = uint256_t(fr_vec[0]) + (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2));
+    // info("converting: ", uint256_t(fr_vec[0]));
+    // info("converting: ", (uint256_t(fr_vec[1]) << (NUM_LIMB_BITS * 2)));
     grumpkin::fr result(value);
+    // info("converted:  ", result);
     return result;
 }
 

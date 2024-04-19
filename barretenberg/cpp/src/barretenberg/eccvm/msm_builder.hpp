@@ -43,20 +43,21 @@ class ECCVMMSMMBuilder {
         FF accumulator_y = 0;
     };
 
-    struct alignas(64) MSMRowTranscript {
-        std::array<FF, 4> lambda_numerator;
-        std::array<FF, 4> lambda_denominator;
-        Element accumulator_in;
-        Element accumulator_out;
-    };
+    // WORKTODO: These are both unused?
+    // struct alignas(64) MSMRowTranscript {
+    //     std::array<FF, 4> lambda_numerator;
+    //     std::array<FF, 4> lambda_denominator;
+    //     Element accumulator_in;
+    //     Element accumulator_out;
+    // };
 
-    struct alignas(64) AdditionTrace {
-        Element p1;
-        Element p2;
-        Element p3;
-        bool predicate;
-        bool is_double;
-    };
+    // struct alignas(64) AdditionTrace {
+    //     Element p1;
+    //     Element p2;
+    //     Element p3;
+    //     bool predicate;
+    //     bool is_double;
+    // };
 
     /**
      * @brief Computes the row values for the Straus MSM columns of the ECCVM.
@@ -74,18 +75,20 @@ class ECCVMMSMMBuilder {
                                                    const uint32_t total_number_of_muls,
                                                    const size_t num_msm_rows)
     {
-        // N.B. the following comments refer to a "point lookup table" frequently.
-        // To perform a scalar multiplicaiton of a point [P] by a scalar x, we compute multiples of [P] and store in a
-        // table: specifically: -15[P], -13[P], ..., -3[P], -[P], [P], 3[P], ..., 15[P] when we define our point lookup
-        // table, we have 2 write columns and 4 read columns when we perform a read on a given row, we need to increment
-        // the read count on the respective write column by 1 we can define the following struture: 1st write column =
-        // positive 2nd write column = negative the row number is a function of pc and slice value row = pc_delta *
-        // rows_per_point_table + some function of the slice value pc_delta = total_number_of_muls - pc
-        // std::vector<std::array<size_t, > point_table_read_counts;
-        const size_t table_rows = static_cast<size_t>(total_number_of_muls) * 8;
-        point_table_read_counts[0].reserve(table_rows);
-        point_table_read_counts[1].reserve(table_rows);
-        for (size_t i = 0; i < table_rows; ++i) {
+        // To perform a scalar multiplication of a point [P] by a scalar x, we precompute compute multiples of [P] and
+        // store the values in a table: specifically: -15[P], -13[P], ..., -3[P], -[P], [P], 3[P], ..., 15[P]
+        // When we define our point lookup table, we have 2 write columns and 4 read columns.
+        // When we perform a read on a given row, we need to increment the read count on the respective write column
+        // by 1. We can define the following struture:
+        //   1st write column = positive
+        //   2nd write column = negative
+        // the row number is a function of pc and slice value:
+        //   row = pc_delta * rows_per_point_table + some function of the slice value
+        //   pc_delta = total_number_of_muls - pc
+        const size_t num_table_rows = static_cast<size_t>(total_number_of_muls) * 8; // WORKTODO: Named constant
+        point_table_read_counts[0].reserve(num_table_rows);
+        point_table_read_counts[1].reserve(num_table_rows);
+        for (size_t i = 0; i < num_table_rows; ++i) {
             point_table_read_counts[0].emplace_back(0);
             point_table_read_counts[1].emplace_back(0);
         }
@@ -195,10 +198,12 @@ class ECCVMMSMMBuilder {
         // We create 1 vector to store the entire point trace. We split into multiple containers using std::span
         // (we want 1 vector object to more efficiently batch normalize points)
         std::vector<Element> point_trace(num_points_in_trace);
+        std::fill(point_trace.begin(), point_trace.end(), Element::infinity());
         // the point traces record group operations. Either p1 + p2 = p3, or p1.dbl() = p3
         std::span<Element> p1_trace(&point_trace[0], num_point_adds_and_doubles);
         std::span<Element> p2_trace(&point_trace[num_point_adds_and_doubles], num_point_adds_and_doubles);
-        std::span<Element> p3_trace(&point_trace[num_point_adds_and_doubles * 2], num_point_adds_and_doubles);
+        std::span<Element> p3_trace(&point_trace[num_point_adds_and_doubles * 2],
+                                    num_point_adds_and_doubles); // WORKTODO: this is set but unused?
         // operation_trace records whether an entry in the p1/p2/p3 trace represents a point addition or doubling
         std::vector<bool> operation_trace(num_point_adds_and_doubles);
         // accumulator_trace tracks the value of the ECCVM accumulator for each row
@@ -288,11 +293,11 @@ class ECCVMMSMMBuilder {
                         row.q_double = true;
                         row.q_skew = false;
                         for (size_t m = 0; m < 4; ++m) {
-
                             auto& add_state = row.add_state[m];
                             add_state.add = false;
                             add_state.slice = 0;
                             add_state.point = { 0, 0 };
+                            // add_state.lambda = 0; // WORKTODO: this should be here?
                             add_state.collision_inverse = 0;
 
                             p1_trace[trace_index] = accumulator;
@@ -343,7 +348,7 @@ class ECCVMMSMMBuilder {
                             accumulator_trace[msm_row_index] = accumulator;
                             msm_row_index++;
                         }
-                    }
+                    };
                 }
             }
         });

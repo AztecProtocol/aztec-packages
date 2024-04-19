@@ -167,12 +167,17 @@
       "name": "tsan",
       "displayName": "Debugging build with thread sanitizer on Clang-16",
       "description": "Build with thread sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "inherits": "clang16-dbg-fast",
       "binaryDir": "build-tsan",
       "environment": {
         "CFLAGS": "-fsanitize=thread",
         "CXXFLAGS": "-fsanitize=thread",
         "LDFLAGS": "-fsanitize=thread"
+      },
+      "cacheVariables": {
+        "HAVE_STD_REGEX": "ON",
+        "CMAKE_CXX_FLAGS": "$env{MSAN_CFLAGS}",
+        "CMAKE_EXE_LINKER_FLAGS": "$env{MSAN_LFLAGS}"
       }
     },
     {

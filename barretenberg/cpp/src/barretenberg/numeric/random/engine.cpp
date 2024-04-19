@@ -116,12 +116,12 @@ class DebugEngine : public RNG {
 /**
  * Used by tests to ensure consistent behavior.
  */
-RNG& get_debug_randomness(bool reset)
+RNG& get_debug_randomness(bool reset, std::seed_seq seed)
 {
     // static std::seed_seq seed({ 1, 2, 3, 4, 5 });
     static DebugEngine debug_engine;
     if (reset) {
-        debug_engine = DebugEngine();
+        debug_engine = DebugEngine(seed);
     }
     return debug_engine;
 }

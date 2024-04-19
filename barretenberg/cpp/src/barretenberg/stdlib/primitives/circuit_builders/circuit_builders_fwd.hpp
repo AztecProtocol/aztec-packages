@@ -14,7 +14,7 @@ class StandardFlavor;
 class UltraFlavor;
 class Bn254FrParams;
 class Bn254FqParams;
-template <class Params> struct alignas(32) field;
+template <class Params> struct /* alignas(32) */ field;
 template <typename FF_> class UltraArith;
 template <class FF> class StandardCircuitBuilder_;
 using StandardCircuitBuilder = StandardCircuitBuilder_<field<Bn254FrParams>>;

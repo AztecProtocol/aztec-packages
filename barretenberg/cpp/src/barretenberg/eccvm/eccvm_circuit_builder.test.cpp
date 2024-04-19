@@ -39,7 +39,7 @@ TEST(ECCVMCircuitBuilderTests, BaseCase)
     op_queue->mul_accumulate(c, x);
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -53,7 +53,7 @@ TEST(ECCVMCircuitBuilderTests, Add)
     op_queue->add_accumulate(a);
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -68,7 +68,7 @@ TEST(ECCVMCircuitBuilderTests, Mul)
     op_queue->mul_accumulate(a, x);
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -89,7 +89,7 @@ TEST(ECCVMCircuitBuilderTests, ShortMul)
     op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -106,7 +106,7 @@ TEST(ECCVMCircuitBuilderTests, EqFails)
     op_queue->add_erroneous_equality_op_for_testing();
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, false);
 }
 
@@ -117,7 +117,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRow)
     op_queue->empty_row_for_testing();
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -134,7 +134,7 @@ TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
     op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -150,7 +150,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithEq)
     op_queue->eq_and_reset();
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -167,7 +167,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithAdd)
     op_queue->add_accumulate(a);
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -184,7 +184,7 @@ TEST(ECCVMCircuitBuilderTests, EndWithMul)
     op_queue->mul_accumulate(a, x);
 
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
@@ -202,24 +202,48 @@ TEST(ECCVMCircuitBuilderTests, EndWithNoop)
 
     op_queue->empty_row_for_testing();
     ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
     EXPECT_EQ(result, true);
 }
 
 TEST(ECCVMCircuitBuilderTests, MSM)
 {
-    static constexpr size_t max_num_msms = 9;
-    auto generators = G1::derive_generators("test generators", max_num_msms);
+    bool result(true);
+    const auto run_test = [&result]() {
+        static constexpr size_t max_num_msms = 9;
+        // info("deriving generators:");
+        auto generators = G1::derive_generators("test generators", max_num_msms);
 
-    const auto compute_msms = [&](const size_t num_msms, auto& op_queue) {
-        std::vector<typename G1::element> points;
-        std::vector<Fr> scalars;
-        typename G1::element expected = G1::point_at_infinity;
-        for (size_t i = 0; i < num_msms; ++i) {
-            points.emplace_back(generators[i]);
-            scalars.emplace_back(Fr::random_element(&engine));
-            expected += (points[i] * scalars[i]);
-            op_queue->mul_accumulate(points[i], scalars[i]);
+        const auto compute_msms = [&](const size_t num_msms, auto& op_queue) {
+            std::vector<typename G1::element> points;
+            std::vector<Fr> scalars;
+            typename G1::element expected = G1::point_at_infinity;
+            for (size_t i = 0; i < num_msms; ++i) {
+                // info("  emplacing generator");
+                points.emplace_back(generators[i]);
+                // info("  emplacing scalar");
+                auto next_scalar = Fr::random_element(&engine);
+                // info(next_scalar);
+                scalars.emplace_back(next_scalar);
+                // info("  self mul add");
+                expected += (points[i] * scalars[i]);
+                // info("  placing in queue");
+                op_queue->mul_accumulate(points[i], scalars[i]);
+            }
+            op_queue->eq();
+        };
+
+        // single msms
+        for (size_t j = 1; j < max_num_msms; ++j) {
+            std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+            // info("computing single MSMs:");
+            compute_msms(j, op_queue);
+            // info("constructing builder");
+            ECCVMCircuitBuilder circuit{ op_queue };
+            // info("checking circuit builder");
+            result = ECCVMTraceChecker::check(circuit, &engine);
+            EXPECT_EQ(result, true);
         }
         op_queue->eq_and_reset();
     };
@@ -228,18 +252,21 @@ TEST(ECCVMCircuitBuilderTests, MSM)
     for (size_t j = 1; j < max_num_msms; ++j) {
         std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
 
-        compute_msms(j, op_queue);
+        // info("computing chain MSMs:");
+        for (size_t j = 1; j < 9; ++j) {
+            compute_msms(j, op_queue);
+        }
+        // info("constructing builder");
         ECCVMCircuitBuilder circuit{ op_queue };
-        bool result = ECCVMTraceChecker::check(circuit);
-        EXPECT_EQ(result, true);
+        // info("checking circuit builder");
+        result = ECCVMTraceChecker::check(circuit, &engine);
+        ASSERT_EQ(result, true);
+    };
+    size_t idx = 23668;
+    while (result == true) {
+        info("run number: ", idx);
+        numeric::get_debug_randomness(/*reset=*/true, { idx });
+        run_test();
+        idx++;
     }
-    // chain msms
-    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
-
-    for (size_t j = 1; j < 9; ++j) {
-        compute_msms(j, op_queue);
-    }
-    ECCVMCircuitBuilder circuit{ op_queue };
-    bool result = ECCVMTraceChecker::check(circuit);
-    EXPECT_EQ(result, true);
 }

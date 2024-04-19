@@ -145,6 +145,8 @@ void ECCVMProver::execute_transcript_consistency_univariate_opening_round()
 
     // Get the challenge at which we evaluate the polynomials as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    // info("gen evaluation_challenge x:" , evaluation_challenge_x);
+    // info("its negative:              " , -evaluation_challenge_x);
 
     translation_evaluations.op = key->transcript_op.evaluate(evaluation_challenge_x);
     translation_evaluations.Px = key->transcript_Px.evaluate(evaluation_challenge_x);
@@ -190,13 +192,13 @@ void ECCVMProver::execute_transcript_consistency_univariate_opening_round()
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
 }
 
-HonkProof& ECCVMProver::export_proof()
+HonkProof ECCVMProver::export_proof()
 {
     proof = transcript->export_proof();
     return proof;
 }
 
-HonkProof& ECCVMProver::construct_proof()
+HonkProof ECCVMProver::construct_proof()
 {
     BB_OP_COUNT_TIME_NAME("ECCVMProver::construct_proof");
 

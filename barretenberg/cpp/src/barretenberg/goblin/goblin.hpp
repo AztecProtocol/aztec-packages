@@ -52,6 +52,20 @@ class Goblin {
         HonkProof eccvm_proof;
         HonkProof translator_proof;
         TranslationEvaluations translation_evaluations;
+
+        void print()
+        {
+            const auto do_it = [](auto& proof) {
+                for (const auto& thing : proof) {
+                    info(thing);
+                }
+            };
+            // do_it(merge_proof);
+            do_it(eccvm_proof);
+            do_it(translator_proof);
+            // do_it(translation_evaluations);
+        }
+
         std::vector<Fr> to_buffer()
         {
             // ACIRHACK: so much copying and duplication added here and elsewhere
@@ -63,7 +77,7 @@ class Goblin {
             const auto insert = [&result](const std::vector<Fr>& buf) {
                 result.insert(result.end(), buf.begin(), buf.end());
             };
-            insert(merge_proof);
+            // insert(merge_proof);
             insert(eccvm_proof);
             insert(translator_proof);
             insert(translation_evaluations_buf);
@@ -188,6 +202,8 @@ class Goblin {
         goblin_proof.merge_proof = std::move(merge_proof);
         prove_eccvm();
         prove_translator();
+        info("printing proof before exporting:");
+        goblin_proof.print();
         return goblin_proof;
     };
 

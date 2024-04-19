@@ -21,7 +21,7 @@
 #endif
 
 namespace bb {
-template <class Params_> struct alignas(32) field {
+template <class Params_> struct /* alignas(32) */ field {
   public:
     using View = field;
     using Params = Params_;
@@ -167,7 +167,7 @@ template <class Params_> struct alignas(32) field {
     constexpr field& operator=(const field& other) noexcept = default;
     constexpr field& operator=(field&& other) noexcept = default;
     constexpr ~field() noexcept = default;
-    alignas(32) uint64_t data[4]; // NOLINT
+    /* alignas(32) */ uint64_t data[4]; // NOLINT
 
     static constexpr uint256_t modulus =
         uint256_t{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };

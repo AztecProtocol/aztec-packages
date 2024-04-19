@@ -9,7 +9,7 @@
 namespace bb::group_elements {
 template <typename T>
 concept SupportsHashToCurve = T::can_hash_to_curve;
-template <typename Fq_, typename Fr_, typename Params> class alignas(64) affine_element {
+template <typename Fq_, typename Fr_, typename Params> class /* alignas(64) */ affine_element {
   public:
     using Fq = Fq_;
     using Fr = Fr_;

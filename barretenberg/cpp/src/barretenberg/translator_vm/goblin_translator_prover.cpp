@@ -228,6 +228,7 @@ void GoblinTranslatorProver::execute_preamble_round()
            uint256_t(key->accumulators_binary_limbs_3[1]) * SHIFTx3);
     transcript->send_to_verifier("circuit_size", circuit_size);
     transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
+    // info("\nsending          ", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
@@ -332,13 +333,13 @@ void GoblinTranslatorProver::execute_zeromorph_rounds()
                      prover_polynomials.get_concatenation_groups());
 }
 
-HonkProof& GoblinTranslatorProver::export_proof()
+HonkProof GoblinTranslatorProver::export_proof()
 {
     proof = transcript->export_proof();
     return proof;
 }
 
-HonkProof& GoblinTranslatorProver::construct_proof()
+HonkProof GoblinTranslatorProver::construct_proof()
 {
     BB_OP_COUNT_TIME_NAME("GoblinTranslatorProver::construct_proof");
 

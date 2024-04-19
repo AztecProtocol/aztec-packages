@@ -4,6 +4,7 @@
 #include "../uintx/uintx.hpp"
 #include "unistd.h"
 #include <cstdint>
+#include <random>
 
 namespace bb::numeric {
 
@@ -45,7 +46,7 @@ class RNG {
     }
 };
 
-RNG& get_debug_randomness(bool reset = false);
+RNG& get_debug_randomness(bool reset = false, std::seed_seq seed = { 1, 2, 3, 4, 5 });
 RNG& get_randomness();
 
 } // namespace bb::numeric

@@ -57,6 +57,10 @@ bool GoblinTranslatorVerifier::verify_proof(const HonkProof& proof)
 {
     batching_challenge_v = transcript->template get_challenge<BF>("Translation:batching_challenge");
     transcript->load_proof(proof);
+    info("loaded proof:");
+    for (auto& thing : transcript->proof_data) {
+        info(thing);
+    };
 
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;

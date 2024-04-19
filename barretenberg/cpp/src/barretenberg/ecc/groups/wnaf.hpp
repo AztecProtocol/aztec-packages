@@ -126,7 +126,12 @@ inline uint64_t get_wnaf_bits(const uint64_t* scalar, const uint64_t bits, const
 
     const uint64_t lo = (scalar[lo_limb_idx] >> lo_shift);
     const uint64_t hi_shift = bit_position ? 64UL - (bit_position & 63UL) : 0;
-    const uint64_t hi = ((scalar[hi_limb_idx] << (hi_shift)));
+
+    const uint64_t hi = (hi_shift == 64UL) ? 0 : ((scalar[hi_limb_idx] << (hi_shift)));
+    // if (hi_shift == 64UL) {
+    //     breakpoint_info("bad shift!");
+    //     hi = 0;
+    // }
     const uint64_t hi_mask = bit_mask & (0ULL - (lo_limb_idx != hi_limb_idx));
 
     return (lo & bit_mask) | (hi & hi_mask);

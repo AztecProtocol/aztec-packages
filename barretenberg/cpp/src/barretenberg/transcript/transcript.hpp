@@ -11,7 +11,7 @@
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 
 // #define LOG_CHALLENGES
-// #define LOG_INTERACTIONS
+#define LOG_INTERACTIONS
 
 namespace bb {
 

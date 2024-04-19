@@ -49,13 +49,13 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_zeromorph_r
                      transcript);
 }
 
-template <IsUltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::export_proof()
+template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
     return proof;
 }
 
-template <IsUltraFlavor Flavor> HonkProof& DeciderProver_<Flavor>::construct_proof()
+template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
 {
     BB_OP_COUNT_TIME_NAME("Decider::construct_proof");
 
