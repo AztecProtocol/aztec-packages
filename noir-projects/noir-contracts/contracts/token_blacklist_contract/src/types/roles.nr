@@ -1,8 +1,8 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField};
+use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize};
 
-global BLACKLIST_FLAG: u64 = 1;
+global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
-global ADMIN_FLAG: u64 = 4;
+global BLACKLIST_FLAG: u64 = 4;
 
 struct UserFlags {
     is_admin: bool,
@@ -38,6 +38,17 @@ impl ToField for UserFlags {
         }
 
         value.to_field()
+    }
+}
+
+// We don't actually need to implement this trait, but the current macros system requires that all types that are 
+// contained by a state variable are serializable in order to determine their length.
+// Once https://github.com/AztecProtocol/aztec-packages/issues/5736 is closed we'll be able to remove this (unless 
+// https://github.com/AztecProtocol/aztec-packages/issues/5491 is addressed first, in which case we'd remove the to/from
+// field traits instead).
+impl Serialize<1> for UserFlags {
+    fn serialize(self) -> [Field; 1] {
+        [self.to_field()]
     }
 }
 
