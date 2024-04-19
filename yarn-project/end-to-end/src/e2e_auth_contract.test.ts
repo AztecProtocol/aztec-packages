@@ -1,4 +1,4 @@
-import { type AccountWallet, AztecAddress, type ContractFunctionInteraction, Fr, type PXE } from '@aztec/aztec.js';
+import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
