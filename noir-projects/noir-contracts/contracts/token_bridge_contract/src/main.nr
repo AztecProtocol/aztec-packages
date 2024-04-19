@@ -139,10 +139,12 @@ contract TokenBridge {
 
     // View function that is callable by other contracts.
     // Unconstrained can't be called by others since it isn't safe.
+    // docs:start:get_token
     #[aztec(public)]
     fn get_token() -> AztecAddress {
         storage.token.read()
     }
+    // docs:end:get_token
 
     // /// Unconstrained ///
 

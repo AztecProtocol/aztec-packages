@@ -12,8 +12,7 @@ The purpose of the L1 contracts are simple:
 
 - Facilitate cross-chain communication such that L1 liquidity can be used on L2
 - Act as a validating light node for L2 that every L1 node implicitly run
-
-:::
+  :::
 
 ## Overview
 
@@ -191,8 +190,9 @@ Insertions require a L2 transaction, and it is then to be consumed and moved to 
 
 ### Portals
 
-When deploying a contract on L2, it is possible to specify its "portal" address.
-This is an immutable variable, that can be used to constrain who the L2 contract expects messages from, and who it sends messages to.
+Some contracts on L2 might wish to talk to contract on L1 - these recipients on L1 are called portals.
+
+Often it is desired to constrain where messages are sent to and received from, which can be done by keeping the portal address in the storage of the L2 contract, such that it can be loaded on demand.
 
 ### Messages
 

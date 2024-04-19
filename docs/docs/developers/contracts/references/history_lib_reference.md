@@ -139,11 +139,8 @@ This proves that a contract exists in, ie had been deployed before or in, a cert
 | contract_address_salt   | Field          | Unique identifier for the contract's address       |
 | function_tree_root      | Field          | Root of the contract's function tree               |
 | constructor_hash        | Field          | Hash of the contract's constructor                 |
-| portal_contract_address | EthAddress     | Ethereum address of the associated portal contract |
 | block_number            | u32            | Block number for proof verification                |
 | context                 | PrivateContext | Private context                                    |
-
-If there is no associated portal contract, you can use a zero Ethereum address:
 
 ```ts
 new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));

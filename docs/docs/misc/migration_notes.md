@@ -6,6 +6,28 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## [T.B.D]
+
+## [Aztec.nr & js] Portal addresses 
+The deployment have been cleansed from the portal addresses as a immutable value passed in differently to other variables and instead should be implemented using usual storage by those who require it using the storage that matches the usecase - likely the shared storage to support private and public.
+
+This means that you will likely add the portal as a constructor argument
+```diff
+- fn constructor(token: AztecAddress) {
+-    storage.token.write(token);
+- }
++ fn constructor(token: AztecAddress, portal_address: EthAddress) {
++    storage.token.write(token);
++    storage.portal_address.initialize(portal_address);
++ }
+```
+
+And read it from storage whenever needed instead of from the context.
+```diff
+- context.this_portal_address(),
++ storage.portal_address.read_public(),
+```
+
 ## 0.36.0
 
 ### [Aztec.nr] Oracles
