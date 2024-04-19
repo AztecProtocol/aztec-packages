@@ -11,7 +11,7 @@ jobs:
       # not used:
       ebs_cache_size_gb: 128
       runner_concurrency: 20
-      ec2_instance_type: m6a.32xlarge
+      ec2_instance_type: r6a.32xlarge
       ec2_ami_id: ami-0d8a9b0419ddb331a
       ec2_instance_ttl: 40
     secrets: inherit
@@ -24,7 +24,7 @@ jobs:
       # not used:
       ebs_cache_size_gb: 32
       runner_concurrency: 1
-      ec2_instance_type: m6a.4xlarge
+      ec2_instance_type: r6a.4xlarge
       ec2_ami_id: ami-0d8a9b0419ddb331a
       ec2_instance_ttl: 15
     secrets: inherit
