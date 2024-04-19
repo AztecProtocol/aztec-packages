@@ -1,15 +1,15 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { INITIAL_TEST_SECRET_KEYS } from '@aztec/accounts/testing';
 import {
+  type AccountWallet,
   AztecAddress,
+  type DebugLogger,
   GrumpkinScalar,
+  type PXE,
+  type Wallet,
   computeAppNullifierSecretKey,
   deriveKeys,
   deriveMasterNullifierSecretKey,
-  type AccountWallet,
-  type DebugLogger,
-  type PXE,
-  type Wallet,
 } from '@aztec/aztec.js';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
 import { sha256 } from '@aztec/foundation/crypto';

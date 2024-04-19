@@ -15,13 +15,7 @@ import {
   computeMessageSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
-import {
-  type AztecAddress,
-  CompleteAddress,
-  DimensionGasSettings,
-  Fq,
-  GasSettings,
-} from '@aztec/circuits.js';
+import { type AztecAddress, CompleteAddress, DimensionGasSettings, Fq, GasSettings } from '@aztec/circuits.js';
 import {
   TokenContract as BananaCoin,
   FPCContract,
