@@ -184,7 +184,7 @@ async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: 
 }
 
 /**
- * Deploys the contract to pay for gas on L2.
+ * Deploys the key registry on L2.
  */
 async function deployCanonicalKeyRegistry(deployer: Wallet) {
   const canonicalKeyRegistry = getCanonicalKeyRegistry();
@@ -193,12 +193,12 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
     return;
   }
 
-  const batch = new BatchCall(deployer, [
+  await new BatchCall(deployer, [
     (await registerContractClass(deployer, canonicalKeyRegistry.artifact)).request(),
     deployInstance(deployer, canonicalKeyRegistry.instance).request(),
-  ]);
-
-  await batch.send().wait();
+  ])
+    .send()
+    .wait();
 
   logger.info(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
 }
