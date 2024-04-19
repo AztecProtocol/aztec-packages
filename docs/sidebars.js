@@ -397,17 +397,7 @@ const sidebars = {
               label: "Historical Data",
               type: "category",
               items: [
-                {
-                  label: "Historical Blockchain Data (Archive Tree)",
-                  type: "category",
-                  link: {
-                    type: "doc",
-                    id: "developers/contracts/writing_contracts/historical_data/archive_tree/main",
-                  },
-                  items: [
-                    "developers/contracts/writing_contracts/historical_data/archive_tree/how_to_prove_history",
-                  ],
-                },
+                "developers/contracts/writing_contracts/historical_data/archive_tree/how_to_prove_history",
               ],
             },
           ],
