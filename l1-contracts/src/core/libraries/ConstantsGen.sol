@@ -89,7 +89,7 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x1b5ecf3d26907648cf737f4304759b8c5850478e839e72f8ce1f5791b286e8f2;
+    0x0fb483f1556d72e794a34967b15958e789dd6a4dc30bcae23697a4191bdc8241;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant DIMENSION_GAS_SETTINGS_LENGTH = 3;
   uint256 internal constant GAS_FEES_LENGTH = 3;
