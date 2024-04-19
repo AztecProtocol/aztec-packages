@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "compile": "cd src && ${AZTEC_NARGO:-aztec-nargo} compile",
-    "codegen": "${AZTEC_CLI:-aztec-cli} codegen target -o artifacts",
+    "codegen": "yarn aztec-compile codegen target -o artifacts",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./target",
     "prep": "yarn clean && yarn compile && yarn codegen && tsc -b",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@aztec/accounts": "latest",
-    "@aztec/aztec.js": "latest"
+    "@aztec/aztec.js": "latest",
+    "@aztec/noir-compiler": "latest"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
