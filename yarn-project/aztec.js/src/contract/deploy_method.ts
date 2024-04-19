@@ -1,4 +1,4 @@
-import { type FunctionCall, type PublicKey, type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type FunctionCall, type Tx, type TxExecutionRequest } from '@aztec/circuit-types';
 import {
   AztecAddress,
   computePartialAddress,
@@ -59,7 +59,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   private log = createDebugLogger('aztec:js:deploy_method');
 
   constructor(
-    private publicKey: PublicKey,
+    private publicKeysHash: Fr,
     protected wallet: Wallet,
     private artifact: ContractArtifact,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
@@ -189,7 +189,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - An object containing various deployment options such as portalContract, contractAddressSalt, and from.
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
-  public send(options: DeployOptions = {}): DeploySentTx<TContract> {
+  public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
     const txHashPromise = super.send(options).getTxHash();
     const instance = this.getInstance(options);
     this.log.debug(
@@ -210,7 +210,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
         constructorArgs: this.args,
         salt: options.contractAddressSalt,
         portalAddress: options.portalContract,
-        publicKey: this.publicKey,
+        publicKeysHash: this.publicKeysHash,
         constructorArtifact: this.constructorArtifact,
         deployer: options.universalDeploy ? AztecAddress.ZERO : this.wallet.getAddress(),
       });
@@ -223,7 +223,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Deployment options.
    * @returns The proven tx.
    */
-  public prove(options: DeployOptions): Promise<Tx> {
+  public override prove(options: DeployOptions): Promise<Tx> {
     return super.prove(options);
   }
 

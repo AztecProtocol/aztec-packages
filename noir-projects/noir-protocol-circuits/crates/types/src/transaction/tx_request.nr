@@ -1,7 +1,8 @@
 use crate::{
-    address::AztecAddress, abis::function_data::FunctionData,
+    address::AztecAddress, abis::function_data::FunctionData, abis::gas_settings::GasSettings,
     constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH}, hash::pedersen_hash,
-    traits::{Hash, Serialize, Deserialize, Empty}, transaction::tx_context::TxContext, utils::reader::Reader
+    traits::{Hash, Serialize, Deserialize, Empty}, transaction::tx_context::TxContext,
+    utils::reader::Reader
 };
 
 struct TxRequest {
@@ -17,7 +18,7 @@ impl Empty for TxRequest {
             origin: AztecAddress::empty(),
             args_hash: 0,
             tx_context: TxContext::empty(),
-            function_data: FunctionData::empty()
+            function_data: FunctionData::empty(),
         }
     }
 }
@@ -71,7 +72,10 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
 
 mod tests {
     use crate::{
-        abis::{function_selector::FunctionSelector, function_data::FunctionData},
+        abis::{
+        function_selector::FunctionSelector, function_data::FunctionData, gas_settings::GasSettings,
+        gas::Gas, gas_fees::GasFees
+    },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         grumpkin_point::GrumpkinPoint, transaction::{tx_request::TxRequest, tx_context::TxContext}
     };
@@ -86,14 +90,15 @@ mod tests {
 
     #[test]
     fn compute_hash() {
+        let gas_settings = GasSettings::new(Gas::new(2, 2, 2), Gas::new(1, 1, 1), GasFees::new(3, 3, 3), 10);
         let tx_request = TxRequest {
             origin: AztecAddress::from_field(1),
             args_hash: 3,
-            tx_context: TxContext { is_fee_payment_tx: false, is_rebate_payment_tx: false, chain_id: 0, version: 0 },
+            tx_context: TxContext { chain_id: 0, version: 0, gas_settings },
             function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_private: true }
         };
         // Value from tx_request.test.ts "compute hash" test
-        let test_data_tx_request_hash = 0x20af6f595c396494f1177fa196d17e98d55a2416b28c262b76e78a36d6c01daa;
+        let test_data_tx_request_hash = 0x00b8affaf5ca65d647756e359ce0b2c5fa5c2c03f219189e28db323f22975706;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

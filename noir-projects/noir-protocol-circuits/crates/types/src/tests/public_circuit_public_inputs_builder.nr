@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-    call_context::CallContext, public_circuit_public_inputs::PublicCircuitPublicInputs,
+    gas::Gas, call_context::CallContext, public_circuit_public_inputs::PublicCircuitPublicInputs,
     read_request::ReadRequest, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::AztecAddress,
@@ -12,9 +12,9 @@ use crate::{
     MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_DATA_READS_PER_CALL,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
-traits::Empty,
+    traits::Empty
 };
 
 struct PublicCircuitPublicInputsBuilder {
@@ -31,11 +31,14 @@ struct PublicCircuitPublicInputsBuilder {
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
-    unencrypted_logs_hash: Field,
+    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
     unencrypted_log_preimages_length: Field,
     historical_header: Header,
     prover_address: AztecAddress,
     revert_code: u8,
+    start_gas_left: Gas,
+    end_gas_left: Gas,
+    transaction_fee: Field,
 }
 
 impl PublicCircuitPublicInputsBuilder {
@@ -61,11 +64,14 @@ impl PublicCircuitPublicInputsBuilder {
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             start_side_effect_counter: self.start_side_effect_counter,
             end_side_effect_counter: self.end_side_effect_counter,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
             prover_address: self.prover_address,
-            revert_code: self.revert_code
+            revert_code: self.revert_code,
+            start_gas_left: self.start_gas_left,
+            end_gas_left: self.end_gas_left,
+            transaction_fee: self.transaction_fee
         }
     }
 }
@@ -86,11 +92,14 @@ impl Empty for PublicCircuitPublicInputsBuilder {
             new_l2_to_l1_msgs: BoundedVec::new(),
             start_side_effect_counter: 0 as u32,
             end_side_effect_counter: 0 as u32,
-            unencrypted_logs_hash: 0,
+            unencrypted_logs_hashes: BoundedVec::new(),
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
             revert_code: 0 as u8,
+            start_gas_left: Gas::empty(),
+            end_gas_left: Gas::empty(),
+            transaction_fee: 0
         }
     }
 }

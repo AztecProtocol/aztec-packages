@@ -1,20 +1,21 @@
 use crate::{
     abis::{
-    call_context::CallContext, gas_settings::{GasSettings, DimensionGasSettings},
-    max_block_number::MaxBlockNumber, nullifier_key_validation_request::NullifierKeyValidationRequest,
+    call_context::CallContext, gas_settings::GasSettings, gas::Gas, max_block_number::MaxBlockNumber,
+    nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_circuit_public_inputs::PrivateCircuitPublicInputs, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, compute_initialization_hash}, header::Header,
-    messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures
+    messaging::l2_to_l1_message::L2ToL1Message, tests::fixtures, transaction::tx_context::TxContext
 };
 use crate::{
     constants::{
     MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL
-    },
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_ENCRYPTED_LOGS_PER_CALL,
+    MAX_UNENCRYPTED_LOGS_PER_CALL
+},
     traits::Empty
 };
 
@@ -39,8 +40,8 @@ struct PrivateCircuitPublicInputsBuilder {
     public_call_stack_hashes: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    encrypted_logs_hash: Field,
-    unencrypted_logs_hash: Field,
+    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_CALL>,
+    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
 
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
@@ -49,6 +50,8 @@ struct PrivateCircuitPublicInputsBuilder {
 
     chain_id: Field,
     version: Field,
+
+    gas_settings: GasSettings,
 }
 
 impl PrivateCircuitPublicInputsBuilder {
@@ -72,20 +75,14 @@ impl PrivateCircuitPublicInputsBuilder {
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
-            side_effect_counter: 0,
-            gas_settings: GasSettings {
-                da: DimensionGasSettings::new(0, 0, 0),
-                l1: DimensionGasSettings::new(0, 0, 0),
-                l2: DimensionGasSettings::new(0, 0, 0),
-                inclusion_fee: 0
-            },
-            transaction_fee: 0
+            side_effect_counter: 0
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
         public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
+        public_inputs.gas_settings = GasSettings::default();
 
         public_inputs
     }
@@ -107,13 +104,12 @@ impl PrivateCircuitPublicInputsBuilder {
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             start_side_effect_counter: self.call_context.side_effect_counter,
             end_side_effect_counter: 10,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
-            chain_id: self.chain_id,
-            version: self.version
+            tx_context: TxContext::new(self.chain_id, self.version, self.gas_settings)
         }
     }
 }
@@ -134,13 +130,14 @@ impl Empty for PrivateCircuitPublicInputsBuilder {
             private_call_stack_hashes: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            encrypted_logs_hash: 0,
-            unencrypted_logs_hash: 0,
+            encrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_logs_hashes: BoundedVec::new(),
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             chain_id: 0,
             version: 0,
+            gas_settings: GasSettings::empty()
         }
     }
 }

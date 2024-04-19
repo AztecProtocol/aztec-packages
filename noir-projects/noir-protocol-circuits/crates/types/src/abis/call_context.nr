@@ -2,7 +2,7 @@ use crate::{
     abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
     constants::{CALL_CONTEXT_LENGTH, GENERATOR_INDEX__CALL_CONTEXT}, hash::pedersen_hash,
     traits::{Deserialize, Hash, Serialize, Empty}, abis::side_effect::Ordered,
-    abis::gas_settings::GasSettings, utils::reader::Reader
+    abis::{gas_settings::GasSettings, gas::Gas}, utils::reader::Reader
 };
 
 // docs:start:call-context
@@ -10,16 +10,12 @@ struct CallContext {
     msg_sender : AztecAddress,
     storage_contract_address : AztecAddress,
     portal_contract_address : EthAddress,
-
     function_selector : FunctionSelector,
 
     is_delegate_call : bool,
     is_static_call : bool,
 
     side_effect_counter : u32,
-
-    gas_settings: GasSettings,
-    transaction_fee: Field,
 }
 // docs:end:call-context
 
@@ -56,8 +52,6 @@ impl Serialize<CALL_CONTEXT_LENGTH> for CallContext {
         serialized.push(self.is_delegate_call as Field);
         serialized.push(self.is_static_call as Field);
         serialized.push(self.side_effect_counter as Field);
-        serialized.extend_from_array(self.gas_settings.serialize());
-        serialized.push(self.transaction_fee);
     
         serialized.storage
     }
@@ -74,8 +68,6 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
             is_delegate_call: reader.read() as bool,
             is_static_call: reader.read() as bool,
             side_effect_counter: reader.read() as u32,
-            gas_settings: reader.read_struct(GasSettings::deserialize),
-            transaction_fee: reader.read(),
         }
     }
 }
@@ -90,8 +82,6 @@ impl Empty for CallContext {
             is_delegate_call: false,
             is_static_call: false,
             side_effect_counter: 0,
-            gas_settings: GasSettings::empty(),
-            transaction_fee: 0,
         }
     }
 }
