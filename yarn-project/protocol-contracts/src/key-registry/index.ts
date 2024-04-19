@@ -11,21 +11,3 @@ export function getCanonicalKeyRegistry(): ProtocolContract {
 export function getCanonicalKeyRegistryAddress(): AztecAddress {
   return getCanonicalKeyRegistry().address;
 }
-
-export async function deployCanonicalKeyRegistry(deployer: Wallet) {
-  const canonicalKeyRegistry = getCanonicalKeyRegistry();
-
-  if (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)) {
-    return;
-  }
-
-  await new BatchCall(deployer, [
-    (await registerContractClass(deployer, canonicalKeyRegistry.artifact)).request(),
-    deployInstance(deployer, canonicalKeyRegistry.instance).request(),
-  ])
-    .send()
-    .wait();
-
-  await expect(deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)).resolves.toBe(true);
-  await expect(deployer.getContractInstance(canonicalKeyRegistry.instance.address)).resolves.toBeDefined();
-}
