@@ -10,6 +10,8 @@ RESET="\033[0m"
 
 cd "$(dirname "$0")"
 
+export NODE_OPTIONS="${NODE_OPTIONS:-} --max-old-space-size=8192"
+
 CMD=${1:-}
 
 if [ "$CMD" = "clean" ]; then

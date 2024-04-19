@@ -8,10 +8,12 @@
     "./package.local.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -b && webpack",
+    "build": "yarn clean && tsc -b && yarn build:web",
     "build:e2e": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "build:web": "webpack",
+    "build:webpack": "webpack build --config ./src/web/webpack/webpack.config.js",
+    "build:vite": "vite build src/web/vite",
+    "build:web": "concurrently yarn:build:webpack yarn:build:vite",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src \"!src/web/main.js\" && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
@@ -69,7 +71,6 @@
     "memdown": "^6.1.1",
     "process": "^0.11.10",
     "puppeteer": "^22.2",
-    "resolve-typescript-plugin": "^2.0.1",
     "stream-browserify": "^3.0.0",
     "string-argv": "^0.3.2",
     "ts-loader": "^9.4.4",
@@ -79,17 +80,21 @@
     "typescript": "^5.0.4",
     "util": "^0.12.5",
     "viem": "^2.7.15",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4",
     "winston": "^3.10.0"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "concurrently": "^7.6.0",
+    "copy-webpack-plugin": "^12.0.2",
     "jest": "^29.5.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.0.4",
+    "vite": "^5.2.0",
+    "vite-plugin-node-polyfills": "0.17.0",
+    "vite-plugin-top-level-await": "^1.4.1",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
   },
   "files": [
     "dest",

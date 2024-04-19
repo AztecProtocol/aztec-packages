@@ -33,6 +33,7 @@ const __dirname = dirname(__filename);
 const privKey = AztecJs.GrumpkinScalar.random();
 
 export const browserTestSuite = (
+  name: string,
   setup: () => Promise<{
     /**
      *  The webserver instance.
@@ -53,7 +54,7 @@ export const browserTestSuite = (
   }>,
   pageLogger: AztecJs.DebugLogger,
 ) =>
-  describe('e2e_aztec.js_browser', () => {
+  describe(`e2e_aztec.js_browser (${name})`, () => {
     const initialBalance = 33n;
     const transferAmount = 3n;
 

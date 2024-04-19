@@ -1,18 +1,19 @@
+import CopyPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
-import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 
 const require = createRequire(import.meta.url);
 
+const src = resolve(dirname(fileURLToPath(import.meta.url)));
+const out = resolve(src, 'dist');
+
 export default {
   target: 'web',
   mode: 'production',
   devtool: false,
-  entry: {
-    main: './src/web/main.ts',
-  },
+  entry: resolve(src, 'main.ts'),
   module: {
     rules: [
       {
@@ -21,7 +22,7 @@ export default {
           {
             loader: 'ts-loader',
             options: {
-              configFile: 'tsconfig.web.json',
+              configFile: resolve(src, './tsconfig.json'),
             },
           },
         ],
@@ -29,7 +30,7 @@ export default {
     ],
   },
   output: {
-    path: resolve(dirname(fileURLToPath(import.meta.url)), './src/web'),
+    path: out,
     filename: 'main.js',
     library: {
       type: 'module',
@@ -46,9 +47,10 @@ export default {
       },
     }),
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
+    new CopyPlugin({ patterns: [resolve(src, 'index.html')] }),
   ],
   resolve: {
-    plugins: [new ResolveTypeScriptPlugin()],
+    extensions: ['.ts', '.js'],
     alias: {
       // All node specific code, wherever it's located, should be imported as below.
       // Provides a clean and simple way to always strip out the node code for the web build.
