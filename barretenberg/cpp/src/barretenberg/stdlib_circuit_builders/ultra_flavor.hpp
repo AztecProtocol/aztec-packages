@@ -230,6 +230,12 @@ class UltraFlavor {
                               z_lookup_shift)     // column 42
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
+        auto get_selectors()
+        {
+            return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_delta_range, q_elliptic, q_aux, q_lookup };
+        }
+        auto get_sigmas() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        auto get_ids() { return RefArray{ id_1, id_2, id_3, id_4 }; };
         // Gemini-specific getters.
         auto get_unshifted()
         {
@@ -265,6 +271,38 @@ class UltraFlavor {
 
   public:
     /**
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
+     * evaluated at one point.
+     */
+    class AllValues : public AllEntities<FF> {
+      public:
+        using Base = AllEntities<FF>;
+        using Base::Base;
+    };
+
+    /**
+     * @brief A container for polynomials handles.
+     */
+    class ProverPolynomialsNew : public AllEntities<Polynomial> {
+      public:
+        // Define all operations as default, except copy construction/assignment
+        ProverPolynomialsNew() = default;
+        ProverPolynomialsNew& operator=(const ProverPolynomialsNew&) = delete;
+        ProverPolynomialsNew(const ProverPolynomialsNew& o) = delete;
+        ProverPolynomialsNew(ProverPolynomialsNew&& o) noexcept = default;
+        ProverPolynomialsNew& operator=(ProverPolynomialsNew&& o) noexcept = default;
+        ~ProverPolynomialsNew() = default;
+        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+    };
+    /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
      * from ProvingKey.
@@ -278,6 +316,7 @@ class UltraFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         std::array<Polynomial, 4> sorted_polynomials;
+        ProverPolynomialsNew polynomials;
 
         auto get_to_be_shifted()
         {
@@ -320,6 +359,8 @@ class UltraFlavor {
                 sorted_list_accumulator[i] = T0;
             }
             sorted_accum = sorted_list_accumulator.share();
+            // PP in PK
+            polynomials.sorted_accum = sorted_list_accumulator.share();
         }
 
         /**
@@ -336,6 +377,7 @@ class UltraFlavor {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
             // (See plookup_auxiliary_widget.hpp for details)
+            // WORKTODO: get these from PP
             auto wires = get_wires();
 
             // Compute read record values
@@ -376,6 +418,9 @@ class UltraFlavor {
             compute_grand_products<UltraFlavor>(*this, prover_polynomials, relation_parameters);
             this->z_perm = prover_polynomials.z_perm;
             this->z_lookup = prover_polynomials.z_lookup;
+            // PPPK
+            this->polynomials.z_perm = this->z_perm.share();
+            this->polynomials.z_lookup = this->z_lookup.share();
         }
     };
 
@@ -406,15 +451,6 @@ class UltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
-    };
-    /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
-     * evaluated at one point.
-     */
-    class AllValues : public AllEntities<FF> {
-      public:
-        using Base = AllEntities<FF>;
-        using Base::Base;
     };
 
     /**

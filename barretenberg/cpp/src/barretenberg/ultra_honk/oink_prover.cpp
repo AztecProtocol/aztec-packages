@@ -28,6 +28,15 @@ template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::pro
     // Generate relation separators alphas for sumcheck/combiner computation
     RelationSeparator alphas = generate_alphas_round();
 
+    size_t idx = 0;
+    for (auto [prover_poly, key_poly] : zip_view(proving_key.polynomials.get_unshifted(), proving_key.get_all())) {
+        ASSERT(prover_poly == key_poly);
+        ASSERT(prover_poly.size() == key_poly.size());
+
+        idx++;
+        info(idx);
+    }
+
     return OinkProverOutput<Flavor>{
         .proving_key = std::move(proving_key),
         .relation_parameters = std::move(relation_parameters),
@@ -138,6 +147,10 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
         proving_key.compute_logderivative_inverse(relation_parameters);
+        // PPPK
+        proving_key.polynomials.calldata_inverses = proving_key.calldata_inverses.share();
+        proving_key.polynomials.return_data_inverses = proving_key.return_data_inverses.share();
+
         witness_commitments.calldata_inverses = commitment_key->commit(proving_key.calldata_inverses);
         witness_commitments.return_data_inverses = commitment_key->commit(proving_key.return_data_inverses);
         transcript->send_to_verifier(domain_separator + commitment_labels.calldata_inverses,

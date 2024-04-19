@@ -38,6 +38,14 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(TraceData& 
             pkey_selector = trace_selector.share();
         }
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
+        // Populate the PP belonging to the PK
+        for (auto [pkey_wire, trace_wire] : zip_view(proving_key.polynomials.get_wires(), trace_data.wires)) {
+            pkey_wire = trace_wire.share();
+        }
+        for (auto [pkey_selector, trace_selector] :
+             zip_view(proving_key.polynomials.get_selectors(), trace_data.selectors)) {
+            pkey_selector = trace_selector.share();
+        }
     } else if constexpr (IsPlonkFlavor<Flavor>) {
         for (size_t idx = 0; idx < trace_data.wires.size(); ++idx) {
             std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
@@ -162,6 +170,12 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
     proving_key.ecc_op_wire_3 = op_wire_polynomials[2].share();
     proving_key.ecc_op_wire_4 = op_wire_polynomials[3].share();
     proving_key.lagrange_ecc_op = ecc_op_selector.share();
+    // Populate PP owned by PK
+    proving_key.polynomials.ecc_op_wire_1 = op_wire_polynomials[0].share();
+    proving_key.polynomials.ecc_op_wire_2 = op_wire_polynomials[1].share();
+    proving_key.polynomials.ecc_op_wire_3 = op_wire_polynomials[2].share();
+    proving_key.polynomials.ecc_op_wire_4 = op_wire_polynomials[3].share();
+    proving_key.polynomials.lagrange_ecc_op = ecc_op_selector.share();
 }
 
 template class ExecutionTrace_<UltraFlavor>;

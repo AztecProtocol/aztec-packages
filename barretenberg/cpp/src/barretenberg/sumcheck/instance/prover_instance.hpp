@@ -68,11 +68,16 @@ template <class Flavor> class ProverInstance_ {
             compute_first_and_last_lagrange_polynomials<FF>(dyadic_circuit_size);
         proving_key.lagrange_first = lagrange_first;
         proving_key.lagrange_last = lagrange_last;
+        // PP in PK
+        proving_key.polynomials.lagrange_first = lagrange_first;
+        proving_key.polynomials.lagrange_last = lagrange_last;
 
         construct_table_polynomials(circuit, dyadic_circuit_size);
 
+        // WORKTODO: these arent part of the PK polys so not putting them in PP either
         proving_key.sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
+        // WORKTODO: use the PP.w_r
         std::span<FF> public_wires_source = proving_key.w_r;
 
         // Construct the public inputs array

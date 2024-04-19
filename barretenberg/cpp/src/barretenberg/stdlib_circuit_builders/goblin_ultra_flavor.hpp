@@ -240,6 +240,9 @@ class GoblinUltraFlavor {
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
+        auto get_selectors() { return PrecomputedEntities<DataType>::get_all(); }
+        auto get_sigmas() { return RefArray{ this->sigma_1, this->sigma_2, this->sigma_3, this->sigma_4 }; };
+        auto get_ids() { return RefArray{ this->id_1, this->id_2, this->id_3, this->id_4 }; };
         auto get_ecc_op_wires()
         {
             return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
@@ -261,6 +264,39 @@ class GoblinUltraFlavor {
     };
 
     /**
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
+     * at one point.
+     */
+    class AllValues : public AllEntities<FF> {
+      public:
+        using Base = AllEntities<FF>;
+        using Base::Base;
+    };
+
+    /**
+     * @brief A container for the prover polynomials handles.
+     */
+    class ProverPolynomialsNew : public AllEntities<Polynomial> {
+      public:
+        // Define all operations as default, except copy construction/assignment
+        ProverPolynomialsNew() = default;
+        ProverPolynomialsNew& operator=(const ProverPolynomialsNew&) = delete;
+        ProverPolynomialsNew(const ProverPolynomialsNew& o) = delete;
+        ProverPolynomialsNew(ProverPolynomialsNew&& o) noexcept = default;
+        ProverPolynomialsNew& operator=(ProverPolynomialsNew&& o) noexcept = default;
+        ~ProverPolynomialsNew() = default;
+        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
+        [[nodiscard]] AllValues get_row(size_t row_idx) const
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+    };
+
+    /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
      * from ProvingKey.
@@ -274,6 +310,7 @@ class GoblinUltraFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         std::array<Polynomial, 4> sorted_polynomials;
+        ProverPolynomialsNew polynomials;
 
         auto get_to_be_shifted()
         {
@@ -317,6 +354,8 @@ class GoblinUltraFlavor {
                 sorted_list_accumulator[i] = T0;
             }
             sorted_accum = sorted_list_accumulator.share();
+            // PP in PK
+            polynomials.sorted_accum = sorted_list_accumulator.share();
         }
 
         /**
@@ -360,6 +399,7 @@ class GoblinUltraFlavor {
          */
         void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
         {
+            // WORKTODO: just pass in PK owned polynomials here
             auto prover_polynomials = ProverPolynomials(*this);
 
             // Compute inverses for calldata reads
@@ -391,10 +431,14 @@ class GoblinUltraFlavor {
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
+            // WORKTODO: just use polynomials here directly
             auto prover_polynomials = ProverPolynomials(*this);
             compute_grand_products<GoblinUltraFlavor>(*this, prover_polynomials, relation_parameters);
             this->z_perm = prover_polynomials.z_perm;
             this->z_lookup = prover_polynomials.z_lookup;
+            // PPPK
+            this->polynomials.z_perm = this->z_perm.share();
+            this->polynomials.z_lookup = this->z_lookup.share();
         }
     };
 
@@ -454,16 +498,6 @@ class GoblinUltraFlavor {
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
-
-    /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
-     * at one point.
-     */
-    class AllValues : public AllEntities<FF> {
-      public:
-        using Base = AllEntities<FF>;
-        using Base::Base;
-    };
 
     /**
      * @brief A container for the prover polynomials handles.
