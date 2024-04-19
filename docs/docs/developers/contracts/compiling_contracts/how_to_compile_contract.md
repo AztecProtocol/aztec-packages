@@ -66,7 +66,7 @@ export class TokenContract extends ContractBase {
   }
 
   /**
-   * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
+   * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
   public static deployWithPublicKeysHash(
     publicKeysHash: Fr,

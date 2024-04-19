@@ -15,7 +15,7 @@ import { deriveKeys } from '../keys/index.js';
  * ```
  * salted_initialization_hash = pedersen([salt, initialization_hash, deployer, portal_contract_address as Field], GENERATOR__SALTED_INITIALIZATION_HASH)
  * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)
- * address = poseidon2Hash([public_keys_hash, partial_address], GENERATOR__CONTRACT_ADDRESS_V1)
+ * address = poseidon2Hash([public_keys_hash, partial_address, GENERATOR__CONTRACT_ADDRESS_V1])
  * ```
  * @param instance - A contract instance for which to calculate the deployment address.
  */

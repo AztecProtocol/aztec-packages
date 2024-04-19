@@ -1,5 +1,5 @@
 import { generatePublicKey } from '@aztec/aztec.js';
-import { type AccountWalletWithPrivateKey } from '@aztec/aztec.js/wallet';
+import { type AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
 import { type PXE } from '@aztec/circuit-types';
 import { GeneratorIndex } from '@aztec/circuits.js/constants';
 import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
@@ -26,7 +26,7 @@ export const INITIAL_TEST_ACCOUNT_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
+export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
   return Promise.all(
     INITIAL_TEST_SECRET_KEYS.map((encryptionKey, i) =>
       getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]).getWallet(),
@@ -39,7 +39,7 @@ export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWi
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithPrivateKey[]> {
+export async function getDeployedTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
   const registeredAccounts = await pxe.getRegisteredAccounts();
   return Promise.all(
     INITIAL_TEST_SECRET_KEYS.filter(initialSecretKey => {

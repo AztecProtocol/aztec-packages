@@ -1,6 +1,6 @@
 export {
   AccountWallet,
-  AccountWalletWithSecretKey as AccountWalletWithPrivateKey,
+  AccountWalletWithSecretKey as AccountWalletWithSecretKey,
   SignerlessWallet,
   Wallet,
   getWallet,

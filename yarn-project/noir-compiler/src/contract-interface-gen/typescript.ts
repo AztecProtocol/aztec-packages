@@ -93,7 +93,7 @@ function generateDeploy(input: ContractArtifact) {
   }
 
   /**
-   * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
+   * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
   public static deployWithPublicKeysHash(publicKeysHash: Fr, wallet: Wallet, ${args}) {
     return new DeployMethod<${contractName}>(publicKeysHash, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));

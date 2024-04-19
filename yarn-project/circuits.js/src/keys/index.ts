@@ -29,7 +29,7 @@ export function deriveKeys(secretKey: Fr) {
   // First we derive master secret keys -  we use sha512 here because this derivation will never take place
   // in a circuit
   const masterNullifierSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NSK_M]);
-  const masterIncomingViewingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  const masterIncomingViewingSecretKey = deriveMasterIncomingViewingSecretKey(secretKey);
   const masterOutgoingViewingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.OVSK_M]);
   const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, GeneratorIndex.TSK_M]);
 
