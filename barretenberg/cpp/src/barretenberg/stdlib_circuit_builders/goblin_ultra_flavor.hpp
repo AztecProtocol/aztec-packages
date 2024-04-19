@@ -240,7 +240,7 @@ class GoblinUltraFlavor {
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
-        auto get_selectors() { return PrecomputedEntities<DataType>::get_all(); }
+        auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
         auto get_sigmas() { return RefArray{ this->sigma_1, this->sigma_2, this->sigma_3, this->sigma_4 }; };
         auto get_ids() { return RefArray{ this->id_1, this->id_2, this->id_3, this->id_4 }; };
         auto get_ecc_op_wires()

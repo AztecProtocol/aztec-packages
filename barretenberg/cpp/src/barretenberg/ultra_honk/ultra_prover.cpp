@@ -79,22 +79,17 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof
     instance->proving_key = std::move(proving_key);
     instance->relation_parameters = std::move(relation_params);
     instance->alphas = alphas;
-    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
+    // instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
-    size_t idx = 0;
-    for (auto [prover_poly, key_poly] :
-         zip_view(instance->proving_key.polynomials.get_unshifted(), instance->proving_key.get_all())) {
-        ASSERT(prover_poly == key_poly);
-        ASSERT(prover_poly.size() == key_poly.size());
-
-        idx++;
-        info(idx);
+    for (auto [pp_poly, pppk_poly] :
+         zip_view(instance->prover_polynomials.get_unshifted(), instance->proving_key.polynomials.get_unshifted())) {
+        pp_poly = pppk_poly.share();
     }
 
-    // for (auto [pp_coeff, pk_coeff] : zip_view(proving_key.polynomials.sigma_4, proving_key.sigma_4)) {
-    //     info("pp_coeff = ", pp_coeff);
-    //     info("PK_coeff = ", pk_coeff);
-    // }
+    for (auto [pp_poly, pppk_poly] :
+         zip_view(instance->prover_polynomials.get_shifted(), instance->proving_key.polynomials.get_to_be_shifted())) {
+        pp_poly = pppk_poly.shifted();
+    }
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.

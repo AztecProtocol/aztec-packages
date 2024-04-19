@@ -25,9 +25,6 @@ template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::pro
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
-    // Generate relation separators alphas for sumcheck/combiner computation
-    RelationSeparator alphas = generate_alphas_round();
-
     size_t idx = 0;
     for (auto [prover_poly, key_poly] : zip_view(proving_key.polynomials.get_unshifted(), proving_key.get_all())) {
         ASSERT(prover_poly == key_poly);
@@ -36,6 +33,9 @@ template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::pro
         idx++;
         info(idx);
     }
+
+    // Generate relation separators alphas for sumcheck/combiner computation
+    RelationSeparator alphas = generate_alphas_round();
 
     return OinkProverOutput<Flavor>{
         .proving_key = std::move(proving_key),
