@@ -18,6 +18,7 @@ source:
 
 build:
   FROM +source
+  RUN apt-get update && apt-get install -y jq
   RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
   RUN cd noir-protocol-circuits && NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT aztec-nr

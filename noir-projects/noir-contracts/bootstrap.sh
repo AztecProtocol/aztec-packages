@@ -17,12 +17,16 @@ fi
 
 echo "Compiling contracts..."
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-$NARGO compile --silence-warnings
+$NARGO compile --silence-warnings --package contract_instance_deployer_contract
+
+echo Source hash: $(find ./contracts -type f -name "*.nr" -exec sha256sum {} + | sha256sum)
+echo Aztec-nr source hash: $(find ../aztec-nr -type f -name "*.nr" -exec sha256sum {} + | sha256sum)
+echo Nargo hash: $(cat $NARGO | sha256sum)
 
 echo Deployer foo bytecode hash: $(jq -r '.functions[] | select(.name == "foo").bytecode' ./target/contract_instance_deployer_contract-ContractInstanceDeployer.json | sha256sum)
 echo Deployer deploy bytecode hash: $(jq -r '.functions[] | select(.name == "deploy").bytecode' ./target/contract_instance_deployer_contract-ContractInstanceDeployer.json | sha256sum)
 echo Deployer compute_note_hash_and_nullifier bytecode hash: $(jq -r '.functions[] | select(.name == "compute_note_hash_and_nullifier").bytecode' ./target/contract_instance_deployer_contract-ContractInstanceDeployer.json | sha256sum)
 
-echo "Transpiling avm contracts... (only '#[aztec(public-vm)]')"
-TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
-ls target/avm_*.json | parallel "$TRANSPILER {} {}"
+# echo "Transpiling avm contracts... (only '#[aztec(public-vm)]')"
+# TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
+# ls target/avm_*.json | parallel "$TRANSPILER {} {}"
