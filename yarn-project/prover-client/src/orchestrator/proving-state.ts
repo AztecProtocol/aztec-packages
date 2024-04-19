@@ -42,6 +42,7 @@ export class ProvingState {
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   private txs: TxProvingState[] = [];
+  #isRootRollupInProgress = false;
   constructor(
     public readonly totalNumTxs: number,
     private completionCallback: (result: ProvingResult) => void,
@@ -154,6 +155,14 @@ export class ProvingState {
       this.finalRootParityInput === undefined ||
       this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1
     );
+  }
+
+  public isRootRollupInProgress() {
+    return this.#isRootRollupInProgress;
+  }
+
+  public setRootRollupInProgress(inProgress: boolean) {
+    this.#isRootRollupInProgress = inProgress;
   }
 
   // Stores a set of root parity inputs at the given index

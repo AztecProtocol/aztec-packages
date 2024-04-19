@@ -39,7 +39,7 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { type ProvingQueue } from '../prover-pool/proving-queue.js';
+import { type ProvingRequestProducer } from '../prover-pool/proving-queue.js';
 import {
   type ProvingRequest,
   type ProvingRequestPublicInputs,
@@ -81,7 +81,7 @@ const KernelTypesWithoutFunctions: Set<PublicKernelType> = new Set<PublicKernelT
  */
 export class ProvingOrchestrator {
   private provingState: ProvingState | undefined = undefined;
-  constructor(private db: MerkleTreeOperations, private queue: ProvingQueue) {}
+  constructor(private db: MerkleTreeOperations, private queue: ProvingRequestProducer) {}
 
   /**
    * Starts off a new block
@@ -518,6 +518,7 @@ export class ProvingOrchestrator {
       this.db,
     );
 
+    provingState.setRootRollupInProgress(true);
     this.enqueueJob(
       provingState,
       {
@@ -576,6 +577,10 @@ export class ProvingOrchestrator {
   private async checkAndEnqueueRootRollup(provingState: ProvingState | undefined) {
     if (!provingState?.isReadyForRootRollup()) {
       logger.debug('Not ready for root rollup');
+      return;
+    }
+    if (provingState.isRootRollupInProgress()) {
+      logger.debug('Root rollup already being proven');
       return;
     }
     await this.enqueueRootRollup(provingState);
