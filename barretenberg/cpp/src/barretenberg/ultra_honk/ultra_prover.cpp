@@ -91,6 +91,25 @@ template <IsUltraFlavor Flavor> HonkProof& UltraProver_<Flavor>::construct_proof
         pp_poly = pppk_poly.shifted();
     }
 
+    const auto& tables = instance->prover_polynomials.get_tables();
+    for (size_t idx = 0; idx < proving_key.circuit_size; ++idx) {
+
+        info(idx);
+        info("table_1 = ", tables[0][idx]);
+        info("table_2 = ", tables[1][idx]);
+        info("table_3 = ", tables[2][idx]);
+        info("table_4 = ", tables[3][idx]);
+    }
+
+    const auto& sorted_accum = instance->prover_polynomials.sorted_accum;
+    const auto& z_lookup = instance->prover_polynomials.z_lookup;
+    for (size_t idx = 0; idx < proving_key.circuit_size; ++idx) {
+
+        info(idx);
+        info("sorted_accum = ", sorted_accum[idx]);
+        info("z_lookup = ", z_lookup[idx]);
+    }
+
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();

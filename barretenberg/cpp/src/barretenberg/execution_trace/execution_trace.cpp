@@ -31,12 +31,6 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(TraceData& 
                                                                      typename Flavor::ProvingKey& proving_key)
 {
     if constexpr (IsHonkFlavor<Flavor>) {
-        for (auto [pkey_wire, trace_wire] : zip_view(proving_key.get_wires(), trace_data.wires)) {
-            pkey_wire = trace_wire.share();
-        }
-        for (auto [pkey_selector, trace_selector] : zip_view(proving_key.get_selectors(), trace_data.selectors)) {
-            pkey_selector = trace_selector.share();
-        }
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
         // Populate the PP belonging to the PK
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key.polynomials.get_wires(), trace_data.wires)) {
@@ -157,7 +151,7 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
 
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
-    for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, proving_key.get_wires())) {
+    for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, proving_key.polynomials.get_wires())) {
         for (size_t i = 0; i < builder.blocks.ecc_op.size(); ++i) {
             size_t idx = i + op_wire_offset;
             ecc_op_wire[idx] = wire[idx];
@@ -165,11 +159,6 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
         }
     }
 
-    proving_key.ecc_op_wire_1 = op_wire_polynomials[0].share();
-    proving_key.ecc_op_wire_2 = op_wire_polynomials[1].share();
-    proving_key.ecc_op_wire_3 = op_wire_polynomials[2].share();
-    proving_key.ecc_op_wire_4 = op_wire_polynomials[3].share();
-    proving_key.lagrange_ecc_op = ecc_op_selector.share();
     // Populate PP owned by PK
     proving_key.polynomials.ecc_op_wire_1 = op_wire_polynomials[0].share();
     proving_key.polynomials.ecc_op_wire_2 = op_wire_polynomials[1].share();

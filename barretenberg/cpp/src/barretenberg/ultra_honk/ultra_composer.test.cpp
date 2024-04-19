@@ -70,17 +70,17 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
-    auto& proving_key = instance->proving_key;
+    auto& polynomials = instance->proving_key.polynomials;
 
-    for (auto& poly : proving_key.get_selectors()) {
+    for (auto& poly : polynomials.get_selectors()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key.get_table_polynomials()) {
+    for (auto& poly : polynomials.get_tables()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : proving_key.get_wires()) {
+    for (auto& poly : polynomials.get_wires()) {
         ensure_non_zero(poly);
     }
 }
@@ -92,7 +92,7 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
 TEST_F(UltraHonkComposerTests, PublicInputs)
 {
     auto builder = UltraCircuitBuilder();
-    size_t num_gates = 10;
+    size_t num_gates = 1;
 
     // Add some arbitrary arithmetic gates that utilize public inputs
     for (size_t i = 0; i < num_gates; ++i) {

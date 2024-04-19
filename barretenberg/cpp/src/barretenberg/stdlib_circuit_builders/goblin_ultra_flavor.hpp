@@ -243,6 +243,7 @@ class GoblinUltraFlavor {
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
         auto get_sigmas() { return RefArray{ this->sigma_1, this->sigma_2, this->sigma_3, this->sigma_4 }; };
         auto get_ids() { return RefArray{ this->id_1, this->id_2, this->id_3, this->id_4 }; };
+        auto get_tables() { return RefArray{ this->table_1, this->table_2, this->table_3, this->table_4 }; };
         auto get_ecc_op_wires()
         {
             return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
@@ -312,13 +313,13 @@ class GoblinUltraFlavor {
         std::array<Polynomial, 4> sorted_polynomials;
         ProverPolynomialsNew polynomials;
 
-        auto get_to_be_shifted()
-        {
-            return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
-                             this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
-        };
-        // The plookup wires that store plookup read data.
-        auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
+        // auto get_to_be_shifted()
+        // {
+        //     return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l, this->w_r,
+        //                      this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+        // };
+        // // The plookup wires that store plookup read data.
+        // auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
 
         void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
@@ -353,7 +354,7 @@ class GoblinUltraFlavor {
                 T0 += sorted_polynomials[0][i];
                 sorted_list_accumulator[i] = T0;
             }
-            sorted_accum = sorted_list_accumulator.share();
+            // sorted_accum = sorted_list_accumulator.share();
             // PP in PK
             polynomials.sorted_accum = sorted_list_accumulator.share();
         }
@@ -400,17 +401,17 @@ class GoblinUltraFlavor {
         void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
         {
             // WORKTODO: just pass in PK owned polynomials here
-            auto prover_polynomials = ProverPolynomials(*this);
+            // auto prover_polynomials = ProverPolynomials(*this);
 
             // Compute inverses for calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            this->calldata_inverses = prover_polynomials.calldata_inverses;
+                this->polynomials, relation_parameters, this->circuit_size);
+            // this->calldata_inverses = prover_polynomials.calldata_inverses;
 
             // Compute inverses for return data reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
-                prover_polynomials, relation_parameters, this->circuit_size);
-            this->return_data_inverses = prover_polynomials.return_data_inverses;
+                this->polynomials, relation_parameters, this->circuit_size);
+            // this->return_data_inverses = prover_polynomials.return_data_inverses;
         }
 
         /**
@@ -432,13 +433,13 @@ class GoblinUltraFlavor {
 
             // Compute permutation and lookup grand product polynomials
             // WORKTODO: just use polynomials here directly
-            auto prover_polynomials = ProverPolynomials(*this);
-            compute_grand_products<GoblinUltraFlavor>(*this, prover_polynomials, relation_parameters);
-            this->z_perm = prover_polynomials.z_perm;
-            this->z_lookup = prover_polynomials.z_lookup;
-            // PPPK
-            this->polynomials.z_perm = this->z_perm.share();
-            this->polynomials.z_lookup = this->z_lookup.share();
+            // auto prover_polynomials = ProverPolynomials(*this);
+            compute_grand_products<GoblinUltraFlavor>(*this, this->polynomials, relation_parameters);
+            // this->z_perm = prover_polynomials.z_perm;
+            // this->z_lookup = prover_polynomials.z_lookup;
+            // // PPPK
+            // this->polynomials.z_perm = this->z_perm.share();
+            // this->polynomials.z_lookup = this->z_lookup.share();
         }
     };
 
@@ -505,17 +506,17 @@ class GoblinUltraFlavor {
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/925), proving_key could be const ref
-        ProverPolynomials(ProvingKey& proving_key)
-        {
-            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
-                prover_poly = key_poly.share();
-            }
-            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
-                prover_poly = key_poly.shifted();
-            }
-        }
+        // ProverPolynomials(ProvingKey& proving_key)
+        // {
+        //     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
+        //         ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
+        //         prover_poly = key_poly.share();
+        //     }
+        //     for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
+        //         ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
+        //         prover_poly = key_poly.shifted();
+        //     }
+        // }
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;

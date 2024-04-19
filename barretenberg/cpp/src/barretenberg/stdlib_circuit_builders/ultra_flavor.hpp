@@ -46,6 +46,7 @@ class UltraFlavor {
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
+    // using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
     using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<bb::UltraArithmeticRelation<FF>,
@@ -236,6 +237,7 @@ class UltraFlavor {
         }
         auto get_sigmas() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
         auto get_ids() { return RefArray{ id_1, id_2, id_3, id_4 }; };
+        auto get_tables() { return RefArray{ table_1, table_2, table_3, table_4 }; };
         // Gemini-specific getters.
         auto get_unshifted()
         {
@@ -318,13 +320,13 @@ class UltraFlavor {
         std::array<Polynomial, 4> sorted_polynomials;
         ProverPolynomialsNew polynomials;
 
-        auto get_to_be_shifted()
-        {
-            return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
-                             this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
-        };
-        // The plookup wires that store plookup read data.
-        auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
+        // auto get_to_be_shifted()
+        // {
+        //     return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l, this->w_r,
+        //                      this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
+        // };
+        // // The plookup wires that store plookup read data.
+        // auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
 
         void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
@@ -358,8 +360,8 @@ class UltraFlavor {
                 T0 += sorted_polynomials[0][i];
                 sorted_list_accumulator[i] = T0;
             }
-            sorted_accum = sorted_list_accumulator.share();
-            // PP in PK
+            // sorted_accum = sorted_list_accumulator.share();
+            // // PP in PK
             polynomials.sorted_accum = sorted_list_accumulator.share();
         }
 
@@ -378,7 +380,7 @@ class UltraFlavor {
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
             // (See plookup_auxiliary_widget.hpp for details)
             // WORKTODO: get these from PP
-            auto wires = get_wires();
+            auto wires = polynomials.get_wires();
 
             // Compute read record values
             for (const auto& gate_idx : memory_read_records) {
@@ -414,13 +416,13 @@ class UltraFlavor {
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
-            auto prover_polynomials = ProverPolynomials(*this);
-            compute_grand_products<UltraFlavor>(*this, prover_polynomials, relation_parameters);
-            this->z_perm = prover_polynomials.z_perm;
-            this->z_lookup = prover_polynomials.z_lookup;
-            // PPPK
-            this->polynomials.z_perm = this->z_perm.share();
-            this->polynomials.z_lookup = this->z_lookup.share();
+            // auto prover_polynomials = ProverPolynomials(*this);
+            compute_grand_products<UltraFlavor>(*this, this->polynomials, relation_parameters);
+            // this->z_perm = prover_polynomials.z_perm;
+            // this->z_lookup = prover_polynomials.z_lookup;
+            // // PPPK
+            // this->polynomials.z_perm = this->z_perm.share();
+            // this->polynomials.z_lookup = this->z_lookup.share();
         }
     };
 
@@ -458,17 +460,17 @@ class UltraFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        ProverPolynomials(ProvingKey& proving_key)
-        {
-            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
-                prover_poly = key_poly.share();
-            }
-            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
-                prover_poly = key_poly.shifted();
-            }
-        }
+        // ProverPolynomials(ProvingKey& proving_key)
+        // {
+        //     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
+        //         ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
+        //         prover_poly = key_poly.share();
+        //     }
+        //     for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
+        //         ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
+        //         prover_poly = key_poly.shifted();
+        //     }
+        // }
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;

@@ -137,14 +137,14 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
         // WORKTODO: need to init all unshifted polys in PP like this once we kill these
-        // Allocate memory for precomputed polynomials
-        for (auto& poly : PrecomputedPolynomials::get_all()) {
-            poly = Polynomial(circuit_size);
-        }
-        // Allocate memory for witness polynomials
-        for (auto& poly : WitnessPolynomials::get_all()) {
-            poly = Polynomial(circuit_size);
-        }
+        // // Allocate memory for precomputed polynomials
+        // for (auto& poly : PrecomputedPolynomials::get_all()) {
+        //     poly = Polynomial(circuit_size);
+        // }
+        // // Allocate memory for witness polynomials
+        // for (auto& poly : WitnessPolynomials::get_all()) {
+        //     poly = Polynomial(circuit_size);
+        // }
     };
 };
 
