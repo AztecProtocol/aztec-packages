@@ -3,6 +3,7 @@
 TYPE=$1
 NAME=$2
 
+
 curl -s install.aztec.network | NON_INTERACTIVE=1 BIN_PATH=/usr/local/bin bash -s
 docker compose -f $HOME/.aztec/docker-compose.yml pull
 
