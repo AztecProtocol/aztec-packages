@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # ubuntu: apt install python3-blessed
 from blessed import Terminal
-import os, json, subprocess, sys
+import os, json, subprocess, sys, time
 
 term = Terminal()
 if 'GITHUB_ACTOR' not in os.environ:
     print("Make sure you have GITHUB_ACTOR in your environment variables e.g. .zshrc")
     sys.exit(1)
 GITHUB_ACTOR = os.environ['GITHUB_ACTOR']
+BRANCH = subprocess.run("git rev-parse --abbrev-ref HEAD", shell=True, text=True, capture_output=True).stdout.strip()
 
 def main():
     selection = -1
@@ -47,26 +48,30 @@ def ssh_into_machine(suffix):
         return
 
     # Parse the output to find the public IP address
-    try:
-        instances_data = json.loads(result.stdout)
-        instance = instances_data['Reservations'][0]['Instances'][0]
-        instance_ip = instance['PublicIpAddress']
-    except (KeyError, IndexError, json.JSONDecodeError) as e:
-        print("Error parsing AWS CLI output:", e)
-        return
+    for i in range(10):
+        try:
+            instances_data = json.loads(result.stdout)
+            instance = instances_data['Reservations'][0]['Instances'][0]
+            instance_ip = instance['PublicIpAddress']
+            break
+        except (KeyError, IndexError, json.JSONDecodeError) as e:
+            print("Error parsing AWS CLI output, trying again:", e)
+            if i == 0:
+                print("Couldn't find spot, starting spot, and looping until we can find it")
+                call_spot_workflow('start')
+            time.sleep(10)
 
     # SSH command using the public IP
     ssh_cmd = f"ssh -o StrictHostKeychecking=no -i {ssh_key_path} ubuntu@{instance_ip}"
-    print(f"Connecting to {instance_ip}. Consider delaying the impeding shutdown.")
+    print(f"Connecting to {instance_ip}. Consider delaying the impending shutdown.")
     ssh_process = subprocess.Popen(ssh_cmd, shell=True)
     ssh_process.wait()  # Wait for the SSH session to complete
 
+def call_spot_workflow(action):
+    subprocess.run(f'gh workflow run start-spot.yml --ref {BRANCH} --field username="{GITHUB_ACTOR}" --field action="{action}"', shell=True)
+
 def manage_spot_instances():
-    action = input("Enter 'start' to run or 'stop' to stop spot instances: ")
-    if action == 'start':
-        subprocess.run('gh workflow run start-spot.yml', shell=True)
-    elif action == 'stop':
-        subprocess.run('gh workflow run stop-spot.yml', shell=True)
+    call_spot_workflow(input("Enter one of 'start', 'stop', 'restart':"))
 
 def manage_ci_workflows():
     # Retrieve the most recent workflow run
@@ -86,7 +91,7 @@ def manage_ci_workflows():
         subprocess.run(f"gh run cancel {run_id}", shell=True)
     if action.lower() == 'rerun':
         # needed so the spot runners still work
-        subprocess.run('gh workflow run start-spot.yml', shell=True)
+        call_spot_workflow('start')
         subprocess.run(f"gh run rerun {run_id} --failed", shell=True)
     elif action.lower() == 'rerun-all':
         subprocess.run(f"gh run rerun {run_id}", shell=True)
