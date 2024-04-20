@@ -20,6 +20,7 @@ def main():
             print("2. SSH into bench machine")
             print("3. Start/Stop spot machines")
             print("4. Manage Running Jobs")
+            print("5. Run ci.yml manually")
             print("q. Quit")
             with term.location(0, term.height - 1):
                 selection = term.inkey()
@@ -32,6 +33,8 @@ def main():
         manage_spot_instances()
     elif selection == '4':
         manage_ci_workflows()
+    elif selection == '5':
+        call_ci_workflow()
 
 def ssh_into_machine(suffix):
     GITHUB_ACTOR = os.getenv('GITHUB_ACTOR', 'default_actor')
@@ -69,6 +72,12 @@ def ssh_into_machine(suffix):
 
 def call_spot_workflow(action):
     subprocess.run(f'gh workflow run start-spot.yml --ref {BRANCH} --field username="{GITHUB_ACTOR}" --field action="{action}"', shell=True)
+
+def call_ci_workflow():
+    print(
+        "NOTE: Usually you rather do Manage Running Jobs and retry. This is mostly useful if impersonating a GITHUB_ACTOR."
+    )
+    subprocess.run(f'gh workflow run ci.yml --ref {BRANCH} --field username="{GITHUB_ACTOR}"', shell=True)
 
 def manage_spot_instances():
     call_spot_workflow(input("Enter one of 'start', 'stop', 'restart':"))
