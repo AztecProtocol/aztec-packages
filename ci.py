@@ -14,7 +14,7 @@ def main():
     selection = -1
     with term.fullscreen(), term.cbreak():
         print(term.home + term.clear)
-        while selection not in ('1', '2', '3', '4', 'q'):
+        while selection not in ('1', '2', '3', '4', '5', 'q'):
             print(term.move_y(1) + "Please select an option:")
             print("1. SSH into build machine")
             print("2. SSH into bench machine")

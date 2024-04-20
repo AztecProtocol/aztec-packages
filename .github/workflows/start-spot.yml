@@ -11,7 +11,7 @@ on:
         required: false
         default: 'start'
 jobs:
-  start-build-x86:
+  start-build:
     uses: ./.github/workflows/setup-runner.yml
     with:
       runner_label: ${{ inputs.username || github.actor }}-x86
@@ -26,7 +26,7 @@ jobs:
   start-bench:
     uses: ./.github/workflows/setup-runner.yml
     with:
-      runner_label: ${{ inputs.username || github.actor }}-x86
+      runner_label: ${{ inputs.username || github.actor }}-bench-x86
       ebs_cache_size_gb: 64
       runner_concurrency: 1
       subaction: ${{ inputs.action }}
