@@ -75,7 +75,7 @@ def call_spot_workflow(action):
 
 def call_ci_workflow():
     print(
-        "NOTE: Usually you rather do Manage Running Jobs and retry. This is mostly useful if impersonating a GITHUB_ACTOR."
+        "NOTE: This is mostly useful if impersonating a GITHUB_ACTOR. Usually you rather do Manage Running Jobs and retry."
     )
     subprocess.run(f'gh workflow run ci.yml --ref {BRANCH} --field username="{GITHUB_ACTOR}"', shell=True)
 
