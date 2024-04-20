@@ -12,18 +12,21 @@ BRANCH = subprocess.run("git rev-parse --abbrev-ref HEAD", shell=True, text=True
 
 def main():
     selection = -1
-    with term.fullscreen(), term.cbreak():
-        print(term.home + term.clear)
-        while selection not in ('1', '2', '3', '4', '5', 'q'):
-            print(term.move_y(1) + "Please select an option:")
-            print("1. SSH into build machine")
-            print("2. SSH into bench machine")
-            print("3. Start/Stop spot machines")
-            print("4. Manage Running Jobs")
-            print("5. Run ci.yml manually")
-            print("q. Quit")
-            with term.location(0, term.height - 1):
-                selection = term.inkey()
+    if len(sys.argv) >= 2:
+        selection = sys.argv[1]
+    else:
+        with term.fullscreen(), term.cbreak():
+            print(term.home + term.clear)
+            while selection not in ('1', '2', '3', '4', '5', 'q'):
+                print(term.move_y(1) + "Please select an option:")
+                print("1. SSH into build machine")
+                print("2. SSH into bench machine")
+                print("3. Start/Stop spot machines")
+                print("4. Manage Running Jobs")
+                print("5. Run ci.yml manually")
+                print("q. Quit")
+                with term.location(0, term.height - 1):
+                    selection = term.inkey()
 
     if selection == '1':
         ssh_into_machine('x86')
@@ -37,21 +40,19 @@ def main():
         call_ci_workflow()
 
 def ssh_into_machine(suffix):
-    GITHUB_ACTOR = os.getenv('GITHUB_ACTOR', 'default_actor')
     ssh_key_path = os.path.expanduser('~/.ssh/build_instance_key')
     if not os.path.exists(ssh_key_path):
         print("SSH key does not exist.")
         return
 
-    # Command to get the instance information
-    cmd = f'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" "Name=tag:Name,Values=aztec-packages-{GITHUB_ACTOR}-{suffix}" --output json --region us-east-2'
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if result.returncode != 0:
-        print("Failed to get AWS instances:", result.stderr)
-        return
-
     # Parse the output to find the public IP address
     for i in range(10):
+        # Command to get the instance information
+        cmd = f'aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" "Name=tag:Name,Values=aztec-packages-{GITHUB_ACTOR}-{suffix}" --output json --region us-east-2'
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            print("Failed to get AWS instances:", result.stderr)
+            return
         try:
             instances_data = json.loads(result.stdout)
             instance = instances_data['Reservations'][0]['Instances'][0]
@@ -62,11 +63,14 @@ def ssh_into_machine(suffix):
             if i == 0:
                 print("Couldn't find spot, starting spot, and looping until we can find it")
                 call_spot_workflow('start')
+            elif i == 9:
+                print("Couldn't find spot even after creating it!")
+                sys.exit(1)
             time.sleep(10)
 
     # SSH command using the public IP
     ssh_cmd = f"ssh -o StrictHostKeychecking=no -i {ssh_key_path} ubuntu@{instance_ip}"
-    print(f"Connecting to {instance_ip}. Consider delaying the impending shutdown.")
+    print(f"Connecting to {instance_ip}. Consider delaying the impending shutdown and running a process called Runner.Worker to fool the reaper (automation TODO).")
     ssh_process = subprocess.Popen(ssh_cmd, shell=True)
     ssh_process.wait()  # Wait for the SSH session to complete
 
