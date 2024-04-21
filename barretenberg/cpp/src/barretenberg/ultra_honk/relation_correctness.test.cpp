@@ -275,12 +275,11 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
                                                                  instance->relation_parameters.eta_two,
                                                                  instance->relation_parameters.eta_three);
-    instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
     for (auto [pp_poly, pppk_poly] : zip_view(instance->proving_key.polynomials.get_shifted(),
                                               instance->proving_key.polynomials.get_to_be_shifted())) {
         pp_poly = pppk_poly.shifted();
     }
-    // instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
+    instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -297,7 +296,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor, std::tuple_element_t<0, Relations>>(circuit_size, prover_polynomials, params);
     check_relation<Flavor, std::tuple_element_t<1, Relations>>(circuit_size, prover_polynomials, params);
-    // check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
+    check_relation<Flavor, std::tuple_element_t<2, Relations>>(circuit_size, prover_polynomials, params);
     check_relation<Flavor, std::tuple_element_t<3, Relations>>(circuit_size, prover_polynomials, params);
     check_relation<Flavor, std::tuple_element_t<4, Relations>>(circuit_size, prover_polynomials, params);
     check_relation<Flavor, std::tuple_element_t<5, Relations>>(circuit_size, prover_polynomials, params);
