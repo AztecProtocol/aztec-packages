@@ -35,7 +35,7 @@ void prove_and_verify(auto& circuit_builder, bool expected_result)
 {
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key, true);
     UltraVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
@@ -96,11 +96,11 @@ TEST_F(UltraHonkComposerTests, PublicInputs)
 
     // Add some arbitrary arithmetic gates that utilize public inputs
     for (size_t i = 0; i < num_gates; ++i) {
-        fr a = fr::random_element();
+        fr a = 1;
         uint32_t a_idx = builder.add_public_variable(a);
 
-        fr b = fr::random_element();
-        fr c = fr::random_element();
+        fr b = 2;
+        fr c = 3;
         fr d = a + b + c;
         uint32_t b_idx = builder.add_variable(b);
         uint32_t c_idx = builder.add_variable(c);
