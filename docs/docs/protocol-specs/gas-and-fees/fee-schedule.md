@@ -9,7 +9,7 @@ DA gas is consumed to cover the costs associated with publishing data associated
 These data include:
   - new note hashes
   - new nullifiers
-  - new l2 -> l1 messages
+  - new l2 -> l1 message hashes
   - new public data writes
   - new logs
   - protocol metadata (e.g. the amount of gas consumed, revert code, etc.)
@@ -70,7 +70,7 @@ l2_gas_used = AVM_STARTUP_L2_GAS * num_avm_invocations +
                 (gas reported as consumed by the public VM)
 ```
 
-# Inclusion Fee
+# Max Inclusion Fee
 
 Each transaction, and each block, has inescapable overhead costs associated with it which are not directly related to the amount of data or computation performed. 
 

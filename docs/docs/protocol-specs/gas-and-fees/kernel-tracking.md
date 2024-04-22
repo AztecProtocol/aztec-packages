@@ -98,7 +98,7 @@ class GasSettings {
     +Gas gas_limits
     +Gas teardown_gas_limits
     +GasFees max_fees_per_gas
-    +Field inclusion_fee
+    +Field max_inclusion_fee
 }
 GasSettings --> Gas
 GasSettings --> GasFees
@@ -160,7 +160,6 @@ The PrivateKernelInit circuit takes in a `PrivateCallData` and a `TxRequest` and
 It must:
 
 - check that the `TxContext` provided as in the `TxRequest` input matches the `TxContext` in the `PrivateCallData` 
-- check that the max fees per gas specified by the user are greater than the header's fee per gas for both DA and L2
 - copy the `TxContext` from the `TxRequest` to the `PrivateKernelCircuitPublicInputs.constants.tx_context`
 - copy the `Header` from the `PrivateCircuitPublicInputs` to the `PrivateKernelCircuitPublicInputs.constants.historical_header`
 - set the min_revertible_side_effect_counter if it is present in the `PrivateCallData`
@@ -189,7 +188,6 @@ It must:
 - compute the gas used
   - this will only include DA gas *and* any gas specified in the `teardown_gas_limits`
 - ensure the gas used is less than the gas limits
-- set `gas_used` in the `CombinedAccumulatedData` to the gas used
 - ensure that `fee_payer` is set, and set it in the `KernelCircuitPublicInputs`
 - copy the constants from the `PrivateKernelData` to the `KernelCircuitPublicInputs.constants`
 
@@ -313,7 +311,6 @@ class PublicAccumulatedData {
     +SideEffectLinkedToNoteHash[MAX_NEW_NULLIFIERS_PER_TX] new_nullifiers
     +CallRequest[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX] public_call_stack
     +PublicDataUpdateRequest[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] public_data_update_requests
-    +Gas gas_used
 }
 PublicAccumulatedData --> Gas
 
@@ -374,7 +371,6 @@ class CombinedAccumulatedData {
   +Field[MAX_NEW_NOTE_HASHES_PER_TX] new_note_hashes
   +Field[MAX_NEW_NULLIFIERS_PER_TX] new_nullifiers
   +PublicDataUpdateRequest[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] public_data_update_requests
-  +Gas gas_used
 }
 CombinedAccumulatedData --> Gas
 
@@ -387,6 +383,18 @@ class PublicContextInputs {
 PublicContextInputs --> Header
 PublicContextInputs --> GlobalVariables
 PublicContextInputs --> Gas
+
+class GlobalVariables {
+    +GasFees gas_fees
+}
+GlobalVariables --> GasFees
+
+class GasFees {
+    +Fr fee_per_da_gas
+    +Fr fee_per_l2_gas
+}
+
+
 
 
 ```

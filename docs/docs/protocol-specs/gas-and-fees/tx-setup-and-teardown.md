@@ -33,12 +33,12 @@ In the base rollup, the kernel circuit injects a public data write that levies t
 
 # An example: Fee Abstraction
 
-Consider a user, Alice, who does not have FPA but wishes to interact with the network. Suppose she has a public balance of a fictitious asset "BananaCoin".
+Consider a user, Alice, who does not have FPA but wishes to interact with the network. Suppose she has a private balance of a fictitious asset "BananaCoin" that supports public and private balances.
 
 Suppose there is a Fee Payment Contract (FPC) that has been deployed by another user to the network. Alice can structure her transaction as follows:
 
+0. Before the transaction, Alice creates a private authwit in her wallet, allowing the FPC to unshield a specified amount of BananaCoin from Alice's private balance to the FPC's public balance.
 1. Private setup:
-   - Alice creates a public authwit and submits it to BananaCoin, allowing the FPC to take a specified amount of BananaCoin.
    - Alice calls a private function on the FPC which is exposed for public fee payment in BananaCoin.
    - The FPC checks that the amount of teardown gas Alice has specified is sufficient to cover the gas associated with the teardown function it will use to provide a refund to Alice.
    - The FPC specifies its teardown function as the one the transaction will use.
@@ -52,7 +52,7 @@ Suppose there is a Fee Payment Contract (FPC) that has been deployed by another 
    - Alice performs an arbitrary computation in public, potentially consuming DA and L2 gas.
 5. Public teardown:
    - The FPC looks at `transaction_fee` to compute Alice's corresponding refund of BananaCoin.
-   - The FPC transfers the refund to Alice.
+   - The FPC transfers the refund to Alice via a pending shield.
 6. Base rollup:
    - The Base rollup kernel circuit injects a public data write that levies the transaction fee on the `fee_payer`.
 

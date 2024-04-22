@@ -22,7 +22,7 @@ class GasSettings {
   +Gas gasLimits
   +Gas teardownGasLimits
   +GasFees maxFeesPerGas
-  +Fr inclusionFee
+  +Fr maxInclusionFee
 }
 
 class Gas {
@@ -44,7 +44,7 @@ GasSettings --> GasFees
 All fees are denominated in the [Fee Payment Asset (FPA)](./fee-payment-asset.md).
 :::
 
-# Gas Dimensions and Inclusion Fee
+# Gas Dimensions and Max Inclusion Fee
 
 Transactions are metered for their gas consumption across two dimensions:
 
@@ -53,7 +53,7 @@ Transactions are metered for their gas consumption across two dimensions:
 
 This is similar to the gas model in Ethereum, where transaction consume gas to perform operations, and may also consume blob gas for storing data.
 
-Separately, every transaction has overhead costs associated with it, e.g. verifying its encompassing rollup proof on L1, which are captured in the `inclusionFee`, which is not tied to gas consumption on the transaction, but is specified in FPA.
+Separately, every transaction has overhead costs associated with it, e.g. verifying its encompassing rollup proof on L1, which are captured in the `maxInclusionFee`, which is not tied to gas consumption on the transaction, but is specified in FPA.
 
 See the [Fee Schedule](./fee-schedule.md) for a detailed breakdown of costs associated with different actions.
 
@@ -102,8 +102,12 @@ The `feePerGas` is presently held constant at `1` for both dimensions, but may b
 The transaction fee is calculated as:
 
 ```
-transactionFee = inclusionFee + (DA gas consumed * feePerDaGas) + (L2 gas consumed * feePerL2Gas)
+transactionFee = maxInclusionFee + (DA gas consumed * feePerDaGas) + (L2 gas consumed * feePerL2Gas)
 ```
+
+:::note
+Why is the "max" inclusion fee charged? We're working on a mechanism that will allow users to specify a maximum fee they are willing to pay, and the network will only charge them the actual fee. This is not yet implemented, so the "max" fee is always charged.
+:::
 
 See more on how the "gas consumed" values are calculated in the [Fee Schedule](./fee-schedule.md).
 
@@ -112,7 +116,7 @@ See more on how the "gas consumed" values are calculated in the [Fee Schedule](.
 The final transaction fee cannot be calculated until all public function execution is complete. However, a maximum theoretical fee can be calculated as:
 
 ```
-maxTransactionFee = inclusionFee + (gasLimits.daGas * maxFeesPerDaGas) + (gasLimits.l2Gas * maxFeesPerL2Gas)
+maxTransactionFee = maxInclusionFee + (gasLimits.daGas * maxFeesPerDaGas) + (gasLimits.l2Gas * maxFeesPerL2Gas)
 ```
 
 This is useful for imposing [validity conditions](./kernel-tracking.md#mempoolnode-validation).

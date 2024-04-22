@@ -18,7 +18,7 @@ The transaction data which is published to L1 is a `TxEffects` object, which inc
 - `gas_used`: the total gas consumed by the transaction, contains:
   - `da_gas_used`: the total DA gas consumed by the transaction.
   - `l2_gas_used`: the total L2 gas consumed by the transaction.
-- `inclusion_fee`: the inclusion fee paid by the transaction.
+- `max_inclusion_fee`: the inclusion fee paid by the transaction.
 
 :::note
 The `transaction_fee` is not published because it can be [calculated from the above](./specifying-gas-fee-info.md#transaction-fee).
