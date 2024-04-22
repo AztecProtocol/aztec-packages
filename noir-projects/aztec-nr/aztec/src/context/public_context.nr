@@ -169,7 +169,9 @@ impl PublicContext {
             historical_header: self.inputs.historical_header,
             prover_address: self.prover_address,
             revert_code: 0,
-            gas_left: self.inputs.call_context.gas_left
+            start_gas_left: self.inputs.gas_left,
+            end_gas_left: self.inputs.gas_left, // AVM should decrease this value
+            transaction_fee: self.inputs.transaction_fee
         };
         pub_circuit_pub_inputs
     }
@@ -263,7 +265,8 @@ impl PublicContextInterface for PublicContext {
 
     // We can consume message with a secret in public context because the message cannot be modified and therefore
     // there is no front-running risk (e.g. somebody could front run you to claim your tokens to your address).
-    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
+    // Leaf index is not used in public context, but it is used in the AVMContext which will replace it.
+    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, _leaf_index: Field) {
         let this = (*self).this_address();
         let nullifier = process_l1_to_l2_message(
             self.historical_header.state.l1_to_l2_message_tree.root,
@@ -280,14 +283,11 @@ impl PublicContextInterface for PublicContext {
     }
 
     fn emit_unencrypted_log<T>(&mut self, log: T) {
-        let _void1 = self;
-        let _void2 = log;
+        let event_selector = 5;
+        let log_hash = emit_unencrypted_log_oracle(self.this_address(), event_selector, log);
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         // Once we hash inside circuits, this replaces push_unencrypted_log
         // For now we need an oracle to get the hash
-    }
-
-    fn push_unencrypted_log(&mut self, log_hash: Field) {
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -355,6 +355,13 @@ impl Empty for PublicContext {
 
 #[oracle(checkNullifierExists)]
 fn nullifier_exists_oracle(nullifier: Field) -> Field {}
+
+#[oracle(emitUnencryptedLog)]
+fn emit_unencrypted_log_oracle<T>(
+    _contract_address: AztecAddress,
+    _event_selector: Field,
+    _message: T
+) -> Field {}
 
 struct FunctionReturns<N> {
     values: [Field; N]

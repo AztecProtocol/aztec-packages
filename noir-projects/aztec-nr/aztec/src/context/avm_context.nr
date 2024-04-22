@@ -1,3 +1,4 @@
+use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER}, header::Header
@@ -49,36 +50,6 @@ impl AvmContext {
     pub fn l1_to_l2_msg_exists(self, msg_hash: Field, msg_leaf_index: Field) -> bool {
         l1_to_l2_msg_exists(msg_hash, msg_leaf_index) == 1
     }
-
-    fn call_public_function_raw<RET_COUNT>(
-        self: &mut Self,
-        gas: GasOpts,
-        contract_address: AztecAddress,
-        temporary_function_selector: Field,
-        args: [Field]
-    ) -> ([Field; RET_COUNT], u8) {
-        call(
-            gas_for_call(gas),
-            contract_address,
-            args,
-            temporary_function_selector
-        )
-    }
-
-    fn static_call_public_function_raw<RET_COUNT>(
-        self: &mut Self,
-        gas: GasOpts,
-        contract_address: AztecAddress,
-        temporary_function_selector: Field,
-        args: [Field]
-    ) -> ([Field; RET_COUNT], u8) {
-        call_static(
-            gas_for_call(gas),
-            contract_address,
-            args,
-            temporary_function_selector
-        )
-    }
 }
 
 impl PublicContextInterface for AvmContext {
@@ -120,16 +91,27 @@ impl PublicContextInterface for AvmContext {
     }
 
     fn emit_unencrypted_log<T>(&mut self, log: T) {
-        let event_selector = 0;
+        let event_selector = 5;  // Matches current PublicContext.
         self.emit_unencrypted_log(event_selector, log);
     }
 
-    fn push_unencrypted_log(&mut self, log_hash: Field) {
-        assert(false, "'push_unencrypted_log' not required for avm - use emit_unencrypted_log!");
-    }
+    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
+        let secret_hash = compute_secret_hash(secret);
+        let message_hash = compute_message_hash(
+            sender,
+            self.chain_id(),
+            /*recipient=*/self.this_address(),
+            self.version(),
+            content,
+            secret_hash
+        );
+        let nullifier = compute_message_nullifier(message_hash, secret, leaf_index);
 
-    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress) {
-        assert(false, "'consume_l1_to_l2_message' not implemented!");
+        assert(!self.nullifier_exists(nullifier, self.this_address()), "L1-to-L2 message is already nullified");
+        assert(self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message");
+        
+        // Push nullifier (and the "commitment" corresponding to this can be "empty")
+        self.push_new_nullifier(nullifier, 0);
     }
 
     fn message_portal(&mut self, recipient: EthAddress, content: Field) {

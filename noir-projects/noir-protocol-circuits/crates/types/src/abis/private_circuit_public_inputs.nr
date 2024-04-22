@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-    call_context::CallContext, max_block_number::MaxBlockNumber,
+    call_context::CallContext, max_block_number::MaxBlockNumber, gas_settings::GasSettings,
     nullifier_key_validation_request::NullifierKeyValidationRequest, read_request::ReadRequest,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
@@ -9,11 +9,12 @@ use crate::{
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-    PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS, MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
+    PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH, GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
+    MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
     header::Header, hash::pedersen_hash, messaging::l2_to_l1_message::L2ToL1Message,
-    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader
+    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader,
+    transaction::tx_context::TxContext
 };
 
 struct PrivateCircuitPublicInputs {
@@ -49,11 +50,10 @@ struct PrivateCircuitPublicInputs {
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
 
-    // Note: The following 2 values are not redundant to the values in self.historical_header.global_variables because
+    // Note: The chain_id and version here are not redundant to the values in self.historical_header.global_variables because
     // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
-    chain_id: Field,
-    version: Field,
+    tx_context: TxContext,
 }
 
 impl Eq for PrivateCircuitPublicInputs {
@@ -77,8 +77,7 @@ impl Eq for PrivateCircuitPublicInputs {
         (self.encrypted_log_preimages_length == other.encrypted_log_preimages_length) &
         (self.unencrypted_log_preimages_length == other.unencrypted_log_preimages_length) &
         self.historical_header.eq(other.historical_header) &
-        self.chain_id.eq(other.chain_id) &
-        self.version.eq(other.version)
+        self.tx_context.eq(other.tx_context)
     }
 }
 
@@ -93,39 +92,38 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
 
         fields.extend_from_array(self.max_block_number.serialize());
 
-        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL{
+        for i in 0..self.note_hash_read_requests.len() {
             fields.extend_from_array(self.note_hash_read_requests[i].serialize());
         }
-        for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_CALL{
+        for i in 0..self.nullifier_read_requests.len() {
             fields.extend_from_array(self.nullifier_read_requests[i].serialize());
         }
-        for i in 0..MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL{
+        for i in 0..self.nullifier_key_validation_requests.len() {
             fields.extend_from_array(self.nullifier_key_validation_requests[i].serialize());
         }
-        for i in 0..MAX_NEW_NOTE_HASHES_PER_CALL{
+        for i in 0..self.new_note_hashes.len() {
             fields.extend_from_array(self.new_note_hashes[i].serialize());
         }
-        for i in 0..MAX_NEW_NULLIFIERS_PER_CALL{
+        for i in 0..self.new_nullifiers.len() {
             fields.extend_from_array(self.new_nullifiers[i].serialize());
         }
         fields.extend_from_array(self.private_call_stack_hashes);
         fields.extend_from_array(self.public_call_stack_hashes);
-        for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
+        for i in 0..self.new_l2_to_l1_msgs.len() {
             fields.extend_from_array(self.new_l2_to_l1_msgs[i].serialize());
         }
         fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
-        for i in 0..MAX_ENCRYPTED_LOGS_PER_CALL{
+        for i in 0..self.encrypted_logs_hashes.len() {
             fields.extend_from_array(self.encrypted_logs_hashes[i].serialize());
         }
-        for i in 0..MAX_UNENCRYPTED_LOGS_PER_CALL{
+        for i in 0..self.unencrypted_logs_hashes.len() {
             fields.extend_from_array(self.unencrypted_logs_hashes[i].serialize());
         }
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
         fields.extend_from_array(self.historical_header.serialize());
-        fields.push(self.chain_id);
-        fields.push(self.version);
+        fields.extend_from_array(self.tx_context.serialize());
 
         assert_eq(fields.len(), PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -158,8 +156,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             encrypted_log_preimages_length: reader.read(),
             unencrypted_log_preimages_length: reader.read(),
             historical_header: reader.read_struct(Header::deserialize),
-            chain_id: reader.read(),
-            version: reader.read(),
+            tx_context: reader.read_struct(TxContext::deserialize),
         };
 
         reader.finish();
@@ -172,7 +169,6 @@ impl Hash for PrivateCircuitPublicInputs {
         pedersen_hash(self.serialize(), GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)
     }
 }
-
 
 impl Empty for PrivateCircuitPublicInputs {
     fn empty() -> Self {
@@ -197,8 +193,7 @@ impl Empty for PrivateCircuitPublicInputs {
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
-            chain_id: 0,
-            version: 0,
+            tx_context: TxContext::empty(),
         }
     }
 }
@@ -216,6 +211,6 @@ fn empty_hash() {
     let inputs = PrivateCircuitPublicInputs::empty();
     let hash = inputs.hash();
     // Value from private_circuit_public_inputs.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x24ea9ab3fc039778bef8e7212f6a09feec1019db19b449333b523a08b812ee88;
+    let test_data_empty_hash = 0x0a61fd8a00a3d160e723b316437484bf643f8ed7952031e493717e1f0f1f9345;
     assert_eq(hash, test_data_empty_hash);
 }

@@ -36,7 +36,6 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
-          concurrency_token: "${{ secrets.AZTEC_GITHUB_TOKEN }}"
           # must be globally unique for build x runner
           concurrency_key: build-master-arm
       # prepare images locally, tagged by commit hash
@@ -58,3 +57,18 @@ jobs:
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 15
         run: earthly -P --no-output +uniswap-trade-on-l1-from-l2 --e2e_mode=cache
+
+  notify:
+    needs: [e2e]
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/master' && failure() }}
+    steps:
+      - name: Send notification to aztec3-ci channel if workflow failed on master
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NOTIFY_WORKFLOW_TRIGGER_URL }}

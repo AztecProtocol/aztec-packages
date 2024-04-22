@@ -89,18 +89,14 @@ export class AcirSimulator {
     // reserve the first side effect for the tx hash (inserted by the private kernel)
     const startSideEffectCounter = 1;
 
-    const transactionFee = Fr.ZERO;
     const callContext = new CallContext(
       msgSender,
       contractAddress,
       portalContractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
-      request.gasSettings.getInitialAvailable(),
       false,
       false,
       startSideEffectCounter,
-      request.gasSettings,
-      transactionFee,
     );
     const context = new ClientExecutionContext(
       contractAddress,
@@ -143,7 +139,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
   ) {
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
-      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as constrained`);
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
     const context = new ViewDataOracle(contractAddress, [], this.db, this.node);
