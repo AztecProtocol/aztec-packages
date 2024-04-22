@@ -35,7 +35,7 @@ void prove_and_verify(auto& circuit_builder, bool expected_result)
 {
     auto instance = std::make_shared<ProverInstance>(circuit_builder);
     UltraProver prover(instance);
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key, true);
+    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     UltraVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     size_t idx = 0;

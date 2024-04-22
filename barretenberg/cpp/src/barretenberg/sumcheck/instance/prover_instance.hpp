@@ -55,15 +55,12 @@ template <class Flavor> class ProverInstance_ {
 
         proving_key = std::move(ProvingKey(dyadic_circuit_size, circuit.public_inputs.size()));
 
-        // WORKTODO: move this to a constructor or something?
+        // WORKTODO: move this to a constructor or something? proving_key.polynomials = ProverPolynomials(circuit_size)
         // Allocate memory for polynomials (excluding shifts which do not have their own memory)
         for (auto& poly : proving_key.polynomials.get_unshifted()) {
             poly = Polynomial(dyadic_circuit_size);
         }
-        for (auto [shifted, to_be_shifted] :
-             zip_view(proving_key.polynomials.get_shifted(), proving_key.polynomials.get_to_be_shifted())) {
-            shifted = to_be_shifted.shifted();
-        }
+        proving_key.polynomials.set_shifted();
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         Trace::populate(circuit, proving_key);
@@ -76,18 +73,13 @@ template <class Flavor> class ProverInstance_ {
         // First and last lagrange polynomials (in the full circuit size)
         const auto [lagrange_first, lagrange_last] =
             compute_first_and_last_lagrange_polynomials<FF>(dyadic_circuit_size);
-        // proving_key.lagrange_first = lagrange_first;
-        // proving_key.lagrange_last = lagrange_last;
-        // PP in PK
         proving_key.polynomials.lagrange_first = lagrange_first;
         proving_key.polynomials.lagrange_last = lagrange_last;
 
         construct_table_polynomials(circuit, dyadic_circuit_size);
 
-        // WORKTODO: these arent part of the PK polys so not putting them in PP either
         proving_key.sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
-        // WORKTODO: use the PP.w_r
         std::span<FF> public_wires_source = proving_key.polynomials.w_r;
 
         // Construct the public inputs array

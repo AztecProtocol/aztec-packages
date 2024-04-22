@@ -25,25 +25,6 @@ template <IsUltraFlavor Flavor> OinkProverOutput<Flavor> OinkProver<Flavor>::pro
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
-    // // const auto& tables = proving_key.polynomials.get_tables();
-    // // for (size_t idx = 0; idx < proving_key.circuit_size; ++idx) {
-
-    // //     info(idx);
-    // //     info("table_1 = ", tables[0][idx]);
-    // //     info("table_2 = ", tables[1][idx]);
-    // //     info("table_3 = ", tables[2][idx]);
-    // //     info("table_4 = ", tables[3][idx]);
-    // // }
-
-    // const auto& sorted_accum = proving_key.polynomials.sorted_accum;
-    // const auto& z_lookup = proving_key.polynomials.z_lookup;
-    // for (size_t idx = 0; idx < proving_key.circuit_size; ++idx) {
-
-    //     info(idx);
-    //     info("sorted_accum = ", sorted_accum[idx]);
-    //     info("z_lookup = ", z_lookup[idx]);
-    // }
-
     // Generate relation separators alphas for sumcheck/combiner computation
     RelationSeparator alphas = generate_alphas_round();
 
@@ -158,9 +139,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     if constexpr (IsGoblinFlavor<Flavor>) {
         // Compute and commit to the logderivative inverse used in DataBus
         proving_key.compute_logderivative_inverse(relation_parameters);
-        // // PPPK
-        // proving_key.polynomials.calldata_inverses = proving_key.calldata_inverses.share();
-        // proving_key.polynomials.return_data_inverses = proving_key.return_data_inverses.share();
 
         witness_commitments.calldata_inverses = commitment_key->commit(proving_key.polynomials.calldata_inverses);
         witness_commitments.return_data_inverses = commitment_key->commit(proving_key.polynomials.return_data_inverses);
@@ -177,10 +155,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
-    for (auto [shifted, to_be_shifted] :
-         zip_view(proving_key.polynomials.get_shifted(), proving_key.polynomials.get_to_be_shifted())) {
-        shifted = to_be_shifted.shifted();
-    }
+    // for (auto [shifted, to_be_shifted] :
+    //      zip_view(proving_key.polynomials.get_shifted(), proving_key.polynomials.get_to_be_shifted())) {
+    //     shifted = to_be_shifted.shifted();
+    // }
+    proving_key.polynomials.set_shifted();
 
     proving_key.compute_grand_product_polynomials(relation_parameters);
 

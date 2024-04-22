@@ -295,6 +295,13 @@ class GoblinUltraFlavor {
             }
             return result;
         }
+
+        void set_shifted()
+        {
+            for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
+                shifted = to_be_shifted.shifted();
+            }
+        }
     };
 
     /**
@@ -392,18 +399,13 @@ class GoblinUltraFlavor {
          */
         void compute_logderivative_inverse(const RelationParameters<FF>& relation_parameters)
         {
-            // WORKTODO: just pass in PK owned polynomials here
-            // auto prover_polynomials = ProverPolynomials(*this);
-
             // Compute inverses for calldata reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/0>(
                 this->polynomials, relation_parameters, this->circuit_size);
-            // this->calldata_inverses = prover_polynomials.calldata_inverses;
 
             // Compute inverses for return data reads
             DatabusLookupRelation<FF>::compute_logderivative_inverse</*bus_idx=*/1>(
                 this->polynomials, relation_parameters, this->circuit_size);
-            // this->return_data_inverses = prover_polynomials.return_data_inverses;
         }
 
         /**
@@ -424,14 +426,7 @@ class GoblinUltraFlavor {
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
-            // WORKTODO: just use polynomials here directly
-            // auto prover_polynomials = ProverPolynomials(*this);
             compute_grand_products<GoblinUltraFlavor>(*this, this->polynomials, relation_parameters);
-            // this->z_perm = prover_polynomials.z_perm;
-            // this->z_lookup = prover_polynomials.z_lookup;
-            // // PPPK
-            // this->polynomials.z_perm = this->z_perm.share();
-            // this->polynomials.z_lookup = this->z_lookup.share();
         }
     };
 
@@ -454,19 +449,6 @@ class GoblinUltraFlavor {
 
         VerificationKey(ProvingKey& proving_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key.circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key.num_public_inputs;
-            this->pub_inputs_offset = proving_key.pub_inputs_offset;
-
-            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
-            }
-        }
-        VerificationKey(ProvingKey& proving_key, bool flag)
-        {
-            (void)flag;
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = proving_key.circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
