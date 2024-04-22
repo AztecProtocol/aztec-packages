@@ -2,10 +2,10 @@
 use dep::aztec::log::emit_encrypted_log;
 // docs:end:encrypted_import
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, traits::Empty, hash::poseidon2_hash, constants::GENERATOR_INDEX__NULLIFIER},
+    protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
     oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
-    context::PrivateContext
+    context::PrivateContext, hash::poseidon2_hash
 };
 
 global ADDRESS_NOTE_LEN: Field = 3;
