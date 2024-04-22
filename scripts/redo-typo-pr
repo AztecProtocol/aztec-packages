@@ -18,6 +18,7 @@ git checkout -b $NEW_BRANCH
 
 # Step 3: Push the new branch to GitHub
 echo "Pushing new branch $NEW_BRANCH to GitHub"
+git commit --amend --author="AztecBot <tech@aztecprotocol.com>" --no-edit
 git push origin $NEW_BRANCH
 
 # Step 4: create a new pull request
