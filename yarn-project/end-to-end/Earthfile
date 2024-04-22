@@ -36,9 +36,6 @@ e2e-browser:
 pxe:
   DO +E2E_COMPOSE_TEST --test=pxe.test.ts
 
-cli-docs-sandbox:
-  DO +E2E_COMPOSE_TEST --test=cli_docs_sandbox.test.ts
-
 e2e-docs-examples:
   DO +E2E_COMPOSE_TEST --test=docs_examples.test.ts
 
