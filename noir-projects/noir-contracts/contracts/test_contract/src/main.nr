@@ -19,7 +19,7 @@ contract Test {
 
     use dep::aztec::{
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
-        hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
+        hash::{pedersen_hash, compute_note_secret_hash, ArgsHasher},
         note::{
         lifecycle::{create_note, destroy_note}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
@@ -351,7 +351,7 @@ contract Test {
     // Adapted from TokenContract#redeem_shield but without an initcheck so it can be run in simulator/src/client/private_execution.test.ts
     fn consume_note_from_secret(secret: Field) {
         let notes_set = storage.example_set;
-        let secret_hash = compute_secret_hash(secret);
+        let secret_hash = compute_note_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
         options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
