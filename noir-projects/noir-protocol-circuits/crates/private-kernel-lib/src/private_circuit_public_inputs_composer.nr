@@ -83,11 +83,16 @@ impl PrivateKernelCircuitPublicInputsComposer {
         note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL]
     ) {
         for i in 0..MAX_NEW_NOTE_HASHES_PER_CALL {
-            let mut new_note_hash = private_call_public_inputs.new_note_hashes[i];
-            if new_note_hash.value != 0 {
-                new_note_hash.value = silo_note_hash(storage_contract_address, new_note_hash.value);
+            let mut note_hash = private_call_public_inputs.new_note_hashes[i];
+            if note_hash.value != 0 {
                 let nullifier_counter = note_hash_nullifier_counters[i];
-                self.public_inputs.end.new_note_hashes.push(new_note_hash.to_context(nullifier_counter));
+                assert(
+                    (nullifier_counter == 0) | (nullifier_counter > note_hash.counter), "invalid nullifier counter"
+                );
+
+                // TODO: Silo values in the tail circuit.
+                note_hash.value = silo_note_hash(storage_contract_address, note_hash.value);
+                self.public_inputs.end.new_note_hashes.push(note_hash.to_context(nullifier_counter));
             }
         }
     }

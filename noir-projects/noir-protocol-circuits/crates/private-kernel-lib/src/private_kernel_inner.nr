@@ -488,6 +488,34 @@ mod tests {
         builder.failed();
     }
 
+    #[test]
+    fn propagate_note_hashes_with_nullifier_counters() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        let note_hashes = [
+            NoteHash { value: 12, counter: 3 },
+            NoteHash { value: 45, counter: 6 },
+            NoteHash { value: 78, counter: 9 }
+        ];
+        builder.private_call.public_inputs.new_note_hashes.extend_from_array(note_hashes);
+        builder.hints.note_hash_nullifier_counters[0] = 10;
+        builder.hints.note_hash_nullifier_counters[2] = 20;
+
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.new_note_hashes[0].nullifier_counter, 10);
+        assert_eq(public_inputs.end.new_note_hashes[1].nullifier_counter, 0);
+        assert_eq(public_inputs.end.new_note_hashes[2].nullifier_counter, 20);
+    }
+
+    #[test(should_fail_with="invalid nullifier counter")]
+    fn propagate_note_hashes_with_incorrect_nullifier_counters_fails() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+        builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 12, counter: 3 });
+        builder.hints.note_hash_nullifier_counters[0] = 2; // Less than the note hash's counter 3.
+
+        builder.failed();
+    }
+
     #[test(should_fail_with="Private kernel circuit can only execute a private function")]
     fn private_function_is_private_false_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
