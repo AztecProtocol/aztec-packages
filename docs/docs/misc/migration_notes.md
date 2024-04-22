@@ -18,6 +18,10 @@ This means that you will likely add the portal as a constructor argument
 - fn constructor(token: AztecAddress) {
 -    storage.token.write(token);
 - }
++ struct Storage {
+    ...
++   portal_address: SharedImmutable<AztecAddress>,
++ }
 + fn constructor(token: AztecAddress, portal_address: EthAddress) {
 +    storage.token.write(token);
 +    storage.portal_address.initialize(portal_address);
