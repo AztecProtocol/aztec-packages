@@ -275,10 +275,6 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
                                                                  instance->relation_parameters.eta_two,
                                                                  instance->relation_parameters.eta_three);
-    for (auto [pp_poly, pppk_poly] : zip_view(instance->proving_key.polynomials.get_shifted(),
-                                              instance->proving_key.polynomials.get_to_be_shifted())) {
-        pp_poly = pppk_poly.shifted();
-    }
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
@@ -334,10 +330,6 @@ TEST_F(UltraRelationCorrectnessTests, GoblinUltra)
     instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
                                                                  instance->relation_parameters.eta_two,
                                                                  instance->relation_parameters.eta_three);
-    for (auto [pp_poly, pppk_poly] : zip_view(instance->proving_key.polynomials.get_shifted(),
-                                              instance->proving_key.polynomials.get_to_be_shifted())) {
-        pp_poly = pppk_poly.shifted();
-    }
     instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
     // instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);

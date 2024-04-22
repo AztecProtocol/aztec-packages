@@ -413,6 +413,9 @@ class UltraFlavor {
          */
         void compute_grand_product_polynomials(RelationParameters<FF>& relation_parameters)
         {
+            // WORKTODO: is this the best place for this? needed for lookup grand prod
+            this->polynomials.set_shifted();
+
             auto public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
                                                                               relation_parameters.beta,
                                                                               relation_parameters.gamma,

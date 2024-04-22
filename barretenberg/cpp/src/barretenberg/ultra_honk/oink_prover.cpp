@@ -155,10 +155,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
-    // for (auto [shifted, to_be_shifted] :
-    //      zip_view(proving_key.polynomials.get_shifted(), proving_key.polynomials.get_to_be_shifted())) {
-    //     shifted = to_be_shifted.shifted();
-    // }
     proving_key.polynomials.set_shifted();
 
     proving_key.compute_grand_product_polynomials(relation_parameters);
