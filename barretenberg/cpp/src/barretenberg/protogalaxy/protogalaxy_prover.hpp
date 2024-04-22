@@ -381,7 +381,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 accumulate_relation_univariates(
                     thread_univariate_accumulators[thread_idx],
                     extended_univariates[thread_idx],
-                    instances.relation_parameters, // these parameters have already been folded
+                    instances.optimised_relation_parameters, // these parameters have already been folded
                     pow_challenge);
             }
         });
@@ -406,10 +406,13 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
             static_assert(std::remove_reference_t<decltype(optimised_element)>::LENGTH + (ProverInstances::NUM - 1) ==
                           std::remove_reference_t<decltype(element)>::LENGTH);
             element.evaluations[0] = optimised_element.evaluations[0];
-            element.evaluations[1] = FF(0);
-            for (size_t i = 1; i < std::remove_reference_t<decltype(optimised_element)>::LENGTH; i++) {
-                element.evaluations[i + 1] = optimised_element.evaluations[i];
+            for (size_t i = 1; i < ProverInstances::NUM; i++) {
+                element.evaluations[i] = FF(0);
             }
+            for (size_t i = 1; i < std::remove_reference_t<decltype(optimised_element)>::LENGTH; i++) {
+                element.evaluations[i + ProverInstances::NUM - 1] = optimised_element.evaluations[i];
+            }
+            info("Element ", outer_idx, ".", inner_idx, "[", ":", "] = ", element);
         };
 
         Utils::template apply_to_tuple_of_tuples<0, 0>(univariate_accumulators, deoptimise);
@@ -488,7 +491,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     {
         size_t param_idx = 0;
         auto to_fold = instances.relation_parameters.get_to_fold();
-        for (auto& folded_parameter : to_fold) {
+        auto to_fold_optimised = instances.optimised_relation_parameters.get_to_fold();
+        for (auto [folded_parameter, optimised_folded_parameter] : zip_view(to_fold, to_fold_optimised)) {
             Univariate<FF, ProverInstances::NUM> tmp(0);
             size_t instance_idx = 0;
             for (auto& instance : instances) {
@@ -496,6 +500,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 instance_idx++;
             }
             folded_parameter = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
+            optimised_folded_parameter.value_at(0) = folded_parameter.value_at(0);
+            std::copy(std::next(folded_parameter.evaluations.begin(), ProverInstances::NUM),
+                      folded_parameter.evaluations.end(),
+                      std::next(optimised_folded_parameter.evaluations.begin(), 1));
             param_idx++;
         }
     }

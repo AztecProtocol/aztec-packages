@@ -387,9 +387,9 @@ template <class Fr, size_t domain_end, size_t domain_start = 0> class Univariate
         Univariate<Fr, EXTENDED_LENGTH - NUM_SKIPPED_INDICES> optimised_result;
         optimised_result.value_at(0) = result.value_at(0);
 
-        std::copy(std::next(result.begin(), 1 + NUM_SKIPPED_INDICES),
+        std::copy(std::next(result.evaluations.begin(), 1 + NUM_SKIPPED_INDICES),
                   result.evaluations.end(),
-                  std::next(optimised_result.begin(), 1));
+                  std::next(optimised_result.evaluations.begin(), 1));
         return optimised_result;
     }
 
