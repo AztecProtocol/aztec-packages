@@ -5,7 +5,7 @@ set -eux
 # Configuration
 ORIGINAL_PR_NUMBER=$1
 REPO='AztecProtocol/aztec-packages'
-NEW_BRANCH="chore/typo-redo-$(date +%Y%m%d)"
+NEW_BRANCH="chore/typo-redo-$ORIGINAL_PR_NUMBER"
 AUTHOR=`gh pr view $ORIGINAL_PR_NUMBER --json author --jq '.author.login'`
 
 # Step 1: Checkout the PR locally
