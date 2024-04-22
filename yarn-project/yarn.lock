@@ -690,6 +690,7 @@ __metadata:
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
     libp2p: ^1.4.0
+    semver: ^7.6.0
     sha3: ^2.1.4
     ts-node: ^10.9.1
     tslib: ^2.4.0
@@ -12041,7 +12042,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"semver@npm:7.6.0, semver@npm:^7.3.4, semver@npm:^7.3.5, semver@npm:^7.3.7, semver@npm:^7.3.8, semver@npm:^7.5.3, semver@npm:^7.5.4":
+"semver@npm:7.6.0, semver@npm:^7.3.4, semver@npm:^7.3.5, semver@npm:^7.3.7, semver@npm:^7.3.8, semver@npm:^7.5.3, semver@npm:^7.5.4, semver@npm:^7.6.0":
   version: 7.6.0
   resolution: "semver@npm:7.6.0"
   dependencies:

@@ -4,10 +4,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
 
 import { ENR } from '@chainsafe/enr';
+import { GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
-import type { IncomingStreamData, PeerId, ServiceMap, Stream } from '@libp2p/interface';
+import type { IncomingStreamData, PeerId, PubSub, ServiceMap, Stream } from '@libp2p/interface';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { peerIdFromString } from '@libp2p/peer-id';
@@ -22,22 +23,22 @@ import { KnownTxLookup } from './known_txs.js';
 import { AztecPeerDb, type AztecPeerStore } from './peer_store.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 import {
-  Messages,
-  createGetTransactionsRequestMessage,
-  createTransactionHashesMessage,
-  createTransactionsMessage,
-  decodeGetTransactionsRequestMessage,
-  decodeTransactionHashesMessage,
-  decodeTransactionsMessage,
-  getEncodedMessage,
+  AztecTxMessageCreator, // decodeTransactionsMessage,
+  fromTxMessage, // getEncodedMessage,
 } from './tx_messages.js';
+
+interface PubSubLibp2p extends Libp2p {
+  services: {
+    pubsub: PubSub<GossipsubEvents>;
+  };
+}
 
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
  * @param privateKey - Optional peer ID private key as hex string
  * @returns The peer ID.
  */
-export async function createLibP2PPeerId(privateKey?: string) {
+export async function createLibP2PPeerId(privateKey?: string): Promise<PeerId> {
   if (!privateKey?.length) {
     return await createSecp256k1PeerId();
   }
@@ -63,16 +64,19 @@ export function exportLibP2PPeerIdToString(peerId: PeerId) {
 export class LibP2PService implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private knownTxLookup: KnownTxLookup = new KnownTxLookup();
+  private messageCreator: AztecTxMessageCreator;
   constructor(
     private config: P2PConfig,
-    private node: Libp2p,
+    private node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private peerStore: AztecPeerStore,
     private protocolId: string,
     private txPool: TxPool,
     private bootstrapPeerIds: PeerId[] = [],
     private logger = createDebugLogger('aztec:libp2p_service'),
-  ) {}
+  ) {
+    this.messageCreator = new AztecTxMessageCreator(config.txGossipVersion);
+  }
 
   /**
    * Starts the LibP2P service.
@@ -124,6 +128,22 @@ export class LibP2PService implements P2PService {
       this.jobQueue.put(() => Promise.resolve(this.handleProtocolDial(incoming))),
     );
     this.logger.info(`Started P2P client with Peer ID ${this.node.peerId.toString()}`);
+
+    // Subscribe to standard topics by default
+    this.subscribeToTopic(this.messageCreator.getTopic());
+    // this.subscribeToTopic(GossipTopic.BLOCK);
+
+    // add gossipsub listener
+    this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
+      const { msg } = e.detail;
+      this.logger.info(
+        `Received PUBSUB message.
+        MSG: ${msg.data.toString()}
+        Topic: ${msg.topic}`,
+      );
+
+      await this.handleNewGossipMessage(msg.topic, msg.data);
+    });
   }
 
   /**
@@ -154,7 +174,21 @@ export class LibP2PService implements P2PService {
     const { tcpListenIp, tcpListenPort, minPeerCount, maxPeerCount } = config;
     const bindAddrTcp = `/ip4/${tcpListenIp}/tcp/${tcpListenPort}`;
 
-    const opts: Libp2pOptions<ServiceMap> = {
+    // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
+    // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
+    // work as then you would have a permanent port to be dialled.
+    // Alas, I struggled to get this to work reliably either. I find there is a race between the
+    // service that reads our listener addresses and the uPnP service.
+    // The result being the uPnP service can't find an address to use for the port forward.
+    // Need to investigate further.
+    // if (enableNat) {
+    //   services.autoNAT = autoNATService({
+    //     protocolPrefix: 'aztec',
+    //   });
+    //   services.uPnPNAT = uPnPNATService();
+    // }
+
+    const node = await createLibp2p({
       start: false,
       peerId,
       addresses: {
@@ -171,31 +205,12 @@ export class LibP2PService implements P2PService {
         minConnections: minPeerCount,
         maxConnections: maxPeerCount,
       },
-    };
-
-    const services: ServiceFactoryMap = {
-      identify: identify({
-        protocolPrefix: 'aztec',
-      }),
-    };
-
-    // The autonat service seems quite problematic in that using it seems to cause a lot of attempts
-    // to dial ephemeral ports. I suspect that it works better if you can get the uPNPnat service to
-    // work as then you would have a permanent port to be dialled.
-    // Alas, I struggled to get this to work reliably either. I find there is a race between the
-    // service that reads our listener addresses and the uPnP service.
-    // The result being the uPnP service can't find an address to use for the port forward.
-    // Need to investigate further.
-    // if (enableNat) {
-    //   services.autoNAT = autoNATService({
-    //     protocolPrefix: 'aztec',
-    //   });
-    //   services.uPnPNAT = uPnPNATService();
-    // }
-
-    const node = await createLibp2p({
-      ...opts,
-      services,
+      services: {
+        identify: identify({
+          protocolPrefix: 'aztec',
+        }),
+        pubsub: gossipsub(),
+      },
     });
     const protocolId = config.transactionProtocol;
 
@@ -212,6 +227,40 @@ export class LibP2PService implements P2PService {
 
     return new LibP2PService(config, node, peerDiscoveryService, peerDb, protocolId, txPool, bootstrapPeerIds);
   }
+
+  /**
+   * Subscribes to a topic.
+   * @param topic - The topic to subscribe to.
+   */
+  private subscribeToTopic(topic: string) {
+    if (!this.node.services.pubsub) {
+      throw new Error('Pubsub service not available.');
+    }
+    void this.node.services.pubsub.subscribe(topic);
+  }
+
+  /**
+   * Publishes data to a topic.
+   * @param topic - The topic to publish to.
+   * @param data - The data to publish.
+   * @returns The number of recipients the data was sent to.
+   */
+  private async publishToTopic(topic: string, data: Uint8Array) {
+    if (!this.node.services.pubsub) {
+      throw new Error('Pubsub service not available.');
+    }
+    const { recipients } = await this.node.services.pubsub.publish(topic, data);
+    return recipients.length;
+  }
+
+  private handleNewGossipMessage = async (topic: string, data: Uint8Array) => {
+    if (topic !== this.messageCreator.getTopic()) {
+      // Invalid TX Topic, ignore
+      return;
+    }
+
+    const tx = fromTxMessage(Buffer.from(data));
+  };
 
   /**
    * Propagates the provided transaction to peers.
@@ -274,7 +323,7 @@ export class LibP2PService implements P2PService {
       if (!message.length) {
         this.logger.verbose(`Ignoring 0 byte message from peer${peer.toString()}`);
       }
-      await this.processMessage(message, peer);
+      // await this.processTransactionMessage(message, peer);
     } catch (err) {
       this.logger.error(
         `Failed to handle received message from peer ${incomingStreamData.connection.remotePeer.toString()}`,
@@ -301,145 +350,75 @@ export class LibP2PService implements P2PService {
     } else {
       this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
       // send the peer our current pooled transaction hashes
-      void this.jobQueue.put(async () => {
-        await this.sendTxHashesMessageToPeer(peerId);
-      });
+      // void this.jobQueue.put(async () => {
+      //   await this.sendTxHashesMessageToPeer(peerId);
+      // });
     }
   }
 
-  private async processMessage(message: Buffer, peerId: PeerId) {
-    const type = message.readUInt32BE(0);
-    const encodedMessage = getEncodedMessage(message);
-    switch (type) {
-      case Messages.POOLED_TRANSACTIONS:
-        await this.processReceivedTxs(encodedMessage, peerId);
-        return;
-      case Messages.POOLED_TRANSACTION_HASHES:
-        await this.processReceivedTxHashes(encodedMessage, peerId);
-        return;
-      case Messages.GET_TRANSACTIONS:
-        await this.processReceivedGetTransactionsRequest(encodedMessage, peerId);
-        return;
-    }
-    throw new Error(`Unknown message type ${type}`);
+  private async processTransactionMessage(message: Buffer) {
+    // const encodedMessage = getEncodedMessage(message);
+    const tx = fromTxMessage(message);
+    await this.processTxFromPeer(tx);
   }
 
-  private async processReceivedTxHashes(encodedMessage: Buffer, peerId: PeerId) {
-    try {
-      const txHashes = decodeTransactionHashesMessage(encodedMessage);
-      this.logger.debug(`Received tx hash messages from ${peerId.toString()}`);
-      // we send a message requesting the transactions that we don't have from the set of received hashes
-      const requiredHashes = txHashes.filter(hash => !this.txPool.hasTx(hash));
-      if (!requiredHashes.length) {
-        return;
-      }
-      await this.sendGetTransactionsMessageToPeer(txHashes, peerId);
-    } catch (err) {
-      this.logger.error(`Failed to process received tx hashes`, err);
-    }
-  }
+  // private async processReceivedTxHashes(encodedMessage: Buffer, peerId: PeerId) {
+  //   try {
+  //     const txHashes = decodeTransactionHashesMessage(encodedMessage);
+  //     this.logger.debug(`Received tx hash messages from ${peerId.toString()}`);
+  //     // we send a message requesting the transactions that we don't have from the set of received hashes
+  //     const requiredHashes = txHashes.filter(hash => !this.txPool.hasTx(hash));
+  //     if (!requiredHashes.length) {
+  //       return;
+  //     }
+  //     await this.sendGetTransactionsMessageToPeer(txHashes, peerId);
+  //   } catch (err) {
+  //     this.logger.error(`Failed to process received tx hashes`, err);
+  //   }
+  // }
 
-  private async processReceivedGetTransactionsRequest(encodedMessage: Buffer, peerId: PeerId) {
-    try {
-      this.logger.debug(`Received get txs messages from ${peerId.toString()}`);
-      // get the transactions in the list that we have and return them
-      const removeUndefined = <S>(value: S | undefined): value is S => value != undefined;
-      const txHashes = decodeGetTransactionsRequestMessage(encodedMessage);
-      const txs = txHashes.map(x => this.txPool.getTxByHash(x)).filter(removeUndefined);
-      if (!txs.length) {
-        return;
-      }
-      await this.sendTransactionsMessageToPeer(txs, peerId);
-    } catch (err) {
-      this.logger.error(`Failed to process get txs request`, err);
-    }
-  }
+  // private async processReceivedGetTransactionsRequest(encodedMessage: Buffer, peerId: PeerId) {
+  //   try {
+  //     this.logger.debug(`Received get txs messages from ${peerId.toString()}`);
+  //     // get the transactions in the list that we have and return them
+  //     const removeUndefined = <S>(value: S | undefined): value is S => value != undefined;
+  //     const txHashes = decodeGetTransactionsRequestMessage(encodedMessage);
+  //     const txs = txHashes.map(x => this.txPool.getTxByHash(x)).filter(removeUndefined);
+  //     if (!txs.length) {
+  //       return;
+  //     }
+  //     await this.sendTransactionsMessageToPeer(txs, peerId);
+  //   } catch (err) {
+  //     this.logger.error(`Failed to process get txs request`, err);
+  //   }
+  // }
 
-  private async processReceivedTxs(encodedMessage: Buffer, peerId: PeerId) {
-    try {
-      const txs = decodeTransactionsMessage(encodedMessage);
-      // Could optimize here and process all txs at once
-      // Propagation would need to filter and send custom tx set per peer
-      for (const tx of txs) {
-        await this.processTxFromPeer(tx, peerId);
-      }
-    } catch (err) {
-      this.logger.error(`Failed to process pooled transactions message`, err);
-    }
-  }
+  // private async processReceivedTxs(encodedMessage: Buffer, peerId: PeerId) {
+  //   try {
+  //     const txs = decodeTransactionsMessage(encodedMessage);
+  //     // Could optimize here and process all txs at once
+  //     // Propagation would need to filter and send custom tx set per peer
+  //     for (const tx of txs) {
+  //       await this.processTxFromPeer(tx, peerId);
+  //     }
+  //   } catch (err) {
+  //     this.logger.error(`Failed to process pooled transactions message`, err);
+  //   }
+  // }
 
-  private async processTxFromPeer(tx: Tx, peerId: PeerId): Promise<void> {
+  private async processTxFromPeer(tx: Tx): Promise<void> {
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
-    this.knownTxLookup.addPeerForTx(peerId, txHashString);
-    this.logger.debug(`Received tx ${txHashString} from peer ${peerId.toString()}`);
+    // this.knownTxLookup.addPeerForTx(peerId, txHashString);
+    this.logger.debug(`Received tx ${txHashString} from external peer.`);
     await this.txPool.addTxs([tx]);
-    this.propagateTx(tx);
+    // this.propagateTx(tx);
   }
 
   private async sendTxToPeers(tx: Tx) {
-    const txs = createTransactionsMessage([tx]);
-    const payload = new Uint8Array(txs);
-    const peers = this.getTxPeers();
-    const txHash = tx.getTxHash();
-    const txHashString = txHash.toString();
-    for (const peer of peers) {
-      try {
-        if (this.knownTxLookup.hasPeerSeenTx(peer, txHashString)) {
-          this.logger.debug(`Not sending tx ${txHashString} to peer ${peer.toString()} as they have already seen it`);
-          continue;
-        }
-        this.logger.debug(`Sending tx ${txHashString} to peer ${peer.toString()}`);
-        await this.sendRawMessageToPeer(payload, peer);
-        this.knownTxLookup.addPeerForTx(peer, txHashString);
-      } catch (err) {
-        this.logger.error(`Failed to send txs to peer ${peer.toString()}`, err);
-        continue;
-      }
-    }
-  }
-
-  private async sendTxHashesMessageToPeer(peer: PeerId) {
-    try {
-      const hashes = this.txPool.getAllTxHashes();
-      if (!hashes.length) {
-        return;
-      }
-      const message = createTransactionHashesMessage(hashes);
-      await this.sendRawMessageToPeer(new Uint8Array(message), peer);
-    } catch (err) {
-      this.logger.error(`Failed to send tx hashes to peer ${peer.toString()}`, err);
-    }
-  }
-
-  private async sendGetTransactionsMessageToPeer(hashes: TxHash[], peer: PeerId) {
-    try {
-      const message = createGetTransactionsRequestMessage(hashes);
-      await this.sendRawMessageToPeer(new Uint8Array(message), peer);
-    } catch (err) {
-      this.logger.error(`Failed to send tx request to peer ${peer.toString()}`, err);
-    }
-  }
-
-  private async sendTransactionsMessageToPeer(txs: Tx[], peer: PeerId) {
-    // don't filter out any transactions based on what we think the peer has seen,
-    // we have been explicitly asked for these transactions
-    const message = createTransactionsMessage(txs);
-    await this.sendRawMessageToPeer(message, peer);
-    for (const tx of txs) {
-      const hash = tx.getTxHash();
-      this.knownTxLookup.addPeerForTx(peer, hash.toString());
-    }
-  }
-
-  private async sendRawMessageToPeer(message: Uint8Array, peer: PeerId) {
-    const stream = await this.node.dialProtocol(peer, this.protocolId);
-    await pipe([message], stream);
-    await stream.close();
-  }
-
-  private getTxPeers() {
-    return this.node.getPeers().filter(peer => !this.isBootstrapPeer(peer));
+    const { data: txData } = this.messageCreator.createTxMessage(tx);
+    this.logger.debug(`Sending tx ${tx.getTxHash().toString()} to peers`);
+    this.publishToTopic(this.messageCreator.getTopic(), txData);
   }
 
   private isBootstrapPeer(peer: PeerId) {

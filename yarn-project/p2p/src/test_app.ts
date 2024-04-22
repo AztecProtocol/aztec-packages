@@ -226,8 +226,6 @@ export class P2PTestApp {
     }
   }
 
-  // private async handleNewMessage(msg: Uint8Array) {}
-
   private async handlePeerDisconnect(peerId: PeerId) {
     this.logger.info(`Disconnected from peer: ${peerId.toString()}`);
     // TODO: consider better judgement for removing peers, e.g. try reconnecting

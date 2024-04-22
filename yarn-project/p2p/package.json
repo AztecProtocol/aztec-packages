@@ -61,6 +61,7 @@
     "@multiformats/multiaddr": "^12.1.14",
     "it-pipe": "^3.0.1",
     "libp2p": "^1.4.0",
+    "semver": "^7.6.0",
     "sha3": "^2.1.4",
     "tslib": "^2.4.0"
   },
