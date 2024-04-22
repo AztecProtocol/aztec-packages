@@ -16,6 +16,10 @@ export class AccountWallet extends BaseWallet {
     super(pxe);
   }
 
+  getPublicKeysHash(): Fr {
+    return this.account.getPublicKeysHash();
+  }
+
   createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
     return this.account.createTxExecutionRequest(exec);
   }
@@ -196,7 +200,7 @@ export class AccountWallet extends BaseWallet {
   }
 
   /** Returns the address of the account that implements this wallet. */
-  public getAddress() {
+  public override getAddress() {
     return this.getCompleteAddress().address;
   }
 

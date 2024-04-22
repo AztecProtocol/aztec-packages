@@ -6,7 +6,68 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.36.0
+
+### [Aztec.nr] Oracles
+
+Oracle `get_nullifier_secret_key` was renamed to `get_app_nullifier_secret_key` and `request_nullifier_secret_key` function on PrivateContext was renamed as `request_app_nullifier_secret_key`.
+
+```diff
+- let secret = get_nullifier_secret_key(self.owner);
++ let secret = get_app_nullifier_secret_key(self.owner);
+```
+
+```diff
+- let secret = context.request_nullifier_secret_key(self.owner);
++ let secret = context.request_app_nullifier_secret_key(self.owner);
+```
+
+### [Aztec.nr] Contract interfaces
+
+It is now possible to import contracts on another contracts and use their automatic interfaces to perform calls. The interfaces have the same name as the contract, and are automatically exported. Parameters are automatically serialized (using the `Serialize<N>` trait) and return values are automatically deserialized (using the `Deserialize<N>` trait). Serialize and Deserialize methods have to conform to the standard ACVM serialization schema for the interface to work!
+
+1. Only fixed length types are supported
+2. All numeric types become Fields
+3. Strings become arrays of Fields, one per char
+4. Arrays become arrays of Fields following rules 2 and 3
+5. Structs become arrays of Fields, with every item defined in the same order as they are in Noir code, following rules 2, 3, 4 and 5 (recursive)
+
+```diff
+- context.call_public_function(
+-   storage.gas_token_address.read_private(),
+-   FunctionSelector::from_signature("pay_fee(Field)"),
+-   [42]
+- );
+-
+- context.call_public_function(
+-   storage.gas_token_address.read_private(),
+-   FunctionSelector::from_signature("pay_fee(Field)"),
+-   [42]
+- );
+-
+- let _ = context.call_private_function(
+-           storage.subscription_token_address.read_private(),
+-           FunctionSelector::from_signature("transfer((Field),(Field),Field,Field)"),
+-           [
+-            context.msg_sender().to_field(),
+-            storage.subscription_recipient_address.read_private().to_field(),
+-            storage.subscription_price.read_private(),
+-            nonce
+-           ]
+-  );
++ use dep::gas_token::GasToken;
++ use dep::token::Token;
++
++ ...
++ // Public call from public land
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).call(&mut context);
++ // Public call from private land
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).enqueue(&mut context);
++ // Private call from private land
++ Token::at(asset).transfer(context.msg_sender(), storage.subscription_recipient_address.read_private(), amount, nonce).call(&mut context);
+```
+
+It is also possible to use these automatic interfaces from the local contract, and thus enqueue public calls from private without having to rely on low level `context` calls.
 
 ### [Aztec.nr] Rename max block number setter
 
@@ -15,6 +76,59 @@ The `request_max_block_number` function has been renamed to `set_tx_max_block_nu
 ```diff
 - context.request_max_block_number(value);
 + context.set_tx_max_block_number(value);
+```
+
+### [Aztec.nr] Get portal address
+
+The `get_portal_address` oracle was removed. If you need to get the portal address of SomeContract, add the following methods to it
+
+```
+#[aztec(private)]
+fn get_portal_address() -> EthAddress {
+    context.this_portal_address()
+}
+
+#[aztec(public)]
+fn get_portal_address_public() -> EthAddress {
+    context.this_portal_address()
+}
+```
+
+and change the call to `get_portal_address`
+
+```diff
+- let portal_address = get_portal_address(contract_address);
++ let portal_address = SomeContract::at(contract_address).get_portal_address().call(&mut context);
+```
+
+
+### [Aztec.nr] Required gas limits for public-to-public calls
+
+When calling a public function from another public function using the `call_public_function` method, you must now specify how much gas you're allocating to the nested call. This will later allow you to limit the amount of gas consumed by the nested call, and handle any out of gas errors.
+
+Note that gas limits are not yet enforced. For now, it is suggested you use `dep::aztec::context::gas::GasOpts::default()` which will forward all available gas.
+
+```diff
++ use dep::aztec::context::gas::GasOpts;
+
+- context.call_public_function(target_contract, target_selector, args);
++ context.call_public_function(target_contract, target_selector, args, GasOpts::default());
+```
+
+Note that this is not required when enqueuing a public function from a private one, since top-level enqueued public functions will always consume all gas available for the transaction, as it is not possible to handle any out-of-gas errors.
+
+### [Aztec.nr] Emmiting unencrypted logs
+
+The `emit_unencrypted_logs` function is now a context method.
+
+```diff
+- use dep::aztec::log::emit_unencrypted_log;
+- use dep::aztec::log::emit_unencrypted_log_from_private;
+
+- emit_unencrypted_log(context, log1);
+- emit_unencrypted_log_from_private(context, log2);
++ context.emit_unencrypted_log(log1);
++ context.emit_unencrypted_log(log2);
 ```
 
 ## 0.33

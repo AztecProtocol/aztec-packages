@@ -1,6 +1,5 @@
 import { type SimulationError, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
 import {
-  type AztecAddress,
   type ContractStorageRead,
   type ContractStorageUpdateRequest,
   type Fr,
@@ -13,6 +12,8 @@ import {
   type SideEffectLinkedToNoteHash,
 } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot, computePublicDataTreeValue } from '@aztec/circuits.js/hash';
+
+import { type Gas } from '../avm/avm_gas.js';
 
 /**
  * The public function execution result.
@@ -43,8 +44,13 @@ export interface PublicExecutionResult {
   /** The results of nested calls. */
   nestedExecutions: this[];
   /**
+   * The hashed logs with side effect counter.
+   * Note: required as we don't track the counter anywhere else.
+   */
+  unencryptedLogsHashes: SideEffect[];
+  /**
    * Unencrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `unencryptedLogsHash`.
+   * Note: These are preimages to `unencryptedLogsHashes`.
    */
   unencryptedLogs: UnencryptedFunctionL2Logs;
   /**
@@ -55,6 +61,8 @@ export interface PublicExecutionResult {
    * The revert reason if the execution reverted.
    */
   revertReason: SimulationError | undefined;
+  /** How much gas was left after this public execution. */
+  gasLeft: Gas; // TODO(palla/gas): Check this field
 }
 
 /**
@@ -81,10 +89,8 @@ export function isPublicExecutionResult(
  */
 export function collectPublicDataReads(execResult: PublicExecutionResult): PublicDataRead[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.callContext.storageContractAddress;
-
   const thisExecPublicDataReads = execResult.contractStorageReads.map(read =>
-    contractStorageReadToPublicDataRead(read, contractAddress),
+    contractStorageReadToPublicDataRead(read),
   );
   const unsorted = [
     ...thisExecPublicDataReads,
@@ -101,10 +107,8 @@ export function collectPublicDataReads(execResult: PublicExecutionResult): Publi
  */
 export function collectPublicDataUpdateRequests(execResult: PublicExecutionResult): PublicDataUpdateRequest[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
-  const contractAddress = execResult.execution.callContext.storageContractAddress;
-
   const thisExecPublicDataUpdateRequests = execResult.contractStorageUpdateRequests.map(update =>
-    contractStorageUpdateRequestToPublicDataUpdateRequest(update, contractAddress),
+    contractStorageUpdateRequestToPublicDataUpdateRequest(update),
   );
   const unsorted = [
     ...thisExecPublicDataUpdateRequests,
@@ -119,9 +123,9 @@ export function collectPublicDataUpdateRequests(execResult: PublicExecutionResul
  * @param contractAddress - the contract address of the read
  * @returns The public data read.
  */
-function contractStorageReadToPublicDataRead(read: ContractStorageRead, contractAddress: AztecAddress): PublicDataRead {
+function contractStorageReadToPublicDataRead(read: ContractStorageRead): PublicDataRead {
   return new PublicDataRead(
-    computePublicDataTreeLeafSlot(contractAddress, read.storageSlot),
+    computePublicDataTreeLeafSlot(read.contractAddress!, read.storageSlot),
     computePublicDataTreeValue(read.currentValue),
     read.sideEffectCounter!,
   );
@@ -135,10 +139,9 @@ function contractStorageReadToPublicDataRead(read: ContractStorageRead, contract
  */
 function contractStorageUpdateRequestToPublicDataUpdateRequest(
   update: ContractStorageUpdateRequest,
-  contractAddress: AztecAddress,
 ): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
-    computePublicDataTreeLeafSlot(contractAddress, update.storageSlot),
+    computePublicDataTreeLeafSlot(update.contractAddress!, update.storageSlot),
     computePublicDataTreeValue(update.newValue),
     update.sideEffectCounter!,
   );

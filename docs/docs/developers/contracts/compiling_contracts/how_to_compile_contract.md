@@ -24,18 +24,16 @@ This will output a JSON [artifact](./artifacts.md) for each contract in the proj
 
 You can use the code generator to autogenerate type-safe typescript classes for each of your contracts. These classes define type-safe methods for deploying and interacting with your contract based on their artifact.
 
-To generate them, include a `--ts` option in the `codegen` command with a path to the target folder for the typescript files:
-
 ```bash
-aztec-cli codegen ./aztec-nargo/output/target/path -o src/artifacts --ts
+aztec-cli codegen ./aztec-nargo/output/target/path -o src/artifacts
 ```
 
 Below is typescript code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) contract:
 
 ```ts showLineNumbers
 export class TokenContract extends ContractBase {
-  private constructor(completeAddress: CompleteAddress, wallet: Wallet, portalContract = EthAddress.ZERO) {
-    super(completeAddress, TokenContractArtifact, wallet, portalContract);
+  private constructor(instance: ContractInstanceWithAddress, wallet: Wallet) {
+    super(instance, TokenContractArtifact, wallet);
   }
 
   /**
@@ -51,15 +49,57 @@ export class TokenContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(pxe: PXE, admin: AztecAddressLike) {
-    return new DeployMethod<TokenContract>(Point.ZERO, pxe, TokenContractArtifact, Array.from(arguments).slice(1));
+  public static deploy(
+    wallet: Wallet,
+    admin: AztecAddressLike,
+    name: string,
+    symbol: string,
+    decimals: bigint | number,
+  ) {
+    return new DeployMethod<TokenContract>(
+      Fr.ZERO,
+      wallet,
+      TokenContractArtifact,
+      TokenContract.at,
+      Array.from(arguments).slice(1),
+    );
   }
 
   /**
-   * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
+   * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKey(pxe: PXE, publicKey: PublicKey, admin: AztecAddressLike) {
-    return new DeployMethod<TokenContract>(publicKey, pxe, TokenContractArtifact, Array.from(arguments).slice(2));
+  public static deployWithPublicKeysHash(
+    publicKeysHash: Fr,
+    wallet: Wallet,
+    admin: AztecAddressLike,
+    name: string,
+    symbol: string,
+    decimals: bigint | number,
+  ) {
+    return new DeployMethod<TokenContract>(
+      publicKeysHash,
+      wallet,
+      TokenContractArtifact,
+      TokenContract.at,
+      Array.from(arguments).slice(2),
+    );
+  }
+
+  /**
+   * Creates a tx to deploy a new instance of this contract using the specified constructor method.
+   */
+  public static deployWithOpts<M extends keyof TokenContract['methods']>(
+    opts: { publicKeysHash?: Fr; method?: M; wallet: Wallet },
+    ...args: Parameters<TokenContract['methods'][M]>
+  ) {
+    return new DeployMethod<TokenContract>(
+      opts.publicKeysHash ?? Fr.ZERO,
+      opts.wallet,
+      TokenContractArtifact,
+      TokenContract.at,
+      Array.from(arguments).slice(1),
+      opts.method ?? 'constructor',
+    );
   }
 
   /**
@@ -69,36 +109,81 @@ export class TokenContract extends ContractBase {
     return TokenContractArtifact;
   }
 
+  public static get storage(): ContractStorageLayout<
+    | 'admin'
+    | 'minters'
+    | 'balances'
+    | 'total_supply'
+    | 'pending_shields'
+    | 'public_balances'
+    | 'symbol'
+    | 'name'
+    | 'decimals'
+  > {
+    return {
+      admin: {
+        slot: new Fr(1n),
+        typ: 'PublicMutable<AztecAddress>',
+      },
+      minters: {
+        slot: new Fr(2n),
+        typ: 'Map<AztecAddress, PublicMutable<bool>>',
+      },
+      balances: {
+        slot: new Fr(3n),
+        typ: 'BalancesMap<TokenNote>',
+      },
+      total_supply: {
+        slot: new Fr(4n),
+        typ: 'PublicMutable<U128>',
+      },
+      pending_shields: {
+        slot: new Fr(5n),
+        typ: 'PrivateSet<TransparentNote>',
+      },
+      public_balances: {
+        slot: new Fr(6n),
+        typ: 'Map<AztecAddress, PublicMutable<U128>>',
+      },
+      symbol: {
+        slot: new Fr(7n),
+        typ: 'SharedImmutable<FieldCompressedString>',
+      },
+      name: {
+        slot: new Fr(8n),
+        typ: 'SharedImmutable<FieldCompressedString>',
+      },
+      decimals: {
+        slot: new Fr(9n),
+        typ: 'SharedImmutable<u8>',
+      },
+    } as ContractStorageLayout<
+      | 'admin'
+      | 'minters'
+      | 'balances'
+      | 'total_supply'
+      | 'pending_shields'
+      | 'public_balances'
+      | 'symbol'
+      | 'name'
+      | 'decimals'
+    >;
+  }
+
+  public static get notes(): ContractNotes<'TransparentNote' | 'TokenNote'> {
+    const notes = this.artifact.outputs.globals.notes ? (this.artifact.outputs.globals.notes as any) : [];
+    return {
+      TransparentNote: {
+        id: new Fr(84114971101151129711410111011678111116101n),
+      },
+      TokenNote: {
+        id: new Fr(8411110710111078111116101n),
+      },
+    } as ContractNotes<'TransparentNote' | 'TokenNote'>;
+  }
+
   /** Type-safe wrappers for the public methods exposed by the contract. */
-  public methods!: {
-
-    /** balance_of_private(owner: struct) */
-    balance_of_private: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** balance_of_public(owner: struct) */
-    balance_of_public: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** shield(from: struct, amount: field, secret_hash: field, nonce: field) */
-    shield: ((
-      from: AztecAddressLike,
-      amount: FieldLike,
-      secret_hash: FieldLike,
-      nonce: FieldLike,
-    ) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-
-    /** total_supply() */
-    total_supply: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** transfer(from: struct, to: struct, amount: field, nonce: field) */
-    transfer: ((
-      from: AztecAddressLike,
-      to: AztecAddressLike,
-      amount: FieldLike,
-      nonce: FieldLike,
-    ) => ContractFunctionInteraction) &
-      Pick<ContractMethod, 'selector'>;
-
+  public override methods!: {
     /** transfer_public(from: struct, to: struct, amount: field, nonce: field) */
     transfer_public: ((
       from: AztecAddressLike,
@@ -108,7 +193,17 @@ export class TokenContract extends ContractBase {
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    ...
+    /** transfer(from: struct, to: struct, amount: field, nonce: field) */
+    transfer: ((
+      from: AztecAddressLike,
+      to: AztecAddressLike,
+      amount: FieldLike,
+      nonce: FieldLike,
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+  
+  ...
+
   };
 }
 ```
@@ -119,94 +214,34 @@ Read more about interacting with contracts using `aztec.js` [here](../../getting
 
 An Aztec.nr contract can [call a function](../writing_contracts/functions/call_functions.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serializing the arguments, which is not type-safe.
 
-To make this easier, the compiler can generate contract interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one. For each contract, two interface structs are generated: one to be used from private functions with a `PrivateContext`, and one to be used from open functions with a `PublicContext`.
+To make this easier, the compiler automatically generates interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one. 
 
-To generate them, include a `--nr` option in the `codegen` command with a path to the target folder for the generated Aztec.nr interface files:
-
-```bash
-aztec-cli codegen ./aztec-nargo/output/target/path -o ./path/to/output/folder --nr
-```
-
-Below is an example interface, also generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) contract:
+Below is an example of interface usage generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) contract, used from the [FPC](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr):
 
 ```rust
-impl TokenPrivateContextInterface {
-  pub fn at(address: Field) -> Self {
-      Self {
-          address,
-      }
-  }
+contract FPC {
 
-  pub fn burn(
-    self,
-    context: &mut PrivateContext,
-    from: FromBurnStruct,
-    amount: Field,
-    nonce: Field
-  ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialized_args = [0; 3];
-    serialized_args[0] = from.address;
-    serialized_args[1] = amount;
-    serialized_args[2] = nonce;
+    ...
 
-    context.call_private_function(self.address, 0xd4fcc96e, serialized_args)
-  }
+    use dep::token::Token;
+
+    ...
 
 
-  pub fn burn_public(
-    self,
-    context: &mut PrivateContext,
-    from: FromBurnPublicStruct,
-    amount: Field,
-    nonce: Field
-  ) {
-    let mut serialized_args = [0; 3];
-    serialized_args[0] = from.address;
-    serialized_args[1] = amount;
-    serialized_args[2] = nonce;
+   #[aztec(private)]
+    fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
+        assert(asset == storage.other_asset.read_private());
+        Token::at(asset).unshield(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);
+        FPC::at(context.this_address()).pay_fee_with_shielded_rebate(amount, asset, secret_hash).enqueue(&mut context);
+    }
 
-    context.call_public_function(self.address, 0xb0e964d5, serialized_args)
-  }
-  ...
+    #[aztec(private)]
+    fn fee_entrypoint_public(amount: Field, asset: AztecAddress, nonce: Field) {
+        FPC::at(context.this_address()).prepare_fee(context.msg_sender(), amount, asset, nonce).enqueue(&mut context);
+        FPC::at(context.this_address()).pay_fee(context.msg_sender(), amount, asset).enqueue(&mut context);
+    }
 
-}
-
-impl TokenPublicContextInterface {
-  pub fn at(address: Field) -> Self {
-      Self {
-          address,
-      }
-  }
-
-  pub fn burn_public(
-    self,
-    context: PublicContext,
-    from: FromBurnPublicStruct,
-    amount: Field,
-    nonce: Field
-  ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialized_args = [0; 3];
-    serialized_args[0] = from.address;
-    serialized_args[1] = amount;
-    serialized_args[2] = nonce;
-
-    context.call_public_function(self.address, 0xb0e964d5, serialized_args)
-  }
-
-
-  pub fn mint_private(
-    self,
-    context: PublicContext,
-    amount: Field,
-    secret_hash: Field
-  ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialized_args = [0; 2];
-    serialized_args[0] = amount;
-    serialized_args[1] = secret_hash;
-
-    context.call_public_function(self.address, 0x10763932, serialized_args)
-  }
-
+    ...
 
 }
 ```
@@ -219,7 +254,7 @@ At the moment, the compiler generates these interfaces from already compiled ABI
 
 ## Next steps
 
-Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../../sandbox/references/cli-commands.md#deploying-a-token-contract) and [interact](../../sandbox/references/cli-commands.md#calling-an-unconstrained-view-function) with them.
+Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly.
 
 import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>

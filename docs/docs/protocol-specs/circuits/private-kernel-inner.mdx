@@ -147,9 +147,11 @@ class TransactionRequest {
     function_data: FunctionData
     args_hash: field
     tx_context: TransactionContext
+    gas_settings: GasSettings
 }
 TransactionRequest *-- FunctionData: function_data
 TransactionRequest *-- TransactionContext: tx_context
+TransactionRequest *-- GasSettings: gas_settings
 
 TransactionRequest ..> ConstantData: tx_context
 
@@ -222,6 +224,19 @@ ContractInstance .. PrivateCallStackItem: hash(contract_data) == contract_addres
 class FunctionData {
     function_selector: u32
     function_type: private|public
+}
+
+class GasSettings {
+    da.gas_limit: u32
+    da.teardown_gas_limit: u32
+    da.max_fee_per_gas: Fr
+    l1.gas_limit: u32
+    l1.teardown_gas_limit: u32
+    l1.max_fee_per_gas: Fr
+    l2.gas_limit: u32
+    l2.teardown_gas_limit: u32
+    l2.max_fee_per_gas: Fr
+    inclusion_fee: Fr
 }
 
 class PrivateFunctionPublicInputs {

@@ -84,7 +84,7 @@ export class HintsBuilder {
   async getNullifierMembershipWitness(nullifier: Fr) {
     const res = await this.oracle.getNullifierMembershipWitness(nullifier);
     if (!res) {
-      return;
+      throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
     }
 
     const { index, siblingPath, leafPreimage } = res;
@@ -148,7 +148,7 @@ export class HintsBuilder {
       if (request.isEmpty()) {
         break;
       }
-      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
+      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey);
     }
     return keys;
   }
