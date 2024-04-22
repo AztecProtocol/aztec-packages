@@ -105,7 +105,7 @@ jobs:
           concurrency_key: yarn-project-test-${{ github.actor }}-x86
       - name: "Yarn Project Tests"
         timeout-minutes: 25
-        run: earthly-ci --no-output ./yarn-project/+test
+        run: earthly --no-output ./yarn-project/+test
 
   # push benchmarking binaries to dockerhub registry
   bb-bench-binaries:
