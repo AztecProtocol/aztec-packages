@@ -463,6 +463,8 @@ pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: 
 
 ### If the `revert_code` is non-zero
 
+All side effects from the `revertible` set are discarded.
+
 It consumes all the gas left:
 
 ```rust
@@ -475,6 +477,8 @@ pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: 
         .sub(accum_end_non_revertible_gas_used);
 }
 ```
+
+It sets the `revert_code` in `PublicKernelCircuitPublicInputs` to `1`.
 
 :::note Gas reserved for public teardown
 Recall in the [Private Kernel Tail to Public](#private-kernel-tail-to-public) circuit, the gas allocated for the public teardown function was included in the `end` gas used. This ensures that we have gas available for teardown even though app logic consumed all gas. 
@@ -489,6 +493,25 @@ It must assert that the `start_gas_left` is equal to the PublicKernelData's `pub
 It must also compute the gas used in the `PublicKernelData` provided, and the [transaction fee](./specifying-gas-fee-info.md#transaction-fee) using this computed value, then verify that the `transaction_fee` in the `PublicCircuitPublicInputs` is equal to the computed transaction fee.
 
 This ensures that the public VM was provided with the correct transaction fee, and that teardown did not exceed the gas limits.
+
+### Handling reverts
+
+Teardown is attempted even if the app logic failed.
+
+The teardown kernel can see if the app logic failed by checking if `revert_code` in the `PublicKernelCircuitPublicInputs` is set to `1`.
+
+It also has access to the `revert_code` reported by the AVM of the current call within `PublicCircuitPublicInputs`.
+
+The interplay between these two `revert_code`s is as follows:
+
+| Kernel `revert_code` | current AVM `revert_code` | Resulting Kernel `revert_code` |
+| -------------------- | ------------------------- | ------------------------------ |
+| 0                    | 0                         | 0                              |
+| 1                    | 0                         | 1                              |
+| 0                    | 1                         | 2                              |
+| 1                    | 1                         | 3                              |
+| 2 or 3               | (any)                     | (unchanged)                    |
+
 
 # Base Rollup Kernel Circuit
 
