@@ -49,11 +49,8 @@ namespace bb {
  */
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(const size_t circuit_size,
-                           auto& full_polynomials,
+                           typename Flavor::ProverPolynomials& full_polynomials,
                            bb::RelationParameters<typename Flavor::FF>& relation_parameters)
-// void compute_grand_product(const size_t circuit_size,
-//                            typename Flavor::ProverPolynomials& full_polynomials,
-//                            bb::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;

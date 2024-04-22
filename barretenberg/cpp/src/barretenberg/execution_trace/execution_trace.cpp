@@ -31,8 +31,6 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(TraceData& 
                                                                      typename Flavor::ProvingKey& proving_key)
 {
     if constexpr (IsHonkFlavor<Flavor>) {
-        proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
-        // Populate the PP belonging to the PK
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key.polynomials.get_wires(), trace_data.wires)) {
             pkey_wire = trace_wire.share();
         }
@@ -40,6 +38,7 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(TraceData& 
              zip_view(proving_key.polynomials.get_selectors(), trace_data.selectors)) {
             pkey_selector = trace_selector.share();
         }
+        proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     } else if constexpr (IsPlonkFlavor<Flavor>) {
         for (size_t idx = 0; idx < trace_data.wires.size(); ++idx) {
             std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
@@ -142,12 +141,13 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
                                                               typename Flavor::ProvingKey& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
+    // WORKTODO: if we init everything by defualt then we dont need to do this initing
     // Initialize the ecc op wire polynomials to zero on the whole domain
-    std::array<Polynomial, NUM_WIRES> op_wire_polynomials;
+    auto op_wire_polynomials = proving_key.polynomials.get_ecc_op_wires();
     for (auto& poly : op_wire_polynomials) {
         poly = Polynomial{ proving_key.circuit_size };
     }
-    Polynomial ecc_op_selector{ proving_key.circuit_size };
+    auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
 
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
@@ -158,13 +158,6 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
             ecc_op_selector[idx] = 1; // construct the selector as the indicator on the ecc op block
         }
     }
-
-    // Populate PP owned by PK
-    proving_key.polynomials.ecc_op_wire_1 = op_wire_polynomials[0].share();
-    proving_key.polynomials.ecc_op_wire_2 = op_wire_polynomials[1].share();
-    proving_key.polynomials.ecc_op_wire_3 = op_wire_polynomials[2].share();
-    proving_key.polynomials.ecc_op_wire_4 = op_wire_polynomials[3].share();
-    proving_key.polynomials.lagrange_ecc_op = ecc_op_selector.share();
 }
 
 template class ExecutionTrace_<UltraFlavor>;

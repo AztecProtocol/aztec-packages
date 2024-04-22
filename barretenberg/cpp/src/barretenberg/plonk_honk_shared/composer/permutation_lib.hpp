@@ -387,20 +387,6 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
             key->polynomials.get_sigmas(), mapping.sigmas, key);
         compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
             key->polynomials.get_ids(), mapping.ids, key);
-
-        // compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-        //     key->get_sigma_polynomials(), mapping.sigmas, key);
-        // compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
-        //     key->get_id_polynomials(), mapping.ids, key);
-        // // PPPK: replace with PP, need to make sure they're initialized tho
-        // key->polynomials.sigma_1 = key->sigma_1.share();
-        // key->polynomials.sigma_2 = key->sigma_2.share();
-        // key->polynomials.sigma_3 = key->sigma_3.share();
-        // key->polynomials.sigma_4 = key->sigma_4.share();
-        // key->polynomials.id_1 = key->id_1.share();
-        // key->polynomials.id_2 = key->id_2.share();
-        // key->polynomials.id_3 = key->id_3.share();
-        // key->polynomials.id_4 = key->id_4.share();
     }
 }
 

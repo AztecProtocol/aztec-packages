@@ -31,7 +31,6 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     ProvingKey proving_key;
-    // ProverPolynomials prover_polynomials;
 
     RelationSeparator alphas;
     bb::RelationParameters<FF> relation_parameters;

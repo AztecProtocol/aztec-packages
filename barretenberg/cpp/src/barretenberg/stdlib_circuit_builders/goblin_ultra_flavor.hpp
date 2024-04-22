@@ -343,7 +343,7 @@ class GoblinUltraFlavor {
         void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
 
-            auto sorted_list_accumulator = Polynomial{ this->circuit_size };
+            auto& sorted_list_accumulator = polynomials.sorted_accum;
 
             // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
             for (size_t i = 0; i < this->circuit_size; ++i) {
@@ -353,9 +353,6 @@ class GoblinUltraFlavor {
                 T0 += sorted_polynomials[0][i];
                 sorted_list_accumulator[i] = T0;
             }
-            // sorted_accum = sorted_list_accumulator.share();
-            // PP in PK
-            polynomials.sorted_accum = sorted_list_accumulator.share();
         }
 
         /**

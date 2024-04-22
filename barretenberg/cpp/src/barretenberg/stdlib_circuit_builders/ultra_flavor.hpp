@@ -334,7 +334,7 @@ class UltraFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         std::array<Polynomial, 4> sorted_polynomials;
-        ProverPolynomials polynomials;
+        ProverPolynomials polynomials; // WORKTODO: init all to 0?
 
         void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
@@ -358,7 +358,7 @@ class UltraFlavor {
          */
         void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
-            auto sorted_list_accumulator = Polynomial{ this->circuit_size };
+            auto& sorted_list_accumulator = polynomials.sorted_accum;
 
             // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
             for (size_t i = 0; i < this->circuit_size; ++i) {
@@ -368,9 +368,6 @@ class UltraFlavor {
                 T0 += sorted_polynomials[0][i];
                 sorted_list_accumulator[i] = T0;
             }
-            // sorted_accum = sorted_list_accumulator.share();
-            // // PP in PK
-            polynomials.sorted_accum = sorted_list_accumulator.share();
         }
 
         /**
@@ -387,7 +384,6 @@ class UltraFlavor {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
             // (See plookup_auxiliary_widget.hpp for details)
-            // WORKTODO: get these from PP
             auto wires = polynomials.get_wires();
 
             // Compute read record values

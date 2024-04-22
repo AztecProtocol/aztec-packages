@@ -92,15 +92,15 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
 TEST_F(UltraHonkComposerTests, PublicInputs)
 {
     auto builder = UltraCircuitBuilder();
-    size_t num_gates = 1;
+    size_t num_gates = 10;
 
     // Add some arbitrary arithmetic gates that utilize public inputs
     for (size_t i = 0; i < num_gates; ++i) {
-        fr a = 1;
+        fr a = fr::random_element();
         uint32_t a_idx = builder.add_public_variable(a);
 
-        fr b = 2;
-        fr c = 3;
+        fr b = fr::random_element();
+        fr c = fr::random_element();
         fr d = a + b + c;
         uint32_t b_idx = builder.add_variable(b);
         uint32_t c_idx = builder.add_variable(c);
