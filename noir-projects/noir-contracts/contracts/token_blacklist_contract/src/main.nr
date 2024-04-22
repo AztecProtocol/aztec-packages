@@ -13,9 +13,9 @@ contract TokenBlacklist {
 
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::aztec::{
-        note::note_getter_options::NoteGetterOptions,
+        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         hash::compute_note_secret_hash,
-        state_vars::{Map, PublicMutable, PrivateSet, SharedMutable}
+        state_vars::{Map, PublicMutable, PrivateSet, SharedMutable, SharedImmutable}
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};

@@ -6,6 +6,8 @@ use dep::aztec::{
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
+// Defined here as it's not a protocol constant. Copied over to private execution test.
+global GENERATOR_INDEX__TRANSPARENT_NOTE = 92543;
 
 // Transparent note represents a note that is created in the clear (public execution), but can only be spent by those
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
