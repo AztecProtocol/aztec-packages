@@ -71,8 +71,5 @@
     "@noir-lang/acvm_js": "portal:../noir/packages/acvm_js",
     "@noir-lang/types": "portal:../noir/packages/types",
     "@noir-lang/noirc_abi": "portal:../noir/packages/noirc_abi"
-  },
-  "dependencies": {
-    "@libp2p/identify": "^1.0.16"
   }
 }
