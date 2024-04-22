@@ -9,11 +9,11 @@ import {
   type SiblingPath,
 } from '@aztec/circuit-types';
 import {
+  Fr,
   Point,
   type AztecAddress,
   type CompleteAddress,
   type EthAddress,
-  type Fr,
   type FunctionSelector,
   type Header,
   type L1_TO_L2_MSG_TREE_HEIGHT,

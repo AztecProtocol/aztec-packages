@@ -146,6 +146,12 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getPublicKeysForAddress');
   }
 
+  async getAddressMetadata(
+    _address: AztecAddress,
+  ): Promise<Fr> {
+    throw new OracleMethodNotAvailableError('getAddressMetadata');
+  }
+
   getNotes(
     _storageSlot: Fr,
     _numSelects: number,

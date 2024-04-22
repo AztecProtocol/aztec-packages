@@ -1,4 +1,4 @@
-use dep::protocol_types::{constants::{GENERATOR_INDEX__PUBLIC_KEYS_HASH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1}, address::AztecAddress, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{constants::{GENERATOR_INDEX__PUBLIC_KEYS_HASH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1}, address::{AztecAddress, PartialAddress}, grumpkin_point::GrumpkinPoint};
 use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH},
@@ -40,7 +40,7 @@ fn assert_nullifier_public_key_fresh(
 fn check_key(address: AztecAddress, key_type: Field, key: GrumpkinPoint) {
   let mut (partial_address, keys) = check_key_internal(address);
 
-  keys[key_type] = key;
+  assert(keys[key_type].eq(key));
 
   _check_key_constrain_check_key_internal(
     address,
@@ -52,16 +52,15 @@ fn check_key(address: AztecAddress, key_type: Field, key: GrumpkinPoint) {
   );
 }
 
-unconstrained fn check_key_internal(address: AztecAddress) -> (Field, [GrumpkinPoint; 4]) {
-  let keys = oracle::keys::get_public_keys_for_address(address);
-  let partial_address = oracle::keys::get_address_metadata(address);
+unconstrained fn check_key_internal(address: AztecAddress) -> (PartialAddress, [GrumpkinPoint; 4]) {
+  let (partial_address, public_keys) = oracle::keys::get_public_keys_and_partial_address(address);
 
-  (partial_address, keys)
+  (partial_address, public_keys)
 }
 
 fn _check_key_constrain_check_key_internal(
   address: AztecAddress,
-  partial_address: Field,
+  partial_address: PartialAddress,
   nullifier_public_key: GrumpkinPoint,
   incoming_public_key: GrumpkinPoint,
   outgoing_public_key: GrumpkinPoint,

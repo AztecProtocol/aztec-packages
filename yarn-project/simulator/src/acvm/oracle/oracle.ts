@@ -53,6 +53,7 @@ export class Oracle {
     ];
   }
 
+  // TODO (ek): Nuke this
   async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
     const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddress(
       AztecAddress.fromField(fromACVMField(address)),
@@ -172,13 +173,15 @@ export class Oracle {
     return capsule.map(toACVMField);
   }
 
-  async getPublicKeysForAddress(
-    [address]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    const keys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
-    const acvmKeys = keys?.flatMap(key => key.toFields().map(f => toACVMField(f))) ?? Array(8).fill(toACVMField(0));
+  async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
+    const { partialAddress } = await this.typedOracle.getCompleteAddress(
+      AztecAddress.fromField(fromACVMField(address)),
+    );
 
-    return acvmKeys;
+    const publicKeys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
+    const acvmKeys = publicKeys?.flatMap(key => key.toFields()) ?? Array(8).fill(toACVMField(0));
+
+    return [partialAddress, ...acvmKeys].map(toACVMField);
   }
 
   async getNotes(
