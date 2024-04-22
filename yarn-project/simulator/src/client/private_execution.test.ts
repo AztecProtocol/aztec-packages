@@ -5,6 +5,7 @@ import {
   CompleteAddress,
   FunctionData,
   GasSettings,
+  GeneratorIndex,
   type GrumpkinPrivateKey,
   Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -32,7 +33,7 @@ import {
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidon2Hash, randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -878,9 +879,10 @@ describe('Private Execution test suite', () => {
       expect(result.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
-      const expectedNullifier = pedersenHash([
+      const expectedNullifier = poseidon2Hash([
         innerNoteHash,
         computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+        GeneratorIndex.NULLIFIER,
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
@@ -946,9 +948,10 @@ describe('Private Execution test suite', () => {
       expect(execGetThenNullify.returnValues).toEqual([new Fr(amountToTransfer)]);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
-      const expectedNullifier = pedersenHash([
+      const expectedNullifier = poseidon2Hash([
         innerNoteHash,
         computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
+        GeneratorIndex.NULLIFIER,
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });

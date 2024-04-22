@@ -1,5 +1,5 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
-import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
+import { GeneratorIndex, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
 import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
 import {
   ABIParameterVisibility,
@@ -7,7 +7,7 @@ import {
   getFunctionArtifact,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
@@ -67,8 +67,7 @@ describe('Simulator', () => {
       const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      // TODO(#5832): all the pedersen hashes in notes should be replaced with poseidon2
-      const innerNullifier = pedersenHash([uniqueSiloedNoteHash, appNullifierSecretKey]);
+      const innerNullifier = poseidon2Hash([uniqueSiloedNoteHash, appNullifierSecretKey, GeneratorIndex.NULLIFIER]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 
