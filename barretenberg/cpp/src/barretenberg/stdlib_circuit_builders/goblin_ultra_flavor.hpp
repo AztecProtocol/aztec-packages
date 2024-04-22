@@ -373,7 +373,7 @@ class GoblinUltraFlavor {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
             // (See plookup_auxiliary_widget.hpp for details)
-            auto wires = get_wires();
+            auto wires = polynomials.get_wires();
 
             // Compute read record values
             for (const auto& gate_idx : memory_read_records) {
@@ -469,6 +469,19 @@ class GoblinUltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
             for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
+                commitment = proving_key.commitment_key->commit(polynomial);
+            }
+        }
+        VerificationKey(ProvingKey& proving_key, bool flag)
+        {
+            (void)flag;
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+            this->circuit_size = proving_key.circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = proving_key.num_public_inputs;
+            this->pub_inputs_offset = proving_key.pub_inputs_offset;
+
+            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }

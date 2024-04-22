@@ -334,30 +334,34 @@ TEST_F(UltraRelationCorrectnessTests, GoblinUltra)
     instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
                                                                  instance->relation_parameters.eta_two,
                                                                  instance->relation_parameters.eta_three);
+    for (auto [pp_poly, pppk_poly] : zip_view(instance->proving_key.polynomials.get_shifted(),
+                                              instance->proving_key.polynomials.get_to_be_shifted())) {
+        pp_poly = pppk_poly.shifted();
+    }
     instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
     // instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    ensure_non_zero(proving_key.q_arith);
-    ensure_non_zero(proving_key.q_delta_range);
-    ensure_non_zero(proving_key.q_lookup);
-    ensure_non_zero(proving_key.q_elliptic);
-    ensure_non_zero(proving_key.q_aux);
-    ensure_non_zero(proving_key.q_busread);
-    ensure_non_zero(proving_key.q_poseidon2_external);
-    ensure_non_zero(proving_key.q_poseidon2_internal);
+    ensure_non_zero(proving_key.polynomials.q_arith);
+    ensure_non_zero(proving_key.polynomials.q_delta_range);
+    ensure_non_zero(proving_key.polynomials.q_lookup);
+    ensure_non_zero(proving_key.polynomials.q_elliptic);
+    ensure_non_zero(proving_key.polynomials.q_aux);
+    ensure_non_zero(proving_key.polynomials.q_busread);
+    ensure_non_zero(proving_key.polynomials.q_poseidon2_external);
+    ensure_non_zero(proving_key.polynomials.q_poseidon2_internal);
 
-    ensure_non_zero(proving_key.calldata);
-    ensure_non_zero(proving_key.calldata_read_counts);
-    ensure_non_zero(proving_key.calldata_inverses);
-    ensure_non_zero(proving_key.return_data);
-    ensure_non_zero(proving_key.return_data_read_counts);
-    ensure_non_zero(proving_key.return_data_inverses);
+    ensure_non_zero(proving_key.polynomials.calldata);
+    ensure_non_zero(proving_key.polynomials.calldata_read_counts);
+    ensure_non_zero(proving_key.polynomials.calldata_inverses);
+    ensure_non_zero(proving_key.polynomials.return_data);
+    ensure_non_zero(proving_key.polynomials.return_data_read_counts);
+    ensure_non_zero(proving_key.polynomials.return_data_inverses);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     using Relations = typename Flavor::Relations;
-    auto& prover_polynomials = instance->prover_polynomials;
+    auto& prover_polynomials = instance->proving_key.polynomials;
     auto params = instance->relation_parameters;
 
     // Check that each relation is satisfied across each row of the prover polynomials
