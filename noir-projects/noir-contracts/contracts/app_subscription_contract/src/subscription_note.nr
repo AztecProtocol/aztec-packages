@@ -1,6 +1,6 @@
 use dep::aztec::prelude::{AztecAddress, PrivateContext, NoteHeader, emit_encrypted_log, NoteInterface};
 use dep::aztec::{
-    constants::GENERATOR_INDEX__NULLIFIER, note::utils::compute_note_hash_for_consumption,
+    protocol_types::constants::GENERATOR_INDEX__NULLIFIER, note::utils::compute_note_hash_for_consumption,
     hash::poseidon2_hash,
     oracle::{nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key}
 };
