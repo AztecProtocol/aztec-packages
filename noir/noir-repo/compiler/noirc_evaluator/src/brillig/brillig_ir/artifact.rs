@@ -1,7 +1,7 @@
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use std::collections::{BTreeMap, HashMap};
 
-use crate::ssa::ir::dfg::CallStack;
+use crate::ssa::ir::{dfg::CallStack, instruction::UserDefinedErrorType};
 
 /// Represents a parameter or a return value of an entry point function.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -22,6 +22,7 @@ pub(crate) struct GeneratedBrillig {
     pub(crate) byte_code: Vec<BrilligOpcode>,
     pub(crate) locations: BTreeMap<OpcodeLocation, CallStack>,
     pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
+    pub(crate) error_types: Vec<UserDefinedErrorType>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -29,8 +30,12 @@ pub(crate) struct GeneratedBrillig {
 /// It includes the bytecode of the function and all the metadata that allows linking with other functions.
 pub(crate) struct BrilligArtifact {
     pub(crate) byte_code: Vec<BrilligOpcode>,
-    /// A map of bytecode positions to assertion messages
+    /// A map of bytecode positions to assertion messages.
+    /// Some error messages (compiler intrinsics) are not emitted via revert data,
+    /// instead, they are handled externally so they don't add size to user programs.
     pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
+    /// Types of errors this artifact can emit via revert data
+    pub(crate) error_types: Vec<UserDefinedErrorType>,
     /// The set of jumps that need to have their locations
     /// resolved.
     unresolved_jumps: Vec<(JumpInstructionPosition, UnresolvedJumpLocation)>,
@@ -79,6 +84,7 @@ impl BrilligArtifact {
             byte_code: self.byte_code,
             locations: self.locations,
             assert_messages: self.assert_messages,
+            error_types: self.error_types,
         }
     }
 
@@ -144,6 +150,10 @@ impl BrilligArtifact {
 
         for (position_in_bytecode, message) in &obj.assert_messages {
             self.assert_messages.insert(position_in_bytecode + offset, message.clone());
+        }
+
+        for error_typ in &obj.error_types {
+            self.error_types.push(error_typ.clone());
         }
 
         for (position_in_bytecode, call_stack) in obj.locations.iter() {

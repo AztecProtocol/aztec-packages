@@ -4,6 +4,7 @@ use std::{borrow::Cow, rc::Rc};
 
 use acvm::FieldElement;
 use noirc_errors::Location;
+use noirc_frontend::hir_def::types::Type as HirType;
 
 use crate::ssa::ir::{
     basic_block::BasicBlockId,
@@ -263,7 +264,7 @@ impl FunctionBuilder {
         &mut self,
         lhs: ValueId,
         rhs: ValueId,
-        assert_message: Option<Box<ConstrainError>>,
+        assert_message: Option<ConstrainError>,
     ) {
         self.insert_instruction(Instruction::Constrain(lhs, rhs, assert_message), None);
     }

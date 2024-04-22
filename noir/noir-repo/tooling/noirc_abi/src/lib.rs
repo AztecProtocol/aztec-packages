@@ -4,7 +4,10 @@
 #![warn(clippy::semicolon_if_nothing_returned)]
 
 use acvm::{
-    acir::native_types::{Witness, WitnessMap},
+    acir::{
+        circuit::ResolvedOpcodeLocation,
+        native_types::{Witness, WitnessMap},
+    },
     FieldElement,
 };
 use errors::AbiError;
@@ -12,6 +15,8 @@ use input_parser::InputValue;
 use iter_extended::{try_btree_map, try_vecmap, vecmap};
 use noirc_frontend::{hir::Context, Signedness, Type, TypeBinding, TypeVariableKind, Visibility};
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
+use serde_with::DisplayFromStr;
 use std::ops::Range;
 use std::{collections::BTreeMap, str};
 // This is the ABI used to bridge the different TOML formats for the initial
@@ -65,6 +70,10 @@ pub enum AbiType {
     },
     String {
         length: u64,
+    },
+    FmtString {
+        length: u64,
+        item_types: Vec<AbiType>,
     },
 }
 
@@ -171,6 +180,15 @@ impl AbiType {
                 let fields = vecmap(fields, |typ| Self::from_type(context, typ));
                 Self::Tuple { fields }
             }
+            Type::FmtString(len, item_types) => {
+                let length = len.evaluate_to_u64().expect("Cannot evaluate fmt length");
+                let Type::Tuple(item_types) = item_types.as_ref() else {
+                    unreachable!("FmtString items must be a tuple")
+                };
+                let item_types = vecmap(item_types, |typ| Self::from_type(context, typ));
+                Self::FmtString { length, item_types }
+            }
+
             Type::Error
             | Type::Unit
             | Type::Constant(_)
@@ -181,7 +199,6 @@ impl AbiType {
             | Type::Code
             | Type::Slice(_)
             | Type::Function(_, _, _) => unreachable!("{typ} cannot be used in the abi"),
-            Type::FmtString(_, _) => unreachable!("format strings cannot be used in the abi"),
             Type::MutableReference(_) => unreachable!("&mut cannot be used in the abi"),
         }
     }
@@ -198,6 +215,12 @@ impl AbiType {
                 fields.iter().fold(0, |acc, field_typ| acc + field_typ.field_count())
             }
             AbiType::String { length } => *length as u32,
+            AbiType::FmtString { length, item_types } => {
+                let items_size = item_types.iter().fold(0, |acc, item| acc + item.field_count());
+                let string_size = *length as u32;
+                // Fmt strings include the number of items to be encoded as an extra field
+                string_size + 1 + items_size
+            }
         }
     }
 }
@@ -222,6 +245,8 @@ pub struct AbiReturnType {
     pub abi_type: AbiType,
     pub visibility: AbiVisibility,
 }
+
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Abi {
     /// An ordered list of the arguments to the program's `main` function, specifying their types and visibility.
@@ -231,6 +256,7 @@ pub struct Abi {
     pub param_witnesses: BTreeMap<String, Vec<Range<Witness>>>,
     pub return_type: Option<AbiReturnType>,
     pub return_witnesses: Vec<Witness>,
+    pub error_types: BTreeMap<usize, AbiType>,
 }
 
 impl Abi {
@@ -280,6 +306,7 @@ impl Abi {
             param_witnesses,
             return_type: self.return_type,
             return_witnesses: self.return_witnesses,
+            error_types: self.error_types,
         }
     }
 
@@ -488,6 +515,9 @@ fn decode_value(
 
             InputValue::Vec(tuple_elements)
         }
+        AbiType::FmtString { .. } => {
+            unreachable!("FmtString is not supported in decoding")
+        }
     };
 
     Ok(value)
@@ -582,6 +612,7 @@ mod test {
                 visibility: AbiVisibility::Public,
             }),
             return_witnesses: vec![Witness(3)],
+            error_types: Default::default(),
         };
 
         // Note we omit return value from inputs

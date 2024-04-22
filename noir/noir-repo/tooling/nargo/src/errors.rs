@@ -1,7 +1,11 @@
+use std::collections::BTreeMap;
+
 use acvm::{
     acir::circuit::{OpcodeLocation, ResolvedOpcodeLocation},
-    pwg::{ErrorLocation, OpcodeResolutionError},
+    pwg::{ErrorLocation, OpcodeResolutionError, ResolvedAssertionPayload},
+    FieldElement,
 };
+use noirc_abi::{Abi, AbiType, Sign};
 use noirc_errors::{
     debug_info::DebugInfo, reporter::ReportedErrors, CustomDiagnostic, FileDiagnostic,
 };
@@ -9,7 +13,9 @@ use noirc_errors::{
 pub use noirc_errors::Location;
 
 use noirc_frontend::graph::CrateName;
-use noirc_printable_type::ForeignCallError;
+use noirc_printable_type::{
+    decode_value, ForeignCallError, PrintableType, PrintableValue, PrintableValueDisplay,
+};
 use thiserror::Error;
 
 /// Errors covering situations where a package cannot be compiled.
@@ -53,24 +59,37 @@ impl NargoError {
     ///
     /// We want to extract the user defined error so that we can compare it
     /// in tests to expected failure messages
-    pub fn user_defined_failure_message(&self) -> Option<&str> {
+    pub fn user_defined_failure_message(
+        &self,
+        error_types: BTreeMap<usize, AbiType>,
+    ) -> Option<String> {
         let execution_error = match self {
             NargoError::ExecutionError(error) => error,
             _ => return None,
         };
 
         match execution_error {
-            ExecutionError::AssertionFailed(message, _) => Some(message),
+            ExecutionError::AssertionFailed(payload, _) => match payload {
+                ResolvedAssertionPayload::String(message) => Some(message.to_string()),
+                ResolvedAssertionPayload::Raw(error_id, fields) => {
+                    if let Some(abi_type) = error_types.get(error_id) {
+                        let decoded = prepare_for_display(fields, abi_type.clone());
+                        Some(decoded.to_string())
+                    } else {
+                        None
+                    }
+                }
+            },
             ExecutionError::SolvingError(error, _) => match error {
                 OpcodeResolutionError::IndexOutOfBounds { .. }
                 | OpcodeResolutionError::OpcodeNotSolvable(_)
                 | OpcodeResolutionError::UnsatisfiedConstrain { .. }
                 | OpcodeResolutionError::AcirMainCallAttempted { .. }
+                | OpcodeResolutionError::BrilligFunctionFailed { .. }
                 | OpcodeResolutionError::AcirCallOutputsMismatch { .. } => None,
-                OpcodeResolutionError::BrilligFunctionFailed { message, .. } => {
-                    message.as_ref().map(|s| s.as_str())
+                OpcodeResolutionError::BlackBoxFunctionFailed(_, reason) => {
+                    Some(reason.to_string())
                 }
-                OpcodeResolutionError::BlackBoxFunctionFailed(_, reason) => Some(reason),
             },
         }
     }
@@ -78,8 +97,8 @@ impl NargoError {
 
 #[derive(Debug, Error)]
 pub enum ExecutionError {
-    #[error("Failed assertion: '{}'", .0)]
-    AssertionFailed(String, Vec<ResolvedOpcodeLocation>),
+    #[error("Failed assertion")]
+    AssertionFailed(ResolvedAssertionPayload, Vec<ResolvedOpcodeLocation>),
 
     #[error("Failed to solve program: '{}'", .0)]
     SolvingError(OpcodeResolutionError, Option<Vec<ResolvedOpcodeLocation>>),
@@ -101,7 +120,7 @@ fn extract_locations_from_error(
             acir_call_stack,
         )
         | ExecutionError::SolvingError(
-            OpcodeResolutionError::UnsatisfiedConstrain { opcode_location: error_location },
+            OpcodeResolutionError::UnsatisfiedConstrain { opcode_location: error_location, .. },
             acir_call_stack,
         ) => match error_location {
             ErrorLocation::Unresolved => {
@@ -144,10 +163,81 @@ fn extract_locations_from_error(
     )
 }
 
-fn extract_message_from_error(nargo_err: &NargoError) -> String {
+fn map_non_fmt_to_printable_type(abi_typ: AbiType) -> PrintableType {
+    match abi_typ {
+        AbiType::Field => PrintableType::Field,
+        AbiType::String { length } => PrintableType::String { length },
+        AbiType::Tuple { fields } => {
+            let fields =
+                fields.iter().map(|field| map_non_fmt_to_printable_type(field.clone())).collect();
+            PrintableType::Tuple { types: fields }
+        }
+        AbiType::Array { length, typ } => {
+            let typ = map_non_fmt_to_printable_type(*typ);
+            PrintableType::Array { length: Some(length), typ: Box::new(typ) }
+        }
+        AbiType::Boolean => PrintableType::Boolean,
+        AbiType::Struct { path, fields } => {
+            let fields = fields
+                .iter()
+                .map(|(name, field)| (name.clone(), map_non_fmt_to_printable_type(field.clone())))
+                .collect();
+            PrintableType::Struct {
+                name: path.split("::").last().unwrap_or_default().to_string(),
+                fields,
+            }
+        }
+        AbiType::Integer { sign: Sign::Unsigned, width } => {
+            PrintableType::UnsignedInteger { width }
+        }
+        AbiType::Integer { sign: Sign::Signed, width } => PrintableType::SignedInteger { width },
+        AbiType::FmtString { .. } => unreachable!("Nested fmt strings are unsupported"),
+    }
+}
+
+fn prepare_for_display(fields: &[FieldElement], abi_typ: AbiType) -> PrintableValueDisplay {
+    if let AbiType::FmtString { length, item_types } = abi_typ {
+        let mut fields_iter = fields.iter().copied();
+        let PrintableValue::String(string) =
+            decode_value(&mut fields_iter, &PrintableType::String { length })
+        else {
+            unreachable!("Got non-string from string decoding");
+        };
+        let _length_of_items = fields_iter.next();
+        let items = item_types.into_iter().map(|abi_type| {
+            let printable_typ = map_non_fmt_to_printable_type(abi_type);
+            let decoded = decode_value(&mut fields_iter, &printable_typ);
+            (decoded, printable_typ)
+        });
+        PrintableValueDisplay::FmtString(string, items.collect())
+    } else {
+        let printable_type = map_non_fmt_to_printable_type(abi_typ);
+        let decoded = decode_value(&mut fields.iter().copied(), &printable_type);
+        PrintableValueDisplay::Plain(decoded, printable_type)
+    }
+}
+
+fn extract_message_from_error(
+    error_types: &BTreeMap<usize, AbiType>,
+    nargo_err: &NargoError,
+) -> String {
+    dbg!(nargo_err);
     match nargo_err {
-        NargoError::ExecutionError(ExecutionError::AssertionFailed(message, _)) => {
+        NargoError::ExecutionError(ExecutionError::AssertionFailed(
+            ResolvedAssertionPayload::String(message),
+            _,
+        )) => {
             format!("Assertion failed: '{message}'")
+        }
+        NargoError::ExecutionError(ExecutionError::AssertionFailed(
+            ResolvedAssertionPayload::Raw(error_id, fields),
+            ..,
+        )) => {
+            if let Some(abi_type) = error_types.get(error_id) {
+                format!("Assertion failed: {}", prepare_for_display(fields, abi_type.clone()))
+            } else {
+                format!("Assertion failed {:?}", fields)
+            }
         }
         NargoError::ExecutionError(ExecutionError::SolvingError(
             OpcodeResolutionError::IndexOutOfBounds { index, array_size, .. },
@@ -166,6 +256,7 @@ fn extract_message_from_error(nargo_err: &NargoError) -> String {
 /// Tries to generate a runtime diagnostic from a nargo error. It will successfully do so if it's a runtime error with a call stack.
 pub fn try_to_diagnose_runtime_error(
     nargo_err: &NargoError,
+    abi: &Abi,
     debug: &[DebugInfo],
 ) -> Option<FileDiagnostic> {
     let source_locations = match nargo_err {
@@ -177,7 +268,7 @@ pub fn try_to_diagnose_runtime_error(
     // The location of the error itself will be the location at the top
     // of the call stack (the last item in the Vec).
     let location = source_locations.last()?;
-    let message = extract_message_from_error(nargo_err);
+    let message = extract_message_from_error(&abi.error_types, nargo_err);
     Some(
         CustomDiagnostic::simple_error(message, String::new(), location.span)
             .in_file(location.file)

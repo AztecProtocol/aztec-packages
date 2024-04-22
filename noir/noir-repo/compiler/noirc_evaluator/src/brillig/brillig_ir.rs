@@ -26,7 +26,7 @@ mod instructions;
 pub(crate) use instructions::BrilligBinaryOp;
 
 use self::{artifact::BrilligArtifact, registers::BrilligRegistersContext};
-use crate::ssa::ir::dfg::CallStack;
+use crate::ssa::ir::{dfg::CallStack, instruction::UserDefinedErrorType};
 use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
 use debug_show::DebugShow;
 
@@ -123,6 +123,10 @@ impl BrilligContext {
     pub(crate) fn set_call_stack(&mut self, call_stack: CallStack) {
         self.obj.set_call_stack(call_stack);
     }
+
+    pub(crate) fn record_error_type(&mut self, error_type: UserDefinedErrorType) {
+        self.obj.error_types.push(error_type);
+    }
 }
 
 #[cfg(test)]
@@ -130,7 +134,7 @@ pub(crate) mod tests {
     use std::vec;
 
     use acvm::acir::brillig::{
-        ForeignCallParam, ForeignCallResult, HeapVector, MemoryAddress, ValueOrArray,
+        ForeignCallParam, ForeignCallResult, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
     };
     use acvm::brillig_vm::brillig::HeapValueType;
     use acvm::brillig_vm::{VMStatus, VM};
@@ -270,7 +274,9 @@ pub(crate) mod tests {
         // uses unresolved jumps which requires a block to be constructed in SSA and
         // we don't need this for Brillig IR tests
         context.push_opcode(BrilligOpcode::JumpIf { condition: r_equality, location: 8 });
-        context.push_opcode(BrilligOpcode::Trap { revert_data_offset: 0, revert_data_size: 0 });
+        context.push_opcode(BrilligOpcode::Trap {
+            revert_data: HeapArray { pointer: MemoryAddress(0), size: 0 },
+        });
 
         context.stop_instruction();
 

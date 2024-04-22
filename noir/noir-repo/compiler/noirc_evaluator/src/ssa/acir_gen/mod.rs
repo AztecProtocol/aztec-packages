@@ -8,7 +8,7 @@ use self::acir_ir::acir_variable::{AcirContext, AcirType, AcirVar};
 use super::function_builder::data_bus::DataBus;
 use super::ir::dfg::CallStack;
 use super::ir::function::FunctionId;
-use super::ir::instruction::{ConstrainError, UserDefinedConstrainError};
+use super::ir::instruction::{ConstrainError, UserDefinedErrorType};
 use super::{
     ir::{
         dfg::DataFlowGraph,
@@ -30,6 +30,7 @@ use crate::ssa::ir::function::InlineType;
 pub(crate) use acir_ir::generated_acir::GeneratedAcir;
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
+use acvm::acir::circuit::AssertionPayload;
 use acvm::acir::native_types::Witness;
 use acvm::acir::BlackBoxFunc;
 use acvm::{
@@ -530,24 +531,32 @@ impl<'a> Context<'a> {
                 let lhs = self.convert_numeric_value(*lhs, dfg)?;
                 let rhs = self.convert_numeric_value(*rhs, dfg)?;
 
-                let assert_message = if let Some(error) = assert_message {
-                    match error.as_ref() {
-                        ConstrainError::Intrinsic(string)
-                        | ConstrainError::UserDefined(UserDefinedConstrainError::Static(string)) => {
-                            Some(string.clone())
+                let assert_payload = if let Some(error) = assert_message {
+                    match error {
+                        ConstrainError::Intrinsic(string) => {
+                            Some((AssertionPayload::StaticString(string.clone()), None))
                         }
-                        ConstrainError::UserDefined(UserDefinedConstrainError::Dynamic(
-                            call_instruction,
-                        )) => {
-                            self.convert_ssa_call(call_instruction, dfg, ssa, brillig, &[])?;
-                            None
+                        ConstrainError::UserDefined(values, UserDefinedErrorType { typ, id }) => {
+                            let acir_vars: Vec<(AcirVar, AcirType)> = values
+                                .iter()
+                                .flat_map(|value| self.convert_value(*value, dfg).flatten())
+                                .collect();
+
+                            let expressions = try_vecmap(acir_vars, |(var, _)| {
+                                self.acir_context.var_to_expression(var)
+                            })?;
+
+                            Some((
+                                AssertionPayload::Expression(*id, expressions),
+                                Some(UserDefinedErrorType { typ: typ.clone(), id: *id }),
+                            ))
                         }
                     }
                 } else {
                     None
                 };
 
-                self.acir_context.assert_eq_var(lhs, rhs, assert_message)?;
+                self.acir_context.assert_eq_var(lhs, rhs, assert_payload)?;
             }
             Instruction::Cast(value_id, _) => {
                 let acir_var = self.convert_numeric_value(*value_id, dfg)?;

@@ -6,8 +6,8 @@ use noirc_errors::{
 };
 
 use crate::{
-    hir_def::function::FunctionSignature, BinaryOpKind, Distinctness, IntegerBitSize, Signedness,
-    Visibility,
+    hir_def::function::FunctionSignature, hir_def::types::Type as HirType, BinaryOpKind,
+    Distinctness, IntegerBitSize, Signedness, Visibility,
 };
 
 /// The monomorphized AST is expression-based, all statements are also
@@ -35,7 +35,7 @@ pub enum Expression {
     ExtractTupleField(Box<Expression>, usize),
     Call(Call),
     Let(Let),
-    Constrain(Box<Expression>, Location, Option<Box<Expression>>),
+    Constrain(Box<Expression>, Location, Option<Box<(Expression, HirType)>>),
     Assign(Assign),
     Semi(Box<Expression>),
     Break,

@@ -15,7 +15,7 @@ use brillig_vm::{FailureReason, MemoryValue, VMStatus, VM};
 
 use crate::{pwg::OpcodeNotSolvable, OpcodeResolutionError};
 
-use super::{get_value, insert_value, memory_op::MemoryOpSolver};
+use super::{get_value, insert_value, memory_op::MemoryOpSolver, ResolvedAssertionPayload};
 
 #[derive(Debug)]
 pub enum BrilligSolverStatus {
@@ -193,32 +193,34 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
             VMStatus::Finished { .. } => Ok(BrilligSolverStatus::Finished),
             VMStatus::InProgress => Ok(BrilligSolverStatus::InProgress),
             VMStatus::Failure { reason, call_stack } => {
-                let message = match reason {
-                    FailureReason::RuntimeError { message } => Some(message),
+                let payload = match reason {
+                    FailureReason::RuntimeError { message } => {
+                        Some(ResolvedAssertionPayload::String(message))
+                    }
                     FailureReason::Trap { revert_data_offset, revert_data_size } => {
                         // Since noir can only revert with strings currently, we can parse return data as a string
                         if revert_data_size == 0 {
                             None
                         } else {
                             let memory = self.vm.get_memory();
-                            let bytes = memory
+                            let mut fields: Vec<_> = memory
                                 [revert_data_offset..(revert_data_offset + revert_data_size)]
                                 .iter()
-                                .map(|memory_value| {
-                                    memory_value
-                                        .try_into()
-                                        .expect("Assert message character is not a byte")
-                                })
+                                .map(|memory_value| memory_value.to_field())
                                 .collect();
-                            Some(
-                                String::from_utf8(bytes)
-                                    .expect("Assert message is not valid UTF-8"),
-                            )
+                            let revert_data_type_id = fields
+                                .remove(0)
+                                .try_to_u64()
+                                .expect("Error id doesn't fit in a u64")
+                                .try_into()
+                                .expect("Error id doesn't fit in a usize");
+
+                            Some(ResolvedAssertionPayload::Raw(revert_data_type_id, fields))
                         }
                     }
                 };
                 Err(OpcodeResolutionError::BrilligFunctionFailed {
-                    message,
+                    payload,
                     call_stack: call_stack
                         .iter()
                         .map(|brillig_index| OpcodeLocation::Brillig {

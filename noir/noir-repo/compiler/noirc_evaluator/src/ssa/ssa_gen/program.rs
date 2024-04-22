@@ -6,6 +6,7 @@ use crate::ssa::ir::{
     function::{Function, FunctionId, RuntimeType},
     map::AtomicCounter,
 };
+use noirc_frontend::hir_def::types::Type as HirType;
 
 /// Contains the entire SSA representation of the program.
 pub(crate) struct Ssa {

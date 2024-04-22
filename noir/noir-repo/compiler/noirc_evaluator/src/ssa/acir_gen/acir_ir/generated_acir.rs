@@ -5,14 +5,13 @@ use std::collections::BTreeMap;
 use crate::{
     brillig::{brillig_gen::brillig_directive, brillig_ir::artifact::GeneratedBrillig},
     errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::dfg::CallStack,
+    ssa::ir::{dfg::CallStack, instruction::UserDefinedErrorType},
 };
-
 use acvm::acir::{
     circuit::{
         brillig::{Brillig as AcvmBrillig, BrilligInputs, BrilligOutputs},
         opcodes::{BlackBoxFuncCall, FunctionInput, Opcode as AcirOpcode},
-        OpcodeLocation,
+        AssertionPayload, OpcodeLocation,
     },
     native_types::Witness,
     BlackBoxFunc,
@@ -22,6 +21,7 @@ use acvm::{
     FieldElement,
 };
 use iter_extended::vecmap;
+use noirc_frontend::hir_def::types::Type as HirType;
 use num_bigint::BigUint;
 
 #[derive(Debug, Default)]
@@ -55,7 +55,8 @@ pub(crate) struct GeneratedAcir {
     pub(crate) call_stack: CallStack,
 
     /// Correspondence between an opcode index and the error message associated with it.
-    pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
+    pub(crate) assert_messages: BTreeMap<OpcodeLocation, AssertionPayload>,
+    pub(crate) error_types: Vec<UserDefinedErrorType>,
 
     pub(crate) warnings: Vec<SsaReport>,
 
@@ -613,8 +614,11 @@ impl GeneratedAcir {
         for (brillig_index, message) in generated_brillig.assert_messages {
             self.assert_messages.insert(
                 OpcodeLocation::Brillig { acir_index: self.opcodes.len() - 1, brillig_index },
-                message,
+                AssertionPayload::StaticString(message.clone()),
             );
+        }
+        for error_type in generated_brillig.error_types {
+            self.error_types.push(error_type);
         }
     }
 
@@ -644,8 +648,11 @@ impl GeneratedAcir {
                     acir_index: self.opcodes.len() - 1,
                     brillig_index: *brillig_index,
                 },
-                message.clone(),
+                AssertionPayload::StaticString(message.clone()),
             );
+        }
+        for error_type in generated_brillig.error_types.iter() {
+            self.error_types.push(error_type.clone());
         }
     }
 

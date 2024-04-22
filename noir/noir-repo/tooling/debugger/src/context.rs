@@ -53,6 +53,7 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
                 &circuit.opcodes,
                 initial_witness,
                 unconstrained_functions,
+                &circuit.assert_messages,
             ),
             brillig_solver: None,
             foreign_call_executor,

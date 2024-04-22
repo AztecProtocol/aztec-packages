@@ -5,11 +5,12 @@ use crate::brillig::brillig_ir::artifact::GeneratedBrillig;
 use crate::errors::{InternalError, RuntimeError, SsaReport};
 use crate::ssa::acir_gen::{AcirDynamicArray, AcirValue};
 use crate::ssa::ir::dfg::CallStack;
+use crate::ssa::ir::instruction::UserDefinedErrorType;
 use crate::ssa::ir::types::Type as SsaType;
 use crate::ssa::ir::{instruction::Endian, types::NumericType};
 use acvm::acir::circuit::brillig::{BrilligInputs, BrilligOutputs};
 use acvm::acir::circuit::opcodes::{BlockId, MemOp};
-use acvm::acir::circuit::Opcode;
+use acvm::acir::circuit::{AssertionPayload, Opcode};
 use acvm::blackbox_solver;
 use acvm::brillig_vm::{MemoryValue, VMStatus, VM};
 use acvm::{
@@ -23,6 +24,7 @@ use acvm::{
 };
 use fxhash::FxHashMap as HashMap;
 use iter_extended::{try_vecmap, vecmap};
+use noirc_frontend::hir_def::types::Type as HirType;
 use num_bigint::BigUint;
 use std::{borrow::Cow, hash::Hash};
 
@@ -493,7 +495,7 @@ impl AcirContext {
         &mut self,
         lhs: AcirVar,
         rhs: AcirVar,
-        assert_message: Option<String>,
+        assert_message: Option<(AssertionPayload, Option<UserDefinedErrorType>)>,
     ) -> Result<(), RuntimeError> {
         let lhs_expr = self.var_to_expression(lhs)?;
         let rhs_expr = self.var_to_expression(rhs)?;
@@ -509,8 +511,11 @@ impl AcirContext {
         }
 
         self.acir_ir.assert_is_zero(diff_expr);
-        if let Some(message) = assert_message {
-            self.acir_ir.assert_messages.insert(self.acir_ir.last_acir_opcode_location(), message);
+        if let Some((payload, typ)) = assert_message {
+            self.acir_ir.assert_messages.insert(self.acir_ir.last_acir_opcode_location(), payload);
+            if let Some(typ) = typ {
+                self.acir_ir.error_types.push(typ);
+            }
         }
         self.mark_variables_equivalent(lhs, rhs)?;
 
@@ -981,9 +986,10 @@ impl AcirContext {
                 let witness = self.var_to_witness(witness_var)?;
                 self.acir_ir.range_constraint(witness, *bit_size)?;
                 if let Some(message) = message {
-                    self.acir_ir
-                        .assert_messages
-                        .insert(self.acir_ir.last_acir_opcode_location(), message);
+                    self.acir_ir.assert_messages.insert(
+                        self.acir_ir.last_acir_opcode_location(),
+                        AssertionPayload::StaticString(message.clone()),
+                    );
                 }
             }
             NumericType::NativeField => {

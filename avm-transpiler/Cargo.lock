@@ -1206,6 +1206,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_json",
+ "serde_with",
  "thiserror",
  "toml",
 ]

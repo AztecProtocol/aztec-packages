@@ -7,7 +7,7 @@
 //! This module heavily borrows from Cranelift
 #![allow(dead_code)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     brillig::Brillig,
@@ -16,6 +16,7 @@ use crate::{
 use acvm::acir::{
     circuit::{
         brillig::BrilligBytecode, Circuit, ExpressionWidth, Program as AcirProgram, PublicInputs,
+        ResolvedOpcodeLocation,
     },
     native_types::Witness,
 };
@@ -23,7 +24,8 @@ use acvm::acir::{
 use noirc_errors::debug_info::{DebugFunctions, DebugInfo, DebugTypes, DebugVariables};
 
 use noirc_frontend::{
-    hir_def::function::FunctionSignature, monomorphization::ast::Program, Visibility,
+    hir_def::function::FunctionSignature, hir_def::types::Type as HirType,
+    monomorphization::ast::Program, Visibility,
 };
 use tracing::{span, Level};
 
@@ -100,10 +102,14 @@ pub struct SsaProgramArtifact {
     pub main_input_witnesses: Vec<Witness>,
     pub main_return_witnesses: Vec<Witness>,
     pub names: Vec<String>,
+    pub error_types: BTreeMap<usize, HirType>,
 }
 
 impl SsaProgramArtifact {
-    fn new(unconstrained_functions: Vec<BrilligBytecode>) -> Self {
+    fn new(
+        unconstrained_functions: Vec<BrilligBytecode>,
+        error_types: BTreeMap<usize, HirType>,
+    ) -> Self {
         let program = AcirProgram { functions: Vec::default(), unconstrained_functions };
         Self {
             program,
@@ -112,6 +118,7 @@ impl SsaProgramArtifact {
             main_input_witnesses: Vec::default(),
             main_return_witnesses: Vec::default(),
             names: Vec::default(),
+            error_types,
         }
     }
 
@@ -159,7 +166,14 @@ pub fn create_program(
         "The generated ACIRs should match the supplied function signatures"
     );
 
-    let mut program_artifact = SsaProgramArtifact::new(generated_brillig);
+    let error_types: BTreeMap<usize, HirType> = generated_acirs
+        .iter()
+        .flat_map(|acir| {
+            acir.error_types.iter().map(move |error_typ| (error_typ.id, error_typ.typ.clone()))
+        })
+        .collect();
+
+    let mut program_artifact = SsaProgramArtifact::new(generated_brillig, error_types);
     // For setting up the ABI we need separately specify main's input and return witnesses
     let mut is_main = true;
     for (acir, func_sig) in generated_acirs.into_iter().zip(func_sigs) {

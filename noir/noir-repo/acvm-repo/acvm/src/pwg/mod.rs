@@ -1,10 +1,12 @@
 // Re-usable methods that backends can use to implement their PWG
 
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
 use acir::{
     brillig::ForeignCallResult,
-    circuit::{brillig::BrilligBytecode, opcodes::BlockId, Opcode, OpcodeLocation},
+    circuit::{
+        brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, Opcode, OpcodeLocation,
+    },
     native_types::{Expression, Witness, WitnessMap},
     BlackBoxFunc, FieldElement,
 };
@@ -112,18 +114,30 @@ impl std::fmt::Display for ErrorLocation {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ResolvedAssertionPayload {
+    String(String),
+    Raw(/*type_id:*/ usize, Vec<FieldElement>),
+}
+
 #[derive(Clone, PartialEq, Eq, Debug, Error)]
 pub enum OpcodeResolutionError {
     #[error("Cannot solve opcode: {0}")]
     OpcodeNotSolvable(#[from] OpcodeNotSolvable),
     #[error("Cannot satisfy constraint")]
-    UnsatisfiedConstrain { opcode_location: ErrorLocation },
+    UnsatisfiedConstrain {
+        opcode_location: ErrorLocation,
+        payload: Option<ResolvedAssertionPayload>,
+    },
     #[error("Index out of bounds, array has size {array_size:?}, but index was {index:?}")]
     IndexOutOfBounds { opcode_location: ErrorLocation, index: u32, array_size: u32 },
     #[error("Failed to solve blackbox function: {0}, reason: {1}")]
     BlackBoxFunctionFailed(BlackBoxFunc, String),
-    #[error("Failed to solve brillig function{}", .message.as_ref().map(|m| format!(", reason: {}", m)).unwrap_or_default())]
-    BrilligFunctionFailed { message: Option<String>, call_stack: Vec<OpcodeLocation> },
+    #[error("Failed to solve brillig function")]
+    BrilligFunctionFailed {
+        call_stack: Vec<OpcodeLocation>,
+        payload: Option<ResolvedAssertionPayload>,
+    },
     #[error("Attempted to call `main` with a `Call` opcode")]
     AcirMainCallAttempted { opcode_location: ErrorLocation },
     #[error("{results_size:?} result values were provided for {outputs_size:?} call output witnesses, most likely due to bad ACIR codegen")]
@@ -168,6 +182,8 @@ pub struct ACVM<'a, B: BlackBoxFunctionSolver> {
 
     // Each unconstrained function referenced in the program
     unconstrained_functions: &'a [BrilligBytecode],
+
+    assertion_payloads: &'a [(OpcodeLocation, AssertionPayload)],
 }
 
 impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
@@ -176,6 +192,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         opcodes: &'a [Opcode],
         initial_witness: WitnessMap,
         unconstrained_functions: &'a [BrilligBytecode],
+        assertion_payloads: &'a [(OpcodeLocation, AssertionPayload)],
     ) -> Self {
         let status = if opcodes.is_empty() { ACVMStatus::Solved } else { ACVMStatus::InProgress };
         ACVM {
@@ -190,6 +207,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             acir_call_counter: 0,
             acir_call_results: Vec::default(),
             unconstrained_functions,
+            assertion_payloads,
         }
     }
 
@@ -366,13 +384,43 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                     OpcodeResolutionError::IndexOutOfBounds {
                         opcode_location: opcode_index,
                         ..
-                    }
-                    | OpcodeResolutionError::UnsatisfiedConstrain {
-                        opcode_location: opcode_index,
                     } => {
                         *opcode_index = ErrorLocation::Resolved(OpcodeLocation::Acir(
                             self.instruction_pointer(),
                         ));
+                    }
+                    OpcodeResolutionError::UnsatisfiedConstrain {
+                        opcode_location: opcode_index,
+                        payload: assertion_payload,
+                    } => {
+                        let location = OpcodeLocation::Acir(self.instruction_pointer());
+                        *opcode_index = ErrorLocation::Resolved(location);
+                        *assertion_payload =
+                            self.assertion_payloads.iter().find_map(|(loc, payload)| {
+                                if location == *loc {
+                                    match payload {
+                                        AssertionPayload::StaticString(string) => {
+                                            Some(ResolvedAssertionPayload::String(string.clone()))
+                                        }
+                                        AssertionPayload::Expression(type_id, expression) => {
+                                            let elements: Result<Vec<_>, _> = expression
+                                                .iter()
+                                                .map(|expr| get_value(expr, &self.witness_map))
+                                                .collect();
+                                            elements
+                                                .map(|fields| {
+                                                    ResolvedAssertionPayload::Raw(*type_id, fields)
+                                                })
+                                                .ok()
+                                        }
+                                        AssertionPayload::BrilligOutput(_) => unreachable!(
+                                            "Brillig output error type set in an ACIR opcode"
+                                        ),
+                                    }
+                                } else {
+                                    None
+                                }
+                            });
                     }
                     // All other errors are thrown normally.
                     _ => (),
@@ -451,7 +499,34 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                 self.instruction_pointer,
             )?,
         };
-        match solver.solve()? {
+
+        let result = solver.solve().map_err(|mut err| {
+            dbg!(&err);
+            match &mut err {
+                OpcodeResolutionError::BrilligFunctionFailed { call_stack, payload } => {
+                    // Some brillig errors have static strings as payloads, we can resolve them here
+                    let last_location =
+                        call_stack.last().expect("Call stacks should have at least one item");
+                    let assertion_descriptor =
+                        self.assertion_payloads.iter().find_map(|(loc, payload)| {
+                            if loc == last_location {
+                                Some(payload)
+                            } else {
+                                None
+                            }
+                        });
+
+                    if let Some(AssertionPayload::StaticString(string)) = assertion_descriptor {
+                        *payload = Some(ResolvedAssertionPayload::String(string.clone()));
+                    }
+
+                    err
+                }
+                _ => err,
+            }
+        });
+
+        match result? {
             BrilligSolverStatus::ForeignCallWait(foreign_call) => {
                 // Cache the current state of the solver
                 self.brillig_solver = Some(solver);
@@ -604,6 +679,7 @@ pub fn insert_value(
     if old_value != value_to_insert {
         return Err(OpcodeResolutionError::UnsatisfiedConstrain {
             opcode_location: ErrorLocation::Unresolved,
+            payload: None,
         });
     }
 

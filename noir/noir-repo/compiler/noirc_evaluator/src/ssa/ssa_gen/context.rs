@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 use acvm::FieldElement;
@@ -16,7 +17,7 @@ use crate::ssa::ir::function::{Function, RuntimeType};
 use crate::ssa::ir::function::{FunctionId as IrFunctionId, InlineType};
 use crate::ssa::ir::instruction::BinaryOp;
 use crate::ssa::ir::instruction::Instruction;
-use crate::ssa::ir::map::AtomicCounter;
+use crate::ssa::ir::map::{AtomicCounter, Id};
 use crate::ssa::ir::types::{NumericType, Type};
 use crate::ssa::ir::value::ValueId;
 
@@ -38,7 +39,7 @@ pub(super) struct FunctionContext<'a> {
     definitions: HashMap<LocalId, Values>,
 
     pub(super) builder: FunctionBuilder,
-    shared_context: &'a SharedContext,
+    pub(super) shared_context: &'a SharedContext,
 
     /// Contains any loops we're currently in the middle of translating.
     /// These are ordered such that an inner loop is at the end of the vector and
@@ -72,6 +73,8 @@ pub(super) struct SharedContext {
 
     /// Shared counter used to assign the ID of the next function
     function_counter: AtomicCounter<Function>,
+
+    error_id_counter: AtomicUsize,
 
     /// The entire monomorphized source program
     pub(super) program: Program,
@@ -1201,6 +1204,7 @@ impl SharedContext {
             functions: Default::default(),
             function_queue: Default::default(),
             function_counter: Default::default(),
+            error_id_counter: Default::default(),
             program,
         }
     }
@@ -1231,6 +1235,10 @@ impl SharedContext {
         self.functions.write().expect("Failed to write to self.functions").insert(id, next_id);
 
         next_id
+    }
+
+    pub(super) fn create_error_id(&self) -> usize {
+        self.error_id_counter.fetch_add(1, Ordering::Relaxed)
     }
 }
 

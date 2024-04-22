@@ -239,6 +239,7 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                 &circuit.opcodes,
                 initial_witness,
                 self.unconstrained_functions,
+                &circuit.assert_messages,
             );
 
             loop {
@@ -250,39 +251,23 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                         unreachable!("Execution should not stop while in `InProgress` state.")
                     }
                     ACVMStatus::Failure(error) => {
-                        let (assert_message, call_stack): (Option<&str>, _) = match &error {
+                        let call_stack = match &error {
                             OpcodeResolutionError::UnsatisfiedConstrain {
                                 opcode_location: ErrorLocation::Resolved(opcode_location),
+                                ..
                             }
                             | OpcodeResolutionError::IndexOutOfBounds {
                                 opcode_location: ErrorLocation::Resolved(opcode_location),
                                 ..
-                            } => (
-                                circuit.get_assert_message(*opcode_location),
-                                Some(vec![*opcode_location]),
-                            ),
-                            OpcodeResolutionError::BrilligFunctionFailed {
-                                call_stack,
-                                message,
-                            } => {
-                                let revert_message = message.as_ref().map(String::as_str);
-                                let failing_opcode = call_stack
-                                    .last()
-                                    .expect("Brillig error call stacks cannot be empty");
-                                (
-                                    revert_message.or(circuit.get_assert_message(*failing_opcode)),
-                                    Some(call_stack.clone()),
-                                )
+                            } => Some(vec![*opcode_location]),
+                            OpcodeResolutionError::BrilligFunctionFailed { call_stack, .. } => {
+                                Some(call_stack.clone())
                             }
-                            _ => (None, None),
+                            _ => None,
                         };
+                        // TODO add payload to JsExecutionError
 
-                        let error_string = match &assert_message {
-                            Some(assert_message) => format!("Assertion failed: {}", assert_message),
-                            None => error.to_string(),
-                        };
-
-                        return Err(JsExecutionError::new(error_string, call_stack).into());
+                        return Err(JsExecutionError::new(error.to_string(), call_stack).into());
                     }
                     ACVMStatus::RequiresForeignCall(foreign_call) => {
                         let result =
