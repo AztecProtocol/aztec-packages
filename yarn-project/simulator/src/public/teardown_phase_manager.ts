@@ -1,5 +1,7 @@
 import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
+  type Fr,
+  type Gas,
   type GlobalVariables,
   type Header,
   type Proof,
@@ -62,5 +64,18 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       revertReason,
       returnValues: undefined,
     };
+  }
+
+  protected override getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {
+    // TODO(palla/gas): This needs to be verified on the kernel teardown
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const gasFees = this.globalVariables.gasFees;
+    // No need to add teardown limits since they are already included in end.gasUsed
+    const gasUsed = previousPublicKernelOutput.end.gasUsed.add(previousPublicKernelOutput.endNonRevertibleData.gasUsed);
+    return gasSettings.inclusionFee.add(gasUsed.reduce(gasFees));
+  }
+
+  protected override getAvailableGas(tx: Tx, _previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Gas {
+    return tx.data.constants.txContext.gasSettings.getTeardownLimits();
   }
 }

@@ -169,7 +169,7 @@ export function makeNewSideEffectLinkedToNoteHash(seed: number): SideEffectLinke
  * @param seed - The seed to use for generating the tx context.
  * @returns A tx context.
  */
-export function makeTxContext(seed: number): TxContext {
+export function makeTxContext(seed: number = 1): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
   return new TxContext(new Fr(seed), Fr.ZERO, makeGasSettings());
 }

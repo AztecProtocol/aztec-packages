@@ -1,9 +1,10 @@
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
+import { type GasFees } from './gas_fees.js';
 import { type UInt32 } from './shared.js';
 
 export const GasDimensions = ['da', 'l1', 'l2'] as const;
@@ -65,6 +66,13 @@ export class Gas {
 
   mul(scalar: number) {
     return new Gas(Math.ceil(this.daGas * scalar), Math.ceil(this.l1Gas * scalar), Math.ceil(this.l2Gas * scalar));
+  }
+
+  reduce(gasFees: GasFees) {
+    return GasDimensions.reduce(
+      (acc, dimension) => acc.add(gasFees.get(dimension).mul(new Fr(this.get(dimension)))),
+      Fr.ZERO,
+    );
   }
 
   toFields() {

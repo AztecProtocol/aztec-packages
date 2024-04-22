@@ -120,7 +120,9 @@ export class PublicExecutionResultBuilder {
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
       revertReason: this._revertReason,
-      gasLeft: Gas.test(), // TODO(palla/gas): Set a proper value
+      startGasLeft: Gas.test(),
+      endGasLeft: Gas.test(),
+      transactionFee: Fr.ZERO,
     };
   }
 }
