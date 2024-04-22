@@ -117,7 +117,7 @@ CI takes up a significant amount of time. It gets its own section here, so we re
 - Do a RFC from the external community
 - Implement
 
-## Slow Updates tree?
+## Shared Mutable State
 
 We _need_ a way to read mutable public data from a private function. We are moving away from the old Slow Updates Tree in favor of Shared Mutable.
 <!-- TODO https://github.com/AztecProtocol/aztec-packages/issues/5508: add links -->
