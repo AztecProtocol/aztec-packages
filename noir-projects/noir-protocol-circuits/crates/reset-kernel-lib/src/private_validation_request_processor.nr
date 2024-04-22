@@ -1,7 +1,10 @@
 use dep::std::hash::poseidon2::Poseidon2::hash as poseidon2_hash;
 use crate::{nullifier_read_request_reset::NullifierReadRequestHints, reset::read_request::reset_read_requests};
 use dep::types::{
-    abis::{side_effect::{SideEffect, SideEffectLinkedToNoteHash}, validation_requests::ValidationRequests},
+    abis::{
+    note_hash::NoteHashContext, side_effect::SideEffectLinkedToNoteHash,
+    validation_requests::ValidationRequests
+},
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, GENERATOR_INDEX__NSK_M
@@ -13,7 +16,7 @@ use dep::types::{
 struct PrivateValidationRequestProcessor {
     validation_requests: ValidationRequests,
     note_hash_read_request_hints: [u64; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
-    pending_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX],
+    pending_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints,
     pending_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
@@ -73,7 +76,10 @@ impl PrivateValidationRequestProcessor {
                 let app_nullifier_secret_key_preimage = [
                     master_nullifier_secret_key.high, master_nullifier_secret_key.low, request.contract_address.to_field(), GENERATOR_INDEX__NSK_M
                 ];
-                let app_nullifier_secret_key = poseidon2_hash(app_nullifier_secret_key_preimage, app_nullifier_secret_key_preimage.len());
+                let app_nullifier_secret_key = poseidon2_hash(
+                    app_nullifier_secret_key_preimage,
+                    app_nullifier_secret_key_preimage.len()
+                );
                 assert(
                     app_nullifier_secret_key.eq(request.app_nullifier_secret_key), "Failed to derive matching app nullifier secret key from the secret key."
                 );

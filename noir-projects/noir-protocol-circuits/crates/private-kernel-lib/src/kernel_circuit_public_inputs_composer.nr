@@ -5,7 +5,7 @@ use dep::types::{
     abis::{
     kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
+    note_hash::NoteHashContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -25,7 +25,7 @@ fn asc_sort_by_counters<T>(a: T, b: T) -> bool where T: Ordered {
 struct KernelCircuitPublicInputsComposer {
     public_inputs: PrivateKernelCircuitPublicInputsBuilder,
     previous_kernel: PrivateKernelData,
-    sorted_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
@@ -39,7 +39,7 @@ struct KernelCircuitPublicInputsComposer {
 impl KernelCircuitPublicInputsComposer {
     pub fn new(
         previous_kernel: PrivateKernelData,
-        sorted_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX],
+        sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
@@ -47,7 +47,7 @@ impl KernelCircuitPublicInputsComposer {
         sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_unencrypted_log_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
-        sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
+        sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX]
     ) -> Self {
         let public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
@@ -62,7 +62,7 @@ impl KernelCircuitPublicInputsComposer {
             sorted_encrypted_log_hashes,
             sorted_encrypted_log_hashes_indexes,
             sorted_unencrypted_log_hashes,
-            sorted_unencrypted_log_hashes_indexes,
+            sorted_unencrypted_log_hashes_indexes
         }
     }
 
@@ -204,7 +204,7 @@ impl KernelCircuitPublicInputsComposer {
                 // match found!
                 // squash both the nullifier and the hash
                 // (set to 0 here and then rearrange array after loop)
-                new_note_hashes[hint_pos] = SideEffect::empty();
+                new_note_hashes[hint_pos] = NoteHashContext::empty();
                 new_nullifiers[n_idx] = SideEffectLinkedToNoteHash::empty();
             }
             // non-transient (persistable) nullifiers are just kept in new_nullifiers array and forwarded

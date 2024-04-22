@@ -1,20 +1,28 @@
-use crate::common;
+use crate::{common, private_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer};
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
-    mocked::verify_previous_kernel_state
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_previous_kernel_state
 };
+
+struct PrivateKernekInnerHints {
+    note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
+}
 
 struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
     private_call: PrivateCallData,
+    hints: PrivateKernekInnerHints,
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
-    fn pop_and_validate_this_private_call_hash(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
+    fn pop_and_validate_this_private_call_hash(
+        self,
+        public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
+    ) {
         let call_request = public_inputs.end.private_call_stack.pop();
         common::validate_call_against_request(self.private_call, call_request);
     }
@@ -26,16 +34,19 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_inner(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs  = PrivateKernelCircuitPublicInputsBuilder::empty();
-
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
-
-        // Do this before any functions can modify the inputs.
-        common::initialize_end_values(self.previous_kernel, &mut public_inputs);
 
         self.validate_inputs();
 
         common::validate_arrays(self.private_call.call_stack_item.public_inputs);
+
+        let mut composer = PrivateKernelCircuitPublicInputsComposer::initialize_from_previous_kernel(self.previous_kernel.public_inputs).compose(
+            self.private_call.call_stack_item.public_inputs,
+            self.hints.note_hash_nullifier_counters
+        );
+
+        // TODO - Move all the code that build public inputs to the composer.
+        let mut public_inputs = composer.public_inputs;
 
         self.pop_and_validate_this_private_call_hash(&mut public_inputs);
 
@@ -61,14 +72,15 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
+    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, PrivateKernekInnerHints};
     use dep::types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX};
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        max_block_number::MaxBlockNumber, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        max_block_number::MaxBlockNumber, note_hash::NoteHash,
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
-        address::{AztecAddress, EthAddress},
+        address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
         tests::{private_call_data_builder::PrivateCallDataBuilder, fixture_builder::FixtureBuilder}
     };
@@ -76,17 +88,19 @@ mod tests {
     struct PrivateKernelInnerInputsBuilder {
         previous_kernel: FixtureBuilder,
         private_call: PrivateCallDataBuilder,
+        hints: PrivateKernekInnerHints,
     }
 
     impl PrivateKernelInnerInputsBuilder {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new();
             let private_call = PrivateCallDataBuilder::new();
+            let hints = PrivateKernekInnerHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
 
             // 0th nullifier must be non-zero.
             previous_kernel.append_new_nullifiers(1);
 
-            PrivateKernelInnerInputsBuilder { previous_kernel, private_call }
+            PrivateKernelInnerInputsBuilder { previous_kernel, private_call, hints }
         }
 
         pub fn is_delegate_call(&mut self) -> Self {
@@ -107,7 +121,7 @@ mod tests {
             self.previous_kernel.push_private_call_request(hash, is_delegate_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
-            let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
+            let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call, hints: self.hints };
 
             kernel.native_private_kernel_circuit_inner()
         }
@@ -185,7 +199,7 @@ mod tests {
         builder.previous_kernel.push_private_call_request(hash + 1, false);
         let previous_kernel = builder.previous_kernel.to_private_kernel_data();
 
-        let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
+        let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call, hints: builder.hints };
 
         let _ = kernel.native_private_kernel_circuit_inner();
     }
@@ -227,7 +241,7 @@ mod tests {
         builder.previous_kernel.push_private_call_request(hash, is_delegate_call);
         let previous_kernel = builder.previous_kernel.to_private_kernel_data();
 
-        let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
+        let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call, hints: builder.hints };
 
         let _ = kernel.native_private_kernel_circuit_inner();
     }
@@ -393,8 +407,8 @@ mod tests {
 
         builder.private_call.public_inputs.new_note_hashes.extend_from_array(
             [
-            SideEffect { value: 0, counter: 0 },
-            SideEffect { value: 9123, counter: 1 }
+            NoteHash { value: 0, counter: 0 },
+            NoteHash { value: 9123, counter: 1 }
         ]
         );
 
@@ -461,12 +475,12 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with = "extend_from_bounded_vec out of bounds")]
+    #[test(should_fail_with = "push out of bounds")]
     fn private_kernel_should_fail_if_aggregating_too_many_commitments() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // The current call stack has 1 commitment;
-        builder.private_call.public_inputs.new_note_hashes.push(SideEffect { value: 4321, counter: 0 });
+        builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 4321, counter: 0 });
 
         // Mock the previous new note hashes to be full, therefore no more commitments can be added.
         builder.previous_kernel.append_new_note_hashes(MAX_NEW_NOTE_HASHES_PER_TX);
@@ -697,7 +711,7 @@ mod tests {
     fn creating_new_note_hashes_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
-        builder.private_call.public_inputs.new_note_hashes.push(SideEffect { value: 1, counter: 0 });
+        builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 1, counter: 0 });
 
         builder.failed();
     }

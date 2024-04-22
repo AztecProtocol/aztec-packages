@@ -3,7 +3,7 @@ use dep::reset_kernel_lib::{NullifierReadRequestHints, PrivateValidationRequestP
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    note_hash::NoteHashContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -14,7 +14,7 @@ use dep::types::{
 
 struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
-    sorted_new_note_hashes: [SideEffect; MAX_NEW_NOTE_HASHES_PER_TX],
+    sorted_new_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     read_commitment_hints: [u64; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     sorted_new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
@@ -57,7 +57,7 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             self.sorted_encrypted_log_hashes,
             self.sorted_encrypted_log_hashes_indexes,
             self.sorted_unencrypted_log_hashes,
-            self.sorted_unencrypted_log_hashes_indexes,
+            self.sorted_unencrypted_log_hashes_indexes
         );
         composer.compose_public().finish_to_public()
     }
@@ -76,6 +76,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        note_hash::{NoteHash, NoteHashContext},
         side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
     },
         grumpkin_private_key::GrumpkinPrivateKey,
@@ -109,16 +110,16 @@ mod tests {
         // note_hashes for the given note_hashes.
         pub fn compute_unique_siloed_note_hashes<N>(
             self,
-            note_hashes: [SideEffect; N]
-        ) -> [SideEffect; N] {
+            note_hashes: [NoteHashContext; N]
+        ) -> [NoteHash; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
-            let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
+            let mut unique_siloed_note_hashes = [NoteHash::empty(); N];
             for i in 0..N {
                 if note_hashes[i].value != 0 {
                     let nonce = compute_note_hash_nonce(first_nullifier.value, i);
-                    unique_siloed_note_hashes[i] = SideEffect {
+                    unique_siloed_note_hashes[i] = NoteHash {
                         value: compute_unique_siloed_note_hash(nonce, note_hashes[i].value),
-                        counter: note_hashes[i].counter,
+                        counter: 0, // Counter is cleared so it's not exposed to the public.
                     };
                 }
             }
@@ -147,7 +148,7 @@ mod tests {
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.new_note_hashes.storage,
-                |a: SideEffect, b: SideEffect| a.counter < b.counter
+                |a: NoteHashContext, b: NoteHashContext| a.counter < b.counter
             );
             let sorted_new_note_hashes = sorted.sorted_array;
             let sorted_new_note_hashes_indexes = sorted.sorted_index_hints;
@@ -196,7 +197,7 @@ mod tests {
                 sorted_encrypted_log_hashes_indexes,
                 sorted_unencrypted_log_hashes,
                 sorted_unencrypted_log_hashes_indexes,
-                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
+                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX]
             };
             kernel.execute()
         }
@@ -392,7 +393,7 @@ mod tests {
         let sorted_note_hashes = builder.previous_kernel.new_note_hashes.storage;
         let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
 
-        let mut reversed_note_hashes = [SideEffect::empty(); 10];
+        let mut reversed_note_hashes = [NoteHashContext::empty(); 10];
         let mut reversed_nullifiers = [SideEffectLinkedToNoteHash::empty(); 10];
 
         for i in 0..10 {

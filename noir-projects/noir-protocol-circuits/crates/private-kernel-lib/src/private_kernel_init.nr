@@ -1,4 +1,4 @@
-use crate::common;
+use crate::{common, private_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer};
 use dep::types::{
     abis::{
     gas_settings::GasSettings, combined_constant_data::CombinedConstantData,
@@ -7,14 +7,19 @@ use dep::types::{
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
-    mocked::{Proof, verify_previous_kernel_state}, transaction::tx_request::TxRequest,
-    traits::is_empty_array
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::{Proof, verify_previous_kernel_state},
+    transaction::tx_request::TxRequest, traits::is_empty_array
 };
+
+struct PrivateKernekInitHints {
+    note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
+}
 
 // Initialization struct for private inputs to the private kernel
 struct PrivateKernelInitCircuitPrivateInputs {
     tx_request: TxRequest,
     private_call: PrivateCallData,
+    hints: PrivateKernekInitHints,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
@@ -77,7 +82,13 @@ impl PrivateKernelInitCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
+        let mut composer = PrivateKernelCircuitPublicInputsComposer::new().compose(
+            self.private_call.call_stack_item.public_inputs,
+            self.hints.note_hash_nullifier_counters
+        );
+
+        // TODO - Move all the code that build public inputs to the composer.
+        let mut public_inputs = composer.public_inputs;
 
         self.initialize_end_values(&mut public_inputs);
 
@@ -111,17 +122,17 @@ impl PrivateKernelInitCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
+    use crate::private_kernel_init::{PrivateKernekInitHints, PrivateKernelInitCircuitPrivateInputs};
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress, compute_initialization_hash},
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
-        grumpkin_private_key::GrumpkinPrivateKey,
+        constants::{MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+        grumpkin_point::GrumpkinPoint, grumpkin_private_key::GrumpkinPrivateKey,
         hash::stdlib_recursion_verification_key_compress_native_vk,
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
@@ -131,18 +142,20 @@ mod tests {
     struct PrivateKernelInitInputsBuilder {
         tx_request: TxRequest,
         private_call: PrivateCallDataBuilder,
+        hints: PrivateKernekInitHints,
     }
 
     impl PrivateKernelInitInputsBuilder {
         pub fn new() -> Self {
             let private_call = PrivateCallDataBuilder::new();
             let tx_request = private_call.build_tx_request();
+            let hints = PrivateKernekInitHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
 
-            PrivateKernelInitInputsBuilder { tx_request, private_call }
+            PrivateKernelInitInputsBuilder { tx_request, private_call, hints }
         }
 
         pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
-            let kernel = PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call: self.private_call.finish() };
+            let kernel = PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call: self.private_call.finish(), hints: self.hints };
 
             kernel.native_private_kernel_circuit_initial()
         }
@@ -211,8 +224,8 @@ mod tests {
 
         builder.private_call.public_inputs.new_note_hashes.extend_from_array(
             [
-            SideEffect { value: 0, counter: 0 },
-            SideEffect { value: 9123, counter: 1 }
+            NoteHash { value: 0, counter: 0 },
+            NoteHash { value: 9123, counter: 1 }
         ]
         );
 

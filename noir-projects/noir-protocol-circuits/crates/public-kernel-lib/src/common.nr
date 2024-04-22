@@ -2,7 +2,7 @@ use dep::types::{
     abis::{
     call_request::CallRequest, public_call_stack_item::PublicCallStackItem,
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
-    public_call_data::PublicCallData, public_data_read::PublicDataRead,
+    note_hash::NoteHash, public_call_data::PublicCallData, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequestContext,
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
@@ -377,12 +377,12 @@ fn propagate_new_note_hashes_non_revertible(
     let new_note_hashes = public_call.call_stack_item.public_inputs.new_note_hashes;
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    let mut siloed_new_note_hashes : BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL> = BoundedVec::new();
+    let mut siloed_new_note_hashes : BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_NOTE_HASHES_PER_CALL {
         let new_note_hash = new_note_hashes[i].value;
         if new_note_hash != 0 {
             let siloed_new_note_hash = silo_note_hash(storage_contract_address, new_note_hash);
-            siloed_new_note_hashes.push(SideEffect { value: siloed_new_note_hash, counter: new_note_hashes[i].counter });
+            siloed_new_note_hashes.push(NoteHash { value: siloed_new_note_hash, counter: new_note_hashes[i].counter });
         }
     }
     circuit_outputs.end_non_revertible.new_note_hashes.extend_from_bounded_vec(siloed_new_note_hashes);
@@ -397,12 +397,12 @@ fn propagate_new_note_hashes(
     let new_note_hashes = public_call.call_stack_item.public_inputs.new_note_hashes;
     let storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    let mut siloed_new_note_hashes : BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL> = BoundedVec::new();
+    let mut siloed_new_note_hashes : BoundedVec<NoteHash, MAX_NEW_NOTE_HASHES_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_NOTE_HASHES_PER_CALL {
         let new_note_hash = new_note_hashes[i].value;
         if new_note_hash != 0 {
             let siloed_new_note_hash = silo_note_hash(storage_contract_address, new_note_hash);
-            siloed_new_note_hashes.push(SideEffect { value: siloed_new_note_hash, counter: new_note_hashes[i].counter });
+            siloed_new_note_hashes.push(NoteHash { value: siloed_new_note_hash, counter: new_note_hashes[i].counter });
         }
     }
     circuit_outputs.end.new_note_hashes.extend_from_bounded_vec(siloed_new_note_hashes);

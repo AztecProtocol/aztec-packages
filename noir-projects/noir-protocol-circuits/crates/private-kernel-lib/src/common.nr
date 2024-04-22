@@ -11,9 +11,9 @@ use dep::types::{
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
     contract_class_id::ContractClassId,
     constants::{
-    MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_CALL,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL
+    MAX_NEW_NULLIFIERS_PER_CALL, MAX_NEW_L2_TO_L1_MSGS_PER_CALL, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL
 },
     hash::{
     compute_l2_to_l1_hash, pedersen_hash, private_functions_root_from_siblings, silo_note_hash,
@@ -81,37 +81,6 @@ pub fn validate_note_hash_read_requests(
             // that a non-transient read_request was derived from the proper/current contract address?
         }
     }
-}
-
-pub fn initialize_end_values(
-    previous_kernel: PrivateKernelData,
-    public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
-) {
-    public_inputs.constants = previous_kernel.public_inputs.constants;
-    public_inputs.min_revertible_side_effect_counter = previous_kernel.public_inputs.min_revertible_side_effect_counter;
-
-    let start = previous_kernel.public_inputs.validation_requests;
-    public_inputs.validation_requests.max_block_number = start.for_rollup.max_block_number;
-    public_inputs.validation_requests.note_hash_read_requests = array_to_bounded_vec(start.note_hash_read_requests);
-    public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
-    public_inputs.validation_requests.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
-    // functions within this circuit:
-    let start = previous_kernel.public_inputs.end;
-
-    public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
-    public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
-
-    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
-    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
-    public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
-
-    public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
-    public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
-
-    public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-    public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 }
 
 fn perform_static_call_checks(private_call: PrivateCallData) {
@@ -240,19 +209,6 @@ pub fn update_end_values(
         }
     }
     public_inputs.end.new_nullifiers.extend_from_bounded_vec(siloed_new_nullifiers);
-
-    // note hashes
-    let new_note_hashes = private_call_public_inputs.new_note_hashes;
-    let mut siloed_new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_CALL> = BoundedVec::new();
-    for i in 0..MAX_NEW_NOTE_HASHES_PER_CALL {
-        let new_note_hash = new_note_hashes[i].value;
-        if new_note_hash != 0 {
-            siloed_new_note_hashes.push(
-                SideEffect { value: silo_note_hash(storage_contract_address, new_note_hash), counter: new_note_hashes[i].counter }
-            );
-        }
-    }
-    public_inputs.end.new_note_hashes.extend_from_bounded_vec(siloed_new_note_hashes);
 
     // Call stacks
     // Private call stack.
