@@ -12,7 +12,7 @@ The purpose of the L1 contracts are simple:
 
 - Facilitate cross-chain communication such that L1 liquidity can be used on L2
 - Act as a validating light node for L2 that every L1 node implicitly run
-  :::
+:::
 
 ## Overview
 
@@ -488,10 +488,9 @@ Also, some of the conditions are repetitions of what we saw earlier from the [st
     - The consumer contract SHOULD check that the message exists in the state
 
 :::info
-
 - For cost purposes, it can be useful to commit to the public inputs to just pass a single value into the circuit.
 - Time constraints might change depending on the exact sequencer selection mechanism.
-  :::
+:::
 
 ## Logical Execution
 
