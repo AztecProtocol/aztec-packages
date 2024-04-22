@@ -35,14 +35,14 @@ describe('e2e_avm_simulator', () => {
     describe('Storage', () => {
       it('Modifies storage (Field)', async () => {
         await avmContract.methods.set_storage_single(20n).send().wait();
-        expect(await avmContract.methods.view_storage_single().simulate()).toEqual(20n);
+        expect(await avmContract.methods.read_storage_single().simulate()).toEqual(20n);
       });
 
       it('Modifies storage (Map)', async () => {
         const address = AztecAddress.fromBigInt(9090n);
         await avmContract.methods.set_storage_map(address, 100).send().wait();
         await avmContract.methods.add_storage_map(address, 100).send().wait();
-        expect(await avmContract.methods.view_storage_map(address).simulate()).toEqual(200n);
+        expect(await avmContract.methods.read_storage_map(address).simulate()).toEqual(200n);
       });
     });
 
@@ -105,6 +105,7 @@ describe('e2e_avm_simulator', () => {
         .send()
         .wait();
     });
+
     describe('Authwit', () => {
       it('Works if authwit provided', async () => {
         const recipient = AztecAddress.random();
@@ -167,6 +168,7 @@ describe('e2e_avm_simulator', () => {
         avmContract.methods.create_same_nullifier_in_nested_call(avmContract.address, nullifier).send().wait(),
       ).rejects.toThrow();
     });
+
     it('Should be able to emit different unsiloed nullifiers from the same contract', async () => {
       const nullifier = new Fr(1);
       const tx = await avmContract.methods
@@ -175,6 +177,7 @@ describe('e2e_avm_simulator', () => {
         .wait();
       expect(tx.status).toEqual(TxStatus.MINED);
     });
+
     // TODO(4293): this should work! Fails in public kernel because both nullifiers are incorrectly being siloed by same address
     it.skip('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
       const nullifier = new Fr(1);
@@ -184,6 +187,7 @@ describe('e2e_avm_simulator', () => {
         .wait();
       expect(tx.status).toEqual(TxStatus.MINED);
     });
+
     it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
       const nullifier = new Fr(1);
       const tx = await avmContract.methods
