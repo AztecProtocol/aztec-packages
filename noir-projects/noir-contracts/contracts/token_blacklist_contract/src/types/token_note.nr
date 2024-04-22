@@ -1,6 +1,6 @@
 use dep::aztec::{
     prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext, emit_encrypted_log},
-    protocol_types::constants::GENERATOR_INDEX__NULLIFIER,
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
     note::utils::compute_note_hash_for_consumption, hash::poseidon2_hash,
     oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
 };
@@ -33,7 +33,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
     // docs:end:nullifier
@@ -44,7 +44,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 

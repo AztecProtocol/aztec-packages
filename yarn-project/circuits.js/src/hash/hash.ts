@@ -171,6 +171,6 @@ export function computeL1ToL2MessageNullifier(
   secret: Fr,
   messageIndex: bigint,
 ) {
-  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.NULLIFIER);
+  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.MESSAGE_NULLIFIER);
   return siloNullifier(contract, innerMessageNullifier);
 }

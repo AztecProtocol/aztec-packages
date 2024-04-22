@@ -2,7 +2,7 @@
 use dep::aztec::log::emit_encrypted_log;
 // docs:end:encrypted_import
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NULLIFIER},
+    protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
     oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
     context::PrivateContext, hash::poseidon2_hash
@@ -19,7 +19,7 @@ struct AddressNote {
     randomness: Field,
 }
 
-impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
+impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
@@ -27,7 +27,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 
@@ -37,7 +37,7 @@ impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 

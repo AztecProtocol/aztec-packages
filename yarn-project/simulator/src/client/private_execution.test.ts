@@ -882,7 +882,7 @@ describe('Private Execution test suite', () => {
       const expectedNullifier = poseidon2Hash([
         innerNoteHash,
         computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        GeneratorIndex.NULLIFIER,
+        GeneratorIndex.NOTE_NULLIFIER,
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });
@@ -951,7 +951,7 @@ describe('Private Execution test suite', () => {
       const expectedNullifier = poseidon2Hash([
         innerNoteHash,
         computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress),
-        GeneratorIndex.NULLIFIER,
+        GeneratorIndex.NOTE_NULLIFIER,
       ]);
       expect(nullifier.value).toEqual(expectedNullifier);
     });

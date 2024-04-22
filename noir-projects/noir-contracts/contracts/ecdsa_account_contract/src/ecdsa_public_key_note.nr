@@ -6,7 +6,7 @@ use dep::aztec::prelude::{
 use dep::aztec::{
     note::utils::compute_note_hash_for_consumption,
     oracle::{nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
-    hash::poseidon2_hash, protocol_types::constants::GENERATOR_INDEX__NULLIFIER,
+    hash::poseidon2_hash, protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER,
 };
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
@@ -72,7 +72,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 
@@ -82,7 +82,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 

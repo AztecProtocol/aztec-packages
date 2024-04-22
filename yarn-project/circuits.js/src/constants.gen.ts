@@ -163,7 +163,7 @@ export enum GeneratorIndex {
   NOTE_HASH_NONCE = 2,
   UNIQUE_NOTE_HASH = 3,
   SILOED_NOTE_HASH = 4,
-  NULLIFIER = 5,
+  MESSAGE_NULLIFIER = 5,
   INITIALIZATION_NULLIFIER = 6,
   OUTER_NULLIFIER = 7,
   PUBLIC_DATA_READ = 8,
@@ -202,4 +202,5 @@ export enum GeneratorIndex {
   OVSK_M = 49,
   TSK_M = 50,
   PUBLIC_KEYS_HASH = 51,
+  NOTE_NULLIFIER = 52,
 }

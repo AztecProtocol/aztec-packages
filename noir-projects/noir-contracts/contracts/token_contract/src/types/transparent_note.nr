@@ -2,7 +2,7 @@
 use dep::aztec::{
     note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_consumption},
     hash::poseidon2_hash, prelude::{NoteHeader, NoteInterface, PrivateContext},
-    protocol_types::constants::GENERATOR_INDEX__NULLIFIER
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
 };
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
@@ -55,7 +55,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN> for TransparentNote {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
         poseidon2_hash([
             note_hash_for_nullify,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 

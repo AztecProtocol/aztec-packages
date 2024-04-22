@@ -67,7 +67,11 @@ describe('Simulator', () => {
       const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      const innerNullifier = poseidon2Hash([uniqueSiloedNoteHash, appNullifierSecretKey, GeneratorIndex.NULLIFIER]);
+      const innerNullifier = poseidon2Hash([
+        uniqueSiloedNoteHash,
+        appNullifierSecretKey,
+        GeneratorIndex.NOTE_NULLIFIER,
+      ]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);
 

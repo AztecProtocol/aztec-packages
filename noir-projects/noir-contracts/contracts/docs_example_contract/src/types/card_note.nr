@@ -2,7 +2,7 @@ use dep::aztec::prelude::{AztecAddress, NoteInterface, NoteHeader, PrivateContex
 use dep::aztec::{
     note::{utils::compute_note_hash_for_consumption},
     oracle::{nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
-    hash::poseidon2_hash, protocol_types::{traits::Empty, constants::GENERATOR_INDEX__NULLIFIER},
+    hash::poseidon2_hash, protocol_types::{traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
 };
 
 // Shows how to create a custom note
@@ -31,7 +31,7 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 
@@ -41,7 +41,7 @@ impl NoteInterface<CARD_NOTE_LEN> for CardNote {
         poseidon2_hash([
             note_hash_for_nullify,
             secret,
-            GENERATOR_INDEX__NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
         ])
     }
 
