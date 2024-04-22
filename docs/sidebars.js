@@ -138,6 +138,10 @@ const sidebars = {
         {
           label: "Communication",
           type: "category",
+          link: {
+            type: "doc",
+            id: "learn/concepts/communication/main",
+          },
           items: [
             "learn/concepts/communication/public_private_calls",
             "learn/concepts/communication/cross_chain_calls",

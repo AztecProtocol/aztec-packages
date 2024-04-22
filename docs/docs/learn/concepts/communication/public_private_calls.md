@@ -4,7 +4,7 @@ title: Private <> Public Communication
 
 import Image from "@theme/IdealImage";
 
-import Disclaimer from "../../../../misc/common/\_disclaimer.mdx";
+import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 
 <Disclaimer/>
 
