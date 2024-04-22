@@ -46,7 +46,6 @@ class UltraFlavor {
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
-    // using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>>;
     using GrandProductRelations = std::tuple<bb::UltraPermutationRelation<FF>, bb::LookupRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<bb::UltraArithmeticRelation<FF>,
@@ -309,15 +308,6 @@ class UltraFlavor {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
                 shifted = to_be_shifted.shifted();
             }
-        }
-
-        // WORKTODO: shouldn't need this ultimately.
-        void share(ProverPolynomials& polynomials_in)
-        {
-            for (auto [poly, poly_in] : zip_view(get_unshifted(), polynomials_in.get_unshifted())) {
-                poly = poly_in.share();
-            }
-            set_shifted();
         }
     };
     /**

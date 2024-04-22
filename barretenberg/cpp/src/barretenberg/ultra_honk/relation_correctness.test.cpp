@@ -332,7 +332,6 @@ TEST_F(UltraRelationCorrectnessTests, GoblinUltra)
                                                                  instance->relation_parameters.eta_three);
     instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
     instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
-    // instance->prover_polynomials = Flavor::ProverPolynomials(instance->proving_key);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
