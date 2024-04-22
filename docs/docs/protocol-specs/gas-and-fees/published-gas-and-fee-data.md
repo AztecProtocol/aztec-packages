@@ -24,6 +24,3 @@ The transaction data which is published to L1 is a `TxEffects` object, which inc
 The `transaction_fee` is not published because it can be [calculated from the above](./specifying-gas-fee-info.md#transaction-fee).
 :::
 
-:::warning
-Should we include `fee_payer` in the `TxEffects` object?
-:::
