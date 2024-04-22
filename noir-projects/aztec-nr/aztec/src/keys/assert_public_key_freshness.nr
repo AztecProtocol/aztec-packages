@@ -1,4 +1,4 @@
-use dep::protocol_types::{constants::{GENERATOR_INDEX__PUBLIC_KEYS_HASH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1}, address::AztecAddress};
+use dep::protocol_types::{constants::{GENERATOR_INDEX__PUBLIC_KEYS_HASH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1}, address::AztecAddress, grumpkin_point::GrumpkinPoint};
 use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH},
@@ -15,7 +15,7 @@ use crate::oracle;
 fn assert_nullifier_public_key_fresh(
   context: &mut PrivateContext,
   address: AztecAddress, 
-  nullifier_public_key_to_test: Field
+  nullifier_public_key_to_test: GrumpkinPoint,
 ) {
   // Canonical Key Registry
   let contract_address_to_read = AztecAddress::from_field(123);
@@ -28,52 +28,57 @@ fn assert_nullifier_public_key_fresh(
 
   // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
   let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(*context, contract_address_to_read, derived_slot);
-  let nullifier_public_key = registry_private_getter.get_current_value_in_private();
+  let hashed_nullifier_public_key = registry_private_getter.get_current_value_in_private();
 
-  if (nullifier_public_key == 0) {
+  if (hashed_nullifier_public_key == 0) {
     check_key(address, 1, nullifier_public_key_to_test);
   } else {
-    assert(nullifier_public_key == nullifier_public_key_to_test);
+    assert(hashed_nullifier_public_key == pedersen_hash(nullifier_public_key_to_test.serialize(), 0));
   }
 }
 
-fn check_key(address: AztecAddress, key_type: Field, key: Field) {
-  let mut keys = check_key_internal(address);
+fn check_key(address: AztecAddress, key_type: Field, key: GrumpkinPoint) {
+  let mut (partial_address, keys) = check_key_internal(address);
 
   keys[key_type] = key;
 
   _check_key_constrain_check_key_internal(
     address,
+    partial_address,
     keys[0],
     keys[1],
     keys[2],
     keys[3],
-    keys[4],
   );
 }
 
-unconstrained fn check_key_internal(address: AztecAddress) -> [Field; 5] {
+unconstrained fn check_key_internal(address: AztecAddress) -> (Field, [GrumpkinPoint; 4]) {
   let keys = oracle::keys::get_public_keys_for_address(address);
+  let partial_address = oracle::keys::get_address_metadata(address);
 
-  keys
+  (partial_address, keys)
 }
 
 fn _check_key_constrain_check_key_internal(
   address: AztecAddress,
   partial_address: Field,
-  nullifier_public_key: Field,
-  incoming_public_key: Field,
-  outgoing_public_key: Field,
-  tagging_public_key: Field
+  nullifier_public_key: GrumpkinPoint,
+  incoming_public_key: GrumpkinPoint,
+  outgoing_public_key: GrumpkinPoint,
+  tagging_public_key: GrumpkinPoint
   ) {
   let public_keys_hash = poseidon2_hash([
-      nullifier_public_key,
-      incoming_public_key,
-      outgoing_public_key,
-      tagging_public_key,
+      nullifier_public_key.serialize()[0],
+      nullifier_public_key.serialize()[1],
+      incoming_public_key.serialize()[0],
+      incoming_public_key.serialize()[1],
+      outgoing_public_key.serialize()[0],
+      outgoing_public_key.serialize()[1],
+      tagging_public_key.serialize()[0],
+      tagging_public_key.serialize()[1],
       GENERATOR_INDEX__PUBLIC_KEYS_HASH,
     ],
-    5
+    9
   );
 
   let computed_address = AztecAddress::from_field(
