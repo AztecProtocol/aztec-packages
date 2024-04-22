@@ -1,11 +1,10 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
-    key::nullifier_key::validate_nullifier_key_against_address, messaging::process_l1_to_l2_message,
-    hash::{hash_args_array, ArgsHasher},
+    messaging::process_l1_to_l2_message, hash::{hash_args_array, ArgsHasher},
     oracle::{
     arguments, returns, call_private_function::call_private_function_internal,
-    enqueue_public_function_call::enqueue_public_function_call_internal, context::get_portal_address,
-    header::get_header_at, nullifier_key::{get_nullifier_key_pair, NullifierKeyPair}
+    enqueue_public_function_call::enqueue_public_function_call_internal, header::get_header_at,
+    nullifier_key::{get_nullifier_keys, NullifierKeys}
 }
 };
 use dep::protocol_types::{
@@ -71,7 +70,7 @@ struct PrivateContext {
     // encrypted_logs_preimages: Vec<Field>,
     // unencrypted_logs_preimages: Vec<Field>,
 
-    nullifier_key: Option<NullifierKeyPair>,
+    nullifier_key: Option<NullifierKeys>,
 }
 
 impl ContextInterface for PrivateContext {
@@ -88,11 +87,11 @@ impl ContextInterface for PrivateContext {
     }
 
     fn chain_id(self) -> Field {
-        self.inputs.private_global_variables.chain_id
+        self.inputs.tx_context.chain_id
     }
 
     fn version(self) -> Field {
-        self.inputs.private_global_variables.version
+        self.inputs.tx_context.version
     }
 
     fn selector(self) -> FunctionSelector {
@@ -191,8 +190,7 @@ impl PrivateContext {
             encrypted_log_preimages_length,
             unencrypted_log_preimages_length,
             historical_header: self.historical_header,
-            chain_id: self.inputs.private_global_variables.chain_id,
-            version: self.inputs.private_global_variables.version
+            tx_context: self.inputs.tx_context
         };
 
         priv_circuit_pub_inputs
@@ -220,24 +218,24 @@ impl PrivateContext {
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    pub fn request_nullifier_secret_key(&mut self, account: AztecAddress) -> GrumpkinPrivateKey {
-        let key_pair = if self.nullifier_key.is_none() {
-            let key_pair = get_nullifier_key_pair(account);
-            validate_nullifier_key_against_address(account, key_pair.public_key);
-            let request = NullifierKeyValidationRequest { public_key: key_pair.public_key, secret_key: key_pair.secret_key };
+    pub fn request_app_nullifier_secret_key(&mut self, account: AztecAddress) -> Field {
+        let keys = if self.nullifier_key.is_none() {
+            let keys = get_nullifier_keys(account);
+            let request = NullifierKeyValidationRequest {
+                master_nullifier_public_key: keys.master_nullifier_public_key,
+                app_nullifier_secret_key: keys.app_nullifier_secret_key
+            };
             self.nullifier_key_validation_requests.push(request);
-            self.nullifier_key = Option::some(key_pair);
-            key_pair
+            self.nullifier_key = Option::some(keys);
+            keys
         } else {
-            let key_pair = self.nullifier_key.unwrap_unchecked();
+            let keys = self.nullifier_key.unwrap_unchecked();
             // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
             assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
-            assert(
-                key_pair.account == account, "Cannot query nullifier key for more than one account per call"
-            );
-            key_pair
+            assert(keys.account == account, "Cannot query nullifier key for more than one account per call");
+            keys
         };
-        key_pair.secret_key
+        keys.app_nullifier_secret_key
     }
 
     // docs:start:context_message_portal
@@ -273,7 +271,14 @@ impl PrivateContext {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 
-    pub fn push_unencrypted_log(&mut self, log_hash: Field) {
+    // TODO: We might want to remove this since emitting unencrypted logs from private functions is violating privacy.
+    // --> might be a better approach to force devs to make a public function call that emits the log if needed then
+    // it would be less easy to accidentally leak information.
+    // If we decide to keep this function around would make sense to wait for traits and then merge it with emit_unencrypted_log.
+    pub fn emit_unencrypted_log<T>(&mut self, log: T) {
+        let event_selector = 5; // TODO: compute actual event selector.
+        let log_hash = emit_unencrypted_log_private_internal(self.this_address(), event_selector, log);
+
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
@@ -501,7 +506,9 @@ impl PrivateContext {
                 historical_header: Header::empty(),
                 prover_address: AztecAddress::zero(),
                 revert_code: 0,
-                gas_left: Gas::empty()
+                start_gas_left: Gas::empty(),
+                end_gas_left: Gas::empty(),
+                transaction_fee: 0
             },
             is_execution_request: true
         };
@@ -590,4 +597,20 @@ impl PackedReturns {
         let unpacked: [Field; N] = self.unpack();
         Deserialize::deserialize(unpacked)
     }
+}
+
+#[oracle(emitUnencryptedLog)]
+fn emit_unencrypted_log_oracle_private<T>(
+    _contract_address: AztecAddress,
+    _event_selector: Field,
+    _message: T
+) -> Field {}
+
+unconstrained pub fn emit_unencrypted_log_private_internal<T>(
+    contract_address: AztecAddress,
+    event_selector: Field,
+    message: T
+) -> Field {
+    // https://github.com/AztecProtocol/aztec-packages/issues/885
+    emit_unencrypted_log_oracle_private(contract_address, event_selector, message)
 }
