@@ -6,12 +6,14 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## [T.B.D]
+## 0.36.0
 
-## [Aztec.nr & js] Portal addresses 
-The deployment have been cleansed from the portal addresses as a immutable value passed in differently to other variables and instead should be implemented using usual storage by those who require it using the storage that matches the usecase - likely the shared storage to support private and public.
+## [Aztec.nr & js] Portal addresses
+
+Deployments have been modified. No longer are portal addresses treated as a special class, being immutably set on creation of a contract. They are no longer passed in differently compared to the other variables and instead should be implemented using usual storage by those who require it. One should use the storage that matches the usecase - likely shared storage to support private and public.
 
 This means that you will likely add the portal as a constructor argument
+
 ```diff
 - fn constructor(token: AztecAddress) {
 -    storage.token.write(token);
@@ -23,12 +25,11 @@ This means that you will likely add the portal as a constructor argument
 ```
 
 And read it from storage whenever needed instead of from the context.
+
 ```diff
 - context.this_portal_address(),
 + storage.portal_address.read_public(),
 ```
-
-## 0.36.0
 
 ### [Aztec.nr] Oracles
 
@@ -122,7 +123,6 @@ and change the call to `get_portal_address`
 - let portal_address = get_portal_address(contract_address);
 + let portal_address = SomeContract::at(contract_address).get_portal_address().call(&mut context);
 ```
-
 
 ### [Aztec.nr] Required gas limits for public-to-public calls
 

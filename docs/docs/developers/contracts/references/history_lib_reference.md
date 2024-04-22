@@ -133,15 +133,11 @@ This proves that a contract exists in, ie had been deployed before or in, a cert
 
 `prove_contract_inclusion_at` takes 7 parameters:
 
-| Name                    | Type           | Description                                        |
-| ----------------------- | -------------- | -------------------------------------------------- |
-| deployer_public_key     | GrumpkinPoint  | Public key of the contract deployer                |
-| contract_address_salt   | Field          | Unique identifier for the contract's address       |
-| function_tree_root      | Field          | Root of the contract's function tree               |
-| constructor_hash        | Field          | Hash of the contract's constructor                 |
-| block_number            | u32            | Block number for proof verification                |
-| context                 | PrivateContext | Private context                                    |
-
-```ts
-new EthAddress(Buffer.alloc(EthAddress.SIZE_IN_BYTES));
-```
+| Name                  | Type           | Description                                  |
+| --------------------- | -------------- | -------------------------------------------- |
+| deployer_public_key   | GrumpkinPoint  | Public key of the contract deployer          |
+| contract_address_salt | Field          | Unique identifier for the contract's address |
+| function_tree_root    | Field          | Root of the contract's function tree         |
+| constructor_hash      | Field          | Hash of the contract's constructor           |
+| block_number          | u32            | Block number for proof verification          |
+| context               | PrivateContext | Private context                              |

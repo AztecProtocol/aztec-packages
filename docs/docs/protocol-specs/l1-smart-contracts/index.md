@@ -190,7 +190,7 @@ Insertions require a L2 transaction, and it is then to be consumed and moved to 
 
 ### Portals
 
-Some contracts on L2 might wish to talk to contract on L1 - these recipients on L1 are called portals.
+Some contracts on L2 might wish to talk to contracts on L1 - these recipients on L1 are called portals.
 
 Often it is desired to constrain where messages are sent to and received from, which can be done by keeping the portal address in the storage of the L2 contract, such that it can be loaded on demand.
 
