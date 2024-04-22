@@ -9,6 +9,7 @@ import {
   type SiblingPath,
 } from '@aztec/circuit-types';
 import {
+  Point,
   type AztecAddress,
   type CompleteAddress,
   type EthAddress,
@@ -76,6 +77,15 @@ export class SimulatorOracle implements DBOracle {
       throw new Error(`No capsules available`);
     }
     return capsule;
+  }
+
+  async getPublicKeysForAddress(address: AztecAddress): Promise<Point[]> {
+    const nullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(address);
+    const incomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(address);
+    const outgoingViewingPublicKey = await this.keyStore.getMasterOutgoingViewingPublicKey(address);
+    const taggingPublicKey = await this.keyStore.getMasterTaggingPublicKey(address);
+
+    return [nullifierPublicKey, incomingViewingPublicKey, outgoingViewingPublicKey, taggingPublicKey]
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {

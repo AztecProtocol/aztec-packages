@@ -9,7 +9,7 @@ import { type CompleteAddress, type Header } from '@aztec/circuits.js';
 import { type FunctionArtifactWithDebugMetadata, type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Fr } from '@aztec/foundation/fields';
+import { Point, type Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
 import { type NoteData, type NullifierKeys } from '../acvm/index.js';
@@ -64,6 +64,8 @@ export interface DBOracle extends CommitmentsDB {
    * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle.
    */
   popCapsule(): Promise<Fr[]>;
+
+  getPublicKeysForAddress(address: AztecAddress): Promise<Point[]>;
 
   /**
    * Retrieve nullifier keys associated with a specific account and app/contract address.

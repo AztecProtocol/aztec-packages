@@ -172,6 +172,15 @@ export class Oracle {
     return capsule.map(toACVMField);
   }
 
+  async getPublicKeysForAddress(
+    [address]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const keys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
+    const acvmKeys = keys?.flatMap(key => key.toFields().map(f => toACVMField(f))) ?? Array(8).fill(toACVMField(0));
+
+    return acvmKeys;
+  }
+
   async getNotes(
     [storageSlot]: ACVMField[],
     [numSelects]: ACVMField[],

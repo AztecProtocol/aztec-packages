@@ -389,7 +389,7 @@ contract Test {
             0
         );
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let registry_private_getter: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(context, contract_address_to_read, derived_slot);
+        let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(context, contract_address_to_read, derived_slot);
         let nullifier_public_key = registry_private_getter.get_current_value_in_private();
 
         context.emit_unencrypted_log(nullifier_public_key);

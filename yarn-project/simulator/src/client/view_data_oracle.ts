@@ -166,6 +166,12 @@ export class ViewDataOracle extends TypedOracle {
     return this.db.popCapsule();
   }
 
+  public override getPublicKeysForAddress(
+    address: AztecAddress,
+  ) {
+    return this.db.getPublicKeysForAddress(address);
+  }
+
   /**
    * Gets some notes for a contract address and storage slot.
    * Returns a flattened array containing filtered notes.
