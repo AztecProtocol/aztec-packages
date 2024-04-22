@@ -277,15 +277,15 @@ class GoblinUltraFlavor {
     /**
      * @brief A container for the prover polynomials handles.
      */
-    class ProverPolynomialsNew : public AllEntities<Polynomial> {
+    class ProverPolynomials : public AllEntities<Polynomial> {
       public:
         // Define all operations as default, except copy construction/assignment
-        ProverPolynomialsNew() = default;
-        ProverPolynomialsNew& operator=(const ProverPolynomialsNew&) = delete;
-        ProverPolynomialsNew(const ProverPolynomialsNew& o) = delete;
-        ProverPolynomialsNew(ProverPolynomialsNew&& o) noexcept = default;
-        ProverPolynomialsNew& operator=(ProverPolynomialsNew&& o) noexcept = default;
-        ~ProverPolynomialsNew() = default;
+        ProverPolynomials() = default;
+        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
+        ProverPolynomials(const ProverPolynomials& o) = delete;
+        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
+        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
+        ~ProverPolynomials() = default;
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
@@ -311,15 +311,7 @@ class GoblinUltraFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         std::array<Polynomial, 4> sorted_polynomials;
-        ProverPolynomialsNew polynomials;
-
-        // auto get_to_be_shifted()
-        // {
-        //     return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l, this->w_r,
-        //                      this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
-        // };
-        // // The plookup wires that store plookup read data.
-        // auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
+        ProverPolynomials polynomials;
 
         void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
@@ -512,41 +504,6 @@ class GoblinUltraFlavor {
      * @brief A container for univariates produced during the hot loop in sumcheck.
      */
     using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
-
-    /**
-     * @brief A container for the prover polynomials handles.
-     */
-    class ProverPolynomials : public AllEntities<Polynomial> {
-      public:
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/925), proving_key could be const ref
-        // ProverPolynomials(ProvingKey& proving_key)
-        // {
-        //     for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
-        //         ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
-        //         prover_poly = key_poly.share();
-        //     }
-        //     for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
-        //         ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
-        //         prover_poly = key_poly.shifted();
-        //     }
-        // }
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials() = default;
-        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
-        ProverPolynomials(const ProverPolynomials& o) = delete;
-        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
-        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
-        ~ProverPolynomials() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
-        [[nodiscard]] AllValues get_row(size_t row_idx) const
-        {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
-    };
 
     /**
      * @brief A container for the witness commitments.

@@ -146,15 +146,10 @@ void compute_grand_product(const size_t circuit_size,
 
 template <typename Flavor>
 void compute_grand_products([[maybe_unused]] const typename Flavor::ProvingKey& key,
-                            auto& full_polynomials,
+                            typename Flavor::ProverPolynomials& full_polynomials,
                             bb::RelationParameters<typename Flavor::FF>& relation_parameters)
-// WORKTODO: auto because of using PPNEW, should be able to go back once that's reconciled
-// void compute_grand_products([[maybe_unused]] const typename Flavor::ProvingKey& key,
-//                             typename Flavor::ProverPolynomials& full_polynomials,
-//                             bb::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
     using GrandProductRelations = typename Flavor::GrandProductRelations;
-    // using FF = typename Flavor::FF;
 
     constexpr size_t NUM_RELATIONS = std::tuple_size<GrandProductRelations>{};
     bb::constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t i>() {
@@ -164,14 +159,7 @@ void compute_grand_products([[maybe_unused]] const typename Flavor::ProvingKey& 
         // For example, for UltraPermutationRelation, this will be `full_polynomials.z_perm`
         // For example, for LookupRelation, this will be `full_polynomials.z_lookup`
 
-        // bb::Polynomial<FF>& full_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-        // auto& key_polynomial = GrandProdRelation::get_grand_product_polynomial(key);
-        // full_polynomial = key_polynomial.share();
-
         compute_grand_product<Flavor, GrandProdRelation>(key.circuit_size, full_polynomials, relation_parameters);
-        // bb::Polynomial<FF>& full_polynomial_shift =
-        //     GrandProdRelation::get_shifted_grand_product_polynomial(full_polynomials);
-        // full_polynomial_shift = key_polynomial.shifted();
     });
 }
 
