@@ -1,9 +1,11 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
-    messaging::process_l1_to_l2_message, hash::{hash_args_array, ArgsHasher},
+    messaging::process_l1_to_l2_message,
+    hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash, ToBytesSlice},
     oracle::{
     arguments, returns, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, header::get_header_at,
+    logs::emit_encrypted_log,
     nullifier_key::{get_nullifier_keys, NullifierKeys}
 }
 };
@@ -28,13 +30,10 @@ use dep::protocol_types::{
     MAX_ENCRYPTED_LOGS_PER_CALL, MAX_UNENCRYPTED_LOGS_PER_CALL
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-    grumpkin_private_key::GrumpkinPrivateKey, header::Header,
+    grumpkin_private_key::GrumpkinPrivateKey, grumpkin_point::GrumpkinPoint, header::Header,
     messaging::l2_to_l1_message::L2ToL1Message, utils::reader::Reader,
     traits::{is_empty, Deserialize, Empty}
 };
-
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-// use dep::std::collections::vec::Vec;
 
 // When finished, one can call .finish() to convert back to the abi
 struct PrivateContext {
@@ -264,25 +263,69 @@ impl PrivateContext {
     }
     // docs:end:consume_l1_to_l2_message
 
-    pub fn push_encrypted_log(&mut self, log_hash: Field) {
-        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
-        self.encrypted_logs_hashes.push(side_effect);
-        self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-    }
-
     // TODO: We might want to remove this since emitting unencrypted logs from private functions is violating privacy.
     // --> might be a better approach to force devs to make a public function call that emits the log if needed then
     // it would be less easy to accidentally leak information.
     // If we decide to keep this function around would make sense to wait for traits and then merge it with emit_unencrypted_log.
-    pub fn emit_unencrypted_log<T>(&mut self, log: T) {
+    pub fn emit_unencrypted_log<T>(&mut self, log: T) where T: ToBytesSlice {
         let event_selector = 5; // TODO: compute actual event selector.
-        let log_hash = emit_unencrypted_log_private_internal(self.this_address(), event_selector, log);
-
+        let contract_address = self.this_address();
+        let log_hash = compute_unencrypted_log_hash(
+            contract_address,
+            event_selector,
+            log.to_be_bytes_slice()
+        );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+        // TODO(Miranda) add length 
+        // call oracle
+        let _void = emit_unencrypted_log_private_internal(contract_address, event_selector, log);
+    }
+
+    // This fn exists separately from emit_unencrypted_log because sha hashing the preimage
+    // is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it
+    // It is ONLY used with contract_class_registerer_contract since we already assert correctness:
+    // - Contract class -> we will commit to the packed bytecode (currently a TODO)
+    // - Private function -> we provide a membership proof
+    // - Unconstrained function -> we provide a membership proof
+    // Ordinary logs are not protected by the above so this fn shouldn't be called by anything else
+    pub fn emit_contract_class_unencrypted_log<N>(&mut self, log: [Field; N]) {
+        let event_selector = 5; // TODO: compute actual event selector.
+        let contract_address = self.this_address();
+        let log_hash = emit_contract_class_unencrypted_log_private_internal(
+            contract_address,
+            event_selector,
+            log
+        );
+        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
+        self.unencrypted_logs_hashes.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+        // TODO(Miranda) add length
+    }
+
+    pub fn emit_encrypted_log<N>(
+        &mut self,
+        contract_address: AztecAddress,
+        storage_slot: Field,
+        note_type_id: Field,
+        encryption_pub_key: GrumpkinPoint,
+        preimage: [Field; N]
+    ) {
+        // TODO(1139): perform encryption in the circuit
+        // The oracle call should come last, but we require the encrypted value for now
+        let encrypted_log = emit_encrypted_log(
+            contract_address,
+            storage_slot,
+            note_type_id,
+            encryption_pub_key,
+            preimage
+        );
+        let log_hash = compute_encrypted_log_hash(encrypted_log);
+        let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
+        self.encrypted_logs_hashes.push(side_effect);
+        self.side_effect_counter = self.side_effect_counter + 1;
+        // TODO(Miranda) add length 
     }
 
     pub fn call_private_function<ARGS_COUNT>(
@@ -613,4 +656,20 @@ unconstrained pub fn emit_unencrypted_log_private_internal<T>(
 ) -> Field {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
     emit_unencrypted_log_oracle_private(contract_address, event_selector, message)
+}
+
+#[oracle(emitContractClassUnencryptedLog)]
+fn emit_contract_class_unencrypted_log_private<N>(
+    contract_address: AztecAddress,
+    event_selector: Field,
+    message: [Field; N]
+) -> Field {}
+
+
+unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
+    contract_address: AztecAddress,
+    event_selector: Field,
+    message: [Field; N]
+) -> Field {
+    emit_contract_class_unencrypted_log_private(contract_address, event_selector, message)
 }

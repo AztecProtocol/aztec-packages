@@ -2,16 +2,105 @@ use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
     GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET, GENERATOR_INDEX__NULLIFIER, ARGS_HASH_CHUNK_COUNT,
-    GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH
+    GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS
 },
-    traits::Hash, hash::{pedersen_hash, silo_nullifier}
+    traits::Hash, hash::{pedersen_hash, silo_nullifier, sha256_to_field, slice_sha256_to_field}
 };
-
-use dep::protocol_types::hash::sha256_to_field;
 
 pub fn compute_secret_hash(secret: Field) -> Field {
     // TODO(#1205) This is probably not the right index to use
     pedersen_hash([secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)
+}
+
+pub fn compute_encrypted_log_hash(
+    encrypted_log: [Field; 10]
+) -> Field {
+    let mut bytes: [u8] = &[];
+    // Note that bytes.append(encrypted_log[i].to_be_bytes(31)) results in bound error
+    for i in 0..9 {
+        let to_add = encrypted_log[i].to_be_bytes(31);
+        for j in 0..31 {
+            bytes = bytes.push_back(to_add[j]);
+        }
+    }
+    // messy hack to ensure we add the 304 bytes exactly
+    let to_add = encrypted_log[9].to_be_bytes(25);
+    for j in 0..25 {
+        bytes = bytes.push_back(to_add[j]);
+    }
+    slice_sha256_to_field(bytes)
+}
+
+// TODO(Miranda) move trait def
+trait ToBytesSlice {
+    fn to_be_bytes_slice(self) -> [u8];
+}
+
+impl ToBytesSlice for Field {
+    fn to_be_bytes_slice(self) -> [u8] {
+        self.to_be_bytes(32)
+    }
+}
+
+impl ToBytesSlice for AztecAddress {
+    fn to_be_bytes_slice(self) -> [u8] {
+        self.to_field().to_be_bytes(32)
+    }
+}
+
+impl<N> ToBytesSlice for [Field; N] {
+    fn to_be_bytes_slice(self) -> [u8] {
+        let mut bytes: [u8] = &[];
+        for i in 0..N {
+            // Note that bytes.append() results in bound error
+            let to_add = self[i].to_be_bytes(32);
+            for j in 0..32 {
+                bytes = bytes.push_back(to_add[j]);
+            }
+        }
+        bytes
+    }
+}
+
+impl<N> ToBytesSlice for str<N> {
+    fn to_be_bytes_slice(self) -> [u8] {
+        self.as_bytes()
+    }
+}
+
+pub fn compute_unencrypted_log_hash(
+    contract_address: AztecAddress,
+    event_selector: Field,
+    message_bytes: [u8]
+) -> Field {
+    let mut hash_bytes: [u8] = message_bytes;
+    let len = message_bytes.len().to_field();
+    let len_bytes = len.to_be_bytes(4);
+    // Address is converted to 32 bytes in ts
+    let mut prepend = contract_address.to_be_bytes_slice();
+    // Event selector is 4 bytes long, see foundation/../selector.ts
+    prepend = prepend.append(event_selector.to_be_bytes(4));
+    // prefix message with length of data in 4 bytes
+    // Note that .append(len_bytes) fails with bound error when compiling noir-contracts
+    prepend = prepend.append([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]].as_slice());
+    // Note that hash_bytes.append() results in bound error
+    // So does prepend.append(hash_bytes) when compiling noir-contracts
+    for i in 0..40 {
+        // prepend always has 40 bytes
+        hash_bytes = hash_bytes.push_front(prepend[39 - i]);
+    }
+    // HACK: when calling via real context, sha256_slice gives the wrong digest
+    // Appears to fail only for shorter inputs and with a long trace
+    // TODO(Miranda): remove slices here?
+    if (len == 32) {
+        let mut debug = [0; 72];
+        for i in 0..72 {
+            debug[i] = hash_bytes[i];
+        }
+        sha256_to_field(debug)
+    } else {
+        slice_sha256_to_field(hash_bytes)
+    }
 }
 
 pub fn compute_message_hash(
@@ -120,4 +209,46 @@ fn compute_var_args_hash() {
     }
     let hash = input.hash();
     assert(hash == 0x05a1023fef839ac88731f49ae983e172c1b600a3c8f3393ad0ac25d819ac0f0f);
+}
+
+#[test]
+fn compute_enc_log_hash() {
+    let input = [
+        0x0000000000000000000000000000000000000000000000000000000000000000,
+        0x0021a0d4aa9989656b592187cf6da1965df53ab2ff2277421e663465cf20d3e9,
+        0x00c3969cc350f3474f8187a33ac1317181961f5f94043b07ce888d85a5d20cb5,
+        0x0058198041ed1547b056955b5141a5a8a1551b0c8d094255ec9daaf3604d9348,
+        0x00247ad96df2e4d984cf795ed7316234743a681f824a45c46253de8bfde48850,
+        0x007fc251f4ce44f4e9aba3dbf6567228be28fac85660156f2825ddb0b0577457,
+        0x009315851323c6bc2aaa42e23fe5f3be97208f2d8167eafdfc5742d94f2f4dd4,
+        0x00b938289e563b0fe01982cd9b8d9e33e3069046768ad01c0fb05e429e7b7909,
+        0x00fbcc257a3211f705b471eee763b0f43876a2b2178fab6d2b09bd2b7e086584,
+        0x000000000000008c3289b5793b7448f4d45ecde039d004b6f037cad10b5c2336
+        ];
+    let hash = compute_encrypted_log_hash(input);
+    assert(hash == 0x001e3c013994947fe28957a876bf1b2c3a69ac69cc92909efd4f2ae9b972f893);
+}
+
+#[test]
+fn compute_unenc_log_hash_array() {
+    let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
+    let event_selector = 5;
+    let log =       [
+        0x20660de09f35f876e3e69d227b2a35166ad05f09d82d06366ec9b6f65a51fec2,
+        0x1b52bfe3b8689761916f76dc3d38aa8810860db325cd39ca611eed980091f01c,
+        0x2e559c4045c378a56ad13b9edb1e8de4e7ad3b3aa35cc7ba9ec77f7a68fa43a4,
+        0x25d0f689c4a4178a29d59306f2675824d19be6d25e44fa03b03f49c263053dd2,
+        0x2d513a722d6f352dc0961f156afdc5e31495b9f0e35cb069261a8e55e2df67fd
+      ];
+    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log.to_be_bytes_slice());
+    assert(hash == 0x00846d6969c8c2f61d39cd2762efcb0abb14f88d59c2675910251ef2bcffe9a7);
+}
+
+#[test]
+fn compute_unenc_log_hash_addr() {
+    let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
+    let event_selector = 5;
+    let log = AztecAddress::from_field(0x26aa302d4715fd8a687453cb26d616b0768027bd54bcae56b09d908ecd9f8303);
+    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log.to_be_bytes_slice());
+    assert(hash == 0x00880a801230ea08c98a802a11b4786cba474513875f0fc69a615e81c5f9f21c);
 }

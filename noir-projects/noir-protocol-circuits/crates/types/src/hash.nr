@@ -13,10 +13,17 @@ use crate::constants::{
 use crate::traits::Hash;
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
 use crate::merkle_tree::root::root_from_sibling_path;
-use dep::std::hash::{pedersen_hash_with_separator, sha256};
+use dep::std::hash::{pedersen_hash_with_separator, sha256, sha256_slice};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
+    let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
+
+    hash_in_a_field
+}
+
+pub fn slice_sha256_to_field(bytes_to_hash: [u8]) -> Field {
+    let sha256_hashed = sha256_slice(bytes_to_hash);
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
@@ -186,6 +193,9 @@ fn smoke_sha256_to_field() {
     let result = sha256_to_field(full_buffer);
 
     assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
+
+    let result_slice = slice_sha256_to_field(full_buffer.as_slice());
+    assert(result_slice == result);
 
     // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
     let result_bytes = sha256(full_buffer);

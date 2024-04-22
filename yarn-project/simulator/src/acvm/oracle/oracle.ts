@@ -289,16 +289,23 @@ export class Oracle {
     [publicKeyX]: ACVMField[],
     [publicKeyY]: ACVMField[],
     log: ACVMField[],
-  ): ACVMField {
+  ): ACVMField[] {
     const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
-    const logHash = this.typedOracle.emitEncryptedLog(
+    const encLog = this.typedOracle.emitEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       Fr.fromString(noteTypeId),
       publicKey,
       log.map(fromACVMField),
     );
-    return toACVMField(logHash);
+    // TODO(1139): We should encrypt in the circuit, but instead we inject here
+    // encryption output is 304 bytes, so split into 10 fields (gross but avoids 304 ACVMFields)
+    const encLogFields = [];
+    for (let i = 0; i < 10; i++) {
+      encLogFields.push(toACVMField(encLog.subarray(31 * i, Math.min(31 * (i + 1), encLog.length))));
+    }
+
+    return encLogFields;
   }
 
   emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
@@ -309,7 +316,23 @@ export class Oracle {
       logPayload,
     );
 
-    const logHash = this.typedOracle.emitUnencryptedLog(log);
+    this.typedOracle.emitUnencryptedLog(log);
+    return toACVMField(0);
+  }
+
+  emitContractClassUnencryptedLog(
+    [contractAddress]: ACVMField[],
+    [eventSelector]: ACVMField[],
+    message: ACVMField[],
+  ): ACVMField {
+    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
+    const log = new UnencryptedL2Log(
+      AztecAddress.fromString(contractAddress),
+      EventSelector.fromField(fromACVMField(eventSelector)),
+      logPayload,
+    );
+
+    const logHash = this.typedOracle.emitContractClassUnencryptedLog(log);
     return toACVMField(logHash);
   }
 

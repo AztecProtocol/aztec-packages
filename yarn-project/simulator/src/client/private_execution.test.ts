@@ -214,8 +214,17 @@ describe('Private Execution test suite', () => {
     it('emits a field as an unencrypted log', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
       const result = await runSimulator({ artifact, msgSender: owner });
+
+      const newUnencryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.unencryptedLogsHashes),
+      );
+      expect(newUnencryptedLogs).toHaveLength(1);
+
       const [functionLogs] = collectUnencryptedLogs(result);
       expect(functionLogs.logs).toHaveLength(1);
+
+      const [unencryptedLog] = newUnencryptedLogs;
+      expect(unencryptedLog).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       expect(functionLogs.logs[0].data.subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
     });
@@ -224,8 +233,16 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_array_as_unencrypted_log');
       const args = [times(5, () => Fr.random())];
       const result = await runSimulator({ artifact, msgSender: owner, args });
+
+      const newUnencryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.unencryptedLogsHashes),
+      );
+      expect(newUnencryptedLogs).toHaveLength(1);
       const [functionLogs] = collectUnencryptedLogs(result);
       expect(functionLogs.logs).toHaveLength(1);
+
+      const [unencryptedLog] = newUnencryptedLogs;
+      expect(unencryptedLog).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
       expect(functionLogs.logs[0].data.subarray(-32 * 5).toString('hex')).toEqual(expected);
@@ -311,6 +328,14 @@ describe('Private Execution test suite', () => {
           newNote.note,
         ),
       );
+
+      const newEncryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
+      );
+      expect(newEncryptedLogs).toHaveLength(1);
+
+      const [encryptedLog] = newEncryptedLogs;
+      expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
     });
 
     it('should run the create_note function', async () => {
@@ -337,6 +362,14 @@ describe('Private Execution test suite', () => {
           newNote.note,
         ),
       );
+
+      const newEncryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
+      );
+      expect(newEncryptedLogs).toHaveLength(1);
+
+      const [encryptedLog] = newEncryptedLogs;
+      expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
     });
 
     it('should run the destroy_and_create function', async () => {
@@ -387,6 +420,15 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
 
+      const newEncryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
+      );
+      expect(newEncryptedLogs).toHaveLength(2);
+
+      const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
+      expect(encryptedChangeLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedRecipientLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
+
       const readRequests = sideEffectArrayToValueArray(
         nonEmptySideEffects(result.callStackItem.publicInputs.noteHashReadRequests),
       );
@@ -423,6 +465,14 @@ describe('Private Execution test suite', () => {
       const [changeNote, recipientNote] = result.newNotes;
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
+
+      const newEncryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
+      );
+      expect(newEncryptedLogs).toHaveLength(2);
+      const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
+      expect(encryptedChangeLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedRecipientLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
     });
   });
 
@@ -886,6 +936,14 @@ describe('Private Execution test suite', () => {
       );
       expect(noteHash).toEqual(innerNoteHash);
 
+      const newEncryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
+      );
+      expect(newEncryptedLogs).toHaveLength(1);
+
+      const [encryptedLog] = newEncryptedLogs;
+      expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.noteHashReadRequests)[0];
       expect(readRequest).toEqual(innerNoteHash);
@@ -955,6 +1013,14 @@ describe('Private Execution test suite', () => {
         noteAndSlot.note,
       );
       expect(noteHash).toEqual(innerNoteHash);
+
+      const newEncryptedLogs = sideEffectArrayToValueArray(
+        nonEmptySideEffects(execInsert.callStackItem.publicInputs.encryptedLogsHashes),
+      );
+      expect(newEncryptedLogs).toHaveLength(1);
+
+      const [encryptedLog] = newEncryptedLogs;
+      expect(encryptedLog).toEqual(Fr.fromBuffer(execInsert.encryptedLogs.logs[0].hash()));
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];

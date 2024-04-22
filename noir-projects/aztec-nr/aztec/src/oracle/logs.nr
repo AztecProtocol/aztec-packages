@@ -1,6 +1,7 @@
 use dep::protocol_types::{address::AztecAddress, grumpkin_point::GrumpkinPoint};
 
-// TODO: Should take encrypted data.
+// TODO(1139): Should take encrypted data.
+// Currently returns encrypted data to be hashed (304 bytes)
 #[oracle(emitEncryptedLog)]
 fn emit_encrypted_log_oracle<N>(
     _contract_address: AztecAddress,
@@ -8,7 +9,7 @@ fn emit_encrypted_log_oracle<N>(
     _note_type_id: Field,
     _encryption_pub_key: GrumpkinPoint,
     _preimage: [Field; N]
-) -> Field {}
+) -> [Field; 10] {}
 
 unconstrained pub fn emit_encrypted_log<N>(
     contract_address: AztecAddress,
@@ -16,7 +17,7 @@ unconstrained pub fn emit_encrypted_log<N>(
     note_type_id: Field,
     encryption_pub_key: GrumpkinPoint,
     preimage: [Field; N]
-) -> Field {
+) -> [Field; 10] {
     emit_encrypted_log_oracle(
         contract_address,
         storage_slot,

@@ -133,10 +133,8 @@ export class PublicExecutionContext extends TypedOracle {
    * @param log - The unencrypted log to be emitted.
    */
   public override emitUnencryptedLog(log: UnencryptedL2Log) {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
-    return Fr.fromBuffer(log.hash());
   }
 
   /**

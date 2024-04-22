@@ -48,7 +48,7 @@ contract ContractClassRegisterer {
             public_bytecode_commitment
         ]
         );
-        context.emit_unencrypted_log(event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 
     #[aztec(private)]
@@ -83,7 +83,7 @@ contract ContractClassRegisterer {
             function_data.metadata_hash
         ]
         );
-        context.emit_unencrypted_log(event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 
     #[aztec(private)]
@@ -113,6 +113,6 @@ contract ContractClassRegisterer {
             function_data.metadata_hash
         ]
         );
-        context.emit_unencrypted_log(event.serialize());
+        context.emit_contract_class_unencrypted_log(event.serialize());
     }
 }

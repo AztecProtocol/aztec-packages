@@ -327,7 +327,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
     const encryptedLog = new EncryptedL2Log(encryptedNote);
     this.encryptedLogs.push(encryptedLog);
-    return Fr.fromBuffer(encryptedLog.hash());
+    return encryptedNote;
   }
 
   /**
@@ -338,6 +338,23 @@ export class ClientExecutionContext extends ViewDataOracle {
     this.unencryptedLogs.push(log);
     const text = log.toHumanReadable();
     this.log.verbose(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
+  }
+
+  /**
+   * Emit a contract class unencrypted log.
+   * This fn exists separately from emitUnencryptedLog because sha hashing the preimage
+   * is too large to compile (16,200 fields, 518,400 bytes) => the oracle hashes it.
+   * See private_context.nr
+   * @param log - The unencrypted log to be emitted.
+   */
+  public override emitContractClassUnencryptedLog(log: UnencryptedL2Log) {
+    this.unencryptedLogs.push(log);
+    const text = log.toHumanReadable();
+    this.log.verbose(
+      `Emitted unencrypted log from ContractClassRegisterer: "${
+        text.length > 100 ? text.slice(0, 100) + '...' : text
+      }"`,
+    );
     return Fr.fromBuffer(log.hash());
   }
 

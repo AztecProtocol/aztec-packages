@@ -1,4 +1,4 @@
-use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext, emit_encrypted_log};
+use dep::aztec::prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext};
 use dep::aztec::{note::utils::compute_note_hash_for_consumption, hash::pedersen_hash};
 use dep::aztec::oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key};
 
@@ -50,8 +50,7 @@ impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
       // We only bother inserting the note if non-empty to save funds on gas.
       if !(self.amount == U128::from_integer(0)) {
           let encryption_pub_key = get_public_key(self.owner);
-          emit_encrypted_log(
-              context,
+          context.emit_encrypted_log(
               (*context).this_address(),
               slot,
               Self::get_note_type_id(),

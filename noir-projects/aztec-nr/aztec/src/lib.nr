@@ -3,7 +3,6 @@ mod deploy;
 mod hash;
 mod history;
 mod initializer;
-mod log;
 mod messaging;
 mod note;
 mod oracle;

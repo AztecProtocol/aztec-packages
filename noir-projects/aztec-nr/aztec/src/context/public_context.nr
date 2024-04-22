@@ -5,7 +5,7 @@ use crate::{
 },
     messaging::process_l1_to_l2_message,
     oracle::{arguments, public_call::call_public_function_internal, returns},
-    hash::{hash_args, ArgsHasher}
+    hash::{hash_args, ArgsHasher, compute_unencrypted_log_hash, ToBytesSlice}
 };
 use dep::protocol_types::{
     abis::{
@@ -282,16 +282,20 @@ impl PublicContextInterface for PublicContext {
         self.push_new_nullifier(nullifier, 0)
     }
 
-    fn emit_unencrypted_log<T>(&mut self, log: T) {
+    fn emit_unencrypted_log<T>(&mut self, log: T) where T: ToBytesSlice {
         let event_selector = 5;
-        let log_hash = emit_unencrypted_log_oracle(self.this_address(), event_selector, log);
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        // Once we hash inside circuits, this replaces push_unencrypted_log
-        // For now we need an oracle to get the hash
+        let contract_address = self.this_address();
+        let log_hash = compute_unencrypted_log_hash(
+            contract_address,
+            event_selector,
+            log.to_be_bytes_slice()
+        );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+        // TODO(Miranda) add length 
+        // Call oracle to broadcast log
+        let _void = emit_unencrypted_log_oracle(contract_address, event_selector, log);
     }
 
     fn call_public_function<RETURNS_COUNT>(
