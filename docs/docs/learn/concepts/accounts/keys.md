@@ -34,7 +34,7 @@ this is the old text:
 
 ### Using the slow updates tree
 
-A compromise between the two solutions above is to use the [slow updates tree](../communication/public_private_calls/slow_updates_tree.md). This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the slow updates tree.
+A compromise between the two solutions above is to use the slow updates tree. This would not generate additional nullifiers and commitments for each transaction while allowing the user to rotate their key. However, this causes every transaction to now have a time-to-live determined by the frequency of the slow updates tree.
 -->
 
 ### Reusing the privacy master key
