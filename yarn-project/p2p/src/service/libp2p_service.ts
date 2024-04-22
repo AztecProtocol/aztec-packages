@@ -252,7 +252,6 @@ export class LibP2PService implements P2PService {
         if (!this.peerStore.getPeer(peerIdStr)) {
           await this.peerStore.addPeer(peerIdStr, enr);
         }
-        await stream.close();
       } catch (err) {
         this.logger.error(`Failed to dial peer ${peerIdStr}`, err);
       } finally {
