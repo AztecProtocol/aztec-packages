@@ -38,12 +38,6 @@ void prove_and_verify(auto& circuit_builder, bool expected_result)
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     UltraVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
-    size_t idx = 0;
-    for (auto& poly : instance->prover_polynomials.get_all()) {
-        info(idx);
-        info(poly.sumup());
-        idx++;
-    }
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, expected_result);
 };

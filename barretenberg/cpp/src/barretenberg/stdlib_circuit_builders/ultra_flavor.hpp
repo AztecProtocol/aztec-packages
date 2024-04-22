@@ -310,6 +310,15 @@ class UltraFlavor {
                 shifted = to_be_shifted.shifted();
             }
         }
+
+        // WORKTODO: shouldn't need this ultimately.
+        void share(ProverPolynomials& polynomials_in)
+        {
+            for (auto [poly, poly_in] : zip_view(get_unshifted(), polynomials_in.get_unshifted())) {
+                poly = poly_in.share();
+            }
+            set_shifted();
+        }
     };
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
