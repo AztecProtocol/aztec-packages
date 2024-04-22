@@ -117,7 +117,7 @@ jobs:
 
       - name: Run Docker Prune
         # helps to not overuse space
-        run: docker system prune -f || true
+        run: docker system prune -f -a || true
 
       - name: Run Earthly Bootstrap
         run: earthly bootstrap
