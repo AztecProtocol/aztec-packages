@@ -49,42 +49,42 @@ describe('e2e_blacklist_token_contract', () => {
   }
 
   class Role {
-    private is_admin = false;
-    private is_minter = false;
-    private is_blacklisted = false;
+    private isAdmin = false;
+    private isMinter = false;
+    private isBlacklisted = false;
 
     withAdmin() {
-      this.is_admin = true;
+      this.isAdmin = true;
       return this;
     }
 
     withMinter() {
-      this.is_minter = true;
+      this.isMinter = true;
       return this;
     }
 
     withBlacklisted() {
-      this.is_blacklisted = true;
+      this.isBlacklisted = true;
       return this;
     }
 
     toCallValue() {
-      return { is_admin: this.is_admin, is_minter: this.is_minter, is_blacklisted: this.is_blacklisted };
+      return { is_admin: this.isAdmin, is_minter: this.isMinter, is_blacklisted: this.isBlacklisted };
     }
 
     toReturnValue() {
       // This matches the result of the serialize() function in the Noir struct
 
       let value = 0;
-      if (this.is_admin) {
+      if (this.isAdmin) {
         value += 1;
       }
 
-      if (this.is_minter) {
+      if (this.isMinter) {
         value += 2;
       }
 
-      if (this.is_blacklisted) {
+      if (this.isBlacklisted) {
         value += 4;
       }
 
@@ -196,14 +196,14 @@ describe('e2e_blacklist_token_contract', () => {
         const newRole = new Role().withAdmin().withAdmin();
         await expect(
           asset.withWallet(other).methods.update_roles(AztecAddress.random(), newRole.toCallValue()).prove(),
-        ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+        ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.isAdmin'");
       });
 
       it('revoke minter from non admin', async () => {
         const noRole = new Role();
         await expect(
           asset.withWallet(other).methods.update_roles(admin.getAddress(), noRole.toCallValue()).prove(),
-        ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.is_admin'");
+        ).rejects.toThrow("Assertion failed: caller is not admin 'caller_roles.isAdmin'");
       });
     });
   });
@@ -253,7 +253,7 @@ describe('e2e_blacklist_token_contract', () => {
         it('mint to blacklisted entity', async () => {
           await expect(
             asset.withWallet(wallets[1]).methods.mint_public(blacklisted.getAddress(), 1n).prove(),
-          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.isBlacklisted'");
         });
       });
     });
@@ -325,7 +325,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('mint and try to redeem at blacklist', async () => {
           await expect(asset.methods.redeem_shield(blacklisted.getAddress(), amount, secret).prove()).rejects.toThrow(
-            "Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'",
+            "Assertion failed: Blacklisted: Recipient '!to_roles.isBlacklisted'",
           );
         });
       });
@@ -482,13 +482,13 @@ describe('e2e_blacklist_token_contract', () => {
         it('transfer from a blacklisted account', async () => {
           await expect(
             asset.methods.transfer_public(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0n).prove(),
-          ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+          ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.isBlacklisted'");
         });
 
         it('transfer to a blacklisted account', async () => {
           await expect(
             asset.methods.transfer_public(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0n).prove(),
-          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.isBlacklisted'");
         });
       });
     });
@@ -643,13 +643,13 @@ describe('e2e_blacklist_token_contract', () => {
         it('transfer from a blacklisted account', async () => {
           await expect(
             asset.methods.transfer(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
-          ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+          ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.isBlacklisted'");
         });
 
         it('transfer to a blacklisted account', async () => {
           await expect(
             asset.methods.transfer(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0).prove(),
-          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+          ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.isBlacklisted'");
         });
       });
     });
@@ -770,7 +770,7 @@ describe('e2e_blacklist_token_contract', () => {
       it('shielding from blacklisted account', async () => {
         await expect(
           asset.withWallet(blacklisted).methods.shield(blacklisted.getAddress(), 1n, secretHash, 0).prove(),
-        ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+        ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.isBlacklisted'");
       });
     });
   });
@@ -884,13 +884,13 @@ describe('e2e_blacklist_token_contract', () => {
       it('unshield from blacklisted account', async () => {
         await expect(
           asset.methods.unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
-        ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+        ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.isBlacklisted'");
       });
 
       it('unshield to blacklisted account', async () => {
         await expect(
           asset.methods.unshield(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0).prove(),
-        ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+        ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.isBlacklisted'");
       });
     });
   });
@@ -987,7 +987,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('burn from blacklisted account', async () => {
           await expect(asset.methods.burn_public(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-            "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+            "Assertion failed: Blacklisted: Sender '!from_roles.isBlacklisted'",
           );
         });
       });
@@ -1105,7 +1105,7 @@ describe('e2e_blacklist_token_contract', () => {
 
         it('burn from blacklisted account', async () => {
           await expect(asset.methods.burn(blacklisted.getAddress(), 1n, 0).prove()).rejects.toThrow(
-            "Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'",
+            "Assertion failed: Blacklisted: Sender '!from_roles.isBlacklisted'",
           );
         });
       });
