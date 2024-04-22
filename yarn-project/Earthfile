@@ -71,12 +71,14 @@ end-to-end-prod:
     SAVE ARTIFACT /usr/src /usr/src
 
 end-to-end:
-    FROM node:18.19.1-slim
-    RUN apt-get update && apt-get install jq chromium netcat-openbsd -y
-    ENV CHROME_BIN="/usr/bin/chromium" PATH=/opt/foundry/bin:$PATH
+    FROM ubuntu:noble
+    RUN apt-get update && apt-get install nodejs jq chromium netcat-openbsd -y
+    ENV CHROME_BIN="/usr/bin/chromium"
+    ENV PATH=/opt/foundry/bin:$PATH
     COPY ../build-images+build/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
     WORKDIR /usr/src/yarn-project/end-to-end
+    RUN ln -s /usr/src/yarn-project/.yarn/releases/yarn-3.6.3.cjs /usr/local/bin/yarn
     ENTRYPOINT ["yarn", "test"]
 
 all:
@@ -84,16 +86,7 @@ all:
     BUILD +cli
     BUILD +end-to-end
 
-# for use with yarn-project/end-to-end and its e2e_mode=cache option
 export-end-to-end:
-    # Prefetch targets to build in parallel.
-    BUILD +end-to-end
-    BUILD +aztec
     ARG EARTHLY_GIT_HASH
-    # pushes the foundry image to local docker images
-    FROM ../build-images+build
-    SAVE IMAGE aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest
     FROM +end-to-end
     SAVE IMAGE aztecprotocol/end-to-end:$EARTHLY_GIT_HASH
-    FROM +aztec
-    SAVE IMAGE aztecprotocol/aztec:$EARTHLY_GIT_HASH

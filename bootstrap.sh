@@ -65,6 +65,9 @@ function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
 }
 
+# Let's update PATH to find foundry where our build images puts it.
+export PATH=/opt/foundry/bin:$PATH
+
 # Checks for the major toolchains and their versions.
 # This isn't an exhaustive check of all required tools and utilities, but covers the main ones and provides
 # instuctions or hints on how to remedy.
