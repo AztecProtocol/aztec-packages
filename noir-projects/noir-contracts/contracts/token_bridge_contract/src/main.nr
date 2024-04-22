@@ -31,14 +31,29 @@ contract TokenBridge {
     }
     // docs:end:token_bridge_storage_and_constructor
 
+    #[aztec(private)]
+    fn get_portal_address() -> EthAddress {
+        context.this_portal_address()
+    }
+
+    #[aztec(public)]
+    fn get_portal_address_public() -> EthAddress {
+        context.this_portal_address()
+    }
+
     // docs:start:claim_public
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
     #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, secret: Field) {
+    fn claim_public(to: AztecAddress, amount: Field, secret: Field, message_leaf_index: Field) {
         let content_hash = get_mint_public_content_hash(to, amount);
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
+        context.consume_l1_to_l2_message(
+            content_hash,
+            secret,
+            context.this_portal_address(),
+            message_leaf_index
+        );
 
         // Mint tokens
         Token::at(storage.token.read()).mint_public(to, amount).call(&mut context);
