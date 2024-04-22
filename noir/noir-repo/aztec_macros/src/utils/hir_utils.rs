@@ -7,7 +7,10 @@ use noirc_frontend::{
         resolution::{path_resolver::StandardPathResolver, resolver::Resolver},
         type_check::type_check_func,
     },
-    macros_api::{FileId, HirContext, MacroError, ModuleDefId, NodeInterner, StructId},
+    macros_api::{
+        FileId, HirContext, HirExpression, HirLiteral, MacroError, ModuleDefId, NodeInterner,
+        StructId,
+    },
     node_interner::{FuncId, TraitId, TraitImplKind},
     ItemVisibility, LetStatement, NoirFunction, Shared, Signedness, StructType, Type,
 };
@@ -352,4 +355,37 @@ pub fn get_serialized_length(
             span: None,
         }),
     }
+}
+
+pub fn get_global_numberic_const(
+    context: &HirContext,
+    const_name: &str,
+) -> Result<u128, MacroError> {
+    context
+        .def_interner
+        .get_all_globals()
+        .iter()
+        .find_map(|global_info| {
+            if global_info.ident.0.contents == const_name {
+                let stmt = context.def_interner.get_global_let_statement(global_info.id);
+                if let Some(let_stmt) = stmt {
+                    let expression = context.def_interner.expression(&let_stmt.expression);
+                    match expression {
+                        HirExpression::Literal(HirLiteral::Integer(value, _)) => {
+                            Some(value.to_u128())
+                        }
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .ok_or(MacroError {
+            primary_message: format!("Could not find {} global constant", const_name),
+            secondary_message: None,
+            span: None,
+        })
 }

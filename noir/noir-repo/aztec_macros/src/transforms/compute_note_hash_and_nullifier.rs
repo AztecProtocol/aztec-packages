@@ -1,7 +1,7 @@
 use noirc_errors::{Location, Span};
 use noirc_frontend::{
     graph::CrateId,
-    macros_api::{FileId, HirContext, HirExpression, HirLiteral},
+    macros_api::{FileId, HirContext},
     parse_program, FunctionReturnType, NoirFunction, Type, UnresolvedTypeData,
 };
 
@@ -9,7 +9,7 @@ use crate::utils::{
     errors::AztecMacroError,
     hir_utils::{
         collect_crate_functions, collect_traits, fetch_notes, get_contract_module_data,
-        get_serialized_length, inject_fn,
+        get_global_numberic_const, get_serialized_length, inject_fn,
     },
 };
 
@@ -64,41 +64,20 @@ pub fn inject_compute_note_hash_and_nullifier(
 
         let traits: Vec<_> = collect_traits(context);
 
-        // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
-        // contract might use. These are the types that are marked as #[aztec(note)].
-        let mut note_types = vec![];
-        let mut note_lengths = vec![];
+        // Get MAX_NOTE_FIELDS_LENGTH global to check if the notes in our contract are too long.
+        let max_note_length_const = get_global_numberic_const(context, "MAX_NOTE_FIELDS_LENGTH")
+            .map_err(|err| {
+                (
+                    AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
+                        secondary_message: Some(err.primary_message),
+                    },
+                    file_id,
+                )
+            })?;
 
-        let max_note_length_const = context
-            .def_interner
-            .get_all_globals()
-            .iter()
-            .find_map(|global_info| {
-                if global_info.ident.0.contents == "MAX_NOTE_FIELDS_LENGTH" {
-                    let stmt = context.def_interner.get_global_let_statement(global_info.id);
-                    if let Some(let_stmt) = stmt {
-                        let expression = context.def_interner.expression(&let_stmt.expression);
-                        match expression {
-                            HirExpression::Literal(HirLiteral::Integer(value, _)) => {
-                                Some(value.to_u128())
-                            }
-                            _ => None,
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .ok_or((
-                AztecMacroError::CouldNotImplementComputeNoteHashAndNullifier {
-                    secondary_message: Some(
-                        "Failed to find MAX_NOTE_FIELDS_LENGTH constant".to_string(),
-                    ),
-                },
-                file_id,
-            ))?;
+        // In order to implement compute_note_hash_and_nullifier, we need to know all of the different note types the
+        // contract might use and their serialized lengths. These are the types that are marked as #[aztec(note)].
+        let mut notes_and_lengths = vec![];
 
         for (path, typ) in fetch_notes(context) {
             let serialized_len: u128 = get_serialized_length(
@@ -134,11 +113,14 @@ pub fn inject_compute_note_hash_and_nullifier(
                 ));
             }
 
-            note_types.push(path.to_string());
-            note_lengths.push(serialized_len);
+            notes_and_lengths.push((path.to_string(), serialized_len));
         }
 
-        let max_note_length: u128 = *note_lengths.iter().max().unwrap_or(&0);
+        let max_note_length: u128 =
+            *notes_and_lengths.iter().map(|(_, serialized_len)| serialized_len).max().unwrap_or(&0);
+
+        let note_types =
+            notes_and_lengths.iter().map(|(note_type, _)| note_type.clone()).collect::<Vec<_>>();
 
         // We can now generate a version of compute_note_hash_and_nullifier tailored for the contract in this crate.
         let func = generate_compute_note_hash_and_nullifier(&note_types, max_note_length);
