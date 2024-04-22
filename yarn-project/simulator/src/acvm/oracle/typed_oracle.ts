@@ -10,7 +10,6 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import {
-  type GrumpkinPrivateKey,
   type Header,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PrivateCallStackItem,
@@ -18,22 +17,15 @@ import {
 } from '@aztec/circuits.js';
 import { type FunctionSelector } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstance } from '@aztec/types/contracts';
 
-/**
- * A pair of public key and secret key.
- */
-export interface KeyPair {
-  /**
-   * Public key.
-   */
-  publicKey: PublicKey;
-  /**
-   * Secret Key.
-   */
-  secretKey: GrumpkinPrivateKey;
+/** Nullifier keys which both correspond to the same master nullifier secret key. */
+export interface NullifierKeys {
+  /** Master nullifier public key. */
+  masterNullifierPublicKey: PublicKey;
+  /** App nullifier secret key. */
+  appNullifierSecretKey: Fr;
 }
 
 /**
@@ -97,8 +89,8 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('unpackReturns');
   }
 
-  getNullifierKeyPair(_accountAddress: AztecAddress): Promise<KeyPair> {
-    throw new OracleMethodNotAvailableError('getNullifierKeyPair');
+  getNullifierKeys(_accountAddress: AztecAddress): Promise<NullifierKeys> {
+    throw new OracleMethodNotAvailableError('getNullifierKeys');
   }
 
   getPublicKeyAndPartialAddress(_address: AztecAddress): Promise<Fr[] | undefined> {
@@ -187,10 +179,6 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('getL1ToL2MembershipWitness');
   }
 
-  getPortalContractAddress(_contractAddress: AztecAddress): Promise<EthAddress> {
-    throw new OracleMethodNotAvailableError('getPortalContractAddress');
-  }
-
   storageRead(_startStorageSlot: Fr, _numberOfElements: number): Promise<Fr[]> {
     throw new OracleMethodNotAvailableError('storageRead');
   }
@@ -205,11 +193,11 @@ export abstract class TypedOracle {
     _noteTypeId: Fr,
     _publicKey: PublicKey,
     _log: Fr[],
-  ): void {
+  ): Fr {
     throw new OracleMethodNotAvailableError('emitEncryptedLog');
   }
 
-  emitUnencryptedLog(_log: UnencryptedL2Log): void {
+  emitUnencryptedLog(_log: UnencryptedL2Log): Fr {
     throw new OracleMethodNotAvailableError('emitUnencryptedLog');
   }
 

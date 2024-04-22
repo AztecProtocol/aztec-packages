@@ -44,8 +44,13 @@ export interface PublicExecutionResult {
   /** The results of nested calls. */
   nestedExecutions: this[];
   /**
+   * The hashed logs with side effect counter.
+   * Note: required as we don't track the counter anywhere else.
+   */
+  unencryptedLogsHashes: SideEffect[];
+  /**
    * Unencrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `unencryptedLogsHash`.
+   * Note: These are preimages to `unencryptedLogsHashes`.
    */
   unencryptedLogs: UnencryptedFunctionL2Logs;
   /**
@@ -57,7 +62,7 @@ export interface PublicExecutionResult {
    */
   revertReason: SimulationError | undefined;
   /** How much gas was left after this public execution. */
-  gasLeft: Gas;
+  gasLeft: Gas; // TODO(palla/gas): Check this field
 }
 
 /**

@@ -3,8 +3,10 @@ import {
   CallContext,
   FunctionData,
   type FunctionSelector,
+  Gas,
   type GlobalVariables,
   type Header,
+  PublicContextInputs,
 } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -56,14 +58,15 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public getInitialWitness(witnessStartIndex = 0) {
     const { callContext, args } = this.execution;
-    const fields = [
-      ...callContext.toFields(),
-      ...this.header.toFields(),
-      ...this.globalVariables.toFields(),
-      new Fr(this.sideEffectCounter.current()),
-      ...args,
-    ];
-
+    const publicContextInputs = new PublicContextInputs(
+      callContext,
+      this.header,
+      this.globalVariables,
+      this.sideEffectCounter.current(),
+      Gas.test(), // TODO(palla/gas): Set proper values
+      new Fr(0),
+    );
+    const fields = [...publicContextInputs.toFields(), ...args];
     return toACVMWitness(witnessStartIndex, fields);
   }
 
@@ -133,16 +136,7 @@ export class PublicExecutionContext extends TypedOracle {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/885)
     this.unencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
-  }
-
-  /**
-   * Retrieves the portal contract address associated with the given contract address.
-   * Returns zero address if the input contract address is not found or invalid.
-   * @param contractAddress - The address of the contract whose portal address is to be fetched.
-   * @returns The portal contract address.
-   */
-  public override async getPortalContractAddress(contractAddress: AztecAddress) {
-    return (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
+    return Fr.fromBuffer(log.hash());
   }
 
   /**
@@ -205,18 +199,14 @@ export class PublicExecutionContext extends TypedOracle {
 
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
     const functionData = new FunctionData(functionSelector, /*isPrivate=*/ false);
-    const { transactionFee, gasSettings, gasLeft } = this.execution.callContext;
     const callContext = CallContext.from({
       msgSender: isDelegateCall ? this.execution.callContext.msgSender : this.execution.contractAddress,
       storageContractAddress: isDelegateCall ? this.execution.contractAddress : targetContractAddress,
       portalContractAddress: portalAddress,
       functionSelector,
-      gasLeft, // Propagate the same gas left as when we started since ACVM public functions don't have any metering
       isDelegateCall,
       isStaticCall,
       sideEffectCounter,
-      gasSettings,
-      transactionFee,
     });
 
     const nestedExecution: PublicExecution = {

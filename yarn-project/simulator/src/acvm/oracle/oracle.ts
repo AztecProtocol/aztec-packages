@@ -42,13 +42,14 @@ export class Oracle {
     return unpacked.map(toACVMField);
   }
 
-  async getNullifierKeyPair([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { publicKey, secretKey } = await this.typedOracle.getNullifierKeyPair(fromACVMField(accountAddress));
+  async getNullifierKeys([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
+      fromACVMField(accountAddress),
+    );
     return [
-      toACVMField(publicKey.x),
-      toACVMField(publicKey.y),
-      toACVMField(secretKey.high),
-      toACVMField(secretKey.low),
+      toACVMField(masterNullifierPublicKey.x),
+      toACVMField(masterNullifierPublicKey.y),
+      toACVMField(appNullifierSecretKey),
     ];
   }
 
@@ -271,12 +272,6 @@ export class Oracle {
     return message.toFields().map(toACVMField);
   }
 
-  async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {
-    const contractAddress = AztecAddress.fromString(aztecAddress);
-    const portalContactAddress = await this.typedOracle.getPortalContractAddress(contractAddress);
-    return toACVMField(portalContactAddress);
-  }
-
   async storageRead([startStorageSlot]: ACVMField[], [numberOfElements]: ACVMField[]): Promise<ACVMField[]> {
     const values = await this.typedOracle.storageRead(fromACVMField(startStorageSlot), +numberOfElements);
     return values.map(toACVMField);
@@ -296,14 +291,14 @@ export class Oracle {
     log: ACVMField[],
   ): ACVMField {
     const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
-    this.typedOracle.emitEncryptedLog(
+    const logHash = this.typedOracle.emitEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       Fr.fromString(noteTypeId),
       publicKey,
       log.map(fromACVMField),
     );
-    return toACVMField(0);
+    return toACVMField(logHash);
   }
 
   emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
@@ -314,8 +309,8 @@ export class Oracle {
       logPayload,
     );
 
-    this.typedOracle.emitUnencryptedLog(log);
-    return toACVMField(0);
+    const logHash = this.typedOracle.emitUnencryptedLog(log);
+    return toACVMField(logHash);
   }
 
   debugLog(...args: ACVMField[][]): ACVMField {
