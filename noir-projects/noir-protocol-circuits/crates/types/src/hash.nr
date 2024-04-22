@@ -13,7 +13,7 @@ use crate::constants::{
 use crate::traits::Hash;
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
 use crate::merkle_tree::root::root_from_sibling_path;
-use dep::std::hash::{pedersen_hash_with_separator, poseidon2::Poseidon2::hash, sha256};
+use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256(bytes_to_hash);
