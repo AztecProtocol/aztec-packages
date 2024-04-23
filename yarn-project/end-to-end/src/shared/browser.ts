@@ -266,7 +266,7 @@ export const browserTestSuite = (
 
           const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
 
-          const noteTypeId = new Fr(84114971101151129711410111011678111116101n);
+          const noteTypeId = token.artifact.notes['TransparentNote'].id;
           const note = new Note([new Fr(initialBalance), secretHash]);
           const extendedNote = new ExtendedNote(
             note,

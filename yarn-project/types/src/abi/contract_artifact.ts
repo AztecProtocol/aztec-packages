@@ -4,6 +4,7 @@ import {
   type AbiType,
   type BasicValue,
   type ContractArtifact,
+  type ContractNote,
   type FieldLayout,
   type FunctionArtifact,
   FunctionType,
@@ -56,17 +57,8 @@ export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
     if (key === 'bytecode' && typeof value === 'string') {
       return Buffer.from(value, 'base64');
     }
-    if (key === 'storageLayout') {
-      const layout: Record<string, FieldLayout> = Object.entries(
-        value as Record<string, { slot: { type: string; value: string }; typ: string }>,
-      ).reduce((acc, [name, { slot, typ }]) => {
-        acc[name as string] = {
-          slot: Fr.fromString(slot.value),
-          typ,
-        };
-        return acc;
-      }, {} as Record<string, FieldLayout>);
-      return layout;
+    if (typeof value === 'object' && value !== null && value.type === 'Fr') {
+      return new Fr(BigInt(value.value));
     }
     return value;
   });
@@ -224,7 +216,12 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 function getStorageLayout(input: NoirCompiledContract) {
   const storage = input.outputs.globals.storage ? (input.outputs.globals.storage[0] as StructValue) : { fields: [] };
   const storageFields = storage.fields as TypedStructFieldValue<StructValue>[];
-  const layout: Record<string, FieldLayout> = storageFields.reduce((acc: Record<string, FieldLayout>, field) => {
+
+  if (!storageFields) {
+    return {};
+  }
+
+  return storageFields.reduce((acc: Record<string, FieldLayout>, field) => {
     const name = field.name;
     const slot = field.value.fields[0].value as IntegerValue;
     const typ = field.value.fields[1].value as BasicValue<'string', string>;
@@ -234,8 +231,29 @@ function getStorageLayout(input: NoirCompiledContract) {
     };
     return acc;
   }, {});
+}
 
-  return layout;
+function getNoteTypes(input: NoirCompiledContract) {
+  type t = {
+    kind: string;
+    fields: [{ kind: string; sign: boolean; value: string }, { kind: string; value: string }];
+  };
+
+  const notes = input.outputs.globals.notes as t[];
+
+  if (!notes) {
+    return {};
+  }
+
+  return notes.reduce((acc: Record<string, ContractNote>, note) => {
+    const name = note.fields[1].value as string;
+    const id = new Fr(BigInt(note.fields[0].value));
+    acc[name] = {
+      id,
+      typ: name,
+    };
+    return acc;
+  }, {});
 }
 
 /**
@@ -249,6 +267,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
     functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
     outputs: contract.outputs,
     storageLayout: getStorageLayout(contract),
+    notes: getNoteTypes(contract),
     fileMap: contract.file_map,
     aztecNrVersion,
   };
