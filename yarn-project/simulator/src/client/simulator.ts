@@ -9,7 +9,6 @@ import {
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
@@ -61,7 +60,6 @@ export class AcirSimulator {
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
-   * @param portalContractAddress - The address of the portal contract.
    * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
    * @returns The result of the execution.
    */
@@ -69,7 +67,6 @@ export class AcirSimulator {
     request: TxExecutionRequest,
     entryPointArtifact: FunctionArtifactWithDebugMetadata,
     contractAddress: AztecAddress,
-    portalContractAddress: EthAddress,
     msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.SECRET) {
@@ -89,18 +86,13 @@ export class AcirSimulator {
     // reserve the first side effect for the tx hash (inserted by the private kernel)
     const startSideEffectCounter = 1;
 
-    const transactionFee = Fr.ZERO;
     const callContext = new CallContext(
       msgSender,
       contractAddress,
-      portalContractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
-      request.gasSettings.getInitialAvailable(),
       false,
       false,
       startSideEffectCounter,
-      request.gasSettings,
-      transactionFee,
     );
     const context = new ClientExecutionContext(
       contractAddress,
@@ -143,7 +135,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
   ) {
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
-      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as constrained`);
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
     const context = new ViewDataOracle(contractAddress, [], this.db, this.node);

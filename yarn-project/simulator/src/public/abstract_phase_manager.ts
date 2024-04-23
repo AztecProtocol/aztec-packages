@@ -401,7 +401,10 @@ export abstract class AbstractPhaseManager {
       historicalHeader: this.historicalHeader,
       // TODO(@just-mitch): need better mapping from simulator to revert code.
       revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
-      gasLeft: Gas.from(result.gasLeft),
+      // TODO(palla/gas): Set proper values
+      startGasLeft: Gas.test(),
+      endGasLeft: Gas.test(),
+      transactionFee: Fr.ZERO,
     });
   }
 
@@ -447,8 +450,7 @@ export abstract class AbstractPhaseManager {
       c.toCallRequest(callStackItem.publicInputs.callContext),
     );
     const publicCallStack = padArrayEnd(publicCallRequests, CallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-    const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
-    return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), portalContractAddress, bytecodeHash);
+    return new PublicCallData(callStackItem, publicCallStack, makeEmptyProof(), bytecodeHash);
   }
 }
 
