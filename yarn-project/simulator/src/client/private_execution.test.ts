@@ -21,7 +21,7 @@ import {
   nonEmptySideEffects,
   sideEffectArrayToValueArray,
 } from '@aztec/circuits.js';
-import { computeCommitmentNonce, computeVarArgsHash } from '@aztec/circuits.js/hash';
+import { computeCommitmentNonce, computeSecretHash, computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import {
   type FunctionArtifact,
@@ -61,9 +61,6 @@ import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
-
-// Copied over from `transparent_note.nr` - not placed in constants.nr as it's not a protocol constant
-const GENERATOR_INDEX__TRANSPARENT_NOTE = 92543;
 
 describe('Private Execution test suite', () => {
   let oracle: MockProxy<DBOracle>;
@@ -730,7 +727,7 @@ describe('Private Execution test suite', () => {
     it('Should be able to consume a dummy public to private message', async () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'consume_note_from_secret');
       const secret = new Fr(1n);
-      const secretHash = poseidon2Hash([secret, GENERATOR_INDEX__TRANSPARENT_NOTE]);
+      const secretHash = computeSecretHash(secret);
       const note = new Note([secretHash]);
       const storageSlot = new Fr(5);
       oracle.getNotes.mockResolvedValue([

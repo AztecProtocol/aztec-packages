@@ -1,13 +1,18 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
 import { GeneratorIndex, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { computeInnerNoteHash, computeNoteContentHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
+import {
+  computeInnerNoteHash,
+  computeNoteContentHash,
+  computeUniqueNoteHash,
+  siloNoteHash,
+} from '@aztec/circuits.js/hash';
 import {
   ABIParameterVisibility,
   type FunctionArtifactWithDebugMetadata,
   getFunctionArtifact,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash, poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
