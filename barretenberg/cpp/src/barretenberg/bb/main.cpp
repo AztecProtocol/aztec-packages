@@ -572,6 +572,46 @@ bool avm_verify(const std::filesystem::path& proof_path)
     return true;
 }
 
+/**
+ * @brief Creates a proof for an ACIR circuit
+ *
+ * Communication:
+ * - stdout: The proof is written to stdout as a byte array
+ * - Filesystem: The proof is written to the path specified by outputPath
+ *
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param witnessPath Path to the file containing the serialized witness
+ * @param recursive Whether to use recursive proof generation of non-recursive
+ * @param outputPath Path to write the proof to
+ */
+template <IsUltraFlavor Flavor>
+void prove_honk(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+
+    auto constraint_system = get_constraint_system(bytecodePath);
+    auto witness = get_witness(witnessPath);
+
+    auto builder = acir_format::create_circuit<Builder>(constraint_system, 0, witness);
+
+    const size_t additional_gates_buffer = 15; // conservatively large to be safe
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + additional_gates_buffer);
+    init_bn254_crs(srs_size);
+
+    // Construct Honk proof
+    Prover prover{ builder };
+    auto proof = prover.construct_proof();
+
+    if (outputPath == "-") {
+        writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
+        vinfo("proof written to stdout");
+    } else {
+        write_file(outputPath, to_buffer</*include_size=*/true>(proof));
+        vinfo("proof written to: ", outputPath);
+    }
+}
+
 bool flag_present(std::vector<std::string>& args, const std::string& flag)
 {
     return std::find(args.begin(), args.end(), flag) != args.end();
@@ -659,6 +699,14 @@ int main(int argc, char* argv[])
         } else if (command == "avm_verify") {
             std::filesystem::path proof_path = get_option(args, "-p", "./proofs/avm_proof");
             return avm_verify(proof_path) ? 0 : 1;
+        } else if (command == "prove_ultra_honk") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            prove_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
+        } else if (command == "verify_honk") {
+            return verify(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "write_vk_honk") {
+            std::string output_path = get_option(args, "-o", "./target/vk");
+            write_vk(bytecode_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;
