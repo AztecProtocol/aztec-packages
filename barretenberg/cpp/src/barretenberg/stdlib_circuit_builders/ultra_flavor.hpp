@@ -323,10 +323,10 @@ class UltraFlavor {
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
      * from ProvingKey.
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
+    class ProvingKey : public ProvingKeyNew_<CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
+        using Base = ProvingKeyNew_<CommitmentKey>;
         using Base::Base;
 
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs)

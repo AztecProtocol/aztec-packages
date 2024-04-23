@@ -98,6 +98,38 @@ class PrecomputedEntitiesBase {
  * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
  * from the other template paramter.
  */
+template <typename CommitmentKey_> class ProvingKeyNew_ {
+  public:
+    using FF = bb::fr; // WORKTODO
+
+    size_t circuit_size;
+    bool contains_recursive_proof;
+    std::vector<uint32_t> recursive_proof_public_input_indices;
+    bb::EvaluationDomain<FF> evaluation_domain;
+    std::shared_ptr<CommitmentKey_> commitment_key;
+    size_t num_public_inputs;
+    size_t log_circuit_size;
+
+    // offset due to placing zero wires at the start of execution trace
+    // non-zero  for Instances constructed from circuits, this concept doesn't exist for accumulated
+    // instances
+    size_t pub_inputs_offset = 0;
+
+    // The number of public inputs has to be the same for all instances because they are
+    // folded element by element.
+    std::vector<FF> public_inputs;
+
+    // This order matters! must match get_unshifted in entity classes
+    ProvingKeyNew_() = default;
+    ProvingKeyNew_(const size_t circuit_size, const size_t num_public_inputs)
+    {
+        this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
+        this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
+        this->circuit_size = circuit_size;
+        this->log_circuit_size = numeric::get_msb(circuit_size);
+        this->num_public_inputs = num_public_inputs;
+    };
+};
 template <typename PrecomputedPolynomials, typename WitnessPolynomials, typename CommitmentKey_>
 class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
   public:
