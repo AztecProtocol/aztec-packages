@@ -609,8 +609,7 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
   // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
   // the key registry has already been deployed to the correct address.
   if (
-    (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId ===
-    canonicalKeyRegistry.contractClass.id
+    (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId.equals(canonicalKeyRegistry.contractClass.id)
   ) {
     return;
   }
