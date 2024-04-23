@@ -46,6 +46,7 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { getCanonicalGasToken, getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
@@ -587,15 +588,13 @@ export async function deployCanonicalGasToken(deployer: Wallet) {
     return;
   }
 
-  await new BatchCall(deployer, [
-    (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
-    deployInstance(deployer, canonicalGasToken.instance).request(),
-  ])
-    .send()
-    .wait();
+  const gasToken = await GasTokenContract.deploy(deployer, gasPortalAddress)
+    .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
+    .deployed();
 
-  await expect(deployer.isContractClassPubliclyRegistered(canonicalGasToken.contractClass.id)).resolves.toBe(true);
-  await expect(deployer.getContractInstance(canonicalGasToken.instance.address)).resolves.toBeDefined();
+  await expect(deployer.isContractClassPubliclyRegistered(gasToken.instance.contractClassId)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(gasToken.address)).resolves.toBeDefined();
+  await expect(deployer.isContractPubliclyDeployed(gasToken.address)).resolves.toBe(true);
 }
 
 export async function deployCanonicalKeyRegistry(deployer: Wallet) {

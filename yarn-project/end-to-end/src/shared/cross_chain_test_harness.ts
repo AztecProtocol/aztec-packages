@@ -101,15 +101,13 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   const token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
   // deploy l2 token bridge and attach to the portal
-  const bridge = await TokenBridgeContract.deploy(wallet, token.address)
-    .send({ portalContract: tokenPortalAddress })
-    .deployed();
+  const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send().deployed();
 
   if ((await token.methods.admin().simulate()) !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_token().simulate()).equals(token.address)) {
+  if (!(await bridge.methods.token().simulate()).equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 
