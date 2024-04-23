@@ -1,13 +1,15 @@
 # Aztec.nr compiler
 
-The Aztec.nr compiler compiles Aztec.nr contracts using nargo and outputs Aztec formatted contract ABIs. The compiler can also generate typescript classes for each contract, as well as Aztec.nr interfaces for calling external functions.
+The Aztec.nr compiler compiles Aztec.nr contracts using nargo and outputs Aztec formatted contract ABIs.
+The compiler can also generate typescript classes for each contract, as well as Aztec.nr interfaces for calling external functions.
+it can also be used to update aztec project dependencies.
 
 ## Installation
 
 To install the package, run: 
 
 ```bash
-yarn add @aztec/noir-compiler
+yarn add @aztec/builder
 ```
 
 ## Usage
