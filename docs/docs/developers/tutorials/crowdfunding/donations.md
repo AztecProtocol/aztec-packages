@@ -50,7 +50,7 @@ Use `aztec-nargo --help` to see other commands.
 2. Any address can donate (in private context)
 
 - private transfer token from sender to contract
-- privately note amount donated (claimable via other contract)
+- transaction receipts allow private claims via another contract
 
 3. Only the operator can withdraw from fund
 
