@@ -325,21 +325,28 @@ class GoblinTranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        // everything but ConcatenatedRangeConstraints
+        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
-        auto get_unshifted()
+        auto get_unshifted_without_concatenated()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all(),
                                DerivedWitnessEntities<DataType>::get_all());
         }
-        // everything but ConcatenatedRangeConstraints
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
+
+        auto get_unshifted()
+        {
+            return concatenate(WireNonshiftedEntities<DataType>::get_all(),
+                               WireToBeShiftedEntities<DataType>::get_all(),
+                               DerivedWitnessEntities<DataType>::get_all(),
+                               ConcatenatedRangeConstraints<DataType>::get_all());
+        }
         std::vector<std::string> get_unshifted_labels()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_labels(),
                                WireToBeShiftedEntities<DataType>::get_labels(),
-                               DerivedWitnessEntities<DataType>::get_labels());
+                               DerivedWitnessEntities<DataType>::get_labels(),
+                               ConcatenatedRangeConstraints<DataType>::get_labels());
         }
         auto get_to_be_shifted()
         {
@@ -658,6 +665,13 @@ class GoblinTranslatorFlavor {
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
+        }
+        // everything but ConcatenatedRangeConstraints (used for ZeroMorph input since concatenated handled separately)
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
+        auto get_unshifted_without_concatenated()
+        {
+            return concatenate(PrecomputedEntities<DataType>::get_all(),
+                               WitnessEntities<DataType>::get_unshifted_without_concatenated());
         }
         // get_to_be_shifted is inherited
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
