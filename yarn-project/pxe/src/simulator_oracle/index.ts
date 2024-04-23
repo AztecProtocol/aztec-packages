@@ -127,10 +127,6 @@ export class SimulatorOracle implements DBOracle {
     return artifact && getFunctionArtifactWithDebugMetadata(artifact, functionName);
   }
 
-  async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
-    return await this.contractDataOracle.getPortalContractAddress(contractAddress);
-  }
-
   /**
    * Fetches a message from the db, given its key.
    * @param contractAddress - Address of a contract by which the message was emitted.
