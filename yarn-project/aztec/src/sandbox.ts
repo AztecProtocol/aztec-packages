@@ -199,7 +199,8 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
   if (
     (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId.equals(
       canonicalKeyRegistry.contractClass.id,
-    ) && await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)
+    ) &&
+    (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id))
   ) {
     return;
   }
