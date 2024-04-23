@@ -14,7 +14,7 @@ impl BaseParityInputs {
         let pedersen_tree = MerkleTree::new(self.msgs);
 
         ParityPublicInputs {
-            aggregation_object: AggregationObject {},
+            //aggregation_object: AggregationObject {},
             sha_root: sha_tree.get_root(),
             converted_root: pedersen_tree.get_root()
         }

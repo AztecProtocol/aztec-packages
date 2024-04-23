@@ -10,6 +10,7 @@ import {
 import { AggregationObject } from '../aggregation_object.js';
 import { Header } from '../header.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
+import { NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS } from '../recursive_proof.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 
@@ -27,7 +28,7 @@ export class RootRollupInputs {
     /**
      * The original and converted roots of the L1 to L2 messages subtrees.
      */
-    public l1ToL2Roots: RootParityInput,
+    public l1ToL2Roots: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
     /**
      * New L1 to L2 messages.
      */
@@ -101,7 +102,7 @@ export class RootRollupInputs {
     const reader = BufferReader.asReader(buffer);
     return new RootRollupInputs(
       [reader.readObject(PreviousRollupData), reader.readObject(PreviousRollupData)],
-      reader.readObject(RootParityInput),
+      RootParityInput.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS),
       reader.readArray(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr),
       reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readObject(AppendOnlyTreeSnapshot),

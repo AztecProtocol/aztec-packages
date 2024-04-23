@@ -22,7 +22,6 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
-  CircuitType,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -68,6 +67,7 @@ import {
   MaxBlockNumber,
   MembershipWitness,
   MergeRollupInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -112,6 +112,7 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
+  RECURSIVE_PROOF_LENGTH_IN_FIELDS,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   ReadRequestContext,
@@ -131,6 +132,7 @@ import {
   VerificationKey,
   computeContractClassId,
   computePublicBytecodeCommitment,
+  makeRecursiveProof,
   packBytecode,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
@@ -620,16 +622,7 @@ export function makeEmptyNoteHashReadRequestMembershipWitness(): NoteHashReadReq
  * @returns A verification key.
  */
 export function makeVerificationKey(): VerificationKey {
-  return new VerificationKey(
-    CircuitType.STANDARD,
-    101, // arbitrary
-    102, // arbitrary
-    {
-      A: new G1AffineElement(new Fq(0x200), new Fq(0x300)),
-    },
-    /* recursive proof */ true,
-    range(5, 400),
-  );
+  return VerificationKey.makeFake();
 }
 
 /**
@@ -1075,7 +1068,10 @@ export function makePreviousRollupData(
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
   return new RootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
-    makeRootParityInput(seed + 0x2000),
+    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>(
+      NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+      seed + 0x2000,
+    ),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
@@ -1084,13 +1080,20 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
   );
 }
 
-export function makeRootParityInput(seed = 0): RootParityInput {
-  return new RootParityInput(makeProof(seed), makeParityPublicInputs(seed + 0x100));
+export function makeRootParityInput<PROOF_LENGTH extends number>(
+  proofSize: PROOF_LENGTH,
+  seed = 0,
+): RootParityInput<PROOF_LENGTH> {
+  return new RootParityInput<PROOF_LENGTH>(
+    makeRecursiveProof<PROOF_LENGTH>(proofSize, seed),
+    VerificationKey.makeFake(seed + 0x100),
+    makeParityPublicInputs(seed + 0x200),
+  );
 }
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
   return new ParityPublicInputs(
-    makeAggregationObject(seed),
+    //makeAggregationObject(seed),
     new Fr(BigInt(seed + 0x200)),
     new Fr(BigInt(seed + 0x300)),
   );
@@ -1101,7 +1104,13 @@ export function makeBaseParityInputs(seed = 0): BaseParityInputs {
 }
 
 export function makeRootParityInputs(seed = 0): RootParityInputs {
-  return new RootParityInputs(makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, makeRootParityInput, seed + 0x4000));
+  return new RootParityInputs(
+    makeTuple(
+      NUM_BASE_PARITY_PER_ROOT_PARITY,
+      () => makeRootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>(RECURSIVE_PROOF_LENGTH_IN_FIELDS),
+      seed + 0x4100,
+    ),
+  );
 }
 
 /**

@@ -25,7 +25,8 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
-  RootParityInput,
+  type RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  type RootParityInput,
   RootParityInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
@@ -494,7 +495,7 @@ export class ProvingOrchestrator {
       return;
     }
     logger.info(`Completed merge rollup at level ${level}, index ${index}`);
-    this.storeAndExecuteNextMergeLevel(provingState, level, index, circuitOutputs);
+    this.storeAndExecuteNextMergeLevel(provingState, level, index, [circuitOutputs[0], circuitOutputs[1]]);
   }
 
   // Executes the root rollup circuit
@@ -539,10 +540,7 @@ export class ProvingOrchestrator {
       logger.debug('Not running base parity, state no longer valid');
       return;
     }
-    const [duration, circuitOutputs] = await elapsed(async () => {
-      const [parityPublicInputs, proof] = await this.prover.getBaseParityProof(inputs);
-      return new RootParityInput(proof, parityPublicInputs);
-    });
+    const [duration, circuitOutputs] = await elapsed(() => this.prover.getBaseParityProof(inputs));
     logger.debug(`Simulated base parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'base-parity',
@@ -562,7 +560,10 @@ export class ProvingOrchestrator {
       return;
     }
     const rootParityInputs = new RootParityInputs(
-      provingState.rootParityInput as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+      provingState.rootParityInput as Tuple<
+        RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
+        typeof NUM_BASE_PARITY_PER_ROOT_PARITY
+      >,
     );
     this.enqueueJob(provingState, PROVING_JOB_TYPE.ROOT_PARITY, () =>
       this.runRootParityCircuit(provingState, rootParityInputs),
@@ -576,10 +577,7 @@ export class ProvingOrchestrator {
       logger.debug(`Not running root parity circuit as state is no longer valid`);
       return;
     }
-    const [duration, circuitOutputs] = await elapsed(async () => {
-      const [parityPublicInputs, proof] = await this.prover.getRootParityProof(inputs);
-      return new RootParityInput(proof, parityPublicInputs);
-    });
+    const [duration, circuitOutputs] = await elapsed(() => this.prover.getRootParityProof(inputs));
     logger.debug(`Simulated root parity circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'root-parity',

@@ -1,8 +1,12 @@
-use dep::types::{merkle_tree::MerkleTree, mocked::AggregationObject};
+use dep::types::{
+    merkle_tree::MerkleTree, mocked::AggregationObject,
+    recursion::{verification_key::VerificationKey, proof::RecursiveProof}, traits::Serialize
+};
 use crate::{
     parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput,
     utils::sha256_merkle_tree::Sha256MerkleTree
 };
+use dep::std;
 
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
 
@@ -12,7 +16,7 @@ struct RootParityInputs {
 
 impl RootParityInputs {
     pub fn root_parity_circuit(self) -> ParityPublicInputs {
-        // TODO: verify proofs of inputs.children
+        self.verify_child_proofs();
 
         let mut sha_roots = [0; NUM_BASE_PARITY_PER_ROOT_PARITY];
         let mut converted_roots = [0; NUM_BASE_PARITY_PER_ROOT_PARITY];
@@ -25,9 +29,20 @@ impl RootParityInputs {
         let pedersen_tree = MerkleTree::new(converted_roots);
 
         ParityPublicInputs {
-            aggregation_object: AggregationObject {},
+            //aggregation_object: AggregationObject {},
             sha_root: sha_tree.get_root(),
             converted_root: pedersen_tree.get_root()
+        }
+    }
+
+    fn verify_child_proofs(self) {
+        for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
+            std::verify_proof(
+                self.children[i].verification_key.key.as_slice(),
+                self.children[i].proof.fields.as_slice(),
+                ParityPublicInputs::serialize(self.children[i].public_inputs).as_slice(),
+                self.children[i].verification_key.hash
+            );
         }
     }
 }
@@ -37,7 +52,8 @@ mod tests {
         parity_public_inputs::ParityPublicInputs,
         root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs}
     };
-    use dep::types::mocked::{AggregationObject, Proof};
+    use dep::types::mocked::AggregationObject;
+    use dep::types::recursion::{verification_key::VerificationKey, proof::RecursiveProof};
 
     #[test]
     fn test_sha_root_matches_frontier_tree() {
@@ -51,20 +67,24 @@ mod tests {
 
         let children = [
             RootParityInput {
-                proof: Proof {},
-                public_inputs: ParityPublicInputs { aggregation_object: AggregationObject {}, sha_root: children_sha_roots[0], converted_root: 0 }
+                proof: RecursiveProof::empty(),
+                verification_key: VerificationKey::empty(),
+                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[0], converted_root: 0 }
             },
             RootParityInput {
-                proof: Proof {},
-                public_inputs: ParityPublicInputs { aggregation_object: AggregationObject {}, sha_root: children_sha_roots[1], converted_root: 0 }
+                proof: RecursiveProof::empty(),
+                verification_key: VerificationKey::empty(),
+                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[1], converted_root: 0 }
             },
             RootParityInput {
-                proof: Proof {},
-                public_inputs: ParityPublicInputs { aggregation_object: AggregationObject {}, sha_root: children_sha_roots[2], converted_root: 0 }
+                proof: RecursiveProof::empty(),
+                verification_key: VerificationKey::empty(),
+                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[2], converted_root: 0 }
             },
             RootParityInput {
-                proof: Proof {},
-                public_inputs: ParityPublicInputs { aggregation_object: AggregationObject {}, sha_root: children_sha_roots[3], converted_root: 0 }
+                proof: RecursiveProof::empty(),
+                verification_key: VerificationKey::empty(),
+                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[3], converted_root: 0 }
             }
         ];
 

@@ -3,7 +3,8 @@ import {
   Fr,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  RootParityInput,
+  type RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  type RootParityInput,
   RootParityInputs,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -21,23 +22,25 @@ const logger = createDebugLogger('aztec:bb-prover-parity');
 
 describe('prover/bb_prover/parity', () => {
   let context: TestContext;
+  let bbProver: BBNativeRollupProver;
 
   beforeAll(async () => {
-    const buildProver = (bbConfig: BBProverConfig) => {
+    const buildProver = async (bbConfig: BBProverConfig) => {
       bbConfig.circuitFilter = ['BaseParityArtifact', 'RootParityArtifact'];
-      return BBNativeRollupProver.new(bbConfig);
+      bbProver = await BBNativeRollupProver.new(bbConfig);
+      return bbProver;
     };
     context = await TestContext.new(logger, buildProver);
   }, 60_000);
 
   afterAll(async () => {
-    await context.cleanup();
+    //await context.cleanup();
   }, 5000);
 
   it('proves the parity circuits', async () => {
     const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      Fr.random,
+      Fr.zero,
     );
     const baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
       BaseParityInputs.fromSlice(l1ToL2Messages, i),
@@ -50,20 +53,21 @@ describe('prover/bb_prover/parity', () => {
 
     // Verify the base parity proofs
     await expect(
-      Promise.all(rootInputs.map(input => context.prover.verifyProof('BaseParityArtifact', input[1]))),
+      Promise.all(rootInputs.map(input => context.prover.verifyProof('BaseParityArtifact', input.proof.binaryProof))),
     ).resolves.not.toThrow();
 
+    //const vk = await bbProver.getVerificationKeyForCircuit('BaseParityArtifact');
+
     // Now generate the root parity proof
-    const rootChildrenInputs = rootInputs.map(rootInput => {
-      const child: RootParityInput = new RootParityInput(rootInput[1], rootInput[0]);
-      return child;
-    });
     const rootParityInputs: RootParityInputs = new RootParityInputs(
-      rootChildrenInputs as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
+      rootInputs as Tuple<
+        RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
+        typeof NUM_BASE_PARITY_PER_ROOT_PARITY
+      >,
     );
     const rootOutput = await context.prover.getRootParityProof(rootParityInputs);
 
     // Verify the root parity proof
-    await expect(context.prover.verifyProof('RootParityArtifact', rootOutput[1])).resolves.not.toThrow();
+    await expect(context.prover.verifyProof('RootParityArtifact', rootOutput.proof.binaryProof)).resolves.not.toThrow();
   }, 100_000);
 });

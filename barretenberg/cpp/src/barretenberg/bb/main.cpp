@@ -96,6 +96,30 @@ std::vector<acir_format::AcirFormat> get_constraint_systems(std::string const& b
     return acir_format::program_buf_to_acir_format(bytecode);
 }
 
+std::string proof_to_json(std::vector<bb::fr>& proof)
+{
+    return format("[", join(map(proof, [](auto fr) { return format("\"", fr, "\""); })), "]");
+}
+
+std::string vk_to_json(std::shared_ptr<bb::plonk::verification_key> vk)
+{
+    auto data = acir_format::export_key_in_recursion_format(vk);
+
+    std::vector<bb::fr> no_hash;
+    std::copy(data.begin(), data.end() - 1, std::back_inserter(no_hash));
+    bb::fr hash = data[data.size() - 1];
+
+    return format("{",
+                  " \"hash\": ",
+                  "\"",
+                  hash,
+                  "\", \"num_public_inputs\": ",
+                  vk->as_data().num_public_inputs,
+                  ", \"fields\": [",
+                  join(map(no_hash, [](auto fr) { return format("\"", fr, "\""); })),
+                  "]}");
+}
+
 /**
  * @brief Proves and Verifies an ACIR circuit
  *
@@ -259,8 +283,7 @@ bool proveAndVerifyGoblin(const std::string& bytecodePath, const std::string& wi
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param witnessPath Path to the file containing the serialized witness
- * @param recursive Whether to use recursive proof generation of non-recursive
- * @param outputPath Path to write the proof to
+ * @param outputPath Directory into which we write the proof and verification key
  */
 void prove(const std::string& bytecodePath, const std::string& witnessPath, const std::string& outputPath)
 {
@@ -272,14 +295,42 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
+    std::cerr << "Proof length: " << proof.size() << std::endl;
 
     if (outputPath == "-") {
+        // We have been told to write to stdout, we will just write the proof
         writeRawBytesToStdout(proof);
         vinfo("proof written to stdout");
-    } else {
-        write_file(outputPath, proof);
-        vinfo("proof written to: ", outputPath);
+        return;
     }
+    // We have been given a directory, we will write the proof and verification key
+    // into the directory in both 'binary' and 'fields' formats
+    std::string vkOutputPath = outputPath + "/vk";
+    std::string proofPath = outputPath + "/proof";
+    std::string vkFieldsOutputPath = outputPath + "/vk_fields.json";
+    std::string proofFieldsPath = outputPath + "/proof_fields.json";
+
+    std::shared_ptr<bb::plonk::verification_key> vk = acir_composer.init_verification_key();
+
+    // Write the 'binary' proof
+    write_file(proofPath, proof);
+    vinfo("proof written to: ", proofPath);
+
+    // Write the proof as fields
+    auto proofAsFields = acir_composer.serialize_proof_into_fields(proof, vk->as_data().num_public_inputs);
+    std::string proofJson = proof_to_json(proofAsFields);
+    write_file(proofFieldsPath, { proofJson.begin(), proofJson.end() });
+    vinfo("proof as fields written to: ", proofFieldsPath);
+
+    // Write the vk as binary
+    auto serialized_vk = to_buffer(*vk);
+    write_file(vkOutputPath, serialized_vk);
+    vinfo("vk written to: ", vkOutputPath);
+
+    // Write the vk as fields
+    std::string vk_json = vk_to_json(vk);
+    write_file(vkFieldsOutputPath, { vk_json.begin(), vk_json.end() });
+    vinfo("vk as fields written to: ", vkFieldsOutputPath);
 }
 
 /**
@@ -346,6 +397,7 @@ void write_vk(const std::string& bytecodePath, const std::string& outputPath)
     init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto vk = acir_composer.init_verification_key();
+
     auto serialized_vk = to_buffer(*vk);
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_vk);
@@ -433,7 +485,7 @@ void proof_as_fields(const std::string& proof_path, std::string const& vk_path, 
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
     auto data = acir_composer.serialize_proof_into_fields(read_file(proof_path), vk_data.num_public_inputs);
-    auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+    auto json = proof_to_json(data);
 
     if (output_path == "-") {
         writeStringToStdout(json);
@@ -461,13 +513,8 @@ void vk_as_fields(const std::string& vk_path, const std::string& output_path)
 {
     auto acir_composer = verifier_init();
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
-    acir_composer.load_verification_key(std::move(vk_data));
-    auto data = acir_composer.serialize_verification_key_into_fields();
-
-    // We need to move vk_hash to the front...
-    std::rotate(data.begin(), data.end() - 1, data.end());
-
-    auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
+    auto vk = acir_composer.load_verification_key(std::move(vk_data));
+    auto json = vk_to_json(vk);
     if (output_path == "-") {
         writeStringToStdout(json);
         vinfo("vk as fields written to stdout");
@@ -630,7 +677,7 @@ int main(int argc, char* argv[])
         }
 
         if (command == "prove") {
-            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            std::string output_path = get_option(args, "-o", "./proofs");
             prove(bytecode_path, witness_path, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);

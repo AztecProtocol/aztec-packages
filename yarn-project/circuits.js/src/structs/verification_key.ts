@@ -1,8 +1,6 @@
-import { times } from '@aztec/foundation/collection';
-import { Fq } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { CircuitType } from './shared.js';
+import { makeTuple } from '@aztec/foundation/array';
+import { Fq, Fr } from '@aztec/foundation/fields';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /**
  * Curve data.
@@ -72,51 +70,24 @@ export class CommitmentMap {
   }
 }
 
+export const NUM_FIELDS_IN_VK = 114;
+
 /**
  * Kate commitment key object for verifying pairing equations.
  * @see proof_system/verification_key/verification_key.hpp
  */
 export class VerificationKey {
-  constructor(
-    /**
-     * For Plonk, this is equivalent to the proving system used to prove and verify.
-     */
-    public circuitType: CircuitType,
-    /**
-     * The number of gates in this circuit.
-     */
-    public circuitSize: number,
-    /**
-     * The number of public inputs in this circuit.
-     */
-    public numPublicInputs: number,
-    /**
-     * The commitments for this circuit.
-     */
-    public commitments: Record<string, G1AffineElement>,
-    /**
-     * Contains a recursive proof?
-     */
-    public containsRecursiveProof: boolean,
-    /**
-     * Recursion stack.
-     */
-    public recursiveProofPublicInputIndices: number[],
-  ) {}
+  constructor(public key: Tuple<Fr, typeof NUM_FIELDS_IN_VK>, public hash: Fr) {}
 
   /**
    * Serialize as a buffer.
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(
-      this.circuitType,
-      this.circuitSize,
-      this.numPublicInputs,
-      new CommitmentMap(this.commitments),
-      this.containsRecursiveProof,
-      serializeToBuffer(this.recursiveProofPublicInputIndices.length, this.recursiveProofPublicInputIndices),
-    );
+    return serializeToBuffer(this.key, this.hash);
+  }
+  toFields() {
+    return [...this.key, this.hash];
   }
 
   /**
@@ -126,28 +97,14 @@ export class VerificationKey {
    */
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKey {
     const reader = BufferReader.asReader(buffer);
-    return new VerificationKey(
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readNumber(),
-      reader.readObject(CommitmentMap).record,
-      reader.readBoolean(),
-      reader.readNumberVector(),
-    );
+    return new VerificationKey(reader.readArray(NUM_FIELDS_IN_VK, Fr), reader.readObject(Fr));
   }
 
   /**
    * Builds a fake verification key that should be accepted by circuits.
    * @returns A fake verification key.
    */
-  static makeFake(): VerificationKey {
-    return new VerificationKey(
-      CircuitType.ULTRA, // This is entirely arbitrary
-      2048,
-      116,
-      {}, // Empty set of commitments
-      false,
-      times(16, i => i),
-    );
+  static makeFake(seed = 1): VerificationKey {
+    return new VerificationKey(makeTuple(NUM_FIELDS_IN_VK, Fr.random, seed), Fr.random());
   }
 }

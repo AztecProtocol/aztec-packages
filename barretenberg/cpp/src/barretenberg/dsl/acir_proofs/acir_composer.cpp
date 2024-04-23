@@ -75,10 +75,12 @@ std::shared_ptr<bb::plonk::verification_key> AcirComposer::init_verification_key
     return verification_key_;
 }
 
-void AcirComposer::load_verification_key(bb::plonk::verification_key_data&& data)
+std::shared_ptr<bb::plonk::verification_key> AcirComposer::load_verification_key(
+    bb::plonk::verification_key_data&& data)
 {
     verification_key_ = std::make_shared<bb::plonk::verification_key>(std::move(data),
                                                                       srs::get_bn254_crs_factory()->get_verifier_crs());
+    return verification_key_;
 }
 
 bool AcirComposer::verify_proof(std::vector<uint8_t> const& proof)

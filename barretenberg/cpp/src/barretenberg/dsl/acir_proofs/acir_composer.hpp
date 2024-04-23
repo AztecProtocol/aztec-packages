@@ -23,7 +23,7 @@ class AcirComposer {
 
     std::vector<uint8_t> create_proof();
 
-    void load_verification_key(bb::plonk::verification_key_data&& data);
+    std::shared_ptr<bb::plonk::verification_key> load_verification_key(bb::plonk::verification_key_data&& data);
 
     std::shared_ptr<bb::plonk::verification_key> init_verification_key();
 

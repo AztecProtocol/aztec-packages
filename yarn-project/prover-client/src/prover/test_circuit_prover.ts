@@ -6,13 +6,17 @@ import {
   type BaseRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type ParityPublicInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
   type Proof,
   type PublicKernelCircuitPublicInputs,
+  RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  VerificationKey,
   makeEmptyProof,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
@@ -58,7 +62,9 @@ export class TestCircuitProver implements CircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  public async getBaseParityProof(inputs: BaseParityInputs): Promise<[ParityPublicInputs, Proof]> {
+  public async getBaseParityProof(
+    inputs: BaseParityInputs,
+  ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
     // use WASM here as it is faster for small circuits
@@ -66,7 +72,13 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([result, makeEmptyProof()]);
+    const rootParityInputs = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>(
+      makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>(RECURSIVE_PROOF_LENGTH_IN_FIELDS),
+      VerificationKey.makeFake(),
+      result,
+    );
+
+    return Promise.resolve(rootParityInputs);
   }
 
   /**
@@ -74,7 +86,9 @@ export class TestCircuitProver implements CircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  public async getRootParityProof(inputs: RootParityInputs): Promise<[ParityPublicInputs, Proof]> {
+  public async getRootParityProof(
+    inputs: RootParityInputs,
+  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
     // use WASM here as it is faster for small circuits
@@ -82,7 +96,13 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([result, makeEmptyProof()]);
+    const rootParityInputs = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>(
+      makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>(NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS),
+      VerificationKey.makeFake(),
+      result,
+    );
+
+    return Promise.resolve(rootParityInputs);
   }
 
   /**

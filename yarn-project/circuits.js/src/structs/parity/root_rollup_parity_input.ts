@@ -1,14 +1,14 @@
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { RecursiveProof } from '../recursive_proof.js';
+import { RECURSIVE_PROOF_LENGTH_IN_FIELDS, RecursiveProof } from '../recursive_proof.js';
 import { VerificationKey } from '../verification_key.js';
 import { ParityPublicInputs } from './parity_public_inputs.js';
 
-export class RootParityInput<PROOF_LENGTH extends number> {
+export class RootParityInput {
   constructor(
     /** The proof of the execution of the parity circuit. */
-    public readonly proof: RecursiveProof<PROOF_LENGTH>,
+    public readonly proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
     public readonly verificationKey: VerificationKey,
     /** The public inputs of the parity circuit. */
     public readonly publicInputs: ParityPublicInputs,
@@ -18,20 +18,18 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     return serializeToBuffer(...RootParityInput.getFields(this));
   }
 
-  static from<PROOF_LENGTH extends number>(
-    fields: FieldsOf<RootParityInput<PROOF_LENGTH>>,
-  ): RootParityInput<PROOF_LENGTH> {
+  static from(fields: FieldsOf<RootParityInput>): RootParityInput {
     return new RootParityInput(...RootParityInput.getFields(fields));
   }
 
-  static getFields<PROOF_LENGTH extends number>(fields: FieldsOf<RootParityInput<PROOF_LENGTH>>) {
+  static getFields(fields: FieldsOf<RootParityInput>) {
     return [fields.proof, fields.verificationKey, fields.publicInputs] as const;
   }
 
-  static fromBuffer<PROOF_LENGTH extends number>(buffer: Buffer | BufferReader, size: PROOF_LENGTH) {
+  static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new RootParityInput(
-      RecursiveProof.fromBuffer<PROOF_LENGTH>(reader, size),
+      RecursiveProof.fromBuffer(reader, RECURSIVE_PROOF_LENGTH_IN_FIELDS),
       VerificationKey.fromBuffer(reader),
       reader.readObject(ParityPublicInputs),
     );
