@@ -1,5 +1,5 @@
 import {
-  type AccountWalletWithPrivateKey,
+  type AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   type DebugLogger,
@@ -32,8 +32,8 @@ describe('e2e_dapp_subscription', () => {
   let pxe: PXE;
   let logger: DebugLogger;
 
-  let aliceWallet: AccountWalletWithPrivateKey;
-  let bobWallet: AccountWalletWithPrivateKey;
+  let aliceWallet: AccountWalletWithSecretKey;
+  let bobWallet: AccountWalletWithSecretKey;
   let aliceAddress: AztecAddress; // Dapp subscriber.
   let bobAddress: AztecAddress; // Dapp owner.
   let sequencerAddress: AztecAddress;
@@ -47,21 +47,15 @@ describe('e2e_dapp_subscription', () => {
   let bananasPublicBalances: BalancesFn;
   let bananasPrivateBalances: BalancesFn;
 
-  const SUBSCRIPTION_AMOUNT = 100n;
-  const INITIAL_GAS_BALANCE = 1000n;
-  const PUBLICLY_MINTED_BANANAS = 500n;
-  const PRIVATELY_MINTED_BANANAS = 600n;
+  const SUBSCRIPTION_AMOUNT = BigInt(100e9);
+  const INITIAL_GAS_BALANCE = BigInt(1000e9);
+  const PUBLICLY_MINTED_BANANAS = BigInt(500e9);
+  const PRIVATELY_MINTED_BANANAS = BigInt(600e9);
 
   const FEE_AMOUNT = 1n;
-  const REFUND = 29n; // intentionally overpay the gas fee. This is the expected refund.
-  const MAX_FEE = FEE_AMOUNT + REFUND;
+  const MAX_FEE = BigInt(30e9);
 
-  const GAS_SETTINGS = GasSettings.new({
-    da: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    l1: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    l2: { gasLimit: 5, teardownGasLimit: 3, maxFeePerGas: Fr.ONE },
-    inclusionFee: new Fr(6),
-  });
+  const GAS_SETTINGS = GasSettings.default();
 
   beforeAll(async () => {
     process.env.PXE_URL = '';
@@ -69,7 +63,7 @@ describe('e2e_dapp_subscription', () => {
 
     expect(GAS_SETTINGS.getFeeLimit().toBigInt()).toEqual(MAX_FEE);
 
-    let wallets: AccountWalletWithPrivateKey[];
+    let wallets: AccountWalletWithSecretKey[];
     let aztecNode: AztecNode;
     let deployL1ContractsValues: DeployL1Contracts;
     ({ wallets, aztecNode, deployL1ContractsValues, logger, pxe } = await setup(3, {}, {}, true));

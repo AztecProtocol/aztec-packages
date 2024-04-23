@@ -3,9 +3,7 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   FunctionData,
-  Gas,
   GasFees,
-  GasSettings,
   GlobalVariables,
   type Header,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -48,7 +46,6 @@ describe('ACIR public execution simulator', () => {
   let executor: PublicExecutor;
   let header: Header;
 
-  const gasLeft = new Gas(1e9, 1e9, 1e9);
   const globalVariables = GlobalVariables.empty();
 
   beforeEach(() => {
@@ -93,14 +90,10 @@ describe('ACIR public execution simulator', () => {
     CallContext.from({
       storageContractAddress,
       msgSender: AztecAddress.random(),
-      gasLeft,
-      portalContractAddress: EthAddress.random(),
       functionSelector: FunctionSelector.empty(),
       isDelegateCall: false,
       isStaticCall: false,
       sideEffectCounter: 0,
-      gasSettings: GasSettings.empty(),
-      transactionFee: Fr.ZERO,
       ...overrides,
     });
 
@@ -351,11 +344,10 @@ describe('ACIR public execution simulator', () => {
       const createL2ToL1MessagePublicArtifact = TestContractArtifact.functions.find(
         f => f.name === 'create_l2_to_l1_message_public',
       )!;
-      const args = encodeArguments(createL2ToL1MessagePublicArtifact, params);
-
       const portalContractAddress = EthAddress.random();
+      const args = encodeArguments(createL2ToL1MessagePublicArtifact, [...params, portalContractAddress]);
 
-      const callContext = makeCallContext(contractAddress, { portalContractAddress });
+      const callContext = makeCallContext(contractAddress);
 
       publicContracts.getBytecode.mockResolvedValue(createL2ToL1MessagePublicArtifact.bytecode);
 
@@ -425,12 +417,16 @@ describe('ACIR public execution simulator', () => {
           secret,
         );
 
-      const computeArgs = () => encodeArguments(mintPublicArtifact, [tokenRecipient, bridgedAmount, secret, leafIndex]);
+      const computeArgs = () =>
+        encodeArguments(mintPublicArtifact, [
+          tokenRecipient,
+          bridgedAmount,
+          secret,
+          leafIndex,
+          crossChainMsgSender ?? preimage.sender.sender,
+        ]);
 
-      const computeCallContext = () =>
-        makeCallContext(contractAddress, {
-          portalContractAddress: crossChainMsgSender ?? preimage.sender.sender,
-        });
+      const computeCallContext = () => makeCallContext(contractAddress);
 
       const computeGlobalVariables = () =>
         new GlobalVariables(
