@@ -8,21 +8,20 @@
 
 namespace bb {
 
-/**
- * Create GoblinTranslatorProver from proving key, witness and manifest.
- *
- * @param input_key Proving key.
- * @param input_manifest Input manifest
- *
- * @tparam settings Settings class.
- * */
-GoblinTranslatorProver::GoblinTranslatorProver(const std::shared_ptr<typename Flavor::ProvingKey>& input_key,
-                                               const std::shared_ptr<CommitmentKey>& commitment_key,
+GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
                                                const std::shared_ptr<Transcript>& transcript)
-    : transcript(transcript)
-    , key(input_key)
-    , commitment_key(commitment_key)
+    : dyadic_circuit_size(Flavor::compute_dyadic_circuit_size(circuit_builder))
+    , mini_circuit_dyadic_size(Flavor::compute_mini_circuit_dyadic_size(circuit_builder))
+    , transcript(transcript)
 {
+    BB_OP_COUNT_TIME();
+
+    // Compute total number of gates, dyadic circuit size, etc.
+    key = std::make_shared<ProvingKey>(circuit_builder);
+    dyadic_circuit_size = key->circuit_size;
+    compute_witness(circuit_builder);
+    compute_commitment_key(key->circuit_size);
+
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly));
         prover_poly = key_poly.share();
@@ -37,23 +36,6 @@ GoblinTranslatorProver::GoblinTranslatorProver(const std::shared_ptr<typename Fl
     prover_polynomials.concatenated_range_constraints_1 = key->concatenated_range_constraints_1;
     prover_polynomials.concatenated_range_constraints_2 = key->concatenated_range_constraints_2;
     prover_polynomials.concatenated_range_constraints_3 = key->concatenated_range_constraints_3;
-}
-
-GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
-                                               const std::shared_ptr<Transcript>& transcript)
-    : dyadic_circuit_size(Flavor::compute_dyadic_circuit_size(circuit_builder))
-    , mini_circuit_dyadic_size(Flavor::compute_mini_circuit_dyadic_size(circuit_builder))
-
-{
-    BB_OP_COUNT_TIME();
-
-    // Compute total number of gates, dyadic circuit size, etc.
-    key = std::make_shared<ProvingKey>(circuit_builder);
-    dyadic_circuit_size = key->circuit_size;
-    compute_witness(circuit_builder);
-    compute_commitment_key(key->circuit_size);
-
-    *this = GoblinTranslatorProver(key, commitment_key, transcript);
 }
 
 /**
