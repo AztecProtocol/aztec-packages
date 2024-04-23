@@ -614,7 +614,7 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
 
   if (!keyRegistry.address.equals(canonicalKeyRegistry.address) || !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))) {
     throw new Error(
-      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}`,
+      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}, or they both do not equal CANONICAL_KEY_REGISTRY_ADDRESS`,
     );
   }
   
