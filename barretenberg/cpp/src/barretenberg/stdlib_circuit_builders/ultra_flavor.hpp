@@ -288,6 +288,13 @@ class UltraFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
+        ProverPolynomials(size_t circuit_size)
+        { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+            for (auto& poly : get_unshifted()) {
+                poly = Polynomial{ circuit_size };
+            }
+            set_shifted();
+        }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
         ProverPolynomials(const ProverPolynomials& o) = delete;
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
@@ -303,6 +310,7 @@ class UltraFlavor {
             return result;
         }
 
+        // Set all shifted polynomials based on their to-be-shifted counterpart
         void set_shifted()
         {
             for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
@@ -321,10 +329,14 @@ class UltraFlavor {
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
 
+        ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
+            : Base(circuit_size, num_public_inputs)
+            , polynomials(circuit_size){};
+
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         std::array<Polynomial, 4> sorted_polynomials;
-        ProverPolynomials polynomials; // WORKTODO: init all to 0?
+        ProverPolynomials polynomials;
 
         void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
         {

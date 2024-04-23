@@ -141,21 +141,15 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
                                                               typename Flavor::ProvingKey& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
-    // WORKTODO: if we init everything by defualt then we dont need to do this initing
-    // Initialize the ecc op wire polynomials to zero on the whole domain
-    auto op_wire_polynomials = proving_key.polynomials.get_ecc_op_wires();
-    for (auto& poly : op_wire_polynomials) {
-        poly = Polynomial{ proving_key.circuit_size };
-    }
-    auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
-
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
+    auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
-    for (auto [ecc_op_wire, wire] : zip_view(op_wire_polynomials, proving_key.polynomials.get_wires())) {
+    for (auto [ecc_op_wire, wire] :
+         zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
         for (size_t i = 0; i < builder.blocks.ecc_op.size(); ++i) {
             size_t idx = i + op_wire_offset;
             ecc_op_wire[idx] = wire[idx];
-            ecc_op_selector[idx] = 1; // construct the selector as the indicator on the ecc op block
+            ecc_op_selector[idx] = 1; // construct selector as the indicator on the ecc op block
         }
     }
 }

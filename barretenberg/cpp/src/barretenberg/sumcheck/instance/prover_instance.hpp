@@ -52,14 +52,7 @@ template <class Flavor> class ProverInstance_ {
 
         dyadic_circuit_size = compute_dyadic_size(circuit);
 
-        proving_key = std::move(ProvingKey(dyadic_circuit_size, circuit.public_inputs.size()));
-
-        // WORKTODO: move this to a constructor or something? proving_key.polynomials = ProverPolynomials(circuit_size)
-        // Allocate memory for polynomials (excluding shifts which do not have their own memory)
-        for (auto& poly : proving_key.polynomials.get_unshifted()) {
-            poly = Polynomial(dyadic_circuit_size);
-        }
-        proving_key.polynomials.set_shifted();
+        proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size());
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         Trace::populate(circuit, proving_key);

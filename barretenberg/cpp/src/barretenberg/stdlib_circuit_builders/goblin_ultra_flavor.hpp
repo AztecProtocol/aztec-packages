@@ -281,6 +281,13 @@ class GoblinUltraFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
+        ProverPolynomials(size_t circuit_size)
+        { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+            for (auto& poly : get_unshifted()) {
+                poly = Polynomial{ circuit_size };
+            }
+            set_shifted();
+        }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
         ProverPolynomials(const ProverPolynomials& o) = delete;
         ProverPolynomials(ProverPolynomials&& o) noexcept = default;
@@ -314,6 +321,10 @@ class GoblinUltraFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
         using Base::Base;
+
+        ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
+            : Base(circuit_size, num_public_inputs)
+            , polynomials(circuit_size){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
