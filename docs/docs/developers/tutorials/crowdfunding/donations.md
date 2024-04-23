@@ -171,7 +171,11 @@ Like before, you can find these and other `aztec::protocol_types` [here](https:/
 
 The token being used for donations is stored simply as an `AztecAddress` (named `donation_token`). so to easily use it as a token, we let the compiler know that we want the address to have a Token interface. Here we will use a maintained example Token contract.
 
-Add this `Token` contract to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }`
+Add this `Token` contract to Nargo.toml:
+
+```
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
+```
 
 With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract. 
 
@@ -188,9 +192,11 @@ The last thing to do is create a new value note and add it to the `donation_rece
 ### 3. Operator withdrawals
 
 The remaining function to implement, `withdraw`, is reasonably straight-forward:
-- make sure the address calling is the operator address
-- transfer tokens from the contract to the operator
-- reveal that an amount has been withdrawn to the operator
+1. make sure the address calling is the operator address
+2. transfer tokens from the contract to the operator
+3. reveal that an amount has been withdrawn to the operator
+
+The last point is achieved by emitting an unencrypted event log, more [here](https://docs.aztec.network/developers/contracts/writing_contracts/events/emit_event#unencrypted-events).
 
 Copy the last function into your Crowdfunding contract:
 
