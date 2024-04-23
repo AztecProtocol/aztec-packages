@@ -1,6 +1,6 @@
 import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
 import { GeneratorIndex, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
-import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
+import { computeInnerNoteHash, computeNoteContentHash, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import {
   ABIParameterVisibility,
   type FunctionArtifactWithDebugMetadata,
@@ -63,10 +63,10 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const tokenNoteHash = pedersenHash(note.items);
-      const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
+      const tokenNoteHash = computeNoteContentHash(note.items);
+      const innerNoteHash = computeInnerNoteHash(storageSlot, tokenNoteHash);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
-      const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
+      const uniqueSiloedNoteHash = computeUniqueNoteHash(nonce, siloedNoteHash);
       const innerNullifier = poseidon2Hash([
         uniqueSiloedNoteHash,
         appNullifierSecretKey,

@@ -10,7 +10,7 @@ import {
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeSecretHash,
-  computeUniqueCommitment,
+  computeUniqueNoteHash,
   computeVarArgsHash,
   hashVK,
   siloNoteHash,
@@ -35,7 +35,7 @@ describe('hash', () => {
   it('computes unique commitment', () => {
     const nonce = new Fr(123n);
     const innerCommitment = new Fr(456);
-    const res = computeUniqueCommitment(nonce, innerCommitment);
+    const res = computeUniqueNoteHash(nonce, innerCommitment);
     expect(res).toMatchSnapshot();
   });
 

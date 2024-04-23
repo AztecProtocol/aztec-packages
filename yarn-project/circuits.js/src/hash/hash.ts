@@ -76,13 +76,33 @@ export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
 }
 
 /**
- * Computes a unique commitment. It includes a nonce which contains data that guarantees the commitment will be unique.
- * @param nonce - The contract address.
- * @param siloedCommitment - An siloed commitment.
- * @returns A unique commitment.
+ * Computes a note content hash.
+ * @param noteContent - The note content (e.g. note.items).
+ * @returns A note content hash.
  */
-export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
-  return pedersenHash([nonce, siloedCommitment], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeNoteContentHash(noteContent: Fr[]): Fr {
+  return pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
+}
+
+/**
+ * Computes an inner note hash, given a storage slot and a note hash.
+ * @param storageSlot - The storage slot.
+ * @param noteHash - The note hash.
+ * @returns An inner note hash.
+ */
+export function computeInnerNoteHash(storageSlot: Fr, noteHash: Fr): Fr {
+  return pedersenHash([storageSlot, noteHash], GeneratorIndex.INNER_NOTE_HASH);
+}
+
+/**
+ * Computes a unique note hash.
+ * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
+ * @param nonce - The contract address.
+ * @param siloedNoteHash - An siloed note hash.
+ * @returns A unique note hash.
+ */
+export function computeUniqueNoteHash(nonce: Fr, siloedNoteHash: Fr): Fr {
+  return pedersenHash([nonce, siloedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
