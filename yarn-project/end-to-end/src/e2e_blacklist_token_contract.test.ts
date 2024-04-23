@@ -69,6 +69,8 @@ describe('e2e_blacklist_token_contract', () => {
     }
 
     toCallValue() {
+      // We need to use lowercase identifiers as those are what the noir interface expects
+      // eslint-disable-next-line camelcase
       return { is_admin: this.isAdmin, is_minter: this.isMinter, is_blacklisted: this.isBlacklisted };
     }
 
