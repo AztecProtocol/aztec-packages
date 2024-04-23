@@ -275,7 +275,6 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                             }
                             _ => None,
                         };
-                        // TODO add payload to JsExecutionError
 
                         return Err(JsExecutionError::new(
                             error.to_string(),
