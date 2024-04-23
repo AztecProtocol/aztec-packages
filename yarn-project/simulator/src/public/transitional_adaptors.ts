@@ -168,6 +168,7 @@ export async function convertAvmResults(
     nestedExecutions,
     unencryptedLogsHashes,
     unencryptedLogs,
+    unencryptedLogPreimagesLength: new Fr(unencryptedLogs.getSerializedLength()),
     reverted: result.reverted,
     revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,
     gasLeft: endMachineState.gasLeft,

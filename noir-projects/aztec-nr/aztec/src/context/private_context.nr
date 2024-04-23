@@ -43,8 +43,8 @@ struct PrivateContext {
 
     min_revertible_side_effect_counter: u32,
 
-    args_hash : Field,
-    return_hash : Field,
+    args_hash: Field,
+    return_hash: Field,
 
     max_block_number: MaxBlockNumber,
 
@@ -63,9 +63,10 @@ struct PrivateContext {
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
     historical_header: Header,
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_CALL>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
+    encrypted_log_preimages_length: Field,
+    unencrypted_log_preimages_length: Field,
     // encrypted_logs_preimages: Vec<Field>,
     // unencrypted_logs_preimages: Vec<Field>,
 
@@ -137,9 +138,10 @@ impl PrivateContext {
             private_call_stack_hashes: BoundedVec::new(),
             public_call_stack_hashes: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
             nullifier_key: Option::none()
@@ -164,11 +166,7 @@ impl PrivateContext {
     }
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let encrypted_log_preimages_length = 0;
-        let unencrypted_log_preimages_length = 0;
-
-        let priv_circuit_pub_inputs = PrivateCircuitPublicInputs {
+        PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
             returns_hash: self.return_hash,
@@ -186,13 +184,11 @@ impl PrivateContext {
             end_side_effect_counter: self.side_effect_counter,
             encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            encrypted_log_preimages_length,
-            unencrypted_log_preimages_length,
+            encrypted_log_preimages_length: self.encrypted_log_preimages_length + 4,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length + 4,
             historical_header: self.historical_header,
             tx_context: self.inputs.tx_context
-        };
-
-        priv_circuit_pub_inputs
+        }
     }
 
     pub fn capture_min_revertible_side_effect_counter(&mut self) {
@@ -270,15 +266,17 @@ impl PrivateContext {
     pub fn emit_unencrypted_log<T>(&mut self, log: T) where T: ToBytesSlice {
         let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
+        let log_slice = log.to_be_bytes_slice();
         let log_hash = compute_unencrypted_log_hash(
             contract_address,
             event_selector,
-            log.to_be_bytes_slice()
+            log_slice,
         );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(Miranda) add length 
+        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
+        self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + log_slice.len().to_field();
         // call oracle
         let _void = emit_unencrypted_log_private_internal(contract_address, event_selector, log);
     }
@@ -301,7 +299,8 @@ impl PrivateContext {
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(Miranda) add length
+        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
+        self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + N*32;
     }
 
     pub fn emit_encrypted_log<N>(
@@ -325,7 +324,8 @@ impl PrivateContext {
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.encrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(Miranda) add length 
+        // 308 = encrypted log (304) + processed log len (4)
+        self.encrypted_log_preimages_length = self.encrypted_log_preimages_length + 308;
     }
 
     pub fn call_private_function<ARGS_COUNT>(
@@ -594,8 +594,8 @@ impl Empty for PrivateContext {
             inputs: PrivateContextInputs::empty(),
             side_effect_counter: 0 as u32,
             min_revertible_side_effect_counter: 0 as u32,
-            args_hash : 0,
-            return_hash : 0,
+            args_hash: 0,
+            return_hash: 0,
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
@@ -608,6 +608,8 @@ impl Empty for PrivateContext {
             historical_header: Header::empty(),
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
+            encrypted_log_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
             nullifier_key: Option::none(),
         }
     }

@@ -54,6 +54,10 @@ export interface PublicExecutionResult {
    */
   unencryptedLogs: UnencryptedFunctionL2Logs;
   /**
+   * Length of the unencrypted log preimages emitted in this function call.
+   */
+  unencryptedLogPreimagesLength: Fr;
+  /**
    * Whether the execution reverted.
    */
   reverted: boolean;

@@ -29,7 +29,7 @@ Logs on Aztec are similar to logs on Ethereum, enabling smart contracts to conve
 
 ### Hash Function
 
-The protocol uses **SHA256** as the hash function for logs, and then reduces the 256-bit result to 253 bits for representation as a field element.
+The protocol uses **SHA256** as the hash function for logs, and then reduces the 256-bit result to 248 bits for representation as a field element.
 
 <!-- TODO: explicitly detail how the truncation is being done, so that we can check that it is secure. -->
 

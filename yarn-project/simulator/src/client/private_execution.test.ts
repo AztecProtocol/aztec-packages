@@ -225,6 +225,9 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
+      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
+        new Fr(functionLogs.getSerializedLength()),
+      );
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       expect(functionLogs.logs[0].data.subarray(-32).toString('hex')).toEqual(owner.toBuffer().toString('hex'));
     });
@@ -243,6 +246,9 @@ describe('Private Execution test suite', () => {
 
       const [unencryptedLog] = newUnencryptedLogs;
       expect(unencryptedLog).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
+      expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
+        new Fr(functionLogs.getSerializedLength()),
+      );
       // Test that the log payload (ie ignoring address, selector, and header) matches what we emitted
       const expected = Buffer.concat(args[0].map(arg => arg.toBuffer())).toString('hex');
       expect(functionLogs.logs[0].data.subarray(-32 * 5).toString('hex')).toEqual(expected);
@@ -336,6 +342,9 @@ describe('Private Execution test suite', () => {
 
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+        new Fr(result.encryptedLogs.getSerializedLength()),
+      );
     });
 
     it('should run the create_note function', async () => {
@@ -370,6 +379,9 @@ describe('Private Execution test suite', () => {
 
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+        new Fr(result.encryptedLogs.getSerializedLength()),
+      );
     });
 
     it('should run the destroy_and_create function', async () => {
@@ -428,6 +440,9 @@ describe('Private Execution test suite', () => {
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
       expect(encryptedChangeLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
       expect(encryptedRecipientLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
+      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+        new Fr(result.encryptedLogs.getSerializedLength()),
+      );
 
       const readRequests = sideEffectArrayToValueArray(
         nonEmptySideEffects(result.callStackItem.publicInputs.noteHashReadRequests),
@@ -473,6 +488,9 @@ describe('Private Execution test suite', () => {
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
       expect(encryptedChangeLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
       expect(encryptedRecipientLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
+      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+        new Fr(result.encryptedLogs.getSerializedLength()),
+      );
     });
   });
 
@@ -943,6 +961,9 @@ describe('Private Execution test suite', () => {
 
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+        new Fr(result.encryptedLogs.getSerializedLength()),
+      );
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = sideEffectArrayToValueArray(result.callStackItem.publicInputs.noteHashReadRequests)[0];
@@ -1021,6 +1042,9 @@ describe('Private Execution test suite', () => {
 
       const [encryptedLog] = newEncryptedLogs;
       expect(encryptedLog).toEqual(Fr.fromBuffer(execInsert.encryptedLogs.logs[0].hash()));
+      expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
+        new Fr(result.encryptedLogs.getSerializedLength()),
+      );
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.noteHashReadRequests[0];

@@ -46,7 +46,7 @@ struct PublicContext {
     new_l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_CALL>,
-    unencrypted_logs_preimages_length: Field,
+    unencrypted_log_preimages_length: Field,
 
     // Header of a block whose state is used during public execution. Set by sequencer to be a header of a block
     // previous to the one in which the tx is included.
@@ -70,9 +70,9 @@ impl PublicContext {
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
             historical_header: inputs.historical_header,
-            prover_address: AztecAddress::zero() // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+            prover_address: AztecAddress::zero()
             // encrypted_logs_preimages: Vec::new(),
             // unencrypted_logs_preimages: Vec::new(),
         }
@@ -146,8 +146,6 @@ impl PublicContext {
     }
 
     pub fn finish(self) -> PublicCircuitPublicInputs {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
-        let unencrypted_log_preimages_length = 0;
 
         // Compute the public call stack hashes
         let pub_circuit_pub_inputs = PublicCircuitPublicInputs {
@@ -165,7 +163,7 @@ impl PublicContext {
             start_side_effect_counter: self.inputs.start_side_effect_counter,
             end_side_effect_counter: self.side_effect_counter,
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
-            unencrypted_log_preimages_length,
+            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length + 4,
             historical_header: self.inputs.historical_header,
             prover_address: self.prover_address,
             revert_code: 0,
@@ -283,17 +281,19 @@ impl PublicContextInterface for PublicContext {
     }
 
     fn emit_unencrypted_log<T>(&mut self, log: T) where T: ToBytesSlice {
-        let event_selector = 5;
+        let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
+        let log_slice = log.to_be_bytes_slice();
         let log_hash = compute_unencrypted_log_hash(
             contract_address,
             event_selector,
-            log.to_be_bytes_slice()
+            log_slice
         );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // TODO(Miranda) add length 
+        // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
+        self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + log_slice.len().to_field();
         // Call oracle to broadcast log
         let _void = emit_unencrypted_log_oracle(contract_address, event_selector, log);
     }
@@ -350,7 +350,7 @@ impl Empty for PublicContext {
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
-            unencrypted_logs_preimages_length: 0,
+            unencrypted_log_preimages_length: 0,
             historical_header: Header::empty(),
             prover_address: AztecAddress::zero(),
         }

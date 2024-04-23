@@ -150,6 +150,7 @@ async function executePublicFunctionAcvm(
       nestedExecutions: [],
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+      unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
       reverted,
       revertReason,
       gasLeft: Gas.empty(),
@@ -171,6 +172,7 @@ async function executePublicFunctionAcvm(
     startSideEffectCounter,
     endSideEffectCounter,
     unencryptedLogsHashes: unencryptedLogsHashesPadded,
+    unencryptedLogPreimagesLength,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
   const returnValues = await context.unpackReturns(returnsHash);
 
@@ -213,6 +215,7 @@ async function executePublicFunctionAcvm(
     nestedExecutions,
     unencryptedLogsHashes,
     unencryptedLogs,
+    unencryptedLogPreimagesLength,
     reverted: false,
     revertReason: undefined,
     gasLeft,

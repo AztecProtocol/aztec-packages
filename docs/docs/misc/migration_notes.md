@@ -8,6 +8,18 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.36.0
 
+### [Aztec.nr] Emmiting encrypted logs
+
+The `emit_encrypted_log` function is now a context method.
+
+```diff
+- use dep::aztec::log::emit_encrypted_log;
+- use dep::aztec::logs::emit_encrypted_log;
+
+- emit_encrypted_log(context, log1);
++ context.emit_encrypted_log(log1);
+```
+
 ### [Aztec.nr] Oracles
 
 Oracle `get_nullifier_secret_key` was renamed to `get_app_nullifier_secret_key` and `request_nullifier_secret_key` function on PrivateContext was renamed as `request_app_nullifier_secret_key`.
@@ -117,7 +129,7 @@ Note that gas limits are not yet enforced. For now, it is suggested you use `dep
 
 Note that this is not required when enqueuing a public function from a private one, since top-level enqueued public functions will always consume all gas available for the transaction, as it is not possible to handle any out-of-gas errors.
 
-### [Aztec.nr] Emmiting unencrypted logs
+### [Aztec.nr] Emitting unencrypted logs
 
 The `emit_unencrypted_logs` function is now a context method.
 

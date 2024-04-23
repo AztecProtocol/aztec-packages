@@ -359,8 +359,6 @@ export abstract class AbstractPhaseManager {
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     );
 
-    const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
-
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
@@ -397,7 +395,7 @@ export abstract class AbstractPhaseManager {
         SideEffect.empty(),
         MAX_UNENCRYPTED_LOGS_PER_CALL,
       ),
-      unencryptedLogPreimagesLength,
+      unencryptedLogPreimagesLength: result.unencryptedLogPreimagesLength,
       historicalHeader: this.historicalHeader,
       // TODO(@just-mitch): need better mapping from simulator to revert code.
       revertCode: result.reverted ? RevertCode.REVERTED : RevertCode.OK,
