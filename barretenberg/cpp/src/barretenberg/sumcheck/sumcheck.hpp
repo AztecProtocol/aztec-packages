@@ -8,8 +8,8 @@
 namespace bb {
 
 /*! \brief The implementation of the sum-check Prover for the statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
-pow(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multi-linear polynomials \f$P_1,
-\ldots, P_N \f$.
+pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multi-linear polynomials
+\f$P_1, \ldots, P_N \f$.
 
    \details
  ## Notation and Setup
@@ -25,9 +25,9 @@ which is a polynomial in \f$ N \f$ variables, we use Sumcheck over the polynomia
  * \f{align}{
     \tilde{F}
     (X_0,\ldots, X_{d-1}) =
-    pow(X_0,\ldots, X_{d-1}) \cdot F\left( P_1 (X_0,\ldots, X_{d-1}), \ldots, P_N (X_0,\ldots, X_{d-1}) \right)
+    pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot F\left( P_1 (X_0,\ldots, X_{d-1}), \ldots, P_N (X_0,\ldots, X_{d-1}) \right)
     \f}
- to establish that \f$ F(P_1(\vec \ell),\ldots, P_N(\vec \ell) ) = 0 \f$, i.e. that \f$ F \f$ is satisfied, at every
+to establish that \f$ F(P_1(\vec \ell),\ldots, P_N(\vec \ell) ) = 0 \f$, i.e. that \f$ F \f$ is satisfied, at every
 point of \f$\{0,1\}^d\f$.
 
  In the implementation, the relation polynomial \f$ F \f$ is determined by \p Flavor::Relations which is fed to \ref
@@ -58,7 +58,7 @@ When the first challenge \f$ u_0 \f$ is computed, the method \ref partially_eval
 \f$ P_i(u_0, X_1, ..., X_{d-1}) \f$, which are multilinear polynomials in \f$ d-1 \f$ variables.
 
 
-More precisely, it is a table  \f$ 2^{d-1} \f$ rows and \f$ N \f$ columns, such that
+More precisely, it is a table with \f$ 2^{d-1} \f$ rows and \f$ N \f$ columns, such that
     \f{align}{ \texttt{partially_evaluated_polynomials}_{i,j} = &\ P_j(0, i_1,\ldots, i_{d-1}) + u_0 \cdot
 (P_j(1,i_1,\ldots, i_{d-1})) - P_j(0, i_1,\ldots, i_{d-1})) \\ = &\ \texttt{full_polynomials}_{2 i,j} + u_0 \cdot
 (\texttt{full_polynomials}_{2i+1,j} - \texttt{full_polynomials}_{2 i,j}) \f}
@@ -77,28 +77,23 @@ to the transcript.
 
 ## Round Univariates
 
-### Computing Contributions of Pow-Univariate
- * For a random challenge \f$\zeta \in \mathbb{F}^{\times}\f$, by \ref bb::PowPolynomial "Definition of `pow`", we have
-\f{align}{ \sum_{\vec \ell \in \{0,1\}^d} \tilde{F}(\vec \ell) = \sum_{\vec \ell \in \{0,1\}^d} pow(\vec \ell) \cdot
-F(\vec \ell) = \sum_{\vec \ell \in \{0,1\}^d} \zeta^{\ell}\cdot P(\vec \ell) \f}
- * Hence if Sumcheck passes, then with high-probability \f$ F(\vec \ell) = 0\f$ for all \f$\vec \ell\f$.
- *
-
+### Contributions of PowPolynomial
+ * For a vector of challenges \f$ \vec \beta = (\beta_0,\ldots, \beta_{d-1}) \in \mathbb{F} \f$ obtained as \ref
+bb::ProverInstance_< Flavor >::gate_challenges "gate challenges" using ProverInstance class.
  *
  * In Round \f$i\f$, a univariate polynomial \f$ \tilde S^{i}(X_{i}) \f$ for the relation defined by \f$ \tilde{F}(X)\f$
 is computed as follows. First, we introduce notation
- - \f$ \zeta_k = \zeta^{2^k} \f$
- - \f$ c_i = pow(u_0,\ldots, u_{i-1}) \f$
- - \f$ T^{i}( X_i ) =  \sum_{\ell = 0}^{2^{d-i-1}-1} \left( c_i \cdot \zeta_{i+1}^{\ell} \cdot S^{i}_{\ell}( X_i )
-\right) \f$
+ - \f$ c_i = pow_{\beta}(u_0,\ldots, u_{i-1}) \f$
+ - \f$ T^{i}( X_i ) =  \sum_{ \ell = 0} ^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
+\beta_{d-1}^{\ell_{d-1}} \cdot S^i_{\ell}( X_i )  \f$
  - \f$ S^i_{\ell} (X_i) = F \left(P_1(u_0,\ldots, u_{i-1}, X_i, \vec \ell), \ldots,  P_1(u_0,\ldots, u_{i-1}, X_i, \vec
 \ell) \right) \f$
 
- As explained in \ref bb::PowPolynomial "Definition of `pow`",
+ As explained in \ref bb::PowPolynomial "PowPolynomial",
  \f{align}{
-    \tilde{S}^{i}(X_i) =  \sum_{ \ell = 0} ^{2^{d-i-1}-1}  pow^i_{\ell} ( X_i ) S^i_{\ell}( X_i )
- *        =  ( (1−X_i) + X_i\cdot \zeta_i ) \cdot \sum_{ \ell = 0} ^{2^{d-i-1}-1} \left( c_i \cdot \zeta_{i+1}^{\ell}
-\cdot S^i_{\ell}( X_i ) \right). \f}
+    \tilde{S}^{i}(X_i) =  \sum_{ \ell = 0} ^{2^{d-i-1}-1}   pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} ) \cdot
+S^i_{\ell}( X_i ) = c_i\cdot ( (1−X_i) + X_i\cdot \zeta_i ) \cdot \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}}
+\cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}} \cdot S^{i}_{\ell}( X_i ). \f}
  *
 ### Computing Round Univariates
 The evaluations of the round univariate \f$ \tilde{S}^i \f$ over the domain \f$0,\ldots, D \f$ are obtained by the
@@ -110,7 +105,7 @@ polynomials \f$ P_j(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \f$ to the domain \f$0,
  - \ref bb::SumcheckProverRound::accumulate_relation_univariates "Accumulate per-relation contributions" of the extended
 polynomials to \f$ T^i(X_i)\f$
  - \ref bb::SumcheckProverRound::extend_and_batch_univariates "Extend and batch the subrelation contibutions"
-multiplying by the evaluations of \f$ ( (1−X_i) + X_i\cdot \zeta_i ) \f$ and the batching challenge \f$\alpha \f$.
+multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \zeta_i ) \f$.
 ## Transcript Operations
 After computing Round univariates and adding them to the transcript, the prover generates round challenge by hashing the
 transcript. These operations are taken care of by \ref bb::BaseTranscript "Transcript Class" methods.
@@ -147,7 +142,6 @@ template <typename Flavor> class SumcheckProver {
     * @brief Container for partially evaluated Prover Polynomials at a current challenge. Upon computing challenge \f$
     u_i \f$, the first \f$2^{d-1-i}\f$ rows are updated using \ref bb::SumcheckProver< Flavor >::partially_evaluate
     "partially evaluate" method.
-
     *
     * NOTE: With ~40 columns, prob only want to allocate 256 EdgeGroup's at once to keep stack under 1MB?
     * TODO(#224)(Cody): might want to just do C-style multidimensional array? for guaranteed adjacency?
@@ -177,7 +171,8 @@ template <typename Flavor> class SumcheckProver {
      * @details See Detailed description of \ref bb::SumcheckProver< Flavor > "Sumcheck Prover <Flavor>.
      * @param full_polynomials Container for ProverPolynomials
      * @param relation_parameters
-     * @param alpha Batching challenge
+     * @param alpha Batching challenge that
+     * @param gate_challenges
      * @return SumcheckOutput
      */
 
@@ -231,13 +226,13 @@ template <typename Flavor> class SumcheckProver {
      *
      @brief Evaluate Honk polynomials at the round challenge and prepare class for next round.
      @details At initialization, \ref ProverPolynomials "Prover Polynomials"
-     are submitted by reference into \p full_polynomials, which is a two-dimensional array defined by \f$
-    \texttt{full_polynomials}_{i,j} = P_j(\vec i) \f$. Here, \f$ \vec i \in \{0,1\}^d \f$ is identified with the binary
+     are submitted by reference into \p full_polynomials, which is a two-dimensional array defined as \f{align}{
+    \texttt{full_polynomials}_{i,j} = P_j(\vec i). \f} Here, \f$ \vec i \in \{0,1\}^d \f$ is identified with the binary
     representation of the integer \f$ 0 \leq i \leq 2^d-1 \f$.
 
      * When the first challenge \f$ u_0 \f$ is computed, the method \ref partially_evaluate "partially evaluate" takes
     as input \p full_polynomials and populates  \ref partially_evaluated_polynomials "a new book-keeping table" denoted
-    \f$\texttt{partially_evaluated_polynomials}\f$. Its \f$ n/2 = 2^{d-1} \f$ rows will represent the evaluations  \f$
+    \f$\texttt{partially_evaluated_polynomials}\f$. Its \f$ n/2 = 2^{d-1} \f$ rows represent the evaluations  \f$
     P_i(u_0, X_1, ..., X_{d-1}) \f$, which are multilinear polynomials in \f$ d-1 \f$ variables.
      * More precisely, it is a table  \f$ 2^{d-1} \f$ rows and \f$ N \f$ columns, such that
     \f{align}{ \texttt{partially_evaluated_polynomials}_{i,j} = &\ P_j(0, i_1,\ldots, i_{d-1}) + u_0 \cdot (P_j(1,
@@ -289,8 +284,8 @@ template <typename Flavor> class SumcheckProver {
     };
 };
 /*! \brief Implementation of the sum-check Verifier for the statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
- pow(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multi-linear polynomials
- \f$P_1, \ldots, P_N \f$.
+ pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multi-linear
+ polynomials \f$P_1, \ldots, P_N \f$.
  *
   \class SumcheckVerifier
   \details
@@ -303,7 +298,7 @@ template <typename Flavor> class SumcheckProver {
  * - \ref bb::SumcheckVerifierRound< Flavor >::check_sum "Check target sum": \f$\quad \sigma_{
  i } \stackrel{?}{=}  \tilde{S}^i(0) + \tilde{S}^i(1)  \f$
  * - Compute the challenge \f$u_i\f$ from the transcript using \ref bb::BaseTranscript::get_challenge "get_challenge"
- method from BaseTranscript Flavor.
+ method.
  * - \ref bb::SumcheckVerifierRound< Flavor >::compute_next_target_sum "Compute next target sum" :\f$ \quad \sigma_{i+1}
  \gets \tilde{S}^i(u_i) \f$
  * ### Verifier's Data before Final Step
@@ -312,8 +307,9 @@ template <typename Flavor> class SumcheckProver {
  * ### Final Verification Step
  * - Extract \ref ClaimedEvaluations of prover polynomials \f$P_1,\ldots, P_N\f$ at the challenge point \f$
  (u_0,\ldots,u_{d-1}) \f$ from the transcript and \ref bb::SumcheckVerifierRound< Flavor
- >::compute_full_honk_relation_purported_value "compute evaluation:" \f{align}{\tilde{F}\left( P_1(u_0,\ldots, u_{d-1}),
- \ldots, P_N(u_0,\ldots, u_{d-1}) \right)\f} and store it at \f$ \texttt{full_honk_relation_purported_value} \f$.
+ >::compute_full_honk_relation_purported_value "compute evaluation:"
+ \f{align}{\tilde{F}\left( P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right)\f}
+ and store it at \f$ \texttt{full_honk_relation_purported_value} \f$.
  * - Compare \f$ \sigma_d \f$ against the evaluation of \f$ \tilde{F} \f$ at \f$P_1(u_0,\ldots, u_{d-1}), \ldots,
  P_N(u_0,\ldots, u_{d-1})\f$:
  * \f{align}{\quad  \sigma_{ d } \stackrel{?}{=} \tilde{F}\left(P_1(u_{0}, \ldots, u_{d-1}),\ldots, P_N(u_0,\ldots,
@@ -328,7 +324,7 @@ template <typename Flavor> class SumcheckVerifier {
     using Utils = bb::RelationUtils<Flavor>;
     using FF = typename Flavor::FF;
     /**
-     * @brief Container class for the evaluations of Prover Polynomials \f$P_1,\ldots,P_N\f$ at the challenge point
+     * @brief Container type for the evaluations of Prover Polynomials \f$P_1,\ldots,P_N\f$ at the challenge point
      * \f$(u_0,\ldots, u_{d-1}) \f$.
      *
      */
@@ -337,7 +333,7 @@ template <typename Flavor> class SumcheckVerifier {
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     /**
-     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow \cdot F \f$, i.e. \ref
+     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow_{\beta} \cdot F \f$, i.e. \ref
      * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;

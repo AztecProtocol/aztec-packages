@@ -12,16 +12,15 @@ namespace bb {
     \class SumcheckProverRound
     \details
 The evaluations of the round univariate \f$ \tilde{S}^i \f$ over the domain \f$0,\ldots, D \f$ are obtained by the
-method \ref bb::SumcheckProverRound< Flavor >::compute_univariate "computeunivariate". The
+method \ref bb::SumcheckProverRound< Flavor >::compute_univariate "compute univariate". The
 implementation consists of the following sub-methods:
 
  - \ref bb::SumcheckProverRound::extend_edges "Extend evaluations" of linear univariate
 polynomials \f$ P_j(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \f$ to the domain \f$0,\ldots, D\f$.
  - \ref bb::SumcheckProverRound::accumulate_relation_univariates "Accumulate per-relation contributions" of the extended
 polynomials to \f$ T^i(X_i)\f$
- - \ref bb::SumcheckProverRound::extend_and_batch_univariates "Extend and batch the per-relation contibutions"
-multiplying by the evaluations of \f$ ( (1−X_i) + X_i\cdot \zeta_i ) \f$ and the batching challenge \f$\alpha \f$.
-
+ - \ref bb::SumcheckProverRound::extend_and_batch_univariates "Extend and batch the subrelation contibutions"
+ multiplying by the constants \f$c_i\f$ and the evaluations of \f$ ( (1−X_i) + X_i\cdot \zeta_i ) \f$.
 
  Note: This class uses recursive function calls with template parameters. This is a common trick that is used to force
  the compiler to unroll loops. The idea is that a function that is only called once will always be inlined, and since
@@ -41,18 +40,19 @@ template <typename Flavor> class SumcheckProverRound {
     using ExtendedEdges = typename Flavor::ExtendedEdges;
     /**
      * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
-     *
      */
     size_t round_size;
-
+    /**
+     * @brief Number of batched sub-relations in \f$F\f$ specified by Flavor.
+     *
+     */
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     /**
      * @brief The partial algebraic degree of the Sumcheck relation \f$ F \f$.
-     *
      */
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::MAX_PARTIAL_RELATION_LENGTH;
     /**
-     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow \cdot F \f$, i.e. \ref
+     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow_{\beta} \cdot F \f$, i.e. \ref
      * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
      */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
@@ -70,25 +70,27 @@ template <typename Flavor> class SumcheckProverRound {
     /**
      * @brief  To compute the round univariate in Round \f$i\f$, the prover first computes the values of Honk
      polynomials \f$ P_1,\ldots, P_N \f$ at the points of the form \f$ (u_0,\ldots, u_{i-1}, k, \vec \ell)\f$ for \f$
-     j=0,\ldots, d_{i} \f$, where \f$ d_{i} \f$ is defined as \ref BATCHED_RELATION_PARTIAL_LENGTH "partial algebraic
-     degree of the relation multiplied by pow-polynomial"
+     k=0,\ldots, D \f$, where \f$ D \f$ is defined as
+     * \ref BATCHED_RELATION_PARTIAL_LENGTH "partial algebraic degree of the relation multiplied by pow-polynomial"
      *
-     * @details In the first round, `extend_edges` method receives required evaluations from the prover polynomials.
+     * @details In the first round, \ref extend_edges "extend edges" method receives required evaluations from the
+     prover polynomials.
      * In the subsequent rounds, the method receives partially evaluated polynomials.
      *
      * In both cases, in Round \f$ i \f$, \ref extend_edges "the method" receives \f$(0, \vec \ell) \in
      \{0,1\}\times\{0,1\}^{d-1 - i} \f$, accesses the evaluations \f$ P_j\left(u_0,\ldots, u_{i-1}, 0, \vec \ell\right)
      \f$ and \f$ P_j\left(u_0,\ldots, u_{i-1}, 1, \vec \ell\right) \f$ of \f$ N \f$ linear polynomials \f$
      P_j\left(u_0,\ldots, u_{i-1}, X_{i}, \vec \ell \right) \f$ that are already available either from the prover's
-     input in the first round, or from the \ref multivariates table. Using general method \ref
-     bb::Univariate::extend_to "extend_to", the evaluations of these polynomials are being extended from the
+     input in the first round, or from the \ref multivariates table. Using general method
+     \ref bb::Univariate::extend_to "extend_to", the evaluations of these polynomials are extended from the
      domain \f$ \{0,1\} \f$ to the domain \f$ \{0,\ldots, D\} \f$ required for the computation of the round univariate.
 
      * Should only be called externally with relation_idx equal to 0.
-     * In practice, multivariates is one of ProverPolynomials or FoldedPolynomials.
+     * In practice, #multivariates is one of ProverPolynomials or FoldedPolynomials.
      *
      * @param edge_idx A point \f$(0, \vec \ell) \in \{0,1\}^{d-i} \f$, where \f$ i\in \{0,\ldots, d-1\}\f$ is Round
      number.
+     * @param extended_edges Container for the evaluations of
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     void extend_edges(ExtendedEdges& extended_edges,
@@ -116,13 +118,12 @@ template <typename Flavor> class SumcheckProverRound {
      u_0,\ldots, u_{i-1}, k-1, \vec \ell \right) + P_j\left( u_0,\ldots, u_{i-1}, 1, \vec \ell \right) - P_j\left(
      u_0,\ldots, u_{i-1}, 0, \vec \ell \right) \f},
      * where \f$ k=2,\ldots, D \f$.
-     * For a given \f$ \vec \ell \in \{0,1\}^{d -1 -i} \f$, we invoke \ref accumulate_relation_univariates "accumulate
-     relation univariates" to compute the contributions of \f$ P_1\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$,
-     ..., \f$ P_N\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$ to every sub-relation, e.g. to look-up relation.
+     * For a given \f$ \vec \ell \in \{0,1\}^{d -1 -i} \f$,
+     * we invoke \ref accumulate_relation_univariates "accumulate relation univariates" to compute the contributions of
+     \f$ P_1\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$,
+     ..., \f$ P_N\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right) \f$ to every sub-relation.
      * Finally, the accumulators for individual relations' contributions are summed with appropriate factors using
-     method \ref batch_over_relations "batch_over_relations".
-     * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \ell \right) \f$ for
-     \f$ j = 1,\ldots, N \f$ and \f$ k = 0,\ldots, D \f$; for a fixed \f$ \vec \ell \in \{0,1\}^{d -1 -i} \f$.
+     method \ref extend_and_batch_univariates "extend and batch univariates".
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH> compute_univariate(
@@ -132,15 +133,6 @@ template <typename Flavor> class SumcheckProverRound {
         const RelationSeparator alpha)
     {
         BB_OP_COUNT_TIME();
-
-        // Compute the constant contribution of pow polynomials for each edge. This is the product of the partial
-        // evaluation result c_l (i.e. pow(u_0,...,u_{l-1})) where u_0,...,u_{l-1} are the verifier challenges from
-        // previous rounds) and the elements of pow(\vec{β}) not containing β_0,..., β_l.
-        std::vector<FF> pow_challenges(round_size >> 1);
-        pow_challenges[0] = pow_polynomial.partial_evaluation_result;
-        for (size_t i = 1; i < (round_size >> 1); ++i) {
-            pow_challenges[i] = pow_challenges[0] * pow_polynomial[i * pow_polynomial.periodicity];
-        }
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -168,14 +160,15 @@ template <typename Flavor> class SumcheckProverRound {
             for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
                 extend_edges(extended_edges[thread_idx], polynomials, edge_idx);
 
-                // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
-                // Compute the i-th edge's univariate contribution to \f$T^i(X_i)\f$ as defined in
-                // `bb::PowPolynomial`, scale it by the pow polynomial's constant and zeta power "c_l ⋅
-                // ζ_{l+1}ⁱ" and add it to the accumulators for Sˡ(Xₗ)
+                // Compute the \f$ \ell \f$-th edge's univariate contribution,
+                // scale it by the corresponding \f$ pow_{\beta} \f$ contribution and add it to the accumulators for \f$
+                // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
+                // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
+                // \beta_{d-1}^{\ell_{d-1}}\f$.
                 accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
                                                 extended_edges[thread_idx],
                                                 relation_parameters,
-                                                pow_challenges[edge_idx >> 1]);
+                                                pow_polynomial[(edge_idx >> 1) * pow_polynomial.periodicity]);
             }
         });
 
@@ -191,15 +184,19 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief Given a tuple of tuples of extended per-relation contributions,  \f$ (t_0, t_1, \ldots,
-     * t_{\text{NUM_SUBRELATIONS}-1}) \f$ and a challenge \f$ \alpha \f$, return \f$ t_0 + \alpha t_1 + ... +
-     * \alpha^{\text{NUM_SUBRELATIONS}-1} \cdot t_{\text{NUM_SUBRELATIONS}-1})\f$.
+     * t_{\text{NUM_SUBRELATIONS}-1}) \f$ and a challenge \f$ \alpha \f$, scale them by the relation separator
+     * \f$\alpha\f$, extend to the correct degree, and take the sum multiplying by \f$pow_{\beta}\f$-contributions.
      *
      * @details This method receives as input the univariate accumulators computed by \ref
      * accumulate_relation_univariates "accumulate relation univariates" after passing through the entire hypercube and
-     * applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads.
+     * applying \ref bb::RelationUtils::add_nested_tuples "add_nested_tuples" method to join the threads. The
+     * accumulators are scaled using the method \ref bb::RelationUtils< Flavor >::scale_univariates "scale univariates",
+     * extended to the degree \f$ D \f$ and summed with appropriate  \f$pow_{\beta}\f$-factors using \ref
+     * extend_and_batch_univariates "extend and batch univariates method" to return a vector \f$(\tilde{S}^i(0), \ldots,
+     * \tilde{S}^i(D))\f$.
      *
      * @param challenge Challenge \f$\alpha\f$.
-     * @param pow_univariate Round Pow-factor given by  \f$ ( (1−u_i) + u_i\cdot \zeta_i )\f$.
+     * @param pow_polynomial Round \f$pow_{\beta}\f$-factor given by  \f$ ( (1−u_i) + u_i\cdot \beta_i )\f$.
      */
     template <typename ExtendedUnivariate, typename ContainerOverSubrelations>
     static ExtendedUnivariate batch_over_relations(ContainerOverSubrelations& univariate_accumulators,
@@ -218,14 +215,17 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-     * @brief Extend Univariates then sum them multiplying by the current \f$ \texttt{pow_univariate} \f$.
+     * @brief Extend Univariates then sum them multiplying by the current \f$ pow_{\beta} \f$-contributions.
      * @details Since the sub-relations comprising full Honk relation are of different degrees, the computation of the
      * evaluations of round univariate \f$ \tilde{S}_{i}(X_{i}) \f$ at points \f$ X_{i} = 0,\ldots, D \f$ requires to
-     * extend evaluations of individual relations to the domain \f$ 0,\ldots, D\f$.
+     * extend evaluations of individual relations to the domain \f$ 0,\ldots, D\f$. Moreover, linearly independent
+     * sub-relations, i.e. whose validity is being checked at every point of the hypercube, are multiplied by the
+     * constant \f$ c_i = pow_\beta(u_0,\ldots, u_{i-1}) \f$ and the current \f$pow_{\beta}\f$-factor \f$ ( (1−X_i) +
+     * X_i\cdot \beta_i ) \vert_{X_i = k} \f$ for \f$ k = 0,\ldots, D\f$.
      * @tparam extended_size Size after extension
      * @param tuple A tuple of tuples of Univariates
      * @param result Round univariate \f$ \tilde{S}^i\f$ represented by its evaluations over \f$ \{0,\ldots, D\} \f$.
-     * @param pow_polynomial Round Pow-factor  \f$ ( (1−X_i) + X_i\cdot \zeta_i )\f$.
+     * @param pow_polynomial Round \f$pow_{\beta}\f$-factor  \f$ ( (1−X_i) + X_i\cdot \beta_i )\f$.
      */
     template <typename ExtendedUnivariate, typename TupleOfTuplesOfUnivariates>
     static void extend_and_batch_univariates(const TupleOfTuplesOfUnivariates& tuple,
@@ -233,7 +233,7 @@ template <typename Flavor> class SumcheckProverRound {
                                              const bb::PowPolynomial<FF>& pow_polynomial)
     {
         ExtendedUnivariate extended_random_polynomial;
-        // Random poly R(X) = (1-X) + X.zeta_pow
+        // Pow-Factor  \f$ (1-X) + X\beta_i \f$
         auto random_polynomial = bb::Univariate<FF, 2>({ 1, pow_polynomial.current_element() });
         extended_random_polynomial = random_polynomial.template extend_to<ExtendedUnivariate::LENGTH>();
 
@@ -245,11 +245,15 @@ template <typename Flavor> class SumcheckProverRound {
                 bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
             // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
             // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
-            // verifier, we additionally need a univariate contribution from the pow polynomial.
+            // verifier, we additionally need a univariate contribution from the pow polynomial which is the
+            // extended_random_polynomial.
             if (!is_subrelation_linearly_independent) {
                 result += extended;
             } else {
-                result += extended * extended_random_polynomial;
+                // Multiply by the pow polynomial univariate contribution and the partial
+                // evaluation result c_i (i.e. \f$ pow(u_0,...,u_{l-1})) \f$ where \f$(u_0,...,u_{i-1})\f$ are the
+                // verifier challenges from previous rounds.
+                result += extended * extended_random_polynomial * pow_polynomial.partial_evaluation_result;
             }
         };
         Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
@@ -261,25 +265,26 @@ template <typename Flavor> class SumcheckProverRound {
      * of each sub-relation to \f$ T^i(X_i) \f$.
      *
      * @details In Round \f$ i \f$, this method computes the univariate \f$ T^i(X_i) \f$ which is a quotient of the full
-     * round univariate \f$ \tilde{S}^i(X_i)\f$, they are defined in section Round Univariates  of \ref
-     * bb::SumcheckProver< Flavor > "Sumcheck Prover detailed description" is computed  as
-     * follows:
+     * round univariate \f$ \tilde{S}^i(X_i)\f$, they are defined in
+     * section Round Univariates  of \ref bb::SumcheckProver< Flavor > "Sumcheck Prover detailed description" is
+     * computed  as follows:
      *   - Outer loop: iterate through the "edge" points \f$ (0,\vec \ell) \f$ on the boolean hypercube \f$\{0,1\}\times
      * \{0,1\}^{d-1 - i}\f$, i.e. skipping every other point. On each iteration, apply \ref extend_edges "extend edges".
      *   - Inner loop: iterate through the sub-relations, feeding each relation the "the group of edges", i.e. the
      * evaluations \f$ P_1(u_0,\ldots, u_{i-1}, k, \vec \ell), \ldots, P_N(u_0,\ldots, u_{i-1}, k, \vec \ell) \f$. Each
      *                 relation Flavor is endowed with \p accumulate method that computes its contribution to \f$
      * T^i(X_{i}) \f$
-     *
+     *\ref extend_and_batch_univariates "Adding  these univariates together", with appropriate scaling factors, produces
+     *required evaluations of \f$ \tilde S^i \f$.
      * @param univariate_accumulators The container for per-thread-per-relation univariate contributions output by \ref
-     * accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
+     *accumulate_relation_univariates "accumulate relation univariates" for the previous "groups of edges".
      * @param extended_edges Contains tuples of evaluations of \f$ P_j\left(u_0,\ldots, u_{i-1}, k, \vec \ell \right)
-     * \f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1 - i} \f$.
-     * @result 'univariate_accumulators' are updated with the contribution from the current group of edges.  For each
-     * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges. These
-     * are stored in \ref univariate_accumulators "univariate accummulators". \ref extend_and_batch_univariates "Adding
-     * these univariates together", with appropriate scaling factors, produces required evaluations of \f$ \tilde S^i
-     * \f$.
+     *\f$, for \f$ j=1,\ldots, N \f$,  \f$ k \in \{0,\ldots, D\} \f$ and fixed \f$\vec \ell \in \{0,1\}^{d-1 - i} \f$.
+     * @param scaling_factor In Round \f$ i \f$, for \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$ takes
+     *an element of \ref  bb::PowPolynomial< FF >::pow_betas "vector of powers of challenges" at index \f$ 2^{i+1}
+     *(\ell_{i+1} 2^{i+1} +\ldots + \ell_{d-1} 2^{d-1})\f$.
+     * @result #univariate_accumulators are updated with the contribution from the current group of edges.  For each
+     * relation, a univariate of some degree is computed by accumulating the contributions of each group of edges.
      */
     template <size_t relation_idx = 0>
     void accumulate_relation_univariates(SumcheckTupleOfTuplesOfUnivariates& univariate_accumulators,
@@ -322,8 +327,15 @@ template <typename Flavor> class SumcheckVerifierRound {
     using ClaimedEvaluations = typename Flavor::AllValues;
 
     bool round_failed = false;
-
+    /**
+     * @brief Number of batched sub-relations in \f$F\f$ specified by Flavor.
+     *
+     */
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
+    /**
+     * @brief The partial algebraic degree of the relation  \f$\tilde F = pow \cdot F \f$, i.e. \ref
+     * MAX_PARTIAL_RELATION_LENGTH "MAX_PARTIAL_RELATION_LENGTH + 1".
+     */
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
     FF target_total_sum = 0;
@@ -341,8 +353,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      * 0,\ldots, D \f$ and checks \f$\sigma_i = \tilde{S}^{i-1}(u_{i-1}) \stackrel{?}{=} \tilde{S}^i(0) + \tilde{S}^i(1)
      * \f$
      * @param univariate Round univariate \f$\tilde{S}^{i}\f$ represented by its evaluations over \f$0,\ldots,D\f$.
-     * @return true
-     * @return false
+     *
      */
     bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate)
     {
@@ -376,11 +387,10 @@ template <typename Flavor> class SumcheckVerifierRound {
     }
 
     /**
-     * @brief Given claimed evaluations of Prover Polynomials \f$P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots,
-     * u_{d-1}) \f$, this method allows to compute the evaluation of \f$ \tilde{F} \f$ taking these values as arguments.
+     * @brief Given the evaluations  \f$P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \f$ of the
+     * ProverPolynomials at the challenge point \f$(u_0,\ldots, u_{d-1})\f$ stored in \p purported_evaluations, this
+     * method computes the evaluation of \f$ \tilde{F} \f$ taking these values as arguments.
      *
-     * @tparam Operation Any operation valid on elements of the inner arrays (FFs)
-     * @param tuple Tuple of arrays (of FFs)
      */
     // also copy paste in PG
     // so instead of having claimed evaluations of each relation in part  you have the actual evaluations

@@ -9,30 +9,53 @@ namespace bb {
 
 template <typename FF> struct PowPolynomial {
 
-    // \vec{β} = {β_0, β_1,.., β_{d-1}}
+    /**
+     * @brief The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$
+     *
+     */
     std::vector<FF> betas;
 
-    // The values of pow_\vec{β}(i) for i=0,..,2^d - 1 for the given \vec{β}
+    /**
+     * @brief The consecutive evaluations \f$ pow_{\ell}(\beta) =  pow_{\beta}(\vec \ell) \f$ for \f$\vec \ell\f$
+     * identified with the integers \f$\ell = 0,\ldots, 2^d-1\f$
+     *
+     */
     std::vector<FF> pow_betas;
-
-    // At round \f$ i\f$  of sumcheck this will point to the \f$ i \f$-th element in \vec{β}
+    /**
+     * @brief In Round \f$ i\f$ of Sumcheck, it points to the \f$ i \f$-th element in \f$ \vec \beta \f$
+     *
+     */
     size_t current_element_idx = 0;
-
-    // At round l of sumcheck, the periodicity represents the fixed interval at which elements not containing either of
-    // β_0,..,β_l appear in pow_betas
+    /**
+     * @brief In Round \f$ i\f$ of Sumcheck, the periodicity equals to \f$ 2^{i+1}\f$ and represents the fixed interval
+     * at which elements not containing either of \f$ (\beta_0,\ldots ,β_i)\f$ appear in #pow_betas.
+     *
+     */
     size_t periodicity = 2;
-
-    // The value c_l obtained by partially evaluating one variable in the power polynomial at each round. At the
-    // end of round l in the sumcheck protocol, variable X_l is replaced by a verifier challenge u_l. The partial
-    // evaluation result is updated to represent pow(u_0,.., u_{l-1}) = \prod_{0 ≤ k < l} ( (1-u_k) + u_k⋅β_k).
+    /**
+     * @brief  The value \f$c_i\f$ obtained by partially evaluating one variable in the power polynomial at each round.
+     * At the end of Round \f$ i \f$ in the sumcheck protocol, variable \f$X_i\f$ is replaced by the challenge \f$u_i
+     * \f$. The partial evaluation result is updated to represent \f$ pow_{\beta}(u_0,.., u_{i}) = \prod_{k=0}^{i} (
+     * (1-u_k) + u_k\cdot \beta_k) \f$.
+     *
+     */
     FF partial_evaluation_result = FF(1);
 
     explicit PowPolynomial(const std::vector<FF>& betas)
         : betas(betas)
     {}
-
+    /**
+     * @brief Retruns the element in #pow_betas at place #idx.
+     *
+     * @param idx
+     * @return FF const&
+     */
     FF const& operator[](size_t idx) const { return pow_betas[idx]; }
-
+    /**
+     * @brief Computes the component  at index #current_element_idx in #betas.
+     *
+     * @return FF
+     */
     FF current_element() const { return betas[current_element_idx]; }
 
     /**
@@ -41,9 +64,9 @@ template <typename FF> struct PowPolynomial {
     FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
 
     /**
-     * @brief Partially evaluate the \f$pow \f$-polynomial at the new challenge and update \f$ c_i \f$
-     * @details Update the constant \f$c_{i} \to c_{i+1} \f$ multiplying it by \f$pow\f$'s factor \f$\left( (1-X_i) +
-     * X_i\cdot \beta_i\right)\vert_{X_i = u_i}\f$ computed by \ref univariate_eval.
+     * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$
+     * @details Update the constant \f$c_{i} \to c_{i+1} \f$ multiplying it by \f$pow_{\beta}\f$'s factor \f$\left(
+     * (1-X_i) + X_i\cdot \beta_i\right)\vert_{X_i = u_i}\f$ computed by \ref univariate_eval.
      * @param challenge \f$ i \f$-th verifier challenge \f$ u_{i}\f$
      */
     void partially_evaluate(FF challenge)
@@ -55,8 +78,8 @@ template <typename FF> struct PowPolynomial {
     }
 
     /**
-     * @brief Given \f$ \vec\beta = (\beta_0,...,\beta_{d-1})\f$ compute \f$ pow_{\vec \beta} (i)\f$ for \f$
-     * i=0,\ldots,2^{d}-1\f$.
+     * @brief Given \f$ \vec\beta = (\beta_0,...,\beta_{d-1})\f$ compute \f$ pow_{\ell}(\vec \beta) = pow_{\beta}(\vec
+     * \ell)\f$ for \f$ \ell =0,\ldots,2^{d}-1\f$.
      *
      */
     BB_PROFILE void compute_values()
@@ -96,91 +119,65 @@ template <typename FF> struct PowPolynomial {
 };
 /**<
  * @struct PowPolynomial
- * @brief Implementation of the methods for the \f$pow\f$-polynomial defined by the formula
- * \f$ pow(X) = \prod_{k=0}^{d-1} ((1−X_k) + X_k\cdot \beta_k)\f$
+ * @brief Implementation of the methods for the \f$pow_{\ell}\f$-polynomials used in ProtoGalaxy and
+\f$pow_{\beta}\f$-polynomials used in Sumcheck.
  *
  * @details
- * ### Notation
- * Let
- * - \f$ d \f$ be the number of variables
- * - \f$ i \f$ be the current Sumcheck round, \f$ i \in \{0, …, d-1\}\f$
- * - \f$ u_{0}, ..., u_{i-1} \f$ the challenges sent by the verifier in rounds \f$ 0 \f$ to \f$ i-1\f$.
+ * ## PowPolynomial in Protogalaxy
+ * For \f$0\leq \ell \leq 2^d-1 \f$, the \f$pow_{\ell} \f$-polynomials used in Protogalaxy is a multilinear polynomial
+defined by the formula
+ * \f{align} pow_{\ell}(X_0,\ldots, X_{d-1})
+          =    \prod_{k=0}^{d-1} ( ( 1-\ell_k ) + \ell_k \cdot X_k )
+          =      \prod_{k=0}^{d-1} X_{k}^{ \ell_k }
+     \f}
+ *where \f$(\ell_0,\ldots, \ell_{d-1})\f$ is the binary representation of \f$\ell \f$.
  *
- * Given a \f$pow\f$-challenge \f$\beta\f$, we define
  *
- * - \f$ \beta_{0}, \ldots, \beta_{d-1} \f$, as \f$ \beta_{k} = \beta^{ 2^k } \f$.
- *   When \f$ 0 \leq \ell \leq 2^d -1 \f$ is represented in bits \f$ [\ell_{0}, ..., \ell_{d-1}] \f$ where \f$ \ell_{0}
-\f$ is the MSB, we have
- *   \f{align}{\beta^{\ell} =  \beta^{ \sum_{k=0}^{d-1} \ell_k \cdot 2^k }
-          =     \prod_{k=0}^{d-1} \beta^{ \ell_k \cdot 2^k }
-          =      \prod_{k=0}^{d-1} \beta_{k}^{ \ell_k }
-          =     \prod_{k=0}^{d-1} ( ( 1-\ell_k ) + \ell_k \cdot \beta_k ) \f}
-s \f$ \ell_{k} \in \{0, 1\} \f$.
- *   Note that
- *   - \f$ \beta_{0} = \beta \f$,
- *   - \f$ \beta_{k+1} = \beta_{k}^2 \f$,
- *   - \f$ \beta_{d-1}  = \beta^{ 2^{d-1} } \f$
- *
- * - \f$ pow (X) = \prod_{k=0}^{d-1} ((1−X_k) + X_k\cdot \beta_k)\f$ is the multi-linear polynomial whose evaluation at
-the \f$ \ell \f$ -th index
- *   of the full hypercube, equals \f$ \beta^{\ell} \f$.
- *   We can also see it as the multi-linear extension of the vector \f$ (1, \beta, \beta^2, \ldots, \beta^{2^d-1}) \f$.
-  ### Pow-contributions to Round Univariates
- * In Round \f$ i \f$, we iterate over all remaining vertices \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in
-\{0,1\}^{d-i-1}\f$.
- *   Let \f$ \ell = \sum_{k= i+1}^{d-1} \ell_k \cdot 2^{k-(i+1)} \f$ be the index of the current edge over which we are
-evaluating the relation.
- *   We define the edge univariate for the pow polynomial as \f$ pow^{i}_{\ell} (X_i )\f$ and it can be represented as:
- *
- *   \f{align}{ pow^{i}_{\ell} ( X_{i} ) = &\ pow( u_{0}, ..., u_{i-1},
- *                             \cdot ( (1−X_i) + X_i \cdot \beta_i )
- *                    \prod_{k=i+1}^{d-1} ( (1-\ell_k) + \ell_k \cdot \beta_k )\\
- *                  = &\ c_i \cdot ( (1−X_i) + X_i \cdot \beta ^{2^i} ) \cdot \prod_{k=i+1}^{d-1} ((1-\ell_k) +
-\ell_k\cdot \beta^{2^k} ) \\
- *                  = &\  c_i \cdot ( (1−X_i) + X_i \cdot \beta^{2^i} ) \cdot \beta^{ \sum_{k=i+1}^{d-1} \ell_k \cdot
-2^k }
- *                  = c_i \cdot ( (1−X_i) + X_i \cdot \beta^{2^i} ) \cdot (\beta^{2^{i+1}})^{ \sum_{k=i+1}^{d-1} \ell_k
-⋅ 2^{k-(i+1)} } \\
- *                  = &\ c_i \cdot ( (1−X_i) + X_i \cdot \beta^{2^i} ) \cdot \beta_{i+1}^{\ell} \f}
- *
- *   This is the pow polynomial, partially evaluated at
- *     \f$ (X_0, \ldots, X_{i-1}, X_{i+1}, \ldots, X_{d-1}) = (u_{0}, ..., u_{i-1}, \vec \ell) \f$ where \f$ \vec \ell
-\in \{0,1\}^{d-i-1} \f$.
+  ## Pow-contributions to Round Univariates in Sumcheck
+ * For a fixed \f$ \vec \beta \in \mathbb{F}^d\f$, the map \f$ \ell \mapsto pow_{\ell} (\vec \beta)\f$ defines a
+multi-linear polynomial \f{align}{ pow_{\beta} (X_0,\ldots, X_{d-1}) = \prod_{k=0}^{d-1} (1- X_k + X_k \cdot \beta_k)
+ \f}
+such that \f$ pow_{\beta} (\vec \ell) = pow_{\ell} (\vec \beta) \f$ for any \f$0\leq \ell \leq 2^d-1 \f$ and any vector
+\f$(\beta_0,\ldots, \beta_{d-1})  \in \mathbb{F} ^d\f$.
 
- The factor \f$ c_i \f$ is containned in #partial_evaluation_result.
+ * Let \f$ i \f$ be the current Sumcheck round, \f$ i \in \{0, …, d-1\}\f$ and \f$ u_{0}, ..., u_{i-1} \f$ be the
+challenges computed in Rounds \f$ 0 \f$ to \f$ i-1\f$.
+ *
+ * In Round \f$ i \f$, we iterate over the points \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in
+\{0,1\}^{d-1-i}\f$. Define the edge univariate for the \f$ pow_\beta \f$ polynomial as \f$ pow^{i}_{\beta} (X_i, \vec
+\ell )\f$ and it can be represented as:
+ *   \f{align}{  pow_{\beta}^i =   pow_{\beta} ( u_{0}, ..., u_{i-1}, X_i, \ell_{i+1}, \ldots, \ell_{d-1})            =
+c_i \cdot ( (1−X_i) + X_i \cdot \beta_i ) \cdot \beta_{i+1}^{\ell_{i+1}}\cdot \cdots \cdot \beta_{d-1}^{\ell_{d-1}}, \f}
+ where \f$ c_i = \prod_{k=0}^{i-1} (1- u_k + u_k \cdot \beta_k) \f$.
 
- The challenge's powers  are recorded into the vector #betas.
+ ### Computing Sumcheck Round Univariates
+ * We identify \f$ \vec \ell = (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1 - i}\f$ with the binary representation
+of the integer \f$ \ell \in \{0,\ldots, 2^{d-1-i}-1 \}\f$.
  *
- ### Computing Round Univariates
- * Let \f$ S^{i}_{\ell}( X_i ) \f$ be the univariate of the full relation \f$ F \f$ defined by partially evaluating \f$F
-\f$  at \f$(u_0,\ldots,u_{i-1},  \ell_{i+1},\ldots, \ell_{d-1}) \f$
- * i.e. it is the alpha-linear-combination of the sub-relations evaluated at this point.
- * More concretely,  \f$ S^i_{\ell}( X_i ) = F( u_{0}, ..., u_{i-1}, X_{i},  \vec \ell ) \f$ .
- * The \f$ i \f$-th univariate is given by \f$ S^i( X_i ) = \sum_{ \ell =0}^{2^{d-i-1}-1}   S^i_{\ell}( X_i ) \f$.
+ * Set
+  \f{align}{S^i_{\ell}( X_i ) = F( u_{0}, ..., u_{i-1}, X_{i},  \vec \ell ), \f}
+ * i.e. \f$ S^{i}_{\ell}( X_i ) \f$  is the univariate of the full relation \f$ F \f$ defined by its partial evaluation
+at \f$(u_0,\ldots,u_{i-1},  \ell_{i+1},\ldots, \ell_{d-1}) \f$
+ * which  is an alpha-linear-combination of the sub-relations evaluated at this point.
  *
- * We exploit the special structure of pow to optimize the computation of round univariates.
- * More specifically, in Round \f$i\f$, the prover computes the univariate polynomial for the relation defined by \f$
-\tilde{F} (X)\f$
+ * In Round \f$i\f$, the prover \ref bb::SumcheckProverRound< Flavor >::compute_univariate "computes the univariate
+polynomial" for the relation defined by \f$ \tilde{F} (X_0,\ldots, X_{d-1}) = pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot
+F\f$, namely
  * \f{align}{
-    \tilde{S}^{i}(X_i) = &\ \sum_{ \ell = 0} ^{2^{d-i-1}-1}  pow^i_{\ell} ( X_i ) S^i_{\ell}( X_i ) \\
- *        = &\ \sum_{ \ell = 0} ^{2^{d-i-1}-1} \left( \beta_{i+1}^{\ell} \cdot ( (1−X_i) + X_i\cdot \beta_{i})\cdot c_i
-\right)\cdot S^i_{\ell}( X_i ) \\
- *        = &\ ( (1−X_i) + X_i\cdot \beta_i ) \cdot \sum_{ \ell = 0} ^{2^{d-i-1}-1} \left( c_i\cdot  \beta_{i+1}^{\ell}
-\cdot S^i_{\ell}( X_i ) \right) \\
- *        = &\ ( (1−X_i) + X_i\cdot \beta_i ) \cdot \sum_{ \ell = 0} ^{2^{d-i-1}-1} \left( c_i \cdot \beta_{i+1}^{\ell}
-\cdot S^i_{\ell}( X_i ) \right) \f}
+    \tilde{S}^{i}(X_i) = \sum_{ \ell = 0} ^{2^{d-i-1}-1}  pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} )
+S^i_{\ell}( X_i )
+ *        =  c_i \cdot ( (1−X_i) + X_i\cdot \beta_i )  \cdot \sum_{ \ell = 0} ^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}}
+\cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}} \cdot S^i_{\ell}( X_i ) \f}
  *
- * Define \f{align} T^{i}( X_i ) =  \sum_{\ell = 0}^{2^{d-i-1}-1} \left( c_i \cdot \beta_{i+1}^{\ell} \cdot
-S^{i}_{\ell}( X_i ) \right) \f} then \f$ \deg_{X_i} (T^i) \leq \deg_{X_i} S^i \f$ and it is only slightly more expensive
-to compute than \f$ S^i( X_i )\f$.
- ### Justification
- * Having represented the round univariated \f$ \tilde{S}^i\f$ as above, we could save some prover's work by first
-computing the polynomials \f$T^i(X_i) \f$ and multiplying each of them by the factor \f$\left( (1-X_i) + X_i\cdot
-\beta_i\right)\vert_{X_i = u_i}\f$ computed by the method \ref univariate_eval and used by the method \ref
-partially_evaluate.
- * @param zeta_pow
- * @param zeta_pow_sqr
- *
+ * Define
+ \f{align} T^{i}( X_i ) =  \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
+\beta_{d-1}^{\ell_{d-1}} \cdot S^{i}_{\ell}( X_i ) \f} then \f$ \deg_{X_i} (T^i) \leq \deg_{X_i} S^i \f$.
+ ### Main Features of PowPolynomial Class:
+ - The factor \f$ c_i \f$ is contained in #partial_evaluation_result and updated by \ref partially_evaluate.
+ - The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$ are recorded in #betas.
+ - The consecutive evaluations \f$ pow_{\ell}(\vec \beta) = pow_{\beta}(\vec \ell) \f$ for \f$\vec \ell\f$ identified
+with the integers \f$\ell = 0,\ldots, 2^d-1\f$ represented in binary are pre-computed by \ref compute_values and stored
+in #pow_betas.
  *
  */
 
