@@ -2,7 +2,7 @@
 
 The Aztec.nr compiler compiles Aztec.nr contracts using nargo and outputs Aztec formatted contract ABIs.
 The compiler can also generate typescript classes for each contract, as well as Aztec.nr interfaces for calling external functions.
-it can also be used to update aztec project dependencies.
+It can also be used to update aztec project dependencies.
 
 ## Installation
 
