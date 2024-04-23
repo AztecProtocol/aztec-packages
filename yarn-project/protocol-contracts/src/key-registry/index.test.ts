@@ -1,4 +1,9 @@
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CANONICAL_KEY_REGISTRY_ADDRESS,
+  computeContractAddressFromInstance,
+  getContractClassFromArtifact,
+} from '@aztec/circuits.js';
 
 import { getCanonicalKeyRegistry } from './index.js';
 
