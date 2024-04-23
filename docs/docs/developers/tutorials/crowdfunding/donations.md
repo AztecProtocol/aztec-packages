@@ -126,6 +126,8 @@ Now complete the initializer by setting the storage variables with the parameter
 
 #include_code init /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
+You can compile the code so far with `aztec-nargo compile`.
+
 ### 2. Taking private donations
 
 #### Checking campaign duration against the timestamp
@@ -179,9 +181,22 @@ The last thing to do is create a new value note and add it to the `donation_rece
 
 ### 3. Operator withdrawals
 
+The remaining function to implement, `withdraw`, is reasonably straight-forward:
+- make sure the address calling is the operator address
+- transfer tokens from the contract to the operator
+- reveal that an amount has been withdrawn to the operator
 
+Copy the last function into your Crowdfunding contract:
 
-## What next?
+#include_code all-operator-withdrawals /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+
+You should be able to compile successfully with `aztec-nargo compile`.
+
+## Conclusion
+
+For comparison, the full Crowdfunding contract can be found [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/crowdfunding_contract).
+
+### Next steps?
 
 If a new token wishes to honour donors with free tokens based on donation amounts, this is possible via the donation_receipts (a `PrivateSet`).
 See [claim_contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/claim_contract).

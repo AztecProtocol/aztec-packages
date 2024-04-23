@@ -88,6 +88,7 @@ contract Crowdfunding {
     }
     // docs:end:donate
 
+    // docs:start:operator-withdrawals
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.
     #[aztec(private)]
     fn withdraw(amount: u64) {
@@ -102,4 +103,5 @@ contract Crowdfunding {
         let event = WithdrawalProcessed { amount, who: operator_address };
         context.emit_unencrypted_log(event.serialize());
     }
+    // docs:end:operator-withdrawals
 }
