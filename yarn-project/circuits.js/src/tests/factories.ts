@@ -292,6 +292,10 @@ export function makeRollupValidationRequests(seed = 1) {
   return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
 
+export function makeCombinedConstantData(seed = 1): CombinedConstantData {
+  return new CombinedConstantData(makeHeader(seed), makeTxContext(seed + 0x100));
+}
+
 /**
  * Creates arbitrary accumulated data.
  * @param seed - The seed to use for generating the accumulated data.
