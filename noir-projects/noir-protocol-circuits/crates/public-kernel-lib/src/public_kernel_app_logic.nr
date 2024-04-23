@@ -268,7 +268,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         let contract_address = builder.public_call.contract_address;
-        let portal_contract_address = builder.public_call.portal_contract_address;
+        let portal_contract_address = EthAddress::from_field(0xdead);
         // Setup 1 new l2 to l1 message on the previous kernel.
         let previous = [12345];
 
@@ -448,18 +448,16 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         // Transaction gas limit is 1k
-        builder.previous_kernel.gas_settings.da.gas_limit = 1000;
-        builder.previous_kernel.gas_settings.l1.gas_limit = 1000;
-        builder.previous_kernel.gas_settings.l2.gas_limit = 1000;
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
 
         // Revertible has already used 300
         builder.previous_kernel.gas_used = Gas::new(300, 300, 300);
 
         // This call starts with 700 gas left
-        builder.public_call.public_inputs.call_context.gas_left = Gas::new(700, 700, 700);
+        builder.public_call.public_inputs.start_gas_left = Gas::new(700, 700, 700);
 
         // And uses 200, ending with 500 left
-        builder.public_call.public_inputs.gas_left = Gas::new(500, 500, 500);
+        builder.public_call.public_inputs.end_gas_left = Gas::new(500, 500, 500);
 
         // So the updated gas used by revertible must go up by 200, and non-revertible must stay the same
         let output = builder.execute();

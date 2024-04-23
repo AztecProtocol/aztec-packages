@@ -42,13 +42,14 @@ export class Oracle {
     return unpacked.map(toACVMField);
   }
 
-  async getNullifierKeyPair([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { publicKey, secretKey } = await this.typedOracle.getNullifierKeyPair(fromACVMField(accountAddress));
+  async getNullifierKeys([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
+      fromACVMField(accountAddress),
+    );
     return [
-      toACVMField(publicKey.x),
-      toACVMField(publicKey.y),
-      toACVMField(secretKey.high),
-      toACVMField(secretKey.low),
+      toACVMField(masterNullifierPublicKey.x),
+      toACVMField(masterNullifierPublicKey.y),
+      toACVMField(appNullifierSecretKey),
     ];
   }
 
@@ -67,7 +68,6 @@ export class Oracle {
       instance.deployer,
       instance.contractClassId,
       instance.initializationHash,
-      instance.portalContractAddress,
       instance.publicKeysHash,
     ].map(toACVMField);
   }
@@ -269,12 +269,6 @@ export class Oracle {
       fromACVMField(secret),
     );
     return message.toFields().map(toACVMField);
-  }
-
-  async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {
-    const contractAddress = AztecAddress.fromString(aztecAddress);
-    const portalContactAddress = await this.typedOracle.getPortalContractAddress(contractAddress);
-    return toACVMField(portalContactAddress);
   }
 
   async storageRead([startStorageSlot]: ACVMField[], [numberOfElements]: ACVMField[]): Promise<ACVMField[]> {
