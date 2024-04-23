@@ -492,6 +492,10 @@ It sets the `revert_code` in `PublicKernelCircuitPublicInputs` to `1`.
 Recall in the [Private Kernel Tail to Public](#private-kernel-tail-to-public) circuit, the gas allocated for the public teardown function was included in the `end` gas used. This ensures that we have gas available for teardown even though app logic consumed all gas. 
 :::
 
+:::warning
+Consuming all gas left in the event of revert creates incentives for the sequencer to arrange transactions such that they revert, which is suboptimal. Future improvements will likely address this by only consuming the gas that was actually used, even in the event of revert.
+:::
+
 ## Public Kernel Teardown
 
 The PublicKernelTeardown circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
