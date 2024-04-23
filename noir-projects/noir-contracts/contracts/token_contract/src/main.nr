@@ -15,7 +15,7 @@ contract Token {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
-        hash::poseidon2_hash,
+        hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress}
     };
 
@@ -23,10 +23,7 @@ contract Token {
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
     // docs:end:import_authwit
 
-    use crate::types::{
-        transparent_note::{TransparentNote, GENERATOR_INDEX__TRANSPARENT_NOTE},
-        token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap
-    };
+    use crate::types::{transparent_note::TransparentNote, token_note::{TokenNote, TOKEN_NOTE_LEN}, balances_map::BalancesMap};
     // docs:end::imports
 
     // docs:start:storage_struct
@@ -244,7 +241,7 @@ contract Token {
     #[aztec(private)]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
         let pending_shields = storage.pending_shields;
-        let secret_hash = poseidon2_hash([secret, GENERATOR_INDEX__TRANSPARENT_NOTE]);
+        let secret_hash = compute_secret_hash(secret);
         // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
         // stored in field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();

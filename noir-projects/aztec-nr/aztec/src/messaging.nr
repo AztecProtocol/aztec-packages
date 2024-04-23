@@ -1,5 +1,5 @@
 use crate::{
-    hash::{compute_message_secret_hash, compute_message_hash, compute_message_nullifier},
+    hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier},
     oracle::get_l1_to_l2_membership_witness::get_l1_to_l2_membership_witness
 };
 
@@ -15,7 +15,7 @@ pub fn process_l1_to_l2_message(
     content: Field,
     secret: Field
 ) -> Field {
-    let secret_hash = compute_message_secret_hash(secret);
+    let secret_hash = compute_secret_hash(secret);
     let message_hash = compute_message_hash(
         portal_contract_address,
         chain_id,

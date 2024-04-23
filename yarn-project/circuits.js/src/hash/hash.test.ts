@@ -6,10 +6,10 @@ import { makeAztecAddress, makeVerificationKey } from '../tests/factories.js';
 import {
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeMessageSecretHash,
   computeNullifierHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
+  computeSecretHash,
   computeUniqueCommitment,
   computeVarArgsHash,
   hashVK,
@@ -85,7 +85,7 @@ describe('hash', () => {
 
   it('compute secret message hash', () => {
     const value = new Fr(8n);
-    const hash = computeMessageSecretHash(value);
+    const hash = computeSecretHash(value);
     expect(hash).toMatchSnapshot();
   });
 

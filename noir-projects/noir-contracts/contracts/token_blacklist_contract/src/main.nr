@@ -11,16 +11,13 @@ mod types;
 contract TokenBlacklist {
     // Libs
     use dep::aztec::{
-        hash::poseidon2_hash,
+        hash::compute_secret_hash,
         prelude::{AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable}
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
 
-    use crate::types::{
-        transparent_note::{TransparentNote, GENERATOR_INDEX__TRANSPARENT_NOTE}, token_note::TokenNote,
-        balances_map::BalancesMap, roles::UserFlags
-    };
+    use crate::types::{transparent_note::TransparentNote, token_note::TokenNote, balances_map::BalancesMap, roles::UserFlags};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS = 5;
@@ -152,7 +149,7 @@ contract TokenBlacklist {
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         let pending_shields = storage.pending_shields;
-        let secret_hash = poseidon2_hash([secret, GENERATOR_INDEX__TRANSPARENT_NOTE]);
+        let secret_hash = compute_secret_hash(secret);
         // Get 1 note (set_limit(1)) which has amount stored in field with index 0 (select(0, amount)) and secret_hash
         // stored in field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();

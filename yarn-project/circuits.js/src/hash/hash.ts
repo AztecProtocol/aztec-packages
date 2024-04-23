@@ -157,12 +157,13 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
 }
 
 /**
- * Computes a hash of a secret as is done in the L1 to L2 message flow.
+ * Computes a hash of a secret.
+ * @dev This function is used to generate secrets for the L1 to L2 message flow and for the TransparentNote.
  * @param secret - The secret to hash (could be generated however you want e.g. `Fr.random()`)
  * @returns The hash
  */
-export function computeMessageSecretHash(secret: Fr) {
-  return pedersenHash([secret], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET);
+export function computeSecretHash(secret: Fr) {
+  return pedersenHash([secret], GeneratorIndex.SECRET_HASH);
 }
 
 export function computeL1ToL2MessageNullifier(

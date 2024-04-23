@@ -1,4 +1,4 @@
-use crate::hash::{compute_message_secret_hash, compute_message_hash, compute_message_nullifier};
+use crate::hash::{compute_secret_hash, compute_message_hash, compute_message_nullifier};
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{L1_TO_L2_MESSAGE_LENGTH, NESTED_CALL_L2_GAS_BUFFER}, header::Header
@@ -96,7 +96,7 @@ impl PublicContextInterface for AvmContext {
     }
 
     fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
-        let secret_hash = compute_message_secret_hash(secret);
+        let secret_hash = compute_secret_hash(secret);
         let message_hash = compute_message_hash(
             sender,
             self.chain_id(),

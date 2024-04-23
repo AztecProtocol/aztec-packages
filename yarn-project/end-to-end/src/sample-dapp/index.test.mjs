@@ -4,7 +4,7 @@ import {
   ExtendedNote,
   Fr,
   Note,
-  computeMessageSecretHash,
+  computeSecretHash,
   createPXEClient,
   waitForPXE,
 } from '@aztec/aztec.js';
@@ -27,7 +27,7 @@ describe('token', () => {
 
     const initialBalance = 20n;
     const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
+    const secretHash = await computeSecretHash(secret);
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
     const storageSlot = new Fr(5);

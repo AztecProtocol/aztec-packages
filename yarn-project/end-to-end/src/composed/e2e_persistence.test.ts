@@ -5,7 +5,7 @@ import {
   ExtendedNote,
   Note,
   type TxHash,
-  computeMessageSecretHash,
+  computeSecretHash,
   waitForAccountSynch,
 } from '@aztec/aztec.js';
 import { type Salt } from '@aztec/aztec.js/account';
@@ -72,13 +72,13 @@ describe('Aztec persistence', () => {
 
     const secret = Fr.random();
 
-    const mintTxReceipt = await contract.methods.mint_private(1000n, computeMessageSecretHash(secret)).send().wait();
+    const mintTxReceipt = await contract.methods.mint_private(1000n, computeSecretHash(secret)).send().wait();
 
     await addPendingShieldNoteToPXE(
       ownerWallet,
       contractAddress,
       1000n,
-      computeMessageSecretHash(secret),
+      computeSecretHash(secret),
       mintTxReceipt.txHash,
     );
 
@@ -130,12 +130,12 @@ describe('Aztec persistence', () => {
       const balance = await contract.methods.balance_of_private(ownerWallet.getAddress()).simulate();
 
       const secret = Fr.random();
-      const mintTxReceipt = await contract.methods.mint_private(1000n, computeMessageSecretHash(secret)).send().wait();
+      const mintTxReceipt = await contract.methods.mint_private(1000n, computeSecretHash(secret)).send().wait();
       await addPendingShieldNoteToPXE(
         ownerWallet,
         contractAddress,
         1000n,
-        computeMessageSecretHash(secret),
+        computeSecretHash(secret),
         mintTxReceipt.txHash,
       );
 
@@ -270,7 +270,7 @@ describe('Aztec persistence', () => {
       secret = Fr.random();
       mintAmount = 1000n;
       const mintTxReceipt = await contract.methods
-        .mint_private(mintAmount, computeMessageSecretHash(secret))
+        .mint_private(mintAmount, computeSecretHash(secret))
         .send()
         .wait();
       mintTxHash = mintTxReceipt.txHash;
@@ -311,7 +311,7 @@ describe('Aztec persistence', () => {
         ownerWallet,
         contractAddress,
         mintAmount,
-        computeMessageSecretHash(secret),
+        computeSecretHash(secret),
         mintTxHash,
       );
 
