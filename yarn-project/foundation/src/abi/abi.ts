@@ -1,5 +1,6 @@
 import { inflate } from 'pako';
 
+import { type Fr } from '../fields/fields.js';
 import { type FunctionSelector } from './function_selector.js';
 
 /**
@@ -268,6 +269,20 @@ export type DebugFileMap = Record<
 >;
 
 /**
+ * Type representing a field layout in the storage of a contract.
+ */
+export type FieldLayout = {
+  /**
+   * Slot in which the field is stored.
+   */
+  slot: Fr;
+  /**
+   * Type being stored at the slot
+   */
+  typ: string;
+};
+
+/**
  * Defines artifact of a contract.
  */
 export interface ContractArtifact {
@@ -292,6 +307,10 @@ export interface ContractArtifact {
     structs: Record<string, AbiType[]>;
     globals: Record<string, AbiValue[]>;
   };
+  /**
+   * Storage layout
+   */
+  storageLayout: Record<string, FieldLayout>;
 
   /**
    * The map of file ID to the source code and path of the file.

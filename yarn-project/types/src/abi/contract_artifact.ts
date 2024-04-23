@@ -2,10 +2,16 @@ import {
   type ABIParameter,
   type ABIParameterVisibility,
   type AbiType,
+  type BasicValue,
   type ContractArtifact,
+  type FieldLayout,
   type FunctionArtifact,
   FunctionType,
+  type IntegerValue,
+  type StructValue,
+  type TypedStructFieldValue,
 } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/foundation/fields';
 
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,
@@ -199,6 +205,28 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 }
 
 /**
+ * Generates a storage layout for the contract artifact.
+ * @param contract
+ * @returns A storage layout for the contract.
+ */
+function getStorageLayout(input: NoirCompiledContract) {
+  const storage = input.outputs.globals.storage ? (input.outputs.globals.storage[0] as StructValue) : { fields: [] };
+  const storageFields = storage.fields as TypedStructFieldValue<StructValue>[];
+  const layout: Record<string, FieldLayout> = storageFields.reduce((acc: Record<string, FieldLayout>, field) => {
+    const name = field.name;
+    const slot = field.value.fields[0].value as IntegerValue;
+    const typ = field.value.fields[1].value as BasicValue<'string', string>;
+    acc[name] = {
+      slot: new Fr(BigInt(slot.value)),
+      typ: typ.value,
+    };
+    return acc;
+  }, {});
+
+  return layout;
+}
+
+/**
  * Given a Nargo output generates an Aztec-compatible contract artifact.
  * @param compiled - Noir build output.
  * @returns Aztec contract build artifact.
@@ -208,6 +236,7 @@ function generateContractArtifact(contract: NoirCompiledContract, aztecNrVersion
     name: contract.name,
     functions: contract.functions.map(f => generateFunctionArtifact(f, contract)),
     outputs: contract.outputs,
+    storageLayout: getStorageLayout(contract),
     fileMap: contract.file_map,
     aztecNrVersion,
   };
