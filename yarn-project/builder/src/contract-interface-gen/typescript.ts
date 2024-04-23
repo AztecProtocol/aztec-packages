@@ -196,7 +196,7 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
     .map(
       ([name, { slot, typ }]) =>
         `${name}: {
-      slot: new Fr(${slot.toBigInt()}),
+      slot: new Fr(${slot.toBigInt()}n),
       typ: "${typ}",
     }`,
     )
@@ -226,7 +226,7 @@ function generateNotesGetter(input: ContractArtifact) {
     .map(
       ([name, { id }]) =>
         `${name}: {
-          id: new Fr(${id.toBigInt()}),
+          id: new Fr(${id.toBigInt()}n),
         }`,
     )
     .join(',\n');

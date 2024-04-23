@@ -210,7 +210,7 @@ function hasKernelFunctionInputs(params: ABIParameter[]): boolean {
 
 /**
  * Generates a storage layout for the contract artifact.
- * @param contract
+ * @param input - The compiled noir contract to get storage layout for
  * @returns A storage layout for the contract.
  */
 function getStorageLayout(input: NoirCompiledContract) {
@@ -233,6 +233,11 @@ function getStorageLayout(input: NoirCompiledContract) {
   }, {});
 }
 
+/**
+ * Generates records of the notes with note type ids of the artifact.
+ * @param input - The compiled noir contract to get note types for
+ * @return A record of the note types and their ids
+ */
 function getNoteTypes(input: NoirCompiledContract) {
   type t = {
     kind: string;
