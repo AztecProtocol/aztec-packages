@@ -168,6 +168,14 @@ class ProvingKey_ : public PrecomputedPolynomials, public WitnessPolynomials {
         this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
+        // Allocate memory for precomputed polynomials
+        for (auto& poly : PrecomputedPolynomials::get_all()) {
+            poly = Polynomial(circuit_size);
+        }
+        // Allocate memory for witness polynomials
+        for (auto& poly : WitnessPolynomials::get_all()) {
+            poly = Polynomial(circuit_size);
+        }
     };
 };
 
