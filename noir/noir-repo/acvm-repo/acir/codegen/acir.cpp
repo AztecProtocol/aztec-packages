@@ -922,8 +922,7 @@ namespace Program {
         };
 
         struct Trap {
-            uint64_t revert_data_offset;
-            uint64_t revert_data_size;
+            Program::HeapArray revert_data;
 
             friend bool operator==(const Trap&, const Trap&);
             std::vector<uint8_t> bincodeSerialize() const;
@@ -1093,6 +1092,31 @@ namespace Program {
         static Opcode bincodeDeserialize(std::vector<uint8_t>);
     };
 
+    struct AssertionPayload {
+
+        struct StaticString {
+            std::string value;
+
+            friend bool operator==(const StaticString&, const StaticString&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static StaticString bincodeDeserialize(std::vector<uint8_t>);
+        };
+
+        struct Expression {
+            std::tuple<uint64_t, std::vector<Program::Expression>> value;
+
+            friend bool operator==(const Expression&, const Expression&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static Expression bincodeDeserialize(std::vector<uint8_t>);
+        };
+
+        std::variant<StaticString, Expression> value;
+
+        friend bool operator==(const AssertionPayload&, const AssertionPayload&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static AssertionPayload bincodeDeserialize(std::vector<uint8_t>);
+    };
+
     struct ExpressionWidth {
 
         struct Unbounded {
@@ -1157,7 +1181,7 @@ namespace Program {
         std::vector<Program::Witness> private_parameters;
         Program::PublicInputs public_parameters;
         Program::PublicInputs return_values;
-        std::vector<std::tuple<Program::OpcodeLocation, std::string>> assert_messages;
+        std::vector<std::tuple<Program::OpcodeLocation, Program::AssertionPayload>> assert_messages;
         bool recursive;
 
         friend bool operator==(const Circuit&, const Circuit&);
@@ -1184,6 +1208,124 @@ namespace Program {
 
 } // end of namespace Program
 
+
+namespace Program {
+
+    inline bool operator==(const AssertionPayload &lhs, const AssertionPayload &rhs) {
+        if (!(lhs.value == rhs.value)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> AssertionPayload::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<AssertionPayload>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline AssertionPayload AssertionPayload::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<AssertionPayload>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::AssertionPayload>::serialize(const Program::AssertionPayload &obj, Serializer &serializer) {
+    serializer.increase_container_depth();
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+    serializer.decrease_container_depth();
+}
+
+template <>
+template <typename Deserializer>
+Program::AssertionPayload serde::Deserializable<Program::AssertionPayload>::deserialize(Deserializer &deserializer) {
+    deserializer.increase_container_depth();
+    Program::AssertionPayload obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    deserializer.decrease_container_depth();
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const AssertionPayload::StaticString &lhs, const AssertionPayload::StaticString &rhs) {
+        if (!(lhs.value == rhs.value)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> AssertionPayload::StaticString::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<AssertionPayload::StaticString>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline AssertionPayload::StaticString AssertionPayload::StaticString::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<AssertionPayload::StaticString>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::AssertionPayload::StaticString>::serialize(const Program::AssertionPayload::StaticString &obj, Serializer &serializer) {
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::AssertionPayload::StaticString serde::Deserializable<Program::AssertionPayload::StaticString>::deserialize(Deserializer &deserializer) {
+    Program::AssertionPayload::StaticString obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const AssertionPayload::Expression &lhs, const AssertionPayload::Expression &rhs) {
+        if (!(lhs.value == rhs.value)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> AssertionPayload::Expression::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<AssertionPayload::Expression>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline AssertionPayload::Expression AssertionPayload::Expression::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<AssertionPayload::Expression>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::AssertionPayload::Expression>::serialize(const Program::AssertionPayload::Expression &obj, Serializer &serializer) {
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::AssertionPayload::Expression serde::Deserializable<Program::AssertionPayload::Expression>::deserialize(Deserializer &deserializer) {
+    Program::AssertionPayload::Expression obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    return obj;
+}
 
 namespace Program {
 
@@ -5017,8 +5159,7 @@ Program::BrilligOpcode::BlackBox serde::Deserializable<Program::BrilligOpcode::B
 namespace Program {
 
     inline bool operator==(const BrilligOpcode::Trap &lhs, const BrilligOpcode::Trap &rhs) {
-        if (!(lhs.revert_data_offset == rhs.revert_data_offset)) { return false; }
-        if (!(lhs.revert_data_size == rhs.revert_data_size)) { return false; }
+        if (!(lhs.revert_data == rhs.revert_data)) { return false; }
         return true;
     }
 
@@ -5042,16 +5183,14 @@ namespace Program {
 template <>
 template <typename Serializer>
 void serde::Serializable<Program::BrilligOpcode::Trap>::serialize(const Program::BrilligOpcode::Trap &obj, Serializer &serializer) {
-    serde::Serializable<decltype(obj.revert_data_offset)>::serialize(obj.revert_data_offset, serializer);
-    serde::Serializable<decltype(obj.revert_data_size)>::serialize(obj.revert_data_size, serializer);
+    serde::Serializable<decltype(obj.revert_data)>::serialize(obj.revert_data, serializer);
 }
 
 template <>
 template <typename Deserializer>
 Program::BrilligOpcode::Trap serde::Deserializable<Program::BrilligOpcode::Trap>::deserialize(Deserializer &deserializer) {
     Program::BrilligOpcode::Trap obj;
-    obj.revert_data_offset = serde::Deserializable<decltype(obj.revert_data_offset)>::deserialize(deserializer);
-    obj.revert_data_size = serde::Deserializable<decltype(obj.revert_data_size)>::deserialize(deserializer);
+    obj.revert_data = serde::Deserializable<decltype(obj.revert_data)>::deserialize(deserializer);
     return obj;
 }
 
