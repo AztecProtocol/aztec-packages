@@ -1,6 +1,7 @@
-import { type Fr, computePartialAddress } from '@aztec/circuits.js';
+import { computePartialAddress } from '@aztec/circuits.js';
 import {
   type ContractArtifact,
+  type ContractNote,
   type FieldLayout,
   type FunctionArtifact,
   FunctionSelector,
@@ -19,20 +20,6 @@ export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) &
    * The unique identifier for a contract function in bytecode.
    */
   readonly selector: FunctionSelector;
-};
-
-/**
- * Type representing a note in use in the contract.
- */
-type ContractNote = {
-  /**
-   * Note identifier
-   */
-  id: Fr;
-  /**
-   * Type of the note
-   */
-  typ: string;
 };
 
 /**

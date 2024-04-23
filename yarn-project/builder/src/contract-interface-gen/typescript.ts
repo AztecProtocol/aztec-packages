@@ -1,18 +1,13 @@
 import {
   type ABIParameter,
-  type BasicValue,
   type ContractArtifact,
   type FunctionArtifact,
-  type IntegerValue,
-  type TupleValue,
   getDefaultInitializer,
   isAztecAddressStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
   isWrappedFieldStruct,
 } from '@aztec/foundation/abi';
-
-import uniqBy from 'lodash.uniqby';
 
 /**
  * Returns the corresponding typescript type for a given Noir type.
@@ -220,30 +215,29 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
  * @param input - The contract artifact.
  */
 function generateNotesGetter(input: ContractArtifact) {
-  const notes = input.outputs.globals.notes
-    ? uniqBy(input.outputs.globals.notes as TupleValue[], n => (n.fields[1] as BasicValue<'string', string>).value)
-    : [];
-  const notesUnionType = notes.map(n => `'${(n.fields[1] as BasicValue<'string', string>).value}'`).join(' | ');
+  const entries = Object.entries(input.notes);
 
-  const noteMetadata = notes
+  if (entries.length === 0) {
+    return '';
+  }
+
+  const notesUnionType = entries.map(([name]) => `'${name}'`).join(' | ');
+  const noteMetadata = entries
     .map(
-      ({ fields: [id, typ] }) =>
-        `${(typ as BasicValue<'string', string>).value}: {
-        id: new Fr(${(id as IntegerValue).value}n),
-      }
-    `,
+      ([name, { id }]) =>
+        `${name}: {
+          id: new Fr(${id.toBigInt()}),
+        }`,
     )
     .join(',\n');
-  return notes.length > 0
-    ? `
-  public static get notes(): ContractNotes<${notesUnionType}> {
+
+  return `public static get notes(): ContractNotes<${notesUnionType}> {
     const notes = this.artifact.outputs.globals.notes ? (this.artifact.outputs.globals.notes as any) : [];
     return {
       ${noteMetadata}
     } as ContractNotes<${notesUnionType}>;
   }
-  `
-    : '';
+  `;
 }
 
 /**
