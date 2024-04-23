@@ -142,14 +142,8 @@ export abstract class TypedOracle {
 
   getPublicKeysForAddress(
     _address: AztecAddress,
-  ): Promise<Point[] | undefined> {
+  ): Promise<Point[]> {
     throw new OracleMethodNotAvailableError('getPublicKeysForAddress');
-  }
-
-  async getAddressMetadata(
-    _address: AztecAddress,
-  ): Promise<Fr> {
-    throw new OracleMethodNotAvailableError('getAddressMetadata');
   }
 
   getNotes(

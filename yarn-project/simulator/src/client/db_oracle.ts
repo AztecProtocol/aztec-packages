@@ -67,8 +67,6 @@ export interface DBOracle extends CommitmentsDB {
 
   getPublicKeysForAddress(address: AztecAddress): Promise<Point[]>;
 
-  getAddressMetadata(address: AztecAddress): Promise<Fr>;
-
   /**
    * Retrieve nullifier keys associated with a specific account and app/contract address.
    *

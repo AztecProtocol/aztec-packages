@@ -1,4 +1,5 @@
 import {
+  Point,
   type AztecAddress,
   type Fr,
   type GrumpkinPrivateKey,
@@ -116,4 +117,15 @@ export interface KeyStore {
    * @returns A Promise that resolves to the public keys hash.
    */
   getPublicKeysHash(account: AztecAddress): Promise<Fr>;
+
+  /**
+   * 
+   */
+  addPublicKeysForAccount(
+    accountAddress: AztecAddress,
+    masterNullifierPublicKey: Point,
+    masterIncomingViewingPublicKey: Point,
+    masterOutgoingViewingPublicKey: Point,
+    masterTaggingPublicKey: Point,
+  ): Promise<void>;
 }

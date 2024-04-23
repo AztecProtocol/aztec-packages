@@ -1,4 +1,7 @@
-use dep::protocol_types::{constants::{GENERATOR_INDEX__PUBLIC_KEYS_HASH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1}, address::{AztecAddress, PartialAddress}, grumpkin_point::GrumpkinPoint};
+use dep::protocol_types::{
+  constants::{
+    GENERATOR_INDEX__PUBLIC_KEYS_HASH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
+    address::{AztecAddress, PartialAddress}, grumpkin_point::GrumpkinPoint};
 use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH},
@@ -7,18 +10,28 @@ use crate::note::{
     utils::compute_note_hash_for_consumption,
 };
 use crate::state_vars::shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter;
-use crate::hash::pedersen_hash;
-use dep::std::hash::poseidon2::Poseidon2::hash as poseidon2_hash;
+use crate::hash::{pedersen_hash, poseidon2_hash};
 use crate::oracle;
 
+struct PublicKeyTypeEnum {
+  NULLIFIER: u8,
+  INCOMING: u8,
+}
 
-fn assert_nullifier_public_key_fresh(
+global PublicKeyType = PublicKeyTypeEnum {
+  NULLIFIER: 0,
+  INCOMING: 1,
+};
+
+pub fn assert_nullifier_public_key_fresh(
   context: &mut PrivateContext,
   address: AztecAddress, 
   nullifier_public_key_to_test: GrumpkinPoint,
+  // remove after
+  registry_contract_address: AztecAddress,
 ) {
   // Canonical Key Registry
-  let contract_address_to_read = AztecAddress::from_field(123);
+  let contract_address_to_read = registry_contract_address;
   let storage_slot_of_nullifier_public_key = 1;
   // We have to derive this slot to get the location of the shared mutable inside the Map
   let derived_slot = pedersen_hash(
@@ -31,14 +44,21 @@ fn assert_nullifier_public_key_fresh(
   let hashed_nullifier_public_key = registry_private_getter.get_current_value_in_private();
 
   if (hashed_nullifier_public_key == 0) {
-    check_key(address, 1, nullifier_public_key_to_test);
+    check_key(address, PublicKeyType.NULLIFIER, nullifier_public_key_to_test);
   } else {
-    assert(hashed_nullifier_public_key == pedersen_hash(nullifier_public_key_to_test.serialize(), 0));
+    assert(hashed_nullifier_public_key == poseidon2_hash(nullifier_public_key_to_test.serialize()));
   }
 }
 
-fn check_key(address: AztecAddress, key_type: Field, key: GrumpkinPoint) {
+fn check_key(address: AztecAddress, key_type: u8, key: GrumpkinPoint) {
   let mut (partial_address, keys) = check_key_internal(address);
+
+  crate::oracle::debug_log::debug_log_array_with_prefix("partial", [partial_address]);
+  crate::oracle::debug_log::debug_log_array_with_prefix("ACTUAL NULLIFIER", key.serialize());
+  crate::oracle::debug_log::debug_log_array_with_prefix("nullifier", keys[0].serialize());
+  crate::oracle::debug_log::debug_log_array_with_prefix("incoming", keys[1].serialize());
+  crate::oracle::debug_log::debug_log_array_with_prefix("outgoing", keys[2].serialize());
+  crate::oracle::debug_log::debug_log_array_with_prefix("tagging", keys[3].serialize());
 
   assert(keys[key_type].eq(key));
 
@@ -49,7 +69,7 @@ fn check_key(address: AztecAddress, key_type: Field, key: GrumpkinPoint) {
     keys[1],
     keys[2],
     keys[3],
-  );
+  )
 }
 
 unconstrained fn check_key_internal(address: AztecAddress) -> (PartialAddress, [GrumpkinPoint; 4]) {
@@ -76,19 +96,15 @@ fn _check_key_constrain_check_key_internal(
       tagging_public_key.serialize()[0],
       tagging_public_key.serialize()[1],
       GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-    ],
-    9
-  );
+  ]);
 
   let computed_address = AztecAddress::from_field(
     poseidon2_hash([
-        partial_address.to_field(),
-        public_keys_hash.to_field(),
-        GENERATOR_INDEX__CONTRACT_ADDRESS_V1 as Field,
-      ],
-      3
-    )
+      partial_address.to_field(),
+      public_keys_hash.to_field(),
+      GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+    ])
   );
 
-  assert(computed_address.eq(address), "Computed address does not match supplied address");
+  assert(computed_address.eq(address));
 }

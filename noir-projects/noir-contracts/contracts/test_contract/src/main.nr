@@ -7,7 +7,8 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize,
+        grumpkin_point::GrumpkinPoint
     };
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
@@ -15,6 +16,7 @@ contract Test {
     use dep::aztec::state_vars::shared_mutable::SharedMutablePrivateGetter;
 
     use dep::aztec::{
+        keys::assert_public_key_freshness::assert_nullifier_public_key_fresh,
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
@@ -409,6 +411,15 @@ contract Test {
         let authorized = test.get_current_value_in_private();
 
         context.emit_unencrypted_log(authorized);
+    }
+
+    #[aztec(private)]
+    fn test_nullifier_key_freshness(
+        address: AztecAddress,
+        public_nullifying_key: GrumpkinPoint,
+        key_registry_contract: AztecAddress,
+    ) {
+        assert_nullifier_public_key_fresh(&mut context, address, public_nullifying_key, key_registry_contract);
     }
 
     #[aztec(public)]

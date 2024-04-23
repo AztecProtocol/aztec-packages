@@ -1,5 +1,5 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
+import { type PartialAddress, acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -174,12 +174,26 @@ export class Oracle {
   }
 
   async getPublicKeysAndPartialAddress([address]: ACVMField[]): Promise<ACVMField[]> {
-    const { partialAddress } = await this.typedOracle.getCompleteAddress(
-      AztecAddress.fromField(fromACVMField(address)),
-    );
+    let partialAddress: PartialAddress;
+    let publicKeys: Point[] | undefined;
+    try {
+      ({ partialAddress } = await this.typedOracle.getCompleteAddress(
+        AztecAddress.fromField(fromACVMField(address)),
+      ));
+    } catch (err) {
+      partialAddress = Fr.ZERO;
+    }
 
-    const publicKeys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
-    const acvmKeys = publicKeys?.flatMap(key => key.toFields()) ?? Array(8).fill(toACVMField(0));
+    try {
+      publicKeys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
+    } catch(err) {
+      publicKeys = Array(4).fill(Point.ZERO);
+    }
+
+    console.log('partial address', partialAddress);
+    console.log('public keys', publicKeys);
+
+    const acvmKeys = publicKeys.flatMap(key => key.toFields());
 
     return [partialAddress, ...acvmKeys].map(toACVMField);
   }
