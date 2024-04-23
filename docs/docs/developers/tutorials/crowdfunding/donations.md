@@ -52,7 +52,7 @@ Use `aztec-nargo --help` to see other commands.
 - private transfer token from sender to contract
 - transaction receipts allow private claims via another contract
 
-3. Only the operator can withdraw from fund
+3. Only the operator can withdraw from the fund
 
 ### 1. Create a campaign
 
