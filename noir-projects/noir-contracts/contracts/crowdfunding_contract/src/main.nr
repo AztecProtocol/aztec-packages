@@ -2,12 +2,14 @@
 contract Crowdfunding {
     // docs:end:empty-contract
 
+    // docs:start:all-deps
     use dep::aztec::{
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize},
         state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;
+    // docs:end:all-deps
 
     #[aztec(event)]
     struct WithdrawalProcessed {

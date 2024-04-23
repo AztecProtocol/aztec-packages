@@ -146,7 +146,7 @@ Read the deadline from storage and assert that the `timestamp` from this context
 
 ---
 
-Since donations are to be private, the donate function will have the user's private context which has these [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables). So from the private context we must do some extra work to call the (public internal) `_check_deadline` function.
+Since donations are to be private, the donate function will have the user's private context which has these [Private Global Variables](https://docs.aztec.network/developers/contracts/references/globals#private-global-variables). So from the private context there is a little extra to call the (public internal) `_check_deadline` function.
 
 ```rust
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
@@ -154,26 +154,34 @@ Since donations are to be private, the donate function will have the user's priv
 }
 ```
 
-From the private context we call `call_public_function` (defined [here](https://docs.aztec.network/developers/contracts/references/aztec-nr/aztec/context/private_context#call_public_function)). Passing the address of the contract and the function signature (name and param types).
+Namely calling `enqueue` and passing the (mutable) context.
 
-We've not yet added the `FunctionSelector` type, so do that now
+Now conclude adding all dependencies to the `Crowdfunding` contract:
 
-```rust
-use dep::aztec::{protocol_types::{address::AztecAddress, abis::function_selector::FunctionSelector}};
-```
+#include_code all-deps /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-Like before, you can find the `FunctionSelector`, and other `aztec::protocol_types` [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
+Like before, you can find these and other `aztec::protocol_types` [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
 
 
-#### Simplified interface for tokens
+#### Interfacing with another contract
 
-Note: requires auth-wit of token
+The token being used for donations is stored simply as an `AztecAddress` (named `donation_token`). so to easily use it as a token, we let the compiler know that we want the address to have a Token interface. Here we will use a maintained example Token contract.
+
+Add this `Token` contract to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }`
+
+With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract. Note: the user must have authorised this action (concept [here](../../../learn/concepts/accounts/main#authorizing-actions)), example use of `createAuthWit` in 'full donor flow' test [here](../../../../../yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts).
+
+#### Creating and storing a private receipt note
+
+The last thing to do is create a new value note and add it to the `donation_receipts`. So the full donation function is now
+
+#include_code all-deps /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+
+### 3. Operator withdrawals
 
 
-## Implement Rewards
 
-Continue building a complementary rewards contract [here](./rewards.md).
+## What next?
 
-```
-
-```
+If a new token wishes to honour donors with free tokens based on donation amounts, this is possible via the donation_receipts (a `PrivateSet`).
+See [claim_contract](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/claim_contract).
