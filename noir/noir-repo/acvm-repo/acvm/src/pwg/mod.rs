@@ -1,6 +1,6 @@
 // Re-usable methods that backends can use to implement their PWG
 
-use std::{any::Any, collections::HashMap};
+use std::collections::HashMap;
 
 use acir::{
     brillig::ForeignCallResult,
@@ -413,9 +413,6 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                                                 })
                                                 .ok()
                                         }
-                                        AssertionPayload::BrilligOutput(_) => unreachable!(
-                                            "Brillig output error type set in an ACIR opcode"
-                                        ),
                                     }
                                 } else {
                                     None

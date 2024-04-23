@@ -1,5 +1,4 @@
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 use acvm::FieldElement;
@@ -15,9 +14,9 @@ use crate::ssa::ir::basic_block::BasicBlockId;
 use crate::ssa::ir::dfg::DataFlowGraph;
 use crate::ssa::ir::function::{Function, RuntimeType};
 use crate::ssa::ir::function::{FunctionId as IrFunctionId, InlineType};
-use crate::ssa::ir::instruction::BinaryOp;
-use crate::ssa::ir::instruction::Instruction;
-use crate::ssa::ir::map::{AtomicCounter, Id};
+use crate::ssa::ir::instruction::{BinaryOp, ErrorType};
+use crate::ssa::ir::instruction::{ErrorTypeId, Instruction};
+use crate::ssa::ir::map::AtomicCounter;
 use crate::ssa::ir::types::{NumericType, Type};
 use crate::ssa::ir::value::ValueId;
 
@@ -74,7 +73,7 @@ pub(super) struct SharedContext {
     /// Shared counter used to assign the ID of the next function
     function_counter: AtomicCounter<Function>,
 
-    error_id_counter: AtomicUsize,
+    error_id_counter: AtomicCounter<ErrorType>,
 
     /// The entire monomorphized source program
     pub(super) program: Program,
@@ -1237,8 +1236,9 @@ impl SharedContext {
         next_id
     }
 
-    pub(super) fn create_error_id(&self) -> usize {
-        self.error_id_counter.fetch_add(1, Ordering::Relaxed)
+    /// Used to create a unique error id for matching error types used in the program.
+    pub(super) fn create_error_id(&self) -> ErrorTypeId {
+        self.error_id_counter.next()
     }
 }
 

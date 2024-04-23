@@ -26,7 +26,7 @@ mod instructions;
 pub(crate) use instructions::BrilligBinaryOp;
 
 use self::{artifact::BrilligArtifact, registers::BrilligRegistersContext};
-use crate::ssa::ir::{dfg::CallStack, instruction::UserDefinedErrorType};
+use crate::ssa::ir::dfg::CallStack;
 use acvm::acir::brillig::{MemoryAddress, Opcode as BrilligOpcode};
 use debug_show::DebugShow;
 
@@ -122,10 +122,6 @@ impl BrilligContext {
     /// Sets a current call stack that the next pushed opcodes will be associated with.
     pub(crate) fn set_call_stack(&mut self, call_stack: CallStack) {
         self.obj.set_call_stack(call_stack);
-    }
-
-    pub(crate) fn record_error_type(&mut self, error_type: UserDefinedErrorType) {
-        self.obj.error_types.push(error_type);
     }
 }
 

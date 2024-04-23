@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use acvm::acir::{circuit::ResolvedOpcodeLocation, native_types::Witness};
+use acvm::acir::native_types::Witness;
 use iter_extended::{btree_map, vecmap};
 use noirc_abi::{Abi, AbiParameter, AbiReturnType, AbiType, AbiValue};
 use noirc_frontend::{

@@ -76,7 +76,7 @@ impl NargoError {
                         let decoded = prepare_for_display(fields, abi_type.clone());
                         Some(decoded.to_string())
                     } else {
-                        None
+                        Some(display_as_string(fields))
                     }
                 }
             },
@@ -236,7 +236,7 @@ fn extract_message_from_error(
             if let Some(abi_type) = error_types.get(error_id) {
                 format!("Assertion failed: {}", prepare_for_display(fields, abi_type.clone()))
             } else {
-                format!("Assertion failed {:?}", fields)
+                format!("Assertion failed {}", display_as_string(fields))
             }
         }
         NargoError::ExecutionError(ExecutionError::SolvingError(
@@ -251,6 +251,16 @@ fn extract_message_from_error(
         )) => "Failed constraint".into(),
         _ => nargo_err.to_string(),
     }
+}
+
+pub fn display_as_string(fields: &[FieldElement]) -> String {
+    fields
+        .iter()
+        .map(|field| {
+            let as_u8 = field.try_to_u64().unwrap_or_default() as u8;
+            as_u8 as char
+        })
+        .collect()
 }
 
 /// Tries to generate a runtime diagnostic from a nargo error. It will successfully do so if it's a runtime error with a call stack.

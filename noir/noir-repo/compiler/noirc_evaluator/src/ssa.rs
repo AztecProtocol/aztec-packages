@@ -16,7 +16,6 @@ use crate::{
 use acvm::acir::{
     circuit::{
         brillig::BrilligBytecode, Circuit, ExpressionWidth, Program as AcirProgram, PublicInputs,
-        ResolvedOpcodeLocation,
     },
     native_types::Witness,
 };
@@ -29,7 +28,11 @@ use noirc_frontend::{
 };
 use tracing::{span, Level};
 
-use self::{acir_gen::GeneratedAcir, ssa_gen::Ssa};
+use self::{
+    acir_gen::GeneratedAcir,
+    ir::instruction::{ErrorType, ErrorTypeId},
+    ssa_gen::Ssa,
+};
 
 mod acir_gen;
 pub(super) mod function_builder;
@@ -48,7 +51,10 @@ pub(crate) fn optimize_into_acir(
     print_brillig_trace: bool,
     force_brillig_output: bool,
     print_timings: bool,
-) -> Result<(Vec<GeneratedAcir>, Vec<BrilligBytecode>), RuntimeError> {
+) -> Result<
+    (Vec<GeneratedAcir>, Vec<BrilligBytecode>, BTreeMap<ErrorTypeId, ErrorType>),
+    RuntimeError,
+> {
     let abi_distinctness = program.return_distinctness;
 
     let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
@@ -153,7 +159,7 @@ pub fn create_program(
     let func_sigs = program.function_signatures.clone();
 
     let recursive = program.recursive;
-    let (generated_acirs, generated_brillig) = optimize_into_acir(
+    let (generated_acirs, generated_brillig, error_types) = optimize_into_acir(
         program,
         enable_ssa_logging,
         enable_brillig_logging,
@@ -166,11 +172,9 @@ pub fn create_program(
         "The generated ACIRs should match the supplied function signatures"
     );
 
-    let error_types: BTreeMap<usize, HirType> = generated_acirs
-        .iter()
-        .flat_map(|acir| {
-            acir.error_types.iter().map(move |error_typ| (error_typ.id, error_typ.typ.clone()))
-        })
+    let error_types = error_types
+        .into_iter()
+        .map(|(error_typ_id, error_typ)| (error_typ_id.to_usize(), error_typ))
         .collect();
 
     let mut program_artifact = SsaProgramArtifact::new(generated_brillig, error_types);

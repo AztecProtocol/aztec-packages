@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use crate::{
     brillig::{brillig_gen::brillig_directive, brillig_ir::artifact::GeneratedBrillig},
     errors::{InternalError, RuntimeError, SsaReport},
-    ssa::ir::{dfg::CallStack, instruction::UserDefinedErrorType},
+    ssa::ir::dfg::CallStack,
 };
 use acvm::acir::{
     circuit::{
@@ -21,7 +21,6 @@ use acvm::{
     FieldElement,
 };
 use iter_extended::vecmap;
-use noirc_frontend::hir_def::types::Type as HirType;
 use num_bigint::BigUint;
 
 #[derive(Debug, Default)]
@@ -56,7 +55,6 @@ pub(crate) struct GeneratedAcir {
 
     /// Correspondence between an opcode index and the error message associated with it.
     pub(crate) assert_messages: BTreeMap<OpcodeLocation, AssertionPayload>,
-    pub(crate) error_types: Vec<UserDefinedErrorType>,
 
     pub(crate) warnings: Vec<SsaReport>,
 
@@ -617,9 +615,6 @@ impl GeneratedAcir {
                 AssertionPayload::StaticString(message.clone()),
             );
         }
-        for error_type in generated_brillig.error_types {
-            self.error_types.push(error_type);
-        }
     }
 
     pub(crate) fn brillig_call(
@@ -650,9 +645,6 @@ impl GeneratedAcir {
                 },
                 AssertionPayload::StaticString(message.clone()),
             );
-        }
-        for error_type in generated_brillig.error_types.iter() {
-            self.error_types.push(error_type.clone());
         }
     }
 

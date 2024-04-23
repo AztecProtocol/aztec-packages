@@ -12,6 +12,7 @@ import {
 
 import { traverseCauseChain } from '../common/errors.js';
 import { type ACVMWitness } from './acvm_types.js';
+import { fromACVMField } from './deserialize.js';
 import { type ORACLE_NAMES } from './oracle/index.js';
 
 /**
@@ -155,5 +156,18 @@ export function extractCallStack(
     return resolveOpcodeLocations(callStack, debug);
   } catch (err) {
     return callStack;
+  }
+}
+
+export function extractAssertionMessage(error: Error | ExecutionError): string | undefined {
+  if (!('assertionPayload' in error) || !error.assertionPayload) {
+    return undefined;
+  }
+  const { assertionPayload } = error;
+
+  if (typeof assertionPayload === 'string') {
+    return assertionPayload;
+  } else {
+    return String.fromCharCode(...assertionPayload.fields.map((field: string) => fromACVMField(field).toNumber()));
   }
 }

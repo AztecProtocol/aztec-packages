@@ -121,7 +121,7 @@ impl DefunctionalizationContext {
                     }
                     _ => {}
                 }
-                if let Some(mut new_instruction) = replacement_instruction {
+                if let Some(new_instruction) = replacement_instruction {
                     func.dfg[instruction_id] = new_instruction;
                 }
             }

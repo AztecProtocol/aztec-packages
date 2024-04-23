@@ -351,7 +351,7 @@ impl Instruction {
                     ConstrainError::UserDefined(payload_values, typ) => {
                         ConstrainError::UserDefined(
                             payload_values.iter().map(|&value| f(value)).collect(),
-                            typ.clone(),
+                            *typ,
                         )
                     }
                     _ => error.clone(),
@@ -602,14 +602,11 @@ pub(crate) enum ConstrainError {
     // These are errors which have been hardcoded during SSA gen
     Intrinsic(String),
     // These are errors issued by the user
-    UserDefined(Vec<ValueId>, UserDefinedErrorType),
+    UserDefined(Vec<ValueId>, ErrorTypeId),
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub(crate) struct UserDefinedErrorType {
-    pub(crate) typ: HirType,
-    pub(crate) id: usize,
-}
+pub(crate) type ErrorType = HirType;
+pub(crate) type ErrorTypeId = Id<ErrorType>;
 
 impl From<String> for ConstrainError {
     fn from(value: String) -> Self {

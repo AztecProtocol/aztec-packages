@@ -1,7 +1,5 @@
 use acvm::acir::brillig::{HeapArray, MemoryAddress};
 
-use crate::ssa::ir::instruction::UserDefinedErrorType;
-
 use super::{
     artifact::BrilligParameter,
     brillig_variable::{BrilligVariable, SingleAddrVariable},
@@ -150,7 +148,7 @@ impl BrilligContext {
         condition: SingleAddrVariable,
         revert_data_items: Vec<BrilligVariable>,
         revert_data_types: Vec<BrilligParameter>,
-        revert_data_type: UserDefinedErrorType,
+        revert_data_type: usize,
     ) {
         assert!(condition.bit_size == 1);
 
@@ -164,7 +162,7 @@ impl BrilligContext {
 
             let current_revert_data_pointer = ctx.allocate_register();
             ctx.mov_instruction(current_revert_data_pointer, revert_data.pointer);
-            let revert_data_id = ctx.make_usize_constant_instruction(revert_data_type.id.into());
+            let revert_data_id = ctx.make_usize_constant_instruction(revert_data_type.into());
             ctx.store_instruction(current_revert_data_pointer, revert_data_id.address);
             ctx.codegen_usize_op_in_place(current_revert_data_pointer, BrilligBinaryOp::Add, 1);
             for (revert_variable, revert_param) in
@@ -200,7 +198,6 @@ impl BrilligContext {
             }
             ctx.trap_instruction(revert_data);
         });
-        self.record_error_type(revert_data_type);
     }
 
     /// Emits brillig bytecode to jump to a trap condition if `condition`

@@ -259,7 +259,7 @@ impl<'block> BrilligBlock<'block> {
                     condition,
                 );
                 match assert_message {
-                    Some(ConstrainError::UserDefined(values, typ)) => {
+                    Some(ConstrainError::UserDefined(values, typ_id)) => {
                         let payload_values =
                             vecmap(values, |value| self.convert_ssa_value(*value, dfg));
                         let payload_as_params = vecmap(values, |value| {
@@ -270,7 +270,7 @@ impl<'block> BrilligBlock<'block> {
                             condition,
                             payload_values,
                             payload_as_params,
-                            typ.clone(),
+                            typ_id.to_usize(),
                         );
                     }
                     Some(ConstrainError::Intrinsic(message)) => {

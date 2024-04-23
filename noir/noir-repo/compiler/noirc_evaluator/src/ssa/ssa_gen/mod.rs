@@ -30,7 +30,7 @@ use super::{
     function_builder::data_bus::DataBus,
     ir::{
         function::RuntimeType,
-        instruction::{BinaryOp, ConstrainError, TerminatorInstruction, UserDefinedErrorType},
+        instruction::{BinaryOp, ConstrainError, TerminatorInstruction},
         types::Type,
         value::ValueId,
     },
@@ -707,14 +707,19 @@ impl<'a> FunctionContext<'a> {
         let Some(assert_message_payload) = assert_message else { return Ok(None) };
         let (assert_message_expression, assert_message_typ) = assert_message_payload.as_ref();
 
-        let values = self.codegen_expression(assert_message_expression)?.into_value_list(self);
-        Ok(Some(ConstrainError::UserDefined(
-            values,
-            UserDefinedErrorType {
-                typ: assert_message_typ.clone(),
-                id: self.shared_context.create_error_id(),
-            },
-        )))
+        let values: Vec<super::ir::map::Id<super::ir::value::Value>> =
+            self.codegen_expression(assert_message_expression)?.into_value_list(self);
+
+        let error_type_id = self.shared_context.create_error_id();
+
+        // Do not record string errors in the ABI
+        match assert_message_typ {
+            HirType::String(_) => {}
+            _ => {
+                self.builder.record_error_type(error_type_id, assert_message_typ.clone());
+            }
+        };
+        Ok(Some(ConstrainError::UserDefined(values, error_type_id)))
     }
 
     fn codegen_assign(&mut self, assign: &ast::Assign) -> Result<Values, RuntimeError> {

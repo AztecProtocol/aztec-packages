@@ -1,7 +1,6 @@
 use acvm::acir::circuit::brillig::BrilligBytecode;
 use acvm::acir::circuit::{OpcodeLocation, Program, ResolvedOpcodeLocation};
 use acvm::acir::native_types::WitnessStack;
-use acvm::brillig_vm::brillig::ForeignCallResult;
 use acvm::pwg::{ACVMStatus, ErrorLocation, OpcodeNotSolvable, OpcodeResolutionError, ACVM};
 use acvm::BlackBoxFunctionSolver;
 use acvm::{acir::circuit::Circuit, acir::native_types::WitnessMap};
@@ -9,7 +8,7 @@ use acvm::{acir::circuit::Circuit, acir::native_types::WitnessMap};
 use crate::errors::ExecutionError;
 use crate::NargoError;
 
-use super::foreign_calls::{ForeignCallExecutor, NargoForeignCallResult};
+use super::foreign_calls::ForeignCallExecutor;
 
 struct ProgramExecutor<'a, B: BlackBoxFunctionSolver, F: ForeignCallExecutor> {
     functions: &'a [Circuit],
@@ -121,14 +120,7 @@ impl<'a, B: BlackBoxFunctionSolver, F: ForeignCallExecutor> ProgramExecutor<'a, 
                 }
                 ACVMStatus::RequiresForeignCall(foreign_call) => {
                     let foreign_call_result = self.foreign_call_executor.execute(&foreign_call)?;
-                    match foreign_call_result {
-                        NargoForeignCallResult::BrilligOutput(foreign_call_result) => {
-                            acvm.resolve_pending_foreign_call(foreign_call_result);
-                        }
-                        NargoForeignCallResult::ResolvedAssertMessage(message) => {
-                            unreachable!("Assert messages shouln't be resolved via foreign calls")
-                        }
-                    }
+                    acvm.resolve_pending_foreign_call(foreign_call_result);
                 }
                 ACVMStatus::RequiresAcirCall(call_info) => {
                     // Store the parent function index whose context we are currently executing

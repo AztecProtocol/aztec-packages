@@ -4,10 +4,7 @@
 #![warn(clippy::semicolon_if_nothing_returned)]
 
 use acvm::{
-    acir::{
-        circuit::ResolvedOpcodeLocation,
-        native_types::{Witness, WitnessMap},
-    },
+    acir::native_types::{Witness, WitnessMap},
     FieldElement,
 };
 use errors::AbiError;
@@ -15,8 +12,6 @@ use input_parser::InputValue;
 use iter_extended::{try_btree_map, try_vecmap, vecmap};
 use noirc_frontend::{hir::Context, Signedness, Type, TypeBinding, TypeVariableKind, Visibility};
 use serde::{Deserialize, Serialize};
-use serde_with::serde_as;
-use serde_with::DisplayFromStr;
 use std::ops::Range;
 use std::{collections::BTreeMap, str};
 // This is the ABI used to bridge the different TOML formats for the initial
@@ -246,7 +241,6 @@ pub struct AbiReturnType {
     pub visibility: AbiVisibility,
 }
 
-#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Abi {
     /// An ordered list of the arguments to the program's `main` function, specifying their types and visibility.

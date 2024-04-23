@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 
-import { Oracle, acvm, extractCallStack, witnessMapToFields } from '../acvm/index.js';
+import { Oracle, acvm, extractAssertionMessage, extractCallStack, witnessMapToFields } from '../acvm/index.js';
 import { AvmContext } from '../avm/avm_context.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
@@ -105,6 +105,10 @@ async function executePublicFunctionAcvm(
       };
     } catch (err_) {
       const err = err_ as Error;
+      const assertionMessage = extractAssertionMessage(err);
+      if (assertionMessage) {
+        err.message = `Assertion failed: ${assertionMessage}`;
+      }
       const ee = new ExecutionError(
         err.message,
         {

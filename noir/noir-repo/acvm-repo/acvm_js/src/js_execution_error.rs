@@ -1,11 +1,19 @@
-use acvm::acir::circuit::OpcodeLocation;
-use js_sys::{Array, Error, JsString, Reflect};
+use acvm::{acir::circuit::OpcodeLocation, pwg::ResolvedAssertionPayload};
+use js_sys::{Array, Error, JsString, Map, Object, Reflect};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
+
+use crate::js_witness_map::field_element_to_js_string;
 
 #[wasm_bindgen(typescript_custom_section)]
 const EXECUTION_ERROR: &'static str = r#"
+export type RawAssertionPayload = {
+    typeId: number;
+    fields: string[];
+};
+export type ResolvedAssertionPayload = string | RawAssertionPayload;
 export type ExecutionError = Error & {
     callStack?: string[];
+    assertionPayload?: ResolvedAssertionPayload;
 };
 "#;
 
@@ -25,7 +33,11 @@ extern "C" {
 impl JsExecutionError {
     /// Creates a new execution error with the given call stack.
     /// Call stacks won't be optional in the future, after removing ErrorLocation in ACVM.
-    pub fn new(message: String, call_stack: Option<Vec<OpcodeLocation>>) -> Self {
+    pub fn new(
+        message: String,
+        call_stack: Option<Vec<OpcodeLocation>>,
+        assertion_payload: Option<ResolvedAssertionPayload>,
+    ) -> Self {
         let mut error = JsExecutionError::constructor(JsString::from(message));
         let js_call_stack = match call_stack {
             Some(call_stack) => {
@@ -37,8 +49,25 @@ impl JsExecutionError {
             }
             None => JsValue::UNDEFINED,
         };
+        let assertion_payload = match assertion_payload {
+            Some(ResolvedAssertionPayload::String(string)) => JsValue::from(string),
+            Some(ResolvedAssertionPayload::Raw(type_id, fields)) => {
+                let raw_payload_map = Map::new();
+                raw_payload_map
+                    .set(&JsValue::from_str("typeId"), &JsValue::from(type_id.to_string()));
+                let js_fields = Array::new();
+                for field in fields {
+                    js_fields.push(&field_element_to_js_string(&field));
+                }
+                raw_payload_map.set(&JsValue::from_str("fields"), &js_fields.into());
+
+                Object::from_entries(&raw_payload_map).unwrap().into()
+            }
+            None => JsValue::UNDEFINED,
+        };
 
         error.set_property("callStack", js_call_stack);
+        error.set_property("assertionPayload", assertion_payload);
 
         error
     }

@@ -204,8 +204,8 @@ fn display_constrain_error(
         ConstrainError::Intrinsic(assert_message_string) => {
             writeln!(f, "{assert_message_string:?}")
         }
-        ConstrainError::UserDefined(values, typ) => {
-            writeln!(f, "{}: {}", value_list(function, values), typ.typ)
+        ConstrainError::UserDefined(values, _) => {
+            writeln!(f, "{}", value_list(function, values))
         }
     }
 }

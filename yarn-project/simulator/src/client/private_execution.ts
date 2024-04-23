@@ -4,8 +4,10 @@ import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { error } from 'console';
+
 import { witnessMapToFields } from '../acvm/deserialize.js';
-import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
+import { Oracle, acvm, extractAssertionMessage, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
 import { type ExecutionResult } from './execution_result.js';
@@ -28,6 +30,10 @@ export async function executePrivateFunction(
   const acvmCallback = new Oracle(context);
   const acirExecutionResult = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback).catch(
     (err: Error) => {
+      const assertionMessage = extractAssertionMessage(err);
+      if (assertionMessage) {
+        err.message = `Assertion failed: ${assertionMessage}`;
+      }
       throw new ExecutionError(
         err.message,
         {

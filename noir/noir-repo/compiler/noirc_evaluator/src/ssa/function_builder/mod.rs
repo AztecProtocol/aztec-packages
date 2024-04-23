@@ -1,10 +1,9 @@
 pub(crate) mod data_bus;
 
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, collections::BTreeMap, rc::Rc};
 
 use acvm::FieldElement;
 use noirc_errors::Location;
-use noirc_frontend::hir_def::types::Type as HirType;
 
 use crate::ssa::ir::{
     basic_block::BasicBlockId,
@@ -19,7 +18,7 @@ use super::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
         function::{InlineType, RuntimeType},
-        instruction::{ConstrainError, InstructionId, Intrinsic},
+        instruction::{ConstrainError, ErrorType, ErrorTypeId, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
 };
@@ -36,6 +35,7 @@ pub(crate) struct FunctionBuilder {
     current_block: BasicBlockId,
     finished_functions: Vec<Function>,
     call_stack: CallStack,
+    error_types: BTreeMap<ErrorTypeId, ErrorType>,
 }
 
 impl FunctionBuilder {
@@ -51,6 +51,7 @@ impl FunctionBuilder {
             current_function: new_function,
             finished_functions: Vec::new(),
             call_stack: CallStack::new(),
+            error_types: Default::default(),
         }
     }
 
@@ -100,7 +101,7 @@ impl FunctionBuilder {
     /// Consume the FunctionBuilder returning all the functions it has generated.
     pub(crate) fn finish(mut self) -> Ssa {
         self.finished_functions.push(self.current_function);
-        Ssa::new(self.finished_functions)
+        Ssa::new(self.finished_functions, self.error_types)
     }
 
     /// Add a parameter to the current function with the given parameter type.
@@ -474,6 +475,10 @@ impl FunctionBuilder {
                 }
             }
         }
+    }
+
+    pub(crate) fn record_error_type(&mut self, id: ErrorTypeId, typ: ErrorType) {
+        self.error_types.insert(id, typ);
     }
 }
 

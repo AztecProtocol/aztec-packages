@@ -78,7 +78,7 @@ pub async fn execute_circuit_with_return_witness(
     console_error_panic_hook::set_once();
 
     let program: Program = Program::deserialize_program(&program)
-    .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None))?;
+    .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None, None))?;
 
     let mut witness_stack = execute_program_with_native_program_and_return(
         solver,
@@ -93,7 +93,7 @@ pub async fn execute_circuit_with_return_witness(
     let main_circuit = &program.functions[0];
     let return_witness =
         extract_indices(&solved_witness, main_circuit.return_values.0.iter().copied().collect())
-            .map_err(|err| JsExecutionError::new(err, None))?;
+            .map_err(|err| JsExecutionError::new(err, None, None))?;
 
     Ok((solved_witness, return_witness).into())
 }
@@ -165,7 +165,10 @@ async fn execute_program_with_native_type_return(
     foreign_call_executor: &ForeignCallHandler,
 ) -> Result<WitnessStack, Error> {
     let program: Program = Program::deserialize_program(&program)
-    .map_err(|_| JsExecutionError::new("Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), None))?;
+    .map_err(|_| JsExecutionError::new(
+        "Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), 
+        None ,
+        None))?;
 
     execute_program_with_native_program_and_return(
         solver,
@@ -265,9 +268,21 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                             }
                             _ => None,
                         };
+                        let assertion_payload = match &error {
+                            OpcodeResolutionError::UnsatisfiedConstrain { payload, .. }
+                            | OpcodeResolutionError::BrilligFunctionFailed { payload, .. } => {
+                                payload.clone()
+                            }
+                            _ => None,
+                        };
                         // TODO add payload to JsExecutionError
 
-                        return Err(JsExecutionError::new(error.to_string(), call_stack).into());
+                        return Err(JsExecutionError::new(
+                            error.to_string(),
+                            call_stack,
+                            assertion_payload,
+                        )
+                        .into());
                     }
                     ACVMStatus::RequiresForeignCall(foreign_call) => {
                         let result =
@@ -289,7 +304,7 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                                 call_resolved_outputs.push(*return_value);
                             } else {
                                 // TODO: look at changing this call stack from None
-                                return Err(JsExecutionError::new(format!("Failed to read from solved witness of ACIR call at witness {}", return_witness_index), None).into());
+                                return Err(JsExecutionError::new(format!("Failed to read from solved witness of ACIR call at witness {}", return_witness_index), None, None).into());
                             }
                         }
                         acvm.resolve_pending_acir_call(call_resolved_outputs);

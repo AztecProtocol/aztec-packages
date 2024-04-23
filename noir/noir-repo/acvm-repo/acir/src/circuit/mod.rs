@@ -59,17 +59,13 @@ pub struct Circuit {
     pub public_parameters: PublicInputs,
     /// The set of public inputs calculated within the circuit.
     pub return_values: PublicInputs,
-    /// Maps opcode locations to failed assertion messages.
-    /// These messages are embedded in the circuit to provide useful feedback to users
+    /// Maps opcode locations to failed assertion payloads.
+    /// The data in the payload is embedded in the circuit to provide useful feedback to users
     /// when a constraint in the circuit is not satisfied.
     ///
     // Note: This should be a BTreeMap, but serde-reflect is creating invalid
     // c++ code at the moment when it is, due to OpcodeLocation needing a comparison
     // implementation which is never generated.
-    //
-    // TODO: These are only used for constraints that are explicitly created during code generation (such as index out of bounds on slices)
-    // TODO: We should move towards having all the checks being evaluated in the same manner
-    // TODO: as runtime assert messages specified by the user. This will also be a breaking change as the `Circuit` structure will change.
     pub assert_messages: Vec<(OpcodeLocation, AssertionPayload)>,
 
     /// States whether the backend should use a SNARK recursion friendly prover.
@@ -81,11 +77,10 @@ pub struct Circuit {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssertionPayload {
     StaticString(String),
-    Expression(/* error_id */ usize, Vec<Expression>),
-    BrilligOutput(/* error_id */ usize),
+    Expression(/* type_id */ usize, Vec<Expression>),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone)]
 /// The opcode location for a call to a separate ACIR circuit
 /// This includes the function index of the caller within a [program][Program]
 /// and the index in the callers ACIR to the specific call opcode.
@@ -93,41 +88,6 @@ pub enum AssertionPayload {
 pub struct ResolvedOpcodeLocation {
     pub acir_function_index: usize,
     pub opcode_location: OpcodeLocation,
-}
-
-impl std::fmt::Display for ResolvedOpcodeLocation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.acir_function_index, self.opcode_location)
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum ResolvedOpcodeLocationFromStrError {
-    #[error(transparent)]
-    OpcodeLocationFromStrError(#[from] OpcodeLocationFromStrError),
-    #[error("Invalid resolved opcode location string: {0}")]
-    InvalidResolvedOpcodeLocationString(String),
-}
-
-/// The implementation of display and FromStr allows serializing and deserializing a OpcodeLocation to a string.
-/// This is useful when used as key in a map that has to be serialized to JSON/TOML, for example when mapping an opcode to its metadata.
-impl FromStr for ResolvedOpcodeLocation {
-    type Err = ResolvedOpcodeLocationFromStrError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<_> = s.split(':').collect();
-
-        if parts.len() != 2 {
-            return Err(ResolvedOpcodeLocationFromStrError::InvalidResolvedOpcodeLocationString(
-                s.to_string(),
-            ));
-        }
-
-        let acir_function_index = parts[0].parse().map_err(|_| {
-            OpcodeLocationFromStrError::InvalidOpcodeLocationString(parts[0].to_string())
-        })?;
-        let opcode_location = parts[1].parse()?;
-        Ok(ResolvedOpcodeLocation { acir_function_index, opcode_location })
-    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
