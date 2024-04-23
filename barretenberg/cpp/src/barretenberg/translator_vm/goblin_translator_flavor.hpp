@@ -724,7 +724,7 @@ class GoblinTranslatorFlavor {
                              this->ordered_range_constraints_4 };                // column 85
         }
 
-        auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
+        // auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
 
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
         /**
@@ -833,8 +833,10 @@ class GoblinTranslatorFlavor {
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities<DataType>::get_unshifted_wires(),
-                               ConcatenatedRangeConstraints<DataType>::get_all());
+                               WitnessEntities<DataType>::get_unshifted_wires());
+            // return concatenate(PrecomputedEntities<DataType>::get_all(),
+            //                    WitnessEntities<DataType>::get_unshifted_wires(),
+            //                    ConcatenatedRangeConstraints<DataType>::get_all());
         }
         // get_to_be_shifted is inherited
         auto get_shifted()
