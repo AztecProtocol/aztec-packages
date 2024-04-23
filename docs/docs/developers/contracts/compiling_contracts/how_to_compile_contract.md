@@ -4,7 +4,7 @@ title: How to compile a contract
 
 Once you have written a [contract](../main.md) in Aztec.nr, you will need to compile it into an [artifact](./artifacts.md) in order to use it.
 
-In this guide we will cover how to do so, both using the CLI and programmatically.
+In this guide we will cover how to do so, both using the `aztec-nargo` command and programmatically.
 
 We'll also cover how to generate a helper [TypeScript interface](#typescript-interfaces) and an [Aztec.nr interface](#noir-interfaces) for easily interacting with your contract from your typescript app and from other Aztec.nr contracts, respectively.
 
