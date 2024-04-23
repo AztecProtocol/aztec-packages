@@ -436,6 +436,7 @@ const sidebars = {
               items: [
                 "developers/contracts/references/storage/private_state",
                 "developers/contracts/references/storage/public_state",
+                "developers/contracts/references/storage/shared_state",
               ],
             },
             {
