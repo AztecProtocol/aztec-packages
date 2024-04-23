@@ -1745,6 +1745,42 @@ TEST_F(AvmArithmeticNegativeTestsFF, fDivisionZeroByZeroNoError)
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_ZERO_ERR1");
 }
 
+// Test with finite field division using a wrong read instruction tag
+TEST_F(AvmArithmeticNegativeTestsFF, fDivisionWrongRInTag)
+{
+    trace_builder.calldata_copy(0, 0, 1, 0, std::vector<FF>{ 18, 6 });
+    //                  Memory layout:    [18,6,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [18,6,3,0,0,0....]
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+
+    // Change read instruction tag
+    row->avm_main_r_in_tag = FF(3);
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_R_IN_TAG_FF");
+}
+
+// Test with finite field division using a wrong write instruction tag
+TEST_F(AvmArithmeticNegativeTestsFF, fDivisionWrongWInTag)
+{
+    trace_builder.calldata_copy(0, 0, 1, 0, std::vector<FF>{ 18, 6 });
+    //                  Memory layout:    [18,6,0,0,0,0,....]
+    trace_builder.op_fdiv(0, 0, 1, 2); // [18,6,3,0,0,0....]
+    trace_builder.halt();
+    auto trace = trace_builder.finalize();
+
+    // Find the first row enabling the fdiv selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == FF(1); });
+
+    // Change write instruction tag
+    row->avm_main_w_in_tag = FF(3);
+
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "SUBOP_FDIV_W_IN_TAG_FF");
+}
+
 // Test that error flag cannot be raised for a non-relevant operation such as
 // the addition, subtraction, multiplication.
 TEST_F(AvmArithmeticNegativeTestsFF, operationWithErrorFlag)
