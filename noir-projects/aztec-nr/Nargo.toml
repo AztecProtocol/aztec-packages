@@ -5,7 +5,6 @@ members = [
   "aztec",
   "compressed-string",
   "easy-private-state",
-  "slow-updates-tree",
   "value-note",
   "tests",
 ]

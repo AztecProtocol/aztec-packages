@@ -7,4 +7,3 @@ type = "contract"
 [dependencies]
 aztec = { path = "../../../aztec-nr/aztec" }
 authwit = { path = "../../../aztec-nr/authwit" }
-slow_tree = { path = "../slow_tree_contract" }
