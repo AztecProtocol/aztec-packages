@@ -105,6 +105,7 @@ describe('Contract Class', () => {
       globals: {},
     },
     fileMap: {},
+    storageLayout: {},
   };
 
   beforeEach(() => {

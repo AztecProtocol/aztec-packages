@@ -4,9 +4,7 @@ import {
   type ContractArtifact,
   type FunctionArtifact,
   type IntegerValue,
-  type StructValue,
   type TupleValue,
-  type TypedStructFieldValue,
   getDefaultInitializer,
   isAztecAddressStruct,
   isEthAddressStruct,
@@ -192,33 +190,29 @@ function generateAbiStatement(name: string, artifactImportPath: string) {
  * @param input - The contract artifact.
  */
 function generateStorageLayoutGetter(input: ContractArtifact) {
-  const storage = input.outputs.globals.storage ? (input.outputs.globals.storage[0] as StructValue) : { fields: [] };
-  const storageFields = storage.fields as TypedStructFieldValue<StructValue>[];
-  const storageFieldsUnionType = storageFields.map(f => `'${f.name}'`).join(' | ');
-  const layout = storageFields
+  const entries = Object.entries(input.storageLayout);
+
+  if (entries.length === 0) {
+    return '';
+  }
+
+  const storageFieldsUnionType = entries.map(([name]) => `'${name}'`).join(' | ');
+  const layout = entries
     .map(
-      ({
-        name,
-        value: {
-          fields: [slot, typ],
-        },
-      }) =>
+      ([name, { slot, typ }]) =>
         `${name}: {
-          slot: new Fr(${(slot.value as IntegerValue).value}n),
-          typ: "${(typ.value as BasicValue<'string', string>).value}",
-        }
-      `,
+      slot: new Fr(${slot.toBigInt()}),
+      typ: "${typ}",
+    }`,
     )
     .join(',\n');
-  return storageFields.length > 0
-    ? `
-    public static get storage(): ContractStorageLayout<${storageFieldsUnionType}> {
+
+  return `public static get storage(): ContractStorageLayout<${storageFieldsUnionType}> {
       return {
         ${layout}
       } as ContractStorageLayout<${storageFieldsUnionType}>;
     }
-    `
-    : '';
+    `;
 }
 
 /**
