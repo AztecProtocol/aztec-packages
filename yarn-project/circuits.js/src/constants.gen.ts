@@ -203,5 +203,4 @@ export enum GeneratorIndex {
   TSK_M = 50,
   PUBLIC_KEYS_HASH = 51,
   NOTE_NULLIFIER = 52,
-  NOTE_SECRET_HASH = 53,
 }
