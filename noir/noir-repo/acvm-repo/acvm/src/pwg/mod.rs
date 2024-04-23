@@ -498,7 +498,6 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         };
 
         let result = solver.solve().map_err(|mut err| {
-            dbg!(&err);
             match &mut err {
                 OpcodeResolutionError::BrilligFunctionFailed { call_stack, payload } => {
                     // Some brillig errors have static strings as payloads, we can resolve them here

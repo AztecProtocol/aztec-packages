@@ -93,8 +93,6 @@ fn test_status_program_compile_pass(
         Err(err) => err,
     };
 
-    dbg!(&abi.error_types);
-
     // If we reach here, then the circuit execution failed.
     //
     // Check if the function should have passed

@@ -226,16 +226,16 @@ impl AcirValue {
     }
 }
 
+pub(crate) type Artifacts =
+    (Vec<GeneratedAcir>, Vec<BrilligBytecode>, BTreeMap<ErrorTypeId, ErrorType>);
+
 impl Ssa {
     #[tracing::instrument(level = "trace", skip_all)]
     pub(crate) fn into_acir(
         self,
         brillig: &Brillig,
         abi_distinctness: Distinctness,
-    ) -> Result<
-        (Vec<GeneratedAcir>, Vec<BrilligBytecode>, BTreeMap<ErrorTypeId, ErrorType>),
-        RuntimeError,
-    > {
+    ) -> Result<Artifacts, RuntimeError> {
         let mut acirs = Vec::new();
         // TODO: can we parallelise this?
         let mut shared_context = SharedContext::default();
@@ -2603,7 +2603,7 @@ mod test {
 
         let ssa = builder.finish();
 
-        let (acir_functions, _,_) = ssa
+        let (acir_functions, _, _) = ssa
             .into_acir(&Brillig::default(), noirc_frontend::ast::Distinctness::Distinct)
             .expect("Should compile manually written SSA into ACIR");
         // Expected result:
@@ -2699,7 +2699,7 @@ mod test {
 
         let ssa = builder.finish();
 
-        let (acir_functions, _,_) = ssa
+        let (acir_functions, _, _) = ssa
             .into_acir(&Brillig::default(), noirc_frontend::ast::Distinctness::Distinct)
             .expect("Should compile manually written SSA into ACIR");
         // The expected result should look very similar to the abvoe test expect that the input witnesses of the `Call`
@@ -2790,7 +2790,7 @@ mod test {
 
         let ssa = builder.finish();
 
-        let (acir_functions, _,_) = ssa
+        let (acir_functions, _, _) = ssa
             .into_acir(&Brillig::default(), noirc_frontend::ast::Distinctness::Distinct)
             .expect("Should compile manually written SSA into ACIR");
 
@@ -2900,9 +2900,8 @@ mod test {
 
         let ssa = builder.finish();
         let brillig = ssa.to_brillig(false);
-        println!("{}", ssa);
 
-        let (acir_functions, brillig_functions,_) = ssa
+        let (acir_functions, brillig_functions, _) = ssa
             .into_acir(&brillig, noirc_frontend::ast::Distinctness::Distinct)
             .expect("Should compile manually written SSA into ACIR");
 

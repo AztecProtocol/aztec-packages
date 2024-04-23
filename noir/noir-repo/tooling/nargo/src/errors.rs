@@ -221,7 +221,6 @@ fn extract_message_from_error(
     error_types: &BTreeMap<usize, AbiType>,
     nargo_err: &NargoError,
 ) -> String {
-    dbg!(nargo_err);
     match nargo_err {
         NargoError::ExecutionError(ExecutionError::AssertionFailed(
             ResolvedAssertionPayload::String(message),

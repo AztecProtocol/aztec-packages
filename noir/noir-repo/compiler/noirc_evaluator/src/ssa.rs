@@ -30,8 +30,7 @@ use noirc_frontend::{
 use tracing::{span, Level};
 
 use self::{
-    acir_gen::GeneratedAcir,
-    ir::instruction::{ErrorType, ErrorTypeId},
+    acir_gen::{Artifacts, GeneratedAcir},
     ssa_gen::Ssa,
 };
 
@@ -52,10 +51,7 @@ pub(crate) fn optimize_into_acir(
     print_brillig_trace: bool,
     force_brillig_output: bool,
     print_timings: bool,
-) -> Result<
-    (Vec<GeneratedAcir>, Vec<BrilligBytecode>, BTreeMap<ErrorTypeId, ErrorType>),
-    RuntimeError,
-> {
+) -> Result<Artifacts, RuntimeError> {
     let abi_distinctness = program.return_distinctness;
 
     let ssa_gen_span = span!(Level::TRACE, "ssa_generation");
