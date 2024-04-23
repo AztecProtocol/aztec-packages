@@ -611,7 +611,7 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
   if (
     (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId.equals(
       canonicalKeyRegistry.contractClass.id,
-    )
+    ) && await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)
   ) {
     return;
   }
@@ -619,8 +619,6 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
   const keyRegistry = await KeyRegistryContract.deploy(deployer)
     .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
     .deployed();
-
-  console.log('KEY REG', keyRegistry);
 
   if (
     !keyRegistry.address.equals(canonicalKeyRegistry.address) ||
