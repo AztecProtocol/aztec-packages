@@ -15,7 +15,7 @@ impl Gas {
         Self { da_gas, l1_gas, l2_gas }
     }
 
-    fn add(self, other: Gas) -> Self {
+    pub fn add(self, other: Gas) -> Self {
         Gas::new(
             self.da_gas + other.da_gas,
             self.l1_gas + other.l1_gas,
@@ -23,12 +23,16 @@ impl Gas {
         )
     }
 
-    fn sub(self, other: Gas) -> Self {
+    pub fn sub(self, other: Gas) -> Self {
         Gas::new(
             self.da_gas - other.da_gas,
             self.l1_gas - other.l1_gas,
             self.l2_gas - other.l2_gas
         )
+    }
+
+    pub fn is_empty(self) -> bool {
+        (self.da_gas == 0) & (self.l1_gas == 0) & (self.l2_gas == 0)
     }
 }
 
