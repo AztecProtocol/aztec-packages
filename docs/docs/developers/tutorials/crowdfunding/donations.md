@@ -183,7 +183,7 @@ The user must have authorised this action (concept [here](../../../learn/concept
 
 The last thing to do is create a new value note and add it to the `donation_receipts`. So the full donation function is now
 
-#include_code all-deps /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code donate /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
 ### 3. Operator withdrawals
 
