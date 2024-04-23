@@ -30,12 +30,6 @@ GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
         ASSERT(flavor_get_label(prover_polynomials, prover_poly) == flavor_get_label(*key, key_poly) + "_shift");
         prover_poly = key_poly.shifted();
     }
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/810): resolve weirdness around concatenated range
-    // constraints
-    prover_polynomials.concatenated_range_constraints_0 = key->concatenated_range_constraints_0;
-    prover_polynomials.concatenated_range_constraints_1 = key->concatenated_range_constraints_1;
-    prover_polynomials.concatenated_range_constraints_2 = key->concatenated_range_constraints_2;
-    prover_polynomials.concatenated_range_constraints_3 = key->concatenated_range_constraints_3;
 }
 
 /**
@@ -302,9 +296,9 @@ void GoblinTranslatorProver::execute_relation_check_rounds()
 void GoblinTranslatorProver::execute_zeromorph_rounds()
 {
     using ZeroMorph = ZeroMorphProver_<PCS>;
-    ZeroMorph::prove(prover_polynomials.get_unshifted(),
+    ZeroMorph::prove(prover_polynomials.get_unshifted_without_concatenated(),
                      prover_polynomials.get_to_be_shifted(),
-                     sumcheck_output.claimed_evaluations.get_unshifted(),
+                     sumcheck_output.claimed_evaluations.get_unshifted_without_concatenated(),
                      sumcheck_output.claimed_evaluations.get_shifted(),
                      sumcheck_output.challenge,
                      commitment_key,
