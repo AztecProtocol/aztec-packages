@@ -3,7 +3,7 @@ use dep::aztec::{
     context::PrivateContext
 };
 
-global Test_NOTE_LEN: Field = 1;
+global TEST_NOTE_LEN: Field = 1;
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.
 // WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform 
@@ -14,7 +14,7 @@ struct TestNote {
     value: Field,
 }
 
-impl NoteInterface<Test_NOTE_LEN> for TestNote {
+impl NoteInterface<TEST_NOTE_LEN> for TestNote {
 
     fn compute_nullifier(self, _context: &mut PrivateContext) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
