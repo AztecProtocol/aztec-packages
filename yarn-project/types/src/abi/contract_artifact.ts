@@ -56,6 +56,18 @@ export function contractArtifactFromBuffer(buffer: Buffer): ContractArtifact {
     if (key === 'bytecode' && typeof value === 'string') {
       return Buffer.from(value, 'base64');
     }
+    if (key === 'storageLayout') {
+      const layout: Record<string, FieldLayout> = Object.entries(
+        value as Record<string, { slot: { type: string; value: string }; typ: string }>,
+      ).reduce((acc, [name, { slot, typ }]) => {
+        acc[name as string] = {
+          slot: Fr.fromString(slot.value),
+          typ,
+        };
+        return acc;
+      }, {} as Record<string, FieldLayout>);
+      return layout;
+    }
     return value;
   });
 }

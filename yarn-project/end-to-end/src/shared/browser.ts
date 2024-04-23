@@ -264,7 +264,7 @@ export const browserTestSuite = (
           const secretHash = computeSecretHash(secret);
           const mintPrivateReceipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
-          const storageSlot = new Fr(5);
+          const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
 
           const noteTypeId = new Fr(84114971101151129711410111011678111116101n);
           const note = new Note([new Fr(initialBalance), secretHash]);
