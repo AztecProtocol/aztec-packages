@@ -620,6 +620,8 @@ async function deployCanonicalKeyRegistry(deployer: Wallet) {
     .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
     .deployed();
 
+  console.log('KEY REG', keyRegistry);
+
   if (
     !keyRegistry.address.equals(canonicalKeyRegistry.address) ||
     !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))
