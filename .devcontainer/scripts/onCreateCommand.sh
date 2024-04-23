@@ -10,9 +10,14 @@ if ! grep -q "PXE_URL" ~/.bashrc; then
     echo "export PXE_URL=https://\$CODESPACE_NAME-8080.preview.\$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" >> ~/.bashrc
 fi
 
+if ! grep -q "alias sandbox" ~/.bashrc; then
+    echo "alias sandbox=\"npx create-aztec-app sandbox\"" >> ~/.bashrc
+fi
+
+source ~/.bashrc
 yes | npx create-aztec-app -t $TYPE -n $NAME -s
-mv react/* react/.* .
-rm -rf react
+mv $NAME/* $NAME/.* .
+rm -rf $NAME
 
 yarn
 

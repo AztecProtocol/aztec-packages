@@ -2,23 +2,35 @@ import confirm from "@inquirer/confirm";
 import { execSync } from "child_process";
 import axios from "axios";
 
-export async function sandboxRun() {
+const sandbox = (command) =>
+  execSync(
+    `docker-compose -f $HOME/.aztec/docker-compose.yml -p sandbox ${command}`,
+    { stdio: "inherit" },
+  );
+
+export const start = () => sandbox("up -d");
+export const stop = () => sandbox("down");
+export const log = () => sandbox("logs -f");
+
+export async function sandboxRunStep() {
   spinner.text = "Trying to reach the sandbox...";
 
   try {
     spinner.start();
-    await axios("http://localhost:8080", {
-      method: "POST",
-      timeout: 2000,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    await axios.post(
+      "http://localhost:8080",
+      JSON.stringify({
         jsonrpc: "2.0",
         method: "node_getVersion",
         id: "null",
       }),
-    });
+      {
+        headers: {
+          Accept: "*/*",
+          "Content-Type": "application/json",
+        },
+      },
+    );
     spinner.succeed();
     success("The Sandbox is already running!");
     process.exit(0);
@@ -28,28 +40,11 @@ export async function sandboxRun() {
       message:
         "Sandbox can't be reached on localhost:8080. Do you want to start it?",
       default: true,
-<<<<<<< HEAD
     });
     if (answer) {
       info("Starting the sandbox... This might take a few minutes.");
       info(`Go and explore the boilerplate code while you wait!`);
-      execSync(`$HOME/.aztec/bin/aztec sandbox`, {
-        stdio: "inherit",
-      });
-    }
-    info("Starting the sandbox... This might take a few minutes.");
-    info(`Go and explore the boilerplate code while you wait!`);
-    execSync(`$HOME/.aztec/bin/aztec sandbox`, {
-      stdio: "inherit",
-=======
->>>>>>> 550a5ec5a2 (chore: adding wait-for-sandbox.sh script)
-    });
-    if (answer) {
-      info("Starting the sandbox... This might take a few minutes.");
-      info(`Go and explore the boilerplate code while you wait!`);
-      execSync(`$HOME/.aztec/bin/aztec sandbox`, {
-        stdio: "inherit",
-      });
+      start();
     }
   }
 }
