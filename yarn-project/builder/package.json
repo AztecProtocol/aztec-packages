@@ -14,7 +14,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "bin": {
-    "aztec-compile": "dest/cli.js"
+    "aztec-builder": "dest/cli.js"
   },
   "scripts": {
     "build": "yarn clean && tsc -b",

@@ -271,7 +271,7 @@ __metadata:
     typescript: ^5.0.4
     unzipit: ^1.4.3
   bin:
-    aztec-compile: dest/cli.js
+    aztec-builder: dest/cli.js
   languageName: unknown
   linkType: soft
 
