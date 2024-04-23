@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize};
+use dep::aztec::protocol_types::traits::{FromField, ToField, Serialize, Deserialize};
 
 global ADMIN_FLAG: u64 = 1;
 global MINTER_FLAG: u64 = 2;
@@ -49,6 +49,18 @@ impl Serialize<3> for UserFlags {
     fn serialize(self) -> [Field; 3] {
         [self.is_admin.to_field(), self.is_minter.to_field(), self.is_blacklisted.to_field()]
         // [self.to_field()]
+    }
+}
+
+// We implement this as it is required for other contracts to be able to "rebuild" the variable
+// after having received the serialized value as a return-value
+impl Deserialize<3> for UserFlags {
+    fn deserialize(fields: [Field; 3]) -> Self {
+        Self {
+            is_admin: fields[0] as bool,
+            is_minter: fields[1] as bool,
+            is_blacklisted: fields[2] as bool,
+        }
     }
 }
 
