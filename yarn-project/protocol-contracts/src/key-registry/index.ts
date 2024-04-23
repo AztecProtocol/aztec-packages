@@ -5,7 +5,7 @@ import { KeyRegistryArtifact } from './artifact.js';
 
 /** Returns the canonical deployment of the gas token. */
 export function getCanonicalKeyRegistry(): ProtocolContract {
-  const contract = getCanonicalProtocolContract(KeyRegistryArtifact, 13371337);
+  const contract = getCanonicalProtocolContract(KeyRegistryArtifact, 1337);
 
   if (!contract.address.equals(KeyRegistryAddress)) {
     throw new Error(

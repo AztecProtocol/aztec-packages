@@ -95,7 +95,7 @@ library Constants {
   uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DEFAULT_INCLUSION_FEE = 0;
   uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
-    0x1097dacc0a376133ace03b0a5100d1eda81a5909fc9b14a7654c7b3cfc67c566;
+    0x18f5db899cb197c08a3246d1318f395278f1beaf5dd08e0ded51482eed93ce7a;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 3;
   uint256 internal constant GAS_LENGTH = 3;
