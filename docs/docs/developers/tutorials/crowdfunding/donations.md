@@ -15,7 +15,9 @@ Along the way you will:
 - Install Aztec developer tools
 - Setup a new Noir contract project
 - Add base Aztec dependencies
-- 
+- Call between private and public contexts
+- Wrap an address with its interface (token)
+- Create custom private value notes
 
 ## Setup
 
@@ -188,7 +190,7 @@ The remaining function to implement, `withdraw`, is reasonably straight-forward:
 
 Copy the last function into your Crowdfunding contract:
 
-#include_code all-operator-withdrawals /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code operator-withdrawals /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
 You should be able to compile successfully with `aztec-nargo compile`.
 

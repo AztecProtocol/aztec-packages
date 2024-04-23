@@ -230,12 +230,9 @@ const sidebars = {
         "developers/tutorials/writing_private_voting_contract",
 
         {
-          label: "Simple donations contract aa",
+          label: "Simple donations contract",
           type: "category",
-          items: [
-            "developers/tutorials/crowdfunding/donations",
-            "developers/tutorials/crowdfunding/rewards",
-          ],
+          items: ["developers/tutorials/crowdfunding/donations"],
         },
         {
           label: "Writing a DApp",
