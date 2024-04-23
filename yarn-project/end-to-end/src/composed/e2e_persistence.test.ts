@@ -269,10 +269,7 @@ describe('Aztec persistence', () => {
       // mint some tokens with a secret we know and redeem later on a separate PXE
       secret = Fr.random();
       mintAmount = 1000n;
-      const mintTxReceipt = await contract.methods
-        .mint_private(mintAmount, computeSecretHash(secret))
-        .send()
-        .wait();
+      const mintTxReceipt = await contract.methods.mint_private(mintAmount, computeSecretHash(secret)).send().wait();
       mintTxHash = mintTxReceipt.txHash;
 
       // publicly reveal that I have 1000 tokens
@@ -307,13 +304,7 @@ describe('Aztec persistence', () => {
 
     it('allows consuming transparent note created on another PXE', async () => {
       // this was created in the temporary PXE in `beforeAll`
-      await addPendingShieldNoteToPXE(
-        ownerWallet,
-        contractAddress,
-        mintAmount,
-        computeSecretHash(secret),
-        mintTxHash,
-      );
+      await addPendingShieldNoteToPXE(ownerWallet, contractAddress, mintAmount, computeSecretHash(secret), mintTxHash);
 
       const balanceBeforeRedeem = await contract.methods.balance_of_private(ownerWallet.getAddress()).simulate();
 
