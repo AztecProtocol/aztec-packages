@@ -728,7 +728,7 @@ describe('Private Execution test suite', () => {
       const secret = new Fr(1n);
       const secretHash = computeMessageSecretHash(secret);
       const note = new Note([secretHash]);
-      const storageSlot = new Fr(5);
+      const storageSlot = TestContractArtifact.storageLayout['example_set'].slot;
       oracle.getNotes.mockResolvedValue([
         {
           contractAddress,
