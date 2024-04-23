@@ -3,7 +3,7 @@ import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  type AztecAddress,
+  AztecAddress,
   type AztecNode,
   BatchCall,
   CheatCodes,
@@ -72,6 +72,8 @@ import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { CANONICAL_KEY_REGISTRY_ADDRESS, computeContractAddressFromInstance, getContractClassFromArtifact } from '@aztec/circuits.js';
+import { KeyRegistryContract } from '@aztec/noir-contracts.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -597,20 +599,27 @@ export async function deployCanonicalGasToken(deployer: Wallet) {
   await expect(deployer.isContractPubliclyDeployed(gasToken.address)).resolves.toBe(true);
 }
 
-export async function deployCanonicalKeyRegistry(deployer: Wallet) {
+async function deployCanonicalKeyRegistry(deployer: Wallet) {
   const canonicalKeyRegistry = getCanonicalKeyRegistry();
 
-  if (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)) {
+  // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that 
+  // the key registry has already been deployed to the correct address.
+  if ((await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId === canonicalKeyRegistry.contractClass.id) {
     return;
   }
 
-  await new BatchCall(deployer, [
-    (await registerContractClass(deployer, canonicalKeyRegistry.artifact)).request(),
-    deployInstance(deployer, canonicalKeyRegistry.instance).request(),
-  ])
-    .send()
-    .wait();
+  const keyRegistry = await KeyRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
+    .deployed();
 
+  if (!keyRegistry.address.equals(canonicalKeyRegistry.address) || !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))) {
+    throw new Error(
+      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}`,
+    );
+  }
+  
+  expect(computeContractAddressFromInstance(keyRegistry.instance)).toEqual(keyRegistry.address);
+  expect(getContractClassFromArtifact(keyRegistry.artifact).id).toEqual(keyRegistry.instance.contractClassId);
   await expect(deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalKeyRegistry.instance.address)).resolves.toBeDefined();
 }

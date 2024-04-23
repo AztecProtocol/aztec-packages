@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { type AztecAddress, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import {
@@ -31,6 +31,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { KeyRegistryContract } from '@aztec/noir-contracts.js/KeyRegistry';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
@@ -43,6 +44,7 @@ import {
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
+import { CANONICAL_KEY_REGISTRY_ADDRESS } from '@aztec/circuits.js';
 
 export const { MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
 
@@ -192,16 +194,21 @@ async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: 
 async function deployCanonicalKeyRegistry(deployer: Wallet) {
   const canonicalKeyRegistry = getCanonicalKeyRegistry();
 
-  if (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id)) {
+  // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that 
+  // the key registry has already been deployed to the correct address.
+  if ((await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId === canonicalKeyRegistry.contractClass.id) {
     return;
   }
 
-  await new BatchCall(deployer, [
-    (await registerContractClass(deployer, canonicalKeyRegistry.artifact)).request(),
-    deployInstance(deployer, canonicalKeyRegistry.instance).request(),
-  ])
-    .send()
-    .wait();
+  const keyRegistry = await KeyRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
+    .deployed();
+
+  if (!keyRegistry.address.equals(canonicalKeyRegistry.address) || !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))) {
+    throw new Error(
+      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}`,
+    );
+  }
 
   logger.info(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
 }

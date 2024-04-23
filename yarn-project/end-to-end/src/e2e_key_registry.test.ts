@@ -22,8 +22,9 @@ describe('SharedMutablePrivateGetter', () => {
 
   beforeAll(async () => {
     ({ teardown, pxe, wallets } = await setup(2));
-    testContract = await TestContract.deploy(wallets[0]).send().deployed();
     keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
+
+    testContract = await TestContract.deploy(wallets[0]).send().deployed();
 
     await publicDeployAccounts(wallets[0], wallets.slice(0, 2));
   }, 120_000);

@@ -79,6 +79,7 @@ export const DEFAULT_GAS_LIMIT = 1_000_000_000;
 export const DEFAULT_TEARDOWN_GAS_LIMIT = 100_000_000;
 export const DEFAULT_MAX_FEE_PER_GAS = 10;
 export const DEFAULT_INCLUSION_FEE = 0;
+export const CANONICAL_KEY_REGISTRY_ADDRESS = 0x0fde809aaeb2210ca367381dfa9a46fb4542d67bcb27538e8de72151ae6d545cn;
 export const AZTEC_ADDRESS_LENGTH = 1;
 export const GAS_FEES_LENGTH = 3;
 export const GAS_LENGTH = 3;

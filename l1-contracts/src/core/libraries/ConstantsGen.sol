@@ -94,6 +94,8 @@ library Constants {
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 100_000_000;
   uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DEFAULT_INCLUSION_FEE = 0;
+  uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
+    0x0fde809aaeb2210ca367381dfa9a46fb4542d67bcb27538e8de72151ae6d545c;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 3;
   uint256 internal constant GAS_LENGTH = 3;
