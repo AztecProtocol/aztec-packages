@@ -66,7 +66,7 @@ async function executePublicFunctionAvm(executionContext: PublicExecutionContext
     executionContext.globalVariables,
   );
 
-  const machineState = new AvmMachineState(executionContext.execution.callContext.gasLeft);
+  const machineState = new AvmMachineState(Gas.test()); // TODO(palla/gas): Set proper values
   const context = new AvmContext(worldStateJournal, executionEnv, machineState);
   const simulator = new AvmSimulator(context);
 
@@ -148,6 +148,7 @@ async function executePublicFunctionAcvm(
       contractStorageReads: [],
       contractStorageUpdateRequests: [],
       nestedExecutions: [],
+      unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
@@ -169,6 +170,7 @@ async function executePublicFunctionAcvm(
     newNullifiers: newNullifiersPadded,
     startSideEffectCounter,
     endSideEffectCounter,
+    unencryptedLogsHashes: unencryptedLogsHashesPadded,
   } = PublicCircuitPublicInputs.fromFields(returnWitness);
   const returnValues = await context.unpackReturns(returnsHash);
 
@@ -177,6 +179,7 @@ async function executePublicFunctionAcvm(
   const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isEmpty());
   const newNoteHashes = newNoteHashesPadded.filter(v => !v.isEmpty());
   const newNullifiers = newNullifiersPadded.filter(v => !v.isEmpty());
+  const unencryptedLogsHashes = unencryptedLogsHashesPadded.filter(v => !v.isEmpty());
 
   const { contractStorageReads, contractStorageUpdateRequests } = context.getStorageActionData();
 
@@ -193,7 +196,7 @@ async function executePublicFunctionAcvm(
 
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
-  const gasLeft = context.execution.callContext.gasLeft; // No gas metering for ACVM
+  const gasLeft = Gas.test(); // TODO(palla/gas): Set proper value
 
   return {
     execution,
@@ -208,6 +211,7 @@ async function executePublicFunctionAcvm(
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
+    unencryptedLogsHashes,
     unencryptedLogs,
     reverted: false,
     revertReason: undefined,

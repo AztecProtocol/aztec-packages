@@ -42,12 +42,6 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             let call_request = public_inputs.end.public_call_stack.pop();
             common::validate_call_against_request(self.public_call, call_request);
             common::update_public_end_values(self.public_call, &mut public_inputs);
-            common::accumulate_unencrypted_logs(
-                self.public_call,
-                self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-                self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-                &mut public_inputs
-            );
         } else {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
             let reverted_call_request = remaining_calls.pop();
@@ -82,7 +76,7 @@ mod tests {
         read_request::ReadRequest, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_note_hash, silo_nullifier},
+        hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::arrays::{array_eq, array_length}
@@ -274,7 +268,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         let contract_address = builder.public_call.contract_address;
-        let portal_contract_address = builder.public_call.portal_contract_address;
+        let portal_contract_address = EthAddress::from_field(0xdead);
         // Setup 1 new l2 to l1 message on the previous kernel.
         let previous = [12345];
 
@@ -317,11 +311,9 @@ mod tests {
         assert_eq(
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
-
-        assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
-
-        let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
@@ -456,18 +448,16 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         // Transaction gas limit is 1k
-        builder.previous_kernel.gas_settings.da.gas_limit = 1000;
-        builder.previous_kernel.gas_settings.l1.gas_limit = 1000;
-        builder.previous_kernel.gas_settings.l2.gas_limit = 1000;
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
 
         // Revertible has already used 300
         builder.previous_kernel.gas_used = Gas::new(300, 300, 300);
 
         // This call starts with 700 gas left
-        builder.public_call.public_inputs.call_context.gas_left = Gas::new(700, 700, 700);
+        builder.public_call.public_inputs.start_gas_left = Gas::new(700, 700, 700);
 
         // And uses 200, ending with 500 left
-        builder.public_call.public_inputs.gas_left = Gas::new(500, 500, 500);
+        builder.public_call.public_inputs.end_gas_left = Gas::new(500, 500, 500);
 
         // So the updated gas used by revertible must go up by 200, and non-revertible must stay the same
         let output = builder.execute();

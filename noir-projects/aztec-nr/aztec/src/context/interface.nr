@@ -14,7 +14,6 @@ trait ContextInterface {
     fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field);
     fn msg_sender(self) -> AztecAddress;
     fn this_address(self) -> AztecAddress;
-    fn this_portal_address(self) -> EthAddress;
     fn chain_id(self) -> Field;
     fn version(self) -> Field;
     fn selector(self) -> FunctionSelector;
@@ -33,9 +32,8 @@ trait PublicContextInterface {
     fn fee_per_l1_gas(self) -> Field;
     fn fee_per_l2_gas(self) -> Field;
     fn message_portal(&mut self, recipient: EthAddress, content: Field);
-    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress);
-    fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]);
-    fn accumulate_unencrypted_logs<T>(&mut self, log: T);
+    fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field);
+    fn emit_unencrypted_log<T>(&mut self, log: T);
     fn call_public_function<RETURNS_COUNT>(
         self: &mut Self,
         contract_address: AztecAddress,

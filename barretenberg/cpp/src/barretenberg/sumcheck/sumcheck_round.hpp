@@ -16,7 +16,7 @@ method \ref bb::SumcheckProverRound< Flavor >::compute_univariate "compute univa
 implementation consists of the following sub-methods:
 
  - \ref bb::SumcheckProverRound::extend_edges "Extend evaluations" of linear univariate
-polynomials \f$ P_j(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \f$ to the domain \f$0,\ldots, D\f$.
+ polynomials \f$ P_j(u_0,\ldots, u_{i-1}, X_i, \vec \ell) \f$ to the domain \f$0,\ldots, D\f$.
  - \ref bb::SumcheckProverRound::accumulate_relation_univariates "Accumulate per-relation contributions" of the extended
 polynomials to \f$ T^i(X_i)\f$
  - \ref bb::SumcheckProverRound::extend_and_batch_univariates "Extend and batch the subrelation contibutions"
@@ -246,7 +246,7 @@ template <typename Flavor> class SumcheckProverRound {
             // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
             // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
             // verifier, we additionally need a univariate contribution from the pow polynomial which is the
-            // extended_random_polynomial.
+            // extended_random_polynomial which is the
             if (!is_subrelation_linearly_independent) {
                 result += extended;
             } else {

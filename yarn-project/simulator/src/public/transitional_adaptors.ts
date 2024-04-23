@@ -5,7 +5,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FunctionData,
-  Gas,
+  GasSettings,
   type GlobalVariables,
   type Header,
   L2ToL1Message,
@@ -42,7 +42,6 @@ export function createAvmExecutionEnvironment(
     current.contractAddress,
     current.callContext.storageContractAddress,
     current.callContext.msgSender,
-    current.callContext.portalContractAddress,
     globalVariables.gasFees.feePerL1Gas,
     globalVariables.gasFees.feePerL2Gas,
     globalVariables.gasFees.feePerDaGas,
@@ -52,8 +51,8 @@ export function createAvmExecutionEnvironment(
     current.callContext.isStaticCall,
     current.callContext.isDelegateCall,
     current.args,
-    current.callContext.gasSettings,
-    current.callContext.transactionFee,
+    GasSettings.default(), // TODO(palla/gas): Set proper values
+    Fr.ZERO, // TODO(palla/gas): Set proper values
     current.functionData.selector,
   );
 }
@@ -63,14 +62,10 @@ export function createPublicExecutionContext(avmContext: AvmContext, calldata: F
   const callContext = CallContext.from({
     msgSender: avmContext.environment.sender,
     storageContractAddress: avmContext.environment.storageAddress,
-    portalContractAddress: avmContext.environment.portal,
     functionSelector: avmContext.environment.temporaryFunctionSelector,
-    gasLeft: Gas.from(avmContext.machineState.gasLeft),
     isDelegateCall: avmContext.environment.isDelegateCall,
     isStaticCall: avmContext.environment.isStaticCall,
     sideEffectCounter: sideEffectCounter,
-    gasSettings: avmContext.environment.gasSettings,
-    transactionFee: avmContext.environment.transactionFee,
   });
   const functionData = new FunctionData(avmContext.environment.temporaryFunctionSelector, /*isPrivate=*/ false);
   const execution: PublicExecution = {
@@ -112,10 +107,10 @@ export async function convertAvmResults(
   const execution = executionContext.execution;
 
   const contractStorageReads: ContractStorageRead[] = newWorldState.storageReads.map(
-    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber()),
+    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber(), read.storageAddress),
   );
   const contractStorageUpdateRequests: ContractStorageUpdateRequest[] = newWorldState.storageWrites.map(
-    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber()),
+    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber(), write.storageAddress),
   );
   // We need to write the storage updates to the DB, because that's what the ACVM expects.
   // Assumes the updates are in the right order.
@@ -143,6 +138,9 @@ export async function convertAvmResults(
   const unencryptedLogs: UnencryptedFunctionL2Logs = new UnencryptedFunctionL2Logs(
     newWorldState.newLogs.map(log => new UnencryptedL2Log(log.contractAddress, log.selector, log.data)),
   );
+  const unencryptedLogsHashes = newWorldState.newLogsHashes.map(
+    logHash => new SideEffect(logHash.logHash, logHash.counter),
+  );
   const newL2ToL1Messages = newWorldState.newL1Messages.map(m => new L2ToL1Message(m.recipient, m.content));
 
   const returnValues = result.output;
@@ -166,6 +164,7 @@ export async function convertAvmResults(
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
+    unencryptedLogsHashes,
     unencryptedLogs,
     reverted: result.reverted,
     revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,
