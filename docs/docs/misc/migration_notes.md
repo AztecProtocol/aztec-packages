@@ -8,6 +8,12 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.36.0
 
+## `FieldNote` removed
+
+`FieldNote` only existed for testing purposes, and was not a note type that should be used in any real application. Its name unfortunately led users to think that it was a note type suitable to store a `Field` value, which it wasn't.
+
+If using `FieldNote`, you most likely want to use `ValueNote` instead, which has both randomness for privacy and an owner for proper nullification.
+
 ## [Aztec.nr & js] Portal addresses
 
 Deployments have been modified. No longer are portal addresses treated as a special class, being immutably set on creation of a contract. They are no longer passed in differently compared to the other variables and instead should be implemented using usual storage by those who require it. One should use the storage that matches the usecase - likely shared storage to support private and public.
