@@ -7,8 +7,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
-import { type MemDown, default as memdown } from 'memdown';
-
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, updateExpectedTreesFromTxs } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 

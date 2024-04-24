@@ -7,12 +7,10 @@ import {
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
   type ParityPublicInputs,
   type PreviousRollupData,
   Proof,
   type PublicKernelCircuitPublicInputs,
-  type RECURSIVE_PROOF_LENGTH_IN_FIELDS,
   RecursiveProof,
   RollupTypes,
   RootParityInput,
@@ -66,8 +64,6 @@ export type BBProverConfig = {
   // list of circuits supported by this prover. defaults to all circuits if empty
   circuitFilter?: ServerProtocolArtifact[];
 };
-
-const VK_KEY_SIZE_IN_FIELDS = 114;
 
 type VerificationKeyData = {
   hash: Fr;

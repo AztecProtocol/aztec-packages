@@ -6,11 +6,11 @@ import { makeAztecAddress } from '../tests/factories.js';
 import {
   computeCommitmentNonce,
   computeCommitmentsHash,
-  computeMessageSecretHash,
   computeNullifierHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computeUniqueCommitment,
+  computeSecretHash,
+  computeUniqueNoteHash,
   computeVarArgsHash,
   siloNoteHash,
   siloNullifier,
@@ -29,7 +29,7 @@ describe('hash', () => {
   it('computes unique commitment', () => {
     const nonce = new Fr(123n);
     const innerCommitment = new Fr(456);
-    const res = computeUniqueCommitment(nonce, innerCommitment);
+    const res = computeUniqueNoteHash(nonce, innerCommitment);
     expect(res).toMatchSnapshot();
   });
 
@@ -79,7 +79,7 @@ describe('hash', () => {
 
   it('compute secret message hash', () => {
     const value = new Fr(8n);
-    const hash = computeMessageSecretHash(value);
+    const hash = computeSecretHash(value);
     expect(hash).toMatchSnapshot();
   });
 

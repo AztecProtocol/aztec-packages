@@ -173,7 +173,7 @@ export function makeNewSideEffectLinkedToNoteHash(seed: number): SideEffectLinke
  */
 export function makeTxContext(seed: number): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
-  return new TxContext(false, false, new Fr(seed), Fr.ZERO);
+  return new TxContext(new Fr(seed), Fr.ZERO, makeGasSettings());
 }
 
 /**
@@ -182,7 +182,7 @@ export function makeTxContext(seed: number): TxContext {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4), makeGasSettings());
+  return new CombinedConstantData(makeHeader(seed, undefined), makeTxContext(seed + 4));
 }
 
 /**
@@ -215,7 +215,7 @@ function makeReadRequestContext(n: number): ReadRequestContext {
  * @returns A NullifierKeyValidationRequest.
  */
 function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidationRequest {
-  return new NullifierKeyValidationRequest(makePoint(seed), makeGrumpkinPrivateKey(seed + 2));
+  return new NullifierKeyValidationRequest(makePoint(seed), fr(seed + 2));
 }
 
 /**
@@ -224,11 +224,7 @@ function makeNullifierKeyValidationRequest(seed: number): NullifierKeyValidation
  * @returns A NullifierKeyValidationRequestContext.
  */
 function makeNullifierKeyValidationRequestContext(seed: number): NullifierKeyValidationRequestContext {
-  return new NullifierKeyValidationRequestContext(
-    makePoint(seed),
-    makeGrumpkinPrivateKey(seed + 2),
-    makeAztecAddress(seed + 4),
-  );
+  return new NullifierKeyValidationRequestContext(makePoint(seed), fr(seed + 2), makeAztecAddress(seed + 4));
 }
 
 /**
@@ -383,7 +379,6 @@ export function makePrivateAccumulatedData(seed = 1, full = false) {
     fr(seed + 0xa00), // unencrypted_log_preimages_length
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x400, CallRequest.empty),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makeCallRequest, seed + 0x500, CallRequest.empty),
-    makeGas(seed + 0x600),
   );
 }
 
@@ -408,18 +403,13 @@ export function makeAggregationObject(seed = 1): AggregationObject {
  * @returns A call context.
  */
 export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContext>> = {}): CallContext {
-  const gasSettings = makeGasSettings();
   return CallContext.from({
     msgSender: makeAztecAddress(seed),
     storageContractAddress: makeAztecAddress(seed + 1),
-    portalContractAddress: makeEthAddress(seed + 2),
     functionSelector: makeSelector(seed + 3),
-    gasLeft: gasSettings.getLimits(),
     isStaticCall: false,
     isDelegateCall: false,
     sideEffectCounter: 0,
-    gasSettings,
-    transactionFee: fr(seed + 6),
     ...overrides,
   });
 }
@@ -467,6 +457,8 @@ export function makePublicCircuitPublicInputs(
     makeAztecAddress(seed + 0xb01),
     RevertCode.OK,
     makeGas(seed + 0xc00),
+    makeGas(seed + 0xc00),
+    fr(0),
   );
 }
 
@@ -767,7 +759,6 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
     makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x300),
     makeProof(),
     fr(seed + 1),
-    fr(seed + 2),
   );
 
   return publicCallData;
@@ -838,7 +829,6 @@ export function makeTxRequest(seed = 1): TxRequest {
     functionData: new FunctionData(makeSelector(seed + 0x100), true),
     argsHash: fr(seed + 0x200),
     txContext: makeTxContext(seed + 0x400),
-    gasSettings: makeGasSettings(),
   });
 }
 
@@ -864,7 +854,6 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
       makeNoteHashReadRequestMembershipWitness,
       seed + 0x70,
     ),
-    portalContractAddress: makeEthAddress(seed + 0x40).toField(),
     acirHash: fr(seed + 0x60),
   });
 }
@@ -913,8 +902,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
-    chainId: fr(seed + 0x1400),
-    version: fr(seed + 0x1500),
+    txContext: makeTxContext(seed + 0x1400),
   });
 }
 

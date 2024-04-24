@@ -3,7 +3,6 @@ import {
   Fr,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type RECURSIVE_PROOF_LENGTH_IN_FIELDS,
   type RootParityInput,
   RootParityInputs,
 } from '@aztec/circuits.js';
@@ -34,7 +33,7 @@ describe('prover/bb_prover/parity', () => {
   }, 60_000);
 
   afterAll(async () => {
-    //await context.cleanup();
+    await context.cleanup();
   }, 5000);
 
   it('proves the parity circuits', async () => {

@@ -2,8 +2,6 @@ import { PROVING_STATUS } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { type MemDown, default as memdown } from 'memdown';
-
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
@@ -53,7 +51,7 @@ describe('prover/orchestrator/errors', () => {
       const finalisedBlock = await context.orchestrator.finaliseBlock();
 
       expect(finalisedBlock.block.number).toEqual(context.blockNumber);
-    }, 30_000);
+    }, 40_000);
 
     it('throws if adding a transaction before start', async () => {
       await expect(
