@@ -16,10 +16,10 @@ contract KeyRegistry {
         PublicKeysHash,
         PartialAddress,
       },
-      // constants::{
-      //   GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-      //   GENERATOR_INDEX__PUBLIC_KEYS_HASH
-      // },
+      constants::{
+        GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+        GENERATOR_INDEX__PUBLIC_KEYS_HASH
+      },
       hash::poseidon2_hash,
       traits::{
         Serialize,
@@ -29,8 +29,6 @@ contract KeyRegistry {
   };
 
   global KEY_ROTATION_DELAY = 5;
-  global GENERATOR_INDEX__CONTRACT_ADDRESS_V1 = 15;
-  global GENERATOR_INDEX__PUBLIC_KEYS_HASH = 51;
 
   #[aztec(storage)]
   struct Storage {

@@ -1,4 +1,4 @@
-import { pedersenHash, sha256 } from '@aztec/foundation/crypto';
+import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractClass } from '@aztec/types/contracts';
 
@@ -56,7 +56,8 @@ export type ContractClassIdPreimage = {
   publicBytecodeCommitment: Fr;
 };
 
-// TODO(@spalladino): Replace with actual implementation
-export function computePublicBytecodeCommitment(bytecode: Buffer) {
-  return Fr.fromBufferReduce(sha256(bytecode));
+// TODO(#5860): Replace with actual implementation
+// Changed to work with Key Regsitry
+export function computePublicBytecodeCommitment(_bytecode: Buffer) {
+  return new Fr(5);
 }

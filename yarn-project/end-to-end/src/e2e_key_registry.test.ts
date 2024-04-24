@@ -12,7 +12,6 @@ const TIMEOUT = 100_000;
 
 describe('SharedMutablePrivateGetter', () => {
   let keyRegistry: KeyRegistryContract;
-  let keyRegistry1: KeyRegistryContract;
 
   let testContract: TestContract;
   let pxe: PXE;
