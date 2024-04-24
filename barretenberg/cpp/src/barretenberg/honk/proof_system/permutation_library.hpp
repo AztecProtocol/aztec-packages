@@ -181,16 +181,15 @@ void compute_permutation_grand_products(std::shared_ptr<typename Flavor::Proving
  * Since we commit to multilinear polynomials with KZG, which treats evaluations as monomial coefficients, in univariate
  * form h(x)=f(x)+x⁴⋅g(x)Fr
  * @tparam Flavor
- * @tparam StorageHandle
  * @param proving_key Can be a proving_key or an AllEntities object
  */
-template <typename Flavor, typename StorageHandle> void compute_concatenated_polynomials(StorageHandle* proving_key)
+template <typename Flavor> void compute_concatenated_polynomials(typename Flavor::ProverPolynomials& polynomials)
 {
     // Concatenation groups are vectors of polynomials that are concatenated together
-    auto concatenation_groups = proving_key->get_concatenation_groups();
+    auto concatenation_groups = polynomials.get_concatenation_groups();
 
     // Resulting concatenated polynomials
-    auto targets = proving_key->get_concatenated_constraints();
+    auto targets = polynomials.get_concatenated_constraints();
 
     // Targets have to be full-sized polynomials. We can compute the mini circuit size from them by dividing by
     // concatenation index
@@ -236,11 +235,10 @@ template <typename Flavor, typename StorageHandle> void compute_concatenated_pol
  * can construct a proof when ( k + 1 ) ⋅ ( max_range/ 3 + 1 ) < concatenated size
  *
  * @tparam Flavor
- * @tparam StorageHandle
  * @param proving_key
  */
-template <typename Flavor, typename StorageHandle>
-void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandle* proving_key,
+template <typename Flavor>
+void compute_goblin_translator_range_constraint_ordered_polynomials(typename Flavor::ProverPolynomials& polynomials,
                                                                     size_t mini_circuit_dyadic_size)
 {
 
@@ -271,14 +269,14 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
     }
 
     std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_concatenated_wires);
-    auto ordered_constraint_polynomials = std::vector{ &proving_key->ordered_range_constraints_0,
-                                                       &proving_key->ordered_range_constraints_1,
-                                                       &proving_key->ordered_range_constraints_2,
-                                                       &proving_key->ordered_range_constraints_3 };
+    auto ordered_constraint_polynomials = std::vector{ &polynomials.ordered_range_constraints_0,
+                                                       &polynomials.ordered_range_constraints_1,
+                                                       &polynomials.ordered_range_constraints_2,
+                                                       &polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
 
     // Get information which polynomials need to be concatenated
-    auto concatenation_groups = proving_key->get_concatenation_groups();
+    auto concatenation_groups = polynomials.get_concatenation_groups();
 
     // A function that transfers elements from each of the polynomials in the chosen concatenation group in the uint
     // ordered polynomials
@@ -352,7 +350,7 @@ void compute_goblin_translator_range_constraint_ordered_polynomials(StorageHandl
     // And copy it to the actual polynomial
     std::transform(extra_denominator_uint.cbegin(),
                    extra_denominator_uint.cend(),
-                   proving_key->ordered_range_constraints_4.begin(),
+                   polynomials.ordered_range_constraints_4.begin(),
                    [](uint32_t in) { return FF(in); });
 }
 
