@@ -7,16 +7,19 @@ import {
   Fr,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type ParityPublicInputs,
   type PreviousRollupData,
   Proof,
   type PublicKernelCircuitPublicInputs,
+  type RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   RollupTypes,
   RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
+  type VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VerificationKey,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -67,7 +70,7 @@ export type BBProverConfig = {
 
 type VerificationKeyData = {
   hash: Fr;
-  keyAsFields: Tuple<Fr, typeof VK_KEY_SIZE_IN_FIELDS>;
+  keyAsFields: Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>;
   keyAsBytes: Buffer;
   numPublicInputs: number;
 };
@@ -98,15 +101,14 @@ export class BBNativeRollupProver implements CircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  public async getBaseParityProof(
-    inputs: BaseParityInputs,
-  ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>> {
+  public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
-    const [circuitOutput, proof] = await this.createRecursiveProof<
-      typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS,
-      ParityPublicInputs
-    >(witnessMap, 'BaseParityArtifact', convertBaseParityOutputsFromWitnessMap);
+    const [circuitOutput, proof] = await this.createRecursiveProof<typeof RECURSIVE_PROOF_LENGTH, ParityPublicInputs>(
+      witnessMap,
+      'BaseParityArtifact',
+      convertBaseParityOutputsFromWitnessMap,
+    );
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseParityArtifact');
 
@@ -125,11 +127,11 @@ export class BBNativeRollupProver implements CircuitProver {
    */
   public async getRootParityProof(
     inputs: RootParityInputs,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>> {
+  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
     const [circuitOutput, proof] = await this.createRecursiveProof<
-      typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+      typeof NESTED_RECURSIVE_PROOF_LENGTH,
       ParityPublicInputs
     >(witnessMap, 'RootParityArtifact', convertRootParityOutputsFromWitnessMap);
 
@@ -445,7 +447,7 @@ export class BBNativeRollupProver implements CircuitProver {
     const fields = fieldsJson.fields.map(Fr.fromString);
     const vk: VerificationKeyData = {
       hash: Fr.fromString(fieldsJson.hash),
-      keyAsFields: fields as Tuple<Fr, typeof VK_KEY_SIZE_IN_FIELDS>,
+      keyAsFields: fields as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>,
       keyAsBytes: rawBinary,
       numPublicInputs: fieldsJson.num_public_inputs,
     };

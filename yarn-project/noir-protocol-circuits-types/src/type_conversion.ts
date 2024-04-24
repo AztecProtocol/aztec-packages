@@ -47,7 +47,7 @@ import {
   MaxBlockNumber,
   type MembershipWitness,
   type MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
   NUM_BYTES_PER_SHA256,
   type NonMembershipHint,
@@ -89,7 +89,7 @@ import {
   PublicKernelCircuitPublicInputs,
   type PublicKernelData,
   type PublicKernelTailCircuitPrivateInputs,
-  type RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  type RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   ReadRequestContext,
   type ReadRequestStatus,
@@ -1695,16 +1695,14 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
   };
 }
 
-export function mapRootRollupRecursiveProofToNoir(
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
-) {
+export function mapRootRollupRecursiveProofToNoir(proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>) {
   return {
     fields: mapTuple(proof.proof, mapFieldToNoir),
   };
 }
 
 export function mapRootRollupParityInputToNoir(
-  rootParityInput: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
+  rootParityInput: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
 ): RootRollupParityInputNoir {
   return {
     proof: mapRootRollupRecursiveProofToNoir(rootParityInput.proof),
@@ -1735,14 +1733,14 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
   };
 }
 
-export function mapRecursiveProofToNoir(proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>) {
+export function mapRecursiveProofToNoir(proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>) {
   return {
     fields: mapTuple(proof.proof, mapFieldToNoir),
   };
 }
 
 export function mapRootParityInputToNoir(
-  rootParityInput: RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
+  rootParityInput: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>,
 ): ParityRootParityInputNoir {
   return {
     proof: mapRecursiveProofToNoir(rootParityInput.proof),

@@ -5,12 +5,12 @@ import {
   type BaseRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type PublicCircuitPublicInputs,
   type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
-  type RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  type RECURSIVE_PROOF_LENGTH,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
@@ -64,15 +64,13 @@ export interface CircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>>;
+  getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getRootParityProof(
-    inputs: RootParityInputs,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>>;
+  getRootParityProof(inputs: RootParityInputs): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
 
   /**
    * Creates a proof for the given input.

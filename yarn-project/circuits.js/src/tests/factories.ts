@@ -67,7 +67,7 @@ import {
   MaxBlockNumber,
   MembershipWitness,
   MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -112,7 +112,7 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
-  RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  RECURSIVE_PROOF_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   ReadRequestContext,
@@ -1056,10 +1056,7 @@ export function makePreviousRollupData(
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
   return new RootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
-    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>(
-      NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
-      seed + 0x2000,
-    ),
+    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
@@ -1091,7 +1088,7 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
   return new RootParityInputs(
     makeTuple(
       NUM_BASE_PARITY_PER_ROOT_PARITY,
-      () => makeRootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>(RECURSIVE_PROOF_LENGTH_IN_FIELDS),
+      () => makeRootParityInput<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
       seed + 0x4100,
     ),
   );

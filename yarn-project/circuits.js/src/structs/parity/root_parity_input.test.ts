@@ -1,21 +1,19 @@
+import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
 import { makeRootParityInput } from '../../tests/factories.js';
-import { NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS, RECURSIVE_PROOF_LENGTH_IN_FIELDS } from '../recursive_proof.js';
 import { RootParityInput } from './root_parity_input.js';
 
 describe('RootParityInput', () => {
   it(`serializes a recursive proof RootParityInput to buffer and deserializes it back`, () => {
-    const expected = makeRootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>(RECURSIVE_PROOF_LENGTH_IN_FIELDS);
+    const expected = makeRootParityInput<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
     const buffer = expected.toBuffer();
-    const res = RootParityInput.fromBuffer(buffer, RECURSIVE_PROOF_LENGTH_IN_FIELDS);
+    const res = RootParityInput.fromBuffer(buffer, RECURSIVE_PROOF_LENGTH);
     expect(res).toEqual(expected);
   });
 
   it(`serializes a nested recursive proof RootParityInput to buffer and deserializes it back`, () => {
-    const expected = makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>(
-      NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
-    );
+    const expected = makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH);
     const buffer = expected.toBuffer();
-    const res = RootParityInput.fromBuffer(buffer, NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS);
+    const res = RootParityInput.fromBuffer(buffer, NESTED_RECURSIVE_PROOF_LENGTH);
     expect(res).toEqual(expected);
   });
 });

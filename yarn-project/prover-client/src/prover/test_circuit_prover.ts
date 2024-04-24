@@ -6,10 +6,10 @@ import {
   type BaseRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   type Proof,
   type PublicKernelCircuitPublicInputs,
-  RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
@@ -62,9 +62,7 @@ export class TestCircuitProver implements CircuitProver {
    * @param inputs - Inputs to the circuit.
    * @returns The public inputs of the parity circuit.
    */
-  public async getBaseParityProof(
-    inputs: BaseParityInputs,
-  ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>> {
+  public async getBaseParityProof(inputs: BaseParityInputs): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>> {
     const witnessMap = convertBaseParityInputsToWitnessMap(inputs);
 
     // use WASM here as it is faster for small circuits
@@ -72,8 +70,8 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
-    const rootParityInputs = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>(
-      makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>(RECURSIVE_PROOF_LENGTH_IN_FIELDS),
+    const rootParityInputs = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
+      makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
       VerificationKey.makeFake(),
       result,
     );
@@ -88,7 +86,7 @@ export class TestCircuitProver implements CircuitProver {
    */
   public async getRootParityProof(
     inputs: RootParityInputs,
-  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>> {
+  ): Promise<RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>> {
     const witnessMap = convertRootParityInputsToWitnessMap(inputs);
 
     // use WASM here as it is faster for small circuits
@@ -96,8 +94,8 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
-    const rootParityInputs = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>(
-      makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS>(NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS),
+    const rootParityInputs = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
+      makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
       VerificationKey.makeFake(),
       result,
     );

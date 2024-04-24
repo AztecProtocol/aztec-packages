@@ -17,7 +17,7 @@ describe('prover/bb_prover/full-rollup', () => {
   let context: TestContext;
 
   beforeAll(async () => {
-    context = await TestContext.new(logger, BBNativeRollupProver.new);
+    context = await TestContext.new(logger, 1, BBNativeRollupProver.new);
   }, 60_000);
 
   afterAll(async () => {
@@ -62,7 +62,5 @@ describe('prover/bb_prover/full-rollup', () => {
     const blockResult = await context.orchestrator.finaliseBlock();
 
     await expect(context.prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
-
-    await context.orchestrator.stop();
   }, 600_000);
 });

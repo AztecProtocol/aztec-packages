@@ -3,6 +3,7 @@ import {
   Fr,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  type RECURSIVE_PROOF_LENGTH,
   type RootParityInput,
   RootParityInputs,
 } from '@aztec/circuits.js';
@@ -29,7 +30,7 @@ describe('prover/bb_prover/parity', () => {
       bbProver = await BBNativeRollupProver.new(bbConfig);
       return bbProver;
     };
-    context = await TestContext.new(logger, buildProver);
+    context = await TestContext.new(logger, 1, buildProver);
   }, 60_000);
 
   afterAll(async () => {
@@ -57,10 +58,7 @@ describe('prover/bb_prover/parity', () => {
 
     // Now generate the root parity proof
     const rootParityInputs: RootParityInputs = new RootParityInputs(
-      rootInputs as Tuple<
-        RootParityInput<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
-        typeof NUM_BASE_PARITY_PER_ROOT_PARITY
-      >,
+      rootInputs as Tuple<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
     );
     const rootOutput = await context.prover.getRootParityProof(rootParityInputs);
 

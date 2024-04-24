@@ -25,7 +25,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type Proof,
-  type RECURSIVE_PROOF_LENGTH_IN_FIELDS,
+  type RECURSIVE_PROOF_LENGTH,
   type RootParityInput,
   RootParityInputs,
   makeEmptyProof,

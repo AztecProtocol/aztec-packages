@@ -2,6 +2,8 @@ import { makeTuple } from '@aztec/foundation/array';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
+
 /**
  * Curve data.
  */
@@ -75,7 +77,7 @@ export class CommitmentMap {
  * @see proof_system/verification_key/verification_key.hpp
  */
 export class VerificationKey {
-  constructor(public key: Tuple<Fr, typeof NUM_FIELDS_IN_VK>, public hash: Fr) {}
+  constructor(public key: Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, public hash: Fr) {}
 
   /**
    * Serialize as a buffer.
@@ -95,7 +97,7 @@ export class VerificationKey {
    */
   static fromBuffer(buffer: Buffer | BufferReader): VerificationKey {
     const reader = BufferReader.asReader(buffer);
-    return new VerificationKey(reader.readArray(NUM_FIELDS_IN_VK, Fr), reader.readObject(Fr));
+    return new VerificationKey(reader.readArray(VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr), reader.readObject(Fr));
   }
 
   /**
@@ -103,6 +105,6 @@ export class VerificationKey {
    * @returns A fake verification key.
    */
   static makeFake(seed = 1): VerificationKey {
-    return new VerificationKey(makeTuple(NUM_FIELDS_IN_VK, Fr.random, seed), Fr.random());
+    return new VerificationKey(makeTuple(VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
   }
 }

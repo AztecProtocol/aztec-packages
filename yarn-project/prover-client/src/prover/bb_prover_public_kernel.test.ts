@@ -25,7 +25,7 @@ describe('prover/bb_prover/public-kernel', () => {
       ];
       return BBNativeRollupProver.new(bbConfig);
     };
-    context = await TestContext.new(logger, buildProver);
+    context = await TestContext.new(logger, 1, buildProver);
   }, 60_000);
 
   afterAll(async () => {
