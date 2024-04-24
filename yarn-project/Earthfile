@@ -77,7 +77,7 @@ end-to-end-prod:
 end-to-end:
     FROM ubuntu:noble
     RUN apt update && apt install nodejs jq chromium netcat-openbsd -y
-    ENV CHROME_BIN="/usr/bin/chromium"
+    ENV CHROME_BIN="/usr/bin/chromium-browser"
     ENV PATH=/opt/foundry/bin:$PATH
     COPY ../build-images+build/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
