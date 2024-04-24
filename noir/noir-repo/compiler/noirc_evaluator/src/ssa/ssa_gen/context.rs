@@ -14,8 +14,8 @@ use crate::ssa::ir::basic_block::BasicBlockId;
 use crate::ssa::ir::dfg::DataFlowGraph;
 use crate::ssa::ir::function::{Function, RuntimeType};
 use crate::ssa::ir::function::{FunctionId as IrFunctionId, InlineType};
-use crate::ssa::ir::instruction::{BinaryOp, ErrorType};
-use crate::ssa::ir::instruction::{ErrorTypeId, Instruction};
+use crate::ssa::ir::instruction::BinaryOp;
+use crate::ssa::ir::instruction::Instruction;
 use crate::ssa::ir::map::AtomicCounter;
 use crate::ssa::ir::types::{NumericType, Type};
 use crate::ssa::ir::value::ValueId;
@@ -72,8 +72,6 @@ pub(super) struct SharedContext {
 
     /// Shared counter used to assign the ID of the next function
     function_counter: AtomicCounter<Function>,
-
-    error_id_counter: AtomicCounter<ErrorType>,
 
     /// The entire monomorphized source program
     pub(super) program: Program,
@@ -1203,7 +1201,6 @@ impl SharedContext {
             functions: Default::default(),
             function_queue: Default::default(),
             function_counter: Default::default(),
-            error_id_counter: Default::default(),
             program,
         }
     }
@@ -1234,11 +1231,6 @@ impl SharedContext {
         self.functions.write().expect("Failed to write to self.functions").insert(id, next_id);
 
         next_id
-    }
-
-    /// Used to create a unique error id for matching error types used in the program.
-    pub(super) fn create_error_id(&self) -> ErrorTypeId {
-        self.error_id_counter.next()
     }
 }
 

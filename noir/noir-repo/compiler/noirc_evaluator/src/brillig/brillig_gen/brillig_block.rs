@@ -270,7 +270,7 @@ impl<'block> BrilligBlock<'block> {
                             condition,
                             payload_values,
                             payload_as_params,
-                            typ_id.to_usize(),
+                            typ_id.to_u64(),
                         );
                     }
                     Some(ConstrainError::Intrinsic(message)) => {

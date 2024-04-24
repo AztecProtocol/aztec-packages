@@ -18,7 +18,7 @@ use super::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
         function::{InlineType, RuntimeType},
-        instruction::{ConstrainError, ErrorType, ErrorTypeId, InstructionId, Intrinsic},
+        instruction::{ConstrainError, ErrorSelector, ErrorType, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
 };
@@ -35,7 +35,7 @@ pub(crate) struct FunctionBuilder {
     current_block: BasicBlockId,
     finished_functions: Vec<Function>,
     call_stack: CallStack,
-    error_types: BTreeMap<ErrorTypeId, ErrorType>,
+    error_types: BTreeMap<ErrorSelector, ErrorType>,
 }
 
 impl FunctionBuilder {
@@ -477,8 +477,8 @@ impl FunctionBuilder {
         }
     }
 
-    pub(crate) fn record_error_type(&mut self, id: ErrorTypeId, typ: ErrorType) {
-        self.error_types.insert(id, typ);
+    pub(crate) fn record_error_type(&mut self, selector: ErrorSelector, typ: ErrorType) {
+        self.error_types.insert(selector, typ);
     }
 }
 

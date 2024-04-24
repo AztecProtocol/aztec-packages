@@ -77,7 +77,7 @@ pub struct Circuit {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssertionPayload {
     StaticString(String),
-    Expression(/* type_id */ usize, Vec<Expression>),
+    Expression(/* error_selector */ u64, Vec<Expression>),
 }
 
 #[derive(Debug, Copy, Clone)]

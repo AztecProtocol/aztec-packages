@@ -251,7 +251,7 @@ pub struct Abi {
     pub param_witnesses: BTreeMap<String, Vec<Range<Witness>>>,
     pub return_type: Option<AbiReturnType>,
     pub return_witnesses: Vec<Witness>,
-    pub error_types: BTreeMap<usize, AbiType>,
+    pub error_types: BTreeMap<u64, AbiType>,
 }
 
 impl Abi {

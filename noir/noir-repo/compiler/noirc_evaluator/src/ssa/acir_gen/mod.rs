@@ -8,7 +8,7 @@ use self::acir_ir::acir_variable::{AcirContext, AcirType, AcirVar};
 use super::function_builder::data_bus::DataBus;
 use super::ir::dfg::CallStack;
 use super::ir::function::FunctionId;
-use super::ir::instruction::{ConstrainError, ErrorType, ErrorTypeId};
+use super::ir::instruction::{ConstrainError, ErrorSelector, ErrorType};
 use super::{
     ir::{
         dfg::DataFlowGraph,
@@ -227,7 +227,7 @@ impl AcirValue {
 }
 
 pub(crate) type Artifacts =
-    (Vec<GeneratedAcir>, Vec<BrilligBytecode>, BTreeMap<ErrorTypeId, ErrorType>);
+    (Vec<GeneratedAcir>, Vec<BrilligBytecode>, BTreeMap<ErrorSelector, ErrorType>);
 
 impl Ssa {
     #[tracing::instrument(level = "trace", skip_all)]
@@ -277,7 +277,7 @@ impl Ssa {
             }
             Distinctness::DuplicationAllowed => {}
         }
-        Ok((acirs, brillig, self.error_id_to_type))
+        Ok((acirs, brillig, self.error_selector_to_type))
     }
 }
 
@@ -549,7 +549,7 @@ impl<'a> Context<'a> {
                                 self.acir_context.var_to_expression(var)
                             })?;
 
-                            Some(AssertionPayload::Expression(id.to_usize(), expressions))
+                            Some(AssertionPayload::Expression(id.to_u64(), expressions))
                         }
                     }
                 } else {

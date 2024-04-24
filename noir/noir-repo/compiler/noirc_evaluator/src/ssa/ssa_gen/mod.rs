@@ -24,6 +24,7 @@ use self::{
     value::{Tree, Values},
 };
 
+use super::ir::instruction::ErrorSelector;
 use super::{
     function_builder::data_bus::DataBus,
     ir::{
@@ -705,10 +706,9 @@ impl<'a> FunctionContext<'a> {
         let Some(assert_message_payload) = assert_message else { return Ok(None) };
         let (assert_message_expression, assert_message_typ) = assert_message_payload.as_ref();
 
-        let values: Vec<super::ir::map::Id<super::ir::value::Value>> =
-            self.codegen_expression(assert_message_expression)?.into_value_list(self);
+        let values = self.codegen_expression(assert_message_expression)?.into_value_list(self);
 
-        let error_type_id = self.shared_context.create_error_id();
+        let error_type_id = ErrorSelector::new(assert_message_typ);
 
         // Do not record string errors in the ABI
         match assert_message_typ {

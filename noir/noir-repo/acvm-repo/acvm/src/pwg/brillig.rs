@@ -208,14 +208,29 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                                 .iter()
                                 .map(|memory_value| memory_value.to_field())
                                 .collect();
-                            let revert_data_type_id = fields
+                            let error_selector = fields
                                 .remove(0)
                                 .try_to_u64()
-                                .expect("Error id doesn't fit in a u64")
-                                .try_into()
-                                .expect("Error id doesn't fit in a usize");
+                                .expect("Error selector doesn't fit in a u64");
 
-                            Some(ResolvedAssertionPayload::Raw(revert_data_type_id, fields))
+                            match error_selector {
+                                0 => {
+                                    // If the error selector is 0, it means the error is a string
+                                    let string = fields
+                                        .iter()
+                                        .map(|field| {
+                                            let as_u8 =
+                                                field.try_to_u64().unwrap_or_default() as u8;
+                                            as_u8 as char
+                                        })
+                                        .collect();
+                                    Some(ResolvedAssertionPayload::String(string))
+                                }
+                                _ => {
+                                    // If the error selector is not 0, it means the error is a custom error
+                                    Some(ResolvedAssertionPayload::Raw(error_selector, fields))
+                                }
+                            }
                         }
                     }
                 };

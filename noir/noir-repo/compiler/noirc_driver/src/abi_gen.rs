@@ -20,7 +20,7 @@ pub(super) fn gen_abi(
     input_witnesses: Vec<Witness>,
     return_witnesses: Vec<Witness>,
     return_visibility: Visibility,
-    error_types: BTreeMap<usize, Type>,
+    error_types: BTreeMap<u64, Type>,
 ) -> Abi {
     let (parameters, return_type) = compute_function_abi(context, func_id);
     let param_witnesses = param_witnesses_from_abi_param(&parameters, input_witnesses);

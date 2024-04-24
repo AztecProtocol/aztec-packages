@@ -1,4 +1,7 @@
+use std::hash::{Hash, Hasher};
+
 use acvm::{acir::BlackBoxFunc, FieldElement};
+use fxhash::FxHasher;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
 
@@ -597,16 +600,37 @@ impl Instruction {
     }
 }
 
+pub(crate) type ErrorType = HirType;
+
+#[derive(Debug, Copy, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
+pub(crate) struct ErrorSelector(u64);
+
+impl ErrorSelector {
+    pub(crate) fn new(typ: &ErrorType) -> Self {
+        match typ {
+            ErrorType::String(_) => Self(0),
+            _ => {
+                let mut hasher = FxHasher::default();
+                typ.hash(&mut hasher);
+                let hash = hasher.finish();
+                assert!(hash != 0, "ICE: Error type {} collides with the string error type", typ);
+                Self(hash)
+            }
+        }
+    }
+
+    pub(crate) fn to_u64(self) -> u64 {
+        self.0
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub(crate) enum ConstrainError {
     // These are errors which have been hardcoded during SSA gen
     Intrinsic(String),
     // These are errors issued by the user
-    UserDefined(Vec<ValueId>, ErrorTypeId),
+    UserDefined(Vec<ValueId>, ErrorSelector),
 }
-
-pub(crate) type ErrorType = HirType;
-pub(crate) type ErrorTypeId = Id<ErrorType>;
 
 impl From<String> for ConstrainError {
     fn from(value: String) -> Self {

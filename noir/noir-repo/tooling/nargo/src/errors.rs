@@ -61,7 +61,7 @@ impl NargoError {
     /// in tests to expected failure messages
     pub fn user_defined_failure_message(
         &self,
-        error_types: BTreeMap<usize, AbiType>,
+        error_types: BTreeMap<u64, AbiType>,
     ) -> Option<String> {
         let execution_error = match self {
             NargoError::ExecutionError(error) => error,
@@ -71,12 +71,12 @@ impl NargoError {
         match execution_error {
             ExecutionError::AssertionFailed(payload, _) => match payload {
                 ResolvedAssertionPayload::String(message) => Some(message.to_string()),
-                ResolvedAssertionPayload::Raw(error_id, fields) => {
-                    if let Some(abi_type) = error_types.get(error_id) {
+                ResolvedAssertionPayload::Raw(error_selector, fields) => {
+                    if let Some(abi_type) = error_types.get(error_selector) {
                         let decoded = prepare_for_display(fields, abi_type.clone());
                         Some(decoded.to_string())
                     } else {
-                        Some(display_as_string(fields))
+                        None
                     }
                 }
             },
@@ -218,7 +218,7 @@ fn prepare_for_display(fields: &[FieldElement], abi_typ: AbiType) -> PrintableVa
 }
 
 fn extract_message_from_error(
-    error_types: &BTreeMap<usize, AbiType>,
+    error_types: &BTreeMap<u64, AbiType>,
     nargo_err: &NargoError,
 ) -> String {
     match nargo_err {
@@ -229,13 +229,13 @@ fn extract_message_from_error(
             format!("Assertion failed: '{message}'")
         }
         NargoError::ExecutionError(ExecutionError::AssertionFailed(
-            ResolvedAssertionPayload::Raw(error_id, fields),
+            ResolvedAssertionPayload::Raw(error_selector, fields),
             ..,
         )) => {
-            if let Some(abi_type) = error_types.get(error_id) {
+            if let Some(abi_type) = error_types.get(error_selector) {
                 format!("Assertion failed: {}", prepare_for_display(fields, abi_type.clone()))
             } else {
-                format!("Assertion failed {}", display_as_string(fields))
+                "Assertion failed".to_string()
             }
         }
         NargoError::ExecutionError(ExecutionError::SolvingError(

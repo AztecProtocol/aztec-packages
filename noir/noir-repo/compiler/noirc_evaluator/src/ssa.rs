@@ -105,13 +105,13 @@ pub struct SsaProgramArtifact {
     pub main_input_witnesses: Vec<Witness>,
     pub main_return_witnesses: Vec<Witness>,
     pub names: Vec<String>,
-    pub error_types: BTreeMap<usize, HirType>,
+    pub error_types: BTreeMap<u64, HirType>,
 }
 
 impl SsaProgramArtifact {
     fn new(
         unconstrained_functions: Vec<BrilligBytecode>,
-        error_types: BTreeMap<usize, HirType>,
+        error_types: BTreeMap<u64, HirType>,
     ) -> Self {
         let program = AcirProgram { functions: Vec::default(), unconstrained_functions };
         Self {
@@ -171,7 +171,7 @@ pub fn create_program(
 
     let error_types = error_types
         .into_iter()
-        .map(|(error_typ_id, error_typ)| (error_typ_id.to_usize(), error_typ))
+        .map(|(error_typ_id, error_typ)| (error_typ_id.to_u64(), error_typ))
         .collect();
 
     let mut program_artifact = SsaProgramArtifact::new(generated_brillig, error_types);

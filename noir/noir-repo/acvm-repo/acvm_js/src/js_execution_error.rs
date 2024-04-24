@@ -1,4 +1,4 @@
-use acvm::{acir::circuit::OpcodeLocation, pwg::ResolvedAssertionPayload};
+use acvm::{acir::circuit::OpcodeLocation, FieldElement};
 use js_sys::{Array, Error, JsString, Map, Object, Reflect};
 use wasm_bindgen::prelude::{wasm_bindgen, JsValue};
 
@@ -10,10 +10,9 @@ export type RawAssertionPayload = {
     typeId: number;
     fields: string[];
 };
-export type ResolvedAssertionPayload = string | RawAssertionPayload;
 export type ExecutionError = Error & {
     callStack?: string[];
-    assertionPayload?: ResolvedAssertionPayload;
+    rawAssertionPayload?: RawAssertionPayload;
 };
 "#;
 
@@ -36,7 +35,7 @@ impl JsExecutionError {
     pub fn new(
         message: String,
         call_stack: Option<Vec<OpcodeLocation>>,
-        assertion_payload: Option<ResolvedAssertionPayload>,
+        assertion_payload: Option<(u64, Vec<FieldElement>)>,
     ) -> Self {
         let mut error = JsExecutionError::constructor(JsString::from(message));
         let js_call_stack = match call_stack {
@@ -50,8 +49,7 @@ impl JsExecutionError {
             None => JsValue::UNDEFINED,
         };
         let assertion_payload = match assertion_payload {
-            Some(ResolvedAssertionPayload::String(string)) => JsValue::from(string),
-            Some(ResolvedAssertionPayload::Raw(type_id, fields)) => {
+            Some((type_id, fields)) => {
                 let raw_payload_map = Map::new();
                 raw_payload_map
                     .set(&JsValue::from_str("typeId"), &JsValue::from(type_id.to_string()));
@@ -67,7 +65,7 @@ impl JsExecutionError {
         };
 
         error.set_property("callStack", js_call_stack);
-        error.set_property("assertionPayload", assertion_payload);
+        error.set_property("rawAssertionPayload", assertion_payload);
 
         error
     }

@@ -1,6 +1,7 @@
 use std::{future::Future, pin::Pin};
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
+use acvm::pwg::ResolvedAssertionPayload;
 use acvm::BlackBoxFunctionSolver;
 use acvm::{
     acir::circuit::{Circuit, Program},
@@ -254,6 +255,7 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                         unreachable!("Execution should not stop while in `InProgress` state.")
                     }
                     ACVMStatus::Failure(error) => {
+                        // Fetch call stack
                         let call_stack = match &error {
                             OpcodeResolutionError::UnsatisfiedConstrain {
                                 opcode_location: ErrorLocation::Resolved(opcode_location),
@@ -268,18 +270,31 @@ impl<'a, B: BlackBoxFunctionSolver> ProgramExecutor<'a, B> {
                             }
                             _ => None,
                         };
-                        let assertion_payload = match &error {
-                            OpcodeResolutionError::UnsatisfiedConstrain { payload, .. }
-                            | OpcodeResolutionError::BrilligFunctionFailed { payload, .. } => {
-                                payload.clone()
+                        // If the failed opcode has an assertion message, integrate it into the error message for backwards compatibility.
+                        // Otherwise, pass the raw assertion payload as is.
+                        let (message, raw_assertion_payload) = match &error {
+                            OpcodeResolutionError::UnsatisfiedConstrain {
+                                payload: Some(payload),
+                                ..
                             }
-                            _ => None,
+                            | OpcodeResolutionError::BrilligFunctionFailed {
+                                payload: Some(payload),
+                                ..
+                            } => match payload {
+                                ResolvedAssertionPayload::Raw(selector, fields) => {
+                                    (error.to_string(), Some((*selector, fields.clone())))
+                                }
+                                ResolvedAssertionPayload::String(message) => {
+                                    (format!("Assertion failed: {}", message), None)
+                                }
+                            },
+                            _ => (error.to_string(), None),
                         };
 
                         return Err(JsExecutionError::new(
-                            error.to_string(),
+                            message,
                             call_stack,
-                            assertion_payload,
+                            raw_assertion_payload,
                         )
                         .into());
                     }

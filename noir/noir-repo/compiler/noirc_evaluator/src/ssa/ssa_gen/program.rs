@@ -4,7 +4,7 @@ use iter_extended::btree_map;
 
 use crate::ssa::ir::{
     function::{Function, FunctionId, RuntimeType},
-    instruction::ErrorTypeId,
+    instruction::ErrorSelector,
     map::AtomicCounter,
 };
 use noirc_frontend::hir_def::types::Type as HirType;
@@ -19,7 +19,7 @@ pub(crate) struct Ssa {
     /// This mapping is necessary to use the correct function pointer for an ACIR call,
     /// as the final program artifact will be a list of only entry point functions.
     pub(crate) entry_point_to_generated_index: BTreeMap<FunctionId, u32>,
-    pub(crate) error_id_to_type: BTreeMap<ErrorTypeId, HirType>,
+    pub(crate) error_selector_to_type: BTreeMap<ErrorSelector, HirType>,
 }
 
 impl Ssa {
@@ -27,7 +27,7 @@ impl Ssa {
     /// The first function in this vector is expected to be the main function.
     pub(crate) fn new(
         functions: Vec<Function>,
-        error_types: BTreeMap<ErrorTypeId, HirType>,
+        error_types: BTreeMap<ErrorSelector, HirType>,
     ) -> Self {
         let main_id = functions.first().expect("Expected at least 1 SSA function").id();
         let mut max_id = main_id;
@@ -56,7 +56,7 @@ impl Ssa {
             main_id,
             next_id: AtomicCounter::starting_after(max_id),
             entry_point_to_generated_index,
-            error_id_to_type: error_types,
+            error_selector_to_type: error_types,
         }
     }
 

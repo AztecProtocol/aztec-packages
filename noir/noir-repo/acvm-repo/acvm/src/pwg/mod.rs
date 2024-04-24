@@ -117,7 +117,7 @@ impl std::fmt::Display for ErrorLocation {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ResolvedAssertionPayload {
     String(String),
-    Raw(/*type_id:*/ usize, Vec<FieldElement>),
+    Raw(/*error_selector:*/ u64, Vec<FieldElement>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Error)]
@@ -402,14 +402,39 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                                         AssertionPayload::StaticString(string) => {
                                             Some(ResolvedAssertionPayload::String(string.clone()))
                                         }
-                                        AssertionPayload::Expression(type_id, expression) => {
+                                        AssertionPayload::Expression(
+                                            error_selector,
+                                            expression,
+                                        ) => {
                                             let elements: Result<Vec<_>, _> = expression
                                                 .iter()
                                                 .map(|expr| get_value(expr, &self.witness_map))
                                                 .collect();
                                             elements
                                                 .map(|fields| {
-                                                    ResolvedAssertionPayload::Raw(*type_id, fields)
+                                                    match error_selector {
+                                                        0 => {
+                                                            // If the error selector is 0, it means the error is a string
+                                                            let string = fields
+                                                                .iter()
+                                                                .map(|field| {
+                                                                    let as_u8 = field
+                                                                        .try_to_u64()
+                                                                        .unwrap_or_default()
+                                                                        as u8;
+                                                                    as_u8 as char
+                                                                })
+                                                                .collect();
+                                                            ResolvedAssertionPayload::String(string)
+                                                        }
+                                                        _ => {
+                                                            // If the error selector is not 0, it means the error is a custom error
+                                                            ResolvedAssertionPayload::Raw(
+                                                                *error_selector,
+                                                                fields,
+                                                            )
+                                                        }
+                                                    }
                                                 })
                                                 .ok()
                                         }
