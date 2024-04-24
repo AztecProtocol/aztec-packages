@@ -70,8 +70,6 @@ export class CommitmentMap {
   }
 }
 
-export const NUM_FIELDS_IN_VK = 114;
-
 /**
  * Kate commitment key object for verifying pairing equations.
  * @see proof_system/verification_key/verification_key.hpp

@@ -4,15 +4,12 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 
 import { Proof, makeEmptyProof } from './proof.js';
 
-//export const NON_RECURSIVE_PROOF_LENGTH_IN_FIELDS = 93;
-export const RECURSIVE_PROOF_LENGTH_IN_FIELDS = 93;
-export const NESTED_RECURSIVE_PROOF_LENGTH_IN_FIELDS = 109;
-
 /**
- * The Proof class is a wrapper around the circuits proof.
- * Underlying it is a buffer of proof data in a form a barretenberg prover understands.
- * It provides methods to easily create, serialize, and deserialize the proof data for efficient
- * communication and storage.
+ * The Recursive proof class is a wrapper around the circuit's proof.
+ * We store the proof in 2 forms for convenience. The first is in the 'fields' format.
+ * This is a list of fields, for which there are distinct lengths based on the level of recursion.
+ * This 'fields' version does not contain the circuits public inputs
+ * We also store the raw binary proof which van be directly verified.
  */
 export class RecursiveProof<N extends number> {
   constructor(

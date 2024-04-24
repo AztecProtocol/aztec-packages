@@ -44,7 +44,6 @@ export * from './partial_state_reference.js';
 export * from './private_call_stack_item.js';
 export * from './private_circuit_public_inputs.js';
 export * from './proof.js';
-export * from './proof_data.js';
 export * from './public_call_request.js';
 export * from './public_call_stack_item.js';
 export * from './public_circuit_public_inputs.js';

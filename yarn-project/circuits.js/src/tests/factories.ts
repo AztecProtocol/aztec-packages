@@ -1092,11 +1092,7 @@ export function makeRootParityInput<PROOF_LENGTH extends number>(
 }
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
-  return new ParityPublicInputs(
-    //makeAggregationObject(seed),
-    new Fr(BigInt(seed + 0x200)),
-    new Fr(BigInt(seed + 0x300)),
-  );
+  return new ParityPublicInputs(new Fr(BigInt(seed + 0x200)), new Fr(BigInt(seed + 0x300)));
 }
 
 export function makeBaseParityInputs(seed = 0): BaseParityInputs {

@@ -88,24 +88,5 @@ export function getProgram(log: LogFn): Command {
         log,
       );
     });
-
-  // program
-  //   .command('write-server-vks')
-  //   .description('Generates all verification keys require for server protocol circuits')
-  //   .requiredOption(
-  //     '-w, --working-directory <string>',
-  //     'The directory to use for writing the keys',
-  //     BB_WORKING_DIRECTORY,
-  //   )
-  //   .requiredOption('-b, --bb-path <string>', 'The path to the BB binary', BB_BINARY_PATH)
-  //   .action(async options => {
-  //     try {
-  //       await fs.access(options.workingDirectory, fs.constants.W_OK);
-  //     } catch (error) {
-  //       log(`Working directory does not exist`);
-  //       return;
-  //     }
-  //     await generateAllServerVks(options.bbPath, options.workingDirectory, log);
-  //   });
   return program;
 }

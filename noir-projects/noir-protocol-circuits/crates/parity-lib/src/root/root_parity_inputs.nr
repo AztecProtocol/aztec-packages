@@ -1,6 +1,6 @@
 use dep::types::{
-    merkle_tree::MerkleTree, mocked::AggregationObject,
-    recursion::{verification_key::VerificationKey, proof::RecursiveProof}, traits::Serialize
+    merkle_tree::MerkleTree, recursion::{verification_key::VerificationKey, proof::RecursiveProof},
+    traits::Serialize
 };
 use crate::{
     parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput,
@@ -48,7 +48,6 @@ mod tests {
         parity_public_inputs::ParityPublicInputs,
         root::{root_parity_input::RootParityInput, root_parity_inputs::RootParityInputs}
     };
-    use dep::types::mocked::AggregationObject;
     use dep::types::recursion::{verification_key::VerificationKey, proof::RecursiveProof};
 
     #[test]
@@ -65,22 +64,22 @@ mod tests {
             RootParityInput {
                 proof: RecursiveProof::empty(),
                 verification_key: VerificationKey::empty(),
-                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[0], converted_root: 0 }
+                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[0], converted_root: 0 }
             },
             RootParityInput {
                 proof: RecursiveProof::empty(),
                 verification_key: VerificationKey::empty(),
-                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[1], converted_root: 0 }
+                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[1], converted_root: 0 }
             },
             RootParityInput {
                 proof: RecursiveProof::empty(),
                 verification_key: VerificationKey::empty(),
-                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[2], converted_root: 0 }
+                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[2], converted_root: 0 }
             },
             RootParityInput {
                 proof: RecursiveProof::empty(),
                 verification_key: VerificationKey::empty(),
-                public_inputs: ParityPublicInputs { /*aggregation_object: AggregationObject {},*/ sha_root: children_sha_roots[3], converted_root: 0 }
+                public_inputs: ParityPublicInputs { sha_root: children_sha_roots[3], converted_root: 0 }
             }
         ];
 

@@ -1,4 +1,4 @@
-use dep::types::{mocked::AggregationObject, traits::{Empty, Serialize, Deserialize}};
+use dep::types::{traits::{Empty, Serialize, Deserialize}};
 
 struct ParityPublicInputs {
     sha_root: Field, 

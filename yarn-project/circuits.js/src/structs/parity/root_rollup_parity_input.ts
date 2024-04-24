@@ -9,6 +9,7 @@ export class RootParityInput {
   constructor(
     /** The proof of the execution of the parity circuit. */
     public readonly proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH_IN_FIELDS>,
+    /** The verification key of the root parity circuit */
     public readonly verificationKey: VerificationKey,
     /** The public inputs of the parity circuit. */
     public readonly publicInputs: ParityPublicInputs,

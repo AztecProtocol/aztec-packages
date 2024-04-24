@@ -193,7 +193,6 @@ global NUM_MSGS_PER_BASE_PARITY: u64 = 4;
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
 
 // Lengths of the different types of proofs in fields
-global NON_RECURSIVE_PROOF_LENGTH = 93;
 global RECURSIVE_PROOF_LENGTH = 93;
 global NESTED_RECURSIVE_PROOF_LENGTH = 109;
 

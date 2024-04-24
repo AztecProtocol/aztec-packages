@@ -1,41 +1,7 @@
-
 use crate::{
     traits::{Serialize, Deserialize, Empty},
-    constants::{ NON_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH, NESTED_RECURSIVE_PROOF_LENGTH },
+    constants::{RECURSIVE_PROOF_LENGTH, NESTED_RECURSIVE_PROOF_LENGTH}
 };
-
-
-struct NonRecursiveProof {
-    fields: [Field; NON_RECURSIVE_PROOF_LENGTH],
-}
-
-impl Serialize<NON_RECURSIVE_PROOF_LENGTH> for NonRecursiveProof {
-    fn serialize(self) -> [Field; NON_RECURSIVE_PROOF_LENGTH] {
-      let mut fields = [0; NON_RECURSIVE_PROOF_LENGTH];
-      for i in 0..NON_RECURSIVE_PROOF_LENGTH {
-        fields[i] = self.fields[i];
-      }
-      fields
-    }
-}
-
-impl Deserialize<NON_RECURSIVE_PROOF_LENGTH> for NonRecursiveProof {
-    fn deserialize(fields: [Field; NON_RECURSIVE_PROOF_LENGTH]) -> Self {
-      let mut proof = NonRecursiveProof::empty();
-      for i in 0..NON_RECURSIVE_PROOF_LENGTH {
-        proof.fields[i] = fields[i];
-      }
-      proof
-    }
-}
-
-impl Empty for NonRecursiveProof {
-  fn empty() -> Self {
-    NonRecursiveProof {
-      fields: [0; NON_RECURSIVE_PROOF_LENGTH],
-    }
-  }
-}
 
 struct RecursiveProof {
     fields: [Field; RECURSIVE_PROOF_LENGTH],

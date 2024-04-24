@@ -148,6 +148,7 @@ export async function generateKeyForNoirCircuit(
     const args = ['-o', outputPath, '-b', bytecodePath];
     const timer = new Timer();
     let result = await executeBB(pathToBB, `write_${key}`, args, log);
+    // If we succeeded and the type of key if verification, have bb write the 'fields' version too
     if (result == BB_RESULT.SUCCESS && key === 'vk') {
       const asFieldsArgs = ['-k', `${outputPath}/vk`, '-o', outputPath, '-v'];
       result = await executeBB(pathToBB, `vk_as_fields`, asFieldsArgs, log);
@@ -352,53 +353,3 @@ export async function writeProofAsFields(
     return { status: BB_RESULT.FAILURE, reason: `${error}` };
   }
 }
-
-/**
- * Used for generating all verification keys required by server protocol circuits
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - The directory to be used for the keys
- * @param log - A logging function
- */
-// export async function generateAllServerVks(pathToBB: string, workingDirectory: string, log: LogFn) {
-//   const bbConfig: BBProverConfig = {
-//     bbBinaryPath: pathToBB,
-//     bbWorkingDirectory: workingDirectory,
-
-//     // These aren't needed for this
-//     acvmBinaryPath: '',
-//     acvmWorkingDirectory: '',
-//     circuitFilter: [],
-//   };
-//   // This will generate all of the server circuit verification keys for us
-//   const promises = [];
-//   const directories = new Map<ServerProtocolArtifact, string>();
-//   for (const circuitName in ServerCircuitArtifacts) {
-//     if (bbConfig.circuitFilter?.length && bbConfig.circuitFilter.findIndex((c: string) => c === circuitName) === -1) {
-//       // circuit is not supported
-//       continue;
-//     }
-//     const verificationKeyPromise = generateKeyForNoirCircuit(
-//       bbConfig.bbBinaryPath,
-//       bbConfig.bbWorkingDirectory,
-//       circuitName,
-//       ServerCircuitArtifacts[circuitName as ServerProtocolArtifact],
-//       'vk',
-//       log,
-//     ).then(result => {
-//       if (result.status == BB_RESULT.FAILURE) {
-//         const message = `Failed to generate verification key for circuit ${circuitName}, message: ${result.reason}`;
-//         log(message);
-//         throw new Error(message);
-//       }
-//       if (result.status == BB_RESULT.ALREADY_PRESENT) {
-//         log(`Verification key for circuit ${circuitName} was already present at ${result.path!}`);
-//       } else {
-//         log(`Generated verification key for circuit ${circuitName} at ${result.path!}`);
-//       }
-//       directories.set(circuitName as ServerProtocolArtifact, result.path!);
-//     });
-//     promises.push(verificationKeyPromise);
-//   }
-//   await Promise.all(promises);
-//   return directories;
-// }
