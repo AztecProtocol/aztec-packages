@@ -96,7 +96,7 @@ TxContext --> GasSettings
 
 class GasSettings {
     +Gas gas_limits
-    +Gas teardown_gas_limits
+    +Gas teardown_gas_allocations
     +GasFees max_fees_per_gas
     +Field max_inclusion_fee
 }
@@ -186,13 +186,13 @@ It must:
 
 - check that there are no enqueued public functions or public teardown function
 - compute the gas used
-  - this will only include DA gas *and* any gas specified in the `teardown_gas_limits`
+  - this will only include DA gas *and* any gas specified in the `teardown_gas_allocations`
 - ensure the gas used is less than the gas limits
 - ensure that `fee_payer` is set, and set it in the `KernelCircuitPublicInputs`
 - copy the constants from the `PrivateKernelData` to the `KernelCircuitPublicInputs.constants`
 
 :::note
-Transactions without a public component can safely set their teardown gas limits to zero. They are included as part of the gas computation in the private kernel tail for consistency (limits always include teardown gas) and future-compatibility if we have a need for private teardown functions.
+Transactions without a public component can safely set their teardown gas allocations to zero. They are included as part of the gas computation in the private kernel tail for consistency (limits always include teardown gas allocations) and future-compatibility if we have a need for private teardown functions.
 :::
 
 ## Private Kernel Tail to Public
@@ -205,7 +205,7 @@ It must:
 
 - check that there are enqueued public functions or a public teardown function
 - partition the side effects produced during private execution into revertible and non-revertible sets of `PublicAccumulatedData`
-- compute gas used for the revertible and non-revertible. Both sets can have a DA component, but the revertible set will also include the teardown gas limits the user specified (if any). This ensures that the user effectively pre-pays for the teardown gas.
+- compute gas used for the revertible and non-revertible. Both sets can have a DA component, but the revertible set will also include the teardown gas allocations the user specified (if any). This ensures that the user effectively pre-pays for the gas consumed in teardown.
 - ensure that `fee_payer` is set, and set it in the `PublicKernelCircuitPublicInputs`
 - copy the constants from the `PrivateKernelData` to the `PublicKernelCircuitPublicInputs.constants`
 
@@ -289,9 +289,8 @@ class PublicKernelCircuitPublicInputs {
   +PublicAccumulatedData end_non_revertible
   +PublicAccumulatedData end
   +CombinedConstantData constants
+  +PublicConstantData public_constants
   +u8 revert_code
-  +AztecAddress fee_payer
-  +Field public_teardown_function_hash
 }
 PublicKernelCircuitPublicInputs --> PublicAccumulatedData
 PublicKernelCircuitPublicInputs --> CombinedConstantData
@@ -299,6 +298,11 @@ PublicKernelCircuitPublicInputs --> CombinedConstantData
 class CombinedConstantData {
     +Header historical_header
     +TxContext tx_context
+}
+
+class PublicConstantData {
+    +AztecAddress fee_payer
+    +Field public_teardown_function_hash
 }
 
 class PublicAccumulatedData {
@@ -311,6 +315,7 @@ class PublicAccumulatedData {
     +SideEffectLinkedToNoteHash[MAX_NEW_NULLIFIERS_PER_TX] new_nullifiers
     +CallRequest[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX] public_call_stack
     +PublicDataUpdateRequest[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] public_data_update_requests
+    +Gas gas_used
 }
 PublicAccumulatedData --> Gas
 
@@ -371,6 +376,7 @@ class CombinedAccumulatedData {
   +Field[MAX_NEW_NOTE_HASHES_PER_TX] new_note_hashes
   +Field[MAX_NEW_NULLIFIERS_PER_TX] new_nullifiers
   +PublicDataUpdateRequest[MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] public_data_update_requests
+  +Gas gas_used
 }
 CombinedAccumulatedData --> Gas
 
@@ -500,7 +506,7 @@ Consuming all gas left in the event of revert creates incentives for the sequenc
 
 The PublicKernelTeardown circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
 
-It must assert that the `start_gas_left` is equal to the PublicKernelData's `public_inputs.constants.tx_context.gas_settings.teardown_gas_limits`
+It must assert that the `start_gas_left` is equal to the PublicKernelData's `public_inputs.constants.tx_context.gas_settings.teardown_gas_allocations`
 
 It must also compute the gas used in the `PublicKernelData` provided, and the [transaction fee](./specifying-gas-fee-info.md#transaction-fee) using this computed value, then verify that the `transaction_fee` in the `PublicCircuitPublicInputs` is equal to the computed transaction fee.
 
