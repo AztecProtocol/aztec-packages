@@ -232,7 +232,6 @@ function generateNotesGetter(input: ContractArtifact) {
     .join(',\n');
 
   return `public static get notes(): ContractNotes<${notesUnionType}> {
-    const notes = this.artifact.outputs.globals.notes ? (this.artifact.outputs.globals.notes as any) : [];
     return {
       ${noteMetadata}
     } as ContractNotes<${notesUnionType}>;

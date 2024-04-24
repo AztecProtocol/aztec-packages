@@ -277,7 +277,7 @@ export type ContractNote = {
    */
   id: Fr;
   /**
-   * Type of the note
+   * Type of the note (e.g., 'TransparentNote')
    */
   typ: string;
 };
@@ -291,7 +291,7 @@ export type FieldLayout = {
    */
   slot: Fr;
   /**
-   * Type being stored at the slot
+   * Type being stored at the slot (e.g., 'Map<AztecAddress, PublicMutable<U128>>')
    */
   typ: string;
 };
