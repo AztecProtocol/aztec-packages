@@ -50,7 +50,10 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
     // obtained by composing a relation with folded instance + relation parameters .
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1>;
     using OptimisedExtendedUnivariate =
-        Univariate<FF, (Flavor::MAX_TOTAL_RELATION_LENGTH - 2) * (ProverInstances::NUM - 1) + 1>;
+        Univariate<FF,
+                   (Flavor::MAX_TOTAL_RELATION_LENGTH - 1) * (ProverInstances::NUM - 1) + 1,
+                   0,
+                   ProverInstances::NUM - 1>;
     // Represents the total length of the combiner univariate, obtained by combining the already folded relations with
     // the folded relation batching challenge.
     using ExtendedUnivariateWithRandomization =
@@ -58,7 +61,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                    (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + ProverInstances::NUM - 1) * (ProverInstances::NUM - 1) + 1>;
     using ExtendedUnivariates = typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
     using OptimisedExtendedUnivariates =
-        typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH - (1 * (ProverInstances::NUM - 1))>;
+        typename Flavor::template OptimisedProverUnivariates<ExtendedUnivariate::LENGTH, ProverInstances::NUM - 1>;
 
     using TupleOfTuplesOfUnivariates =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<ProverInstances::NUM>;
@@ -287,32 +290,14 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * (i.e., compute additional evaluations at adjacent domain values) as needed.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/751) Optimize memory
      */
-    void extend_univariates(ExtendedUnivariates& extended_univariates,
+    template <size_t skip_count = 0>
+    void extend_univariates(OptimisedExtendedUnivariates& extended_univariates,
                             const ProverInstances& instances,
                             const size_t row_idx)
     {
-        auto base_univariates = instances.row_to_univariates(row_idx);
+        auto base_univariates = instances.template row_to_univariates<skip_count>(row_idx);
         for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
-            extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
-        }
-    }
-
-    /**
-     * @brief Prepare a univariate polynomial for relation execution in one step of the main loop in folded instance
-     * construction.
-     * @details For a fixed prover polynomial index, extract that polynomial from each instance in Instances. From each
-     * polynomial, extract the value at row_idx. Use these values to create a univariate polynomial, and then extend
-     * (i.e., compute additional evaluations at adjacent domain values) as needed.
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/751) Optimize memory
-     */
-    void optimised_extend_univariates(OptimisedExtendedUnivariates& extended_univariates,
-                                      const ProverInstances& instances,
-                                      const size_t row_idx)
-    {
-        auto base_univariates = instances.row_to_univariates(row_idx);
-        for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
-            extended_univariate =
-                base_univariate.template extend_to<OptimisedExtendedUnivariate::LENGTH, ProverInstances::NUM - 1>();
+            extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH, skip_count>();
         }
     }
 
@@ -371,7 +356,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
             for (size_t idx = start; idx < end; idx++) {
                 // No need to initialise extended_univariates to 0, it's assigned to
-                optimised_extend_univariates(extended_univariates[thread_idx], instances, idx);
+                extend_univariates<ProverInstances::NUM - 1>(extended_univariates[thread_idx], instances, idx);
 
                 FF pow_challenge = pow_betas[idx];
 
@@ -391,31 +376,24 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         for (auto& accumulators : thread_univariate_accumulators) {
             Utils::add_nested_tuples(optimised_univariate_accumulators, accumulators);
         }
-        deoptimise_univariates(optimised_univariate_accumulators, univariate_accumulators);
+        zero_skipped_indices(optimised_univariate_accumulators);
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
         return batch_over_relations(univariate_accumulators, instances.alphas);
     }
 
-    static void deoptimise_univariates(OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators,
-                                       TupleOfTuplesOfUnivariates& univariate_accumulators
+    static void zero_skipped_indices(OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators
 
     )
     {
         auto deoptimise = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
-            auto& optimised_element = std::get<inner_idx>(std::get<outer_idx>(optimised_univariate_accumulators));
-            static_assert(std::remove_reference_t<decltype(optimised_element)>::LENGTH + (ProverInstances::NUM - 1) ==
-                          std::remove_reference_t<decltype(element)>::LENGTH);
-            element.evaluations[0] = optimised_element.evaluations[0];
+            // auto& optimised_element = std::get<inner_idx>(std::get<outer_idx>(optimised_univariate_accumulators));
             for (size_t i = 1; i < ProverInstances::NUM; i++) {
                 element.evaluations[i] = FF(0);
             }
-            for (size_t i = 1; i < std::remove_reference_t<decltype(optimised_element)>::LENGTH; i++) {
-                element.evaluations[i + ProverInstances::NUM - 1] = optimised_element.evaluations[i];
-            }
-            info("Element ", outer_idx, ".", inner_idx, "[", ":", "] = ", element);
+            // info("Element ", outer_idx, ".", inner_idx, "[", ":", "] = ", element);
         };
 
-        Utils::template apply_to_tuple_of_tuples<0, 0>(univariate_accumulators, deoptimise);
+        Utils::template apply_to_tuple_of_tuples<0, 0>(optimised_univariate_accumulators, deoptimise);
     }
 
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
