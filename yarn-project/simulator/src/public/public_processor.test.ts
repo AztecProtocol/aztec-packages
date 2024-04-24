@@ -349,6 +349,9 @@ describe('public_processor', () => {
         publicCallRequests,
       });
 
+      const teardownGas = tx.data.constants.txContext.gasSettings.getTeardownLimits();
+      const teardownResultSettings = { startGasLeft: teardownGas, endGasLeft: teardownGas };
+
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
       const contractSlotC = fr(0x200);
@@ -393,9 +396,9 @@ describe('public_processor', () => {
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 12, baseContractAddress),
               ],
-            }).build(),
+            }).build(teardownResultSettings),
           ],
-        }).build(),
+        }).build(teardownResultSettings),
       ];
 
       publicExecutor.simulate.mockImplementation(execution => {
@@ -555,6 +558,9 @@ describe('public_processor', () => {
         publicCallRequests,
       });
 
+      const teardownGas = tx.data.constants.txContext.gasSettings.getTeardownLimits();
+      const teardownResultSettings = { startGasLeft: teardownGas, endGasLeft: teardownGas };
+
       const contractSlotA = fr(0x100);
       const contractSlotB = fr(0x150);
       const contractSlotC = fr(0x200);
@@ -592,16 +598,16 @@ describe('public_processor', () => {
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               revertReason: new SimulationError('Simulation Failed', []),
-            }).build(),
+            }).build(teardownResultSettings),
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 14, baseContractAddress),
               ],
-            }).build(),
+            }).build(teardownResultSettings),
           ],
-        }).build(),
+        }).build(teardownResultSettings),
       ];
 
       publicExecutor.simulate.mockImplementation(execution => {
@@ -682,6 +688,7 @@ describe('public_processor', () => {
 
       // Inclusion fee plus block gas fees times total gas used
       const expectedTxFee = 1e4 + (1e7 + 1e6 + 2e6) * 1 + (1e7 + 2e6) * 1 + 1e7 * 1;
+      const transactionFee = new Fr(expectedTxFee);
 
       const simulatorResults: PublicExecutionResult[] = [
         // Setup
@@ -713,18 +720,19 @@ describe('public_processor', () => {
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x101), 11, baseContractAddress),
                 new ContractStorageUpdateRequest(contractSlotC, fr(0x201), 12, baseContractAddress),
               ],
-            }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas }),
+            }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
             PublicExecutionResultBuilder.fromFunctionCall({
               from: publicCallRequests[1].contractAddress,
               tx: makeFunctionCall(baseContractAddress, makeSelector(5)),
               contractStorageUpdateRequests: [
                 new ContractStorageUpdateRequest(contractSlotA, fr(0x102), 13, baseContractAddress),
               ],
-            }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas }),
+            }).build({ startGasLeft: teardownGas, endGasLeft: teardownGas, transactionFee }),
           ],
         }).build({
           startGasLeft: teardownGas,
           endGasLeft: afterTeardownGas,
+          transactionFee,
         }),
       ];
 

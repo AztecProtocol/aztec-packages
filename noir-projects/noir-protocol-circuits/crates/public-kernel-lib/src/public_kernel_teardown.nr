@@ -40,6 +40,22 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         let block_gas_fees = GasFees::default();
         let inclusion_fee = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.inclusion_fee;
         let computed_transaction_fee = total_gas_used.reduce(block_gas_fees) + inclusion_fee;
+
+        // dep::types::debug_log::debug_log_format(
+        //     "Validating tx fee: total_gas_used.da={0} total_gas_used.l1={1} total_gas_used.l2={2} block_fee_per_gas.da={3} block_fee_per_gas.l1={4} block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",
+        //     [
+        //     total_gas_used.da_gas as Field,
+        //     total_gas_used.l1_gas as Field,
+        //     total_gas_used.l2_gas as Field,
+        //     block_gas_fees.fee_per_da_gas as Field,
+        //     block_gas_fees.fee_per_l1_gas as Field,
+        //     block_gas_fees.fee_per_l2_gas as Field,
+        //     inclusion_fee,
+        //     computed_transaction_fee,
+        //     transaction_fee
+        // ]
+        // );
+
         assert(
             transaction_fee == computed_transaction_fee, "Transaction fee on teardown phase does not match expected value"
         );
