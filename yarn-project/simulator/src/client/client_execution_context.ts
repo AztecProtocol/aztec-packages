@@ -21,8 +21,8 @@ import {
   type SideEffect,
   type TxContext,
 } from '@aztec/circuits.js';
-import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
+import { Aes128, type Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
@@ -257,7 +257,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     notes.forEach(n => {
       if (n.index !== undefined) {
         const siloedNoteHash = siloNoteHash(n.contractAddress, n.innerNoteHash);
-        const uniqueSiloedNoteHash = computeUniqueCommitment(n.nonce, siloedNoteHash);
+        const uniqueSiloedNoteHash = computeUniqueNoteHash(n.nonce, siloedNoteHash);
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
         const noteHashForReadRequest = n.nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
@@ -521,5 +521,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       values.push(value);
     }
     return values;
+  }
+
+  public override aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
+    const aes128 = new Aes128();
+    return aes128.encryptBufferCBC(input, initializationVector, key);
   }
 }
