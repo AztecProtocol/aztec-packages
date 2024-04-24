@@ -298,9 +298,10 @@ export class Oracle {
       log.map(fromACVMField),
     );
     // TODO(1139): We should encrypt in the circuit, but instead we inject here
-    // encryption output is 304 bytes, so split into 10 fields (gross but avoids 304 ACVMFields)
+    // encryption output is 112 + 32 * (N + 3) bytes, for log len N
+    // so split into N + 7 fields (gross but avoids 300+ ACVMFields)
     const encLogFields = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < Math.ceil(encLog.length / 31); i++) {
       encLogFields.push(toACVMField(encLog.subarray(31 * i, Math.min(31 * (i + 1), encLog.length))));
     }
 

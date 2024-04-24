@@ -12,20 +12,23 @@ pub fn compute_secret_hash(secret: Field) -> Field {
     pedersen_hash([secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)
 }
 
-pub fn compute_encrypted_log_hash(
-    encrypted_log: [Field; 10]
+pub fn compute_encrypted_log_hash<M>(
+    encrypted_log: [Field; M]
 ) -> Field {
     let mut bytes: [u8] = &[];
     // Note that bytes.append(encrypted_log[i].to_be_bytes(31)) results in bound error
-    for i in 0..9 {
+    for i in 0..M-1 {
         let to_add = encrypted_log[i].to_be_bytes(31);
         for j in 0..31 {
             bytes = bytes.push_back(to_add[j]);
         }
     }
-    // messy hack to ensure we add the 304 bytes exactly
-    let to_add = encrypted_log[9].to_be_bytes(25);
-    for j in 0..25 {
+    // enc log num bytes = 112 + 32 * (N + 3), where N is len of preimage in fields
+    // N = M + 7 => we can work out bytes remaining
+    // = ( 112 + 32 * (M - 4) ) - 31 * (M - 1)
+    let bytes_left = ( 112 + 32 * (M-4) ) - 31 * (M-1);
+    let to_add = encrypted_log[M-1].to_be_bytes(bytes_left);
+    for j in 0..bytes_left {
         bytes = bytes.push_back(to_add[j]);
     }
     slice_sha256_to_field(bytes)
@@ -64,7 +67,15 @@ impl<N> ToBytesSlice for [Field; N] {
 
 impl<N> ToBytesSlice for str<N> {
     fn to_be_bytes_slice(self) -> [u8] {
-        self.as_bytes()
+        // each character of a string is converted into a byte
+        // then an ACVM field via the oracle => we recreate here
+        let chars_bytes = self.as_bytes();
+        let mut chars_padded: [u8] = &[];
+        for i in 0..N {
+            chars_padded = chars_padded.append(&[0; 31]);
+            chars_padded = chars_padded.push_back(chars_bytes[i]);
+        }
+        chars_padded
     }
 }
 
@@ -212,7 +223,7 @@ fn compute_var_args_hash() {
 }
 
 #[test]
-fn compute_enc_log_hash() {
+fn compute_enc_log_hash_304() {
     let input = [
         0x0000000000000000000000000000000000000000000000000000000000000000,
         0x0021a0d4aa9989656b592187cf6da1965df53ab2ff2277421e663465cf20d3e9,
@@ -227,6 +238,26 @@ fn compute_enc_log_hash() {
         ];
     let hash = compute_encrypted_log_hash(input);
     assert(hash == 0x001e3c013994947fe28957a876bf1b2c3a69ac69cc92909efd4f2ae9b972f893);
+}
+
+#[test]
+fn compute_enc_log_hash_368() {
+    let input = [
+      0x0000000000000000000000000000000000000000000000000000000000000000,
+      0x002190697d2a50e229a7a077e0951073f7d51e46679f10466153c308b63b1ea9,
+      0x00543e346facc6799b94514c9d461bcc836c04b083b13c2e4544a39130473c1e,
+      0x000df76d59526f8f953bcc7d9f77cdaefd36435931f0d7348f794bc275b42ded,
+      0x00a6d390ee1723af7f7ac1ae4fc81a266b2370fe07040a36d06dbe242e02413e,
+      0x00acbce15b6af1fbe94bd0f7b70f11768265dff77bfe63398f2a053efdfdf26d,
+      0x00b8b131b9f42c689beb095ba4f4a836d4d15c9068d0422e9add6ca82b786329,
+      0x00661a6a654b38f0f97d404ef5553e0efea9ed670561ae86685b31bbb2824fac,
+      0x00113a6b58edfaec0065b365f66ba8d8aa68254b8690035e8d671a17a843f0a1,
+      0x0023f2d2eae8c4449bac8f268a3e62a3faace1fe1401f0efdc8b0ccfbc8fb271,
+      0x00cf6603f8c61993dd2f662c719671c61727a2f4e925fb988b23d31feccd77d9,
+      0x0000000000a402a84b7294671799c38dd805f6a827a3a12633fdf91a57debe1f
+        ];
+    let hash = compute_encrypted_log_hash(input);
+    assert(hash ==  0x00a0d651ac0cbc01b72430fa6a05d91738595af6e0229347b4c9968223387aeb);
 }
 
 #[test]
@@ -251,4 +282,13 @@ fn compute_unenc_log_hash_addr() {
     let log = AztecAddress::from_field(0x26aa302d4715fd8a687453cb26d616b0768027bd54bcae56b09d908ecd9f8303);
     let hash = compute_unencrypted_log_hash(contract_address, event_selector, log.to_be_bytes_slice());
     assert(hash == 0x00880a801230ea08c98a802a11b4786cba474513875f0fc69a615e81c5f9f21c);
+}
+
+#[test]
+fn compute_unenc_log_hash_str() {
+    let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
+    let event_selector = 5;
+    let log = "dummy";
+    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log.to_be_bytes_slice());
+    assert(hash == 0x00a78b5347813624ecfd26e5b8bc6146f418b0cfcc8296b5112d09b8ebba9496);
 }

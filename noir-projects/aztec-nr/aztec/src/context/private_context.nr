@@ -299,17 +299,17 @@ impl PrivateContext {
         self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + N*32;
     }
 
-    pub fn emit_encrypted_log<N>(
+    pub fn emit_encrypted_log<N, M>(
         &mut self,
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
         encryption_pub_key: GrumpkinPoint,
         preimage: [Field; N]
-    ) {
+    ) where [Field; N]: Add7ForEncryptedLog<N, M> {
         // TODO(1139): perform encryption in the circuit
         // The oracle call should come last, but we require the encrypted value for now
-        let encrypted_log = emit_encrypted_log(
+        let encrypted_log: [Field; M] = emit_encrypted_log(
             contract_address,
             storage_slot,
             note_type_id,
@@ -320,8 +320,9 @@ impl PrivateContext {
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.encrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
-        // 308 = encrypted log (304) + processed log len (4)
-        self.encrypted_log_preimages_length = self.encrypted_log_preimages_length + 308;
+        let encrypted_log_byte_len = 112 + 32*(N + 3);
+        // + processed log len (4)
+        self.encrypted_log_preimages_length = self.encrypted_log_preimages_length + encrypted_log_byte_len + 4;
     }
 
     pub fn call_private_function<ARGS_COUNT>(
@@ -670,4 +671,47 @@ unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
     message: [Field; N]
 ) -> Field {
     emit_contract_class_unencrypted_log_private(contract_address, event_selector, message)
+}
+
+// TODO: this is awful but since we can't have a fn that maps [Field; N] -> [Field; N+7]
+// (where N is encrypted log preimage size and N+7 is encryption output size)
+// and can't return slices from oracles, this at least compiles and runs
+// The fn is never used, it's just to tell the compiler what N+7 is
+
+// I could have omitted N from the trait, but wanted to keep it strictly for field arrs
+// TODO(1139): Once we enc inside the circuit, we will no longer need the oracle to return
+// anything, so we can remove this trait
+trait Add7ForEncryptedLog<N, M> {
+    fn add7(self: [Field; N]) -> [Field; M];
+}
+
+impl Add7ForEncryptedLog<1, 8> for [Field; 1] {
+    fn add7(self) -> [Field; 8] {
+        [self[0]; 8]
+    }
+}
+impl Add7ForEncryptedLog<2, 9> for [Field; 2] {
+    fn add7(self) -> [Field; 9] {
+        [self[0]; 9]
+    }
+}
+impl Add7ForEncryptedLog<3, 10> for [Field; 3] {
+    fn add7(self) -> [Field; 10] {
+        [self[0]; 10]
+    }
+}
+impl Add7ForEncryptedLog<4, 11> for [Field; 4] {
+    fn add7(self) -> [Field; 11] {
+        [self[0]; 11]
+    }
+}
+impl Add7ForEncryptedLog<5, 12> for [Field; 5] {
+    fn add7(self) -> [Field; 12] {
+        [self[0]; 12]
+    }
+}
+impl Add7ForEncryptedLog<6, 13> for [Field; 6] {
+    fn add7(self) -> [Field; 13] {
+        [self[0]; 13]
+    }
 }
