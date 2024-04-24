@@ -1092,6 +1092,31 @@ namespace Program {
         static Opcode bincodeDeserialize(std::vector<uint8_t>);
     };
 
+    struct ExpressionOrMemory {
+
+        struct Expression {
+            Program::Expression value;
+
+            friend bool operator==(const Expression&, const Expression&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static Expression bincodeDeserialize(std::vector<uint8_t>);
+        };
+
+        struct Memory {
+            Program::BlockId value;
+
+            friend bool operator==(const Memory&, const Memory&);
+            std::vector<uint8_t> bincodeSerialize() const;
+            static Memory bincodeDeserialize(std::vector<uint8_t>);
+        };
+
+        std::variant<Expression, Memory> value;
+
+        friend bool operator==(const ExpressionOrMemory&, const ExpressionOrMemory&);
+        std::vector<uint8_t> bincodeSerialize() const;
+        static ExpressionOrMemory bincodeDeserialize(std::vector<uint8_t>);
+    };
+
     struct AssertionPayload {
 
         struct StaticString {
@@ -1102,15 +1127,15 @@ namespace Program {
             static StaticString bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        struct Expression {
-            std::tuple<uint64_t, std::vector<Program::Expression>> value;
+        struct Raw {
+            std::tuple<uint64_t, std::vector<Program::ExpressionOrMemory>> value;
 
-            friend bool operator==(const Expression&, const Expression&);
+            friend bool operator==(const Raw&, const Raw&);
             std::vector<uint8_t> bincodeSerialize() const;
-            static Expression bincodeDeserialize(std::vector<uint8_t>);
+            static Raw bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        std::variant<StaticString, Expression> value;
+        std::variant<StaticString, Raw> value;
 
         friend bool operator==(const AssertionPayload&, const AssertionPayload&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1291,20 +1316,20 @@ Program::AssertionPayload::StaticString serde::Deserializable<Program::Assertion
 
 namespace Program {
 
-    inline bool operator==(const AssertionPayload::Expression &lhs, const AssertionPayload::Expression &rhs) {
+    inline bool operator==(const AssertionPayload::Raw &lhs, const AssertionPayload::Raw &rhs) {
         if (!(lhs.value == rhs.value)) { return false; }
         return true;
     }
 
-    inline std::vector<uint8_t> AssertionPayload::Expression::bincodeSerialize() const {
+    inline std::vector<uint8_t> AssertionPayload::Raw::bincodeSerialize() const {
         auto serializer = serde::BincodeSerializer();
-        serde::Serializable<AssertionPayload::Expression>::serialize(*this, serializer);
+        serde::Serializable<AssertionPayload::Raw>::serialize(*this, serializer);
         return std::move(serializer).bytes();
     }
 
-    inline AssertionPayload::Expression AssertionPayload::Expression::bincodeDeserialize(std::vector<uint8_t> input) {
+    inline AssertionPayload::Raw AssertionPayload::Raw::bincodeDeserialize(std::vector<uint8_t> input) {
         auto deserializer = serde::BincodeDeserializer(input);
-        auto value = serde::Deserializable<AssertionPayload::Expression>::deserialize(deserializer);
+        auto value = serde::Deserializable<AssertionPayload::Raw>::deserialize(deserializer);
         if (deserializer.get_buffer_offset() < input.size()) {
             throw serde::deserialization_error("Some input bytes were not read");
         }
@@ -1315,14 +1340,14 @@ namespace Program {
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Program::AssertionPayload::Expression>::serialize(const Program::AssertionPayload::Expression &obj, Serializer &serializer) {
+void serde::Serializable<Program::AssertionPayload::Raw>::serialize(const Program::AssertionPayload::Raw &obj, Serializer &serializer) {
     serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
 }
 
 template <>
 template <typename Deserializer>
-Program::AssertionPayload::Expression serde::Deserializable<Program::AssertionPayload::Expression>::deserialize(Deserializer &deserializer) {
-    Program::AssertionPayload::Expression obj;
+Program::AssertionPayload::Raw serde::Deserializable<Program::AssertionPayload::Raw>::deserialize(Deserializer &deserializer) {
+    Program::AssertionPayload::Raw obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }
@@ -5547,6 +5572,124 @@ Program::Expression serde::Deserializable<Program::Expression>::deserialize(Dese
     obj.linear_combinations = serde::Deserializable<decltype(obj.linear_combinations)>::deserialize(deserializer);
     obj.q_c = serde::Deserializable<decltype(obj.q_c)>::deserialize(deserializer);
     deserializer.decrease_container_depth();
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const ExpressionOrMemory &lhs, const ExpressionOrMemory &rhs) {
+        if (!(lhs.value == rhs.value)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> ExpressionOrMemory::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<ExpressionOrMemory>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline ExpressionOrMemory ExpressionOrMemory::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<ExpressionOrMemory>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::ExpressionOrMemory>::serialize(const Program::ExpressionOrMemory &obj, Serializer &serializer) {
+    serializer.increase_container_depth();
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+    serializer.decrease_container_depth();
+}
+
+template <>
+template <typename Deserializer>
+Program::ExpressionOrMemory serde::Deserializable<Program::ExpressionOrMemory>::deserialize(Deserializer &deserializer) {
+    deserializer.increase_container_depth();
+    Program::ExpressionOrMemory obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    deserializer.decrease_container_depth();
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const ExpressionOrMemory::Expression &lhs, const ExpressionOrMemory::Expression &rhs) {
+        if (!(lhs.value == rhs.value)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> ExpressionOrMemory::Expression::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<ExpressionOrMemory::Expression>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline ExpressionOrMemory::Expression ExpressionOrMemory::Expression::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<ExpressionOrMemory::Expression>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::ExpressionOrMemory::Expression>::serialize(const Program::ExpressionOrMemory::Expression &obj, Serializer &serializer) {
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::ExpressionOrMemory::Expression serde::Deserializable<Program::ExpressionOrMemory::Expression>::deserialize(Deserializer &deserializer) {
+    Program::ExpressionOrMemory::Expression obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
+    return obj;
+}
+
+namespace Program {
+
+    inline bool operator==(const ExpressionOrMemory::Memory &lhs, const ExpressionOrMemory::Memory &rhs) {
+        if (!(lhs.value == rhs.value)) { return false; }
+        return true;
+    }
+
+    inline std::vector<uint8_t> ExpressionOrMemory::Memory::bincodeSerialize() const {
+        auto serializer = serde::BincodeSerializer();
+        serde::Serializable<ExpressionOrMemory::Memory>::serialize(*this, serializer);
+        return std::move(serializer).bytes();
+    }
+
+    inline ExpressionOrMemory::Memory ExpressionOrMemory::Memory::bincodeDeserialize(std::vector<uint8_t> input) {
+        auto deserializer = serde::BincodeDeserializer(input);
+        auto value = serde::Deserializable<ExpressionOrMemory::Memory>::deserialize(deserializer);
+        if (deserializer.get_buffer_offset() < input.size()) {
+            throw serde::deserialization_error("Some input bytes were not read");
+        }
+        return value;
+    }
+
+} // end of namespace Program
+
+template <>
+template <typename Serializer>
+void serde::Serializable<Program::ExpressionOrMemory::Memory>::serialize(const Program::ExpressionOrMemory::Memory &obj, Serializer &serializer) {
+    serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
+}
+
+template <>
+template <typename Deserializer>
+Program::ExpressionOrMemory::Memory serde::Deserializable<Program::ExpressionOrMemory::Memory>::deserialize(Deserializer &deserializer) {
+    Program::ExpressionOrMemory::Memory obj;
+    obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }
 

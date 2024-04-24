@@ -15,7 +15,7 @@ use serde::{de::Error as DeserializationError, Deserialize, Deserializer, Serial
 
 use std::collections::BTreeSet;
 
-use self::brillig::BrilligBytecode;
+use self::{brillig::BrilligBytecode, opcodes::BlockId};
 
 /// Specifies the maximum width of the expressions which will be constrained.
 ///
@@ -77,9 +77,15 @@ pub struct Circuit {
 pub const STRING_ERROR_SELECTOR: u64 = 0;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ExpressionOrMemory {
+    Expression(Expression),
+    Memory(BlockId),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssertionPayload {
     StaticString(String),
-    Expression(/* error_selector */ u64, Vec<Expression>),
+    Raw(/* error_selector */ u64, Vec<ExpressionOrMemory>),
 }
 
 #[derive(Debug, Copy, Clone)]

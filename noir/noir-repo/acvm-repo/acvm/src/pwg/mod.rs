@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use acir::{
     brillig::ForeignCallResult,
     circuit::{
-        brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, Opcode, OpcodeLocation,
-        STRING_ERROR_SELECTOR,
+        brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, ExpressionOrMemory, Opcode,
+        OpcodeLocation, STRING_ERROR_SELECTOR,
     },
     native_types::{Expression, Witness, WitnessMap},
     BlackBoxFunc, FieldElement,
@@ -396,59 +396,71 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                     } => {
                         let location = OpcodeLocation::Acir(self.instruction_pointer());
                         *opcode_index = ErrorLocation::Resolved(location);
-                        *assertion_payload =
-                            self.assertion_payloads.iter().find_map(|(loc, payload)| {
-                                if location == *loc {
-                                    match payload {
-                                        AssertionPayload::StaticString(string) => {
-                                            Some(ResolvedAssertionPayload::String(string.clone()))
-                                        }
-                                        AssertionPayload::Expression(
-                                            error_selector,
-                                            expression,
-                                        ) => {
-                                            let elements: Result<Vec<_>, _> = expression
-                                                .iter()
-                                                .map(|expr| get_value(expr, &self.witness_map))
-                                                .collect();
-                                            elements
-                                                .map(|fields| {
-                                                    match *error_selector {
-                                                        STRING_ERROR_SELECTOR => {
-                                                            // If the error selector is 0, it means the error is a string
-                                                            let string = fields
-                                                                .iter()
-                                                                .map(|field| {
-                                                                    let as_u8 = field
-                                                                        .try_to_u64()
-                                                                        .unwrap_or_default()
-                                                                        as u8;
-                                                                    as_u8 as char
-                                                                })
-                                                                .collect();
-                                                            ResolvedAssertionPayload::String(string)
-                                                        }
-                                                        _ => {
-                                                            // If the error selector is not 0, it means the error is a custom error
-                                                            ResolvedAssertionPayload::Raw(
-                                                                *error_selector,
-                                                                fields,
-                                                            )
-                                                        }
-                                                    }
-                                                })
-                                                .ok()
-                                        }
-                                    }
-                                } else {
-                                    None
-                                }
-                            });
+                        *assertion_payload = self.extract_assertion_payload(location);
                     }
                     // All other errors are thrown normally.
                     _ => (),
                 };
                 self.fail(error)
+            }
+        }
+    }
+
+    fn extract_assertion_payload(
+        &self,
+        location: OpcodeLocation,
+    ) -> Option<ResolvedAssertionPayload> {
+        let found_assertion_payload = self.assertion_payloads.iter().find_map(|(loc, payload)| {
+            if location == *loc {
+                Some(payload)
+            } else {
+                None
+            }
+        });
+        let Some(found_assertion_payload) = found_assertion_payload else {
+            return None;
+        };
+        match found_assertion_payload {
+            AssertionPayload::StaticString(string) => {
+                Some(ResolvedAssertionPayload::String(string.clone()))
+            }
+            AssertionPayload::Raw(error_selector, expression) => {
+                let mut fields = vec![];
+                for expr in expression {
+                    match expr {
+                        ExpressionOrMemory::Expression(expr) => {
+                            let value = get_value(expr, &self.witness_map).ok()?;
+                            fields.push(value);
+                        }
+                        ExpressionOrMemory::Memory(block_id) => {
+                            let memory_block = self.block_solvers.get(block_id)?;
+                            fields.extend((0..memory_block.block_len).map(|memory_index| {
+                                *memory_block
+                                    .block_value
+                                    .get(&memory_index)
+                                    .expect("All memory is initialized on creation")
+                            }));
+                        }
+                    }
+                }
+
+                Some(match *error_selector {
+                    STRING_ERROR_SELECTOR => {
+                        // If the error selector is 0, it means the error is a string
+                        let string = fields
+                            .iter()
+                            .map(|field| {
+                                let as_u8 = field.try_to_u64().unwrap_or_default() as u8;
+                                as_u8 as char
+                            })
+                            .collect();
+                        ResolvedAssertionPayload::String(string)
+                    }
+                    _ => {
+                        // If the error selector is not 0, it means the error is a custom error
+                        ResolvedAssertionPayload::Raw(*error_selector, fields)
+                    }
+                })
             }
         }
     }

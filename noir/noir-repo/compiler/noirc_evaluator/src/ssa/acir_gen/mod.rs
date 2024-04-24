@@ -625,18 +625,17 @@ impl<'a> Context<'a> {
                             {
                                 Some(AssertionPayload::StaticString(constant_string))
                             } else {
-                                let acir_vars: Vec<(AcirVar, AcirType)> = values
+                                let acir_vars: Vec<_> = values
                                     .iter()
-                                    .flat_map(|value| self.convert_value(*value, dfg).flatten())
+                                    .map(|value| self.convert_value(*value, dfg))
                                     .collect();
 
-                                let expressions = try_vecmap(acir_vars, |(var, _)| {
-                                    self.acir_context.var_to_expression(var)
-                                })?;
+                                let expressions_or_memory =
+                                    self.acir_context.vars_to_expressions_or_memory(&acir_vars)?;
 
-                                Some(AssertionPayload::Expression(
+                                Some(AssertionPayload::Raw(
                                     error_selector.to_u64(),
-                                    expressions,
+                                    expressions_or_memory,
                                 ))
                             }
                         }
