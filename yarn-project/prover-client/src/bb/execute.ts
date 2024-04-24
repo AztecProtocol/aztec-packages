@@ -6,6 +6,11 @@ import { type NoirCompiledCircuit } from '@aztec/types/noir';
 import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 
+export const VK_FILENAME = 'vk';
+export const VK_FIELDS_FILENAME = 'vk_fields.json';
+export const PROOF_FILENAME = 'proof';
+export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
+
 export enum BB_RESULT {
   SUCCESS,
   FAILURE,
@@ -150,7 +155,7 @@ export async function generateKeyForNoirCircuit(
     let result = await executeBB(pathToBB, `write_${key}`, args, log);
     // If we succeeded and the type of key if verification, have bb write the 'fields' version too
     if (result == BB_RESULT.SUCCESS && key === 'vk') {
-      const asFieldsArgs = ['-k', `${outputPath}/vk`, '-o', outputPath, '-v'];
+      const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
       result = await executeBB(pathToBB, `vk_as_fields`, asFieldsArgs, log);
     }
     const duration = timer.ms();
@@ -223,7 +228,7 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, 'prove', args, logFunction);
+    const result = await executeBB(pathToBB, 'prove_output_all', args, logFunction);
     const duration = timer.ms();
     // cleanup the bytecode
     await fs.rm(bytecodePath, { force: true });
