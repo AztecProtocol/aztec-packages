@@ -26,8 +26,8 @@ export class Gas {
     return this.daGas === other.daGas && this.l1Gas === other.l1Gas && this.l2Gas === other.l2Gas;
   }
 
-  static from(fields: FieldsOf<Gas>) {
-    return new Gas(fields.daGas, fields.l1Gas, fields.l2Gas);
+  static from(fields: Partial<FieldsOf<Gas>>) {
+    return new Gas(fields.daGas ?? 0, fields.l1Gas ?? 0, fields.l2Gas ?? 0);
   }
 
   static empty() {

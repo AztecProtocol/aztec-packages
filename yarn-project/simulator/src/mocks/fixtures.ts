@@ -102,7 +102,7 @@ export class PublicExecutionResultBuilder {
     return this;
   }
 
-  build(): PublicExecutionResult {
+  build(overrides: Partial<PublicExecutionResult> = {}): PublicExecutionResult {
     return {
       execution: this._execution,
       nestedExecutions: this._nestedExecutions,
@@ -123,6 +123,7 @@ export class PublicExecutionResultBuilder {
       startGasLeft: Gas.test(),
       endGasLeft: Gas.test(),
       transactionFee: Fr.ZERO,
+      ...overrides,
     };
   }
 }

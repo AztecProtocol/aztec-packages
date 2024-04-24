@@ -10,6 +10,8 @@ import {
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
+import { inspect } from 'util';
+
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { type ContractsDataSourcePublicDB } from './public_executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
@@ -71,7 +73,9 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     const gasFees = this.globalVariables.gasFees;
     // No need to add teardown limits since they are already included in end.gasUsed
     const gasUsed = previousPublicKernelOutput.end.gasUsed.add(previousPublicKernelOutput.endNonRevertibleData.gasUsed);
-    return gasSettings.inclusionFee.add(gasUsed.reduce(gasFees));
+    const txFee = gasSettings.inclusionFee.add(gasUsed.reduce(gasFees));
+    this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
+    return txFee;
   }
 
   protected override getAvailableGas(tx: Tx, _previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Gas {
