@@ -401,6 +401,7 @@ pub(crate) fn convert_black_box_call(
                 unreachable!("ICE: Sha256Compression expects two array argument, one array result")
             }
         }
+        BlackBoxFunc::AES128Encrypt => todo!(),
     }
 }
 

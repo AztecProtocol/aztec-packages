@@ -9,7 +9,7 @@
 
 using namespace bb::crypto;
 
-namespace bb::stdlib::aes128 {
+namespace bb::stdlib {
 template <typename Builder> using byte_pair = std::pair<field_t<Builder>, field_t<Builder>>;
 using namespace bb::plookup;
 
@@ -301,4 +301,4 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
 
 INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::UltraCircuitBuilder);
 INSTANTIATE_ENCRYPT_BUFFER_CBC(bb::GoblinUltraCircuitBuilder);
-} // namespace bb::stdlib::aes128
+} // namespace bb::stdlib

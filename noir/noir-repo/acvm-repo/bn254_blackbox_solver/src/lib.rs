@@ -10,6 +10,7 @@ mod poseidon2;
 mod wasm;
 
 pub use fixed_base_scalar_mul::{embedded_curve_add, fixed_base_scalar_mul};
+use libaes::Cipher;
 pub use poseidon2::poseidon2_permutation;
 use wasm::Barretenberg;
 
@@ -48,6 +49,18 @@ impl Default for Bn254BlackBoxSolver {
 }
 
 impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
+    fn aes128_encrypt(
+        &self,
+        inputs: &[u8],
+        iv: [u8; 16],
+        key: [u8; 16],
+        _length: u32,
+    ) -> Result<Vec<u8>, BlackBoxResolutionError> {
+        let cipher = Cipher::new_128(&key);
+        let encrypted = cipher.cbc_encrypt(&iv, inputs);
+        Ok(encrypted)
+    }
+
     fn schnorr_verify(
         &self,
         public_key_x: &FieldElement,

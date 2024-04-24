@@ -1,0 +1,5 @@
+inputs = "kevlovesrust"
+iv = "0000000000000000"
+key = "0000000000000000"
+length = 12
+output = "f40e7eacab28d0baadb8e269ee7acdbf"

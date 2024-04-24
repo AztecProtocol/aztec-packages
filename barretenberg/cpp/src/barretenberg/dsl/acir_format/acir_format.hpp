@@ -1,4 +1,5 @@
 #pragma once
+#include "aes128_constraint.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
@@ -33,6 +34,7 @@ struct AcirFormat {
 
     std::vector<uint32_t> public_inputs;
 
+    std::vector<AES128Constraint> aes128_constraints;
     std::vector<LogicConstraint> logic_constraints;
     std::vector<RangeConstraint> range_constraints;
     std::vector<Sha256Constraint> sha256_constraints;
@@ -67,6 +69,7 @@ struct AcirFormat {
     // For serialization, update with any new fields
     MSGPACK_FIELDS(varnum,
                    public_inputs,
+                   aes128_constraints,
                    logic_constraints,
                    range_constraints,
                    sha256_constraints,
