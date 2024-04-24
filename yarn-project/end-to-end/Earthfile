@@ -8,6 +8,7 @@ E2E_COMPOSE_TEST:
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
+  LET project_name=$(echo $test | sed 's/\./_/g')
   IF docker compose > /dev/null 2>&1
     LET CMD="docker compose"
   ELSE
@@ -18,7 +19,7 @@ E2E_COMPOSE_TEST:
     --load aztecprotocol/end-to-end:latest=../+end-to-end \
     --load aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest=../../build-images+build
     # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
-    RUN $CMD -f $compose_file up --exit-code-from=end-to-end --force-recreate
+    RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
 
 # Define e2e tests
