@@ -11,12 +11,8 @@ import { makeTuple } from '@aztec/foundation/array';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import { type MemDown, default as memdown } from 'memdown';
-
 import { TestContext } from '../mocks/test_context.js';
 import { BBNativeRollupProver, type BBProverConfig } from './bb_prover.js';
-
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 const logger = createDebugLogger('aztec:bb-prover-parity');
 
