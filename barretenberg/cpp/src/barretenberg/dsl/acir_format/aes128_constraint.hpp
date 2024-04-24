@@ -17,10 +17,10 @@ struct AES128Input {
 
 struct AES128Constraint {
     std::vector<AES128Input> inputs;
-    std::vector<AES128Input> outputs;
     std::array<AES128Input, 16> iv;
     std::array<AES128Input, 16> key;
     uint32_t length;
+    std::vector<uint32_t> outputs;
 
     // For serialization, update with any new fields
     MSGPACK_FIELDS(inputs, iv, key, length, outputs);
