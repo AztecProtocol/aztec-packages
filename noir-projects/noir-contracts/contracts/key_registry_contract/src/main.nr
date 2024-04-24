@@ -29,8 +29,8 @@ contract KeyRegistry {
   };
 
   global KEY_ROTATION_DELAY = 5;
-  global GENERATOR_INDEX__CONTRACT_ADDRESS_V1 = 1;
-  global GENERATOR_INDEX__PUBLIC_KEYS_HASH = 1;
+  global GENERATOR_INDEX__CONTRACT_ADDRESS_V1 = 15;
+  global GENERATOR_INDEX__PUBLIC_KEYS_HASH = 51;
 
   #[aztec(storage)]
   struct Storage {
