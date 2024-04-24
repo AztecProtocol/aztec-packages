@@ -1,11 +1,11 @@
 use crate::{
     context::{inputs::PrivateContextInputs, interface::ContextInterface},
     messaging::process_l1_to_l2_message,
-    hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash, ToBytesSlice},
+    hash::{hash_args_array, ArgsHasher, compute_encrypted_log_hash, compute_unencrypted_log_hash},
     oracle::{
     arguments, returns, call_private_function::call_private_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal, header::get_header_at,
-    logs::emit_encrypted_log,
+    logs::emit_encrypted_log, logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog},
     nullifier_key::{get_nullifier_keys, NullifierKeys}
 }
 };
@@ -259,14 +259,14 @@ impl PrivateContext {
     // --> might be a better approach to force devs to make a public function call that emits the log if needed then
     // it would be less easy to accidentally leak information.
     // If we decide to keep this function around would make sense to wait for traits and then merge it with emit_unencrypted_log.
-    pub fn emit_unencrypted_log<T>(&mut self, log: T) where T: ToBytesSlice {
+    pub fn emit_unencrypted_log<T, N, M>(&mut self, log: T) where T: ToBytesForUnencryptedLog<N, M> {
         let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
-        let log_slice = log.to_be_bytes_slice();
+        let log_slice = log.to_be_bytes_arr();
         let log_hash = compute_unencrypted_log_hash(
             contract_address,
             event_selector,
-            log_slice,
+            log,
         );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
@@ -299,14 +299,14 @@ impl PrivateContext {
         self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + N*32;
     }
 
-    pub fn emit_encrypted_log<N, M>(
+    pub fn emit_encrypted_log<N, M, L>(
         &mut self,
         contract_address: AztecAddress,
         storage_slot: Field,
         note_type_id: Field,
         encryption_pub_key: GrumpkinPoint,
         preimage: [Field; N]
-    ) where [Field; N]: Add7ForEncryptedLog<N, M> {
+    ) where [Field; N]: LensForEncryptedLog<N, M, L> {
         // TODO(1139): perform encryption in the circuit
         // The oracle call should come last, but we require the encrypted value for now
         let encrypted_log: [Field; M] = emit_encrypted_log(
@@ -673,45 +673,3 @@ unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
     emit_contract_class_unencrypted_log_private(contract_address, event_selector, message)
 }
 
-// TODO: this is awful but since we can't have a fn that maps [Field; N] -> [Field; N+7]
-// (where N is encrypted log preimage size and N+7 is encryption output size)
-// and can't return slices from oracles, this at least compiles and runs
-// The fn is never used, it's just to tell the compiler what N+7 is
-
-// I could have omitted N from the trait, but wanted to keep it strictly for field arrs
-// TODO(1139): Once we enc inside the circuit, we will no longer need the oracle to return
-// anything, so we can remove this trait
-trait Add7ForEncryptedLog<N, M> {
-    fn add7(self: [Field; N]) -> [Field; M];
-}
-
-impl Add7ForEncryptedLog<1, 8> for [Field; 1] {
-    fn add7(self) -> [Field; 8] {
-        [self[0]; 8]
-    }
-}
-impl Add7ForEncryptedLog<2, 9> for [Field; 2] {
-    fn add7(self) -> [Field; 9] {
-        [self[0]; 9]
-    }
-}
-impl Add7ForEncryptedLog<3, 10> for [Field; 3] {
-    fn add7(self) -> [Field; 10] {
-        [self[0]; 10]
-    }
-}
-impl Add7ForEncryptedLog<4, 11> for [Field; 4] {
-    fn add7(self) -> [Field; 11] {
-        [self[0]; 11]
-    }
-}
-impl Add7ForEncryptedLog<5, 12> for [Field; 5] {
-    fn add7(self) -> [Field; 12] {
-        [self[0]; 12]
-    }
-}
-impl Add7ForEncryptedLog<6, 13> for [Field; 6] {
-    fn add7(self) -> [Field; 13] {
-        [self[0]; 13]
-    }
-}

@@ -4,113 +4,61 @@ use dep::protocol_types::{
     GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, ARGS_HASH_CHUNK_COUNT,
     GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH
 },
-    traits::Hash, hash::{pedersen_hash, silo_nullifier, sha256_to_field, slice_sha256_to_field}
+    traits::Hash, hash::{pedersen_hash, poseidon2_hash, silo_nullifier, sha256_to_field}
 };
+use crate::oracle::logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog};
 
 pub fn compute_secret_hash(secret: Field) -> Field {
     pedersen_hash([secret], GENERATOR_INDEX__SECRET_HASH)
 }
 
-pub fn compute_encrypted_log_hash<M>(
+pub fn compute_encrypted_log_hash<N, M, L>(
     encrypted_log: [Field; M]
-) -> Field {
-    let mut bytes: [u8] = &[];
+) -> Field where [Field; N]: LensForEncryptedLog<N, M, L> {
+    let mut bytes = [0; L];
     // Note that bytes.append(encrypted_log[i].to_be_bytes(31)) results in bound error
     for i in 0..M-1 {
         let to_add = encrypted_log[i].to_be_bytes(31);
         for j in 0..31 {
-            bytes = bytes.push_back(to_add[j]);
+            bytes[i*31 + j] = to_add[j];
         }
     }
-    // enc log num bytes = 112 + 32 * (N + 3), where N is len of preimage in fields
-    // N = M + 7 => we can work out bytes remaining
-    // = ( 112 + 32 * (M - 4) ) - 31 * (M - 1)
-    let bytes_left = ( 112 + 32 * (M-4) ) - 31 * (M-1);
-    let to_add = encrypted_log[M-1].to_be_bytes(bytes_left);
-    for j in 0..bytes_left {
-        bytes = bytes.push_back(to_add[j]);
+    // can't assign as L - not in scope error for: L-31*(M-1)
+    let num_bytes = bytes.len() as u32 - 31*(M-1);
+    let to_add_final = encrypted_log[M-1].to_be_bytes(num_bytes);
+    for j in 0..num_bytes {
+            bytes[(M-1)*31 + j] = to_add_final[j];
     }
-    slice_sha256_to_field(bytes)
+    sha256_to_field(bytes)
 }
 
-// TODO(Miranda) move trait def
-trait ToBytesSlice {
-    fn to_be_bytes_slice(self) -> [u8];
-}
-
-impl ToBytesSlice for Field {
-    fn to_be_bytes_slice(self) -> [u8] {
-        self.to_be_bytes(32)
-    }
-}
-
-impl ToBytesSlice for AztecAddress {
-    fn to_be_bytes_slice(self) -> [u8] {
-        self.to_field().to_be_bytes(32)
-    }
-}
-
-impl<N> ToBytesSlice for [Field; N] {
-    fn to_be_bytes_slice(self) -> [u8] {
-        let mut bytes: [u8] = &[];
-        for i in 0..N {
-            // Note that bytes.append() results in bound error
-            let to_add = self[i].to_be_bytes(32);
-            for j in 0..32 {
-                bytes = bytes.push_back(to_add[j]);
-            }
-        }
-        bytes
-    }
-}
-
-impl<N> ToBytesSlice for str<N> {
-    fn to_be_bytes_slice(self) -> [u8] {
-        // each character of a string is converted into a byte
-        // then an ACVM field via the oracle => we recreate here
-        let chars_bytes = self.as_bytes();
-        let mut chars_padded: [u8] = &[];
-        for i in 0..N {
-            chars_padded = chars_padded.append(&[0; 31]);
-            chars_padded = chars_padded.push_back(chars_bytes[i]);
-        }
-        chars_padded
-    }
-}
-
-pub fn compute_unencrypted_log_hash(
+pub fn compute_unencrypted_log_hash<T, N, M>(
     contract_address: AztecAddress,
     event_selector: Field,
-    message_bytes: [u8]
-) -> Field {
-    let mut hash_bytes: [u8] = message_bytes;
-    let len = message_bytes.len().to_field();
-    let len_bytes = len.to_be_bytes(4);
+    log: T,
+) -> Field where T: ToBytesForUnencryptedLog<N, M> {
+    let message_bytes: [u8; N] = log.to_be_bytes_arr();
+    // can't use N - not in scope error
+    let n = message_bytes.len();
+    let mut hash_bytes = [0; M];
     // Address is converted to 32 bytes in ts
-    let mut prepend = contract_address.to_be_bytes_slice();
-    // Event selector is 4 bytes long, see foundation/../selector.ts
-    prepend = prepend.append(event_selector.to_be_bytes(4));
-    // prefix message with length of data in 4 bytes
-    // Note that .append(len_bytes) fails with bound error when compiling noir-contracts
-    prepend = prepend.append([len_bytes[0], len_bytes[1], len_bytes[2], len_bytes[3]].as_slice());
-    // Note that hash_bytes.append() results in bound error
-    // So does prepend.append(hash_bytes) when compiling noir-contracts
-    for i in 0..40 {
-        // prepend always has 40 bytes
-        hash_bytes = hash_bytes.push_front(prepend[39 - i]);
+    let address_bytes = contract_address.to_be_bytes_arr();
+    for i in 0..32 {
+        hash_bytes[i] = address_bytes[i];
     }
-    // HACK: when calling via real context, sha256_slice gives the wrong digest
-    // Appears to fail only for shorter inputs and with a long trace
-    // TODO(Miranda): remove slices here?
-    if (len == 32) {
-        let mut debug = [0; 72];
-        for i in 0..72 {
-            debug[i] = hash_bytes[i];
-        }
-        sha256_to_field(debug)
-    } else {
-        slice_sha256_to_field(hash_bytes)
+    let event_bytes = event_selector.to_be_bytes(4);
+    for i in 0..4 {
+        hash_bytes[32 + i] = event_bytes[i];
     }
+    let len_bytes = (n as Field).to_be_bytes(4);
+    for i in 0..4 {
+        hash_bytes[36 + i] = len_bytes[i];
+    }
+    for i in 0..n {
+        hash_bytes[40 + i] = message_bytes[i];
+    }
+
+    sha256_to_field(hash_bytes)
 }
 
 pub fn compute_message_hash(
@@ -270,7 +218,7 @@ fn compute_unenc_log_hash_array() {
         0x25d0f689c4a4178a29d59306f2675824d19be6d25e44fa03b03f49c263053dd2,
         0x2d513a722d6f352dc0961f156afdc5e31495b9f0e35cb069261a8e55e2df67fd
       ];
-    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log.to_be_bytes_slice());
+    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log);
     assert(hash == 0x00846d6969c8c2f61d39cd2762efcb0abb14f88d59c2675910251ef2bcffe9a7);
 }
 
@@ -279,7 +227,7 @@ fn compute_unenc_log_hash_addr() {
     let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
     let event_selector = 5;
     let log = AztecAddress::from_field(0x26aa302d4715fd8a687453cb26d616b0768027bd54bcae56b09d908ecd9f8303);
-    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log.to_be_bytes_slice());
+    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log);
     assert(hash == 0x00880a801230ea08c98a802a11b4786cba474513875f0fc69a615e81c5f9f21c);
 }
 
@@ -288,6 +236,6 @@ fn compute_unenc_log_hash_str() {
     let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
     let event_selector = 5;
     let log = "dummy";
-    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log.to_be_bytes_slice());
+    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log);
     assert(hash == 0x00a78b5347813624ecfd26e5b8bc6146f418b0cfcc8296b5112d09b8ebba9496);
 }

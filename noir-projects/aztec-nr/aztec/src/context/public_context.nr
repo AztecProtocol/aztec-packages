@@ -4,8 +4,8 @@ use crate::{
     gas::GasOpts
 },
     messaging::process_l1_to_l2_message,
-    oracle::{arguments, public_call::call_public_function_internal, returns},
-    hash::{hash_args, ArgsHasher, compute_unencrypted_log_hash, ToBytesSlice}
+    oracle::{arguments, public_call::call_public_function_internal, returns, logs_traits::ToBytesForUnencryptedLog},
+    hash::{hash_args, ArgsHasher, compute_unencrypted_log_hash}
 };
 use dep::protocol_types::{
     abis::{
@@ -276,14 +276,14 @@ impl PublicContextInterface for PublicContext {
         self.push_new_nullifier(nullifier, 0)
     }
 
-    fn emit_unencrypted_log<T>(&mut self, log: T) where T: ToBytesSlice {
+    fn emit_unencrypted_log<T, N, M>(&mut self, log: T) where T: ToBytesForUnencryptedLog<N, M> {
         let event_selector = 5; // TODO: compute actual event selector.
         let contract_address = self.this_address();
-        let log_slice = log.to_be_bytes_slice();
+        let log_slice = log.to_be_bytes_arr();
         let log_hash = compute_unencrypted_log_hash(
             contract_address,
             event_selector,
-            log_slice
+            log
         );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
