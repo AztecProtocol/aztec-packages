@@ -510,7 +510,9 @@ impl AcirContext {
 
         self.acir_ir.assert_is_zero(diff_expr);
         if let Some(payload) = assert_message {
-            self.acir_ir.assert_messages.insert(self.acir_ir.last_acir_opcode_location(), payload);
+            self.acir_ir
+                .assertion_payloads
+                .insert(self.acir_ir.last_acir_opcode_location(), payload);
         }
         self.mark_variables_equivalent(lhs, rhs)?;
 
@@ -981,7 +983,7 @@ impl AcirContext {
                 let witness = self.var_to_witness(witness_var)?;
                 self.acir_ir.range_constraint(witness, *bit_size)?;
                 if let Some(message) = message {
-                    self.acir_ir.assert_messages.insert(
+                    self.acir_ir.assertion_payloads.insert(
                         self.acir_ir.last_acir_opcode_location(),
                         AssertionPayload::StaticString(message.clone()),
                     );

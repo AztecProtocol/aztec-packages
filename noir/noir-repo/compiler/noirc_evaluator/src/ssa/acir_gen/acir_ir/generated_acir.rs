@@ -54,7 +54,7 @@ pub(crate) struct GeneratedAcir {
     pub(crate) call_stack: CallStack,
 
     /// Correspondence between an opcode index and the error message associated with it.
-    pub(crate) assert_messages: BTreeMap<OpcodeLocation, AssertionPayload>,
+    pub(crate) assertion_payloads: BTreeMap<OpcodeLocation, AssertionPayload>,
 
     pub(crate) warnings: Vec<SsaReport>,
 
@@ -610,7 +610,7 @@ impl GeneratedAcir {
             );
         }
         for (brillig_index, message) in generated_brillig.assert_messages {
-            self.assert_messages.insert(
+            self.assertion_payloads.insert(
                 OpcodeLocation::Brillig { acir_index: self.opcodes.len() - 1, brillig_index },
                 AssertionPayload::StaticString(message.clone()),
             );
@@ -638,7 +638,7 @@ impl GeneratedAcir {
             );
         }
         for (brillig_index, message) in generated_brillig.assert_messages.iter() {
-            self.assert_messages.insert(
+            self.assertion_payloads.insert(
                 OpcodeLocation::Brillig {
                     acir_index: self.opcodes.len() - 1,
                     brillig_index: *brillig_index,

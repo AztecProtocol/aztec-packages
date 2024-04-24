@@ -74,6 +74,8 @@ pub struct Circuit {
     pub recursive: bool,
 }
 
+pub const STRING_ERROR_SELECTOR: u64 = 0;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssertionPayload {
     StaticString(String),

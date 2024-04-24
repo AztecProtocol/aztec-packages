@@ -5,7 +5,7 @@ use acir::{
     circuit::{
         brillig::{Brillig, BrilligInputs, BrilligOutputs},
         opcodes::BlockId,
-        OpcodeLocation,
+        OpcodeLocation, STRING_ERROR_SELECTOR,
     },
     native_types::WitnessMap,
     FieldElement,
@@ -214,7 +214,7 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                                 .expect("Error selector doesn't fit in a u64");
 
                             match error_selector {
-                                0 => {
+                                STRING_ERROR_SELECTOR => {
                                     // If the error selector is 0, it means the error is a string
                                     let string = fields
                                         .iter()

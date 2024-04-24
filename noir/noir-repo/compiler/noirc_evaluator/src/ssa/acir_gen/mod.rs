@@ -30,7 +30,7 @@ use crate::ssa::ir::function::InlineType;
 pub(crate) use acir_ir::generated_acir::GeneratedAcir;
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
-use acvm::acir::circuit::AssertionPayload;
+use acvm::acir::circuit::{AssertionPayload, STRING_ERROR_SELECTOR};
 use acvm::acir::native_types::Witness;
 use acvm::acir::BlackBoxFunc;
 use acvm::{
@@ -539,17 +539,26 @@ impl<'a> Context<'a> {
                         ConstrainError::Intrinsic(string) => {
                             Some(AssertionPayload::StaticString(string.clone()))
                         }
-                        ConstrainError::UserDefined(values, id) => {
-                            let acir_vars: Vec<(AcirVar, AcirType)> = values
-                                .iter()
-                                .flat_map(|value| self.convert_value(*value, dfg).flatten())
-                                .collect();
+                        ConstrainError::UserDefined(values, error_selector) => {
+                            if let Some(constant_string) =
+                                self.try_to_extract_constant_string(*error_selector, values, dfg)
+                            {
+                                Some(AssertionPayload::StaticString(constant_string))
+                            } else {
+                                let acir_vars: Vec<(AcirVar, AcirType)> = values
+                                    .iter()
+                                    .flat_map(|value| self.convert_value(*value, dfg).flatten())
+                                    .collect();
 
-                            let expressions = try_vecmap(acir_vars, |(var, _)| {
-                                self.acir_context.var_to_expression(var)
-                            })?;
+                                let expressions = try_vecmap(acir_vars, |(var, _)| {
+                                    self.acir_context.var_to_expression(var)
+                                })?;
 
-                            Some(AssertionPayload::Expression(id.to_u64(), expressions))
+                                Some(AssertionPayload::Expression(
+                                    error_selector.to_u64(),
+                                    expressions,
+                                ))
+                            }
                         }
                     }
                 } else {
@@ -2512,6 +2521,40 @@ impl<'a> Context<'a> {
                 AcirValue::Var(var, typ.into())
             }
         }
+    }
+
+    /// Tries to extract a constant string from an error payload.
+    fn try_to_extract_constant_string(
+        &self,
+        error_selector: ErrorSelector,
+        values: &[ValueId],
+        dfg: &DataFlowGraph,
+    ) -> Option<String> {
+        (error_selector.to_u64() == STRING_ERROR_SELECTOR)
+            .then_some(())
+            .and_then(|()| {
+                let fields: Option<Vec<_>> = values
+                    .iter()
+                    .map(|value_id| {
+                        let value = &dfg[*value_id];
+                        if let Value::NumericConstant { constant, .. } = value {
+                            Some(constant)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                fields
+            })
+            .map(|fields| {
+                fields
+                    .iter()
+                    .map(|field| {
+                        let as_u8 = field.try_to_u64().unwrap_or_default() as u8;
+                        as_u8 as char
+                    })
+                    .collect()
+            })
     }
 }
 

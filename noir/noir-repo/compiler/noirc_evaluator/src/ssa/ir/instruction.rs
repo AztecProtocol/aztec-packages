@@ -1,6 +1,9 @@
 use std::hash::{Hash, Hasher};
 
-use acvm::{acir::BlackBoxFunc, FieldElement};
+use acvm::{
+    acir::{circuit::STRING_ERROR_SELECTOR, BlackBoxFunc},
+    FieldElement,
+};
 use fxhash::FxHasher;
 use iter_extended::vecmap;
 use noirc_frontend::hir_def::types::Type as HirType;
@@ -608,7 +611,7 @@ pub(crate) struct ErrorSelector(u64);
 impl ErrorSelector {
     pub(crate) fn new(typ: &ErrorType) -> Self {
         match typ {
-            ErrorType::String(_) => Self(0),
+            ErrorType::String(_) => Self(STRING_ERROR_SELECTOR),
             _ => {
                 let mut hasher = FxHasher::default();
                 typ.hash(&mut hasher);

@@ -217,7 +217,7 @@ fn convert_generated_acir_into_circuit(
         return_witnesses,
         locations,
         input_witnesses,
-        assert_messages,
+        assertion_payloads: assert_messages,
         warnings,
         name,
         ..

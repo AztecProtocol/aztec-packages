@@ -6,6 +6,7 @@ use acir::{
     brillig::ForeignCallResult,
     circuit::{
         brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, Opcode, OpcodeLocation,
+        STRING_ERROR_SELECTOR,
     },
     native_types::{Expression, Witness, WitnessMap},
     BlackBoxFunc, FieldElement,
@@ -412,8 +413,8 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                                                 .collect();
                                             elements
                                                 .map(|fields| {
-                                                    match error_selector {
-                                                        0 => {
+                                                    match *error_selector {
+                                                        STRING_ERROR_SELECTOR => {
                                                             // If the error selector is 0, it means the error is a string
                                                             let string = fields
                                                                 .iter()
