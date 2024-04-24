@@ -631,11 +631,14 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
 {
     using VerificationKey = Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
+    using VerifierCommitmentKey = bb::VerifierCommitmentKey<curve::BN254>;
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+
     Verifier verifier{ verification_key };
 
     bool verified = verifier.verify_proof(proof);
