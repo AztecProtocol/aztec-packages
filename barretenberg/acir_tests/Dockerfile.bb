@@ -20,3 +20,5 @@ RUN FLOW=prove_and_verify_ultra_honk_program ./run_acir_tests.sh
 RUN FLOW=prove_and_verify_goblin ./run_acir_tests.sh 6_array
 # Run 1_mul through native bb build, all_cmds flow, to test all cli args.
 RUN VERBOSE=1 FLOW=all_cmds ./run_acir_tests.sh 1_mul
+# Construct and separately verify a UltraHonk proof for a single arbitrary program
+RUN FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array

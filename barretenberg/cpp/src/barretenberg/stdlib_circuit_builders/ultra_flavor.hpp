@@ -406,6 +406,7 @@ class UltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
+        MSGPACK_FIELDS(circuit_size, num_public_inputs);
     };
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
