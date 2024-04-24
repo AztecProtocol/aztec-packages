@@ -1,10 +1,23 @@
-import { sleep } from '@aztec/foundation/sleep';
-
 import type { PeerId } from '@libp2p/interface';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { DiscV5Service, PeerDiscoveryState } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
+
+const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 5000): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error(`Timeout: Failed to connect to ${expectedCount} peers within ${timeout} ms`));
+    }, timeout);
+
+    node.on('peer:discovered', () => {
+      if (node.getAllPeers().length >= expectedCount) {
+        clearTimeout(timeoutId);
+        resolve();
+      }
+    });
+  });
+};
 
 describe('Discv5Service', () => {
   let bootNode: BootstrapNode;
@@ -48,7 +61,8 @@ describe('Discv5Service', () => {
     const node2 = await createNode(port);
     await node1.start();
     await node2.start();
-    await sleep(200);
+    await waitForPeers(node2, 2, 4000);
+
     const node1Peers = await Promise.all(node1.getAllPeers().map(async peer => (await peer.peerId()).toString()));
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
 
@@ -68,16 +82,16 @@ describe('Discv5Service', () => {
     const node2 = await createNode(port);
     await node1.start();
     await node2.start();
-    await sleep(200);
+    await waitForPeers(node2, 2, 4000);
 
     await node2.stop();
     await bootNode.stop();
 
     await node2.start();
-    await sleep(200);
+    await waitForPeers(node2, 1, 4000);
 
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
-    expect(node2Peers).toHaveLength(1);
+    expect(node2Peers).toHaveLength(1); //
     expect(node2Peers).toContain(node1.getPeerId().toString());
 
     await node1.stop();
