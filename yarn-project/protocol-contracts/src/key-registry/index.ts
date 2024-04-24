@@ -7,6 +7,9 @@ import { KeyRegistryArtifact } from './artifact.js';
 export function getCanonicalKeyRegistry(): ProtocolContract {
   const contract = getCanonicalProtocolContract(KeyRegistryArtifact, 1);
 
+  console.log('derived address', KeyRegistryAddress);
+  console.log('const address', AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS));
+
   if (!contract.address.equals(KeyRegistryAddress)) {
     throw new Error(
       `Incorrect address for key registry (got ${contract.address.toString()} but expected ${KeyRegistryAddress.toString()}). Check CANONICAL_KEY_REGISTRY_ADDRESS is set to the correct value in the constants files and run the protocol-contracts package tests.`,
