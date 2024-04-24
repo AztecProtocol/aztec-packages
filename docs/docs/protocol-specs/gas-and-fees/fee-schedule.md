@@ -70,6 +70,10 @@ l2_gas_used = AVM_STARTUP_L2_GAS * num_avm_invocations +
                 (gas reported as consumed by the public VM)
 ```
 
+:::warning L2 Gas from Private
+In the current implementation, private execution does not consume L2 gas. This may change in future versions of the protocol, because, for example, when a nullifier is emitted in a private transaction, it must be proven unique across the block by the sequencer, which is effectively L2 gas.
+:::
+
 # Max Inclusion Fee
 
 Each transaction, and each block, has inescapable overhead costs associated with it which are not directly related to the amount of data or computation performed. 
