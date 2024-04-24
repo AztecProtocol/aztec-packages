@@ -21,6 +21,10 @@ e2e-tests:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e
 
+flakey-e2e-tests:
+  FROM ../+end-to-end
+  RUN yarn test --passWithNoTests ./src/flakey || true
+
 e2e-sandbox-example:
   DO +E2E_COMPOSE_TEST --test=e2e_sandbox_example.test.ts
 
