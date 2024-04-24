@@ -17,6 +17,8 @@ export type AztecNodeConfig = ArchiverConfig &
 
     /** A URL for an archiver service that the node will use. */
     archiverUrl?: string;
+
+    proverAgents: number;
   };
 
 /**
@@ -24,15 +26,21 @@ export type AztecNodeConfig = ArchiverConfig &
  * @returns A valid aztec node config.
  */
 export function getConfigEnvVars(): AztecNodeConfig {
-  const { SEQ_DISABLED, PROVER_DISABLED } = process.env;
+  const { SEQ_DISABLED, PROVER_DISABLED, ARCHIVER_URL, PROVER_AGENTS = '1' } = process.env;
+  let proverAgents = parseInt(PROVER_AGENTS, 10);
+  if (Number.isNaN(proverAgents)) {
+    proverAgents = 1;
+  }
+
   const allEnvVars: AztecNodeConfig = {
     ...getSequencerVars(),
     ...getArchiverVars(),
     ...getP2PConfigEnvVars(),
     ...getWorldStateVars(),
     disableSequencer: !!SEQ_DISABLED,
-    disableProver: !!PROVER_DISABLED,
-    archiverUrl: process.env.ARCHIVER_URL,
+    archiverUrl: ARCHIVER_URL,
+    disableProver: PROVER_DISABLED === '1',
+    proverAgents,
   };
 
   return allEnvVars;
