@@ -1,9 +1,9 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
-    combined_constant_data::CombinedConstantData, private_kernel::private_call_data::PrivateCallData,
-    kernel_circuit_public_inputs::{PrivateKernelInnerCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
+    gas_settings::GasSettings, combined_constant_data::CombinedConstantData,
+    private_kernel::private_call_data::PrivateCallData,
+    kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
@@ -76,9 +76,8 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // https://github.com/AztecProtocol/aztec-packages/issues/660
     }
 
-    pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelInnerCircuitPublicInputs {
-        let mut public_inputs: PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
-        public_inputs.is_private = true;
+    pub fn native_private_kernel_circuit_initial(self) -> PrivateKernelCircuitPublicInputs {
+        let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         self.initialize_end_values(&mut public_inputs);
 
@@ -107,7 +106,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
         public_inputs.aggregation_object = updated_aggregation_object;
 
-        public_inputs.to_inner()
+        public_inputs.finish()
     }
 }
 
@@ -115,7 +114,7 @@ mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PrivateKernelInnerCircuitPublicInputs,
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -123,7 +122,7 @@ mod tests {
         address::{AztecAddress, EthAddress, compute_initialization_hash},
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, grumpkin_point::GrumpkinPoint,
         grumpkin_private_key::GrumpkinPrivateKey,
-        hash::{compute_logs_hash, stdlib_recursion_verification_key_compress_native_vk},
+        hash::stdlib_recursion_verification_key_compress_native_vk,
         messaging::l2_to_l1_message::L2ToL1Message,
         tests::private_call_data_builder::PrivateCallDataBuilder, transaction::tx_request::TxRequest,
         utils::arrays::array_length
@@ -142,7 +141,7 @@ mod tests {
             PrivateKernelInitInputsBuilder { tx_request, private_call }
         }
 
-        pub fn execute(self) -> PrivateKernelInnerCircuitPublicInputs {
+        pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
             let kernel = PrivateKernelInitCircuitPrivateInputs { tx_request: self.tx_request, private_call: self.private_call.finish() };
 
             kernel.native_private_kernel_circuit_initial()
@@ -158,12 +157,20 @@ mod tests {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
         // Logs for the private call.
-        let encrypted_logs_hash = [16];
-        let encrypted_log_preimages_length = 100;
-        let unencrypted_logs_hash = [26];
-        let unencrypted_log_preimages_length = 50;
-        builder.private_call.set_encrypted_logs(encrypted_logs_hash, encrypted_log_preimages_length);
-        builder.private_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
+        let encrypted_logs_hashes = [16, 36];
+        let encrypted_log_preimages_length = [100, 75];
+        let unencrypted_logs_hashes = [26, 46];
+        let unencrypted_log_preimages_length = [50, 25];
+        builder.private_call.set_encrypted_logs(encrypted_logs_hashes[0], encrypted_log_preimages_length[0]);
+        builder.private_call.set_unencrypted_logs(
+            unencrypted_logs_hashes[0],
+            unencrypted_log_preimages_length[0]
+        );
+        builder.private_call.set_encrypted_logs(encrypted_logs_hashes[1], encrypted_log_preimages_length[1]);
+        builder.private_call.set_unencrypted_logs(
+            unencrypted_logs_hashes[1],
+            unencrypted_log_preimages_length[1]
+        );
 
         let public_inputs = builder.execute();
 
@@ -172,24 +179,16 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, tx_hash);
 
         // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length);
-
-        // Logs hashes should be a sha256 hash of a 0 value (the previous log hash) and the `(un)encrypted_logs_hash` from private input
-        let expected_encrypted_logs_hash = compute_logs_hash([0], encrypted_logs_hash);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
-
-        let expected_unencrypted_logs_hash = compute_logs_hash([0], unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
-    }
-
-    #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_return_values() {
-        let mut builder = PrivateKernelInitInputsBuilder::new();
-
-        builder.private_call.public_inputs.return_values.extend_from_array([0, 9123]);
-
-        builder.failed();
+        assert_eq(
+            public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length.reduce(|a, b| a + b)
+        );
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length.reduce(|a, b| a + b)
+        );
+        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, encrypted_logs_hashes[0]);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, unencrypted_logs_hashes[0]);
+        assert_eq(public_inputs.end.encrypted_logs_hashes[1].value, encrypted_logs_hashes[1]);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hashes[1]);
     }
 
     #[test(should_fail_with = "invalid array")]
@@ -260,6 +259,20 @@ mod tests {
             [
             L2ToL1Message::empty(),
             L2ToL1Message { recipient: EthAddress::from_field(6), content: 9123 }
+        ]
+        );
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "invalid array")]
+    fn input_validation_malformed_arrays_logs() {
+        let mut builder = PrivateKernelInitInputsBuilder::new();
+
+        builder.private_call.public_inputs.encrypted_logs_hashes.extend_from_array(
+            [
+            SideEffect { value: 0, counter: 0 },
+            SideEffect { value: 9123, counter: 1 }
         ]
         );
 
@@ -401,7 +414,7 @@ mod tests {
     #[test]
     fn propagate_max_block_number_request() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
-        builder.private_call.request_max_block_number(42);
+        builder.private_call.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
@@ -543,7 +556,7 @@ mod tests {
     fn propagate_nullifier_key_validation_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let request = NullifierKeyValidationRequest { public_key: GrumpkinPoint { x: 1, y: 2 }, secret_key: GrumpkinPrivateKey { high: 3, low: 4 } };
+        let request = NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
         builder.private_call.public_inputs.nullifier_key_validation_requests.push(request);
 
         let public_inputs = builder.execute();
@@ -551,8 +564,8 @@ mod tests {
         assert_eq(array_length(public_inputs.validation_requests.nullifier_key_validation_requests), 1);
 
         let request_context = public_inputs.validation_requests.nullifier_key_validation_requests[0];
-        assert_eq(request_context.public_key, request.public_key);
-        assert_eq(request_context.secret_key, request.secret_key);
+        assert_eq(request_context.master_nullifier_public_key, request.master_nullifier_public_key);
+        assert_eq(request_context.app_nullifier_secret_key, request.app_nullifier_secret_key);
         assert_eq(
             request_context.contract_address, builder.private_call.public_inputs.call_context.storage_contract_address
         );

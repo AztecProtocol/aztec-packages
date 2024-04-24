@@ -1,8 +1,8 @@
-import { AuthWitness, FunctionCall, PXE, TxExecutionRequest } from '@aztec/circuit-types';
-import { CompleteAddress, Fr } from '@aztec/circuits.js';
+import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
+import { type CompleteAddress, type Fr } from '@aztec/circuits.js';
 
 import { DefaultEntrypoint } from '../entrypoint/default_entrypoint.js';
-import { EntrypointInterface } from '../entrypoint/entrypoint.js';
+import { type EntrypointInterface, type ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import { BaseWallet } from './base_wallet.js';
 
 /**
@@ -13,14 +13,14 @@ export class SignerlessWallet extends BaseWallet {
     super(pxe);
   }
 
-  async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
+  async createTxExecutionRequest(execution: ExecutionRequestInit): Promise<TxExecutionRequest> {
     let entrypoint = this.entrypoint;
     if (!entrypoint) {
       const { chainId, protocolVersion } = await this.pxe.getNodeInfo();
       entrypoint = new DefaultEntrypoint(chainId, protocolVersion);
     }
 
-    return entrypoint.createTxExecutionRequest(executions);
+    return entrypoint.createTxExecutionRequest(execution);
   }
 
   getChainId(): Fr {
@@ -28,6 +28,10 @@ export class SignerlessWallet extends BaseWallet {
   }
 
   getVersion(): Fr {
+    throw new Error('Method not implemented.');
+  }
+
+  getPublicKeysHash(): Fr {
     throw new Error('Method not implemented.');
   }
 

@@ -1,17 +1,15 @@
-import { MerkleTreeId, ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
+  type BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   ConstantRollupData,
   Fr,
-  GlobalVariables,
-  L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  type GlobalVariables,
+  KernelData,
+  type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
@@ -20,37 +18,31 @@ import {
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NullifierLeafPreimage,
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
   PreviousRollupData,
-  Proof,
+  type Proof,
   PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
+  type PublicDataTreeLeafPreimage,
   ROLLUP_VK_TREE_HEIGHT,
-  RollupKernelCircuitPublicInputs,
-  RollupKernelData,
   RollupTypes,
-  RootParityInput,
-  RootParityInputs,
+  type RootParityInput,
   RootRollupInputs,
-  RootRollupPublicInputs,
+  type RootRollupPublicInputs,
   StateDiffHints,
-  StateReference,
+  type StateReference,
   VK_TREE_HEIGHT,
-  VerificationKey,
+  type VerificationKey,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
-import { DebugLogger } from '@aztec/foundation/log';
-import { Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { MerkleTreeOperations } from '@aztec/world-state';
+import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
-import { RollupProver } from '../prover/index.js';
-import { RollupSimulator } from '../simulator/rollup.js';
+import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 
 // Denotes fields that are not used now, but will be in the future
 const FUTURE_FR = new Fr(0n);
@@ -94,12 +86,11 @@ export async function buildBaseRollupInput(
 
   // Update the note hash trees with the new items being inserted to get the new roots
   // that will be used by the next iteration of the base rollup circuit, skipping the empty ones
-  const newNoteHashes = tx.data.combinedData.newNoteHashes.map(x => x.value.toBuffer());
+  const newNoteHashes = tx.data.end.newNoteHashes;
   await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, newNoteHashes);
 
   // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
   // All reads that refer to writes in the same tx are transient and can be simplified out.
-  const txPublicDataReadsInfo = await getPublicDataReadsInfo(tx, db);
   const txPublicDataUpdateRequestInfo = await processPublicDataUpdateRequests(tx, db);
 
   // Update the nullifier tree, capturing the low nullifier info for each individual operation
@@ -110,7 +101,7 @@ export async function buildBaseRollupInput(
     sortedNewLeavesIndexes,
   } = await db.batchInsert(
     MerkleTreeId.NULLIFIER_TREE,
-    tx.data.combinedData.newNullifiers.map(sideEffectLinkedToNoteHash => sideEffectLinkedToNoteHash.value.toBuffer()),
+    tx.data.end.newNullifiers.map(n => n.toBuffer()),
     NULLIFIER_SUBTREE_HEIGHT,
   );
   if (nullifierWitnessLeaves === undefined) {
@@ -166,8 +157,6 @@ export async function buildBaseRollupInput(
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-    publicDataReadsPreimages: txPublicDataReadsInfo.newPublicDataReadsPreimages,
-    publicDataReadsMembershipWitnesses: txPublicDataReadsInfo.newPublicDataReadsWitnesses,
 
     archiveRootMembershipWitness,
 
@@ -186,52 +175,6 @@ export function createMergeRollupInputs(
     getPreviousRollupDataFromPublicInputs(right[0], right[1], vk),
   ]);
   return mergeInputs;
-}
-
-export async function executeMergeRollupCircuit(
-  mergeInputs: MergeRollupInputs,
-  simulator: RollupSimulator,
-  prover: RollupProver,
-  logger?: DebugLogger,
-): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
-  logger?.debug(`Running merge rollup circuit`);
-  const output = await simulator.mergeRollupCircuit(mergeInputs);
-  const proof = await prover.getMergeRollupProof(mergeInputs, output);
-  return [output, proof];
-}
-
-export async function executeRootRollupCircuit(
-  left: [BaseOrMergeRollupPublicInputs, Proof],
-  right: [BaseOrMergeRollupPublicInputs, Proof],
-  l1ToL2Roots: RootParityInput,
-  newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-  simulator: RollupSimulator,
-  prover: RollupProver,
-  db: MerkleTreeOperations,
-  logger?: DebugLogger,
-): Promise<[RootRollupPublicInputs, Proof]> {
-  logger?.debug(`Running root rollup circuit`);
-  const rootInput = await getRootRollupInput(...left, ...right, l1ToL2Roots, newL1ToL2Messages, db);
-
-  // Update the local trees to include the new l1 to l2 messages
-  await db.appendLeaves(
-    MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-    newL1ToL2Messages.map(m => m.toBuffer()),
-  );
-
-  // Simulate and get proof for the root circuit
-  const rootOutput = await simulator.rootRollupCircuit(rootInput);
-
-  const rootProof = await prover.getRootRollupProof(rootInput, rootOutput);
-
-  //TODO(@PhilWindle) Move this to orchestrator to ensure that we are still on the same block
-  // Update the archive with the latest block header
-  logger?.debug(`Updating and validating root trees`);
-  await db.updateArchive(rootOutput.header);
-
-  await validateRootOutput(rootOutput, db);
-
-  return [rootOutput, rootProof];
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
@@ -267,6 +210,8 @@ export async function getRootRollupInput(
   rollupProofRight: Proof,
   l1ToL2Roots: RootParityInput,
   newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+  messageTreeSnapshot: AppendOnlyTreeSnapshot,
+  messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   db: MerkleTreeOperations,
 ) {
   const vks = getVerificationKeys();
@@ -282,21 +227,6 @@ export async function getRootRollupInput(
     return path.toFields();
   };
 
-  const newL1ToL2MessageTreeRootSiblingPathArray = await getSubtreeSiblingPath(
-    MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-    L1_TO_L2_MSG_SUBTREE_HEIGHT,
-    db,
-  );
-
-  const newL1ToL2MessageTreeRootSiblingPath = makeTuple(
-    L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-    i => (i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO),
-    0,
-  );
-
-  // Get tree snapshots
-  const startL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
-
   // Get blocks tree
   const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
   const newArchiveSiblingPathArray = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE);
@@ -311,8 +241,8 @@ export async function getRootRollupInput(
     previousRollupData,
     l1ToL2Roots,
     newL1ToL2Messages,
-    newL1ToL2MessageTreeRootSiblingPath,
-    startL1ToL2MessageTreeSnapshot,
+    newL1ToL2MessageTreeRootSiblingPath: messageTreeRootSiblingPath,
+    startL1ToL2MessageTreeSnapshot: messageTreeSnapshot,
     startArchiveSnapshot,
     newArchiveSiblingPath,
   });
@@ -357,15 +287,9 @@ export async function getTreeSnapshot(id: MerkleTreeId, db: MerkleTreeOperations
   return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
 }
 
-export function getKernelDataFor(tx: ProcessedTx, vks: VerificationKeys): RollupKernelData {
-  const inputs = new RollupKernelCircuitPublicInputs(
-    tx.data.aggregationObject,
-    tx.data.combinedData,
-    tx.data.constants,
-    tx.data.rollupValidationRequests,
-  );
-  return new RollupKernelData(
-    inputs,
+export function getKernelDataFor(tx: ProcessedTx, vks: VerificationKeys): KernelData {
+  return new KernelData(
+    tx.data,
     tx.proof,
 
     // VK for the kernel circuit
@@ -385,40 +309,8 @@ export function makeEmptyMembershipWitness<N extends number>(height: N) {
   );
 }
 
-export async function getPublicDataReadsInfo(tx: ProcessedTx, db: MerkleTreeOperations) {
-  const newPublicDataReadsWitnesses: Tuple<
-    MembershipWitness<typeof PUBLIC_DATA_TREE_HEIGHT>,
-    typeof MAX_PUBLIC_DATA_READS_PER_TX
-  > = makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, () => MembershipWitness.empty(PUBLIC_DATA_TREE_HEIGHT, 0n));
-
-  const newPublicDataReadsPreimages: Tuple<PublicDataTreeLeafPreimage, typeof MAX_PUBLIC_DATA_READS_PER_TX> = makeTuple(
-    MAX_PUBLIC_DATA_READS_PER_TX,
-    () => PublicDataTreeLeafPreimage.empty(),
-  );
-
-  for (const i in tx.data.validationRequests.publicDataReads) {
-    const leafSlot = tx.data.validationRequests.publicDataReads[i].leafSlot.value;
-    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-    if (!lowLeafResult) {
-      throw new Error(`Public data tree should have one initial leaf`);
-    }
-    const preimage = await db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
-    const path = await db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
-    newPublicDataReadsWitnesses[i] = new MembershipWitness(
-      PUBLIC_DATA_TREE_HEIGHT,
-      BigInt(lowLeafResult.index),
-      path.toTuple<typeof PUBLIC_DATA_TREE_HEIGHT>(),
-    );
-    newPublicDataReadsPreimages[i] = preimage! as PublicDataTreeLeafPreimage;
-  }
-  return {
-    newPublicDataReadsWitnesses,
-    newPublicDataReadsPreimages,
-  };
-}
-
 export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: MerkleTreeOperations) {
-  const combinedPublicDataUpdateRequests = tx.data.combinedData.publicDataUpdateRequests.map(updateRequest => {
+  const combinedPublicDataUpdateRequests = tx.data.end.publicDataUpdateRequests.map(updateRequest => {
     return new PublicDataTreeLeaf(updateRequest.leafSlot, updateRequest.newValue);
   });
   const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } = await db.batchInsert(
@@ -508,21 +400,6 @@ export async function getMembershipWitnessFor<N extends number>(
   return new MembershipWitness(height, index, assertLength(path.toFields(), height));
 }
 
-export async function executeBaseRollupCircuit(
-  tx: ProcessedTx,
-  inputs: BaseRollupInputs,
-  treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
-  simulator: RollupSimulator,
-  prover: RollupProver,
-  logger?: DebugLogger,
-): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
-  logger?.(`Running base rollup for ${tx.hash}`);
-  const rollupOutput = await simulator.baseRollupCircuit(inputs);
-  validatePartialState(rollupOutput.end, treeSnapshots);
-  const proof = await prover.getBaseRollupProof(inputs, rollupOutput);
-  return [rollupOutput, proof];
-}
-
 export function validatePartialState(
   partialState: PartialStateReference,
   treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
@@ -553,30 +430,6 @@ export function validateSimulatedTree(
       })`,
     );
   }
-}
-
-export async function executeBaseParityCircuit(
-  inputs: BaseParityInputs,
-  simulator: RollupSimulator,
-  prover: RollupProver,
-  logger?: DebugLogger,
-): Promise<RootParityInput> {
-  logger?.debug(`Running base parity circuit`);
-  const parityPublicInputs = await simulator.baseParityCircuit(inputs);
-  const proof = await prover.getBaseParityProof(inputs, parityPublicInputs);
-  return new RootParityInput(proof, parityPublicInputs);
-}
-
-export async function executeRootParityCircuit(
-  inputs: RootParityInputs,
-  simulator: RollupSimulator,
-  prover: RollupProver,
-  logger?: DebugLogger,
-): Promise<RootParityInput> {
-  logger?.debug(`Running root parity circuit`);
-  const parityPublicInputs = await simulator.rootParityCircuit(inputs);
-  const proof = await prover.getRootParityProof(inputs, parityPublicInputs);
-  return new RootParityInput(proof, parityPublicInputs);
 }
 
 export function validateTx(tx: ProcessedTx) {

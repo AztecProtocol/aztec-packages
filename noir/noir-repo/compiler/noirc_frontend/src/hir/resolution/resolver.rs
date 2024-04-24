@@ -19,30 +19,28 @@ use crate::hir_def::expr::{
 };
 
 use crate::hir_def::traits::{Trait, TraitConstraint};
+use crate::macros_api::SecondaryAttribute;
 use crate::token::{Attributes, FunctionAttribute};
 use regex::Regex;
 use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 
+use crate::ast::{
+    ArrayLiteral, BinaryOpKind, BlockExpression, Distinctness, Expression, ExpressionKind,
+    ForRange, FunctionDefinition, FunctionKind, FunctionReturnType, Ident, ItemVisibility, LValue,
+    LetStatement, Literal, NoirFunction, NoirStruct, NoirTypeAlias, Param, Path, PathKind, Pattern,
+    Statement, StatementKind, UnaryOp, UnresolvedGenerics, UnresolvedTraitConstraint,
+    UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression, Visibility, ERROR_IDENT,
+};
 use crate::graph::CrateId;
-use crate::hir::def_map::{LocalModuleId, ModuleDefId, TryFromModuleDefId, MAIN_FUNCTION};
+use crate::hir::def_map::{ModuleDefId, TryFromModuleDefId, MAIN_FUNCTION};
+use crate::hir::{def_map::CrateDefMap, resolution::path_resolver::PathResolver};
 use crate::hir_def::stmt::{HirAssignStatement, HirForStatement, HirLValue, HirPattern};
 use crate::node_interner::{
     DefinitionId, DefinitionKind, DependencyId, ExprId, FuncId, GlobalId, NodeInterner, StmtId,
     StructId, TraitId, TraitImplId, TraitMethodId, TypeAliasId,
 };
-use crate::{
-    hir::{def_map::CrateDefMap, resolution::path_resolver::PathResolver},
-    BlockExpression, Expression, ExpressionKind, FunctionKind, Ident, Literal, NoirFunction,
-    StatementKind,
-};
-use crate::{
-    ArrayLiteral, BinaryOpKind, Distinctness, ForRange, FunctionDefinition, FunctionReturnType,
-    Generics, ItemVisibility, LValue, NoirStruct, NoirTypeAlias, Param, Path, PathKind, Pattern,
-    Shared, StructType, Type, TypeAlias, TypeVariable, TypeVariableKind, UnaryOp,
-    UnresolvedGenerics, UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData,
-    UnresolvedTypeExpression, Visibility, ERROR_IDENT,
-};
+use crate::{Generics, Shared, StructType, Type, TypeAlias, TypeVariable, TypeVariableKind};
 use fm::FileId;
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span, Spanned};
@@ -56,6 +54,7 @@ use crate::hir_def::{
 };
 
 use super::errors::{PubPosition, ResolverError};
+use super::import::PathResolution;
 
 const SELF_TYPE_NAME: &str = "Self";
 
@@ -115,6 +114,13 @@ pub struct Resolver<'a> {
     /// that are captured. We do this in order to create the hidden environment
     /// parameter for the lambda function.
     lambda_stack: Vec<LambdaContext>,
+
+    /// True if we're currently resolving an unconstrained function
+    in_unconstrained_fn: bool,
+
+    /// How many loops we're currently within.
+    /// This increases by 1 at the start of a loop, and decreases by 1 when it ends.
+    nested_loops: u32,
 }
 
 /// ResolverMetas are tagged onto each definition to track how many times they are used
@@ -155,6 +161,8 @@ impl<'a> Resolver<'a> {
             current_item: None,
             file,
             in_contract,
+            in_unconstrained_fn: false,
+            nested_loops: 0,
         }
     }
 
@@ -235,6 +243,7 @@ impl<'a> Resolver<'a> {
             name: name.clone(),
             attributes: Attributes::empty(),
             is_unconstrained: false,
+            is_comptime: false,
             visibility: ItemVisibility::Public, // Trait functions are always public
             generics: generics.clone(),
             parameters: vecmap(parameters, |(name, typ)| Param {
@@ -243,7 +252,7 @@ impl<'a> Resolver<'a> {
                 typ: typ.clone(),
                 span: name.span(),
             }),
-            body: BlockExpression(Vec::new()),
+            body: BlockExpression { statements: Vec::new() },
             span: name.span(),
             where_clause: where_clause.to_vec(),
             return_type: return_type.clone(),
@@ -416,6 +425,11 @@ impl<'a> Resolver<'a> {
 
     fn intern_function(&mut self, func: NoirFunction, id: FuncId) -> (HirFunction, FuncMeta) {
         let func_meta = self.extract_meta(&func, id);
+
+        if func.def.is_unconstrained {
+            self.in_unconstrained_fn = true;
+        }
+
         let hir_func = match func.kind {
             FunctionKind::Builtin | FunctionKind::LowLevel | FunctionKind::Oracle => {
                 HirFunction::empty()
@@ -461,18 +475,18 @@ impl<'a> Resolver<'a> {
     /// Translates an UnresolvedType into a Type and appends any
     /// freshly created TypeVariables created to new_variables.
     fn resolve_type_inner(&mut self, typ: UnresolvedType, new_variables: &mut Generics) -> Type {
-        use UnresolvedTypeData::*;
+        use crate::ast::UnresolvedTypeData::*;
 
         let resolved_type = match typ.typ {
             FieldElement => Type::FieldElement,
             Array(size, elem) => {
                 let elem = Box::new(self.resolve_type_inner(*elem, new_variables));
-                let size = if size.is_none() {
-                    Type::NotConstant
-                } else {
-                    self.resolve_array_size(size, new_variables)
-                };
+                let size = self.resolve_array_size(Some(size), new_variables);
                 Type::Array(Box::new(size), elem)
+            }
+            Slice(elem) => {
+                let elem = Box::new(self.resolve_type_inner(*elem, new_variables));
+                Type::Slice(elem)
             }
             Expression(expr) => self.convert_expression_type(expr),
             Integer(sign, bits) => Type::Integer(sign, bits),
@@ -486,6 +500,7 @@ impl<'a> Resolver<'a> {
                 let fields = self.resolve_type_inner(*fields, new_variables);
                 Type::FmtString(Box::new(resolved_size), Box::new(fields))
             }
+            Code => Type::Code,
             Unit => Type::Unit,
             Unspecified => Type::Error,
             Error => Type::Error,
@@ -602,7 +617,17 @@ impl<'a> Resolver<'a> {
         match self.lookup_struct_or_error(path) {
             Some(struct_type) => {
                 let expected_generic_count = struct_type.borrow().generics.len();
-
+                if !self.in_contract
+                    && self
+                        .interner
+                        .struct_attributes(&struct_type.borrow().id)
+                        .iter()
+                        .any(|attr| matches!(attr, SecondaryAttribute::Abi(_)))
+                {
+                    self.push_err(ResolverError::AbiAttributeOusideContract {
+                        span: struct_type.borrow().name.span(),
+                    });
+                }
                 self.verify_generics_count(expected_generic_count, &mut args, span, || {
                     struct_type.borrow().to_string()
                 });
@@ -663,9 +688,13 @@ impl<'a> Resolver<'a> {
 
         // If we cannot find a local generic of the same name, try to look up a global
         match self.path_resolver.resolve(self.def_maps, path.clone()) {
-            Ok(ModuleDefId::GlobalId(id)) => {
+            Ok(PathResolution { module_def_id: ModuleDefId::GlobalId(id), error }) => {
                 if let Some(current_item) = self.current_item {
                     self.interner.add_global_dependency(current_item, id);
+                }
+
+                if let Some(error) = error {
+                    self.push_err(error.into());
                 }
                 Some(Type::Constant(self.eval_global_as_array_length(id, path)))
             }
@@ -897,6 +926,7 @@ impl<'a> Resolver<'a> {
         let name_ident = HirIdent::non_trait_method(id, location);
 
         let attributes = func.attributes().clone();
+        let should_fold = attributes.is_foldable();
 
         let mut generics = vecmap(&self.generics, |(_, typevar, _)| typevar.clone());
         let mut parameters = vec![];
@@ -928,7 +958,7 @@ impl<'a> Resolver<'a> {
             });
         }
         let is_low_level_function =
-            func.attributes().function.as_ref().map_or(false, |func| func.is_low_level());
+            attributes.function.as_ref().map_or(false, |func| func.is_low_level());
         if !self.path_resolver.module_id().krate.is_stdlib() && is_low_level_function {
             let error =
                 ResolverError::LowLevelFunctionOutsideOfStdlib { ident: func.name_ident().clone() };
@@ -991,6 +1021,7 @@ impl<'a> Resolver<'a> {
             has_body: !func.def.body.is_empty(),
             trait_constraints: self.resolve_trait_constraints(&func.def.where_clause),
             is_entry_point: self.is_entry_point_function(func),
+            should_fold,
         }
     }
 
@@ -1004,7 +1035,7 @@ impl<'a> Resolver<'a> {
     /// True if the 'pub' keyword is allowed on parameters in this function
     /// 'pub' on function parameters is only allowed for entry point functions
     fn pub_allowed(&self, func: &NoirFunction) -> bool {
-        self.is_entry_point_function(func)
+        self.is_entry_point_function(func) || func.attributes().is_foldable()
     }
 
     fn is_entry_point_function(&self, func: &NoirFunction) -> bool {
@@ -1070,14 +1101,18 @@ impl<'a> Resolver<'a> {
             | Type::TypeVariable(_, _)
             | Type::Constant(_)
             | Type::NamedGeneric(_, _)
-            | Type::NotConstant
             | Type::TraitAsType(..)
+            | Type::Code
             | Type::Forall(_, _) => (),
 
             Type::Array(length, element_type) => {
                 if let Type::NamedGeneric(type_variable, name) = length.as_ref() {
                     found.insert(name.to_string(), type_variable.clone());
                 }
+                Self::find_numeric_generics_in_type(element_type, found);
+            }
+
+            Type::Slice(element_type) => {
                 Self::find_numeric_generics_in_type(element_type, found);
             }
 
@@ -1133,7 +1168,7 @@ impl<'a> Resolver<'a> {
 
     pub fn resolve_global_let(
         &mut self,
-        let_stmt: crate::LetStatement,
+        let_stmt: LetStatement,
         global_id: GlobalId,
     ) -> HirStatement {
         self.current_item = Some(DependencyId::Global(global_id));
@@ -1141,14 +1176,23 @@ impl<'a> Resolver<'a> {
         let global_id = self.interner.next_global_id();
         let definition = DefinitionKind::Global(global_id);
 
+        if !self.in_contract
+            && let_stmt.attributes.iter().any(|attr| matches!(attr, SecondaryAttribute::Abi(_)))
+        {
+            self.push_err(ResolverError::AbiAttributeOusideContract {
+                span: let_stmt.pattern.span(),
+            });
+        }
+
         HirStatement::Let(HirLetStatement {
             pattern: self.resolve_pattern(let_stmt.pattern, definition),
             r#type: self.resolve_type(let_stmt.r#type),
             expression,
+            attributes: let_stmt.attributes,
         })
     }
 
-    pub fn resolve_stmt(&mut self, stmt: StatementKind) -> HirStatement {
+    pub fn resolve_stmt(&mut self, stmt: StatementKind, span: Span) -> HirStatement {
         match stmt {
             StatementKind::Let(let_stmt) => {
                 let expression = self.resolve_expression(let_stmt.expression);
@@ -1157,6 +1201,7 @@ impl<'a> Resolver<'a> {
                     pattern: self.resolve_pattern(let_stmt.pattern, definition),
                     r#type: self.resolve_type(let_stmt.r#type),
                     expression,
+                    attributes: let_stmt.attributes,
                 })
             }
             StatementKind::Constrain(constrain_stmt) => {
@@ -1188,6 +1233,8 @@ impl<'a> Resolver<'a> {
                         let end_range = self.resolve_expression(end_range);
                         let (identifier, block) = (for_loop.identifier, for_loop.block);
 
+                        self.nested_loops += 1;
+
                         // TODO: For loop variables are currently mutable by default since we haven't
                         //       yet implemented syntax for them to be optionally mutable.
                         let (identifier, block) = self.in_new_scope(|this| {
@@ -1200,6 +1247,8 @@ impl<'a> Resolver<'a> {
                             (decl, this.resolve_expression(block))
                         });
 
+                        self.nested_loops -= 1;
+
                         HirStatement::For(HirForStatement {
                             start_range,
                             end_range,
@@ -1210,11 +1259,23 @@ impl<'a> Resolver<'a> {
                     range @ ForRange::Array(_) => {
                         let for_stmt =
                             range.into_for(for_loop.identifier, for_loop.block, for_loop.span);
-                        self.resolve_stmt(for_stmt)
+                        self.resolve_stmt(for_stmt, for_loop.span)
                     }
                 }
             }
+            StatementKind::Break => {
+                self.check_break_continue(true, span);
+                HirStatement::Break
+            }
+            StatementKind::Continue => {
+                self.check_break_continue(false, span);
+                HirStatement::Continue
+            }
             StatementKind::Error => HirStatement::Error,
+            StatementKind::Comptime(statement) => {
+                let statement = self.resolve_stmt(*statement, span);
+                HirStatement::Comptime(self.interner.push_stmt(statement))
+            }
         }
     }
 
@@ -1260,9 +1321,11 @@ impl<'a> Resolver<'a> {
         Some(self.resolve_expression(assert_msg_call_expr))
     }
 
-    pub fn intern_stmt(&mut self, stmt: StatementKind) -> StmtId {
-        let hir_stmt = self.resolve_stmt(stmt);
-        self.interner.push_stmt(hir_stmt)
+    pub fn intern_stmt(&mut self, stmt: Statement) -> StmtId {
+        let hir_stmt = self.resolve_stmt(stmt.kind, stmt.span);
+        let id = self.interner.push_stmt(hir_stmt);
+        self.interner.push_statement_location(id, stmt.span, self.file);
+        id
     }
 
     fn resolve_lvalue(&mut self, lvalue: LValue) -> HirLValue {
@@ -1273,73 +1336,25 @@ impl<'a> Resolver<'a> {
 
                 HirLValue::Ident(ident.0, Type::Error)
             }
-            LValue::MemberAccess { object, field_name } => {
-                let object = Box::new(self.resolve_lvalue(*object));
-                HirLValue::MemberAccess { object, field_name, field_index: None, typ: Type::Error }
-            }
-            LValue::Index { array, index } => {
+            LValue::MemberAccess { object, field_name, span } => HirLValue::MemberAccess {
+                object: Box::new(self.resolve_lvalue(*object)),
+                field_name,
+                location: Location::new(span, self.file),
+                field_index: None,
+                typ: Type::Error,
+            },
+            LValue::Index { array, index, span } => {
                 let array = Box::new(self.resolve_lvalue(*array));
                 let index = self.resolve_expression(index);
-                HirLValue::Index { array, index, typ: Type::Error }
+                let location = Location::new(span, self.file);
+                HirLValue::Index { array, index, location, typ: Type::Error }
             }
-            LValue::Dereference(lvalue) => {
+            LValue::Dereference(lvalue, span) => {
                 let lvalue = Box::new(self.resolve_lvalue(*lvalue));
-                HirLValue::Dereference { lvalue, element_type: Type::Error }
+                let location = Location::new(span, self.file);
+                HirLValue::Dereference { lvalue, location, element_type: Type::Error }
             }
         }
-    }
-
-    // Issue an error if the given private function is being called from a non-child module, or
-    // if the given pub(crate) function is being called from another crate
-    fn check_can_reference_function(
-        &mut self,
-        func: FuncId,
-        span: Span,
-        visibility: ItemVisibility,
-    ) {
-        let function_module = self.interner.function_module(func);
-        let current_module = self.path_resolver.module_id();
-
-        let same_crate = function_module.krate == current_module.krate;
-        let krate = function_module.krate;
-        let current_module = current_module.local_id;
-        let name = self.interner.function_name(&func).to_string();
-        match visibility {
-            ItemVisibility::Public => (),
-            ItemVisibility::Private => {
-                if !same_crate
-                    || !self.module_descendent_of_target(
-                        krate,
-                        function_module.local_id,
-                        current_module,
-                    )
-                {
-                    self.errors.push(ResolverError::PrivateFunctionCalled { span, name });
-                }
-            }
-            ItemVisibility::PublicCrate => {
-                if !same_crate {
-                    self.errors.push(ResolverError::NonCrateFunctionCalled { span, name });
-                }
-            }
-        }
-    }
-
-    // Returns true if `current` is a (potentially nested) child module of `target`.
-    // This is also true if `current == target`.
-    fn module_descendent_of_target(
-        &self,
-        krate: CrateId,
-        target: LocalModuleId,
-        current: LocalModuleId,
-    ) -> bool {
-        if current == target {
-            return true;
-        }
-
-        self.def_maps[&krate].modules[current.0]
-            .parent
-            .map_or(false, |parent| self.module_descendent_of_target(krate, target, parent))
     }
 
     fn resolve_local_variable(&mut self, hir_ident: HirIdent, var_scope_index: usize) {
@@ -1376,27 +1391,37 @@ impl<'a> Resolver<'a> {
         }
     }
 
+    fn resolve_array_literal(&mut self, array_literal: ArrayLiteral) -> HirArrayLiteral {
+        match array_literal {
+            ArrayLiteral::Standard(elements) => {
+                let elements = vecmap(elements, |elem| self.resolve_expression(elem));
+                HirArrayLiteral::Standard(elements)
+            }
+            ArrayLiteral::Repeated { repeated_element, length } => {
+                let span = length.span;
+                let length =
+                    UnresolvedTypeExpression::from_expr(*length, span).unwrap_or_else(|error| {
+                        self.errors.push(ResolverError::ParserError(Box::new(error)));
+                        UnresolvedTypeExpression::Constant(0, span)
+                    });
+
+                let length = self.convert_expression_type(length);
+                let repeated_element = self.resolve_expression(*repeated_element);
+
+                HirArrayLiteral::Repeated { repeated_element, length }
+            }
+        }
+    }
+
     pub fn resolve_expression(&mut self, expr: Expression) -> ExprId {
         let hir_expr = match expr.kind {
             ExpressionKind::Literal(literal) => HirExpression::Literal(match literal {
                 Literal::Bool(b) => HirLiteral::Bool(b),
-                Literal::Array(ArrayLiteral::Standard(elements)) => {
-                    let elements = vecmap(elements, |elem| self.resolve_expression(elem));
-                    HirLiteral::Array(HirArrayLiteral::Standard(elements))
+                Literal::Array(array_literal) => {
+                    HirLiteral::Array(self.resolve_array_literal(array_literal))
                 }
-                Literal::Array(ArrayLiteral::Repeated { repeated_element, length }) => {
-                    let span = length.span;
-                    let length = UnresolvedTypeExpression::from_expr(*length, span).unwrap_or_else(
-                        |error| {
-                            self.errors.push(ResolverError::ParserError(Box::new(error)));
-                            UnresolvedTypeExpression::Constant(0, span)
-                        },
-                    );
-
-                    let length = self.convert_expression_type(length);
-                    let repeated_element = self.resolve_expression(*repeated_element);
-
-                    HirLiteral::Array(HirArrayLiteral::Repeated { repeated_element, length })
+                Literal::Slice(array_literal) => {
+                    HirLiteral::Slice(self.resolve_array_literal(array_literal))
                 }
                 Literal::Integer(integer, sign) => HirLiteral::Integer(integer, sign),
                 Literal::Str(str) => HirLiteral::Str(str),
@@ -1424,15 +1449,6 @@ impl<'a> Resolver<'a> {
                             DefinitionKind::Function(id) => {
                                 if let Some(current_item) = self.current_item {
                                     self.interner.add_function_dependency(current_item, id);
-                                }
-
-                                if self.interner.function_visibility(id) != ItemVisibility::Public {
-                                    let span = hir_ident.location.span;
-                                    self.check_can_reference_function(
-                                        id,
-                                        span,
-                                        self.interner.function_visibility(id),
-                                    );
                                 }
                             }
                             DefinitionKind::Global(global_id) => {
@@ -1517,7 +1533,9 @@ impl<'a> Resolver<'a> {
                 collection: self.resolve_expression(indexed_expr.collection),
                 index: self.resolve_expression(indexed_expr.index),
             }),
-            ExpressionKind::Block(block_expr) => self.resolve_block(block_expr),
+            ExpressionKind::Block(block_expr) => {
+                HirExpression::Block(self.resolve_block(block_expr))
+            }
             ExpressionKind::Constructor(constructor) => {
                 let span = constructor.type_name.span();
 
@@ -1581,6 +1599,10 @@ impl<'a> Resolver<'a> {
                 })
             }),
             ExpressionKind::Parenthesized(sub_expr) => return self.resolve_expression(*sub_expr),
+
+            // The quoted expression isn't resolved since we don't want errors if variables aren't defined
+            ExpressionKind::Quote(block) => HirExpression::Quote(block),
+            ExpressionKind::Comptime(block) => HirExpression::Comptime(self.resolve_block(block)),
         };
 
         // If these lines are ever changed, make sure to change the early return
@@ -1869,7 +1891,7 @@ impl<'a> Resolver<'a> {
                 }
 
                 if let Ok(ModuleDefId::TraitId(trait_id)) =
-                    self.path_resolver.resolve(self.def_maps, trait_bound.trait_path.clone())
+                    self.resolve_path(trait_bound.trait_path.clone())
                 {
                     let the_trait = self.interner.get_trait(trait_id);
                     if let Some(method) =
@@ -1904,17 +1926,23 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_path(&mut self, path: Path) -> Result<ModuleDefId, ResolverError> {
-        self.path_resolver.resolve(self.def_maps, path).map_err(ResolverError::PathResolutionError)
+        let path_resolution = self.path_resolver.resolve(self.def_maps, path)?;
+
+        if let Some(error) = path_resolution.error {
+            self.push_err(error.into());
+        }
+
+        Ok(path_resolution.module_def_id)
     }
 
-    fn resolve_block(&mut self, block_expr: BlockExpression) -> HirExpression {
+    fn resolve_block(&mut self, block_expr: BlockExpression) -> HirBlockExpression {
         let statements =
-            self.in_new_scope(|this| vecmap(block_expr.0, |stmt| this.intern_stmt(stmt.kind)));
-        HirExpression::Block(HirBlockExpression(statements))
+            self.in_new_scope(|this| vecmap(block_expr.statements, |stmt| this.intern_stmt(stmt)));
+        HirBlockExpression { statements }
     }
 
     pub fn intern_block(&mut self, block: BlockExpression) -> ExprId {
-        let hir_block = self.resolve_block(block);
+        let hir_block = HirExpression::Block(self.resolve_block(block));
         self.interner.push_expr(hir_block)
     }
 
@@ -2035,6 +2063,15 @@ impl<'a> Resolver<'a> {
             }
         }
         HirLiteral::FmtStr(str, fmt_str_idents)
+    }
+
+    fn check_break_continue(&mut self, is_break: bool, span: Span) {
+        if !self.in_unconstrained_fn {
+            self.push_err(ResolverError::JumpInConstrainedFn { is_break, span });
+        }
+        if self.nested_loops == 0 {
+            self.push_err(ResolverError::JumpOutsideLoop { is_break, span });
+        }
     }
 }
 

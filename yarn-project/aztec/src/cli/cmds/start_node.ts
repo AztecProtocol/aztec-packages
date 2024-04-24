@@ -1,8 +1,12 @@
-import { AztecNodeConfig, createAztecNodeRpcServer, getConfigEnvVars as getNodeConfigEnvVars } from '@aztec/aztec-node';
+import {
+  type AztecNodeConfig,
+  createAztecNodeRpcServer,
+  getConfigEnvVars as getNodeConfigEnvVars,
+} from '@aztec/aztec-node';
 import { NULL_KEY } from '@aztec/ethereum';
-import { ServerList } from '@aztec/foundation/json-rpc/server';
-import { LogFn } from '@aztec/foundation/log';
-import { PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
+import { type ServerList } from '@aztec/foundation/json-rpc/server';
+import { type LogFn } from '@aztec/foundation/log';
+import { type PXEServiceConfig, createPXERpcServer, getPXEServiceConfig } from '@aztec/pxe';
 
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
@@ -25,6 +29,17 @@ export const startNode = async (
   // merge env vars and cli options
   let nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, nodeCliOptions);
 
+  // Deploy contracts if needed
+  if (nodeCliOptions.deployAztecContracts || DEPLOY_AZTEC_CONTRACTS === 'true') {
+    let account;
+    if (nodeConfig.publisherPrivateKey === NULL_KEY) {
+      account = mnemonicToAccount(MNEMONIC);
+    } else {
+      account = privateKeyToAccount(nodeConfig.publisherPrivateKey);
+    }
+    await deployContractsToL1(nodeConfig, account);
+  }
+
   // if no publisher private key, then use MNEMONIC
   if (!options.archiver) {
     // expect archiver url in node config
@@ -36,18 +51,7 @@ export const startNode = async (
     nodeConfig.archiverUrl = archiverUrl;
   } else {
     const archiverCliOptions = parseModuleOptions(options.archiver);
-    nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(aztecNodeConfigEnvVars, archiverCliOptions, true);
-  }
-
-  // Deploy contracts if needed
-  if (nodeCliOptions.deployAztecContracts || DEPLOY_AZTEC_CONTRACTS === 'true') {
-    let account;
-    if (nodeConfig.publisherPrivateKey === NULL_KEY) {
-      account = mnemonicToAccount(MNEMONIC);
-    } else {
-      account = privateKeyToAccount(nodeConfig.publisherPrivateKey);
-    }
-    await deployContractsToL1(nodeConfig, account);
+    nodeConfig = mergeEnvVarsAndCliOptions<AztecNodeConfig>(nodeConfig, archiverCliOptions, true);
   }
 
   if (!options.sequencer) {
@@ -61,6 +65,10 @@ export const startNode = async (
 
   if (!options.prover) {
     nodeConfig.disableProver = true;
+  }
+
+  if (!nodeConfig.disableSequencer && nodeConfig.disableProver) {
+    throw new Error('Cannot run a sequencer without a prover');
   }
 
   // Create and start Aztec Node.

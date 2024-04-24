@@ -4,16 +4,16 @@ use std::sync::{Mutex, RwLock};
 use acvm::FieldElement;
 use iter_extended::vecmap;
 use noirc_errors::Location;
+use noirc_frontend::ast::{BinaryOpKind, Signedness};
 use noirc_frontend::monomorphization::ast::{self, LocalId, Parameters};
 use noirc_frontend::monomorphization::ast::{FuncId, Program};
-use noirc_frontend::{BinaryOpKind, Signedness};
 
 use crate::errors::RuntimeError;
 use crate::ssa::function_builder::FunctionBuilder;
 use crate::ssa::ir::basic_block::BasicBlockId;
 use crate::ssa::ir::dfg::DataFlowGraph;
-use crate::ssa::ir::function::FunctionId as IrFunctionId;
 use crate::ssa::ir::function::{Function, RuntimeType};
+use crate::ssa::ir::function::{FunctionId as IrFunctionId, InlineType};
 use crate::ssa::ir::instruction::BinaryOp;
 use crate::ssa::ir::instruction::Instruction;
 use crate::ssa::ir::map::AtomicCounter;
@@ -39,6 +39,11 @@ pub(super) struct FunctionContext<'a> {
 
     pub(super) builder: FunctionBuilder,
     shared_context: &'a SharedContext,
+
+    /// Contains any loops we're currently in the middle of translating.
+    /// These are ordered such that an inner loop is at the end of the vector and
+    /// outer loops are at the beginning. When a loop is finished, it is popped.
+    loops: Vec<Loop>,
 }
 
 /// Shared context for all functions during ssa codegen. This is the only
@@ -72,6 +77,13 @@ pub(super) struct SharedContext {
     pub(super) program: Program,
 }
 
+#[derive(Copy, Clone)]
+pub(super) struct Loop {
+    pub(super) loop_entry: BasicBlockId,
+    pub(super) loop_index: ValueId,
+    pub(super) loop_end: BasicBlockId,
+}
+
 /// The queue of functions remaining to compile
 type FunctionQueue = Vec<(ast::FuncId, IrFunctionId)>;
 
@@ -96,8 +108,10 @@ impl<'a> FunctionContext<'a> {
             .expect("No function in queue for the FunctionContext to compile")
             .1;
 
-        let builder = FunctionBuilder::new(function_name, function_id, runtime);
-        let mut this = Self { definitions: HashMap::default(), builder, shared_context };
+        let mut builder = FunctionBuilder::new(function_name, function_id);
+        builder.set_runtime(runtime);
+        let definitions = HashMap::default();
+        let mut this = Self { definitions, builder, shared_context, loops: Vec::new() };
         this.add_parameters_to_scope(parameters);
         this
     }
@@ -112,7 +126,8 @@ impl<'a> FunctionContext<'a> {
         if func.unconstrained {
             self.builder.new_brillig_function(func.name.clone(), id);
         } else {
-            self.builder.new_function(func.name.clone(), id);
+            let inline_type = if func.should_fold { InlineType::Fold } else { InlineType::Inline };
+            self.builder.new_function(func.name.clone(), id, inline_type);
         }
         self.add_parameters_to_scope(&func.parameters);
     }
@@ -547,7 +562,7 @@ impl<'a> FunctionContext<'a> {
     pub(super) fn insert_binary(
         &mut self,
         mut lhs: ValueId,
-        operator: noirc_frontend::BinaryOpKind,
+        operator: BinaryOpKind,
         mut rhs: ValueId,
         location: Location,
     ) -> Values {
@@ -610,7 +625,7 @@ impl<'a> FunctionContext<'a> {
     fn insert_array_equality(
         &mut self,
         lhs: ValueId,
-        operator: noirc_frontend::BinaryOpKind,
+        operator: BinaryOpKind,
         rhs: ValueId,
         location: Location,
     ) -> Values {
@@ -1053,27 +1068,45 @@ impl<'a> FunctionContext<'a> {
             self.builder.decrement_array_reference_count(parameter);
         }
     }
+
+    pub(crate) fn enter_loop(
+        &mut self,
+        loop_entry: BasicBlockId,
+        loop_index: ValueId,
+        loop_end: BasicBlockId,
+    ) {
+        self.loops.push(Loop { loop_entry, loop_index, loop_end });
+    }
+
+    pub(crate) fn exit_loop(&mut self) {
+        self.loops.pop();
+    }
+
+    pub(crate) fn current_loop(&self) -> Loop {
+        // The frontend should ensure break/continue are never used outside a loop
+        *self.loops.last().expect("current_loop: not in a loop!")
+    }
 }
 
 /// True if the given operator cannot be encoded directly and needs
 /// to be represented as !(some other operator)
-fn operator_requires_not(op: noirc_frontend::BinaryOpKind) -> bool {
-    use noirc_frontend::BinaryOpKind::*;
+fn operator_requires_not(op: BinaryOpKind) -> bool {
+    use BinaryOpKind::*;
     matches!(op, NotEqual | LessEqual | GreaterEqual)
 }
 
 /// True if the given operator cannot be encoded directly and needs
 /// to have its lhs and rhs swapped to be represented with another operator.
 /// Example: (a > b) needs to be represented as (b < a)
-fn operator_requires_swapped_operands(op: noirc_frontend::BinaryOpKind) -> bool {
-    use noirc_frontend::BinaryOpKind::*;
+fn operator_requires_swapped_operands(op: BinaryOpKind) -> bool {
+    use BinaryOpKind::*;
     matches!(op, Greater | LessEqual)
 }
 
 /// If the operation requires its result to be truncated because it is an integer, the maximum
 /// number of bits that result may occupy is returned.
 fn operator_result_max_bit_size_to_truncate(
-    op: noirc_frontend::BinaryOpKind,
+    op: BinaryOpKind,
     lhs: ValueId,
     rhs: ValueId,
     dfg: &DataFlowGraph,
@@ -1090,7 +1123,7 @@ fn operator_result_max_bit_size_to_truncate(
 
     let lhs_bit_size = get_bit_size(lhs_type)?;
     let rhs_bit_size = get_bit_size(rhs_type)?;
-    use noirc_frontend::BinaryOpKind::*;
+    use BinaryOpKind::*;
     match op {
         Add => Some(std::cmp::max(lhs_bit_size, rhs_bit_size) + 1),
         Subtract => Some(std::cmp::max(lhs_bit_size, rhs_bit_size) + 1),
@@ -1140,7 +1173,7 @@ fn operator_result_max_bit_size_to_truncate(
 /// Take care when using this to insert a binary instruction: this requires
 /// checking operator_requires_not and operator_requires_swapped_operands
 /// to represent the full operation correctly.
-fn convert_operator(op: noirc_frontend::BinaryOpKind) -> BinaryOp {
+fn convert_operator(op: BinaryOpKind) -> BinaryOp {
     match op {
         BinaryOpKind::Add => BinaryOp::Add,
         BinaryOpKind::Subtract => BinaryOp::Sub,

@@ -1,11 +1,11 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 
-use crate::token::{Attributes, Token};
-use crate::{
+use crate::ast::{
     Distinctness, Ident, ItemVisibility, Path, Pattern, Recoverable, Statement, StatementKind,
     UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, Visibility,
 };
+use crate::token::{Attributes, Token};
 use acvm::FieldElement;
 use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
@@ -27,6 +27,8 @@ pub enum ExpressionKind {
     Tuple(Vec<Expression>),
     Lambda(Box<Lambda>),
     Parenthesized(Box<Expression>),
+    Quote(BlockExpression),
+    Comptime(BlockExpression),
     Error,
 }
 
@@ -65,6 +67,17 @@ impl ExpressionKind {
 
     pub fn repeated_array(repeated_element: Expression, length: Expression) -> ExpressionKind {
         ExpressionKind::Literal(Literal::Array(ArrayLiteral::Repeated {
+            repeated_element: Box::new(repeated_element),
+            length: Box::new(length),
+        }))
+    }
+
+    pub fn slice(contents: Vec<Expression>) -> ExpressionKind {
+        ExpressionKind::Literal(Literal::Slice(ArrayLiteral::Standard(contents)))
+    }
+
+    pub fn repeated_slice(repeated_element: Expression, length: Expression) -> ExpressionKind {
+        ExpressionKind::Literal(Literal::Slice(ArrayLiteral::Repeated {
             repeated_element: Box::new(repeated_element),
             length: Box::new(length),
         }))
@@ -180,16 +193,18 @@ impl Expression {
         // with tuples without calling them. E.g. `if c { t } else { e }(a, b)` is interpreted
         // as a sequence of { if, tuple } rather than a function call. This behavior matches rust.
         let kind = if matches!(&lhs.kind, ExpressionKind::If(..)) {
-            ExpressionKind::Block(BlockExpression(vec![
-                Statement { kind: StatementKind::Expression(lhs), span },
-                Statement {
-                    kind: StatementKind::Expression(Expression::new(
-                        ExpressionKind::Tuple(arguments),
+            ExpressionKind::Block(BlockExpression {
+                statements: vec![
+                    Statement { kind: StatementKind::Expression(lhs), span },
+                    Statement {
+                        kind: StatementKind::Expression(Expression::new(
+                            ExpressionKind::Tuple(arguments),
+                            span,
+                        )),
                         span,
-                    )),
-                    span,
-                },
-            ]))
+                    },
+                ],
+            })
         } else {
             ExpressionKind::Call(Box::new(CallExpression { func: Box::new(lhs), arguments }))
         };
@@ -319,6 +334,7 @@ impl UnaryOp {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Literal {
     Array(ArrayLiteral),
+    Slice(ArrayLiteral),
     Bool(bool),
     Integer(FieldElement, /*sign*/ bool), // false for positive integer and true for negative
     Str(String),
@@ -371,6 +387,9 @@ pub struct FunctionDefinition {
 
     /// True if this function was defined with the 'unconstrained' keyword
     pub is_unconstrained: bool,
+
+    /// True if this function was defined with the 'comptime' keyword
+    pub is_comptime: bool,
 
     /// Indicate if this function was defined with the 'pub' keyword
     pub visibility: ItemVisibility,
@@ -439,19 +458,21 @@ pub struct IndexExpression {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct BlockExpression(pub Vec<Statement>);
+pub struct BlockExpression {
+    pub statements: Vec<Statement>,
+}
 
 impl BlockExpression {
     pub fn pop(&mut self) -> Option<StatementKind> {
-        self.0.pop().map(|stmt| stmt.kind)
+        self.statements.pop().map(|stmt| stmt.kind)
     }
 
     pub fn len(&self) -> usize {
-        self.0.len()
+        self.statements.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.statements.is_empty()
     }
 }
 
@@ -483,6 +504,8 @@ impl Display for ExpressionKind {
             }
             Lambda(lambda) => lambda.fmt(f),
             Parenthesized(sub_expr) => write!(f, "({sub_expr})"),
+            Quote(block) => write!(f, "quote {block}"),
+            Comptime(block) => write!(f, "comptime {block}"),
             Error => write!(f, "Error"),
         }
     }
@@ -497,6 +520,13 @@ impl Display for Literal {
             }
             Literal::Array(ArrayLiteral::Repeated { repeated_element, length }) => {
                 write!(f, "[{repeated_element}; {length}]")
+            }
+            Literal::Slice(ArrayLiteral::Standard(elements)) => {
+                let contents = vecmap(elements, ToString::to_string);
+                write!(f, "&[{}]", contents.join(", "))
+            }
+            Literal::Slice(ArrayLiteral::Repeated { repeated_element, length }) => {
+                write!(f, "&[{repeated_element}; {length}]")
             }
             Literal::Bool(boolean) => write!(f, "{}", if *boolean { "true" } else { "false" }),
             Literal::Integer(integer, sign) => {
@@ -521,7 +551,7 @@ impl Display for Literal {
 impl Display for BlockExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{{")?;
-        for statement in &self.0 {
+        for statement in &self.statements {
             let statement = statement.kind.to_string();
             for line in statement.lines() {
                 writeln!(f, "    {line}")?;
@@ -654,10 +684,12 @@ impl FunctionDefinition {
                 span: ident.span().merge(unresolved_type.span.unwrap()),
             })
             .collect();
+
         FunctionDefinition {
             name: name.clone(),
             attributes: Attributes::empty(),
             is_unconstrained: false,
+            is_comptime: false,
             visibility: ItemVisibility::Private,
             generics: generics.clone(),
             parameters: p,

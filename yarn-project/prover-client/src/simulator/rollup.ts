@@ -1,34 +1,34 @@
-import { CircuitSimulationStats } from '@aztec/circuit-types/stats';
+import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
-  BaseOrMergeRollupPublicInputs,
-  BaseParityInputs,
-  BaseRollupInputs,
-  MergeRollupInputs,
-  ParityPublicInputs,
-  RootParityInputs,
-  RootRollupInputs,
-  RootRollupPublicInputs,
+  type BaseOrMergeRollupPublicInputs,
+  type BaseParityInputs,
+  type BaseRollupInputs,
+  type MergeRollupInputs,
+  type ParityPublicInputs,
+  type RootParityInputs,
+  type RootRollupInputs,
+  type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   BaseParityArtifact,
-  BaseRollupArtifact,
   MergeRollupArtifact,
   RootParityArtifact,
   RootRollupArtifact,
+  SimulatedBaseRollupArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
-  convertBaseRollupInputsToWitnessMap,
-  convertBaseRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertRootParityInputsToWitnessMap,
   convertRootParityOutputsFromWitnessMap,
   convertRootRollupInputsToWitnessMap,
   convertRootRollupOutputsFromWitnessMap,
+  convertSimulatedBaseRollupInputsToWitnessMap,
+  convertSimulatedBaseRollupOutputsFromWitnessMap,
 } from '@aztec/noir-protocol-circuits-types';
-import { SimulationProvider, WASMSimulator } from '@aztec/simulator';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 /**
  * Circuit simulator for the rollup circuits.
@@ -113,11 +113,11 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
    * @returns The public inputs as outputs of the simulation.
    */
   public async baseRollupCircuit(input: BaseRollupInputs): Promise<BaseOrMergeRollupPublicInputs> {
-    const witnessMap = convertBaseRollupInputsToWitnessMap(input);
+    const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
-    const witness = await this.simulationProvider.simulateCircuit(witnessMap, BaseRollupArtifact);
+    const witness = await this.simulationProvider.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
 
-    const result = convertBaseRollupOutputsFromWitnessMap(witness);
+    const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
     return Promise.resolve(result);
   }
@@ -148,7 +148,7 @@ export class RealRollupCircuitSimulator implements RollupSimulator {
 
     const result = convertRootRollupOutputsFromWitnessMap(witness);
 
-    this.log(`Simulated root rollup circuit`, {
+    this.log.debug(`Simulated root rollup circuit`, {
       eventName: 'circuit-simulation',
       circuitName: 'root-rollup',
       duration,

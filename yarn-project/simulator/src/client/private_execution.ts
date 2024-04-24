@@ -1,15 +1,14 @@
-import { FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
+import { type FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { toTruncField } from '@aztec/foundation/serialize';
 
-import { extractReturnWitness } from '../acvm/deserialize.js';
+import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
-import { ClientExecutionContext } from './client_execution_context.js';
-import { ExecutionResult } from './execution_result.js';
+import { type ClientExecutionContext } from './client_execution_context.js';
+import { type ExecutionResult } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 /**
@@ -23,11 +22,11 @@ export async function executePrivateFunction(
   log = createDebugLogger('aztec:simulator:secret_execution'),
 ): Promise<ExecutionResult> {
   const functionSelector = functionData.selector;
-  log(`Executing external function ${contractAddress}:${functionSelector}(${artifact.name})`);
-  const acir = Buffer.from(artifact.bytecode, 'base64');
+  log.verbose(`Executing external function ${contractAddress}:${functionSelector}(${artifact.name})`);
+  const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
-  const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback).catch(
+  const acirExecutionResult = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback).catch(
     (err: Error) => {
       throw new ExecutionError(
         err.message,
@@ -40,20 +39,20 @@ export async function executePrivateFunction(
       );
     },
   );
-
-  const returnWitness = extractReturnWitness(acir, partialWitness);
+  const partialWitness = acirExecutionResult.partialWitness;
+  const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-  publicInputs.encryptedLogsHash = toTruncField(encryptedLogs.hash());
   publicInputs.encryptedLogPreimagesLength = new Fr(encryptedLogs.getSerializedLength());
-  publicInputs.unencryptedLogsHash = toTruncField(unencryptedLogs.hash());
   publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
   const callStackItem = new PrivateCallStackItem(contractAddress, functionData, publicInputs);
-  const returnValues = decodeReturnValues(artifact, publicInputs.returnValues);
+
+  const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
+
   const noteHashReadRequestPartialWitnesses = context.getNoteHashReadRequestPartialWitnesses(
     publicInputs.noteHashReadRequests,
   );
@@ -61,13 +60,13 @@ export async function executePrivateFunction(
   const nestedExecutions = context.getNestedExecutions();
   const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
 
-  log(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
+  log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return {
     acir,
     partialWitness,
     callStackItem,
-    returnValues,
+    returnValues: rawReturnValues,
     noteHashReadRequestPartialWitnesses,
     newNotes,
     vk: Buffer.from(artifact.verificationKey!, 'hex'),

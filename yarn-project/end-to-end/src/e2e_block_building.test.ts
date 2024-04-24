@@ -1,16 +1,16 @@
 import {
-  AztecAddress,
-  AztecNode,
+  type AztecAddress,
+  type AztecNode,
   BatchCall,
   ContractDeployer,
   ContractFunctionInteraction,
-  DebugLogger,
+  type DebugLogger,
   Fr,
-  PXE,
-  SentTx,
-  TxReceipt,
+  type PXE,
+  type SentTx,
+  type TxReceipt,
   TxStatus,
-  Wallet,
+  type Wallet,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
@@ -57,14 +57,14 @@ describe('e2e_block_building', () => {
           skipClassRegistration: true,
           skipPublicDeployment: true,
         });
-        await methods[i].simulate({});
+        await methods[i].prove({});
       }
 
       // Send them simultaneously to be picked up by the sequencer
       const txs = await Promise.all(methods.map(method => method.send()));
-      logger(`Txs sent with hashes: `);
+      logger.info(`Txs sent with hashes: `);
       for (const tx of txs) {
-        logger(` ${await tx.getTxHash()}`);
+        logger.info(` ${await tx.getTxHash()}`);
       }
 
       // Await txs to be mined and assert they are all mined on the same block
@@ -95,8 +95,8 @@ describe('e2e_block_building', () => {
         [minter.getCompleteAddress(), true],
       );
 
-      await deployer.simulate({});
-      await callInteraction.simulate({
+      await deployer.prove({});
+      await callInteraction.prove({
         // we have to skip simulation of public calls simulation is done on individual transactions
         // and the tx deploying the contract might go in the same block as this one
         skipPublicSimulation: true,
@@ -118,7 +118,7 @@ describe('e2e_block_building', () => {
     beforeAll(async () => {
       ({ teardown, pxe, logger, wallet: owner } = await setup(1));
       contract = await TestContract.deploy(owner).send().deployed();
-      logger(`Test contract deployed at ${contract.address}`);
+      logger.info(`Test contract deployed at ${contract.address}`);
     }, 100_000);
 
     afterAll(() => teardown());
@@ -129,7 +129,7 @@ describe('e2e_block_building', () => {
         const nullifier = Fr.random();
         const calls = times(2, () => contract.methods.emit_nullifier(nullifier));
         for (const call of calls) {
-          await call.simulate();
+          await call.prove();
         }
         const [tx1, tx2] = calls.map(call => call.send());
         await expectXorTx(tx1, tx2);
@@ -139,7 +139,7 @@ describe('e2e_block_building', () => {
         const secret = Fr.random();
         const calls = times(2, () => contract.methods.create_nullifier_public(140n, secret));
         for (const call of calls) {
-          await call.simulate();
+          await call.prove();
         }
         const [tx1, tx2] = calls.map(call => call.send());
         await expectXorTx(tx1, tx2);
@@ -154,7 +154,7 @@ describe('e2e_block_building', () => {
       it('drops tx with private nullifier already emitted from public on the same block', async () => {
         const secret = Fr.random();
         // See yarn-project/simulator/src/public/index.test.ts 'Should be able to create a nullifier from the public context'
-        const emittedPublicNullifier = pedersenHash([new Fr(140), secret].map(a => a.toBuffer()));
+        const emittedPublicNullifier = pedersenHash([new Fr(140), secret]);
 
         const calls = [
           contract.methods.create_nullifier_public(140n, secret),
@@ -162,7 +162,7 @@ describe('e2e_block_building', () => {
         ];
 
         for (const call of calls) {
-          await call.simulate();
+          await call.prove();
         }
         const [tx1, tx2] = calls.map(call => call.send());
         await expectXorTx(tx1, tx2);
@@ -172,7 +172,7 @@ describe('e2e_block_building', () => {
     describe('across blocks', () => {
       it('drops a tx that tries to spend a nullifier already emitted on a previous block', async () => {
         const secret = Fr.random();
-        const emittedPublicNullifier = pedersenHash([new Fr(140), secret].map(a => a.toBuffer()));
+        const emittedPublicNullifier = pedersenHash([new Fr(140), secret]);
 
         await expect(contract.methods.create_nullifier_public(140n, secret).send().wait()).resolves.toEqual(
           expect.objectContaining({

@@ -11,8 +11,7 @@ to_keep = [
     "ProverInstance(Circuit&)(t)",
     "ProtogalaxyProver::fold_instances(t)",
     "Decider::construct_proof(t)",
-    "ECCVMComposer::create_prover(t)",
-    "GoblinTranslatorComposer::create_prover(t)",
+    "ECCVMProver(CircuitBuilder&)(t)",
     "ECCVMProver::construct_proof(t)",
     "GoblinTranslatorProver::construct_proof(t)",
     "Goblin::merge(t)"
@@ -32,7 +31,10 @@ column = {"function": "function", "ms": "ms", "%": "% sum"}
 print(
     f"{column['function']:<{max_label_length}}{column['ms']:>8}  {column['%']:>8}")
 for key in to_keep:
-    time_ms = bench[key]/1e6
+    if key not in bench:
+        time_ms = 0
+    else:
+        time_ms = bench[key]/1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/sum_of_kept_times_ms:>8.2%}")
 
 # Validate that kept times account for most of the total measured time.
@@ -46,7 +48,10 @@ print("\nMajor contributors:")
 print(
     f"{column['function']:<{max_label_length}}{column['ms']:>8}  {column['%']:>7}")
 for key in ['commit(t)', 'compute_combiner(t)', 'compute_perturbator(t)', 'compute_univariate(t)']:
-    time_ms = bench[key]/1e6
+    if key not in bench:
+        time_ms = 0
+    else:
+        time_ms = bench[key]/1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f} {time_ms/sum_of_kept_times_ms:>8.2%}")
 
 print('\nBreakdown of ProtogalaxyProver::fold_instances:')
@@ -58,7 +63,10 @@ protogalaxy_round_labels = [
 ]
 max_label_length = max(len(label) for label in protogalaxy_round_labels)
 for key in protogalaxy_round_labels:
-    time_ms = bench[key]/1e6
+    if key not in bench:
+        time_ms = 0
+    else:
+        time_ms = bench[key]/1e6
     total_time_ms = bench["ProtogalaxyProver::fold_instances(t)"]/1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/total_time_ms:>8.2%}")
 

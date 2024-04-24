@@ -1,16 +1,18 @@
 use std::fmt::Display;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::lexer::token::SpannedToken;
-use crate::parser::{ParserError, ParserErrorReason};
-use crate::token::Token;
-use crate::{
-    BlockExpression, Expression, ExpressionKind, IndexExpression, MemberAccessExpression,
-    MethodCallExpression, UnresolvedType,
-};
 use acvm::FieldElement;
 use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
+
+use super::{
+    BlockExpression, Expression, ExpressionKind, IndexExpression, MemberAccessExpression,
+    MethodCallExpression, UnresolvedType,
+};
+use crate::lexer::token::SpannedToken;
+use crate::macros_api::SecondaryAttribute;
+use crate::parser::{ParserError, ParserErrorReason};
+use crate::token::Token;
 
 /// This is used when an identifier fails to parse in the parser.
 /// Instead of failing the parse, we can often recover using this
@@ -35,6 +37,10 @@ pub enum StatementKind {
     Expression(Expression),
     Assign(AssignStatement),
     For(ForLoopStatement),
+    Break,
+    Continue,
+    /// This statement should be executed at compile-time
+    Comptime(Box<StatementKind>),
     // This is an expression with a trailing semi-colon
     Semi(Expression),
     // This statement is the result of a recovered parse error.
@@ -45,6 +51,19 @@ pub enum StatementKind {
 
 impl Statement {
     pub fn add_semicolon(
+        mut self,
+        semi: Option<Token>,
+        span: Span,
+        last_statement_in_block: bool,
+        emit_error: &mut dyn FnMut(ParserError),
+    ) -> Self {
+        self.kind = self.kind.add_semicolon(semi, span, last_statement_in_block, emit_error);
+        self
+    }
+}
+
+impl StatementKind {
+    pub fn add_semicolon(
         self,
         semi: Option<Token>,
         span: Span,
@@ -54,20 +73,27 @@ impl Statement {
         let missing_semicolon =
             ParserError::with_reason(ParserErrorReason::MissingSeparatingSemi, span);
 
-        let kind = match self.kind {
+        match self {
             StatementKind::Let(_)
             | StatementKind::Constrain(_)
             | StatementKind::Assign(_)
             | StatementKind::Semi(_)
+            | StatementKind::Break
+            | StatementKind::Continue
             | StatementKind::Error => {
                 // To match rust, statements always require a semicolon, even at the end of a block
                 if semi.is_none() {
                     emit_error(missing_semicolon);
                 }
-                self.kind
+                self
+            }
+            StatementKind::Comptime(mut statement) => {
+                *statement =
+                    statement.add_semicolon(semi, span, last_statement_in_block, emit_error);
+                StatementKind::Comptime(statement)
             }
             // A semicolon on a for loop is optional and does nothing
-            StatementKind::For(_) => self.kind,
+            StatementKind::For(_) => self,
 
             StatementKind::Expression(expr) => {
                 match (&expr.kind, semi, last_statement_in_block) {
@@ -87,9 +113,7 @@ impl Statement {
                     (_, None, true) => StatementKind::Expression(expr),
                 }
             }
-        };
-
-        Statement { kind, span: self.span }
+        }
     }
 }
 
@@ -103,7 +127,13 @@ impl StatementKind {
     pub fn new_let(
         ((pattern, r#type), expression): ((Pattern, UnresolvedType), Expression),
     ) -> StatementKind {
-        StatementKind::Let(LetStatement { pattern, r#type, expression })
+        StatementKind::Let(LetStatement {
+            pattern,
+            r#type,
+            expression,
+            comptime: false,
+            attributes: vec![],
+        })
     }
 
     /// Create a Statement::Assign value, desugaring any combined operators like += if needed.
@@ -116,10 +146,10 @@ impl StatementKind {
         // Desugar `a <op>= b` to `a = a <op> b`. This relies on the evaluation of `a` having no side effects,
         // which is currently enforced by the restricted syntax of LValues.
         if operator != Token::Assign {
-            let lvalue_expr = lvalue.as_expression(span);
+            let lvalue_expr = lvalue.as_expression();
             let error_msg = "Token passed to Statement::assign is not a binary operator";
 
-            let infix = crate::InfixExpression {
+            let infix = crate::ast::InfixExpression {
                 lhs: lvalue_expr,
                 operator: operator.try_into_binary_op(span).expect(error_msg),
                 rhs: expression,
@@ -401,14 +431,10 @@ pub struct LetStatement {
     pub pattern: Pattern,
     pub r#type: UnresolvedType,
     pub expression: Expression,
-}
+    pub attributes: Vec<SecondaryAttribute>,
 
-impl LetStatement {
-    pub fn new_let(
-        ((pattern, r#type), expression): ((Pattern, UnresolvedType), Expression),
-    ) -> LetStatement {
-        LetStatement { pattern, r#type, expression }
-    }
+    // True if this should only be run during compile-time
+    pub comptime: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -421,9 +447,9 @@ pub struct AssignStatement {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum LValue {
     Ident(Ident),
-    MemberAccess { object: Box<LValue>, field_name: Ident },
-    Index { array: Box<LValue>, index: Expression },
-    Dereference(Box<LValue>),
+    MemberAccess { object: Box<LValue>, field_name: Ident, span: Span },
+    Index { array: Box<LValue>, index: Expression, span: Span },
+    Dereference(Box<LValue>, Span),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -480,27 +506,39 @@ impl Recoverable for Pattern {
 }
 
 impl LValue {
-    fn as_expression(&self, span: Span) -> Expression {
+    fn as_expression(&self) -> Expression {
         let kind = match self {
             LValue::Ident(ident) => ExpressionKind::Variable(Path::from_ident(ident.clone())),
-            LValue::MemberAccess { object, field_name } => {
+            LValue::MemberAccess { object, field_name, span: _ } => {
                 ExpressionKind::MemberAccess(Box::new(MemberAccessExpression {
-                    lhs: object.as_expression(span),
+                    lhs: object.as_expression(),
                     rhs: field_name.clone(),
                 }))
             }
-            LValue::Index { array, index } => ExpressionKind::Index(Box::new(IndexExpression {
-                collection: array.as_expression(span),
-                index: index.clone(),
-            })),
-            LValue::Dereference(lvalue) => {
-                ExpressionKind::Prefix(Box::new(crate::PrefixExpression {
-                    operator: crate::UnaryOp::Dereference { implicitly_added: false },
-                    rhs: lvalue.as_expression(span),
+            LValue::Index { array, index, span: _ } => {
+                ExpressionKind::Index(Box::new(IndexExpression {
+                    collection: array.as_expression(),
+                    index: index.clone(),
+                }))
+            }
+            LValue::Dereference(lvalue, _span) => {
+                ExpressionKind::Prefix(Box::new(crate::ast::PrefixExpression {
+                    operator: crate::ast::UnaryOp::Dereference { implicitly_added: false },
+                    rhs: lvalue.as_expression(),
                 }))
             }
         };
+        let span = self.span();
         Expression::new(kind, span)
+    }
+
+    pub fn span(&self) -> Span {
+        match self {
+            LValue::Ident(ident) => ident.span(),
+            LValue::MemberAccess { span, .. }
+            | LValue::Index { span, .. }
+            | LValue::Dereference(_, span) => *span,
+        }
     }
 }
 
@@ -552,6 +590,8 @@ impl ForRange {
                         pattern: Pattern::Identifier(array_ident.clone()),
                         r#type: UnresolvedType::unspecified(),
                         expression: array,
+                        comptime: false,
+                        attributes: vec![],
                     }),
                     span: array_span,
                 };
@@ -594,15 +634,19 @@ impl ForRange {
                         pattern: Pattern::Identifier(identifier),
                         r#type: UnresolvedType::unspecified(),
                         expression: Expression::new(loop_element, array_span),
+                        comptime: false,
+                        attributes: vec![],
                     }),
                     span: array_span,
                 };
 
                 let block_span = block.span;
-                let new_block = BlockExpression(vec![
-                    let_elem,
-                    Statement { kind: StatementKind::Expression(block), span: block_span },
-                ]);
+                let new_block = BlockExpression {
+                    statements: vec![
+                        let_elem,
+                        Statement { kind: StatementKind::Expression(block), span: block_span },
+                    ],
+                };
                 let new_block = Expression::new(ExpressionKind::Block(new_block), block_span);
                 let for_loop = Statement {
                     kind: StatementKind::For(ForLoopStatement {
@@ -614,7 +658,9 @@ impl ForRange {
                     span: for_loop_span,
                 };
 
-                let block = ExpressionKind::Block(BlockExpression(vec![let_array, for_loop]));
+                let block = ExpressionKind::Block(BlockExpression {
+                    statements: vec![let_array, for_loop],
+                });
                 StatementKind::Expression(Expression::new(block, for_loop_span))
             }
         }
@@ -637,6 +683,9 @@ impl Display for StatementKind {
             StatementKind::Expression(expression) => expression.fmt(f),
             StatementKind::Assign(assign) => assign.fmt(f),
             StatementKind::For(for_loop) => for_loop.fmt(f),
+            StatementKind::Break => write!(f, "break"),
+            StatementKind::Continue => write!(f, "continue"),
+            StatementKind::Comptime(statement) => write!(f, "comptime {statement}"),
             StatementKind::Semi(semi) => write!(f, "{semi};"),
             StatementKind::Error => write!(f, "Error"),
         }
@@ -665,9 +714,11 @@ impl Display for LValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LValue::Ident(ident) => ident.fmt(f),
-            LValue::MemberAccess { object, field_name } => write!(f, "{object}.{field_name}"),
-            LValue::Index { array, index } => write!(f, "{array}[{index}]"),
-            LValue::Dereference(lvalue) => write!(f, "*{lvalue}"),
+            LValue::MemberAccess { object, field_name, span: _ } => {
+                write!(f, "{object}.{field_name}")
+            }
+            LValue::Index { array, index, span: _ } => write!(f, "{array}[{index}]"),
+            LValue::Dereference(lvalue, _span) => write!(f, "*{lvalue}"),
         }
     }
 }

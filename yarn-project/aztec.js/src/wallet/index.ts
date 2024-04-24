@@ -1,7 +1,7 @@
-import { PXE } from '@aztec/circuit-types';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type PXE } from '@aztec/circuit-types';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
-import { AccountContract } from '../account/contract.js';
+import { type AccountContract } from '../account/contract.js';
 import { AccountWallet } from './account_wallet.js';
 
 export * from '../account/wallet.js';
@@ -25,7 +25,11 @@ export async function getWallet(
   if (!completeAddress) {
     throw new Error(`Account ${address} not found`);
   }
+  const publicKeysHash = await pxe.getRegisteredAccountPublicKeysHash(address);
+  if (!publicKeysHash) {
+    throw new Error(`Public keys hash for account ${address} not found`);
+  }
   const nodeInfo = await pxe.getNodeInfo();
-  const entrypoint = accountContract.getInterface(completeAddress, nodeInfo);
+  const entrypoint = accountContract.getInterface(completeAddress, publicKeysHash, nodeInfo);
   return new AccountWallet(pxe, entrypoint);
 }

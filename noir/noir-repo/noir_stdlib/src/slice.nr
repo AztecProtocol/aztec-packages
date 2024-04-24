@@ -1,4 +1,7 @@
 impl<T> [T] {
+    #[builtin(array_len)]
+    pub fn len(self) -> u64 {}
+
     /// Push a new element to the end of the slice, returning a
     /// new slice with a length one greater than the
     /// original unmodified slice.
@@ -39,5 +42,15 @@ impl<T> [T] {
             self = self.push_back(elem);
         }
         self
+    }
+
+    pub fn as_array<N>(self) -> [T; N] {
+        assert(self.len() == N);
+
+        let mut array = [crate::unsafe::zeroed(); N];
+        for i in 0..N {
+            array[i] = self[i];
+        }
+        array
     }
 }

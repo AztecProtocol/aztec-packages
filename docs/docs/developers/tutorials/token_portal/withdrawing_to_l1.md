@@ -18,7 +18,8 @@ The `exit_to_l1_public` function enables anyone to withdraw their L2 tokens back
 
 1. Like with our deposit function, we need to create the L2 to L1 message. The content is the _amount_ to burn, the recipient address, and who can execute the withdraw on the L1 portal on behalf of the user. It can be `0x0` for anyone, or a specified address.
 2. `context.message_portal()` passes this content to the [kernel circuit](../../../learn/concepts/circuits/kernels/public_kernel.md) which creates the proof for the transaction. The kernel circuit then adds the sender (the L2 address of the bridge + version of aztec) and the recipient (the portal to the L2 address + the chain ID of L1) under the hood, to create the message which gets added as part of the transaction data published by the sequencer and is stored in the outbox for consumption.
-3. Finally, you also burn the tokens on L2! Note that it burning is done at the end to follow the check effects interaction pattern. Note that the caller has to first approve the bridge contract to burn tokens on its behalf. Refer to [burn_public function on the token contract](../writing_token_contract.md#burn_public). The nonce parameter refers to the approval message that the user creates - also refer to [authorizing token spends here](../writing_token_contract.md#authorizing-token-spends).
+3. The `context.message_portal()` takes the recipient and content as input, and will insert a message into the outbox. We set the recipient to be the portal address read from storage of the contract.
+4. Finally, you also burn the tokens on L2! Note that it burning is done at the end to follow the check effects interaction pattern. Note that the caller has to first approve the bridge contract to burn tokens on its behalf. Refer to [burn_public function on the token contract](../writing_token_contract.md#burn_public). The nonce parameter refers to the approval message that the user creates - also refer to [authorizing token spends here](../writing_token_contract.md#authorizing-token-spends).
    - We burn the tokens from the `msg_sender()`. Otherwise, a malicious user could burn someone else’s tokens and mint tokens on L1 to themselves. One could add another approval flow on the bridge but that might make it complex for other applications to call the bridge.
 
 ## Withdrawing Privately
@@ -48,7 +49,7 @@ Paste this in your `TokenPortal.sol`:
 }
 ```
 
-Here we reconstruct the L2 to L1 message and check that this message exists on the outbox. If so, we consume it and transfer the funds to the recipient. As part of the reconstruction, the content hash looks similar to what we did in our bridge contract on aztec where we pass the amount and recipient to the the hash. This way a malicious actor can’t change the recipient parameter to the address and withdraw funds to themselves.
+Here we reconstruct the L2 to L1 message and check that this message exists on the outbox. If so, we consume it and transfer the funds to the recipient. As part of the reconstruction, the content hash looks similar to what we did in our bridge contract on aztec where we pass the amount and recipient to the hash. This way a malicious actor can’t change the recipient parameter to the address and withdraw funds to themselves.
 
 We also use a `_withCaller` parameter to determine the appropriate party that can execute this function on behalf of the recipient. If `withCaller` is false, then anyone can call the method and hence we use address(0), otherwise only msg.sender should be able to execute. This address should match the `callerOnL1` address we passed in aztec when withdrawing from L2.
 
@@ -58,7 +59,7 @@ Before we can compile and use the contract, we need to add two additional functi
 
 We need a function that lets us read the token value. Paste this into `main.nr`:
 
-#include_code read_token /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code get_token /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
 
 ## Compile code
 
@@ -81,7 +82,7 @@ aztec-nargo compile
 And generate the TypeScript interface for the contract and add it to the test dir:
 
 ```bash
-aztec-cli codegen target -o ../../src/test/fixtures --ts
+aztec-cli codegen target -o ../../src/test/fixtures
 ```
 
 This will create a TS interface in our `src/test` folder!

@@ -73,7 +73,6 @@ example:
 
 <BlackBoxInfo />
 
-
 ## pedersen_commitment
 
 Given an array of Fields, returns the Pedersen commitment.
@@ -88,9 +87,9 @@ example:
 
 ## keccak256
 
-Given an array of bytes (`u8`), returns the resulting keccak hash as an array of 32 bytes
-(`[u8; 32]`). Specify a message_size to hash only the first `message_size` bytes
-of the input.
+Given an array of bytes (`u8`), returns the resulting keccak hash as an array of
+32 bytes (`[u8; 32]`). Specify a message_size to hash only the first
+`message_size` bytes of the input.
 
 #include_code keccak256 noir_stdlib/src/hash.nr rust
 
@@ -156,7 +155,7 @@ fn main() {
 ## hash_to_field
 
 ```rust
-fn hash_to_field<N>(_input : [Field; N]) -> Field {}
+fn hash_to_field(_input : [Field]) -> Field {}
 ```
 
 Calculates the `blake2s` hash of the inputs and returns the hash modulo the field modulus to return

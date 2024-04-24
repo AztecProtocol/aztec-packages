@@ -3,9 +3,10 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHe
 use dep::aztec::{
     protocol_types::{
     traits::{ToField, Serialize, FromField},
-    constants::{MAX_NOTES_PER_PAGE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
 },
-    context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet
+    context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
+    note::constants::MAX_NOTES_PER_PAGE,
 };
 use dep::std;
 use dep::std::{option::Option};
@@ -104,7 +105,7 @@ impl Deck {
     pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let _context = self.set.context.private.unwrap();
 
-        let mut inserted_cards = [];
+        let mut inserted_cards = &[];
         for card in cards {
             let mut card_note = CardNote::from_card(card, owner);
             self.set.insert(&mut card_note.note, true);
@@ -151,8 +152,8 @@ impl Deck {
     }
 
     unconstrained pub fn view_cards(self, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
-        let options = NoteViewerOptions::new().set_offset(offset);
-        let opt_notes = self.set.view_notes(options);
+        let mut options = NoteViewerOptions::new();
+        let opt_notes = self.set.view_notes(options.set_offset(offset));
         let mut opt_cards = [Option::none(); MAX_NOTES_PER_PAGE];
 
         for i in 0..opt_notes.len() {
@@ -171,9 +172,10 @@ pub fn get_pack_cards(
     context: &mut PrivateContext
 ) -> [Card; PACK_CARDS] {
     // generate pseudo randomness deterministically from 'seed' and user secret
-    let secret = context.request_nullifier_secret_key(owner);
-    let mix = secret.high + secret.low + seed;
-    let random_bytes = std::hash::sha256(mix.to_le_bytes(32));
+    let secret = context.request_app_nullifier_secret_key(owner);
+    let mix = secret + seed;
+    let mix_bytes: [u8; 32] = mix.to_le_bytes(32).as_array();
+    let random_bytes = std::hash::sha256(mix_bytes);
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards

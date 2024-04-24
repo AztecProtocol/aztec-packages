@@ -1,16 +1,14 @@
 import { MerkleTreeId, UnencryptedL2Log } from '@aztec/circuit-types';
-import { RETURN_VALUES_LENGTH } from '@aztec/circuits.js';
+import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from '@aztec/circuits.js';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { ACVMField } from '../acvm_types.js';
+import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
 import { toACVMField, toAcvmEnqueuePublicFunctionResult } from '../serialize.js';
-import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
-import { TypedOracle } from './typed_oracle.js';
+import { type TypedOracle } from './typed_oracle.js';
 
 /**
  * A data source that has all the apis required by Aztec.nr.
@@ -23,18 +21,35 @@ export class Oracle {
     return toACVMField(val);
   }
 
-  async packArguments(args: ACVMField[]): Promise<ACVMField> {
-    const packed = await this.typedOracle.packArguments(args.map(fromACVMField));
+  async packArgumentsArray(args: ACVMField[]): Promise<ACVMField> {
+    const packed = await this.typedOracle.packArgumentsArray(args.map(fromACVMField));
     return toACVMField(packed);
   }
 
-  async getNullifierKeyPair([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
-    const { publicKey, secretKey } = await this.typedOracle.getNullifierKeyPair(fromACVMField(accountAddress));
+  async packArguments(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
+    const packed = await this.typedOracle.packArgumentsArray(values.map(fromACVMField));
+    return toACVMField(packed);
+  }
+
+  // Since the argument is a slice, noir automatically adds a length field to oracle call.
+  async packReturns(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField> {
+    const packed = await this.typedOracle.packReturns(values.map(fromACVMField));
+    return toACVMField(packed);
+  }
+
+  async unpackReturns([returnsHash]: ACVMField[]): Promise<ACVMField[]> {
+    const unpacked = await this.typedOracle.unpackReturns(fromACVMField(returnsHash));
+    return unpacked.map(toACVMField);
+  }
+
+  async getNullifierKeys([accountAddress]: ACVMField[]): Promise<ACVMField[]> {
+    const { masterNullifierPublicKey, appNullifierSecretKey } = await this.typedOracle.getNullifierKeys(
+      fromACVMField(accountAddress),
+    );
     return [
-      toACVMField(publicKey.x),
-      toACVMField(publicKey.y),
-      toACVMField(secretKey.high),
-      toACVMField(secretKey.low),
+      toACVMField(masterNullifierPublicKey.x),
+      toACVMField(masterNullifierPublicKey.y),
+      toACVMField(appNullifierSecretKey),
     ];
   }
 
@@ -53,7 +68,6 @@ export class Oracle {
       instance.deployer,
       instance.contractClassId,
       instance.initializationHash,
-      instance.portalContractAddress,
       instance.publicKeysHash,
     ].map(toACVMField);
   }
@@ -244,15 +258,17 @@ export class Oracle {
     return toACVMField(exists);
   }
 
-  async getL1ToL2MembershipWitness([messageHash]: ACVMField[]): Promise<ACVMField[]> {
-    const message = await this.typedOracle.getL1ToL2MembershipWitness(fromACVMField(messageHash));
+  async getL1ToL2MembershipWitness(
+    [contractAddress]: ACVMField[],
+    [messageHash]: ACVMField[],
+    [secret]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const message = await this.typedOracle.getL1ToL2MembershipWitness(
+      AztecAddress.fromString(contractAddress),
+      fromACVMField(messageHash),
+      fromACVMField(secret),
+    );
     return message.toFields().map(toACVMField);
-  }
-
-  async getPortalContractAddress([aztecAddress]: ACVMField[]): Promise<ACVMField> {
-    const contractAddress = AztecAddress.fromString(aztecAddress);
-    const portalContactAddress = await this.typedOracle.getPortalContractAddress(contractAddress);
-    return toACVMField(portalContactAddress);
   }
 
   async storageRead([startStorageSlot]: ACVMField[], [numberOfElements]: ACVMField[]): Promise<ACVMField[]> {
@@ -274,14 +290,14 @@ export class Oracle {
     log: ACVMField[],
   ): ACVMField {
     const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
-    this.typedOracle.emitEncryptedLog(
+    const logHash = this.typedOracle.emitEncryptedLog(
       AztecAddress.fromString(contractAddress),
       Fr.fromString(storageSlot),
       Fr.fromString(noteTypeId),
       publicKey,
       log.map(fromACVMField),
     );
-    return toACVMField(0);
+    return toACVMField(logHash);
   }
 
   emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
@@ -292,17 +308,17 @@ export class Oracle {
       logPayload,
     );
 
-    this.typedOracle.emitUnencryptedLog(log);
-    return toACVMField(0);
+    const logHash = this.typedOracle.emitUnencryptedLog(log);
+    return toACVMField(logHash);
   }
 
   debugLog(...args: ACVMField[][]): ACVMField {
-    this.log(oracleDebugCallToFormattedStr(args));
+    this.log.verbose(oracleDebugCallToFormattedStr(args));
     return toACVMField(0);
   }
 
   debugLogWithPrefix(arg0: ACVMField[], ...args: ACVMField[][]): ACVMField {
-    this.log(`${acvmFieldMessageToString(arg0)}: ${oracleDebugCallToFormattedStr(args)}`);
+    this.log.verbose(`${acvmFieldMessageToString(arg0)}: ${oracleDebugCallToFormattedStr(args)}`);
     return toACVMField(0);
   }
 
@@ -341,7 +357,7 @@ export class Oracle {
       frToBoolean(fromACVMField(isStaticCall)),
       frToBoolean(fromACVMField(isDelegateCall)),
     );
-    return padArrayEnd(returnValues, Fr.ZERO, RETURN_VALUES_LENGTH).map(toACVMField);
+    return returnValues.map(toACVMField);
   }
 
   async enqueuePublicFunctionCall(

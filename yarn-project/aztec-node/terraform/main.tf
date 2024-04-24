@@ -237,6 +237,14 @@ resource "aws_ecs_task_definition" "aztec-node" {
         "value": "${data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address}"
       },
       {
+        "name": "GAS_TOKEN_CONTRACT_ADDRESS",
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.gas_token_contract_address}"
+      },
+      {
+        "name": "GAS_PORTAL_CONTRACT_ADDRESS",
+        "value": "${data.terraform_remote_state.l1_contracts.outputs.gas_portal_contract_address}"
+      },
+      {
         "name": "API_KEY",
         "value": "${var.API_KEY}"
       },
@@ -283,7 +291,15 @@ resource "aws_ecs_task_definition" "aztec-node" {
       {
         "name": "P2P_MAX_PEERS",
         "value": "${var.P2P_MAX_PEERS}"
-      }
+      },
+      {
+        "name": "P2P_BLOCK_CHECK_INTERVAL_MS",
+        "value": "1000"
+      },
+      {
+        "name": "P2P_PEER_CHECK_INTERVAL_MS",
+        "value": "2000"
+      },
     ],
     "mountPoints": [
       {

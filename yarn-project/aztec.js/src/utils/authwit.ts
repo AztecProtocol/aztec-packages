@@ -1,5 +1,5 @@
-import { FunctionCall, PackedArguments } from '@aztec/circuit-types';
-import { AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
+import { type FunctionCall, PackedValues } from '@aztec/circuit-types';
+import { type AztecAddress, type Fr, GeneratorIndex } from '@aztec/circuits.js';
 import { pedersenHash } from '@aztec/foundation/crypto';
 
 // docs:start:authwit_computeAuthWitMessageHash
@@ -25,7 +25,7 @@ export const computeAuthWitMessageHash = (caller: AztecAddress, chainId: Fr, ver
     computeInnerAuthWitHash([
       caller.toField(),
       action.functionData.selector.toField(),
-      PackedArguments.fromArgs(action.args).hash,
+      PackedValues.fromValues(action.args).hash,
     ]),
   );
 };
@@ -40,10 +40,7 @@ export const computeAuthWitMessageHash = (caller: AztecAddress, chainId: Fr, ver
  * @returns The inner hash for the witness
  */
 export const computeInnerAuthWitHash = (args: Fr[]) => {
-  return pedersenHash(
-    args.map(fr => fr.toBuffer()),
-    GeneratorIndex.AUTHWIT_INNER,
-  );
+  return pedersenHash(args, GeneratorIndex.AUTHWIT_INNER);
 };
 
 /**
@@ -61,8 +58,5 @@ export const computeInnerAuthWitHash = (args: Fr[]) => {
  * @returns The outer hash for the witness
  */
 export const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
-  return pedersenHash(
-    [consumer.toField(), chainId, version, innerHash].map(fr => fr.toBuffer()),
-    GeneratorIndex.AUTHWIT_OUTER,
-  );
+  return pedersenHash([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
 };

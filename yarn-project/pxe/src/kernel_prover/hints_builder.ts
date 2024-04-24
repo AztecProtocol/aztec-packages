@@ -1,24 +1,24 @@
 import {
   Fr,
   GrumpkinScalar,
-  MAX_NEW_NOTE_HASHES_PER_TX,
+  type MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX,
-  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  type MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MembershipWitness,
   NULLIFIER_TREE_HEIGHT,
-  NullifierKeyValidationRequestContext,
-  ReadRequestContext,
-  SideEffect,
-  SideEffectLinkedToNoteHash,
-  SideEffectType,
+  type NullifierKeyValidationRequestContext,
+  type ReadRequestContext,
+  type SideEffect,
+  type SideEffectLinkedToNoteHash,
+  type SideEffectType,
   buildNullifierReadRequestHints,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
-import { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 
-import { ProvingDataOracle } from './proving_data_oracle.js';
+import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 export class HintsBuilder {
   constructor(private oracle: ProvingDataOracle) {}
@@ -84,7 +84,7 @@ export class HintsBuilder {
   async getNullifierMembershipWitness(nullifier: Fr) {
     const res = await this.oracle.getNullifierMembershipWitness(nullifier);
     if (!res) {
-      return;
+      throw new Error(`Cannot find the leaf for nullifier ${nullifier.toBigInt()}.`);
     }
 
     const { index, siblingPath, leafPreimage } = res;
@@ -148,7 +148,7 @@ export class HintsBuilder {
       if (request.isEmpty()) {
         break;
       }
-      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.publicKey);
+      keys[i] = await this.oracle.getMasterNullifierSecretKey(request.masterNullifierPublicKey);
     }
     return keys;
   }

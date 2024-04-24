@@ -3,6 +3,7 @@
 #include <stack>
 
 #include "avm_alu_trace.hpp"
+#include "avm_binary_trace.hpp"
 #include "avm_common.hpp"
 #include "avm_instructions.hpp"
 #include "avm_mem_trace.hpp"
@@ -37,8 +38,8 @@ class AvmTraceBuilder {
     // Multiplication with direct or indirect memory access.
     void op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Division with direct or indirect memory access.
-    void op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Finite field division with direct or indirect memory access.
+    void op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
 
     // Bitwise not with direct or indirect memory access.
     void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
@@ -46,11 +47,40 @@ class AvmTraceBuilder {
     // Equality with direct or indirect memory access.
     void op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
-    // Set a constant from bytecode with direct memory access.
-    void set(uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
+    // Bitwise and with direct or indirect memory access.
+    void op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Bitwise or with direct or indirect memory access.
+    void op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Bitwise xor with direct or indirect memory access.
+    void op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Less Than with direct or indirect memory access.
+    void op_lt(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Less Than or Equal to with direct or indirect memory access.
+    void op_lte(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Shift Right with direct or indirect memory access.
+    void op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Shift Left with direct or indirect memory access.
+    void op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+
+    // Set a constant from bytecode with direct or indirect memory access.
+    void op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Move (copy) the value and tag of a memory cell to another one.
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
+
+    // Move (copy) the value and tag of a memory cell to another one whereby the source
+    // is determined conditionally based on a conditional value determined by cond_offset.
+    void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
+
+    // Cast an element pointed by the address a_offset into type specified by dst_tag and
+    // store the result in address given by dst_offset.
+    void op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag);
 
     // Jump to a given program counter.
     void jump(uint32_t jmp_dest);
@@ -85,7 +115,7 @@ class AvmTraceBuilder {
         bool tag_match = false;
         uint32_t direct_a_offset;
         uint32_t direct_b_offset;
-        uint32_t direct_dst_offset;
+        uint32_t direct_c_offset;
 
         bool indirect_flag_a = false;
         bool indirect_flag_b = false;
@@ -95,11 +125,12 @@ class AvmTraceBuilder {
     std::vector<Row> main_trace;
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
+    AvmBinaryTraceBuilder bin_trace_builder;
 
     void finalise_mem_trace_lookup_counts();
 
     IndirectThreeResolution resolve_ind_three(
-        uint32_t clk, uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
+        uint32_t clk, uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t c_offset);
 
     uint32_t pc = 0;
     uint32_t internal_return_ptr = CALLSTACK_OFFSET;

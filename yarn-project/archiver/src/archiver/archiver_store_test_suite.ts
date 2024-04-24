@@ -1,12 +1,21 @@
-import { InboxLeaf, L2Block, L2BlockContext, LogId, LogType, TxHash, UnencryptedL2Log } from '@aztec/circuit-types';
+import { InboxLeaf, L2Block, LogId, LogType, TxHash } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
-import { makeContractClassPublic } from '@aztec/circuits.js/testing';
+import {
+  makeContractClassPublic,
+  makeExecutablePrivateFunctionWithMembershipProof,
+  makeUnconstrainedFunctionWithMembershipProof,
+} from '@aztec/circuits.js/testing';
+import { times } from '@aztec/foundation/collection';
 import { randomBytes, randomInt } from '@aztec/foundation/crypto';
-import { ContractClassPublic, ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
+import {
+  type ContractClassPublic,
+  type ContractInstanceWithAddress,
+  SerializableContractInstance,
+} from '@aztec/types/contracts';
 
-import { ArchiverDataStore } from './archiver_store.js';
-import { DataRetrieval } from './data_retrieval.js';
+import { type ArchiverDataStore } from './archiver_store.js';
+import { type DataRetrieval } from './data_retrieval.js';
 
 /**
  * @param testName - The name of the test suite.
@@ -154,11 +163,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it.each([
-        () => blocks.retrievedData[0].getTx(0),
-        () => blocks.retrievedData[9].getTx(3),
-        () => blocks.retrievedData[3].getTx(1),
-        () => blocks.retrievedData[5].getTx(2),
-        () => blocks.retrievedData[1].getTx(0),
+        () => blocks.retrievedData[0].body.txEffects[0],
+        () => blocks.retrievedData[9].body.txEffects[3],
+        () => blocks.retrievedData[3].body.txEffects[1],
+        () => blocks.retrievedData[5].body.txEffects[2],
+        () => blocks.retrievedData[1].body.txEffects[0],
       ])('retrieves a previously stored transaction', async getExpectedTx => {
         const expectedTx = getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.txHash);
@@ -206,6 +215,20 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: msgs });
         }).rejects.toThrow(`Message index ${l1ToL2MessageSubtreeSize} out of subtree range`);
       });
+
+      it('correctly handles duplicate messages', async () => {
+        const messageHash = Fr.random();
+
+        const msgs = [new InboxLeaf(1n, 0n, messageHash), new InboxLeaf(2n, 0n, messageHash)];
+
+        await store.addL1ToL2Messages({ lastProcessedL1BlockNumber: 100n, retrievedData: msgs });
+
+        const index1 = (await store.getL1ToL2MessageIndex(messageHash, 0n))!;
+        const index2 = await store.getL1ToL2MessageIndex(messageHash, index1 + 1n);
+
+        expect(index2).toBeDefined();
+        expect(index2).toBeGreaterThan(index1);
+      });
     });
 
     describe('contractInstances', () => {
@@ -242,12 +265,42 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('returns undefined if contract class is not found', async () => {
         await expect(store.getContractClass(Fr.random())).resolves.toBeUndefined();
       });
+
+      it('adds new private functions', async () => {
+        const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
+        await store.addFunctions(contractClass.id, fns, []);
+        const stored = await store.getContractClass(contractClass.id);
+        expect(stored?.privateFunctions).toEqual(fns);
+      });
+
+      it('does not duplicate private functions', async () => {
+        const fns = times(3, makeExecutablePrivateFunctionWithMembershipProof);
+        await store.addFunctions(contractClass.id, fns.slice(0, 1), []);
+        await store.addFunctions(contractClass.id, fns, []);
+        const stored = await store.getContractClass(contractClass.id);
+        expect(stored?.privateFunctions).toEqual(fns);
+      });
+
+      it('adds new unconstrained functions', async () => {
+        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+        await store.addFunctions(contractClass.id, [], fns);
+        const stored = await store.getContractClass(contractClass.id);
+        expect(stored?.unconstrainedFunctions).toEqual(fns);
+      });
+
+      it('does not duplicate unconstrained functions', async () => {
+        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+        await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
+        await store.addFunctions(contractClass.id, [], fns);
+        const stored = await store.getContractClass(contractClass.id);
+        expect(stored?.unconstrainedFunctions).toEqual(fns);
+      });
     });
 
     describe('getUnencryptedLogs', () => {
       const txsPerBlock = 4;
       const numPublicFunctionCalls = 3;
-      const numUnencryptedLogs = 4;
+      const numUnencryptedLogs = 2;
       const numBlocks = 10;
       let blocks: DataRetrieval<L2Block>;
 
@@ -275,7 +328,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         // get random tx
         const targetBlockIndex = randomInt(numBlocks);
         const targetTxIndex = randomInt(txsPerBlock);
-        const targetTxHash = new L2BlockContext(blocks.retrievedData[targetBlockIndex]).getTxHash(targetTxIndex);
+        const targetTxHash = blocks.retrievedData[targetBlockIndex].body.txEffects[targetTxIndex].txHash;
 
         const response = await store.getUnencryptedLogs({ txHash: targetTxHash });
         const logs = response.logs;
@@ -318,11 +371,10 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetTxIndex = randomInt(txsPerBlock);
         const targetFunctionLogIndex = randomInt(numPublicFunctionCalls);
         const targetLogIndex = randomInt(numUnencryptedLogs);
-        const targetContractAddress = UnencryptedL2Log.fromBuffer(
+        const targetContractAddress =
           blocks.retrievedData[targetBlockIndex].body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[
             targetFunctionLogIndex
-          ].logs[targetLogIndex],
-        ).contractAddress;
+          ].logs[targetLogIndex].contractAddress;
 
         const response = await store.getUnencryptedLogs({ contractAddress: targetContractAddress });
 
@@ -339,11 +391,10 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const targetTxIndex = randomInt(txsPerBlock);
         const targetFunctionLogIndex = randomInt(numPublicFunctionCalls);
         const targetLogIndex = randomInt(numUnencryptedLogs);
-        const targetSelector = UnencryptedL2Log.fromBuffer(
+        const targetSelector =
           blocks.retrievedData[targetBlockIndex].body.txEffects[targetTxIndex].unencryptedLogs.functionLogs[
             targetFunctionLogIndex
-          ].logs[targetLogIndex],
-        ).selector;
+          ].logs[targetLogIndex].selector;
 
         const response = await store.getUnencryptedLogs({ selector: targetSelector });
 

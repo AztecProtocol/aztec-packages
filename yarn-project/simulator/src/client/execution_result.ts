@@ -1,9 +1,12 @@
-import { FunctionL2Logs, Note } from '@aztec/circuit-types';
-import { NoteHashReadRequestMembershipWitness, PrivateCallStackItem, PublicCallRequest } from '@aztec/circuits.js';
-import { DecodedReturn } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { type EncryptedFunctionL2Logs, type Note, type UnencryptedFunctionL2Logs } from '@aztec/circuit-types';
+import {
+  type NoteHashReadRequestMembershipWitness,
+  type PrivateCallStackItem,
+  type PublicCallRequest,
+} from '@aztec/circuits.js';
+import { type Fr } from '@aztec/foundation/fields';
 
-import { ACVMField } from '../acvm/index.js';
+import { type ACVMField } from '../acvm/index.js';
 
 /**
  * The contents of a new note.
@@ -36,22 +39,22 @@ export interface ExecutionResult {
   // Needed when we enable chained txs. The new notes can be cached and used in a later transaction.
   /** The notes created in the executed function. */
   newNotes: NoteAndSlot[];
-  /** The decoded return values of the executed function. */
-  returnValues: DecodedReturn;
+  /** The raw return values of the executed function. */
+  returnValues: Fr[];
   /** The nested executions. */
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
   enqueuedPublicFunctionCalls: PublicCallRequest[];
   /**
    * Encrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `encryptedLogsHash`.
+   * Note: These are preimages to `encryptedLogsHashes`.
    */
-  encryptedLogs: FunctionL2Logs;
+  encryptedLogs: EncryptedFunctionL2Logs;
   /**
    * Unencrypted logs emitted during execution of this function call.
-   * Note: These are preimages to `unencryptedLogsHash`.
+   * Note: These are preimages to `unencryptedLogsHashes`.
    */
-  unencryptedLogs: FunctionL2Logs;
+  unencryptedLogs: UnencryptedFunctionL2Logs;
 }
 
 /**
@@ -59,7 +62,7 @@ export interface ExecutionResult {
  * @param execResult - The topmost execution result.
  * @returns All encrypted logs.
  */
-export function collectEncryptedLogs(execResult: ExecutionResult): FunctionL2Logs[] {
+export function collectEncryptedLogs(execResult: ExecutionResult): EncryptedFunctionL2Logs[] {
   // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
   return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].reverse().flatMap(collectEncryptedLogs)];
 }
@@ -69,7 +72,7 @@ export function collectEncryptedLogs(execResult: ExecutionResult): FunctionL2Log
  * @param execResult - The topmost execution result.
  * @returns All unencrypted logs.
  */
-export function collectUnencryptedLogs(execResult: ExecutionResult): FunctionL2Logs[] {
+export function collectUnencryptedLogs(execResult: ExecutionResult): UnencryptedFunctionL2Logs[] {
   // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
   return [execResult.unencryptedLogs, ...[...execResult.nestedExecutions].reverse().flatMap(collectUnencryptedLogs)];
 }

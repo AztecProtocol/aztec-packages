@@ -33,20 +33,21 @@ use super::{
 };
 use super::{spanned, Item, ItemKind};
 use crate::ast::{
-    Expression, ExpressionKind, LetStatement, StatementKind, UnresolvedType, UnresolvedTypeData,
-};
-use crate::lexer::Lexer;
-use crate::parser::{force, ignore_then_commit, statement_recovery};
-use crate::token::{Keyword, Token, TokenKind};
-use crate::{
     BinaryOp, BinaryOpKind, BlockExpression, Distinctness, ForLoopStatement, ForRange,
     FunctionReturnType, Ident, IfExpression, InfixExpression, LValue, Literal, ModuleDeclaration,
     NoirTypeAlias, Param, Path, Pattern, Recoverable, Statement, TraitBound, TypeImpl,
     UnresolvedTraitConstraint, UnresolvedTypeExpression, UseTree, UseTreeKind, Visibility,
 };
+use crate::ast::{
+    Expression, ExpressionKind, LetStatement, StatementKind, UnresolvedType, UnresolvedTypeData,
+};
+use crate::lexer::{lexer::from_spanned_token_result, Lexer};
+use crate::parser::{force, ignore_then_commit, statement_recovery};
+use crate::token::{Keyword, Token, TokenKind};
 
 use chumsky::prelude::*;
 use iter_extended::vecmap;
+use lalrpop_util::lalrpop_mod;
 use noirc_errors::{Span, Spanned};
 
 mod assertion;
@@ -58,6 +59,9 @@ mod path;
 mod primitives;
 mod structs;
 mod traits;
+
+// synthesized by LALRPOP
+lalrpop_mod!(pub noir_parser);
 
 #[cfg(test)]
 mod test_helpers;
@@ -77,8 +81,79 @@ pub fn parse_program(source_program: &str) -> (ParsedModule, Vec<ParserError>) {
     let (module, mut parsing_errors) = program().parse_recovery_verbose(tokens);
 
     parsing_errors.extend(lexing_errors.into_iter().map(Into::into));
+    let parsed_module = module.unwrap_or(ParsedModule { items: vec![] });
 
-    (module.unwrap_or(ParsedModule { items: vec![] }), parsing_errors)
+    if cfg!(feature = "experimental_parser") {
+        for parsed_item in &parsed_module.items {
+            if lalrpop_parser_supports_kind(&parsed_item.kind) {
+                match &parsed_item.kind {
+                    ItemKind::Import(parsed_use_tree) => {
+                        prototype_parse_use_tree(Some(parsed_use_tree), source_program);
+                    }
+                    // other kinds prevented by lalrpop_parser_supports_kind
+                    _ => unreachable!(),
+                }
+            }
+        }
+    }
+    (parsed_module, parsing_errors)
+}
+
+fn prototype_parse_use_tree(expected_use_tree_opt: Option<&UseTree>, input: &str) {
+    // TODO(https://github.com/noir-lang/noir/issues/4777): currently skipping
+    // recursive use trees, e.g. "use std::{foo, bar}"
+    if input.contains('{') {
+        return;
+    }
+
+    let mut lexer = Lexer::new(input);
+    lexer = lexer.skip_whitespaces(false);
+    let mut errors = Vec::new();
+
+    // NOTE: this is a hack to get the references working
+    // => this likely means that we'll want to propagate the <'input> lifetime further into Token
+    let lexer_result = lexer.collect::<Vec<_>>();
+    let referenced_lexer_result = lexer_result.iter().map(from_spanned_token_result);
+
+    let calculated = noir_parser::TopLevelStatementParser::new().parse(
+        input,
+        &mut errors,
+        referenced_lexer_result,
+    );
+
+    if let Some(expected_use_tree) = expected_use_tree_opt {
+        assert!(
+            calculated.is_ok(),
+            "calculated not Ok(_): {:?}\n\nlexer: {:?}\n\ninput: {:?}",
+            calculated,
+            lexer_result,
+            input
+        );
+
+        match calculated.unwrap() {
+            TopLevelStatement::Import(parsed_use_tree) => {
+                assert_eq!(expected_use_tree, &parsed_use_tree);
+            }
+            unexpected_calculated => {
+                panic!(
+                    "expected a TopLevelStatement::Import, but found: {:?}",
+                    unexpected_calculated
+                )
+            }
+        }
+    } else {
+        assert!(
+            calculated.is_err(),
+            "calculated not Err(_): {:?}\n\nlexer: {:?}\n\ninput: {:?}",
+            calculated,
+            lexer_result,
+            input
+        );
+    }
+}
+
+fn lalrpop_parser_supports_kind(kind: &ItemKind) -> bool {
+    matches!(kind, ItemKind::Import(_))
 }
 
 /// program: module EOF
@@ -158,14 +233,19 @@ fn implementation() -> impl NoirParser<TopLevelStatement> {
 
 /// global_declaration: 'global' ident global_type_annotation '=' literal
 fn global_declaration() -> impl NoirParser<TopLevelStatement> {
-    let p = ignore_then_commit(
-        keyword(Keyword::Global).labelled(ParsingRuleLabel::Global),
-        ident().map(Pattern::Identifier),
-    );
+    let p = attributes::attributes()
+        .then(maybe_comp_time())
+        .then_ignore(keyword(Keyword::Global).labelled(ParsingRuleLabel::Global))
+        .then(ident().map(Pattern::Identifier));
+
     let p = then_commit(p, optional_type_annotation());
     let p = then_commit_ignore(p, just(Token::Assign));
     let p = then_commit(p, expression());
-    p.map(LetStatement::new_let).map(TopLevelStatement::Global)
+    p.validate(|((((attributes, comptime), pattern), r#type), expression), span, emit| {
+        let global_attributes = attributes::validate_secondary_attributes(attributes, span, emit);
+        LetStatement { pattern, r#type, comptime, expression, attributes: global_attributes }
+    })
+    .map(TopLevelStatement::Global)
 }
 
 /// submodule: 'mod' ident '{' module '}'
@@ -347,7 +427,7 @@ fn block<'a>(
             [(LeftParen, RightParen), (LeftBracket, RightBracket)],
             |span| vec![Statement { kind: StatementKind::Error, span }],
         ))
-        .map(BlockExpression)
+        .map(|statements| BlockExpression { statements })
 }
 
 fn check_statements_require_semicolon(
@@ -420,8 +500,11 @@ where
             assertion::assertion_eq(expr_parser.clone()),
             declaration(expr_parser.clone()),
             assignment(expr_parser.clone()),
-            for_loop(expr_no_constructors, statement),
+            for_loop(expr_no_constructors.clone(), statement.clone()),
+            break_statement(),
+            continue_statement(),
             return_statement(expr_parser.clone()),
+            comptime_statement(expr_parser.clone(), expr_no_constructors, statement),
             expr_parser.map(StatementKind::Expression),
         ))
     })
@@ -429,6 +512,43 @@ where
 
 fn fresh_statement() -> impl NoirParser<StatementKind> {
     statement(expression(), expression_no_constructors(expression()))
+}
+
+fn break_statement() -> impl NoirParser<StatementKind> {
+    keyword(Keyword::Break).to(StatementKind::Break)
+}
+
+fn continue_statement() -> impl NoirParser<StatementKind> {
+    keyword(Keyword::Continue).to(StatementKind::Continue)
+}
+
+fn comptime_statement<'a, P1, P2, S>(
+    expr: P1,
+    expr_no_constructors: P2,
+    statement: S,
+) -> impl NoirParser<StatementKind> + 'a
+where
+    P1: ExprParser + 'a,
+    P2: ExprParser + 'a,
+    S: NoirParser<StatementKind> + 'a,
+{
+    keyword(Keyword::Comptime)
+        .ignore_then(choice((
+            declaration(expr),
+            for_loop(expr_no_constructors, statement.clone()),
+            block(statement).map_with_span(|block, span| {
+                StatementKind::Expression(Expression::new(ExpressionKind::Block(block), span))
+            }),
+        )))
+        .map(|statement| StatementKind::Comptime(Box::new(statement)))
+}
+
+/// Comptime in an expression position only accepts entire blocks
+fn comptime_expr<'a, S>(statement: S) -> impl NoirParser<ExpressionKind> + 'a
+where
+    S: NoirParser<StatementKind> + 'a,
+{
+    keyword(Keyword::Comptime).ignore_then(block(statement)).map(ExpressionKind::Comptime)
 }
 
 fn declaration<'a, P>(expr_parser: P) -> impl NoirParser<StatementKind> + 'a
@@ -516,8 +636,8 @@ fn assign_operator() -> impl NoirParser<Token> {
 }
 
 enum LValueRhs {
-    MemberAccess(Ident),
-    Index(Expression),
+    MemberAccess(Ident, Span),
+    Index(Expression, Span),
 }
 
 fn lvalue<'a, P>(expr_parser: P) -> impl NoirParser<LValue> + 'a
@@ -529,23 +649,28 @@ where
 
         let dereferences = just(Token::Star)
             .ignore_then(lvalue.clone())
-            .map(|lvalue| LValue::Dereference(Box::new(lvalue)));
+            .map_with_span(|lvalue, span| LValue::Dereference(Box::new(lvalue), span));
 
         let parenthesized = lvalue.delimited_by(just(Token::LeftParen), just(Token::RightParen));
 
         let term = choice((parenthesized, dereferences, l_ident));
 
-        let l_member_rhs = just(Token::Dot).ignore_then(field_name()).map(LValueRhs::MemberAccess);
+        let l_member_rhs =
+            just(Token::Dot).ignore_then(field_name()).map_with_span(LValueRhs::MemberAccess);
 
         let l_index = expr_parser
             .delimited_by(just(Token::LeftBracket), just(Token::RightBracket))
-            .map(LValueRhs::Index);
+            .map_with_span(LValueRhs::Index);
 
         term.then(l_member_rhs.or(l_index).repeated()).foldl(|lvalue, rhs| match rhs {
-            LValueRhs::MemberAccess(field_name) => {
-                LValue::MemberAccess { object: Box::new(lvalue), field_name }
+            LValueRhs::MemberAccess(field_name, span) => {
+                let span = lvalue.span().merge(span);
+                LValue::MemberAccess { object: Box::new(lvalue), field_name, span }
             }
-            LValueRhs::Index(index) => LValue::Index { array: Box::new(lvalue), index },
+            LValueRhs::Index(index, span) => {
+                let span = lvalue.span().merge(span);
+                LValue::Index { array: Box::new(lvalue), index, span }
+            }
         })
     })
 }
@@ -565,6 +690,7 @@ fn parse_type_inner(
         format_string_type(recursive_type_parser.clone()),
         named_type(recursive_type_parser.clone()),
         named_trait(recursive_type_parser.clone()),
+        slice_type(recursive_type_parser.clone()),
         array_type(recursive_type_parser.clone()),
         parenthesized_type(recursive_type_parser.clone()),
         tuple_type(recursive_type_parser.clone()),
@@ -606,24 +732,25 @@ fn optional_distinctness() -> impl NoirParser<Distinctness> {
     })
 }
 
-fn maybe_comp_time() -> impl NoirParser<()> {
-    keyword(Keyword::CompTime).or_not().validate(|opt, span, emit| {
+fn maybe_comp_time() -> impl NoirParser<bool> {
+    keyword(Keyword::Comptime).or_not().validate(|opt, span, emit| {
         if opt.is_some() {
-            emit(ParserError::with_reason(ParserErrorReason::ComptimeDeprecated, span));
+            emit(ParserError::with_reason(
+                ParserErrorReason::ExperimentalFeature("comptime"),
+                span,
+            ));
         }
+        opt.is_some()
     })
 }
 
 fn field_type() -> impl NoirParser<UnresolvedType> {
-    maybe_comp_time()
-        .then_ignore(keyword(Keyword::Field))
+    keyword(Keyword::Field)
         .map_with_span(|_, span| UnresolvedTypeData::FieldElement.with_span(span))
 }
 
 fn bool_type() -> impl NoirParser<UnresolvedType> {
-    maybe_comp_time()
-        .then_ignore(keyword(Keyword::Bool))
-        .map_with_span(|_, span| UnresolvedTypeData::Bool.with_span(span))
+    keyword(Keyword::Bool).map_with_span(|_, span| UnresolvedTypeData::Bool.with_span(span))
 }
 
 fn string_type() -> impl NoirParser<UnresolvedType> {
@@ -650,21 +777,20 @@ fn format_string_type(
 }
 
 fn int_type() -> impl NoirParser<UnresolvedType> {
-    maybe_comp_time()
-        .then(filter_map(|span, token: Token| match token {
-            Token::IntType(int_type) => Ok(int_type),
-            unexpected => {
-                Err(ParserError::expected_label(ParsingRuleLabel::IntegerType, unexpected, span))
-            }
-        }))
-        .validate(|(_, token), span, emit| {
-            UnresolvedTypeData::from_int_token(token)
-                .map(|data| data.with_span(span))
-                .unwrap_or_else(|err| {
-                    emit(ParserError::with_reason(ParserErrorReason::InvalidBitSize(err.0), span));
-                    UnresolvedType::error(span)
-                })
-        })
+    filter_map(|span, token: Token| match token {
+        Token::IntType(int_type) => Ok(int_type),
+        unexpected => {
+            Err(ParserError::expected_label(ParsingRuleLabel::IntegerType, unexpected, span))
+        }
+    })
+    .validate(|token, span, emit| {
+        UnresolvedTypeData::from_int_token(token).map(|data| data.with_span(span)).unwrap_or_else(
+            |err| {
+                emit(ParserError::with_reason(ParserErrorReason::InvalidBitSize(err.0), span));
+                UnresolvedType::error(span)
+            },
+        )
+    })
 }
 
 fn named_type(type_parser: impl NoirParser<UnresolvedType>) -> impl NoirParser<UnresolvedType> {
@@ -701,10 +827,19 @@ fn generic_type_args(
 fn array_type(type_parser: impl NoirParser<UnresolvedType>) -> impl NoirParser<UnresolvedType> {
     just(Token::LeftBracket)
         .ignore_then(type_parser)
-        .then(just(Token::Semicolon).ignore_then(type_expression()).or_not())
+        .then(just(Token::Semicolon).ignore_then(type_expression()))
         .then_ignore(just(Token::RightBracket))
         .map_with_span(|(element_type, size), span| {
             UnresolvedTypeData::Array(size, Box::new(element_type)).with_span(span)
+        })
+}
+
+fn slice_type(type_parser: impl NoirParser<UnresolvedType>) -> impl NoirParser<UnresolvedType> {
+    just(Token::LeftBracket)
+        .ignore_then(type_parser)
+        .then_ignore(just(Token::RightBracket))
+        .map_with_span(|element_type, span| {
+            UnresolvedTypeData::Slice(Box::new(element_type)).with_span(span)
         })
 }
 
@@ -995,10 +1130,12 @@ where
             // Wrap the inner `if` expression in a block expression.
             // i.e. rewrite the sugared form `if cond1 {} else if cond2 {}` as `if cond1 {} else { if cond2 {} }`.
             let if_expression = Expression::new(kind, span);
-            let desugared_else = BlockExpression(vec![Statement {
-                kind: StatementKind::Expression(if_expression),
-                span,
-            }]);
+            let desugared_else = BlockExpression {
+                statements: vec![Statement {
+                    kind: StatementKind::Expression(if_expression),
+                    span,
+                }],
+            };
             Expression::new(ExpressionKind::Block(desugared_else), span)
         }));
 
@@ -1069,6 +1206,36 @@ where
         .map(|(lhs, count)| ExpressionKind::repeated_array(lhs, count))
 }
 
+fn slice_expr<P>(expr_parser: P) -> impl NoirParser<ExpressionKind>
+where
+    P: ExprParser,
+{
+    just(Token::Ampersand)
+        .ignore_then(standard_slice(expr_parser.clone()).or(slice_sugar(expr_parser)))
+}
+
+/// &[a, b, c, ...]
+fn standard_slice<P>(expr_parser: P) -> impl NoirParser<ExpressionKind>
+where
+    P: ExprParser,
+{
+    expression_list(expr_parser)
+        .delimited_by(just(Token::LeftBracket), just(Token::RightBracket))
+        .validate(|elements, _span, _emit| ExpressionKind::slice(elements))
+}
+
+/// &[a; N]
+fn slice_sugar<P>(expr_parser: P) -> impl NoirParser<ExpressionKind>
+where
+    P: ExprParser,
+{
+    expr_parser
+        .clone()
+        .then(just(Token::Semicolon).ignore_then(expr_parser))
+        .delimited_by(just(Token::LeftBracket), just(Token::RightBracket))
+        .map(|(lhs, count)| ExpressionKind::repeated_slice(lhs, count))
+}
+
 fn expression_list<P>(expr_parser: P) -> impl NoirParser<Vec<Expression>>
 where
     P: ExprParser,
@@ -1092,6 +1259,7 @@ where
 {
     choice((
         if_expr(expr_no_constructors, statement.clone()),
+        slice_expr(expr_parser.clone()),
         array_expr(expr_parser.clone()),
         if allow_constructors {
             constructor(expr_parser.clone()).boxed()
@@ -1099,7 +1267,9 @@ where
             nothing().boxed()
         },
         lambdas::lambda(expr_parser.clone()),
-        block(statement).map(ExpressionKind::Block),
+        block(statement.clone()).map(ExpressionKind::Block),
+        comptime_expr(statement.clone()),
+        quote(statement),
         variable(),
         literal(),
     ))
@@ -1122,6 +1292,19 @@ where
         .map_with_span(Expression::new)
         .or(parenthesized(expr_parser))
         .labelled(ParsingRuleLabel::Atom)
+}
+
+fn quote<'a, P>(statement: P) -> impl NoirParser<ExpressionKind> + 'a
+where
+    P: NoirParser<StatementKind> + 'a,
+{
+    keyword(Keyword::Quote).ignore_then(block(statement)).validate(|block, span, emit| {
+        emit(ParserError::with_reason(
+            ParserErrorReason::ExperimentalFeature("quoted expressions"),
+            span,
+        ));
+        ExpressionKind::Quote(block)
+    })
 }
 
 fn tuple<P>(expr_parser: P) -> impl NoirParser<Expression>
@@ -1170,7 +1353,7 @@ where
 mod test {
     use super::test_helpers::*;
     use super::*;
-    use crate::{ArrayLiteral, Literal};
+    use crate::ast::ArrayLiteral;
 
     #[test]
     fn parse_infix() {
@@ -1283,6 +1466,50 @@ mod test {
         parse_all_failing(array_expr(expression()), invalid);
     }
 
+    fn expr_to_slice(expr: ExpressionKind) -> ArrayLiteral {
+        let lit = match expr {
+            ExpressionKind::Literal(literal) => literal,
+            _ => unreachable!("expected a literal"),
+        };
+
+        match lit {
+            Literal::Slice(arr) => arr,
+            _ => unreachable!("expected a slice: {:?}", lit),
+        }
+    }
+
+    #[test]
+    fn parse_slice() {
+        let valid = vec![
+            "&[0, 1, 2,3, 4]",
+            "&[0,1,2,3,4,]", // Trailing commas are valid syntax
+            "&[0;5]",
+        ];
+
+        for expr in parse_all(slice_expr(expression()), valid) {
+            match expr_to_slice(expr) {
+                ArrayLiteral::Standard(elements) => assert_eq!(elements.len(), 5),
+                ArrayLiteral::Repeated { length, .. } => {
+                    assert_eq!(length.kind, ExpressionKind::integer(5i128.into()));
+                }
+            }
+        }
+
+        parse_all_failing(
+            slice_expr(expression()),
+            vec!["0,1,2,3,4]", "&[[0,1,2,3,4]", "&[0,1,2,,]", "&[0,1,2,3,4"],
+        );
+    }
+
+    #[test]
+    fn parse_slice_sugar() {
+        let valid = vec!["&[0;7]", "&[(1, 2); 4]", "&[0;Four]", "&[2;1+3-a]"];
+        parse_all(slice_expr(expression()), valid);
+
+        let invalid = vec!["&[0;;4]", "&[1, 2; 3]"];
+        parse_all_failing(slice_expr(expression()), invalid);
+    }
+
     #[test]
     fn parse_block() {
         parse_with(block(fresh_statement()), "{ [0,1,2,3,4] }").unwrap();
@@ -1290,13 +1517,13 @@ mod test {
         // Regression for #1310: this should be parsed as a block and not a function call
         let res =
             parse_with(block(fresh_statement()), "{ if true { 1 } else { 2 } (3, 4) }").unwrap();
-        match unwrap_expr(&res.0.last().unwrap().kind) {
+        match unwrap_expr(&res.statements.last().unwrap().kind) {
             // The `if` followed by a tuple is currently creates a block around both in case
             // there was none to start with, so there is an extra block here.
             ExpressionKind::Block(block) => {
-                assert_eq!(block.0.len(), 2);
-                assert!(matches!(unwrap_expr(&block.0[0].kind), ExpressionKind::If(_)));
-                assert!(matches!(unwrap_expr(&block.0[1].kind), ExpressionKind::Tuple(_)));
+                assert_eq!(block.statements.len(), 2);
+                assert!(matches!(unwrap_expr(&block.statements[0].kind), ExpressionKind::If(_)));
+                assert!(matches!(unwrap_expr(&block.statements[1].kind), ExpressionKind::Tuple(_)));
             }
             _ => unreachable!(),
         }
@@ -1393,33 +1620,53 @@ mod test {
 
     #[test]
     fn parse_use() {
-        parse_all(
-            use_statement(),
-            vec![
-                "use std::hash",
-                "use std",
-                "use foo::bar as hello",
-                "use bar as bar",
-                "use foo::{}",
-                "use foo::{bar,}",
-                "use foo::{bar, hello}",
-                "use foo::{bar as bar2, hello}",
-                "use foo::{bar as bar2, hello::{foo}, nested::{foo, bar}}",
-                "use dep::{std::println, bar::baz}",
-            ],
-        );
+        let valid_use_statements = [
+            "use std::hash",
+            "use std",
+            "use foo::bar as hello",
+            "use bar as bar",
+            "use foo::{}",
+            "use foo::{bar,}",
+            "use foo::{bar, hello}",
+            "use foo::{bar as bar2, hello}",
+            "use foo::{bar as bar2, hello::{foo}, nested::{foo, bar}}",
+            "use dep::{std::println, bar::baz}",
+        ];
 
-        parse_all_failing(
-            use_statement(),
-            vec![
-                "use std as ;",
-                "use foobar as as;",
-                "use hello:: as foo;",
-                "use foo bar::baz",
-                "use foo bar::{baz}",
-                "use foo::{,}",
-            ],
-        );
+        let invalid_use_statements = [
+            "use std as ;",
+            "use foobar as as;",
+            "use hello:: as foo;",
+            "use foo bar::baz",
+            "use foo bar::{baz}",
+            "use foo::{,}",
+        ];
+
+        let use_statements = valid_use_statements
+            .into_iter()
+            .map(|valid_str| (valid_str, true))
+            .chain(invalid_use_statements.into_iter().map(|invalid_str| (invalid_str, false)));
+
+        for (use_statement_str, expect_valid) in use_statements {
+            let mut use_statement_str = use_statement_str.to_string();
+            let expected_use_statement = if expect_valid {
+                let (result_opt, _diagnostics) =
+                    parse_recover(&use_statement(), &use_statement_str);
+                use_statement_str.push(';');
+                match result_opt.unwrap() {
+                    TopLevelStatement::Import(expected_use_statement) => {
+                        Some(expected_use_statement)
+                    }
+                    _ => unreachable!(),
+                }
+            } else {
+                let result = parse_with(&use_statement(), &use_statement_str);
+                assert!(result.is_err());
+                None
+            };
+
+            prototype_parse_use_tree(expected_use_statement.as_ref(), &use_statement_str);
+        }
     }
 
     #[test]

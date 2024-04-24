@@ -1,12 +1,11 @@
 use base64::Engine;
 use log::info;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use acvm::acir::circuit::Program;
 
 use crate::transpile::brillig_to_avm;
-use crate::utils::extract_brillig_from_acir;
+use crate::utils::extract_brillig_from_acir_program;
 
 /// Representation of a contract with some transpiled functions
 #[derive(Debug, Serialize, Deserialize)]
@@ -16,7 +15,7 @@ pub struct TranspiledContract {
     pub name: String,
     // Functions can be ACIR or AVM
     pub functions: Vec<AvmOrAcirContractFunction>,
-    pub events: serde_json::Value,
+    pub outputs: serde_json::Value,
     pub file_map: serde_json::Value,
     //pub warnings: serde_json::Value,
 }
@@ -29,7 +28,7 @@ pub struct CompiledAcirContract {
     pub noir_version: String,
     pub name: String,
     pub functions: Vec<AcirContractFunction>,
-    pub events: serde_json::Value,
+    pub outputs: serde_json::Value,
     pub file_map: serde_json::Value,
     //pub warnings: serde_json::Value,
 }
@@ -89,10 +88,10 @@ impl From<CompiledAcirContract> for TranspiledContract {
                 );
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
-                let brillig = extract_brillig_from_acir(&acir_program.functions[0].opcodes);
+                let brillig_bytecode = extract_brillig_from_acir_program(&acir_program);
 
                 // Transpile to AVM
-                let avm_bytecode = brillig_to_avm(brillig);
+                let avm_bytecode = brillig_to_avm(brillig_bytecode);
 
                 // Push modified function entry to ABI
                 functions.push(AvmOrAcirContractFunction::Avm(AvmContractFunction {
@@ -113,7 +112,7 @@ impl From<CompiledAcirContract> for TranspiledContract {
             noir_version: contract.noir_version,
             name: contract.name,
             functions, // some acir, some transpiled avm functions
-            events: contract.events,
+            outputs: contract.outputs,
             file_map: contract.file_map,
             //warnings: contract.warnings,
         }

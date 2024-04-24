@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { AztecAddress, DebugLogger } from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { type AztecAddress, type DebugLogger } from '@aztec/aztec.js';
+import { type TokenContract } from '@aztec/noir-contracts.js/Token';
 
 export class TokenSimulator {
   private balancesPrivate: Map<AztecAddress, bigint> = new Map();
@@ -81,12 +81,14 @@ export class TokenSimulator {
   }
 
   public async check() {
-    expect(await this.token.methods.total_supply().view()).toEqual(this.totalSupply);
+    expect(await this.token.methods.total_supply().simulate()).toEqual(this.totalSupply);
 
     // Check that all our public matches
     for (const address of this.accounts) {
-      expect(await this.token.methods.balance_of_public({ address }).view()).toEqual(this.balanceOfPublic(address));
-      expect(await this.token.methods.balance_of_private({ address }).view()).toEqual(this.balanceOfPrivate(address));
+      expect(await this.token.methods.balance_of_public({ address }).simulate()).toEqual(this.balanceOfPublic(address));
+      expect(await this.token.methods.balance_of_private({ address }).simulate()).toEqual(
+        this.balanceOfPrivate(address),
+      );
     }
   }
 }

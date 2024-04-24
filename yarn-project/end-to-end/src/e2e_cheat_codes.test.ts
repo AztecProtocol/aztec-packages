@@ -1,18 +1,27 @@
 import {
-  CheatCodes,
-  CompleteAddress,
+  type CheatCodes,
+  type CompleteAddress,
   EthAddress,
   ExtendedNote,
   Fr,
   Note,
-  PXE,
-  Wallet,
-  computeMessageSecretHash,
+  type PXE,
+  type Wallet,
+  computeSecretHash,
 } from '@aztec/aztec.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TestContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
+import {
+  type Account,
+  type Chain,
+  type HttpTransport,
+  type PublicClient,
+  type WalletClient,
+  getAddress,
+  getContract,
+  parseEther,
+} from 'viem';
 
 import { setup } from './fixtures/utils.js';
 
@@ -30,13 +39,12 @@ describe('e2e_cheat_codes', () => {
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    let accounts;
-    ({ teardown, wallet, accounts, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
+    ({ teardown, wallet, cheatCodes: cc, deployL1ContractsValues, pxe } = await setup());
 
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
     rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress;
-    admin = accounts[0];
+    admin = wallet.getCompleteAddress();
 
     token = await TokenContract.deploy(wallet, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
   }, 100_000);
@@ -110,24 +118,25 @@ describe('e2e_cheat_codes', () => {
       // without impersonation we wouldn't be able to send funds.
       const myAddress = (await walletClient.getAddresses())[0];
       const randomAddress = EthAddress.random().toString();
-      await walletClient.sendTransaction({
+      const tx1Hash = await walletClient.sendTransaction({
         account: myAddress,
         to: randomAddress,
         value: parseEther('1'),
       });
+      await publicClient.waitForTransactionReceipt({ hash: tx1Hash });
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
       await cc.eth.startImpersonating(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
-      const txHash = await walletClient.sendTransaction({
+      const tx2Hash = await walletClient.sendTransaction({
         account: randomAddress,
         to: myAddress,
         value: amountToSend,
       });
-      const tx = await publicClient.waitForTransactionReceipt({ hash: txHash });
-      const feePaid = tx.gasUsed * tx.effectiveGasPrice;
+      const txReceipt = await publicClient.waitForTransactionReceipt({ hash: tx2Hash });
+      const feePaid = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
       expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating
@@ -209,26 +218,28 @@ describe('e2e_cheat_codes', () => {
       // docs:start:load_private_cheatcode
       const mintAmount = 100n;
       const secret = Fr.random();
-      const secretHash = computeMessageSecretHash(secret);
+      const secretHash = computeSecretHash(secret);
       const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
       // docs:start:pxe_add_note
       const note = new Note([new Fr(mintAmount), secretHash]);
-      const pendingShieldStorageSlot = new Fr(5n);
-      const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
       const extendedNote = new ExtendedNote(
         note,
         admin.address,
         token.address,
-        pendingShieldStorageSlot,
-        noteTypeId,
+        TokenContract.storage.pending_shields.slot,
+        TokenContract.notes.TransparentNote.id,
         receipt.txHash,
       );
       await pxe.addNote(extendedNote);
       // docs:end:pxe_add_note
 
       // check if note was added to pending shield:
-      const notes = await cc.aztec.loadPrivate(admin.address, token.address, pendingShieldStorageSlot);
+      const notes = await cc.aztec.loadPrivate(
+        admin.address,
+        token.address,
+        TokenContract.storage.pending_shields.slot,
+      );
       const values = notes.map(note => note.items[0]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(mintAmount);

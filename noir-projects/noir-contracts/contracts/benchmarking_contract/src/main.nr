@@ -4,14 +4,12 @@
 // subject being tested as unmodified as possible so we can detect metric changes that
 
 contract Benchmarking {
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, emit_unencrypted_log, Map,
-        PublicMutable, PrivateSet
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, Map, PublicMutable, PrivateSet};
     use dep::value_note::{utils::{increment, decrement}, value_note::ValueNote};
 
-    use dep::aztec::{context::{Context}};
+    use dep::aztec::{context::{Context, gas::GasOpts}};
 
+    #[aztec(storage)]
     struct Storage {
         notes: Map<AztecAddress, PrivateSet<ValueNote>>,
         balances: Map<AztecAddress, PublicMutable<Field>>,
@@ -31,8 +29,8 @@ contract Benchmarking {
     #[aztec(private)]
     fn recreate_note(owner: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
-        let getter_options = NoteGetterOptions::new().set_limit(1).set_offset(index);
-        let notes = owner_notes.get_notes(getter_options);
+        let mut getter_options = NoteGetterOptions::new();
+        let notes = owner_notes.get_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes[0].unwrap_unchecked();
         owner_notes.remove(note);
         increment(owner_notes, note.value, owner);
@@ -43,16 +41,12 @@ contract Benchmarking {
     fn increment_balance(owner: AztecAddress, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
-        let _callStackItem1 = context.call_public_function(
-            context.this_address(),
-            FunctionSelector::from_signature("broadcast((Field))"),
-            [owner.to_field()]
-        );
+        Benchmarking::at(context.this_address()).broadcast(owner).call(&mut context);
     }
 
     // Emits a public log.
     #[aztec(public)]
     fn broadcast(owner: AztecAddress) {
-        emit_unencrypted_log(&mut context, storage.balances.at(owner).read());
+        context.emit_unencrypted_log(storage.balances.at(owner).read());
     }
 }

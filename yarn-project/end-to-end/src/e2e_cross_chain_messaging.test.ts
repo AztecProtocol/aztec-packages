@@ -1,8 +1,8 @@
 import {
-  AccountWallet,
-  AztecAddress,
-  AztecNode,
-  DebugLogger,
+  type AccountWallet,
+  type AztecAddress,
+  type AztecNode,
+  type DebugLogger,
   EthAddress,
   Fr,
   L1Actor,
@@ -10,9 +10,8 @@ import {
   L2Actor,
   computeAuthWitMessageHash,
 } from '@aztec/aztec.js';
-import { sha256 } from '@aztec/foundation/crypto';
-import { serializeToBuffer, toTruncField } from '@aztec/foundation/serialize';
-import { TokenBridgeContract, TokenContract } from '@aztec/noir-contracts.js';
+import { sha256ToField } from '@aztec/foundation/crypto';
+import { type TokenBridgeContract, type TokenContract } from '@aztec/noir-contracts.js';
 
 import { toFunctionSelector } from 'viem/utils';
 
@@ -61,7 +60,7 @@ describe('e2e_cross_chain_messaging', () => {
     logger = logger_;
     aztecNode = aztecNode_;
     teardown = teardown_;
-    logger('Successfully deployed contracts and initialized portal');
+    logger.info('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
   afterEach(async () => {
@@ -102,7 +101,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
 
     // time to withdraw the funds again!
-    logger('Withdrawing funds from L2');
+    logger.info('Withdrawing funds from L2');
 
     // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
@@ -157,14 +156,11 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.makeMessageConsumable(msgHash);
 
     // 3. Consume L1 -> L2 message and mint private tokens on L2
-    const content = toTruncField(
-      sha256(
-        Buffer.concat([
-          Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[secretHashForL2MessageConsumption, new Fr(bridgeAmount)]),
-        ]),
-      ),
-    )[0];
+    const content = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_private(bytes32,uint256)').substring(2), 'hex'),
+      secretHashForL2MessageConsumption,
+      new Fr(bridgeAmount),
+    ]);
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -177,8 +173,8 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user2Wallet)
         .methods.claim_private(secretHashForL2MessageConsumption, bridgeAmount, secretForL2MessageConsumption)
-        .simulate(),
-    ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
+        .prove(),
+    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
 
     // send the right one -
     const consumptionReceipt = await l2Bridge
@@ -214,7 +210,7 @@ describe('e2e_cross_chain_messaging', () => {
       l2Bridge
         .withWallet(user1Wallet)
         .methods.exit_to_l1_private(l2Token.address, ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-        .simulate(),
+        .prove(),
     ).rejects.toThrow(`Unknown auth witness for message hash ${expectedBurnMessageHash.toString()}`);
   }, 120_000);
 
@@ -237,14 +233,11 @@ describe('e2e_cross_chain_messaging', () => {
     // Wait for the message to be available for consumption
     await crossChainTestHarness.makeMessageConsumable(msgHash);
 
-    const content = toTruncField(
-      sha256(
-        Buffer.concat([
-          Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
-          serializeToBuffer(...[ownerAddress, new Fr(bridgeAmount)]),
-        ]),
-      ),
-    )[0];
+    const content = sha256ToField([
+      Buffer.from(toFunctionSelector('mint_public(bytes32,uint256)').substring(2), 'hex'),
+      ownerAddress,
+      new Fr(bridgeAmount),
+    ]);
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
       new L2Actor(l2Bridge.address, 1),
@@ -252,12 +245,17 @@ describe('e2e_cross_chain_messaging', () => {
       secretHashForL2MessageConsumption,
     );
 
+    // get message leaf index, needed for claiming in public
+    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash, 0n);
+    expect(maybeIndexAndPath).toBeDefined();
+    const messageLeafIndex = maybeIndexAndPath![0];
+
     // 3. Consume L1 -> L2 message and try to mint publicly on L2  - should fail
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
-        .simulate(),
-    ).rejects.toThrow(`Message ${wrongMessage.hash().toString()} not found`);
+        .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption, messageLeafIndex)
+        .prove(),
+    ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 120_000);
 });

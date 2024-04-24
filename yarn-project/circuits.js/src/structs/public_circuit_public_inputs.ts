@@ -3,8 +3,14 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
-import { FieldsOf } from '@aztec/foundation/types';
+import {
+  BufferReader,
+  FieldReader,
+  type Tuple,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
+import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
   GeneratorIndex,
@@ -16,13 +22,13 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
+  MAX_UNENCRYPTED_LOGS_PER_CALL,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  RETURN_VALUES_LENGTH,
 } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
 import { ContractStorageRead } from './contract_storage_read.js';
 import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
+import { Gas } from './gas.js';
 import { Header } from './header.js';
 import { L2ToL1Message } from './l2_to_l1_message.js';
 import { ReadRequest } from './read_request.js';
@@ -43,9 +49,9 @@ export class PublicCircuitPublicInputs {
      */
     public argsHash: Fr,
     /**
-     * Return values of the call.
+     * Pedersen hash of the return values of the call.
      */
-    public returnValues: Tuple<Fr, typeof RETURN_VALUES_LENGTH>,
+    public returnsHash: Fr,
     /**
      * Nullifier read requests executed during the call.
      */
@@ -94,9 +100,9 @@ export class PublicCircuitPublicInputs {
     public endSideEffectCounter: Fr,
     /**
      * Hash of the unencrypted logs emitted in this function call.
-     * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
+     * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public unencryptedLogsHash: Tuple<Fr, typeof NUM_FIELDS_PER_SHA256>,
+    public unencryptedLogsHashes: Tuple<SideEffect, typeof MAX_UNENCRYPTED_LOGS_PER_CALL>,
     /**
      * Length of the unencrypted log preimages emitted in this function call.
      */
@@ -115,6 +121,15 @@ export class PublicCircuitPublicInputs {
      * Flag indicating if the call was reverted.
      */
     public revertCode: RevertCode,
+
+    /** How much gas was available for execution. */
+    public startGasLeft: Gas,
+
+    /** How much gas was left after execution. */
+    public endGasLeft: Gas,
+
+    /** Transaction fee in the fee-payment asset. Zero in all phases except teardown. */
+    public transactionFee: Fr,
   ) {}
 
   /**
@@ -134,7 +149,7 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       CallContext.empty(),
       Fr.ZERO,
-      makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
+      Fr.ZERO,
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
@@ -145,11 +160,14 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
-      makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
+      makeTuple(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect.empty),
       Fr.ZERO,
       Header.empty(),
       AztecAddress.ZERO,
       RevertCode.OK,
+      Gas.empty(),
+      Gas.empty(),
+      Fr.ZERO,
     );
   }
 
@@ -161,7 +179,7 @@ export class PublicCircuitPublicInputs {
     return (
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
-      isFrArrayEmpty(this.returnValues) &&
+      this.returnsHash.isZero() &&
       isArrayEmpty(this.nullifierReadRequests, item => item.isEmpty()) &&
       isArrayEmpty(this.nullifierNonExistentReadRequests, item => item.isEmpty()) &&
       isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
@@ -172,11 +190,14 @@ export class PublicCircuitPublicInputs {
       isArrayEmpty(this.newL2ToL1Msgs, item => item.isEmpty()) &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
-      isFrArrayEmpty(this.unencryptedLogsHash) &&
+      isArrayEmpty(this.unencryptedLogsHashes, item => item.isEmpty()) &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicalHeader.isEmpty() &&
       this.proverAddress.isZero() &&
-      this.revertCode.isOK()
+      this.revertCode.isOK() &&
+      this.startGasLeft.isEmpty() &&
+      this.endGasLeft.isEmpty() &&
+      this.transactionFee.isZero()
     );
   }
 
@@ -189,7 +210,7 @@ export class PublicCircuitPublicInputs {
     return [
       fields.callContext,
       fields.argsHash,
-      fields.returnValues,
+      fields.returnsHash,
       fields.nullifierReadRequests,
       fields.nullifierNonExistentReadRequests,
       fields.contractStorageUpdateRequests,
@@ -200,11 +221,14 @@ export class PublicCircuitPublicInputs {
       fields.newL2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
-      fields.unencryptedLogsHash,
+      fields.unencryptedLogsHashes,
       fields.unencryptedLogPreimagesLength,
       fields.historicalHeader,
       fields.proverAddress,
       fields.revertCode,
+      fields.startGasLeft,
+      fields.endGasLeft,
+      fields.transactionFee,
     ] as const;
   }
 
@@ -236,7 +260,7 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       reader.readObject(CallContext),
       reader.readObject(Fr),
-      reader.readArray(RETURN_VALUES_LENGTH, Fr),
+      reader.readObject(Fr),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
@@ -247,11 +271,14 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readArray(NUM_FIELDS_PER_SHA256, Fr),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
       reader.readObject(Fr),
       reader.readObject(Header),
       reader.readObject(AztecAddress),
       reader.readObject(RevertCode),
+      reader.readObject(Gas),
+      reader.readObject(Gas),
+      reader.readObject(Fr),
     );
   }
 
@@ -261,7 +288,7 @@ export class PublicCircuitPublicInputs {
     return new PublicCircuitPublicInputs(
       CallContext.fromFields(reader),
       reader.readField(),
-      reader.readFieldArray(RETURN_VALUES_LENGTH),
+      reader.readField(),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
@@ -272,18 +299,18 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
-      reader.readFieldArray(NUM_FIELDS_PER_SHA256),
+      reader.readArray(MAX_UNENCRYPTED_LOGS_PER_CALL, SideEffect),
       reader.readField(),
       Header.fromFields(reader),
       AztecAddress.fromFields(reader),
       RevertCode.fromFields(reader),
+      Gas.fromFields(reader),
+      Gas.fromFields(reader),
+      reader.readField(),
     );
   }
 
   hash(): Fr {
-    return pedersenHash(
-      this.toFields().map(field => field.toBuffer()),
-      GeneratorIndex.PUBLIC_CIRCUIT_PUBLIC_INPUTS,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.PUBLIC_CIRCUIT_PUBLIC_INPUTS);
   }
 }

@@ -6,7 +6,276 @@ keywords: [sandbox, cli, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.36.0
+
+## `FieldNote` removed
+
+`FieldNote` only existed for testing purposes, and was not a note type that should be used in any real application. Its name unfortunately led users to think that it was a note type suitable to store a `Field` value, which it wasn't.
+
+If using `FieldNote`, you most likely want to use `ValueNote` instead, which has both randomness for privacy and an owner for proper nullification.
+
+## `SlowUpdatesTree` replaced for `SharedMutable`
+
+The old `SlowUpdatesTree` contract and libraries have been removed from the codebase, use the new `SharedMutable` library instead. This will require that you add a global variable specifying a delay in blocks for updates, and replace the slow updates tree state variable with `SharedMutable` variables.
+
+```diff
++ global CHANGE_ROLES_DELAY_BLOCKS = 5;
+
+struct Storage {
+-  slow_update: SharedImmutable<AztecAddress>,
++  roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS>>,
+}
+```
+
+Reading from `SharedMutable` is much simpler, all that's required is to call `get_current_value_in_public` or `get_current_value_in_private`, depending on the domain.
+
+```diff
+- let caller_roles = UserFlags::new(U128::from_integer(slow.read_at_pub(context.msg_sender().to_field()).call(&mut context)));
++ let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
+```
+
+Finally, you can remove all capsule usage on the client code or tests, since those are no longer required when working with `SharedMutable`.
+
+## [Aztec.nr & js] Portal addresses
+
+Deployments have been modified. No longer are portal addresses treated as a special class, being immutably set on creation of a contract. They are no longer passed in differently compared to the other variables and instead should be implemented using usual storage by those who require it. One should use the storage that matches the usecase - likely shared storage to support private and public.
+
+This means that you will likely add the portal as a constructor argument
+
+```diff
+- fn constructor(token: AztecAddress) {
+-    storage.token.write(token);
+- }
++ struct Storage {
+    ...
++   portal_address: SharedImmutable<AztecAddress>,
++ }
++ fn constructor(token: AztecAddress, portal_address: EthAddress) {
++    storage.token.write(token);
++    storage.portal_address.initialize(portal_address);
++ }
+```
+
+And read it from storage whenever needed instead of from the context.
+
+```diff
+- context.this_portal_address(),
++ storage.portal_address.read_public(),
+```
+
+### [Aztec.nr] Oracles
+
+Oracle `get_nullifier_secret_key` was renamed to `get_app_nullifier_secret_key` and `request_nullifier_secret_key` function on PrivateContext was renamed as `request_app_nullifier_secret_key`.
+
+```diff
+- let secret = get_nullifier_secret_key(self.owner);
++ let secret = get_app_nullifier_secret_key(self.owner);
+```
+
+```diff
+- let secret = context.request_nullifier_secret_key(self.owner);
++ let secret = context.request_app_nullifier_secret_key(self.owner);
+```
+
+### [Aztec.nr] Contract interfaces
+
+It is now possible to import contracts on another contracts and use their automatic interfaces to perform calls. The interfaces have the same name as the contract, and are automatically exported. Parameters are automatically serialized (using the `Serialize<N>` trait) and return values are automatically deserialized (using the `Deserialize<N>` trait). Serialize and Deserialize methods have to conform to the standard ACVM serialization schema for the interface to work!
+
+1. Only fixed length types are supported
+2. All numeric types become Fields
+3. Strings become arrays of Fields, one per char
+4. Arrays become arrays of Fields following rules 2 and 3
+5. Structs become arrays of Fields, with every item defined in the same order as they are in Noir code, following rules 2, 3, 4 and 5 (recursive)
+
+```diff
+- context.call_public_function(
+-   storage.gas_token_address.read_private(),
+-   FunctionSelector::from_signature("pay_fee(Field)"),
+-   [42]
+- );
+-
+- context.call_public_function(
+-   storage.gas_token_address.read_private(),
+-   FunctionSelector::from_signature("pay_fee(Field)"),
+-   [42]
+- );
+-
+- let _ = context.call_private_function(
+-           storage.subscription_token_address.read_private(),
+-           FunctionSelector::from_signature("transfer((Field),(Field),Field,Field)"),
+-           [
+-            context.msg_sender().to_field(),
+-            storage.subscription_recipient_address.read_private().to_field(),
+-            storage.subscription_price.read_private(),
+-            nonce
+-           ]
+-  );
++ use dep::gas_token::GasToken;
++ use dep::token::Token;
++
++ ...
++ // Public call from public land
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).call(&mut context);
++ // Public call from private land
++ GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).enqueue(&mut context);
++ // Private call from private land
++ Token::at(asset).transfer(context.msg_sender(), storage.subscription_recipient_address.read_private(), amount, nonce).call(&mut context);
+```
+
+It is also possible to use these automatic interfaces from the local contract, and thus enqueue public calls from private without having to rely on low level `context` calls.
+
+### [Aztec.nr] Rename max block number setter
+
+The `request_max_block_number` function has been renamed to `set_tx_max_block_number` to better reflect that it is not a getter, and that the setting is transaction-wide.
+
+```diff
+- context.request_max_block_number(value);
++ context.set_tx_max_block_number(value);
+```
+
+### [Aztec.nr] Get portal address
+
+The `get_portal_address` oracle was removed. If you need to get the portal address of SomeContract, add the following methods to it
+
+```
+#[aztec(private)]
+fn get_portal_address() -> EthAddress {
+    context.this_portal_address()
+}
+
+#[aztec(public)]
+fn get_portal_address_public() -> EthAddress {
+    context.this_portal_address()
+}
+```
+
+and change the call to `get_portal_address`
+
+```diff
+- let portal_address = get_portal_address(contract_address);
++ let portal_address = SomeContract::at(contract_address).get_portal_address().call(&mut context);
+```
+
+### [Aztec.nr] Required gas limits for public-to-public calls
+
+When calling a public function from another public function using the `call_public_function` method, you must now specify how much gas you're allocating to the nested call. This will later allow you to limit the amount of gas consumed by the nested call, and handle any out of gas errors.
+
+Note that gas limits are not yet enforced. For now, it is suggested you use `dep::aztec::context::gas::GasOpts::default()` which will forward all available gas.
+
+```diff
++ use dep::aztec::context::gas::GasOpts;
+
+- context.call_public_function(target_contract, target_selector, args);
++ context.call_public_function(target_contract, target_selector, args, GasOpts::default());
+```
+
+Note that this is not required when enqueuing a public function from a private one, since top-level enqueued public functions will always consume all gas available for the transaction, as it is not possible to handle any out-of-gas errors.
+
+### [Aztec.nr] Emmiting unencrypted logs
+
+The `emit_unencrypted_logs` function is now a context method.
+
+```diff
+- use dep::aztec::log::emit_unencrypted_log;
+- use dep::aztec::log::emit_unencrypted_log_from_private;
+
+- emit_unencrypted_log(context, log1);
+- emit_unencrypted_log_from_private(context, log2);
++ context.emit_unencrypted_log(log1);
++ context.emit_unencrypted_log(log2);
+```
+
+## 0.33
+
+### [Aztec.nr] Storage struct annotation
+
+The storage struct now identified by the annotation `#[aztec(storage)]`, instead of having to rely on it being called `Storage`.
+
+```diff
+- struct Storage {
+-    ...
+- }
++ #[aztec(storage)]
++ struct MyStorageStruct {
++    ...
++ }
+```
+
+### [Aztec.js] Storage layout and note info
+
+Storage layout and note information are now exposed in the TS contract artifact
+
+```diff
+- const note = new Note([new Fr(mintAmount), secretHash]);
+- const pendingShieldStorageSlot = new Fr(5n); // storage slot for pending_shields
+- const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // note type id for TransparentNote
+- const extendedNote = new ExtendedNote(
+-   note,
+-   admin.address,
+-   token.address,
+-   pendingShieldStorageSlot,
+-   noteTypeId,
+-   receipt.txHash,
+- );
+- await pxe.addNote(extendedNote);
++ const note = new Note([new Fr(mintAmount), secretHash]);
++ const extendedNote = new ExtendedNote(
++   note,
++   admin.address,
++   token.address,
++   TokenContract.storage.pending_shields.slot,
++   TokenContract.notes.TransparentNote.id,
++   receipt.txHash,
++ );
++ await pxe.addNote(extendedNote);
+```
+
+### [Aztec.nr] rand oracle is now called unsafe_rand
+
+`oracle::rand::rand` has been renamed to `oracle::unsafe_rand::unsafe_rand`.
+This change was made to communicate that we do not constrain the value in circuit and instead we just trust our PXE.
+
+```diff
+- let random_value = rand();
++ let random_value = unsafe_rand();
+```
+
+### [AztecJS] Simulate and get return values for ANY call and introducing `prove()`
+
+Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
+This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`.
+It is not possible to call `simulate` on any call to get the return values!
+However, beware that it currently always returns a Field array of size 4 for private and public.  
+This will change to become similar to the return values of the `unconstrained` functions with proper return types.
+
+```diff
+-    #[aztec(private)]
+-    fn get_shared_immutable_constrained_private() -> pub Leader {
+-        storage.shared_immutable.read_private()
+-    }
+-
+-    unconstrained fn get_shared_immutable() -> pub Leader {
+-        storage.shared_immutable.read_public()
+-    }
+
++    #[aztec(private)]
++    fn get_shared_immutable_private() -> pub Leader {
++        storage.shared_immutable.read_private()
++    }
+
+- const returnValues = await contract.methods.get_shared_immutable().view();
++ const returnValues = await contract.methods.get_shared_immutable_private().simulate();
+```
+
+```diff
+await expect(
+-   asset.withWallet(wallets[1]).methods.update_admin(newAdminAddress).simulate()).rejects.toThrow(
++   asset.withWallet(wallets[1]).methods.update_admin(newAdminAddress).prove()).rejects.toThrow(
+        "Assertion failed: caller is not admin 'caller_roles.is_admin'",
+);
+```
+
+## 0.31.0
 
 ### [Aztec.nr] Public storage historical read API improvement
 
@@ -924,13 +1193,13 @@ To parse a `AztecAddress` to BigInt, use `.inner`
 Before:
 
 ```js
-const tokenBigInt = await bridge.methods.token().view();
+const tokenBigInt = await bridge.methods.token().simulate();
 ```
 
 Now:
 
 ```js
-const tokenBigInt = (await bridge.methods.token().view()).inner;
+const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ```
 
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml

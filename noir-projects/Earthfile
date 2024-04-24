@@ -1,17 +1,23 @@
 VERSION 0.8
 FROM ubuntu:lunar
+RUN apt-get update && apt-get install -y parallel
 
 # Install nargo
 COPY ../noir/+nargo/nargo /usr/bin/nargo
 # Install transpiler
 COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
 
-WORKDIR /build
+WORKDIR /usr/src/noir-projects
+
 # Copy source.
 COPY --dir aztec-nr noir-contracts noir-protocol-circuits .
 
+source:
+  # for debugging rebuilds
+  RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+
 build:
-  RUN apt-get update && apt-get install -y parallel
+  FROM +source
   RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
   RUN cd noir-protocol-circuits && NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT aztec-nr

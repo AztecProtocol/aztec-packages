@@ -1,7 +1,8 @@
 import { inspect } from 'util';
 
 import { Fr, fromBuffer } from '../fields/index.js';
-import { BufferReader, FieldReader } from '../serialize/index.js';
+import { type BufferReader, FieldReader } from '../serialize/index.js';
+import { TypeRegistry } from '../serialize/type_registry.js';
 
 /**
  * AztecAddress represents a 32-byte address in the Aztec Protocol.
@@ -22,13 +23,13 @@ export class AztecAddress extends Fr {
     return `AztecAddress<${this.toString()}>`;
   }
 
-  static ZERO = new AztecAddress(Buffer.alloc(32));
+  static override ZERO = new AztecAddress(Buffer.alloc(32));
 
-  static zero(): AztecAddress {
+  static override zero(): AztecAddress {
     return AztecAddress.ZERO;
   }
 
-  static fromBuffer(buffer: Buffer | BufferReader) {
+  static override fromBuffer(buffer: Buffer | BufferReader) {
     return fromBuffer(buffer, AztecAddress);
   }
 
@@ -45,12 +46,22 @@ export class AztecAddress extends Fr {
     return AztecAddress.fromField(new Fr(value));
   }
 
-  static fromString(buf: string) {
+  static override fromString(buf: string) {
     const buffer = Buffer.from(buf.replace(/^0x/i, ''), 'hex');
     return new AztecAddress(buffer);
   }
 
-  static random() {
+  static override random() {
     return new AztecAddress(super.random().toBuffer());
   }
+
+  override toJSON() {
+    return {
+      type: 'AztecAddress',
+      value: this.toString(),
+    };
+  }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('AztecAddress', AztecAddress);

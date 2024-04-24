@@ -158,7 +158,7 @@ aztec-nargo compile
 This will create a new directory called `target` and a JSON artifact inside it. To optionally create a typescript interface, run:
 
 ```bash
-aztec-cli codegen target -o src/artifacts --ts
+aztec-cli codegen target -o src/artifacts
 ```
 
 Once it is compiled you can [deploy](../contracts/deploying_contracts/how_to_deploy_contract.md) it to the sandbox. Ensure your [sandbox is running](../sandbox/references/sandbox-reference.md) and run this in the same dir as before:
@@ -191,7 +191,7 @@ aztec-cli call get_vote --contract-artifact ./target/private_voting-Voting.json 
 
 This should return `1n`.
 
-You can follow this pattern to test `end_vote()` and access control of other functions. Find more information about calling functions from the CLI [here](../sandbox/references/cli-commands.md).
+You can follow this pattern to test `end_vote()` and access control of other functions.
 
 ## Next steps
 

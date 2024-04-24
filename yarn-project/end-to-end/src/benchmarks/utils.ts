@@ -1,25 +1,25 @@
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
 import {
-  AztecNode,
+  type AztecNode,
   BatchCall,
-  GrumpkinScalar,
+  type Fr,
   INITIAL_L2_BLOCK_NUM,
-  PXE,
-  PartialAddress,
-  SentTx,
+  type PXE,
+  type PartialAddress,
+  type SentTx,
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { PXEService, createPXEService } from '@aztec/pxe';
+import { type PXEService, createPXEService } from '@aztec/pxe';
 
 import { mkdirpSync } from 'fs-extra';
 import { globSync } from 'glob';
 import { join } from 'path';
 
-import { EndToEndContext, setup } from '../fixtures/utils.js';
+import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
 /**
  * Setup for benchmarks. Initializes a remote node with a single account and deploys a benchmark contract.
@@ -27,7 +27,7 @@ import { EndToEndContext, setup } from '../fixtures/utils.js';
 export async function benchmarkSetup(opts: Partial<AztecNodeConfig>) {
   const context = await setup(1, { ...opts });
   const contract = await BenchmarkingContract.deploy(context.wallet).send().deployed();
-  context.logger(`Deployed benchmarking contract at ${contract.address}`);
+  context.logger.info(`Deployed benchmarking contract at ${contract.address}`);
   const sequencer = (context.aztecNode as AztecNodeService).getSequencer()!;
   return { context, contract, sequencer };
 }
@@ -88,7 +88,7 @@ export async function sendTxs(
   contract: BenchmarkingContract,
 ): Promise<SentTx[]> {
   const calls = times(txCount, index => makeCall(index, context, contract));
-  await Promise.all(calls.map(call => call.simulate({ skipPublicSimulation: true })));
+  await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   const sentTxs = calls.map(call => call.send());
 
   // Awaiting txHash waits until the aztec node has received the tx into its p2p pool
@@ -119,16 +119,12 @@ export async function waitNewPXESynced(
 /**
  * Registers a new account in a pxe and waits until it's synced all its notes.
  * @param pxe - PXE where to register the account.
- * @param privateKey - Private key of the account to register.
+ * @param secretKey - Secret key of the account to register.
  * @param partialAddress - Partial address of the account to register.
  */
-export async function waitRegisteredAccountSynced(
-  pxe: PXE,
-  privateKey: GrumpkinScalar,
-  partialAddress: PartialAddress,
-) {
+export async function waitRegisteredAccountSynced(pxe: PXE, secretKey: Fr, partialAddress: PartialAddress) {
   const l2Block = await pxe.getBlockNumber();
-  const { publicKey } = await pxe.registerAccount(privateKey, partialAddress);
+  const { publicKey } = await pxe.registerAccount(secretKey, partialAddress);
   const isAccountSynced = async () => (await pxe.getSyncStatus()).notes[publicKey.toString()] === l2Block;
   await retryUntil(isAccountSynced, 'pxe-notes-sync');
 }

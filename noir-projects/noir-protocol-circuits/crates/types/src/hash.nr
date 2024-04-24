@@ -3,17 +3,16 @@ use crate::mocked::VerificationKey;
 use crate::abis::function_selector::FunctionSelector;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
-use crate::abis::side_effect::{SideEffect};
+use crate::abis::side_effect::SideEffect;
+use crate::traits::is_empty;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
-    ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, FUNCTION_TREE_HEIGHT, NUM_FIELDS_PER_SHA256,
-    GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__VK,
-    GENERATOR_INDEX__CONSTRUCTOR, GENERATOR_INDEX__PARTIAL_ADDRESS, GENERATOR_INDEX__CONTRACT_ADDRESS,
-    GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH, GENERATOR_INDEX__FUNCTION_ARGS
+    FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER,
+    GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH
 };
+use crate::traits::Hash;
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
 use crate::merkle_tree::root::root_from_sibling_path;
-
 use dep::std::hash::{pedersen_hash_with_separator, sha256};
 
 pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
@@ -21,30 +20,6 @@ pub fn sha256_to_field<N>(bytes_to_hash: [u8; N]) -> Field {
     let hash_in_a_field = field_from_bytes_32_trunc(sha256_hashed);
 
     hash_in_a_field
-}
-
-pub fn hash_args<N>(args: [Field; N]) -> Field {
-    if args.len() == 0 {
-        0
-    } else {
-        let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
-        for i in 0..ARGS_HASH_CHUNK_COUNT {
-            let mut chunk_hash = 0;
-            let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
-            if start_chunk_index < args.len() {
-                let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
-                for j in 0..ARGS_HASH_CHUNK_LENGTH {
-                    let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
-                    if item_index < args.len() {
-                        chunk_args[j] = args[item_index];
-                    }
-                }
-                chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
-            }
-            chunks_hashes[i] = chunk_hash;
-        }
-        pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
-    }
 }
 
 pub fn private_functions_root_from_siblings(
@@ -119,9 +94,8 @@ pub fn compute_l2_to_l1_hash(
 //
 // TODO(Jan and David): This is used for the encrypted_log hashes.
 // Can we check to see if we can just use hash_to_field or pedersen_compress here?
-// TODO(Miranda): Remove arrays entirely as NUM_FIELDS_PER_SHA256 = 1
 //
-pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; NUM_FIELDS_PER_SHA256] {
+pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // This is a note about the cpp code, since it takes an array of Fields
     // instead of a U128.
     // 4 Field elements when converted to bytes will usually 
@@ -141,19 +115,36 @@ pub fn accumulate_sha256(input: [Field; NUM_FIELDS_PER_SHA256 * 2]) -> [Field; N
         }
     }
 
-    [sha256_to_field(hash_input_flattened)]
+    sha256_to_field(hash_input_flattened)
 }
 
-pub fn compute_logs_hash(
-    previous_log_hash: [Field; NUM_FIELDS_PER_SHA256],
-    current_log_hash: [Field; NUM_FIELDS_PER_SHA256]
-) -> [Field; NUM_FIELDS_PER_SHA256] {
-    accumulate_sha256(
-        [
-            previous_log_hash[0],
-            current_log_hash[0]
-        ]
-    )
+pub fn compute_tx_logs_hash<MAX_ENCRYPTED_LOGS_PER_TX>(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+    // TODO(Miranda): Below is flat hashing which would reduce constraints (we now only hash once in tail) - convert to this?
+
+    // // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
+    // // Ideally we would define a new global here but for now we assert in case MAX_LOGS changes
+    // assert(MAX_ENCRYPTED_LOGS_PER_TX * 32 == 256);
+    // let mut hash_input_flattened = [0; 256];
+    // for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+    //     let input_as_bytes = logs[offset].value.to_be_bytes(32);
+    //     for byte_index in 0..32 {
+    //         hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+    //     }
+    // }
+    // // This differs from accumulate_sha256 as we could increase MAX_LOGS and
+    // // ideally we would push to a slice then hash, but in practice compilation was very slow
+    // // Hardcode to 256 bytes for now
+    // sha256_to_field(hash_input_flattened)
+
+    // Assuming logs are pre-sorted
+    let mut accumulated_logs_hash = 0;
+    for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+        if !is_empty(logs[i]) {
+            accumulated_logs_hash = accumulate_sha256([accumulated_logs_hash, logs[i].value]);
+        }
+    }
+
+    accumulated_logs_hash
 }
 
 pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u64) -> Field {
@@ -176,26 +167,12 @@ pub fn compute_unique_siloed_note_hash(nonce: Field, siloed_note_hash: Field) ->
     )
 }
 
-pub fn compute_unique_siloed_note_hashes<N>(
-    first_nullifier: Field,
-    siloed_note_hashes: [SideEffect; N]
-) -> [SideEffect; N] {
-    let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
-    for i in 0..N {
-        let siloed_note_hash = siloed_note_hashes[i];
-        if siloed_note_hash.value != 0 {
-            let nonce = compute_note_hash_nonce(first_nullifier, i);
-            unique_siloed_note_hashes[i] = SideEffect {
-                value: compute_unique_siloed_note_hash(nonce, siloed_note_hash.value),
-                counter: siloed_note_hash.counter
-                };
-        }
-    }
-    unique_siloed_note_hashes
-}
-
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
     dep::std::hash::pedersen_hash_with_separator(inputs, hash_index)
+}
+
+pub fn poseidon2_hash<N>(inputs: [Field; N]) -> Field {
+    dep::std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 
 #[test]
@@ -211,7 +188,7 @@ fn smoke_sha256_to_field() {
         140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159
     ];
     let result = sha256_to_field(full_buffer);
-    
+
     assert(result == 0x448ebbc9e1a31220a2f3830c18eef61b9bd070e5084b7fa2a359fe729184c7);
 
     // to show correctness of the current ver (truncate one byte) vs old ver (mod full bytes):
@@ -223,21 +200,10 @@ fn smoke_sha256_to_field() {
 }
 
 #[test]
-fn compute_var_args_hash() {
-    let mut input = [0; 800];
-    for i in 0..800 {
-        input[i] = i as Field;
-    }
-    let hash = hash_args(input);
-    assert(hash == 0x371960dd84ed3445ab099ac4c1af5ba90e0c713b593e0ca52ee532087c7f097);
-}
-
-#[test]
 fn compute_l2_l1_hash() {
     // All zeroes
     let hash_result = compute_l2_to_l1_hash(AztecAddress::from_field(0), 0, 0, L2ToL1Message::empty());
     assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
-
 
     // Non-zero case
     let message = L2ToL1Message { recipient: EthAddress::from_field(3), content: 5 };

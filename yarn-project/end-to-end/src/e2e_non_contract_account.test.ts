@@ -1,4 +1,13 @@
-import { DebugLogger, ExtendedNote, Fr, Note, PXE, SignerlessWallet, Wallet, toBigInt } from '@aztec/aztec.js';
+import {
+  type DebugLogger,
+  ExtendedNote,
+  Fr,
+  Note,
+  type PXE,
+  SignerlessWallet,
+  type Wallet,
+  toBigInt,
+} from '@aztec/aztec.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
@@ -18,9 +27,9 @@ describe('e2e_non_contract_account', () => {
     ({ teardown, pxe, wallet, logger } = await setup(1));
     nonContractAccountWallet = new SignerlessWallet(pxe);
 
-    logger(`Deploying L2 contract...`);
+    logger.debug(`Deploying L2 contract...`);
     contract = await TestContract.deploy(wallet).send().deployed();
-    logger('L2 contract deployed');
+    logger.info(`L2 contract deployed at ${contract.address}`);
   }, 100_000);
 
   afterEach(() => teardown());
@@ -56,7 +65,7 @@ describe('e2e_non_contract_account', () => {
   }, 120_000);
 
   // Note: This test doesn't really belong here as it doesn't have anything to do with non-contract accounts. I needed
-  // to test the FieldNote functionality and it doesn't really fit anywhere else. Creating a separate e2e test for this
+  // to test the TestNote functionality and it doesn't really fit anywhere else. Creating a separate e2e test for this
   // seems wasteful. Move this test if a better place is found.
   it('can set and get a constant', async () => {
     const value = 123n;
@@ -71,19 +80,17 @@ describe('e2e_non_contract_account', () => {
 
     // Add the note
     const note = new Note([new Fr(value)]);
-    const storageSlot = new Fr(1);
-    const noteTypeId = new Fr(7010510110810078111116101n); // FieldNote
 
     const extendedNote = new ExtendedNote(
       note,
       wallet.getCompleteAddress().address,
       contract.address,
-      storageSlot,
-      noteTypeId,
+      TestContract.storage.example_constant.slot,
+      TestContract.notes.TestNote.id,
       txHash,
     );
     await wallet.addNote(extendedNote);
 
-    expect(await contract.methods.get_constant().view()).toEqual(value);
+    expect(await contract.methods.get_constant().simulate()).toEqual(value);
   });
 });

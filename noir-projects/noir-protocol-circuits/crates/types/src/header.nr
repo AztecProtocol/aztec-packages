@@ -3,12 +3,9 @@ use crate::{
     append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
     global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
 },
-    constants::{
-    GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
-    CONTENT_COMMITMENT_LENGTH
-},
+    constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH, CONTENT_COMMITMENT_LENGTH},
     hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
-    utils::{arr_copy_slice}, content_commitment::ContentCommitment
+    utils::arr_copy_slice, content_commitment::ContentCommitment
 };
 
 // docs:start:header
@@ -85,7 +82,7 @@ impl Hash for Header {
 
 #[test]
 fn serialization_of_empty() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::empty();
     let serialized = header.serialize();
     let deserialized = Header::deserialize(serialized);
     assert(header.eq(deserialized));
@@ -93,16 +90,16 @@ fn serialization_of_empty() {
 
 #[test]
 fn hash_smoke() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::empty();
     let _hashed = header.hash();
 }
 
 #[test]
 fn empty_hash_is_zero() {
-    let header: Header = dep::std::unsafe::zeroed();
+    let header = Header::empty();
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test
-    let test_data_empty_hash = 0x2a45c01b78a6b9a2392b7490966b41f47e5d9ac95610fa3eabe99d9aec7f6ad0;
+    let test_data_empty_hash = 0x124e8c40a6eca2e3ad10c04050b01a3fad00df3cea47b13592c7571b6914c7a7;
     assert_eq(hash, test_data_empty_hash);
 }

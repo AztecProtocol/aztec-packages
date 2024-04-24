@@ -1,6 +1,4 @@
-use dep::types::{
-    hash::accumulate_sha256,
-};
+use dep::types::{hash::accumulate_sha256};
 
 // Note: Once we'll truncate sha256 to 1 Field we can nuke this and generalize the standard MerkleTree over different
 // hash functions.
@@ -26,7 +24,7 @@ impl<N> Sha256MerkleTree<N> {
                     leaves[2*i],
                     leaves[2*i+1]
                 ]
-            )[0];
+            );
         }
 
         // hash the other layers
@@ -36,7 +34,7 @@ impl<N> Sha256MerkleTree<N> {
                     nodes[2*i],
                     nodes[2*i+1]
                 ]
-            )[0];
+            );
         }
 
         Sha256MerkleTree { leaves, nodes }

@@ -86,7 +86,7 @@ Calling a private Aztec.nr function in a public kernel is not allowed.
 
 #### 3005 - PUBLIC_KERNEL\_\_NON_EMPTY_PRIVATE_CALL_STACK
 
-Public functions are executed after all the private functions are (see [private-public execution](../../learn/concepts/communication/public_private_calls/main.md)). As such, private call stack must be empty when executing in the public kernel.
+Public functions are executed after all the private functions are (see [private-public execution](../../learn/concepts/communication/public_private_calls.md)). As such, private call stack must be empty when executing in the public kernel.
 
 #### 3011 - PUBLIC_KERNEL\_\_CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH
 
@@ -177,7 +177,7 @@ Users may create a proof against a historical state in Aztec. The rollup circuit
 
 ## Archiver Errors
 
-- "No L1 to L2 message found for message hash ${messageHash.toString()}" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - user has to wait for enough blocks to progress and for the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing 2 arbitrary transaction on L2 (eg. send DAI to yourself 2 times). This would give the sequencer a transaction to process and as a side effect it would consume 2 subtrees of new messages from the Inbox contract. 2 subtrees needs to be consumed and not just 1 because there is a 1 block lag to prevent the subtree from changing when the sequencer is proving.
+- "No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}" - happens when the L1 to L2 message doesn't exist or is "pending", when the user has sent a message on L1 via the Inbox contract but it has yet to be included in an L2 block by the sequencer - the user has to wait for enough blocks to progress and for the archiver to sync the respective L2 block. You can get the sequencer to pick it up by doing 2 arbitrary transactions on L2 (eg. send DAI to yourself 2 times). This would give the sequencer a transaction to process and as a side effect it would consume 2 subtrees of new messages from the Inbox contract. 2 subtrees need to be consumed and not just 1 because there is a 1 block lag to prevent the subtree from changing when the sequencer is proving.
 
 - "Block number mismatch: expected ${l2BlockNum} but got ${block.number}" - The archiver keeps track of the next expected L2 block number. It throws this error if it got a different one when trying to sync with the rollup contract's events on L1.
 
@@ -189,7 +189,7 @@ Users may create a proof against a historical state in Aztec. The rollup circuit
 
 - "${treeName} tree next available leaf index mismatch" - validating a tree's root is not enough. It also checks that the `next_available_leaf_index` is as expected. This is the next index we can insert new values into. Note that for the public data tree, this test is skipped since as it is a sparse tree unlike the others.
 
-- "Public call stack size exceeded" - In Aztec, the sequencer executes all enqueued public functions in a transaction (to prevent race conditions - see [private-public execution](../../learn/concepts/communication/public_private_calls/main.md)). This error says there are too many public functions requested.
+- "Public call stack size exceeded" - In Aztec, the sequencer executes all enqueued public functions in a transaction (to prevent race conditions - see [private-public execution](../../learn/concepts/communication/public_private_calls.md)). This error says there are too many public functions requested.
 
 - "Array size exceeds target length" - happens if you add more items than allowed by the constants set due to our circuit limitations (eg sending too many L2 to L1 messages or creating a function that exceeds the call stack length or returns more values than what Aztec.nr functions allow)
 

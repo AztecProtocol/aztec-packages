@@ -60,7 +60,7 @@ class incl_mem_tag_err_lookup_settings {
      * @brief The polynomial degree of the relation telling us if the inverse polynomial value needs to be computed
      *
      */
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 2;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
 
     /**
      * @brief The degree of the read term if implemented arbitrarily. This value is not used by basic and scaled read
@@ -87,7 +87,7 @@ class incl_mem_tag_err_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.avm_main_tag_err == 1 || in.avm_mem_m_tag_err == 1);
+        return (in.avm_main_tag_err == 1 || in.avm_mem_tag_err == 1);
     }
 
     /**
@@ -105,7 +105,7 @@ class incl_mem_tag_err_lookup_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in.avm_main_tag_err);
-        const auto is_table_entry = View(in.avm_mem_m_tag_err);
+        const auto is_table_entry = View(in.avm_mem_tag_err);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -136,9 +136,9 @@ class incl_mem_tag_err_lookup_settings {
         return std::forward_as_tuple(in.incl_mem_tag_err,
                                      in.incl_mem_tag_err_counts,
                                      in.avm_main_tag_err,
-                                     in.avm_mem_m_tag_err,
+                                     in.avm_mem_tag_err,
                                      in.avm_main_clk,
-                                     in.avm_mem_m_clk);
+                                     in.avm_mem_clk);
     }
 
     /**
@@ -154,9 +154,9 @@ class incl_mem_tag_err_lookup_settings {
         return std::forward_as_tuple(in.incl_mem_tag_err,
                                      in.incl_mem_tag_err_counts,
                                      in.avm_main_tag_err,
-                                     in.avm_mem_m_tag_err,
+                                     in.avm_mem_tag_err,
                                      in.avm_main_clk,
-                                     in.avm_mem_m_clk);
+                                     in.avm_mem_clk);
     }
 };
 

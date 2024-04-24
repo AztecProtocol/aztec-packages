@@ -12,7 +12,8 @@ use dep::{
 },
     header::Header, content_commitment::ContentCommitment,
     merkle_tree::{append_only_tree, calculate_subtree_root, calculate_empty_tree_root},
-    state_reference::StateReference
+    state_reference::StateReference,
+    traits::Empty,
 }
 };
 
@@ -61,7 +62,7 @@ impl RootRollupInputs {
         let content_commitment = ContentCommitment {
             tx_tree_height: right.height_in_block_tree + 1,
             txs_effects_hash: components::compute_txs_effects_hash(self.previous_rollup_data),
-            in_hash: [self.l1_to_l2_roots.public_inputs.sha_root],
+            in_hash: self.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: components::compute_out_hash(self.previous_rollup_data)
         };
 
@@ -84,10 +85,20 @@ impl RootRollupInputs {
             0
         );
 
-        RootRollupPublicInputs {
-            aggregation_object,
-            archive,
-            header
+        RootRollupPublicInputs { aggregation_object, archive, header }
+    }
+}
+
+impl Empty for RootRollupInputs {
+    fn empty() -> Self {
+        RootRollupInputs {
+            previous_rollup_data : [PreviousRollupData::empty(); 2],
+            l1_to_l2_roots: RootParityInput::empty(),
+            new_l1_to_l2_messages : [0; NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP],
+            new_l1_to_l2_message_tree_root_sibling_path : [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
+            start_l1_to_l2_message_tree_snapshot : AppendOnlyTreeSnapshot::zero(),
+            start_archive_snapshot : AppendOnlyTreeSnapshot::zero(),
+            new_archive_sibling_path : [0; ARCHIVE_HEIGHT],
         }
     }
 }

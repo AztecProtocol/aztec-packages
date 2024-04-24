@@ -1,8 +1,8 @@
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/proof_system/circuit_builder/mock_circuits.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/sumcheck/instance/instances.hpp"
 
 using namespace benchmark;
@@ -26,6 +26,8 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtoGalaxyProver_<Prover
         return std::make_shared<ProverInstance>(builder);
     };
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
+    // k=1
     std::shared_ptr<ProverInstance> prover_instance_1 = construct_instance();
     std::shared_ptr<ProverInstance> prover_instance_2 = construct_instance();
 

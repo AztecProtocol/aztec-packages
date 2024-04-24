@@ -1,5 +1,5 @@
 import { Fr } from '../fields/fields.js';
-import { Tuple } from './types.js';
+import { type Tuple } from './types.js';
 
 /**
  * Convert a boolean value to its corresponding byte representation in a Buffer of size 1.
@@ -165,14 +165,16 @@ export function truncateAndPad(buf: Buffer): Buffer {
  * @param buf - 32 or 31 bytes of data
  * @returns 1 field element
  */
-export function toTruncField(buf: Buffer): [Fr] {
+export function toTruncField(buf: Buffer): Fr {
   if (buf.length !== 32 && buf.length !== 31) {
     throw new Error('Buffer must be 31 or 32 bytes');
   }
   if ((buf.length == 32 && buf[0] == 0) || buf.length == 31) {
-    return [Fr.fromBuffer(buf)];
+    return Fr.fromBuffer(buf);
   } else {
-    return [Fr.fromBuffer(buf.subarray(0, 31))];
+    // Note: safer to NOT truncate here, all inputs are expected to be truncated
+    // from Noir or L1 Contracts or Class.hash() methods
+    throw new Error(`Number ${toBigInt(buf)} does not fit in 31 byte truncated buffer`);
   }
 }
 

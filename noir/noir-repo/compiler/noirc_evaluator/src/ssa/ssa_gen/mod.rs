@@ -7,14 +7,15 @@ pub(crate) use program::Ssa;
 use context::SharedContext;
 use iter_extended::{try_vecmap, vecmap};
 use noirc_errors::Location;
-use noirc_frontend::{
-    monomorphization::ast::{self, Expression, Program},
-    Visibility,
-};
+use noirc_frontend::ast::{UnaryOp, Visibility};
+use noirc_frontend::monomorphization::ast::{self, Expression, Program};
 
 use crate::{
     errors::{InternalError, RuntimeError},
-    ssa::{function_builder::data_bus::DataBusBuilder, ir::instruction::Intrinsic},
+    ssa::{
+        function_builder::data_bus::DataBusBuilder,
+        ir::{function::InlineType, instruction::Intrinsic},
+    },
 };
 
 use self::{
@@ -26,7 +27,9 @@ use super::{
     function_builder::data_bus::DataBus,
     ir::{
         function::RuntimeType,
-        instruction::{BinaryOp, ConstrainError, Instruction, TerminatorInstruction},
+        instruction::{
+            BinaryOp, ConstrainError, Instruction, TerminatorInstruction, UserDefinedConstrainError,
+        },
         types::Type,
         value::ValueId,
     },
@@ -52,14 +55,15 @@ pub(crate) fn generate_ssa(
 
     // Queue the main function for compilation
     context.get_or_queue_function(main_id);
-
     let mut function_context = FunctionContext::new(
         main.name.clone(),
         &main.parameters,
         if force_brillig_runtime || main.unconstrained {
             RuntimeType::Brillig
         } else {
-            RuntimeType::Acir
+            let main_inline_type =
+                if main.should_fold { InlineType::Fold } else { InlineType::Inline };
+            RuntimeType::Acir(main_inline_type)
         },
         &context,
     );
@@ -152,6 +156,8 @@ impl<'a> FunctionContext<'a> {
             }
             Expression::Assign(assign) => self.codegen_assign(assign),
             Expression::Semi(semi) => self.codegen_semi(semi),
+            Expression::Break => Ok(self.codegen_break()),
+            Expression::Continue => Ok(self.codegen_continue()),
         }
     }
 
@@ -197,6 +203,15 @@ impl<'a> FunctionContext<'a> {
                     ast::Type::Array(_, _) => {
                         self.codegen_array_checked(elements, typ[0].clone())?
                     }
+                    _ => unreachable!("ICE: unexpected array literal type, got {}", array.typ),
+                })
+            }
+            ast::Literal::Slice(array) => {
+                let elements =
+                    try_vecmap(&array.contents, |element| self.codegen_expression(element))?;
+
+                let typ = Self::convert_type(&array.typ).flatten();
+                Ok(match array.typ {
                     ast::Type::Slice(_) => {
                         let slice_length =
                             self.builder.length_constant(array.contents.len() as u128);
@@ -204,10 +219,7 @@ impl<'a> FunctionContext<'a> {
                             self.codegen_array_checked(elements, typ[1].clone())?;
                         Tree::Branch(vec![slice_length.into(), slice_contents])
                     }
-                    _ => unreachable!(
-                        "ICE: array literal type must be an array or a slice, but got {}",
-                        array.typ
-                    ),
+                    _ => unreachable!("ICE: unexpected slice literal type, got {}", array.typ),
                 })
             }
             ast::Literal::Integer(value, typ, location) => {
@@ -229,6 +241,7 @@ impl<'a> FunctionContext<'a> {
 
                 Ok(Tree::Branch(vec![string, field_count.into(), fields]))
             }
+            ast::Literal::Unit => Ok(Self::unit_value()),
         }
     }
 
@@ -291,24 +304,24 @@ impl<'a> FunctionContext<'a> {
 
     fn codegen_unary(&mut self, unary: &ast::Unary) -> Result<Values, RuntimeError> {
         match unary.operator {
-            noirc_frontend::UnaryOp::Not => {
+            UnaryOp::Not => {
                 let rhs = self.codegen_expression(&unary.rhs)?;
                 let rhs = rhs.into_leaf().eval(self);
                 Ok(self.builder.insert_not(rhs).into())
             }
-            noirc_frontend::UnaryOp::Minus => {
+            UnaryOp::Minus => {
                 let rhs = self.codegen_expression(&unary.rhs)?;
                 let rhs = rhs.into_leaf().eval(self);
                 let typ = self.builder.type_of_value(rhs);
                 let zero = self.builder.numeric_constant(0u128, typ);
                 Ok(self.insert_binary(
                     zero,
-                    noirc_frontend::BinaryOpKind::Subtract,
+                    noirc_frontend::ast::BinaryOpKind::Subtract,
                     rhs,
                     unary.location,
                 ))
             }
-            noirc_frontend::UnaryOp::MutableReference => {
+            UnaryOp::MutableReference => {
                 Ok(self.codegen_reference(&unary.rhs)?.map(|rhs| {
                     match rhs {
                         value::Value::Normal(value) => {
@@ -323,7 +336,7 @@ impl<'a> FunctionContext<'a> {
                     }
                 }))
             }
-            noirc_frontend::UnaryOp::Dereference { .. } => {
+            UnaryOp::Dereference { .. } => {
                 let rhs = self.codegen_expression(&unary.rhs)?;
                 Ok(self.dereference(&rhs, &unary.result_type))
             }
@@ -477,6 +490,10 @@ impl<'a> FunctionContext<'a> {
         let index_type = Self::convert_non_tuple_type(&for_expr.index_type);
         let loop_index = self.builder.add_block_parameter(loop_entry, index_type);
 
+        // Remember the blocks and variable used in case there are break/continue instructions
+        // within the loop which need to jump to them.
+        self.enter_loop(loop_entry, loop_index, loop_end);
+
         self.builder.set_location(for_expr.start_range_location);
         let start_index = self.codegen_non_tuple_expression(&for_expr.start_range)?;
 
@@ -507,6 +524,7 @@ impl<'a> FunctionContext<'a> {
 
         // Finish by switching back to the end of the loop
         self.builder.switch_to_block(loop_end);
+        self.exit_loop();
         Ok(Self::unit_value())
     }
 
@@ -690,7 +708,9 @@ impl<'a> FunctionContext<'a> {
         if let ast::Expression::Literal(ast::Literal::Str(assert_message)) =
             assert_message_expr.as_ref()
         {
-            return Ok(Some(Box::new(ConstrainError::Static(assert_message.to_string()))));
+            return Ok(Some(Box::new(ConstrainError::UserDefined(
+                UserDefinedConstrainError::Static(assert_message.to_string()),
+            ))));
         }
 
         let ast::Expression::Call(call) = assert_message_expr.as_ref() else {
@@ -716,7 +736,7 @@ impl<'a> FunctionContext<'a> {
         }
 
         let instr = Instruction::Call { func, arguments };
-        Ok(Some(Box::new(ConstrainError::Dynamic(instr))))
+        Ok(Some(Box::new(ConstrainError::UserDefined(UserDefinedConstrainError::Dynamic(instr)))))
     }
 
     fn codegen_assign(&mut self, assign: &ast::Assign) -> Result<Values, RuntimeError> {
@@ -735,5 +755,20 @@ impl<'a> FunctionContext<'a> {
     fn codegen_semi(&mut self, expr: &Expression) -> Result<Values, RuntimeError> {
         self.codegen_expression(expr)?;
         Ok(Self::unit_value())
+    }
+
+    fn codegen_break(&mut self) -> Values {
+        let loop_end = self.current_loop().loop_end;
+        self.builder.terminate_with_jmp(loop_end, Vec::new());
+        Self::unit_value()
+    }
+
+    fn codegen_continue(&mut self) -> Values {
+        let loop_ = self.current_loop();
+
+        // Must remember to increment i before jumping
+        let new_loop_index = self.make_offset(loop_.loop_index, 1);
+        self.builder.terminate_with_jmp(loop_.loop_entry, vec![new_loop_index]);
+        Self::unit_value()
     }
 }

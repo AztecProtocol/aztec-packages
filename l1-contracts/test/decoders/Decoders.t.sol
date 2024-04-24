@@ -59,6 +59,17 @@ contract DecodersTest is DecoderBase {
         assertEq(
           header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
         );
+        assertEq(
+          header.globalVariables.gasFees.feePerDaGas,
+          globalVariables.gasFees.feePerDaGas,
+          "Invalid gasFees.feePerDaGas"
+        );
+        assertEq(
+          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
+        );
+        assertEq(
+          header.globalVariables.feeRecipient, globalVariables.feeRecipient, "Invalid feeRecipient"
+        );
       }
 
       // ContentCommitment
@@ -169,25 +180,20 @@ contract DecodersTest is DecoderBase {
 
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
-    bytes32 kernelPublicInputsLogsHash = bytes32(0);
-    bytes32 privateCircuitPublicInputsLogsHash = Hash.sha256ToField(new bytes(0));
-
-    bytes32 referenceLogsHash = Hash.sha256ToField(
-      abi.encodePacked(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash)
-    );
-
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
-    assertEq(logsHash, referenceLogsHash, "Incorrect logs hash");
+    assertEq(logsHash, bytes32(0), "Incorrect logs hash");
   }
 
   function testComputeKernelLogs1Iteration() public {
     // || K_LOGS_LEN | I1_LOGS_LEN | I1_LOGS ||
     // K_LOGS_LEN = 4 + 8 = 12 (hex"0000000c")
     // I1_LOGS_LEN = 8 (hex"00000008")
-    // I1_LOGS = 8 bytes (hex"0000000493e78a70") // Note: 00000004 is the length of 1 log within function logs
-    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
+    // I1_LOGS = 8 bytes (hex"0000000493e78a70")
+    bytes memory firstFunctionCallLogs = hex"93e78a70";
     // Prefix logs with length of kernel logs (12) and length of iteration 1 logs (8)
-    bytes memory encodedLogs = abi.encodePacked(hex"0000000c00000008", firstFunctionCallLogs);
+    // Note: 00000004 is the length of 1 log within function logs
+    bytes memory encodedLogs =
+      abi.encodePacked(hex"0000000c00000008", hex"00000004", firstFunctionCallLogs);
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
     // Zero because this is the first iteration
@@ -211,10 +217,15 @@ contract DecodersTest is DecoderBase {
     // I1_LOGS = 8 random bytes (hex"0000000493e78a70")
     // I2_LOGS_LEN = 20 (hex"00000014")
     // I2_LOGS = 20 bytes (hex"0000001006a86173c86c6d3f108eefc36e7fb014")
-    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
-    bytes memory secondFunctionCallLogs = hex"0000001006a86173c86c6d3f108eefc36e7fb014";
+    bytes memory firstFunctionCallLogs = hex"93e78a70";
+    bytes memory secondFunctionCallLogs = hex"06a86173c86c6d3f108eefc36e7fb014";
     bytes memory encodedLogs = abi.encodePacked(
-      hex"0000002400000008", firstFunctionCallLogs, hex"00000014", secondFunctionCallLogs
+      hex"0000002400000008",
+      hex"00000004",
+      firstFunctionCallLogs,
+      hex"00000014",
+      hex"00000010",
+      secondFunctionCallLogs
     );
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
 
@@ -243,15 +254,17 @@ contract DecodersTest is DecoderBase {
     // I2_LOGS = 0 bytes (hex"")
     // I3_LOGS_LEN = 20 (hex"00000014")
     // I3_LOGS = 20 random bytes (hex"0000001006a86173c86c6d3f108eefc36e7fb014")
-    bytes memory firstFunctionCallLogs = hex"0000000493e78a70";
+    bytes memory firstFunctionCallLogs = hex"93e78a70";
     bytes memory secondFunctionCallLogs = hex"";
-    bytes memory thirdFunctionCallLogs = hex"0000001006a86173c86c6d3f108eefc36e7fb014";
+    bytes memory thirdFunctionCallLogs = hex"06a86173c86c6d3f108eefc36e7fb014";
     bytes memory encodedLogs = abi.encodePacked(
       hex"0000002800000008",
+      hex"00000004",
       firstFunctionCallLogs,
       hex"00000000",
       secondFunctionCallLogs,
       hex"00000014",
+      hex"00000010",
       thirdFunctionCallLogs
     );
     (bytes32 logsHash, uint256 bytesAdvanced) = txsHelper.computeKernelLogsHash(encodedLogs);
@@ -259,22 +272,51 @@ contract DecodersTest is DecoderBase {
     bytes32 referenceLogsHashFromIteration1 =
       Hash.sha256ToField(abi.encodePacked(bytes32(0), Hash.sha256ToField(firstFunctionCallLogs)));
 
-    bytes32 privateCircuitPublicInputsLogsHashSecondCall =
-      Hash.sha256ToField(secondFunctionCallLogs);
-
-    bytes32 referenceLogsHashFromIteration2 = Hash.sha256ToField(
-      abi.encodePacked(
-        referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashSecondCall
-      )
-    );
+    // Note: as of resolving #5017, we now hash logs inside the circuits
+    // Following the YP, we skip any zero length logs, hence no use of secondFunctionCallLogs here
 
     bytes32 privateCircuitPublicInputsLogsHashThirdCall = Hash.sha256ToField(thirdFunctionCallLogs);
 
     bytes32 referenceLogsHashFromIteration3 = Hash.sha256ToField(
-      abi.encodePacked(referenceLogsHashFromIteration2, privateCircuitPublicInputsLogsHashThirdCall)
+      abi.encodePacked(referenceLogsHashFromIteration1, privateCircuitPublicInputsLogsHashThirdCall)
     );
 
     assertEq(bytesAdvanced, encodedLogs.length, "Advanced by an incorrect number of bytes");
     assertEq(logsHash, referenceLogsHashFromIteration3, "Incorrect logs hash");
+  }
+
+  function testTxsDecoderCorrectlyComputesNumTxEffectsToPad() public {
+    // Minimum num txs is 2 so when there are no real txs we need to pad to 2
+    uint32 numTxEffects = 0;
+    uint32 paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 1;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 1 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 3;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 2 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 5;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 8;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 3 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 10;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 16;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 4 - numTxEffects, "Incorrect number of tx effects to pad");
+
+    numTxEffects = 17;
+    paddedNumTxEffects = txsHelper.computeNumTxEffectsToPad(numTxEffects);
+    assertEq(paddedNumTxEffects, 2 ** 5 - numTxEffects, "Incorrect number of tx effects to pad");
   }
 }

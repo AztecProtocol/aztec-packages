@@ -382,9 +382,9 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 
 // Positive test with JUMP and CALLDATACOPY
 // We test bytecode which first invoke CALLDATACOPY on a FF array of two values.
-// Then, a JUMP call skips a SUB opcode to land to a DIV operation and RETURN.
+// Then, a JUMP call skips a SUB opcode to land to a FDIV operation and RETURN.
 // Calldata: [13, 156]
-// Bytecode layout: CALLDATACOPY  JUMP  SUB  DIV  RETURN
+// Bytecode layout: CALLDATACOPY  JUMP  SUB  FDIV  RETURN
 //                        0         1    2    3     4
 TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 {
@@ -394,16 +394,15 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                                "00000002"                     // copy_size
                                "0000000A"                     // dst_offset // M[10] = 13, M[11] = 156
                                + to_hex(OpCode::JUMP) +       // opcode JUMP
-                               "00000003"                     // jmp_dest (DIV located at 3)
+                               "00000003"                     // jmp_dest (FDIV located at 3)
                                + to_hex(OpCode::SUB) +        // opcode SUB
                                "00"                           // Indirect flag
                                "06"                           // FF
                                "0000000B"                     // addr 11
                                "0000000A"                     // addr 10
                                "00000001"                     // addr c 1 (If executed would be 156 - 13 = 143)
-                               + to_hex(OpCode::DIV) +        // opcode DIV
+                               + to_hex(OpCode::FDIV) +       // opcode FDIV
                                "00"                           // Indirect flag
-                               "06"                           // FF
                                "0000000B"                     // addr 11
                                "0000000A"                     // addr 10
                                "00000001"                     // addr c 1 (156 / 13 = 12)
@@ -443,8 +442,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
         EXPECT_EQ(trace.at(i + 1).avm_main_pc, pc_sequence.at(i));
     }
 
-    // Find the first row enabling the division selector.
-    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_div == 1; });
+    // Find the first row enabling the fdiv selector.
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_fdiv == 1; });
     EXPECT_EQ(row->avm_main_ic, 12);
 
     // Find the first row enabling the subtraction selector.
@@ -503,6 +502,62 @@ TEST_F(AvmExecutionTests, movOpcode)
     gen_proof_and_validate(bytecode, std::move(trace), {});
 }
 
+// Positive test with CMOV.
+TEST_F(AvmExecutionTests, cmovOpcode)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET) +      // opcode SET
+                               "00"                       // Indirect flag
+                               "01"                       // U8
+                               "03"                       // val 3
+                               "00000010"                 // a_offset 16
+                               + to_hex(OpCode::SET) +    // opcode SET
+                               "00"                       // Indirect flag
+                               "02"                       // U16
+                               "0004"                     // val 4
+                               "00000011"                 // b_offset 17
+                               + to_hex(OpCode::SET) +    // opcode SET
+                               "00"                       // Indirect flag
+                               "03"                       // U32
+                               "00000005"                 // val 5
+                               "00000020"                 // cond_offset 32
+                               + to_hex(OpCode::CMOV) +   // opcode CMOV
+                               "00"                       // Indirect flag
+                               "00000010"                 // a_offset 16
+                               "00000011"                 // b_offset 17
+                               "00000020"                 // cond_offset 32
+                               "00000012"                 // dst_offset 18
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(5));
+
+    // CMOV
+    EXPECT_THAT(instructions.at(3),
+                AllOf(Field(&Instruction::op_code, OpCode::CMOV),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint32_t>(16),
+                                        VariantWith<uint32_t>(17),
+                                        VariantWith<uint32_t>(32),
+                                        VariantWith<uint32_t>(18)))));
+
+    auto trace = Execution::gen_trace(instructions);
+
+    // Find the first row enabling the CMOV selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_cmov == 1; });
+    EXPECT_EQ(row->avm_main_ia, 3);
+    EXPECT_EQ(row->avm_main_ib, 4);
+    EXPECT_EQ(row->avm_main_ic, 3);
+    EXPECT_EQ(row->avm_main_id, 5);
+
+    gen_proof_and_validate(bytecode, std::move(trace), {});
+}
+
 // Positive test with indirect MOV.
 TEST_F(AvmExecutionTests, indMovOpcode)
 {
@@ -547,6 +602,47 @@ TEST_F(AvmExecutionTests, indMovOpcode)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_mov == 1; });
     EXPECT_EQ(row->avm_main_ia, 255);
     EXPECT_EQ(row->avm_main_ic, 255);
+
+    gen_proof_and_validate(bytecode, std::move(trace), {});
+}
+
+// Positive test for SET and CAST opcodes
+TEST_F(AvmExecutionTests, setAndCastOpcodes)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET) +      // opcode SET
+                               "00"                       // Indirect flag
+                               "02"                       // U16
+                               "B813"                     // val 47123
+                               "00000011"                 // dst_offset 17
+                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               "00"                       // Indirect flag
+                               "01"                       // U8
+                               "00000011"                 // addr a
+                               "00000012"                 // addr casted a
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
+
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
+
+    ASSERT_THAT(instructions, SizeIs(3));
+
+    // SUB
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::CAST),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
+                                        VariantWith<uint32_t>(17),
+                                        VariantWith<uint32_t>(18)))));
+
+    auto trace = Execution::gen_trace(instructions);
+
+    // Find the first row enabling the cast selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_cast == 1; });
+    EXPECT_EQ(row->avm_main_ic, 19); // 0XB813 --> 0X13 = 19
 
     gen_proof_and_validate(bytecode, std::move(trace), {});
 }

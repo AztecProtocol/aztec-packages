@@ -1,14 +1,14 @@
 import {
-  AccountWalletWithPrivateKey,
-  AztecNode,
+  type AccountWalletWithSecretKey,
+  type AztecNode,
   BatchCall,
-  DeployL1Contracts,
+  type DeployL1Contracts,
   EthAddress,
   Fr,
-  SiblingPath,
-  sha256,
+  type SiblingPath,
 } from '@aztec/aztec.js';
-import { toTruncField, truncateAndPad } from '@aztec/foundation/serialize';
+import { sha256ToField } from '@aztec/foundation/crypto';
+import { truncateAndPad } from '@aztec/foundation/serialize';
 import { SHA256 } from '@aztec/merkle-tree';
 import { TestContract } from '@aztec/noir-contracts.js';
 
@@ -24,7 +24,7 @@ describe('E2E Outbox Tests', () => {
   let aztecNode: AztecNode;
   const merkleSha256 = new SHA256();
   let contract: TestContract;
-  let wallets: AccountWalletWithPrivateKey[];
+  let wallets: AccountWalletWithSecretKey[];
   let deployL1ContractsValues: DeployL1Contracts;
 
   beforeEach(async () => {
@@ -58,8 +58,8 @@ describe('E2E Outbox Tests', () => {
     const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
     expect(l2ToL1Messages?.map(l2ToL1Message => l2ToL1Message.toString())).toStrictEqual(
-      [makeL2ToL1Message(recipient2, content2), makeL2ToL1Message(recipient1, content1), Fr.ZERO, Fr.ZERO].map(
-        expectedL2ToL1Message => expectedL2ToL1Message.toString(),
+      [makeL2ToL1Message(recipient2, content2), makeL2ToL1Message(recipient1, content1)].map(expectedL2ToL1Message =>
+        expectedL2ToL1Message.toString(),
       ),
     );
 
@@ -103,17 +103,13 @@ describe('E2E Outbox Tests', () => {
   }
 
   function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO): Fr {
-    const leaf = toTruncField(
-      sha256(
-        Buffer.concat([
-          contract.address.toBuffer(),
-          new Fr(1).toBuffer(), // aztec version
-          recipient.toBuffer32(),
-          new Fr(deployL1ContractsValues.publicClient.chain.id).toBuffer(), // chain id
-          content.toBuffer(),
-        ]),
-      ),
-    )[0];
+    const leaf = sha256ToField([
+      contract.address,
+      new Fr(1), // aztec version
+      recipient.toBuffer32(),
+      new Fr(deployL1ContractsValues.publicClient.chain.id), // chain id
+      content,
+    ]);
 
     return leaf;
   }

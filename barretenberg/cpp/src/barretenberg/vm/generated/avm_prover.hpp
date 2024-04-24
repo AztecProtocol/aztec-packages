@@ -2,11 +2,12 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
-#include "barretenberg/flavor/generated/avm_flavor.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+
+#include "barretenberg/vm/generated/avm_flavor.hpp"
 
 namespace bb {
 
@@ -27,6 +28,7 @@ class AvmProver {
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
+    void execute_log_derivative_inverse_round();
     void execute_relation_check_rounds();
     void execute_zeromorph_rounds();
 
@@ -45,6 +47,7 @@ class AvmProver {
     ProverPolynomials prover_polynomials;
 
     CommitmentLabels commitment_labels;
+    typename Flavor::WitnessCommitments witness_commitments;
 
     Polynomial quotient_W;
 

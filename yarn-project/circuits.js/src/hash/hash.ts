@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -61,7 +61,7 @@ export function hashVK(vkBuf: Buffer) {
  * @returns A commitment nonce.
  */
 export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
-  return pedersenHash([nullifierZero.toBuffer(), numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.NOTE_HASH_NONCE);
+  return pedersenHash([nullifierZero, commitmentIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
@@ -72,17 +72,37 @@ export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: numbe
  * @returns A siloed commitment.
  */
 export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
-  return pedersenHash([contract.toBuffer(), innerNoteHash.toBuffer()], GeneratorIndex.SILOED_NOTE_HASH);
+  return pedersenHash([contract, innerNoteHash], GeneratorIndex.SILOED_NOTE_HASH);
 }
 
 /**
- * Computes a unique commitment. It includes a nonce which contains data that guarantees the commitment will be unique.
- * @param nonce - The contract address.
- * @param siloedCommitment - An siloed commitment.
- * @returns A unique commitment.
+ * Computes a note content hash.
+ * @param noteContent - The note content (e.g. note.items).
+ * @returns A note content hash.
  */
-export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
-  return pedersenHash([nonce.toBuffer(), siloedCommitment.toBuffer()], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeNoteContentHash(noteContent: Fr[]): Fr {
+  return pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
+}
+
+/**
+ * Computes an inner note hash, given a storage slot and a note hash.
+ * @param storageSlot - The storage slot.
+ * @param noteHash - The note hash.
+ * @returns An inner note hash.
+ */
+export function computeInnerNoteHash(storageSlot: Fr, noteHash: Fr): Fr {
+  return pedersenHash([storageSlot, noteHash], GeneratorIndex.INNER_NOTE_HASH);
+}
+
+/**
+ * Computes a unique note hash.
+ * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
+ * @param nonce - The contract address.
+ * @param siloedNoteHash - An siloed note hash.
+ * @returns A unique note hash.
+ */
+export function computeUniqueNoteHash(nonce: Fr, siloedNoteHash: Fr): Fr {
+  return pedersenHash([nonce, siloedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -93,7 +113,7 @@ export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
  * @returns A siloed nullifier.
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Fr {
-  return pedersenHash([contract.toBuffer(), innerNullifier.toBuffer()], GeneratorIndex.OUTER_NULLIFIER);
+  return pedersenHash([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
 }
 
 /**
@@ -114,7 +134,7 @@ export function computePublicDataTreeValue(value: Fr): Fr {
 
  */
 export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, storageSlot: Fr): Fr {
-  return pedersenHash([contractAddress.toBuffer(), storageSlot.toBuffer()], GeneratorIndex.PUBLIC_LEAF_INDEX);
+  return pedersenHash([contractAddress, storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
 }
 
 /**
@@ -138,38 +158,40 @@ export function computeVarArgsHash(args: Fr[]) {
     if (c.length < ARGS_HASH_CHUNK_LENGTH) {
       c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_LENGTH);
     }
-    return pedersenHash(
-      c.map(a => a.toBuffer()),
-      GeneratorIndex.FUNCTION_ARGS,
-    );
+    return pedersenHash(c, GeneratorIndex.FUNCTION_ARGS);
   });
 
   if (chunksHashes.length < ARGS_HASH_CHUNK_COUNT) {
     chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
 
-  return pedersenHash(
-    chunksHashes.map(a => a.toBuffer()),
-    GeneratorIndex.FUNCTION_ARGS,
-  );
+  return pedersenHash(chunksHashes, GeneratorIndex.FUNCTION_ARGS);
 }
 
 export function computeCommitmentsHash(input: SideEffect) {
-  return pedersenHash([input.value.toBuffer(), input.counter.toBuffer()], GeneratorIndex.SIDE_EFFECT);
+  return pedersenHash([input.value, input.counter], GeneratorIndex.SIDE_EFFECT);
 }
 
 export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
-  return pedersenHash(
-    [input.value.toBuffer(), input.noteHash.toBuffer(), input.counter.toBuffer()],
-    GeneratorIndex.SIDE_EFFECT,
-  );
+  return pedersenHash([input.value, input.noteHash, input.counter], GeneratorIndex.SIDE_EFFECT);
 }
 
 /**
- * Given a secret, it computes its pedersen hash - used to send l1 to l2 messages
- * @param secret - the secret to hash - secret could be generated however you want e.g. `Fr.random()`
- * @returns the hash
+ * Computes a hash of a secret.
+ * @dev This function is used to generate secrets for the L1 to L2 message flow and for the TransparentNote.
+ * @param secret - The secret to hash (could be generated however you want e.g. `Fr.random()`)
+ * @returns The hash
  */
-export function computeMessageSecretHash(secretMessage: Fr) {
-  return pedersenHash([secretMessage.toBuffer()], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET);
+export function computeSecretHash(secret: Fr) {
+  return pedersenHash([secret], GeneratorIndex.SECRET_HASH);
+}
+
+export function computeL1ToL2MessageNullifier(
+  contract: AztecAddress,
+  messageHash: Fr,
+  secret: Fr,
+  messageIndex: bigint,
+) {
+  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.MESSAGE_NULLIFIER);
+  return siloNullifier(contract, innerMessageNullifier);
 }

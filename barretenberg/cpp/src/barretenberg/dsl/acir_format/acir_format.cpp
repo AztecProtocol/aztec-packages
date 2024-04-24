@@ -1,7 +1,7 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <cstddef>
 
 namespace acir_format {
@@ -13,8 +13,11 @@ template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments)
 {
     // Add arithmetic gates
-    for (const auto& constraint : constraint_system.constraints) {
+    for (const auto& constraint : constraint_system.poly_triple_constraints) {
         builder.create_poly_gate(constraint);
+    }
+    for (const auto& constraint : constraint_system.quad_constraints) {
+        builder.create_big_mul_gate(constraint);
     }
 
     // Add logic constraint
@@ -64,9 +67,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     // Add keccak constraints
     for (const auto& constraint : constraint_system.keccak_constraints) {
         create_keccak_constraints(builder, constraint);
-    }
-    for (const auto& constraint : constraint_system.keccak_var_constraints) {
-        create_keccak_var_constraints(builder, constraint);
     }
     for (const auto& constraint : constraint_system.keccak_permutations) {
         create_keccak_permutations(builder, constraint);
@@ -246,10 +246,6 @@ GoblinUltraCircuitBuilder create_circuit(const AcirFormat& constraint_system,
     // Populate constraints in the builder via the data in constraint_system
     bool has_valid_witness_assignments = !witness.empty();
     acir_format::build_constraints(builder, constraint_system, has_valid_witness_assignments);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): Add some arbitrary op gates to ensure the
-    // associated polynomials are non-zero and to give ECCVM and Translator some ECC ops to process.
-    MockCircuits::construct_goblin_ecc_op_circuit(builder);
 
     return builder;
 };

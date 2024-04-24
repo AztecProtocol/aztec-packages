@@ -26,10 +26,20 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::SUB, three_operand_format },
     { OpCode::MUL, three_operand_format },
     { OpCode::DIV, three_operand_format },
+    { OpCode::FDIV, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Compute - Comparators
     { OpCode::EQ, three_operand_format },
+    { OpCode::LT, three_operand_format },
+    { OpCode::LTE, three_operand_format },
     // Compute - Bitwise
     { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::AND, three_operand_format },
+    { OpCode::OR, three_operand_format },
+    { OpCode::XOR, three_operand_format },
+    { OpCode::SHR, three_operand_format },
+    { OpCode::SHL, three_operand_format },
+    // Compute - Type Conversions
+    { OpCode::CAST, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
     // Execution Environment - Calldata
     { OpCode::CALLDATACOPY, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Machine State - Internal Control Flow
@@ -39,6 +49,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // Machine State - Memory
     // OpCode::SET is handled differently
     { OpCode::MOV, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::CMOV,
+      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Control Flow - Contract Calls
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
 };

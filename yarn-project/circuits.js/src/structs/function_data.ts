@@ -1,10 +1,10 @@
-import { FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { FUNCTION_DATA_LENGTH, GeneratorIndex } from '../constants.gen.js';
-import { ContractFunctionDao } from '../types/contract_function_dao.js';
+import { type ContractFunctionDao } from '../types/contract_function_dao.js';
 
 /** Function description for circuit. */
 export class FunctionData {
@@ -80,9 +80,6 @@ export class FunctionData {
   }
 
   hash(): Fr {
-    return pedersenHash(
-      this.toFields().map(field => field.toBuffer()),
-      GeneratorIndex.FUNCTION_DATA,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.FUNCTION_DATA);
   }
 }

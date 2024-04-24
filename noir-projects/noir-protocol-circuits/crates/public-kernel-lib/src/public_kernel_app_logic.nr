@@ -4,7 +4,6 @@ use dep::types::PublicKernelCircuitPublicInputs;
 use dep::types::abis::kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder;
 use dep::types::utils::arrays::array_to_bounded_vec;
 use crate::common;
-use dep::std::unsafe;
 
 struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
@@ -14,15 +13,15 @@ struct PublicKernelAppLogicCircuitPrivateInputs {
 impl PublicKernelAppLogicCircuitPrivateInputs {
 
     fn validate_inputs(self) {
-        let needs_setup = self.previous_kernel.public_inputs.needs_setup;
+        let needs_setup = self.previous_kernel.public_inputs.needs_setup();
         assert(needs_setup == false, "Cannot run app logic circuit before setup circuit");
-        let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic;
+        let needs_app_logic = self.previous_kernel.public_inputs.needs_app_logic();
         assert(needs_app_logic == true, "Cannot run unnecessary app logic circuit");
     }
 
     fn public_kernel_app_logic(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
 
         // initialise the end state with our provided previous kernel state
@@ -36,17 +35,13 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
-        if public_inputs.end_non_revertible.revert_code == 0 {
+        common::update_revertible_gas_used(self.public_call, &mut public_inputs);
+
+        if public_inputs.revert_code == 0 {
             // Pops the item from the call stack and validates it against the current execution.
             let call_request = public_inputs.end.public_call_stack.pop();
             common::validate_call_against_request(self.public_call, call_request);
             common::update_public_end_values(self.public_call, &mut public_inputs);
-            common::accumulate_unencrypted_logs(
-                self.public_call,
-                self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-                self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-                &mut public_inputs
-            );
         } else {
             let mut remaining_calls = array_to_bounded_vec(self.previous_kernel.public_inputs.end.public_call_stack);
             let reverted_call_request = remaining_calls.pop();
@@ -62,7 +57,7 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
             );
         }
 
-        public_inputs.to_inner()
+        public_inputs.finish()
     }
 }
 
@@ -76,26 +71,26 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
+        read_request::ReadRequest, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        hash::{compute_l2_to_l1_hash, compute_logs_hash, silo_note_hash, silo_nullifier},
+        hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier},
         messaging::l2_to_l1_message::L2ToL1Message,
-        tests::{kernel_data_builder::PreviousKernelDataBuilder, public_call_data_builder::PublicCallDataBuilder},
+        tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::arrays::{array_eq, array_length}
     };
     use dep::types::constants::{MAX_PUBLIC_DATA_READS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL};
 
     struct PublicKernelAppLogicCircuitPrivateInputsBuilder {
-        previous_kernel: PreviousKernelDataBuilder,
+        previous_kernel: FixtureBuilder,
         public_call: PublicCallDataBuilder,
     }
 
     impl PublicKernelAppLogicCircuitPrivateInputsBuilder {
         pub fn new() -> Self {
-            let previous_kernel = PreviousKernelDataBuilder::new(true).is_public();
+            let previous_kernel = FixtureBuilder::new();
             let public_call = PublicCallDataBuilder::new();
 
             PublicKernelAppLogicCircuitPrivateInputsBuilder { previous_kernel, public_call }
@@ -124,7 +119,7 @@ mod tests {
             let hash = public_call.call_stack_item.hash();
             let is_delegate_call = public_call.call_stack_item.public_inputs.call_context.is_delegate_call;
             self.previous_kernel.push_public_call_request(hash, is_delegate_call);
-            let previous_kernel = self.previous_kernel.to_public_kernel_data();
+            let previous_kernel = self.previous_kernel.to_public_kernel_data(true);
 
             let kernel = PublicKernelAppLogicCircuitPrivateInputs { previous_kernel, public_call };
 
@@ -164,7 +159,7 @@ mod tests {
     #[test(should_fail_with="Cannot run unnecessary app logic circuit")]
     fn public_previous_kernel_private_previous_kernel_should_fail() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = PreviousKernelDataBuilder::new(true);
+        builder.previous_kernel = FixtureBuilder::new();
         let public_call = builder.public_call.finish();
 
         // the key difference in this test versus those that use builder.execute()
@@ -172,7 +167,7 @@ mod tests {
         // this means that when we call `to_public_kernel_data` below, 
         // it will say needs_app_logic is false
 
-        let previous_kernel = builder.previous_kernel.to_public_kernel_data();
+        let previous_kernel = builder.previous_kernel.to_public_kernel_data(true);
 
         let kernel = PublicKernelAppLogicCircuitPrivateInputs { previous_kernel, public_call };
 
@@ -185,7 +180,7 @@ mod tests {
         let contract_address = builder.public_call.contract_address;
         // Setup 2 new note hashes on the previous kernel.
         builder.previous_kernel.append_new_note_hashes(2);
-        let previous = builder.previous_kernel.end.new_note_hashes.storage;
+        let previous = builder.previous_kernel.new_note_hashes.storage;
         // Setup 2 new note hashes on the current public inputs.
         let current = [
             SideEffect { value: previous[1].value + 1, counter: 3 },
@@ -207,7 +202,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         // Setup 2 data writes on the previous kernel.
         builder.previous_kernel.append_public_data_update_requests(2);
-        let previous = builder.previous_kernel.end.public_data_update_requests.storage;
+        let previous = builder.previous_kernel.public_data_update_requests.storage;
         // Setup 2 data writes on the current public inputs.
         builder.public_call.append_update_requests(2);
         let current = builder.get_current_public_data_update_requests();
@@ -226,7 +221,7 @@ mod tests {
 
         // Setup 2 data reads on the previous kernel.
         builder.previous_kernel.append_public_data_read_requests(2);
-        let previous = builder.previous_kernel.validation_requests.public_data_reads.storage;
+        let previous = builder.previous_kernel.public_data_reads.storage;
         // Setup 2 data reads on the current public inputs.
         builder.public_call.append_public_data_read_requests(2);
         let current = builder.get_current_public_data_reads();
@@ -245,8 +240,8 @@ mod tests {
         let contract_address = builder.public_call.contract_address;
 
         // Setup 2 new nullifiers on the previous kernel.
-        builder.previous_kernel.append_new_nullifiers_from_public(2);
-        let previous = builder.previous_kernel.end.new_nullifiers.storage;
+        builder.previous_kernel.append_new_nullifiers(2);
+        let previous = builder.previous_kernel.new_nullifiers.storage;
         // Setup 2 new note hashes on the current public inputs.
 
         let current = [
@@ -273,11 +268,11 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         let contract_address = builder.public_call.contract_address;
-        let portal_contract_address = builder.public_call.portal_contract_address;
+        let portal_contract_address = EthAddress::from_field(0xdead);
         // Setup 1 new l2 to l1 message on the previous kernel.
         let previous = [12345];
 
-        builder.previous_kernel.end.new_l2_to_l1_msgs.extend_from_array(previous);
+        builder.previous_kernel.new_l2_to_l1_msgs.extend_from_array(previous);
         // Setup 1 new l2 to l1 message on the current public inputs.
         let current = [L2ToL1Message { recipient: portal_contract_address, content: 67890 }];
         builder.public_call.public_inputs.new_l2_to_l1_msgs.extend_from_array(current);
@@ -295,14 +290,14 @@ mod tests {
     fn circuit_outputs_should_be_correctly_populated_with_previous_public_kernel_logs() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         // Logs for the current call stack.
-        let unencrypted_logs_hash = [26];
+        let unencrypted_logs_hash = 26;
         let unencrypted_log_preimages_length = 50;
         builder.public_call.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
 
         // Logs for the previous call stack.
-        let prev_encrypted_logs_hash = [80];
+        let prev_encrypted_logs_hash = 80;
         let prev_encrypted_log_preimages_length = 13;
-        let prev_unencrypted_logs_hash = [956];
+        let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
         builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
         builder.previous_kernel.set_unencrypted_logs(
@@ -316,11 +311,9 @@ mod tests {
         assert_eq(
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
-
-        assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
-
-        let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test(should_fail_with="No contract storage update requests are allowed for static calls")]
@@ -413,7 +406,6 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert_eq_call_requests(public_inputs.end.private_call_stack, []);
         assert_eq_call_requests(public_inputs.end.public_call_stack, public_call_stack);
         assert_eq_public_data_update_requests(
             public_inputs.end.public_data_update_requests,
@@ -449,5 +441,27 @@ mod tests {
         assert_eq(request_context.value, request_1.value);
         assert_eq(request_context.counter, request_1.counter);
         assert_eq(request_context.contract_address, storage_contract_address);
+    }
+
+    #[test]
+    fn updates_revertible_gas_used() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        // Transaction gas limit is 1k
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
+
+        // Revertible has already used 300
+        builder.previous_kernel.gas_used = Gas::new(300, 300, 300);
+
+        // This call starts with 700 gas left
+        builder.public_call.public_inputs.start_gas_left = Gas::new(700, 700, 700);
+
+        // And uses 200, ending with 500 left
+        builder.public_call.public_inputs.end_gas_left = Gas::new(500, 500, 500);
+
+        // So the updated gas used by revertible must go up by 200, and non-revertible must stay the same
+        let output = builder.execute();
+        assert_eq(output.end.gas_used, Gas::new(500, 500, 500));
+        assert_eq(output.end_non_revertible.gas_used, Gas::new(0, 0, 0));
     }
 }

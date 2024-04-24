@@ -1,13 +1,15 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, emit_unencrypted_log};
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize};
 
     use dep::aztec::{
-        context::{PublicContext, Context}, protocol_types::{abis::{call_context::CallContext}},
+        context::{PublicContext, Context, gas::GasOpts},
+        protocol_types::{abis::{call_context::CallContext}},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader}
     };
     use dep::value_note::value_note::ValueNote;
 
+    #[aztec(storage)]
     struct Storage {
         current_value: PublicMutable<Field>,
         a_private_value: PrivateSet<ValueNote>,
@@ -33,7 +35,7 @@ contract Child {
             + context.chain_id()
             + context.version()
             + context.block_number()
-            + context.timestamp();
+            + context.timestamp() as Field;
 
         return_value
     }
@@ -42,7 +44,7 @@ contract Child {
     #[aztec(public)]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
@@ -56,7 +58,8 @@ contract Child {
 
     #[aztec(private)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let options = NoteGetterOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(ValueNote::properties().value, amount, Option::none()).select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -70,7 +73,7 @@ contract Child {
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
@@ -81,26 +84,22 @@ contract Child {
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
-        emit_unencrypted_log(&mut context, new_value);
+        context.emit_unencrypted_log(new_value);
 
         new_value
     }
 
     #[aztec(public)]
     fn set_value_twice_with_nested_first() {
-        let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _ret = context.call_public_function(context.this_address(), pub_set_value_selector, [10]);
-
+        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
         storage.current_value.write(20);
-        emit_unencrypted_log(&mut context, 20);
+        context.emit_unencrypted_log(20);
     }
 
     #[aztec(public)]
     fn set_value_twice_with_nested_last() {
         storage.current_value.write(20);
-        emit_unencrypted_log(&mut context, 20);
-
-        let pub_set_value_selector = FunctionSelector::from_signature("pub_set_value(Field)");
-        let _ret = context.call_public_function(context.this_address(), pub_set_value_selector, [10]);
+        context.emit_unencrypted_log(20);
+        let _result = Child::at(context.this_address()).pub_set_value(10).call(&mut context);
     }
 }

@@ -36,6 +36,9 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
     using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
 
+    using TupleOfInstances =
+        std::tuple<std::vector<std::shared_ptr<ProverInstance>>, std::vector<std::shared_ptr<VerifierInstance>>>;
+
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     static void construct_circuit(Builder& builder)
@@ -54,6 +57,24 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
         }
+    }
+
+    // constructs num_insts number of prover and verifier instances
+    static TupleOfInstances construct_instances(size_t num_insts)
+    {
+        TupleOfInstances instances;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
+        for (size_t idx = 0; idx < num_insts; idx++) {
+            auto builder = typename Flavor::CircuitBuilder();
+            construct_circuit(builder);
+
+            auto prover_instance = std::make_shared<ProverInstance>(builder);
+            auto verification_key = std::make_shared<VerificationKey>(prover_instance->proving_key);
+            auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+            get<0>(instances).emplace_back(prover_instance);
+            get<1>(instances).emplace_back(verifier_instance);
+        }
+        return instances;
     }
 
     static ProverPolynomials construct_full_prover_polynomials(auto& input_polynomials)
@@ -79,7 +100,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumulator, bool expected_result)
     {
-        auto instance_size = accumulator->proving_key->circuit_size;
+        auto instance_size = accumulator->proving_key.circuit_size;
         auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
             accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
@@ -117,16 +138,21 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         construct_circuit(builder);
 
         auto instance = std::make_shared<ProverInstance>(builder);
-        instance->initialize_prover_polynomials();
 
-        auto eta = FF::random_element();
-        auto beta = FF::random_element();
-        auto gamma = FF::random_element();
-        instance->compute_sorted_accumulator_polynomials(eta);
+        instance->relation_parameters.eta = FF::random_element();
+        instance->relation_parameters.eta_two = FF::random_element();
+        instance->relation_parameters.eta_three = FF::random_element();
+        instance->relation_parameters.beta = FF::random_element();
+        instance->relation_parameters.gamma = FF::random_element();
+
+        instance->proving_key.compute_sorted_accumulator_polynomials(instance->relation_parameters.eta,
+                                                                     instance->relation_parameters.eta_two,
+                                                                     instance->relation_parameters.eta_three);
         if constexpr (IsGoblinFlavor<Flavor>) {
-            instance->compute_logderivative_inverse(beta, gamma);
+            instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
         }
-        instance->compute_grand_product_polynomials(beta, gamma);
+        instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
+        instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
         for (auto& alpha : instance->alphas) {
             alpha = FF::random_element();
@@ -218,13 +244,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     static void test_combiner_quotient()
     {
         auto compressed_perturbator = FF(2); // F(\alpha) in the paper
-        auto combiner =
-            bb::Univariate<FF, 13>(std::array<FF, 13>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32 });
+        auto combiner = bb::Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
         auto combiner_quotient = ProtoGalaxyProver::compute_combiner_quotient(compressed_perturbator, combiner);
 
         // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
         // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
-        auto expected_evals = bb::Univariate<FF, 13, 2>(std::array<FF, 11>{
+        auto expected_evals = bb::Univariate<FF, 12, 2>(std::array<FF, 10>{
             (FF(22) - (FF(1) - FF(2)) * compressed_perturbator) / (FF(2) * FF(2 - 1)),
             (FF(23) - (FF(1) - FF(3)) * compressed_perturbator) / (FF(3) * FF(3 - 1)),
             (FF(24) - (FF(1) - FF(4)) * compressed_perturbator) / (FF(4) * FF(4 - 1)),
@@ -235,7 +260,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             (FF(29) - (FF(1) - FF(9)) * compressed_perturbator) / (FF(9) * FF(9 - 1)),
             (FF(30) - (FF(1) - FF(10)) * compressed_perturbator) / (FF(10) * FF(10 - 1)),
             (FF(31) - (FF(1) - FF(11)) * compressed_perturbator) / (FF(11) * FF(11 - 1)),
-            (FF(32) - (FF(1) - FF(12)) * compressed_perturbator) / (FF(12) * FF(12 - 1)),
         });
 
         for (size_t idx = 2; idx < 7; idx++) {
@@ -262,7 +286,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         ProverInstances instances{ { instance1, instance2 } };
         ProtoGalaxyProver::combine_relation_parameters(instances);
 
-        bb::Univariate<FF, 12> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23 } };
+        bb::Univariate<FF, 11> expected_eta{ { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21 } };
         EXPECT_EQ(instances.relation_parameters.eta, expected_eta);
     }
 
@@ -284,7 +308,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         ProverInstances instances{ { instance1, instance2 } };
         ProtoGalaxyProver::combine_alpha(instances);
 
-        bb::Univariate<FF, 13> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26 } };
+        bb::Univariate<FF, 12> expected_alpha{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
         for (const auto& alpha : instances.alphas) {
             EXPECT_EQ(alpha, expected_alpha);
         }
@@ -296,32 +320,13 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_full_protogalaxy()
     {
-        auto builder_1 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_1);
-
-        auto prover_instance_1 = std::make_shared<ProverInstance>(builder_1);
-        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
-
-        auto builder_2 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_2);
-        auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
-        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
-        auto [prover_accumulator, verifier_accumulator] =
-            fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
-
+        TupleOfInstances insts = construct_instances(2);
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
-        auto builder_3 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_3);
-        auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
-        auto verification_key_3 = std::make_shared<VerificationKey>(prover_instance_3->proving_key);
-        auto verifier_instance_3 = std::make_shared<VerifierInstance>(verification_key_3);
-
+        TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
-
+            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
         check_accumulator_target_sum_manual(prover_accumulator_2, true);
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
@@ -333,32 +338,16 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_tampered_commitment()
     {
-        auto builder_1 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_1);
-
-        auto prover_instance_1 = std::make_shared<ProverInstance>(builder_1);
-        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
-
-        auto builder_2 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_2);
-        auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
-        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
-        auto [prover_accumulator, verifier_accumulator] =
-            fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
+        TupleOfInstances insts = construct_instances(2);
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
+        // Tamper with a commitment
         verifier_accumulator->witness_commitments.w_l = Projective(Affine::random_element());
-        auto builder_3 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_3);
-        auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
-        auto verification_key_3 = std::make_shared<VerificationKey>(prover_instance_3->proving_key);
-        auto verifier_instance_3 = std::make_shared<VerifierInstance>(verification_key_3);
 
+        TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
-
+            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
         check_accumulator_target_sum_manual(prover_accumulator_2, true);
 
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
@@ -371,34 +360,35 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      */
     static void test_tampered_accumulator_polynomial()
     {
-        auto builder_1 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_1);
-
-        auto prover_instance_1 = std::make_shared<ProverInstance>(builder_1);
-        auto verification_key_1 = std::make_shared<VerificationKey>(prover_instance_1->proving_key);
-        auto verifier_instance_1 = std::make_shared<VerifierInstance>(verification_key_1);
-
-        auto builder_2 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_2);
-        auto prover_instance_2 = std::make_shared<ProverInstance>(builder_2);
-        auto verification_key_2 = std::make_shared<VerificationKey>(prover_instance_2->proving_key);
-        auto verifier_instance_2 = std::make_shared<VerifierInstance>(verification_key_2);
-        auto [prover_accumulator, verifier_accumulator] =
-            fold_and_verify({ prover_instance_1, prover_instance_2 }, { verifier_instance_1, verifier_instance_2 });
+        TupleOfInstances insts = construct_instances(2);
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
-        auto builder_3 = typename Flavor::CircuitBuilder();
-        construct_circuit(builder_3);
-        auto prover_instance_3 = std::make_shared<ProverInstance>(builder_3);
-        auto verification_key_3 = std::make_shared<VerificationKey>(prover_instance_3->proving_key);
-        auto verifier_instance_3 = std::make_shared<VerifierInstance>(verification_key_3);
-
+        // Tamper with an accumulator polynomial
         prover_accumulator->prover_polynomials.w_l[1] = FF::random_element();
+        check_accumulator_target_sum_manual(prover_accumulator, false);
+
+        TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
         auto [prover_accumulator_2, verifier_accumulator_2] =
-            fold_and_verify({ prover_accumulator, prover_instance_3 }, { verifier_accumulator, verifier_instance_3 });
+            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
 
         EXPECT_EQ(prover_accumulator_2->target_sum == verifier_accumulator_2->target_sum, false);
         decide_and_verify(prover_accumulator_2, verifier_accumulator_2, false);
+    }
+
+    template <size_t k> static void test_fold_k_instances()
+    {
+        constexpr size_t total_insts = k + 1;
+        TupleOfInstances insts = construct_instances(total_insts);
+
+        ProtoGalaxyProver_<ProverInstances_<Flavor, total_insts>> folding_prover(get<0>(insts));
+        ProtoGalaxyVerifier_<VerifierInstances_<Flavor, total_insts>> folding_verifier(get<1>(insts));
+
+        auto [prover_accumulator, folding_proof] = folding_prover.fold_instances();
+        auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
+        check_accumulator_target_sum_manual(prover_accumulator, true);
+
+        decide_and_verify(prover_accumulator, verifier_accumulator, true);
     }
 };
 } // namespace
@@ -449,4 +439,17 @@ TYPED_TEST(ProtoGalaxyTests, TamperedCommitment)
 TYPED_TEST(ProtoGalaxyTests, TamperedAccumulatorPolynomial)
 {
     TestFixture::test_tampered_accumulator_polynomial();
+}
+
+TYPED_TEST(ProtoGalaxyTests, Fold1Instance)
+{
+    TestFixture::template test_fold_k_instances<1>();
+}
+TYPED_TEST(ProtoGalaxyTests, Fold2Instances)
+{
+    TestFixture::template test_fold_k_instances<2>();
+}
+TYPED_TEST(ProtoGalaxyTests, Fold3Instances)
+{
+    TestFixture::template test_fold_k_instances<3>();
 }

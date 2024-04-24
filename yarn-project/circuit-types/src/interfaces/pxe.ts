@@ -1,17 +1,17 @@
-import { AztecAddress, CompleteAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
-import { ContractArtifact } from '@aztec/foundation/abi';
-import { ContractClassWithId, ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { NodeInfo } from '@aztec/types/interfaces';
+import { type AztecAddress, type CompleteAddress, type Fr, type PartialAddress } from '@aztec/circuits.js';
+import { type ContractArtifact } from '@aztec/foundation/abi';
+import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { AuthWitness } from '../auth_witness.js';
-import { L2Block } from '../l2_block.js';
-import { GetUnencryptedLogsResponse, LogFilter } from '../logs/index.js';
-import { ExtendedNote } from '../notes/index.js';
-import { NoteFilter } from '../notes/note_filter.js';
-import { Tx, TxHash, TxReceipt } from '../tx/index.js';
-import { TxEffect } from '../tx_effect.js';
-import { TxExecutionRequest } from '../tx_execution_request.js';
-import { SyncStatus } from './sync-status.js';
+import { type AuthWitness } from '../auth_witness.js';
+import { type L2Block } from '../l2_block.js';
+import { type GetUnencryptedLogsResponse, type LogFilter } from '../logs/index.js';
+import { type ExtendedNote } from '../notes/index.js';
+import { type NoteFilter } from '../notes/note_filter.js';
+import { type SimulatedTx, type Tx, type TxHash, type TxReceipt } from '../tx/index.js';
+import { type TxEffect } from '../tx_effect.js';
+import { type TxExecutionRequest } from '../tx_execution_request.js';
+import { type SyncStatus } from './sync-status.js';
 
 // docs:start:pxe-interface
 /**
@@ -55,11 +55,11 @@ export interface PXE {
    * the chain and store those that correspond to the registered account. Will do nothing if the
    * account is already registered.
    *
-   * @param privKey - Private key of the corresponding user master public key.
+   * @param secretKey - Secret key of the corresponding user master public key.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<CompleteAddress>;
+  registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress>;
 
   /**
    * Registers a recipient in PXE. This is required when sending encrypted notes to
@@ -89,6 +89,15 @@ export interface PXE {
    * @returns The complete address of the requested account if found.
    */
   getRegisteredAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+
+  /**
+   * Retrieves the public keys hash of the account corresponding to the provided aztec address.
+   *
+   * @param address - The address of account.
+   * @returns The public keys hash of the requested account if found.
+   * TODO(#5834): refactor complete address and merge with getRegisteredAccount?
+   */
+  getRegisteredAccountPublicKeysHash(address: AztecAddress): Promise<Fr | undefined>;
 
   /**
    * Retrieves the recipients added to this PXE Service.
@@ -139,11 +148,32 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
+
+  /**
+   * Simulates a transaction based on the provided preauthenticated execution request.
+   * This will run a local simulation of private execution (and optionally of public as well), assemble
+   * the zero-knowledge proof for the private execution, and return the transaction object along
+   * with simulation results (return values).
+   *
+   *
+   * Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks.
+   * In that case, the transaction returned is only potentially ready to be sent to the network for execution.
+   *
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param simulatePublic - Whether to simulate the public part of the transaction.
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @returns A simulated transaction object that includes a transaction that is potentially ready
+   * to be sent to the network for execution, along with public and private return values.
+   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * Also throws if simulatePublic is true and public simulation reverts.
+   */
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
-   * @param tx - The transaction as created via `simulateTx`.
+   * @param tx - The transaction as created via `proveTx`.
    * @returns A hash of the transaction, used to identify it.
    */
   sendTx(tx: Tx): Promise<TxHash>;
@@ -270,7 +300,7 @@ export interface PXE {
   getSyncStatus(): Promise<SyncStatus>;
 
   /**
-   * Returns a Contact Instance given its address, which includes the contract class identifier, portal address,
+   * Returns a Contact Instance given its address, which includes the contract class identifier,
    * initialization hash, deployment salt, and public keys hash.
    * TODO(@spalladino): Should we return the public keys in plain as well here?
    * @param address - Deployment address of the contract.

@@ -12,20 +12,16 @@ use dep::types::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
-    public_data_read::PublicDataRead, kernel_data::RollupKernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, accumulated_data::CombinedAccumulatedData
+    public_data_read::PublicDataRead, kernel_data::KernelData,
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-    PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NUM_FIELDS_PER_SHA256,
-    MAX_NEW_NOTE_HASHES_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
-    MAX_NEW_NULLIFIERS_PER_TX, NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    NUM_UNENCRYPTED_LOGS_HASHES_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
-    MAX_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_NON_REVERTIBLE_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_REVERTIBLE_NOTE_HASHES_PER_TX,
-    MAX_NON_REVERTIBLE_NOTE_HASHES_PER_TX, MAX_REVERTIBLE_NULLIFIERS_PER_TX,
-    MAX_NON_REVERTIBLE_NULLIFIERS_PER_TX
+    PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NEW_NOTE_HASHES_PER_TX,
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
+    NUM_ENCRYPTED_LOGS_HASHES_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX, NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,
+    NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
+    PUBLIC_DATA_SUBTREE_HEIGHT
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
@@ -33,12 +29,12 @@ use dep::types::{
 },
     mocked::{AggregationObject, Proof}, partial_state_reference::PartialStateReference,
     public_data_tree_leaf::PublicDataTreeLeaf,
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
     utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
 };
 
 struct BaseRollupInputs {
-    kernel_data: RollupKernelData,
+    kernel_data: KernelData,
     start: PartialStateReference,
 
     state_diff_hints: StateDiffHints,
@@ -49,8 +45,6 @@ struct BaseRollupInputs {
     sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
     low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX],
 
     archive_root_membership_witness: ArchiveRootMembershipWitness,
 
@@ -71,6 +65,8 @@ impl BaseRollupInputs {
             self.kernel_data.public_inputs.constants.tx_context.version
             == self.constants.global_variables.version, "kernel version does not match the rollup version"
         );
+
+        self.validate_kernel_start_state();
 
         let rollup_validation_requests = self.kernel_data.public_inputs.rollup_validation_requests;
 
@@ -102,7 +98,10 @@ impl BaseRollupInputs {
         let end_public_data_tree_snapshot = self.validate_and_process_public_state();
 
         // Calculate the tx effects hash of the transaction
-        let tx_effects_hash = compute_tx_effects_hash(self.kernel_data.public_inputs.end);
+        let tx_effects_hash = compute_tx_effects_hash(
+            self.kernel_data.public_inputs.end,
+            self.kernel_data.public_inputs.revert_code
+        );
         let out_hash = compute_kernel_out_hash(self.kernel_data.public_inputs.end);
 
         // Perform membership checks that the notes provided exist within the historical trees data
@@ -129,13 +128,13 @@ impl BaseRollupInputs {
     // TODO(Kev): This should say calculate_commitments_subtree_root
     // Cpp code says calculate_commitments_subtree, so I'm leaving it as is for now
     fn calculate_commitments_subtree(self) -> Field {
-        calculate_subtree_root(self.kernel_data.public_inputs.end.new_note_hashes.map(|c: SideEffect| c.value))
+        calculate_subtree_root(self.kernel_data.public_inputs.end.new_note_hashes)
     }
 
     fn check_nullifier_tree_non_membership_and_insert_to_tree(self) -> AppendOnlyTreeSnapshot {
         indexed_tree::batch_insert(
             self.start.nullifier_tree,
-            self.kernel_data.public_inputs.end.new_nullifiers.map(|nullifier: SideEffectLinkedToNoteHash| nullifier.value),
+            self.kernel_data.public_inputs.end.new_nullifiers,
             self.state_diff_hints.sorted_nullifiers,
             self.state_diff_hints.sorted_nullifier_indexes,
             self.state_diff_hints.nullifier_subtree_sibling_path,
@@ -180,18 +179,22 @@ impl BaseRollupInputs {
         calculate_subtree_root(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
+    fn validate_kernel_start_state(self) {
+        let kernel_state = self.kernel_data.public_inputs.start_state;
+        if !is_empty(kernel_state) {
+            assert(
+                kernel_state.note_hash_tree.eq(self.start.note_hash_tree), "Mismatch start state for note hash tree"
+            );
+            assert(
+                kernel_state.nullifier_tree.eq(self.start.nullifier_tree), "Mismatch start state for nullifier tree"
+            );
+            assert(
+                kernel_state.public_data_tree.eq(self.start.public_data_tree), "Mismatch start state for public data tree"
+            );
+        }
+    }
+
     fn validate_and_process_public_state(self) -> AppendOnlyTreeSnapshot {
-        // TODO(#2521) - data read validation should happen against the current state of the tx and not the start state.
-        // Blocks all interesting usecases that read and write to the same public state in the same tx.
-        // https://aztecprotocol.slack.com/archives/C02M7VC7TN0/p1695809629015719?thread_ts=1695653252.007339&cid=C02M7VC7TN0
-
-        // Process public data reads and public data update requests for left input
-        // validate_public_data_reads(
-        //                            self.start_public_data_tree_root,
-        //                            self.kernel_data[0].public_inputs.end.public_data_reads,
-        //                            0,
-        //                            self.new_public_data_reads_sibling_paths);
-
         let end_public_data_tree_snapshot = insert_public_data_update_requests(
             self.start.public_data_tree,
             self.kernel_data.public_inputs.end.public_data_update_requests.map(
@@ -321,43 +324,6 @@ fn insert_public_data_update_requests(
     )
 }
 
-fn validate_public_data_reads(
-    tree_root: Field,
-    public_data_reads: [PublicDataRead; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX],
-    public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX]
-) {
-    for i in 0..MAX_PUBLIC_DATA_READS_PER_TX {
-        let read = public_data_reads[i];
-        let low_preimage = public_data_reads_preimages[i];
-        let witness = public_data_reads_witnesses[i];
-
-        let is_low_empty = low_preimage.is_empty();
-        let is_exact = low_preimage.slot == read.leaf_slot;
-
-        let is_less_than_slot = full_field_less_than(low_preimage.slot, read.leaf_slot);
-        let is_next_greater_than = full_field_less_than(read.leaf_slot, low_preimage.next_slot);
-        let is_in_range = is_less_than_slot
-            & (is_next_greater_than | ((low_preimage.next_index == 0) & (low_preimage.next_slot == 0)));
-
-        if (!read.is_empty()) {
-            assert(!is_low_empty, "public data read is not empty but low preimage is empty");
-            if is_in_range {
-                assert_eq(read.value, 0, "low leaf for public data read is in range but value is not zero");
-            } else {
-                assert(is_exact, "low leaf for public data read is invalid");
-                assert_eq(read.value, low_preimage.value, "low leaf for public data has different value");
-            }
-            assert_check_membership(
-                low_preimage.hash(),
-                witness.leaf_index,
-                witness.sibling_path,
-                tree_root
-            );
-        }
-    }
-}
-
 #[test]
 fn consistent_not_hash_subtree_width() {
     assert_eq(
@@ -397,9 +363,8 @@ mod tests {
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
         nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest,
-        kernel_data::{PublicKernelData, RollupKernelData}, side_effect::SideEffect,
-        accumulated_data::CombinedAccumulatedData
+        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
+        side_effect::SideEffect, accumulated_data::CombinedAccumulatedData
     },
         address::{AztecAddress, EthAddress},
         constants::{
@@ -407,17 +372,18 @@ mod tests {
         MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
         NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
-        PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, NUM_FIELDS_PER_SHA256,
+        PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
         MAX_NEW_L2_TO_L1_MSGS_PER_TX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
         public_data_tree_leaf::PublicDataTreeLeaf,
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{
-        kernel_data_builder::PreviousKernelDataBuilder,
-        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}, sort::sort_high_to_low
+        fixture_builder::FixtureBuilder, merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes},
+        sort::sort_high_to_low
     },
-        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256}
+        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256},
+        traits::Empty
     };
 
     struct NullifierInsertion {
@@ -431,19 +397,17 @@ mod tests {
 
     fn update_public_data_tree<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
-        kernel_data: &mut RollupKernelData,
+        kernel_data: &mut KernelData,
         snapshot: AppendOnlyTreeSnapshot,
         public_data_writes: BoundedVec<(u64, PublicDataTreeLeaf), 2>,
         mut pre_existing_public_data: [PublicDataTreeLeafPreimage; EXISTING_LEAVES]
-    ) -> ([Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH], [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX], [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX], [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
-        let mut subtree_path: [Field; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH] = dep::std::unsafe::zeroed();
-        let mut sorted_public_data_writes: [PublicDataTreeLeaf; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut sorted_public_data_writes_indexes: [u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut low_public_data_writes_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut low_public_data_writes_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut public_data_reads_preimages: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_READS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut public_data_reads_witnesses: [PublicDataMembershipWitness; MAX_PUBLIC_DATA_READS_PER_TX] = dep::std::unsafe::zeroed();
-        let mut new_subtree: [PublicDataTreeLeafPreimage; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] = dep::std::unsafe::zeroed();
+    ) -> ([Field; 35], [PublicDataTreeLeaf; 32], [u64; 32], [PublicDataTreeLeafPreimage; 32], [PublicDataMembershipWitness; 32], [PublicDataTreeLeafPreimage; EXISTING_LEAVES]) {
+        let mut subtree_path = [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH];
+        let mut sorted_public_data_writes = [PublicDataTreeLeaf::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut sorted_public_data_writes_indexes = [0 as u64; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut low_public_data_writes_preimages = [PublicDataTreeLeafPreimage::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut low_public_data_writes_witnesses = [PublicDataMembershipWitness::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
+        let mut new_subtree = [PublicDataTreeLeafPreimage::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX];
 
         for i in 0..MAX_PUBLIC_DATA_WRITES_PER_TEST {
             if i < (public_data_writes.len()) {
@@ -505,12 +469,12 @@ mod tests {
         subtree_path = BaseRollupInputsBuilder::extract_subtree_sibling_path(public_data_tree.get_sibling_path(snapshot.next_available_leaf_index as u64), [0; PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH]);
 
         (
-            subtree_path, sorted_public_data_writes, sorted_public_data_writes_indexes, low_public_data_writes_preimages, low_public_data_writes_witnesses, public_data_reads_preimages, public_data_reads_witnesses, pre_existing_public_data
+            subtree_path, sorted_public_data_writes, sorted_public_data_writes_indexes, low_public_data_writes_preimages, low_public_data_writes_witnesses, pre_existing_public_data
         )
     }
 
     struct BaseRollupInputsBuilder {
-        kernel_data: PreviousKernelDataBuilder,
+        kernel_data: FixtureBuilder,
         pre_existing_notes: [Field; MAX_NEW_NOTE_HASHES_PER_TX],
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
@@ -528,13 +492,10 @@ mod tests {
 
     impl BaseRollupInputsBuilder {
         fn new() -> Self {
-            let mut inputs: BaseRollupInputsBuilder = dep::std::unsafe::zeroed();
+            let mut inputs = BaseRollupInputsBuilder::empty();
+            inputs.kernel_data = FixtureBuilder::new();
             inputs.constants.global_variables.chain_id = 1;
             inputs.constants.global_variables.version = 0;
-
-            let mut builder = PreviousKernelDataBuilder::new(true);
-            let _nullifier = builder.end_non_revertible.new_nullifiers.pop();
-            inputs.kernel_data = builder.is_public();
 
             inputs.pre_existing_blocks[0] = inputs.kernel_data.historical_header.hash();
 
@@ -555,11 +516,11 @@ mod tests {
         fn update_nullifier_tree_with_new_leaves(
             mut self,
             nullifier_tree: &mut NonEmptyMerkleTree<MAX_NEW_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT>,
-            kernel_data: &mut RollupKernelData,
+            kernel_data: &mut KernelData,
             start_nullifier_tree_snapshot: AppendOnlyTreeSnapshot
         ) -> ([NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX], [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX], [Field; MAX_NEW_NULLIFIERS_PER_TX], [u64; MAX_NEW_NULLIFIERS_PER_TX]) {
-            let mut nullifier_predecessor_preimages: [NullifierLeafPreimage; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
-            let mut low_nullifier_membership_witness: [NullifierMembershipWitness; MAX_NEW_NULLIFIERS_PER_TX] = dep::std::unsafe::zeroed();
+            let mut nullifier_predecessor_preimages = [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX];
+            let mut low_nullifier_membership_witness = [NullifierMembershipWitness::empty(); MAX_NEW_NULLIFIERS_PER_TX];
 
             let sorted_new_nullifier_tuples = sort_high_to_low(
                 self.new_nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
@@ -589,7 +550,7 @@ mod tests {
 
                     let low_index = self.new_nullifiers.get_unchecked(original_index).existing_index;
 
-                    kernel_data.public_inputs.end.new_nullifiers[original_index].value = new_nullifier;
+                    kernel_data.public_inputs.end.new_nullifiers[original_index] = new_nullifier;
 
                     let mut low_preimage = pre_existing_nullifiers[low_index];
                     nullifier_predecessor_preimages[i] = low_preimage;
@@ -612,7 +573,7 @@ mod tests {
         }
 
         fn build_inputs(mut self) -> BaseRollupInputs {
-            let mut kernel_data = self.kernel_data.to_rollup_kernel_data();
+            let mut kernel_data = self.kernel_data.to_kernel_data();
 
             let start_note_hash_tree = NonEmptyMerkleTree::new(
                 self.pre_existing_notes,
@@ -685,8 +646,6 @@ mod tests {
                 sorted_public_data_writes_indexes,
                 low_public_data_writes_preimages,
                 low_public_data_writes_witnesses,
-                public_data_reads_preimages,
-                public_data_reads_witnesses,
                 _new_subtree
             ) = update_public_data_tree(
                 &mut start_public_data_tree,
@@ -720,8 +679,6 @@ mod tests {
                 sorted_public_data_writes_indexes,
                 low_public_data_writes_preimages,
                 low_public_data_writes_witnesses,
-                public_data_reads_preimages,
-                public_data_reads_witnesses,
                 archive_root_membership_witness: ArchiveRootMembershipWitness { leaf_index: 0, sibling_path: start_archive.get_sibling_path(0) },
                 constants: self.constants
             }
@@ -740,16 +697,33 @@ mod tests {
         }
     }
 
+    impl Empty for BaseRollupInputsBuilder {
+        fn empty() -> Self {
+            BaseRollupInputsBuilder {
+                kernel_data: FixtureBuilder::new(),
+                pre_existing_notes: [0; MAX_NEW_NOTE_HASHES_PER_TX],
+                pre_existing_nullifiers: [NullifierLeafPreimage::empty(); MAX_NEW_NULLIFIERS_PER_TX],
+                pre_existing_contracts: [0; 2],
+                pre_existing_public_data: [PublicDataTreeLeafPreimage::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
+                pre_existing_blocks: [0; 2],
+                public_data_reads: BoundedVec::new(),
+                public_data_writes:BoundedVec::new(),
+                new_nullifiers: BoundedVec::new(),
+                constants: ConstantRollupData::empty(),
+            }
+        }
+    }
+
     #[test]
     unconstrained fn new_note_hashes_tree() {
         let mut builder = BaseRollupInputsBuilder::new();
 
         let new_note_hashes = [27, 28, 29, 30, 31, 32];
-        let mut new_note_hashes_vec = builder.kernel_data.end.new_note_hashes;
+        let mut new_note_hashes_vec = builder.kernel_data.new_note_hashes;
         for i in 0..new_note_hashes.len() {
             new_note_hashes_vec.push(SideEffect { value: new_note_hashes[i], counter: 0 });
         }
-        builder.kernel_data.end.new_note_hashes = new_note_hashes_vec;
+        builder.kernel_data.new_note_hashes = new_note_hashes_vec;
         let mut expected_commitments_tree = NonEmptyMerkleTree::new(
             [0; MAX_NEW_NOTE_HASHES_PER_TX * 2],
             [0; NOTE_HASH_TREE_HEIGHT],
@@ -952,10 +926,8 @@ mod tests {
 
         let hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        let expected_tx_effects_hash = [field_from_bytes_32_trunc(sha_digest)];
-        for i in 0..NUM_FIELDS_PER_SHA256 {
-            assert_eq(outputs.txs_effects_hash[i], expected_tx_effects_hash[i]);
-        }
+        let expected_tx_effects_hash = field_from_bytes_32_trunc(sha_digest);
+        assert_eq(outputs.txs_effects_hash, expected_tx_effects_hash);
     }
 
     #[test]
@@ -964,15 +936,13 @@ mod tests {
 
         let hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        let expected_out_hash = [field_from_bytes_32_trunc(sha_digest)];
-        for i in 0..NUM_FIELDS_PER_SHA256 {
-            assert_eq(outputs.out_hash[i], expected_out_hash[i]);
-        }
+        let expected_out_hash = field_from_bytes_32_trunc(sha_digest);
+        assert_eq(outputs.out_hash, expected_out_hash);
     }
 
     #[test]
     unconstrained fn nonempty_block_out_hash() {
-        let mut end: CombinedAccumulatedData = dep::std::unsafe::zeroed();
+        let mut end = CombinedAccumulatedData::empty();
         end.new_l2_to_l1_msgs[MAX_NEW_L2_TO_L1_MSGS_PER_TX - 1] = 123;
 
         let out_hash = compute_kernel_out_hash(end);
@@ -980,11 +950,8 @@ mod tests {
         let mut hash_input_flattened = [0; MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32];
         hash_input_flattened[MAX_NEW_L2_TO_L1_MSGS_PER_TX * 32 - 1] = 123;
         let sha_digest = dep::std::hash::sha256(hash_input_flattened);
-        let expected_out_hash = [field_from_bytes_32_trunc(sha_digest)];
-
-        for i in 0..NUM_FIELDS_PER_SHA256 {
-            assert_eq(out_hash[i], expected_out_hash[i]);
-        }
+        let expected_out_hash = field_from_bytes_32_trunc(sha_digest);
+        assert_eq(out_hash, expected_out_hash);
     }
 
     #[test(should_fail_with = "membership check failed")]
@@ -1045,21 +1012,6 @@ mod tests {
         let outputs = BaseRollupInputsBuilder::new().execute();
 
         assert_eq(outputs.height_in_block_tree, 0);
-    }
-
-    #[test]
-    unconstrained fn single_public_state_read() {
-        let mut builder = BaseRollupInputsBuilder::new();
-
-        builder.pre_existing_public_data[0] = PublicDataTreeLeafPreimage {
-            slot: 27,
-            value: 28,
-            next_slot: 0,
-            next_index: 0,
-        };
-        builder.public_data_reads.push(0);
-
-        builder.succeeds();
     }
 
     #[test]

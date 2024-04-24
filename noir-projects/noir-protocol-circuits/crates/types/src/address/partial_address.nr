@@ -4,8 +4,10 @@ use crate::{
     aztec_address::AztecAddress
 },
     constants::GENERATOR_INDEX__PARTIAL_ADDRESS, contract_class_id::ContractClassId,
-    hash::pedersen_hash, traits::ToField
+    hash::pedersen_hash, traits::{ToField, FromField, Serialize, Deserialize}
 };
+
+global PARTIAL_ADDRESS_LENGTH = 1;
 
 // Partial address
 struct PartialAddress {
@@ -18,6 +20,18 @@ impl ToField for PartialAddress {
     }
 }
 
+impl Serialize<PARTIAL_ADDRESS_LENGTH> for PartialAddress {
+    fn serialize(self: Self) -> [Field; PARTIAL_ADDRESS_LENGTH] {
+        [self.to_field()]
+    }
+}
+
+impl Deserialize<PARTIAL_ADDRESS_LENGTH> for PartialAddress {
+    fn deserialize(fields: [Field; PARTIAL_ADDRESS_LENGTH]) -> Self {
+       PartialAddress { inner: fields[0] }
+    }
+}
+
 impl PartialAddress {
     pub fn from_field(field: Field) -> Self {
         Self { inner: field }
@@ -27,12 +41,11 @@ impl PartialAddress {
         contract_class_id: ContractClassId,
         salt: Field,
         initialization_hash: Field,
-        portal_contract_address: EthAddress,
         deployer: AztecAddress
     ) -> Self {
         PartialAddress::compute_from_salted_initialization_hash(
             contract_class_id,
-            SaltedInitializationHash::compute(salt, initialization_hash, portal_contract_address, deployer)
+            SaltedInitializationHash::compute(salt, initialization_hash, deployer)
         )
     }
 

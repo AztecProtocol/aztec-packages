@@ -1,5 +1,5 @@
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
@@ -38,6 +38,10 @@ export class Header {
       throw new Error(`Invalid number of fields for Header. Expected ${HEADER_LENGTH}, got ${fields.length}`);
     }
     return fields;
+  }
+
+  clone(): Header {
+    return Header.fromBuffer(this.toBuffer());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): Header {
@@ -94,9 +98,6 @@ export class Header {
   }
 
   hash(): Fr {
-    return pedersenHash(
-      this.toFields().map(f => f.toBuffer()),
-      GeneratorIndex.BLOCK_HASH,
-    );
+    return pedersenHash(this.toFields(), GeneratorIndex.BLOCK_HASH);
   }
 }

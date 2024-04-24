@@ -1,6 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { BufferReader, Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
-import { TreeLeafPreimage } from '@aztec/foundation/trees';
+import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type TreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT } from '../constants.gen.js';
 import { MembershipWitness } from './membership_witness.js';
@@ -17,6 +17,14 @@ export class ReadRequestStatus {
 
   static nada() {
     return new ReadRequestStatus(ReadRequestState.NADA, 0);
+  }
+
+  static pending(hintIndex: number) {
+    return new ReadRequestStatus(ReadRequestState.PENDING, hintIndex);
+  }
+
+  static settled(hintIndex: number) {
+    return new ReadRequestStatus(ReadRequestState.SETTLED, hintIndex);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -58,7 +66,7 @@ export class SettledReadHint<TREE_HEIGHT extends number, LEAF_PREIMAGE extends T
     treeHeight: TREE_HEIGHT,
     emptyLeafPreimage: () => LEAF_PREIMAGE,
   ) {
-    return new SettledReadHint(readRequestLen, MembershipWitness.empty(treeHeight, 0n), emptyLeafPreimage());
+    return new SettledReadHint(readRequestLen, MembershipWitness.empty(treeHeight), emptyLeafPreimage());
   }
 
   static fromBuffer<TREE_HEIGHT extends number, LEAF_PREIMAGE extends TreeLeafPreimage>(

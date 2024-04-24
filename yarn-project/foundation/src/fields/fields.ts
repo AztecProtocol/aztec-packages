@@ -3,6 +3,7 @@ import { inspect } from 'util';
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
+import { TypeRegistry } from '../serialize/type_registry.js';
 
 const ZERO_BUFFER = Buffer.alloc(32);
 
@@ -187,6 +188,7 @@ export interface Fr {
  */
 export class Fr extends BaseField {
   static ZERO = new Fr(0n);
+  static ONE = new Fr(1n);
   static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
 
   constructor(value: number | bigint | boolean | Fr | Buffer) {
@@ -257,7 +259,17 @@ export class Fr extends BaseField {
 
     return new Fr(this.toBigInt() / rhs.toBigInt());
   }
+
+  toJSON() {
+    return {
+      type: 'Fr',
+      value: this.toString(),
+    };
+  }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('Fr', Fr);
 
 /**
  * Branding to ensure fields are not interchangeable types.
@@ -319,7 +331,17 @@ export class Fq extends BaseField {
   static fromHighLow(high: Fr, low: Fr): Fq {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
   }
+
+  toJSON() {
+    return {
+      type: 'Fq',
+      value: this.toString(),
+    };
+  }
 }
+
+// For deserializing JSON.
+TypeRegistry.register('Fq', Fq);
 
 // Beware: Performance bottleneck below
 
@@ -351,7 +373,12 @@ function extendedEuclidean(a: bigint, modulus: bigint): [bigint, bigint, bigint]
 /**
  * GrumpkinScalar is an Fq.
  * @remarks Called GrumpkinScalar because it is used to represent elements in Grumpkin's scalar field as defined in
- *          the Aztec Yellow Paper.
+ *          the Aztec Protocol Specs.
  */
 export type GrumpkinScalar = Fq;
 export const GrumpkinScalar = Fq;
+
+/** Wraps a function that returns a buffer so that all results are reduced into a field of the given type. */
+export function reduceFn<TInput, TField extends BaseField>(fn: (input: TInput) => Buffer, field: DerivedField<TField>) {
+  return (input: TInput) => fromBufferReduce(fn(input), field);
+}
