@@ -77,7 +77,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         ASSERT(Flavor::NUM_WIRES == 4);
         using RHS = typename bb::UltraPermutationRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
-        compute_grand_product<Flavor, RHS>(circuit_size, prover_polynomials, params);
+        compute_grand_product<Flavor, RHS>(prover_polynomials, params);
 
         // Method 2: Compute z_perm locally using the simplest non-optimized syntax possible. The comment below,
         // which describes the computation in 4 steps, is adapted from a similar comment in
@@ -193,7 +193,7 @@ template <class FF> class GrandProductTests : public testing::Test {
         using LHS = typename std::tuple_element<LOOKUP_RELATION_INDEX, typename Flavor::GrandProductRelations>::type;
         using RHS = LookupRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
-        compute_grand_product<Flavor, RHS>(circuit_size, prover_polynomials, params);
+        compute_grand_product<Flavor, RHS>(prover_polynomials, params);
 
         // Method 2: Compute the lookup grand product polynomial Z_lookup:
         //

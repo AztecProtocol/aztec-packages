@@ -82,7 +82,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
 void ECCVMProver::execute_grand_product_computation_round()
 {
     // Compute permutation grand product and their commitments
-    compute_permutation_grand_products<Flavor>(key, key->polynomials, relation_parameters);
+    compute_grand_products<Flavor>(key->polynomials, relation_parameters);
 
     transcript->send_to_verifier(commitment_labels.z_perm, commitment_key->commit(key->polynomials.z_perm));
 }

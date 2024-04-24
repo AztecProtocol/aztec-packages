@@ -48,8 +48,7 @@ namespace bb {
  * Note: Step (3) utilizes Montgomery batch inversion to replace n-many inversions with
  */
 template <typename Flavor, typename GrandProdRelation>
-void compute_grand_product(const size_t circuit_size,
-                           typename Flavor::ProverPolynomials& full_polynomials,
+void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                            bb::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
     using FF = typename Flavor::FF;
@@ -58,6 +57,7 @@ void compute_grand_product(const size_t circuit_size,
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
+    size_t circuit_size = full_polynomials.get_polynomial_size();
     Polynomial numerator{ circuit_size };
     Polynomial denominator{ circuit_size };
 
@@ -143,9 +143,12 @@ void compute_grand_product(const size_t circuit_size,
     });
 }
 
+/**
+ * @brief Compute the grand product corresponding to each grand-product relation defined in the Flavor
+ *
+ */
 template <typename Flavor>
-void compute_grand_products([[maybe_unused]] const typename Flavor::ProvingKey& key,
-                            typename Flavor::ProverPolynomials& full_polynomials,
+void compute_grand_products(typename Flavor::ProverPolynomials& full_polynomials,
                             bb::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
     using GrandProductRelations = typename Flavor::GrandProductRelations;
@@ -154,11 +157,7 @@ void compute_grand_products([[maybe_unused]] const typename Flavor::ProvingKey& 
     bb::constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t i>() {
         using GrandProdRelation = typename std::tuple_element<i, GrandProductRelations>::type;
 
-        // Assign the grand product polynomial to the relevant std::span member of `full_polynomials` (and its shift)
-        // For example, for UltraPermutationRelation, this will be `full_polynomials.z_perm`
-        // For example, for LookupRelation, this will be `full_polynomials.z_lookup`
-
-        compute_grand_product<Flavor, GrandProdRelation>(key.circuit_size, full_polynomials, relation_parameters);
+        compute_grand_product<Flavor, GrandProdRelation>(full_polynomials, relation_parameters);
     });
 }
 

@@ -605,10 +605,10 @@ class ECCVMFlavor {
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
-    class ProvingKey : public ProvingKeyNew_<FF, CommitmentKey> {
+    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKeyNew_<FF, CommitmentKey>;
+        using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
         ProverPolynomials polynomials;

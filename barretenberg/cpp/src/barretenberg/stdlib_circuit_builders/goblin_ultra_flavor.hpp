@@ -316,10 +316,10 @@ class GoblinUltraFlavor {
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
      * from ProvingKey.
      */
-    class ProvingKey : public ProvingKeyNew_<FF, CommitmentKey> {
+    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKeyNew_<FF, CommitmentKey>;
+        using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
@@ -437,7 +437,7 @@ class GoblinUltraFlavor {
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
-            compute_grand_products<GoblinUltraFlavor>(*this, this->polynomials, relation_parameters);
+            compute_grand_products<GoblinUltraFlavor>(this->polynomials, relation_parameters);
         }
     };
 

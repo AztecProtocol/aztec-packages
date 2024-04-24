@@ -146,8 +146,7 @@ TEST_F(GoblinTranslatorRelationCorrectnessTests, Permutation)
     compute_concatenated_polynomials<Flavor>(prover_polynomials);
 
     // Compute the grand product polynomial
-    compute_grand_product<Flavor, bb::GoblinTranslatorPermutationRelation<FF>>(
-        full_circuit_size, prover_polynomials, params);
+    compute_grand_product<Flavor, bb::GoblinTranslatorPermutationRelation<FF>>(prover_polynomials, params);
     prover_polynomials.z_perm_shift = prover_polynomials.z_perm.shifted();
 
     using Relations = typename Flavor::Relations;
