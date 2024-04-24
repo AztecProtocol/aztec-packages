@@ -21,7 +21,7 @@ import {
   type SideEffect,
   type TxContext,
 } from '@aztec/circuits.js';
-import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Aes128, type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -521,5 +521,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       values.push(value);
     }
     return values;
+  }
+
+  public override encrypt(symmetricKey: Buffer, initializationVector: Buffer, plaintext: Buffer): Buffer {
+    const aes128 = new Aes128();
+    return aes128.encryptBufferCBC(plaintext, initializationVector, symmetricKey);
   }
 }

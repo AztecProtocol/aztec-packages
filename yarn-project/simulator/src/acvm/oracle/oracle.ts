@@ -4,6 +4,7 @@ import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { to2Fields } from '@aztec/foundation/serialize';
 
 import { type ACVMField } from '../acvm_types.js';
 import { frToBoolean, frToNumber, fromACVMField } from '../deserialize.js';
@@ -377,5 +378,23 @@ export class Oracle {
       frToBoolean(fromACVMField(isDelegateCall)),
     );
     return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
+  }
+
+  encrypt([symmetricKey]: ACVMField[], [initializationVector]: ACVMField[], plaintext: ACVMField[]): ACVMField[] {
+    // Symmetric key and initialization vector (IV) are 16 bytes and we store them as big endian in Fr
+    const processedSK = fromACVMField(symmetricKey).toBuffer().subarray(0, 16);
+    const processedIV = fromACVMField(initializationVector).toBuffer().subarray(0, 16);
+    // TODO(benesjan): we could save some info here by not including the 2 empty bits at the end of each serialized
+    // field --> this could be valuable as the ciphertext will go on-chain
+    const processedPlaintext = Buffer.concat(plaintext.map(fromACVMField).map(f => f.toBuffer()));
+    const ciphertext = this.typedOracle.encrypt(processedSK, processedIV, processedPlaintext);
+    // Chunk the ciphertext buffer to 32 bytes and on each chunk call to2Fields function
+    const ciphertextFields: Fr[] = [];
+    for (let i = 0; i < ciphertext.length; i += Fr.SIZE_IN_BYTES) {
+      const chunk = ciphertext.subarray(i, i + Fr.SIZE_IN_BYTES);
+      ciphertextFields.push(...to2Fields(chunk));
+    }
+
+    return ciphertextFields.map(toACVMField);
   }
 }
