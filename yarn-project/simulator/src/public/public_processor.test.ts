@@ -184,6 +184,7 @@ describe('public_processor', () => {
       );
 
       const header = Header.empty();
+      header.globalVariables.gasFees = GasFees.default();
       const stateReference = new StateReference(
         header.state.l1ToL2MessageTree,
         new PartialStateReference(header.state.partial.noteHashTree, header.state.partial.nullifierTree, snap),

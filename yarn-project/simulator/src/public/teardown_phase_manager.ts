@@ -70,7 +70,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
 
   protected override getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {
     const gasSettings = tx.data.constants.txContext.gasSettings;
-    const gasFees = this.globalVariables.gasFees;
+    const gasFees = this.historicalHeader.globalVariables.gasFees;
     // No need to add teardown limits since they are already included in end.gasUsed
     const gasUsed = previousPublicKernelOutput.end.gasUsed.add(previousPublicKernelOutput.endNonRevertibleData.gasUsed);
     const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));

@@ -36,8 +36,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         let transaction_fee = self.public_call.call_stack_item.public_inputs.transaction_fee;
         // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
         let total_gas_used = self.previous_kernel.public_inputs.end.gas_used.add(self.previous_kernel.public_inputs.end_non_revertible.gas_used);
-        // TODO(palla/gas): Load gas fees from a PublicConstantData struct that's currently missing
-        let block_gas_fees = GasFees::default();
+        let block_gas_fees = self.previous_kernel.public_inputs.constants.historical_header.global_variables.gas_fees;
         let inclusion_fee = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.inclusion_fee;
         let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
 
