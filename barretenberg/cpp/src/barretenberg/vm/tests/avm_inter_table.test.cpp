@@ -469,7 +469,7 @@ TEST_F(AvmPermMainMemNegativeTests, tagErrNotCopiedInMain)
     row->avm_main_ic = 1;
     // Find the memory row pertaining to write operation from Ic.
     auto mem_row = std::ranges::find_if(trace.begin(), trace.end(), [clk](Row r) {
-        return r.avm_mem_clk == clk && r.avm_mem_sub_clk == AvmMemTraceBuilder::SUB_CLK_STORE_C;
+        return r.avm_mem_tsp == FF(AvmMemTraceBuilder::NUM_SUB_CLK) * clk + AvmMemTraceBuilder::SUB_CLK_STORE_C;
     });
 
     // Adjust the output in the memory trace.
@@ -572,8 +572,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIaInMem)
     executeSub(21, 3);
     trace.at(mem_idx_a).avm_mem_rw = 1; // Write instead of read.
 
-    // Adjust sub_clk value
-    trace.at(mem_idx_a).avm_mem_sub_clk = AvmMemTraceBuilder::SUB_CLK_STORE_A;
+    // Adjust timestamp value
+    trace.at(mem_idx_a).avm_mem_tsp += FF(AvmMemTraceBuilder::SUB_CLK_STORE_A - AvmMemTraceBuilder::SUB_CLK_LOAD_A);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
 }
@@ -583,8 +583,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIbInMem)
     executeSub(21, 3);
     trace.at(mem_idx_b).avm_mem_rw = 1; // Write instead of read.
 
-    // Adjust sub_clk value
-    trace.at(mem_idx_b).avm_mem_sub_clk = AvmMemTraceBuilder::SUB_CLK_STORE_B;
+    // Adjust timestamp value
+    trace.at(mem_idx_b).avm_mem_tsp += FF(AvmMemTraceBuilder::SUB_CLK_STORE_B - AvmMemTraceBuilder::SUB_CLK_LOAD_B);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
 }
@@ -597,8 +597,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIcInMem)
     executeSub(11, 11);
     trace.at(mem_idx_c).avm_mem_rw = 0; // Read instead of write.
 
-    // Adjust sub_clk value
-    trace.at(mem_idx_c).avm_mem_sub_clk = AvmMemTraceBuilder::SUB_CLK_LOAD_C;
+    // Adjust timestamp value.
+    trace.at(mem_idx_c).avm_mem_tsp -= FF(AvmMemTraceBuilder::SUB_CLK_STORE_C - AvmMemTraceBuilder::SUB_CLK_LOAD_C);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_C");
 }
@@ -606,7 +606,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIcInMem)
 TEST_F(AvmPermMainMemNegativeTests, wrongClkIaInMem)
 {
     executeSub(87, 23);
-    trace.at(mem_idx_a).avm_mem_clk = 11;
+    trace.at(mem_idx_a).avm_mem_clk += 3;
+    trace.at(mem_idx_a).avm_mem_tsp += AvmMemTraceBuilder::NUM_SUB_CLK * 3;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
 }
@@ -614,7 +615,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongClkIaInMem)
 TEST_F(AvmPermMainMemNegativeTests, wrongClkIbInMem)
 {
     executeSub(87, 23);
-    trace.at(mem_idx_b).avm_mem_clk = 21;
+    trace.at(mem_idx_b).avm_mem_clk += 5;
+    trace.at(mem_idx_b).avm_mem_tsp += AvmMemTraceBuilder::NUM_SUB_CLK * 5;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
 }
@@ -622,7 +624,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongClkIbInMem)
 TEST_F(AvmPermMainMemNegativeTests, wrongClkIcInMem)
 {
     executeSub(87, 23);
-    trace.at(mem_idx_c).avm_mem_clk = 7;
+    trace.at(mem_idx_c).avm_mem_clk += 7;
+    trace.at(mem_idx_c).avm_mem_tsp += AvmMemTraceBuilder::NUM_SUB_CLK * 7;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_C");
 }

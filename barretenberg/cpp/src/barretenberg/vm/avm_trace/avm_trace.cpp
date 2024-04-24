@@ -1542,7 +1542,7 @@ std::vector<Row> AvmTraceBuilder::finalize()
         auto& dest = main_trace.at(i);
 
         dest.avm_mem_clk = FF(src.m_clk);
-        dest.avm_mem_sub_clk = FF(src.m_sub_clk);
+        dest.avm_mem_tsp = FF(AvmMemTraceBuilder::NUM_SUB_CLK * src.m_clk + src.m_sub_clk);
         dest.avm_mem_addr = FF(src.m_addr);
         dest.avm_mem_val = src.m_val;
         dest.avm_mem_rw = FF(static_cast<uint32_t>(src.m_rw));

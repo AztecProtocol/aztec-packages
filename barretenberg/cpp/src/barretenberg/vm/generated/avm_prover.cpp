@@ -227,9 +227,9 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_mem_sel_mov_a = commitment_key->commit(key->avm_mem_sel_mov_a);
     witness_commitments.avm_mem_sel_mov_b = commitment_key->commit(key->avm_mem_sel_mov_b);
     witness_commitments.avm_mem_skip_check_tag = commitment_key->commit(key->avm_mem_skip_check_tag);
-    witness_commitments.avm_mem_sub_clk = commitment_key->commit(key->avm_mem_sub_clk);
     witness_commitments.avm_mem_tag = commitment_key->commit(key->avm_mem_tag);
     witness_commitments.avm_mem_tag_err = commitment_key->commit(key->avm_mem_tag_err);
+    witness_commitments.avm_mem_tsp = commitment_key->commit(key->avm_mem_tsp);
     witness_commitments.avm_mem_val = commitment_key->commit(key->avm_mem_val);
     witness_commitments.avm_mem_w_in_tag = commitment_key->commit(key->avm_mem_w_in_tag);
     witness_commitments.lookup_byte_lengths_counts = commitment_key->commit(key->lookup_byte_lengths_counts);
@@ -438,9 +438,9 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_mem_sel_mov_a, witness_commitments.avm_mem_sel_mov_a);
     transcript->send_to_verifier(commitment_labels.avm_mem_sel_mov_b, witness_commitments.avm_mem_sel_mov_b);
     transcript->send_to_verifier(commitment_labels.avm_mem_skip_check_tag, witness_commitments.avm_mem_skip_check_tag);
-    transcript->send_to_verifier(commitment_labels.avm_mem_sub_clk, witness_commitments.avm_mem_sub_clk);
     transcript->send_to_verifier(commitment_labels.avm_mem_tag, witness_commitments.avm_mem_tag);
     transcript->send_to_verifier(commitment_labels.avm_mem_tag_err, witness_commitments.avm_mem_tag_err);
+    transcript->send_to_verifier(commitment_labels.avm_mem_tsp, witness_commitments.avm_mem_tsp);
     transcript->send_to_verifier(commitment_labels.avm_mem_val, witness_commitments.avm_mem_val);
     transcript->send_to_verifier(commitment_labels.avm_mem_w_in_tag, witness_commitments.avm_mem_w_in_tag);
     transcript->send_to_verifier(commitment_labels.lookup_byte_lengths_counts,

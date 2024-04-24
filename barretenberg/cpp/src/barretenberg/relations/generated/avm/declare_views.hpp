@@ -171,9 +171,9 @@
     [[maybe_unused]] auto avm_mem_sel_mov_a = View(new_term.avm_mem_sel_mov_a);                                        \
     [[maybe_unused]] auto avm_mem_sel_mov_b = View(new_term.avm_mem_sel_mov_b);                                        \
     [[maybe_unused]] auto avm_mem_skip_check_tag = View(new_term.avm_mem_skip_check_tag);                              \
-    [[maybe_unused]] auto avm_mem_sub_clk = View(new_term.avm_mem_sub_clk);                                            \
     [[maybe_unused]] auto avm_mem_tag = View(new_term.avm_mem_tag);                                                    \
     [[maybe_unused]] auto avm_mem_tag_err = View(new_term.avm_mem_tag_err);                                            \
+    [[maybe_unused]] auto avm_mem_tsp = View(new_term.avm_mem_tsp);                                                    \
     [[maybe_unused]] auto avm_mem_val = View(new_term.avm_mem_val);                                                    \
     [[maybe_unused]] auto avm_mem_w_in_tag = View(new_term.avm_mem_w_in_tag);                                          \
     [[maybe_unused]] auto perm_main_alu = View(new_term.perm_main_alu);                                                \

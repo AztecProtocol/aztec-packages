@@ -5,7 +5,7 @@ include "avm_main.pil";
 namespace avm_mem(256);
     // ========= Table MEM-TR =================
     pol commit clk;
-    pol commit sub_clk;
+    pol commit tsp; // Timestamp derived form clk and sub-operation types (SUB_CLK)
     pol commit addr;
     pol commit tag; // Memory tag (0: uninitialized, 1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6:field)
     pol commit val;
@@ -65,8 +65,11 @@ namespace avm_mem(256);
 
     // sub_clk derivation
     pol IND_OP = ind_op_a + ind_op_b + ind_op_c + ind_op_d;
-    sub_clk = MEM_SEL * (ind_op_b + op_b + 2 * (ind_op_c + op_c) + 3 * (ind_op_d + op_d) + 4 * (1 - IND_OP + rw));
+    pol SUB_CLK = MEM_SEL * (ind_op_b + op_b + 2 * (ind_op_c + op_c) + 3 * (ind_op_d + op_d) + 4 * (1 - IND_OP + rw));
     // We need the MEM_SEL factor as the right factor is not zero when all columns are zero.
+
+    #[TIMESTAMP]
+    tsp = 12 * clk + SUB_CLK;
 
     #[LAST_ACCESS_FIRST_ROW]
     avm_main.first * (1 - lastAccess) = 0;

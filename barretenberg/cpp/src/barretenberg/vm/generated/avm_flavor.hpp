@@ -348,9 +348,9 @@ class AvmFlavor {
                               avm_mem_sel_mov_a,
                               avm_mem_sel_mov_b,
                               avm_mem_skip_check_tag,
-                              avm_mem_sub_clk,
                               avm_mem_tag,
                               avm_mem_tag_err,
+                              avm_mem_tsp,
                               avm_mem_val,
                               avm_mem_w_in_tag,
                               perm_main_alu,
@@ -579,9 +579,9 @@ class AvmFlavor {
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
                      avm_mem_skip_check_tag,
-                     avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
+                     avm_mem_tsp,
                      avm_mem_val,
                      avm_mem_w_in_tag,
                      perm_main_alu,
@@ -815,9 +815,9 @@ class AvmFlavor {
                               avm_mem_sel_mov_a,
                               avm_mem_sel_mov_b,
                               avm_mem_skip_check_tag,
-                              avm_mem_sub_clk,
                               avm_mem_tag,
                               avm_mem_tag_err,
+                              avm_mem_tsp,
                               avm_mem_val,
                               avm_mem_w_in_tag,
                               perm_main_alu,
@@ -1088,9 +1088,9 @@ class AvmFlavor {
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
                      avm_mem_skip_check_tag,
-                     avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
+                     avm_mem_tsp,
                      avm_mem_val,
                      avm_mem_w_in_tag,
                      perm_main_alu,
@@ -1361,9 +1361,9 @@ class AvmFlavor {
                      avm_mem_sel_mov_a,
                      avm_mem_sel_mov_b,
                      avm_mem_skip_check_tag,
-                     avm_mem_sub_clk,
                      avm_mem_tag,
                      avm_mem_tag_err,
+                     avm_mem_tsp,
                      avm_mem_val,
                      avm_mem_w_in_tag,
                      perm_main_alu,
@@ -1893,9 +1893,9 @@ class AvmFlavor {
             Base::avm_mem_sel_mov_a = "AVM_MEM_SEL_MOV_A";
             Base::avm_mem_sel_mov_b = "AVM_MEM_SEL_MOV_B";
             Base::avm_mem_skip_check_tag = "AVM_MEM_SKIP_CHECK_TAG";
-            Base::avm_mem_sub_clk = "AVM_MEM_SUB_CLK";
             Base::avm_mem_tag = "AVM_MEM_TAG";
             Base::avm_mem_tag_err = "AVM_MEM_TAG_ERR";
+            Base::avm_mem_tsp = "AVM_MEM_TSP";
             Base::avm_mem_val = "AVM_MEM_VAL";
             Base::avm_mem_w_in_tag = "AVM_MEM_W_IN_TAG";
             Base::perm_main_alu = "PERM_MAIN_ALU";
@@ -2140,9 +2140,9 @@ class AvmFlavor {
         Commitment avm_mem_sel_mov_a;
         Commitment avm_mem_sel_mov_b;
         Commitment avm_mem_skip_check_tag;
-        Commitment avm_mem_sub_clk;
         Commitment avm_mem_tag;
         Commitment avm_mem_tag_err;
+        Commitment avm_mem_tsp;
         Commitment avm_mem_val;
         Commitment avm_mem_w_in_tag;
         Commitment perm_main_alu;
@@ -2388,9 +2388,9 @@ class AvmFlavor {
             avm_mem_sel_mov_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_sel_mov_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_skip_check_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
-            avm_mem_sub_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_tsp = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_val = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             perm_main_alu = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2639,9 +2639,9 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_sel_mov_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_sel_mov_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_skip_check_tag, Transcript::proof_data);
-            serialize_to_buffer<Commitment>(avm_mem_sub_clk, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_tag_err, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_tsp, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_val, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_w_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(perm_main_alu, Transcript::proof_data);

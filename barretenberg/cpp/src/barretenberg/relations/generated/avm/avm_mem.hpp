@@ -10,6 +10,7 @@ template <typename FF> struct Avm_memRow {
     FF avm_main_first{};
     FF avm_mem_addr{};
     FF avm_mem_addr_shift{};
+    FF avm_mem_clk{};
     FF avm_mem_ind_op_a{};
     FF avm_mem_ind_op_b{};
     FF avm_mem_ind_op_c{};
@@ -28,10 +29,10 @@ template <typename FF> struct Avm_memRow {
     FF avm_mem_sel_mov_a{};
     FF avm_mem_sel_mov_b{};
     FF avm_mem_skip_check_tag{};
-    FF avm_mem_sub_clk{};
     FF avm_mem_tag{};
     FF avm_mem_tag_err{};
     FF avm_mem_tag_shift{};
+    FF avm_mem_tsp{};
     FF avm_mem_val{};
     FF avm_mem_val_shift{};
     FF avm_mem_w_in_tag{};
@@ -40,6 +41,9 @@ template <typename FF> struct Avm_memRow {
 inline std::string get_relation_label_avm_mem(int index)
 {
     switch (index) {
+    case 13:
+        return "TIMESTAMP";
+
     case 14:
         return "LAST_ACCESS_FIRST_ROW";
 
@@ -207,16 +211,18 @@ template <typename FF_> class avm_memImpl {
         {
             Avm_DECLARE_VIEWS(13);
 
-            auto tmp = (avm_mem_sub_clk -
-                        ((((((((avm_mem_op_a + avm_mem_op_b) + avm_mem_op_c) + avm_mem_op_d) + avm_mem_ind_op_a) +
-                            avm_mem_ind_op_b) +
-                           avm_mem_ind_op_c) +
-                          avm_mem_ind_op_d) *
-                         ((((avm_mem_ind_op_b + avm_mem_op_b) + ((avm_mem_ind_op_c + avm_mem_op_c) * FF(2))) +
-                           ((avm_mem_ind_op_d + avm_mem_op_d) * FF(3))) +
-                          (((-(((avm_mem_ind_op_a + avm_mem_ind_op_b) + avm_mem_ind_op_c) + avm_mem_ind_op_d) + FF(1)) +
-                            avm_mem_rw) *
-                           FF(4)))));
+            auto tmp =
+                (avm_mem_tsp -
+                 ((avm_mem_clk * FF(12)) +
+                  ((((((((avm_mem_op_a + avm_mem_op_b) + avm_mem_op_c) + avm_mem_op_d) + avm_mem_ind_op_a) +
+                      avm_mem_ind_op_b) +
+                     avm_mem_ind_op_c) +
+                    avm_mem_ind_op_d) *
+                   ((((avm_mem_ind_op_b + avm_mem_op_b) + ((avm_mem_ind_op_c + avm_mem_op_c) * FF(2))) +
+                     ((avm_mem_ind_op_d + avm_mem_op_d) * FF(3))) +
+                    (((-(((avm_mem_ind_op_a + avm_mem_ind_op_b) + avm_mem_ind_op_c) + avm_mem_ind_op_d) + FF(1)) +
+                      avm_mem_rw) *
+                     FF(4))))));
             tmp *= scaling_factor;
             std::get<13>(evals) += tmp;
         }

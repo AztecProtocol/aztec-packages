@@ -324,11 +324,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_sel_mov_b);
     commitments.avm_mem_skip_check_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_skip_check_tag);
-    commitments.avm_mem_sub_clk =
-        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_sub_clk);
     commitments.avm_mem_tag = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_tag);
     commitments.avm_mem_tag_err =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_tag_err);
+    commitments.avm_mem_tsp = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_tsp);
     commitments.avm_mem_val = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_val);
     commitments.avm_mem_w_in_tag =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_w_in_tag);

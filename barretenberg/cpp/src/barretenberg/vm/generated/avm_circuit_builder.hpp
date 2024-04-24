@@ -222,9 +222,9 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_sel_mov_a{};
     FF avm_mem_sel_mov_b{};
     FF avm_mem_skip_check_tag{};
-    FF avm_mem_sub_clk{};
     FF avm_mem_tag{};
     FF avm_mem_tag_err{};
+    FF avm_mem_tsp{};
     FF avm_mem_val{};
     FF avm_mem_w_in_tag{};
     FF perm_main_alu{};
@@ -521,9 +521,9 @@ class AvmCircuitBuilder {
             polys.avm_mem_sel_mov_a[i] = rows[i].avm_mem_sel_mov_a;
             polys.avm_mem_sel_mov_b[i] = rows[i].avm_mem_sel_mov_b;
             polys.avm_mem_skip_check_tag[i] = rows[i].avm_mem_skip_check_tag;
-            polys.avm_mem_sub_clk[i] = rows[i].avm_mem_sub_clk;
             polys.avm_mem_tag[i] = rows[i].avm_mem_tag;
             polys.avm_mem_tag_err[i] = rows[i].avm_mem_tag_err;
+            polys.avm_mem_tsp[i] = rows[i].avm_mem_tsp;
             polys.avm_mem_val[i] = rows[i].avm_mem_val;
             polys.avm_mem_w_in_tag[i] = rows[i].avm_mem_w_in_tag;
             polys.lookup_byte_lengths_counts[i] = rows[i].lookup_byte_lengths_counts;
