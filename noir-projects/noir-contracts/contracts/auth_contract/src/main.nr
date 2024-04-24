@@ -43,8 +43,9 @@ contract Auth {
     #[aztec(public)]
     fn get_scheduled_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_scheduled_public
-        storage.authorized.get_scheduled_value_in_public().0
+        let (scheduled_value, _block_of_change): (AztecAddress, u32) = storage.authorized.get_scheduled_value_in_public();
         // docs:end:shared_mutable_get_scheduled_public
+        scheduled_value
     }
 
     #[aztec(private)]

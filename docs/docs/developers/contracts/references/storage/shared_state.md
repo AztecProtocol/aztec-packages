@@ -108,7 +108,7 @@ It is not possible to call this function in private: doing so would not be very 
 
 `SharedImmutable` (formerly known as `StablePublicState`) is a simplification of the `SharedMutable` case, where the value can only be set once during initialization. Because there's no further mutation, there's no need for delays. These state variables are useful for stuff that you would usually have in `immutable` values in Solidity, e.g. this can be the name of a token or its number of decimals.
 
-Like most state variables, `PublicMutable` is generic over the variable type `T`. This type `MUST` implement the `Serialize` and `Deserialize` traits.
+Like most state variables, `SharedImmutable` is generic over the variable type `T`. This type `MUST` implement the `Serialize` and `Deserialize` traits.
 
 #include_code storage-shared-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
 
