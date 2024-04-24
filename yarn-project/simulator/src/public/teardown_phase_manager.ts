@@ -73,7 +73,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     const gasFees = this.globalVariables.gasFees;
     // No need to add teardown limits since they are already included in end.gasUsed
     const gasUsed = previousPublicKernelOutput.end.gasUsed.add(previousPublicKernelOutput.endNonRevertibleData.gasUsed);
-    const txFee = gasSettings.inclusionFee.add(gasUsed.reduce(gasFees));
+    const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));
     this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
     return txFee;
   }

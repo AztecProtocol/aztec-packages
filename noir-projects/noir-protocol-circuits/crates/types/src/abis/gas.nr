@@ -31,7 +31,7 @@ impl Gas {
         )
     }
 
-    pub fn reduce(self, fees: GasFees) -> Field {
+    pub fn compute_fee(self, fees: GasFees) -> Field {
         (self.da_gas as Field) * fees.fee_per_da_gas
             + (self.l1_gas as Field) * fees.fee_per_l1_gas
             + (self.l2_gas as Field) * fees.fee_per_l2_gas

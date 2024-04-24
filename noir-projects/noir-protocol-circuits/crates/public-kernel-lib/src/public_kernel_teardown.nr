@@ -39,7 +39,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         // TODO(palla/gas): Load gas fees from a PublicConstantData struct that's currently missing
         let block_gas_fees = GasFees::default();
         let inclusion_fee = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.inclusion_fee;
-        let computed_transaction_fee = total_gas_used.reduce(block_gas_fees) + inclusion_fee;
+        let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
 
         // dep::types::debug_log::debug_log_format(
         //     "Validating tx fee: total_gas_used.da={0} total_gas_used.l1={1} total_gas_used.l2={2} block_fee_per_gas.da={3} block_fee_per_gas.l1={4} block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",

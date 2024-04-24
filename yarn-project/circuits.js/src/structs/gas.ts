@@ -68,7 +68,7 @@ export class Gas {
     return new Gas(Math.ceil(this.daGas * scalar), Math.ceil(this.l1Gas * scalar), Math.ceil(this.l2Gas * scalar));
   }
 
-  reduce(gasFees: GasFees) {
+  computeFee(gasFees: GasFees) {
     return GasDimensions.reduce(
       (acc, dimension) => acc.add(gasFees.get(dimension).mul(new Fr(this.get(dimension)))),
       Fr.ZERO,
