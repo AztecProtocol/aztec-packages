@@ -72,11 +72,7 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
                         // so we limit it to denoting it's the start of a Brillig
                         // block. The user can still use the `opcodes` command to
                         // take a look at the whole block.
-                        let opcode_summary = match opcodes[ip] {
-                            // Opcode::Brillig(..) => "BRILLIG: ...".into(),
-                            _ => format!("{}", opcodes[ip]),
-                        };
-                        println!("At opcode {}: {}", ip, opcode_summary);
+                        println!("At opcode {}: {}", ip, opcodes[ip]);
                     }
                     OpcodeLocation::Brillig { acir_index, brillig_index } => {
                         let Opcode::BrilligCall { id, .. } = opcodes[acir_index] else {

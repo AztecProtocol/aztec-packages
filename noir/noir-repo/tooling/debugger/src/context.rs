@@ -214,9 +214,9 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
     fn get_opcodes_sizes(&self) -> Vec<usize> {
         self.get_opcodes()
             .iter()
-            .map(|opcode| match opcode {
-                // Opcode::Brillig(brillig_block) => brillig_block.bytecode.len(),
-                _ => 1,
+            .map(|_| {
+                // TODO: Handle Brillig calls again
+                1
             })
             .collect()
     }
@@ -303,7 +303,7 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
                 format!("{opcode:?}")
                 // }
             }
-            Some(OpcodeLocation::Brillig { acir_index, brillig_index }) => {
+            Some(OpcodeLocation::Brillig { .. }) => {
                 // if let Opcode::Brillig(ref brillig) = opcodes[*acir_index] {
                 // let opcode = &brillig.bytecode[*brillig_index];
                 // format!("      | {opcode:?}")
@@ -551,7 +551,7 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         let opcodes = self.get_opcodes();
         match *location {
             OpcodeLocation::Acir(acir_index) => acir_index < opcodes.len(),
-            OpcodeLocation::Brillig { acir_index, brillig_index } => {
+            OpcodeLocation::Brillig { acir_index, .. } => {
                 acir_index < opcodes.len()
                     && matches!(opcodes[acir_index], Opcode::BrilligCall { .. })
                 // && {
