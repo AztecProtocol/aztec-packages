@@ -91,7 +91,7 @@ describe('Discv5Service', () => {
     await waitForPeers(node2, 1, 4000);
 
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
-    expect(node2Peers).toHaveLength(1); //
+    expect(node2Peers).toHaveLength(1);
     expect(node2Peers).toContain(node1.getPeerId().toString());
 
     await node1.stop();
