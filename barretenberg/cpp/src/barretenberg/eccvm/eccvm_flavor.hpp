@@ -597,28 +597,24 @@ class ECCVMFlavor {
                     msm_slice4[i] = msm_state[i].add_state[3].slice;
                 }
             });
-            for (auto [shifted, to_be_shifted] : zip_view(this->get_shifted(), this->get_to_be_shifted())) {
-                shifted = to_be_shifted.shifted();
-            }
+            this->set_shifted();
         }
     };
 
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
-     * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve
-     * inherit from ProvingKey.
+     *
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
+    class ProvingKey : public ProvingKeyNew_<FF, CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
+        using Base = ProvingKeyNew_<FF, CommitmentKey>;
         using Base::Base;
 
         ProverPolynomials polynomials;
 
         ProvingKey(const CircuitBuilder& builder)
-            : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>(
-                  builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
+            : Base(builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
             , polynomials(builder)
         {}
     };
@@ -649,7 +645,7 @@ class ECCVMFlavor {
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
             for (auto [polynomial, commitment] :
-                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
+                 zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }

@@ -98,10 +98,8 @@ class PrecomputedEntitiesBase {
  * @tparam FF The scalar field on which we will encode our polynomial data. When instantiating, this may be extractable
  * from the other template paramter.
  */
-template <typename CommitmentKey_> class ProvingKeyNew_ {
+template <typename FF, typename CommitmentKey_> class ProvingKeyNew_ {
   public:
-    using FF = bb::fr; // WORKTODO
-
     size_t circuit_size;
     bool contains_recursive_proof;
     std::vector<uint32_t> recursive_proof_public_input_indices;

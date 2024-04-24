@@ -316,10 +316,10 @@ class GoblinUltraFlavor {
      * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
      * from ProvingKey.
      */
-    class ProvingKey : public ProvingKeyNew_<CommitmentKey> {
+    class ProvingKey : public ProvingKeyNew_<FF, CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKeyNew_<CommitmentKey>;
+        using Base = ProvingKeyNew_<FF, CommitmentKey>;
         using Base::Base;
 
         ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
