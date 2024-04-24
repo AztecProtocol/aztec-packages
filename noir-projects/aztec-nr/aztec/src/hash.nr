@@ -239,3 +239,12 @@ fn compute_unenc_log_hash_str() {
     let hash = compute_unencrypted_log_hash(contract_address, event_selector, log);
     assert(hash == 0x00a78b5347813624ecfd26e5b8bc6146f418b0cfcc8296b5112d09b8ebba9496);
 }
+
+#[test]
+fn compute_unenc_log_hash_longer_str() {
+    let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
+    let event_selector = 5;
+    let log = "Hello this is a string";
+    let hash = compute_unencrypted_log_hash(contract_address, event_selector, log);
+    assert(hash == 0x001f3390ea242afee7ce46dafdbdc4bd4f1cf20cd63850d12d60ff9956712c4f);
+}
