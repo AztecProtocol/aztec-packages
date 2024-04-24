@@ -13,7 +13,7 @@
     "clean": "rm -rf .tsbuildinfo ./artifacts ./codegenCache.json",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --config '{\"reporters\": [[\"default\", {\"summaryThreshold\": 9999}]]}' --passWithNoTests",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests",
     "generate": "yarn generate:noir-contracts",
     "generate:noir-contracts": "./scripts/generate-types.sh && run -T prettier -w ./src --loglevel warn"
   },
@@ -34,6 +34,14 @@
     },
     "extensionsToTreatAsEsm": [
       ".ts"
+    ],
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
     ]
   },
   "dependencies": {
