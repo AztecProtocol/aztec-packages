@@ -174,7 +174,7 @@ The token being used for donations is stored simply as an `AztecAddress` (named 
 Add this `Token` contract to Nargo.toml:
 
 ```
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
+token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
 ```
 
 With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract. 
