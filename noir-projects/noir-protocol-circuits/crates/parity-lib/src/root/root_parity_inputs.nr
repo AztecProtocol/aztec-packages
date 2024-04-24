@@ -28,11 +28,7 @@ impl RootParityInputs {
         let sha_tree = Sha256MerkleTree::new(sha_roots);
         let pedersen_tree = MerkleTree::new(converted_roots);
 
-        ParityPublicInputs {
-            //aggregation_object: AggregationObject {},
-            sha_root: sha_tree.get_root(),
-            converted_root: pedersen_tree.get_root()
-        }
+        ParityPublicInputs { sha_root: sha_tree.get_root(), converted_root: pedersen_tree.get_root() }
     }
 
     fn verify_child_proofs(self) {

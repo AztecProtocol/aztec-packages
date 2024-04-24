@@ -40,7 +40,7 @@ describe('prover/bb_prover/parity', () => {
   it('proves the parity circuits', async () => {
     const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      Fr.zero,
+      Fr.random,
     );
     const baseParityInputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, (_, i) =>
       BaseParityInputs.fromSlice(l1ToL2Messages, i),
@@ -55,8 +55,6 @@ describe('prover/bb_prover/parity', () => {
     await expect(
       Promise.all(rootInputs.map(input => context.prover.verifyProof('BaseParityArtifact', input.proof.binaryProof))),
     ).resolves.not.toThrow();
-
-    //const vk = await bbProver.getVerificationKeyForCircuit('BaseParityArtifact');
 
     // Now generate the root parity proof
     const rootParityInputs: RootParityInputs = new RootParityInputs(
