@@ -68,6 +68,8 @@ namespace avm_mem(256);
     sub_clk = MEM_SEL * (ind_op_b + op_b + 2 * (ind_op_c + op_c) + 3 * (ind_op_d + op_d) + 4 * (1 - IND_OP + rw));
     // We need the MEM_SEL factor as the right factor is not zero when all columns are zero.
 
+    #[LAST_ACCESS_FIRST_ROW]
+    avm_main.first * (1 - lastAccess) = 0;
     // Remark: lastAccess == 1 on first row and therefore any relation with the
     //         multiplicative term (1 - lastAccess) implicitly includes (1 - avm_main.first)
     //         Similarly, this includes (1 - last) as well.
@@ -110,7 +112,7 @@ namespace avm_mem(256);
 
     // Constrain that the first load from a given address has value 0. (Consistency of memory initialization.)
     // We do not constrain that the tag == 0 as the 0 value is compatible with any memory type.
-    // If we set lastAccess = 1 on the first row, we can enforce this (should be ok as long as we do not shift lastAccess):
+    // As we enforce lastAccess = 1 on the first row, the following condition applies also for the first memory entry:
     #[MEM_ZERO_INIT]
     lastAccess * (1 - rw') * val' = 0;
 
