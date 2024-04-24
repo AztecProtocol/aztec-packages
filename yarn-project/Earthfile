@@ -49,6 +49,17 @@ build:
 aztec-prod:
     FROM +build
     RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
+    # Remove a bunch of stuff that we don't need that takes up space.
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        aztec.js/dest/main.js \
+        end-to-end \
+        **/src \
+        **/artifacts
     SAVE ARTIFACT /usr/src /usr/src
 
 aztec:

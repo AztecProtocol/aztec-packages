@@ -73,7 +73,7 @@ jobs:
       - name: Test
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 25
-        run: earthly -P --no-output +${{ matrix.test }} --e2e_mode=cache
+        run: earthly -P --no-output +${{ matrix.test }}
       # TODO
       # - name: Upload logs
       #   run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
