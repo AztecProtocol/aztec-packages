@@ -29,6 +29,7 @@ pub struct BrilligSolver<'b, B: BlackBoxFunctionSolver> {
     acir_index: usize,
 }
 
+#[allow(dead_code)]
 impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
     /// Evaluates if the Brillig block should be skipped entirely
     pub(super) fn should_skip(

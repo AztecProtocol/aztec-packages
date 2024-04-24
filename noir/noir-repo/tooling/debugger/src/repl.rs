@@ -73,18 +73,20 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
                         // block. The user can still use the `opcodes` command to
                         // take a look at the whole block.
                         let opcode_summary = match opcodes[ip] {
-                            Opcode::Brillig(..) => "BRILLIG: ...".into(),
+                            // Opcode::Brillig(..) => "BRILLIG: ...".into(),
                             _ => format!("{}", opcodes[ip]),
                         };
                         println!("At opcode {}: {}", ip, opcode_summary);
                     }
                     OpcodeLocation::Brillig { acir_index, brillig_index } => {
-                        let Opcode::Brillig(ref brillig) = opcodes[acir_index] else {
+                        let Opcode::BrilligCall { id, .. } = opcodes[acir_index] else {
                             unreachable!("Brillig location does not contain a Brillig block");
                         };
                         println!(
                             "At opcode {}.{}: {:?}",
-                            acir_index, brillig_index, brillig.bytecode[brillig_index]
+                            acir_index,
+                            brillig_index,
+                            self.unconstrained_functions[id as usize].bytecode[brillig_index]
                         );
                     }
                 }
@@ -104,12 +106,14 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
                 )
             }
             OpcodeLocation::Brillig { acir_index, brillig_index } => {
-                let Opcode::Brillig(ref brillig) = opcodes[*acir_index] else {
+                let Opcode::BrilligCall { id, .. } = opcodes[*acir_index] else {
                     unreachable!("Brillig location does not contain a Brillig block");
                 };
                 println!(
                     "Frame #{index}, opcode {}.{}: {:?}",
-                    acir_index, brillig_index, brillig.bytecode[*brillig_index]
+                    acir_index,
+                    brillig_index,
+                    self.unconstrained_functions[id as usize].bytecode[*brillig_index]
                 );
             }
         }
@@ -153,21 +157,23 @@ impl<'a, B: BlackBoxFunctionSolver> ReplDebugger<'a, B> {
         let brillig_marker = |acir_index, brillig_index| {
             if current_acir_index == Some(acir_index) && brillig_index == current_brillig_index {
                 "->"
-            } else if self
-                .context
-                .is_breakpoint_set(&OpcodeLocation::Brillig { acir_index, brillig_index })
-            {
-                " *"
+            // } else if self
+            //     .context
+            //     .is_breakpoint_set(&OpcodeLocation::Brillig { acir_index, brillig_index })
+            // {
+            //     " *"
             } else {
                 ""
             }
         };
         for (acir_index, opcode) in opcodes.iter().enumerate() {
             let marker = outer_marker(acir_index);
-            if let Opcode::Brillig(brillig) = opcode {
-                println!("{:>3} {:2} BRILLIG inputs={:?}", acir_index, marker, brillig.inputs);
-                println!("       |       outputs={:?}", brillig.outputs);
-                for (brillig_index, brillig_opcode) in brillig.bytecode.iter().enumerate() {
+            if let Opcode::BrilligCall { id, inputs, outputs, .. } = opcode {
+                println!("{:>3} {:2} BRILLIG inputs={:?}", acir_index, marker, inputs);
+                println!("       |       outputs={:?}", outputs);
+                for (brillig_index, brillig_opcode) in
+                    self.unconstrained_functions[*id as usize].bytecode.iter().enumerate()
+                {
                     println!(
                         "{:>3}.{:<2} |{:2} {:?}",
                         acir_index,
