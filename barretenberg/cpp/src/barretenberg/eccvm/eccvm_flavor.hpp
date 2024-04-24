@@ -297,69 +297,6 @@ class ECCVMFlavor {
 
   public:
     /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve
-     * inherit from ProvingKey.
-     */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
-      public:
-        // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
-        using Base::Base;
-
-        ProvingKey(const CircuitBuilder& builder)
-            : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>(
-                  builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
-        {
-            const auto [_lagrange_first, _lagrange_last] =
-                compute_first_and_last_lagrange_polynomials<FF>(circuit_size);
-            lagrange_first = _lagrange_first;
-            lagrange_last = _lagrange_last;
-            {
-                Polynomial _lagrange_second(circuit_size);
-                _lagrange_second[1] = 1;
-                lagrange_second = _lagrange_second.share();
-            }
-        }
-
-        auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<Polynomial>(*this); }
-        // The plookup wires that store plookup read data.
-        RefArray<Polynomial, 0> get_table_column_wires() { return {}; };
-    };
-
-    /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
-     * polynomials used by the verifier.
-     *
-     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
-     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
-     * portability of our circuits.
-     */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
-      public:
-        std::vector<FF> public_inputs;
-
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
-
-        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : public_inputs(proving_key->public_inputs)
-        {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = proving_key->num_public_inputs;
-            this->pub_inputs_offset = proving_key->pub_inputs_offset;
-
-            for (auto [polynomial, commitment] :
-                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
-            }
-        }
-    };
-
-    /**
      * @brief A container for polynomials produced after the first round of sumcheck.
      * @todo TODO(#394) Use polynomial classes for guaranteed memory alignment.
      */
@@ -513,7 +450,7 @@ class ECCVMFlavor {
          table (reads come from msm_x/y3, msm_x/y4)
          * @return ProverPolynomials
          */
-        ProverPolynomials(CircuitBuilder& builder)
+        ProverPolynomials(const CircuitBuilder& builder)
         {
             const auto msms = builder.get_msms();
             const auto flattened_muls = builder.get_flattened_scalar_muls(msms);
@@ -677,6 +614,72 @@ class ECCVMFlavor {
             precompute_round_shift = precompute_round.shifted();
             transcript_accumulator_empty_shift = transcript_accumulator_empty.shifted();
             precompute_select_shift = precompute_select.shifted();
+        }
+    };
+
+    /**
+     * @brief The proving key is responsible for storing the polynomials used by the prover.
+     * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve
+     * inherit from ProvingKey.
+     */
+    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
+      public:
+        // Expose constructors on the base class
+        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
+        using Base::Base;
+
+        ProverPolynomials polynomials;
+
+        ProvingKey(const CircuitBuilder& builder)
+            : ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>(
+                  builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)
+            , polynomials(builder)
+        {
+            const auto [_lagrange_first, _lagrange_last] =
+                compute_first_and_last_lagrange_polynomials<FF>(circuit_size);
+            lagrange_first = _lagrange_first;
+            lagrange_last = _lagrange_last;
+            {
+                Polynomial _lagrange_second(circuit_size);
+                _lagrange_second[1] = 1;
+                lagrange_second = _lagrange_second.share();
+            }
+        }
+
+        auto get_to_be_shifted() { return ECCVMFlavor::get_to_be_shifted<Polynomial>(*this); }
+        // The plookup wires that store plookup read data.
+        RefArray<Polynomial, 0> get_table_column_wires() { return {}; };
+    };
+
+    /**
+     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * polynomials used by the verifier.
+     *
+     * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to
+     * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
+     * portability of our circuits.
+     */
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+      public:
+        std::vector<FF> public_inputs;
+
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+            : VerificationKey_(circuit_size, num_public_inputs)
+        {}
+
+        VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
+            : public_inputs(proving_key->public_inputs)
+        {
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size);
+            this->circuit_size = proving_key->circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = proving_key->num_public_inputs;
+            this->pub_inputs_offset = proving_key->pub_inputs_offset;
+
+            for (auto [polynomial, commitment] :
+                 zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
+                commitment = proving_key->commitment_key->commit(polynomial);
+            }
         }
     };
 
