@@ -1,15 +1,14 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
-    GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET, GENERATOR_INDEX__NULLIFIER, ARGS_HASH_CHUNK_COUNT,
-    GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS
+    GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, ARGS_HASH_CHUNK_COUNT,
+    GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH
 },
     traits::Hash, hash::{pedersen_hash, silo_nullifier, sha256_to_field, slice_sha256_to_field}
 };
 
 pub fn compute_secret_hash(secret: Field) -> Field {
-    // TODO(#1205) This is probably not the right index to use
-    pedersen_hash([secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)
+    pedersen_hash([secret], GENERATOR_INDEX__SECRET_HASH)
 }
 
 pub fn compute_encrypted_log_hash<M>(
@@ -147,7 +146,7 @@ pub fn compute_message_hash(
 pub fn compute_message_nullifier(message_hash: Field, secret: Field, leaf_index: Field) -> Field {
     pedersen_hash(
         [message_hash, secret, leaf_index],
-        GENERATOR_INDEX__NULLIFIER
+        GENERATOR_INDEX__MESSAGE_NULLIFIER
     )
 }
 
