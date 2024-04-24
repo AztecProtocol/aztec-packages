@@ -132,7 +132,7 @@ jobs:
       - name: Build and Push Binaries
         timeout-minutes: 15
         working-directory: ./barretenberg/cpp/
-        run: earthly --push +bench-binaries
+        run: earthly --push --remote-cache=AztecProtocol/ci-cache:master +bench-binaries
 
   setup-bench:
     uses: ./.github/workflows/setup-runner.yml
