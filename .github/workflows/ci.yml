@@ -42,7 +42,7 @@ jobs:
       # prepare images locally, tagged by commit hash
       - name: "Build E2E Image"
         timeout-minutes: 40
-        run: earthly ./yarn-project+export-end-to-end
+        run: earthly --push --remote-cache=aztecprotocol/ci-cache:master ./yarn-project+export-end-to-end
       # We base our e2e list used in e2e-x86 off the targets in ./yarn-project/end-to-end
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of end-to-end jobs
@@ -132,7 +132,7 @@ jobs:
       - name: Build and Push Binaries
         timeout-minutes: 15
         working-directory: ./barretenberg/cpp/
-        run: earthly --push --remote-cache=aztecprotocol/ci-cache:master +bench-binaries
+        run: earthly --push +bench-binaries
 
   setup-bench:
     uses: ./.github/workflows/setup-runner.yml
