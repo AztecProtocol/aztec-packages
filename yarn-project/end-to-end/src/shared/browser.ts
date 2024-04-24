@@ -227,11 +227,11 @@ export const browserTestSuite = (
             INITIAL_TEST_SIGNING_KEYS,
             INITIAL_TEST_ACCOUNT_SALTS,
             Buffer,
+            contractArtifactFromBuffer,
           } = window.AztecJs;
           // We serialize the artifact since buffers (used for bytecode) do not cross well from one realm to another
-          const TokenContractArtifact = JSON.parse(
-            Buffer.from(serializedTokenContractArtifact, 'base64').toString('utf-8'),
-            (key, value) => (key === 'bytecode' && typeof value === 'string' ? Buffer.from(value, 'base64') : value),
+          const TokenContractArtifact = contractArtifactFromBuffer(
+            Buffer.from(serializedTokenContractArtifact, 'base64'),
           );
           const pxe = createPXEClient(rpcUrl!);
 
