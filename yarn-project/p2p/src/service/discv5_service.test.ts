@@ -4,7 +4,8 @@ import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { DiscV5Service, PeerDiscoveryState } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
 
-const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 5000): Promise<void> => {
+const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
+  const timeout = 5_000;
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       reject(new Error(`Timeout: Failed to connect to ${expectedCount} peers within ${timeout} ms`));
@@ -61,7 +62,7 @@ describe('Discv5Service', () => {
     const node2 = await createNode(port);
     await node1.start();
     await node2.start();
-    await waitForPeers(node2, 2, 4000);
+    await waitForPeers(node2, 2);
 
     const node1Peers = await Promise.all(node1.getAllPeers().map(async peer => (await peer.peerId()).toString()));
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
@@ -82,13 +83,13 @@ describe('Discv5Service', () => {
     const node2 = await createNode(port);
     await node1.start();
     await node2.start();
-    await waitForPeers(node2, 2, 4000);
+    await waitForPeers(node2, 2);
 
     await node2.stop();
     await bootNode.stop();
 
     await node2.start();
-    await waitForPeers(node2, 1, 4000);
+    await waitForPeers(node2, 1);
 
     const node2Peers = await Promise.all(node2.getAllPeers().map(async peer => (await peer.peerId()).toString()));
     expect(node2Peers).toHaveLength(1);
