@@ -60,7 +60,13 @@ export function computeArtifactHashPreimage(artifact: ContractArtifact) {
 
 export function computeArtifactMetadataHash(artifact: ContractArtifact) {
   // TODO(@spalladino): Should we use the sorted event selectors instead? They'd need to be unique for that.
+  // The output selectors need to be sorted, because if not noir makes no guarantees on the order of outputs for some reason
+  // This is a temporary workaround for the Key Registry
   const metadata = { name: artifact.name, outputs: artifact.outputs };
+  if (artifact.name === 'KeyRegistry') {
+    return sha256Fr(Buffer.from(JSON.stringify({ name: artifact.name }), 'utf-8'));
+  }
+
   return sha256Fr(Buffer.from(JSON.stringify(metadata), 'utf-8'));
 }
 
