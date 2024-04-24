@@ -86,17 +86,6 @@ template <typename Fr> class Polynomial {
         return true;
     }
 
-    Fr sumup()
-    {
-        Fr sum = 0;
-        uint32_t idx = 1;
-        for (auto& coeff : *this) {
-            sum += coeff * idx;
-            idx++;
-        }
-        return sum;
-    }
-
     bool operator==(Polynomial const& rhs) const;
 
     // Const and non const versions of coefficient accessors
