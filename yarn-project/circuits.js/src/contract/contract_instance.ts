@@ -36,7 +36,7 @@ export function getContractInstanceFromDeployParams(
   console.log('contractClass', contractClass);
   console.log('contractClassId', contractClassId);
   console.log('initializationHash', initializationHash);
-  console.log('publicKeysHash', publicKeysHash)
+  console.log('publicKeysHash', publicKeysHash);
 
   const instance: ContractInstance = {
     contractClassId,
