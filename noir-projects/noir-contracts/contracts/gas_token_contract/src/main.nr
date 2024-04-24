@@ -2,21 +2,33 @@ mod lib;
 
 contract GasToken {
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}};
-    use dep::aztec::{hash::compute_secret_hash, state_vars::{PublicMutable, Map}};
+    use dep::aztec::state_vars::{SharedImmutable, PublicMutable, Map};
 
     use crate::lib::{calculate_fee, get_bridge_gas_msg_hash};
 
     #[aztec(storage)]
     struct Storage {
         balances: Map<AztecAddress, PublicMutable<U128>>,
+        portal_address: SharedImmutable<EthAddress>,
     }
 
     #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, secret: Field) {
+    #[aztec(initializer)]
+    fn constructor(portal_address: EthAddress) {
+        storage.portal_address.initialize(portal_address);
+    }
+
+    #[aztec(public)]
+    fn claim_public(to: AztecAddress, amount: Field, secret: Field, leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, context.this_portal_address());
+        context.consume_l1_to_l2_message(
+            content_hash,
+            secret,
+            storage.portal_address.read_public(),
+            leaf_index
+        );
 
         let new_balance = storage.balances.at(to).read() + U128::from_integer(amount);
         storage.balances.at(to).write(new_balance);

@@ -13,7 +13,7 @@ import {
   type TxHash,
   type TxReceipt,
   type Wallet,
-  computeMessageSecretHash,
+  computeSecretHash,
   deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
@@ -101,9 +101,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   const token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
   // deploy l2 token bridge and attach to the portal
-  const bridge = await TokenBridgeContract.deploy(wallet, token.address)
-    .send({ portalContract: tokenPortalAddress })
-    .deployed();
+  const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send().deployed();
 
   if ((await token.methods.admin().simulate()) !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
@@ -225,10 +223,15 @@ export class CrossChainTestHarness {
     public ownerAddress: AztecAddress,
   ) {}
 
+  /**
+   * Used to generate a claim secret using pedersen's hash function.
+   * @dev Used for both L1 to L2 messages and transparent note (pending shields) secrets.
+   * @returns A tuple of the secret and its hash.
+   */
   generateClaimSecret(): [Fr, Fr] {
     this.logger.debug("Generating a claim secret using pedersen's hash function");
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
     this.logger.info('Generated claim secret: ' + secretHash.toString());
     return [secret, secretHash];
   }
@@ -319,10 +322,10 @@ export class CrossChainTestHarness {
     await this.addPendingShieldNoteToPXE(bridgeAmount, secretHashForRedeemingMintedNotes, consumptionReceipt.txHash);
   }
 
-  async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, secret: Fr) {
+  async consumeMessageOnAztecAndMintPublicly(bridgeAmount: bigint, secret: Fr, leafIndex: bigint) {
     this.logger.info('Consuming messages on L2 Publicly');
     // Call the mint tokens function on the Aztec.nr contract
-    await this.l2Bridge.methods.claim_public(this.ownerAddress, bridgeAmount, secret).send().wait();
+    await this.l2Bridge.methods.claim_public(this.ownerAddress, bridgeAmount, secret, leafIndex).send().wait();
   }
 
   async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
