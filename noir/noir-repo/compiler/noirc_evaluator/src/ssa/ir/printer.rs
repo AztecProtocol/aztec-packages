@@ -159,7 +159,6 @@ fn display_instruction_inner(
         Instruction::Constrain(lhs, rhs, error) => {
             write!(f, "constrain {} == {}", show(*lhs), show(*rhs))?;
             if let Some(error) = error {
-                write!(f, " ")?;
                 display_constrain_error(function, error, f)
             } else {
                 writeln!(f)
@@ -204,9 +203,12 @@ pub(crate) fn try_to_extract_string_from_error_payload(
     values: &[ValueId],
     dfg: &DataFlowGraph,
 ) -> Option<String> {
-    (error_selector.to_u64() == STRING_ERROR_SELECTOR)
+    ((error_selector.to_u64() == STRING_ERROR_SELECTOR) && (values.len() == 1))
         .then_some(())
         .and_then(|()| {
+            let Value::Array { array: values, .. } = &dfg[values[0]] else {
+                return None;
+            };
             let fields: Option<Vec<_>> = values
                 .iter()
                 .map(|value_id| {
@@ -218,6 +220,7 @@ pub(crate) fn try_to_extract_string_from_error_payload(
                     }
                 })
                 .collect();
+
             fields
         })
         .map(|fields| {
@@ -238,15 +241,16 @@ fn display_constrain_error(
 ) -> Result {
     match error {
         ConstrainError::Intrinsic(assert_message_string) => {
-            writeln!(f, "{assert_message_string:?}")
+            writeln!(f, " '{assert_message_string:?}'")
         }
         ConstrainError::UserDefined(values, selector) => {
-            writeln!(
-                f,
-                "{}",
+            if let Some(constant_string) =
                 try_to_extract_string_from_error_payload(*selector, values, &function.dfg)
-                    .unwrap_or(value_list(function, values))
-            )
+            {
+                writeln!(f, " '{}'", constant_string)
+            } else {
+                writeln!(f, ", data {}", value_list(function, values))
+            }
         }
     }
 }
