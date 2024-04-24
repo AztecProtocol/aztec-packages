@@ -234,7 +234,7 @@ export abstract class TypedOracle {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
 
-  encrypt(_symmetricKey: Buffer, _initializationVector: Buffer, _plaintext: Buffer): Buffer {
+  aes128Encrypt(_input: Buffer, _initializationVector: Buffer, _key: Buffer): Buffer {
     throw new OracleMethodNotAvailableError('encrypt');
   }
 }

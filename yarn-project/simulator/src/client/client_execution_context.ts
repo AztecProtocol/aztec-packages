@@ -523,8 +523,8 @@ export class ClientExecutionContext extends ViewDataOracle {
     return values;
   }
 
-  public override encrypt(symmetricKey: Buffer, initializationVector: Buffer, plaintext: Buffer): Buffer {
+  public override aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
     const aes128 = new Aes128();
-    return aes128.encryptBufferCBC(plaintext, initializationVector, symmetricKey);
+    return aes128.encryptBufferCBC(input, initializationVector, key);
   }
 }
