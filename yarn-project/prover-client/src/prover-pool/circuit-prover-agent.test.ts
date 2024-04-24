@@ -32,8 +32,9 @@ describe('LocalProvingAgent', () => {
   it('takes jobs from the queue', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
+    const vk = VerificationKey.makeFake();
     prover.getBaseParityProof.mockResolvedValue(
-      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, VerificationKey.makeFake(), publicInputs),
+      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, publicInputs),
     );
 
     const inputs = makeBaseParityInputs();
@@ -42,7 +43,7 @@ describe('LocalProvingAgent', () => {
       inputs,
     });
 
-    await expect(promise).resolves.toEqual([publicInputs, proof]);
+    await expect(promise).resolves.toEqual(new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, publicInputs));
     expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs);
   });
 
@@ -63,8 +64,9 @@ describe('LocalProvingAgent', () => {
   it('continues to process jobs', async () => {
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
+    const vk = VerificationKey.makeFake();
     prover.getBaseParityProof.mockResolvedValue(
-      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, VerificationKey.makeFake(), publicInputs),
+      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, publicInputs),
     );
 
     const inputs = makeBaseParityInputs();
@@ -73,7 +75,9 @@ describe('LocalProvingAgent', () => {
       inputs,
     });
 
-    await expect(promise1).resolves.toEqual([publicInputs, proof]);
+    await expect(promise1).resolves.toEqual(
+      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, publicInputs),
+    );
 
     const inputs2 = makeBaseParityInputs();
     const promise2 = queue.prove({
@@ -81,7 +85,9 @@ describe('LocalProvingAgent', () => {
       inputs: inputs2,
     });
 
-    await expect(promise2).resolves.toEqual([publicInputs, proof]);
+    await expect(promise2).resolves.toEqual(
+      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, vk, publicInputs),
+    );
 
     expect(prover.getBaseParityProof).toHaveBeenCalledTimes(2);
     expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs);

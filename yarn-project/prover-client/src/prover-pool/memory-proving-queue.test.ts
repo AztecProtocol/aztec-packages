@@ -46,8 +46,9 @@ describe('MemoryProvingQueue', () => {
 
     const publicInputs = makeParityPublicInputs();
     const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
-    await queue.resolveProvingJob(job!.id, new RootParityInput(proof, VerificationKey.makeFake(), publicInputs));
-    await expect(promise).resolves.toEqual([publicInputs, proof]);
+    const vk = VerificationKey.makeFake();
+    await queue.resolveProvingJob(job!.id, new RootParityInput(proof, vk, publicInputs));
+    await expect(promise).resolves.toEqual(new RootParityInput(proof, vk, publicInputs));
   });
 
   it('notifies of errors', async () => {
