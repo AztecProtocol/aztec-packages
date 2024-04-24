@@ -252,16 +252,6 @@ fn extract_message_from_error(
     }
 }
 
-pub fn display_as_string(fields: &[FieldElement]) -> String {
-    fields
-        .iter()
-        .map(|field| {
-            let as_u8 = field.try_to_u64().unwrap_or_default() as u8;
-            as_u8 as char
-        })
-        .collect()
-}
-
 /// Tries to generate a runtime diagnostic from a nargo error. It will successfully do so if it's a runtime error with a call stack.
 pub fn try_to_diagnose_runtime_error(
     nargo_err: &NargoError,

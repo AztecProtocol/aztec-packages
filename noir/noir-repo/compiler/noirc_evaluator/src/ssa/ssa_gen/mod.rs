@@ -688,9 +688,9 @@ impl<'a> FunctionContext<'a> {
         // Set the location here for any errors that may occur when we codegen the assert message
         self.builder.set_location(location);
 
-        let assert_message = self.codegen_constrain_error(assert_payload)?;
+        let assert_payload = self.codegen_constrain_error(assert_payload)?;
 
-        self.builder.insert_constrain(expr, true_literal, assert_message);
+        self.builder.insert_constrain(expr, true_literal, assert_payload);
 
         Ok(Self::unit_value())
     }

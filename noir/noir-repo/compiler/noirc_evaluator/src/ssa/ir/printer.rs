@@ -4,13 +4,17 @@ use std::{
     fmt::{Formatter, Result},
 };
 
+use acvm::acir::circuit::STRING_ERROR_SELECTOR;
 use iter_extended::vecmap;
 
 use super::{
     basic_block::BasicBlockId,
+    dfg::DataFlowGraph,
     function::Function,
-    instruction::{ConstrainError, Instruction, InstructionId, TerminatorInstruction},
-    value::ValueId,
+    instruction::{
+        ConstrainError, ErrorSelector, Instruction, InstructionId, TerminatorInstruction,
+    },
+    value::{Value, ValueId},
 };
 
 /// Helper function for Function's Display impl to pretty-print the function with the given formatter.
@@ -60,7 +64,6 @@ pub(crate) fn display_block(
 /// Specialize displaying value ids so that if they refer to a numeric
 /// constant or a function we print those directly.
 fn value(function: &Function, id: ValueId) -> String {
-    use super::value::Value;
     let id = function.dfg.resolve(id);
     match &function.dfg[id] {
         Value::NumericConstant { constant, typ } => {
@@ -195,6 +198,39 @@ fn display_instruction_inner(
     }
 }
 
+/// Tries to extract a constant string from an error payload.
+pub(crate) fn try_to_extract_string_from_error_payload(
+    error_selector: ErrorSelector,
+    values: &[ValueId],
+    dfg: &DataFlowGraph,
+) -> Option<String> {
+    (error_selector.to_u64() == STRING_ERROR_SELECTOR)
+        .then_some(())
+        .and_then(|()| {
+            let fields: Option<Vec<_>> = values
+                .iter()
+                .map(|value_id| {
+                    let value = &dfg[*value_id];
+                    if let Value::NumericConstant { constant, .. } = value {
+                        Some(constant)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            fields
+        })
+        .map(|fields| {
+            fields
+                .iter()
+                .map(|field| {
+                    let as_u8 = field.try_to_u64().unwrap_or_default() as u8;
+                    as_u8 as char
+                })
+                .collect()
+        })
+}
+
 fn display_constrain_error(
     function: &Function,
     error: &ConstrainError,
@@ -204,8 +240,13 @@ fn display_constrain_error(
         ConstrainError::Intrinsic(assert_message_string) => {
             writeln!(f, "{assert_message_string:?}")
         }
-        ConstrainError::UserDefined(values, _) => {
-            writeln!(f, "{}", value_list(function, values))
+        ConstrainError::UserDefined(values, selector) => {
+            writeln!(
+                f,
+                "{}",
+                try_to_extract_string_from_error_payload(*selector, values, &function.dfg)
+                    .unwrap_or(value_list(function, values))
+            )
         }
     }
 }

@@ -10,6 +10,7 @@ use super::function_builder::data_bus::DataBus;
 use super::ir::dfg::CallStack;
 use super::ir::function::FunctionId;
 use super::ir::instruction::{ConstrainError, ErrorSelector, ErrorType};
+use super::ir::printer::try_to_extract_string_from_error_payload;
 use super::{
     ir::{
         dfg::DataFlowGraph,
@@ -31,7 +32,7 @@ use crate::ssa::ir::function::InlineType;
 pub(crate) use acir_ir::generated_acir::GeneratedAcir;
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
-use acvm::acir::circuit::{AssertionPayload, OpcodeLocation, STRING_ERROR_SELECTOR};
+use acvm::acir::circuit::{AssertionPayload, OpcodeLocation};
 use acvm::acir::native_types::Witness;
 use acvm::acir::BlackBoxFunc;
 use acvm::{
@@ -620,9 +621,11 @@ impl<'a> Context<'a> {
                             Some(AssertionPayload::StaticString(string.clone()))
                         }
                         ConstrainError::UserDefined(values, error_selector) => {
-                            if let Some(constant_string) =
-                                self.try_to_extract_constant_string(*error_selector, values, dfg)
-                            {
+                            if let Some(constant_string) = try_to_extract_string_from_error_payload(
+                                *error_selector,
+                                values,
+                                dfg,
+                            ) {
                                 Some(AssertionPayload::StaticString(constant_string))
                             } else {
                                 let acir_vars: Vec<_> = values
@@ -2602,40 +2605,6 @@ impl<'a> Context<'a> {
                 AcirValue::Var(var, typ.into())
             }
         }
-    }
-
-    /// Tries to extract a constant string from an error payload.
-    fn try_to_extract_constant_string(
-        &self,
-        error_selector: ErrorSelector,
-        values: &[ValueId],
-        dfg: &DataFlowGraph,
-    ) -> Option<String> {
-        (error_selector.to_u64() == STRING_ERROR_SELECTOR)
-            .then_some(())
-            .and_then(|()| {
-                let fields: Option<Vec<_>> = values
-                    .iter()
-                    .map(|value_id| {
-                        let value = &dfg[*value_id];
-                        if let Value::NumericConstant { constant, .. } = value {
-                            Some(constant)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                fields
-            })
-            .map(|fields| {
-                fields
-                    .iter()
-                    .map(|field| {
-                        let as_u8 = field.try_to_u64().unwrap_or_default() as u8;
-                        as_u8 as char
-                    })
-                    .collect()
-            })
     }
 }
 

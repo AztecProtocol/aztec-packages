@@ -38,7 +38,7 @@ pub(super) struct FunctionContext<'a> {
     definitions: HashMap<LocalId, Values>,
 
     pub(super) builder: FunctionBuilder,
-    pub(super) shared_context: &'a SharedContext,
+    shared_context: &'a SharedContext,
 
     /// Contains any loops we're currently in the middle of translating.
     /// These are ordered such that an inner loop is at the end of the vector and

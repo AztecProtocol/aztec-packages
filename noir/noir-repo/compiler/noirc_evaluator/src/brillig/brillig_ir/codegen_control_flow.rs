@@ -165,6 +165,7 @@ impl BrilligContext {
             let revert_data_id =
                 ctx.make_usize_constant_instruction((revert_data_type as u128).into());
             ctx.store_instruction(current_revert_data_pointer, revert_data_id.address);
+
             ctx.codegen_usize_op_in_place(current_revert_data_pointer, BrilligBinaryOp::Add, 1);
             for (revert_variable, revert_param) in
                 revert_data_items.into_iter().zip(revert_data_types.into_iter())
@@ -198,6 +199,9 @@ impl BrilligContext {
                 );
             }
             ctx.trap_instruction(revert_data);
+            ctx.deallocate_register(revert_data.pointer);
+            ctx.deallocate_register(current_revert_data_pointer);
+            ctx.deallocate_single_addr(revert_data_id);
         });
     }
 
