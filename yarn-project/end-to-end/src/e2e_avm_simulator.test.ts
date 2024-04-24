@@ -1,4 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr, FunctionSelector, TxStatus } from '@aztec/aztec.js';
+import { GasSettings } from '@aztec/circuits.js';
 import {
   AvmAcvmInteropTestContract,
   AvmInitializerTestContract,
@@ -36,7 +37,9 @@ describe('e2e_avm_simulator', () => {
       it('Tracks L2 gas usage on simulation', async () => {
         const request = await avmContract.methods.add_args_return(20n, 30n).create();
         const simulation = await wallet.simulateTx(request, true, wallet.getAddress());
-        const l2GasUsed = simulation.publicOutput?.end.gasUsed.l2Gas;
+        // Subtract the teardown gas allocation from the gas used to figure out the gas used by the contract logic.
+        const l2TeardownAllocation = GasSettings.simulation().getTeardownLimits().l2Gas;
+        const l2GasUsed = simulation.publicOutput!.end.gasUsed.l2Gas! - l2TeardownAllocation;
         // L2 gas used will vary a lot depending on codegen and other factors,
         // so we just set a wide range for it, and check it's not a suspiciously round number.
         expect(l2GasUsed).toBeGreaterThan(1e3);
