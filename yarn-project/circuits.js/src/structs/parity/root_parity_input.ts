@@ -33,7 +33,7 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     const reader = BufferReader.asReader(buffer);
     return new RootParityInput(
       RecursiveProof.fromBuffer<PROOF_LENGTH>(reader, size),
-      VerificationKey.fromBuffer(reader),
+      reader.readObject(VerificationKey),
       reader.readObject(ParityPublicInputs),
     );
   }

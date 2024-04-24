@@ -1,6 +1,6 @@
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type NUM_BASE_PARITY_PER_ROOT_PARITY, RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
+import { NUM_BASE_PARITY_PER_ROOT_PARITY, RECURSIVE_PROOF_LENGTH } from '../../constants.gen.js';
 import { RootParityInput } from './root_parity_input.js';
 
 export class RootParityInputs {
@@ -17,7 +17,7 @@ export class RootParityInputs {
    * @returns The inputs serialized to a buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.children);
+    return serializeToBuffer(...this.children);
   }
 
   /**
@@ -35,7 +35,7 @@ export class RootParityInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    const tuple = Array.from({ length: RECURSIVE_PROOF_LENGTH }, () =>
+    const tuple = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }, () =>
       RootParityInput.fromBuffer(reader, RECURSIVE_PROOF_LENGTH),
     );
     return new RootParityInputs(
