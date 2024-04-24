@@ -34,6 +34,7 @@ pub(super) struct DebugContext<'a, B: BlackBoxFunctionSolver> {
     debug_artifact: &'a DebugArtifact,
     breakpoints: HashSet<OpcodeLocation>,
     source_to_opcodes: BTreeMap<FileId, Vec<(usize, OpcodeLocation)>>,
+    unconstrained_functions: &'a [BrilligBytecode],
 }
 
 impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
@@ -59,6 +60,7 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
             debug_artifact,
             breakpoints: HashSet::new(),
             source_to_opcodes,
+            unconstrained_functions,
         }
     }
 
@@ -214,9 +216,11 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
     fn get_opcodes_sizes(&self) -> Vec<usize> {
         self.get_opcodes()
             .iter()
-            .map(|_| {
-                // TODO: Handle Brillig calls again
-                1
+            .map(|opcode| match opcode {
+                Opcode::BrilligCall { id, .. } => {
+                    self.unconstrained_functions[*id as usize].bytecode.len()
+                }
+                _ => 1,
             })
             .collect()
     }
@@ -296,20 +300,23 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
             None => String::from("invalid"),
             Some(OpcodeLocation::Acir(acir_index)) => {
                 let opcode = &opcodes[*acir_index];
-                // if let Opcode::Brillig(ref brillig) = opcode {
-                //     let first_opcode = &brillig.bytecode[0];
-                //     format!("BRILLIG {first_opcode:?}")
-                // } else {
-                format!("{opcode:?}")
-                // }
+                match opcode {
+                    Opcode::BrilligCall { id, .. } => {
+                        let first_opcode = &self.unconstrained_functions[*id as usize].bytecode[0];
+                        format!("BRILLIG CALL {first_opcode:?}")
+                    }
+                    _ => format!("{opcode:?}"),
+                }
             }
-            Some(OpcodeLocation::Brillig { .. }) => {
-                // if let Opcode::Brillig(ref brillig) = opcodes[*acir_index] {
-                // let opcode = &brillig.bytecode[*brillig_index];
-                // format!("      | {opcode:?}")
-                // } else {
-                String::from("      | invalid")
-                // }
+            Some(OpcodeLocation::Brillig { acir_index, brillig_index }) => {
+                match &opcodes[*acir_index] {
+                    Opcode::BrilligCall { id, .. } => {
+                        let bytecode = &self.unconstrained_functions[*id as usize].bytecode;
+                        let opcode = &bytecode[*brillig_index];
+                        format!("      | {opcode:?}")
+                    }
+                    _ => String::from("      | invalid"),
+                }
             }
         }
     }
@@ -400,26 +407,12 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
             return self.step_brillig_opcode();
         }
 
-        match self.acvm.step_into_brillig_opcode() {
+        match self.acvm.step_into_brillig() {
             StepResult::IntoBrillig(solver) => {
                 self.brillig_solver = Some(solver);
                 self.step_brillig_opcode()
             }
             StepResult::Status(status) => self.handle_acvm_status(status),
-        }
-    }
-
-    fn currently_executing_brillig(&self) -> bool {
-        if self.brillig_solver.is_some() {
-            return true;
-        }
-
-        match self.get_current_opcode_location() {
-            Some(OpcodeLocation::Brillig { .. }) => true,
-            Some(OpcodeLocation::Acir(acir_index)) => {
-                matches!(self.get_opcodes()[acir_index], Opcode::BrilligCall { .. })
-            }
-            _ => false,
         }
     }
 
@@ -446,8 +439,22 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         }
     }
 
+    pub(super) fn is_executing_brillig(&self) -> bool {
+        if self.brillig_solver.is_some() {
+            return true;
+        }
+
+        match self.get_current_opcode_location() {
+            Some(OpcodeLocation::Brillig { .. }) => true,
+            Some(OpcodeLocation::Acir(acir_index)) => {
+                matches!(self.get_opcodes()[acir_index], Opcode::BrilligCall { .. })
+            }
+            _ => false,
+        }
+    }
+
     pub(super) fn step_acir_opcode(&mut self) -> DebugCommandResult {
-        if self.currently_executing_brillig() {
+        if self.is_executing_brillig() {
             self.step_out_of_brillig_opcode()
         } else {
             let status = self.acvm.solve_opcode();
@@ -511,12 +518,6 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         }
     }
 
-    pub(super) fn is_executing_brillig(&self) -> bool {
-        let opcodes = self.get_opcodes();
-        let acir_index = self.acvm.instruction_pointer();
-        acir_index < opcodes.len() && matches!(opcodes[acir_index], Opcode::BrilligCall { .. })
-    }
-
     pub(super) fn get_brillig_memory(&self) -> Option<&[MemoryValue]> {
         self.brillig_solver.as_ref().map(|solver| solver.get_memory())
     }
@@ -551,16 +552,18 @@ impl<'a, B: BlackBoxFunctionSolver> DebugContext<'a, B> {
         let opcodes = self.get_opcodes();
         match *location {
             OpcodeLocation::Acir(acir_index) => acir_index < opcodes.len(),
-            OpcodeLocation::Brillig { acir_index, .. } => {
-                acir_index < opcodes.len()
-                    && matches!(opcodes[acir_index], Opcode::BrilligCall { .. })
-                // && {
-                //     if let Opcode::Brillig(ref brillig) = opcodes[acir_index] {
-                //         brillig_index < brillig.bytecode.len()
-                //     } else {
-                //         false
-                //     }
-                // }
+            OpcodeLocation::Brillig { acir_index, brillig_index } => {
+                if acir_index < opcodes.len() {
+                    match &opcodes[acir_index] {
+                        Opcode::BrilligCall { id, .. } => {
+                            let bytecode = &self.unconstrained_functions[*id as usize].bytecode;
+                            brillig_index < bytecode.len()
+                        }
+                        _ => false,
+                    }
+                } else {
+                    false
+                }
             }
         }
     }
@@ -697,6 +700,7 @@ mod tests {
             outputs: vec![],
             predicate: None,
         }];
+        let brillig_funcs = &vec![brillig_bytecode];
         let current_witness_index = 2;
         let circuit = &Circuit { current_witness_index, opcodes, ..Circuit::default() };
 
@@ -709,7 +713,6 @@ mod tests {
 
         let foreign_call_executor =
             Box::new(DefaultDebugForeignCallExecutor::from_artifact(true, debug_artifact));
-        let brillig_funcs = &vec![brillig_bytecode];
         let mut context = DebugContext::new(
             &StubbedBlackBoxSolver,
             circuit,

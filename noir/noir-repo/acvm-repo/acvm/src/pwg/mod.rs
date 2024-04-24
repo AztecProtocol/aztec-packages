@@ -384,7 +384,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         let Opcode::BrilligCall { id, inputs, outputs, predicate } =
             &self.opcodes[self.instruction_pointer]
         else {
-            unreachable!("Not executing a Brillig opcode");
+            unreachable!("Not executing a BrilligCall opcode");
         };
 
         let witness = &mut self.witness_map;
@@ -422,12 +422,43 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         }
     }
 
-    pub fn step_into_brillig_opcode(&mut self) -> StepResult<'a, B> {
-        unimplemented!("Opcode::Brillig is removed")
+    pub fn step_into_brillig(&mut self) -> StepResult<'a, B> {
+        let Opcode::BrilligCall { id, inputs, outputs, predicate } =
+            &self.opcodes[self.instruction_pointer]
+        else {
+            return StepResult::Status(self.solve_opcode());
+        };
+
+        let witness = &mut self.witness_map;
+        let should_skip = match is_predicate_false(witness, predicate) {
+            Ok(result) => result,
+            Err(err) => return StepResult::Status(self.handle_opcode_resolution(Err(err))),
+        };
+        if should_skip {
+            let resolution = BrilligSolver::<B>::zero_out_brillig_outputs(witness, outputs);
+            return StepResult::Status(self.handle_opcode_resolution(resolution));
+        }
+
+        let solver = BrilligSolver::new_call(
+            witness,
+            &self.block_solvers,
+            inputs,
+            &self.unconstrained_functions[*id as usize].bytecode,
+            self.backend,
+            self.instruction_pointer,
+        );
+        match solver {
+            Ok(solver) => StepResult::IntoBrillig(solver),
+            Err(..) => StepResult::Status(self.handle_opcode_resolution(solver.map(|_| ()))),
+        }
     }
 
-    pub fn finish_brillig_with_solver(&mut self, _solver: BrilligSolver<'a, B>) -> ACVMStatus {
-        unimplemented!("Opcode::Brillig is removed")
+    pub fn finish_brillig_with_solver(&mut self, solver: BrilligSolver<'a, B>) -> ACVMStatus {
+        if !matches!(self.opcodes[self.instruction_pointer], Opcode::BrilligCall { .. }) {
+            unreachable!("Not executing a Brillig/BrilligCall opcode");
+        }
+        self.brillig_solver = Some(solver);
+        self.solve_opcode()
     }
 
     pub fn solve_call_opcode(&mut self) -> Result<Option<AcirCallWaitInfo>, OpcodeResolutionError> {
