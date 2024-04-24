@@ -12,6 +12,8 @@ COPY . .
 RUN FLOW=prove_then_verify ./run_acir_tests.sh
 # Construct and separately verify a UltraHonk proof for all acir programs
 RUN FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh
+# Construct and separately verify a GoblinUltraHonk proof for all acir programs
+RUN FLOW=prove_then_verify_goblin_ultra_honk ./run_acir_tests.sh
 # Construct and verify a UltraHonk proof for all acir programs
 RUN FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh
 # Construct and verify a Goblin UltraHonk (GUH) proof for a single arbitrary program

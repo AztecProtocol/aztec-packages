@@ -581,7 +581,6 @@ bool avm_verify(const std::filesystem::path& proof_path)
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param witnessPath Path to the file containing the serialized witness
- * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
  */
 template <IsUltraFlavor Flavor>
@@ -779,6 +778,14 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
             write_vk_honk<UltraFlavor>(bytecode_path, output_path);
+        } else if (command == "prove_goblin_ultra_honk") {
+            std::string output_path = get_option(args, "-o", "./proofs/proof");
+            prove_honk<GoblinUltraFlavor>(bytecode_path, witness_path, output_path);
+        } else if (command == "verify_goblin_ultra_honk") {
+            return verify_honk<GoblinUltraFlavor>(proof_path, vk_path) ? 0 : 1;
+        } else if (command == "write_vk_goblin_ultra_honk") {
+            std::string output_path = get_option(args, "-o", "./target/vk");
+            write_vk_honk<GoblinUltraFlavor>(bytecode_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;
