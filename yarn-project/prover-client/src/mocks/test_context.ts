@@ -125,15 +125,19 @@ export class TestContext {
     const defaultExecutorImplementation = (
       execution: PublicExecution,
       _globalVariables: GlobalVariables,
-      _availableGas: Gas,
+      availableGas: Gas,
       _txContext: TxContext,
-      _transactionFee?: Fr,
+      transactionFee?: Fr,
       _sideEffectCounter?: number,
     ) => {
       for (const tx of txs) {
         for (const request of tx.enqueuedPublicFunctionCalls) {
           if (execution.contractAddress.equals(request.contractAddress)) {
-            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build();
+            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build({
+              startGasLeft: availableGas,
+              endGasLeft: availableGas,
+              transactionFee,
+            });
             // result.unencryptedLogs = tx.unencryptedLogs.functionLogs[0];
             return Promise.resolve(result);
           }
