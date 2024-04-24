@@ -558,8 +558,6 @@ class GoblinTranslatorFlavor {
             , ShiftedEntities<DataType>{}
         {}
 
-        // auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
         /**
          * @brief Get the polynomials that are concatenated for the permutation relation
