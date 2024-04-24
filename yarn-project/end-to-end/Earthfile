@@ -122,6 +122,10 @@ guides-dapp-testing:
   ARG e2e_mode=local
   DO +E2E_TEST --test=guides/dapp_testing.test.ts --e2e_mode=$e2e_mode
 
+e2e-encryption:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=e2e_encryption.test.ts --e2e_mode=$e2e_mode
+
 # TODO intermittent failure
 # guides-sample-dapp:
 #  ARG e2e_mode=local
