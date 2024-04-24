@@ -320,7 +320,6 @@ export abstract class AbstractPhaseManager {
   }
 
   protected getAvailableGas(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs) {
-    // TODO(palla/gas): This is injected as startGas and needs to be validated on the kernel
     return tx.data.constants.txContext.gasSettings
       .getLimits() // No need to subtract teardown limits since they are already included in end.gasUsed
       .sub(previousPublicKernelOutput.end.gasUsed)

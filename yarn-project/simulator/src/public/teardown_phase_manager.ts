@@ -67,7 +67,6 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
   }
 
   protected override getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {
-    // TODO(palla/gas): This needs to be verified on the kernel teardown
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasFees = this.globalVariables.gasFees;
     // No need to add teardown limits since they are already included in end.gasUsed
