@@ -6,9 +6,10 @@ use crate::{
     combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
-    note_hash::NoteHashContext, nullifier_key_validation_request::NullifierKeyValidationRequestContext,
+    note_hash::NoteHashContext, nullifier::Nullifier,
+    nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+    read_request::ReadRequestContext, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
     address::AztecAddress,
@@ -35,7 +36,7 @@ struct FixtureBuilder {
     
     // Accumulated data.
     new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
@@ -148,7 +149,7 @@ impl FixtureBuilder {
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: SideEffectLinkedToNoteHash| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: Nullifier| n.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
@@ -256,7 +257,7 @@ impl FixtureBuilder {
 
     pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
         let value = silo_nullifier(self.storage_contract_address, unsiloed_nullifier);
-        self.new_nullifiers.push(SideEffectLinkedToNoteHash { value, note_hash: 0, counter: self.next_counter() });
+        self.new_nullifiers.push(Nullifier { value, note_hash: 0, counter: self.next_counter() });
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u64) {

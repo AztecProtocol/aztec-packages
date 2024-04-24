@@ -8,7 +8,7 @@ use dep::types::{
     abis::{
     kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    note_hash::NoteHashContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
+    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -30,13 +30,13 @@ struct KernelCircuitPublicInputsComposer {
     previous_kernel: PrivateKernelData,
     // Final data
     note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-    nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+    nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     // Hints
     transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     transient_nullifier_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
@@ -48,12 +48,12 @@ impl KernelCircuitPublicInputsComposer {
     pub fn new(
         previous_kernel: PrivateKernelData,
         note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-        nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+        nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
         transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         transient_nullifier_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        sorted_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+        sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
         sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],

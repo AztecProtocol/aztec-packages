@@ -2,8 +2,8 @@ use crate::{
     hash::compute_tx_logs_hash,
     abis::{
     accumulated_data::public_accumulated_data::PublicAccumulatedData, note_hash::NoteHash,
-    public_data_update_request::PublicDataUpdateRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, gas::Gas
+    nullifier::Nullifier, public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect,
+    gas::Gas
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
@@ -47,7 +47,7 @@ impl CombinedAccumulatedData {
         );
         CombinedAccumulatedData {
             new_note_hashes: array_merge(non_revertible.new_note_hashes, revertible.new_note_hashes).map(|n: NoteHash| n.value),
-            new_nullifiers: array_merge(non_revertible.new_nullifiers, revertible.new_nullifiers).map(|n: SideEffectLinkedToNoteHash| n.value),
+            new_nullifiers: array_merge(non_revertible.new_nullifiers, revertible.new_nullifiers).map(|n: Nullifier| n.value),
             new_l2_to_l1_msgs: revertible.new_l2_to_l1_msgs,
             encrypted_logs_hash,
             unencrypted_logs_hash,

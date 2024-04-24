@@ -1,10 +1,10 @@
-use dep::types::{abis::{note_hash::NoteHashContext, side_effect::SideEffectLinkedToNoteHash}, traits::is_empty};
+use dep::types::{abis::{note_hash::NoteHashContext, nullifier::Nullifier}, traits::is_empty};
 
 pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM_NULLIFIERS>(
     note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-    nullifiers: [SideEffectLinkedToNoteHash; NUM_NULLIFIERS],
+    nullifiers: [Nullifier; NUM_NULLIFIERS],
     expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-    expected_nullifiers: [SideEffectLinkedToNoteHash; NUM_NULLIFIERS],
+    expected_nullifiers: [Nullifier; NUM_NULLIFIERS],
     transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
     transient_nullifier_index_hints: [u64; NUM_NULLIFIERS]
 ) {
@@ -62,15 +62,15 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
 
 mod tests {
     use crate::reset::transient_data::verify_squashed_transient_note_hashes_and_nullifiers;
-    use dep::types::{abis::{note_hash::NoteHashContext, side_effect::SideEffectLinkedToNoteHash}};
+    use dep::types::{abis::{note_hash::NoteHashContext, nullifier::Nullifier}};
 
     struct TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS> {
         num_note_hashes: u64,
         num_nullifiers: u64,
         note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-        nullifiers: [SideEffectLinkedToNoteHash; NUM_NULLIFIERS],
+        nullifiers: [Nullifier; NUM_NULLIFIERS],
         expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
-        expected_nullifiers: [SideEffectLinkedToNoteHash; NUM_NULLIFIERS],
+        expected_nullifiers: [Nullifier; NUM_NULLIFIERS],
         transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
         transient_nullifier_index_hints: [u64; NUM_NULLIFIERS],
     }
@@ -84,13 +84,13 @@ mod tests {
             ];
 
             let nullifiers = [
-                SideEffectLinkedToNoteHash { value: 44, counter: 400, note_hash: 33 },
-                SideEffectLinkedToNoteHash { value: 55, counter: 500, note_hash: 11 },
-                SideEffectLinkedToNoteHash { value: 66, counter: 600, note_hash: 0 }
+                Nullifier { value: 44, counter: 400, note_hash: 33 },
+                Nullifier { value: 55, counter: 500, note_hash: 11 },
+                Nullifier { value: 66, counter: 600, note_hash: 0 }
             ];
 
             let expected_note_hashes = [note_hashes[1], NoteHashContext::empty(), NoteHashContext::empty()];
-            let expected_nullifiers = [nullifiers[2], SideEffectLinkedToNoteHash::empty(), SideEffectLinkedToNoteHash::empty()];
+            let expected_nullifiers = [nullifiers[2], Nullifier::empty(), Nullifier::empty()];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 3, 0];
             let transient_nullifier_index_hints = [2, 0, 3];
@@ -115,13 +115,13 @@ mod tests {
             ];
 
             let nullifiers = [
-                SideEffectLinkedToNoteHash { value: 44, counter: 400, note_hash: 33 },
-                SideEffectLinkedToNoteHash { value: 55, counter: 500, note_hash: 11 },
-                SideEffectLinkedToNoteHash { value: 66, counter: 600, note_hash: 22 }
+                Nullifier { value: 44, counter: 400, note_hash: 33 },
+                Nullifier { value: 55, counter: 500, note_hash: 11 },
+                Nullifier { value: 66, counter: 600, note_hash: 22 }
             ];
 
             let expected_note_hashes = [NoteHashContext::empty(); 3];
-            let expected_nullifiers = [SideEffectLinkedToNoteHash::empty(); 3];
+            let expected_nullifiers = [Nullifier::empty(); 3];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 2, 0];
             let transient_nullifier_index_hints = [2, 0, 1];

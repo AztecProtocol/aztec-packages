@@ -6,7 +6,7 @@ use dep::types::{
     max_block_number::MaxBlockNumber, membership_witness::NoteHashReadRequestMembershipWitness,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData, kernel_data::PrivateKernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    nullifier::Nullifier, side_effect::SideEffect
 },
     address::{AztecAddress, EthAddress, PartialAddress, compute_initialization_hash},
     contract_class_id::ContractClassId,
@@ -188,7 +188,7 @@ pub fn update_end_values(
 
     // Nullifiers
     let new_nullifiers = private_call_public_inputs.new_nullifiers;
-    let mut siloed_new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new();
+    let mut siloed_new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
         let new_nullifier = new_nullifiers[i];
         if new_nullifier.value != 0 {
@@ -198,7 +198,7 @@ pub fn update_end_values(
                 silo_note_hash(storage_contract_address, new_nullifier.note_hash)
             };
             siloed_new_nullifiers.push(
-                SideEffectLinkedToNoteHash {
+                Nullifier {
                 value: silo_nullifier(storage_contract_address, new_nullifier.value),
                 counter: new_nullifier.counter,
                 note_hash: siloed_note_hash

@@ -72,9 +72,8 @@ mod tests {
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, NoteHashContext}, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest,
-        side_effect::SideEffectLinkedToNoteHash
+        note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier, public_data_read::PublicDataRead,
+        public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
         hash::{compute_l2_to_l1_hash, silo_note_hash, silo_nullifier},
@@ -246,12 +245,12 @@ mod tests {
         // Setup 2 new note hashes on the current public inputs.
 
         let current = [
-            SideEffectLinkedToNoteHash { value: previous[1].value + 1, note_hash: 0, counter: 4 }, SideEffectLinkedToNoteHash { value: previous[1].value + 2, note_hash: 0, counter: 5 }
+            Nullifier { value: previous[1].value + 1, note_hash: 0, counter: 4 }, Nullifier { value: previous[1].value + 2, note_hash: 0, counter: 5 }
         ];
 
         let siloed = current.map(
-            |current: SideEffectLinkedToNoteHash| 
-        SideEffectLinkedToNoteHash { value: silo_nullifier(contract_address, current.value), note_hash: current.note_hash, counter: current.counter }
+            |current: Nullifier| 
+        Nullifier { value: silo_nullifier(contract_address, current.value), note_hash: current.note_hash, counter: current.counter }
         );
 
         builder.public_call.public_inputs.new_nullifiers.extend_from_array(current);
@@ -348,7 +347,7 @@ mod tests {
     fn public_kernel_fails_creating_new_nullifiers_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.call_context.is_static_call = true;
-        builder.public_call.public_inputs.new_nullifiers.push(SideEffectLinkedToNoteHash { value: 1, note_hash: 0, counter: 0 });
+        builder.public_call.public_inputs.new_nullifiers.push(Nullifier { value: 1, note_hash: 0, counter: 0 });
 
         builder.failed();
     }

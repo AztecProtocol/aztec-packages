@@ -1,7 +1,6 @@
 use crate::{
     address::AztecAddress, abis::side_effect::{Ordered, OrderedValue},
-    constants::{NOTE_HASH_LENGTH, NOTE_HASH_CONTEXT_LENGTH, GENERATOR_INDEX__SIDE_EFFECT},
-    traits::{Empty, Serialize, Deserialize}
+    constants::{NOTE_HASH_LENGTH, NOTE_HASH_CONTEXT_LENGTH}, traits::{Empty, Serialize, Deserialize}
 };
 use dep::std::cmp::Eq;
 

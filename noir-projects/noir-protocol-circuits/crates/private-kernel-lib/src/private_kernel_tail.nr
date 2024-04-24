@@ -3,7 +3,7 @@ use dep::reset_kernel_lib::{NullifierReadRequestHints, PrivateValidationRequestP
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, kernel_circuit_public_inputs::KernelCircuitPublicInputs,
-    note_hash::NoteHashContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::SideEffect
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
@@ -15,7 +15,7 @@ use dep::types::{
 // Can just be KernelCircuitPublicInputs.
 struct PrivateKernelTailOutputs {
     note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
-    nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+    nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
 }
 
 struct PrivateKernelTailHints {
@@ -26,7 +26,7 @@ struct PrivateKernelTailHints {
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
     sorted_new_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_new_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    sorted_new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_new_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
     sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
@@ -94,7 +94,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::NoteHashContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
+        note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}
     },
         grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, accumulate_sha256},
@@ -178,7 +178,7 @@ mod tests {
 
             let sorted = sort_get_sorted_hints(
                 self.previous_kernel.new_nullifiers.storage,
-                |a: SideEffectLinkedToNoteHash, b: SideEffectLinkedToNoteHash| a.counter < b.counter
+                |a: Nullifier, b: Nullifier| a.counter < b.counter
             );
             let sorted_new_nullifiers = sorted.sorted_array;
             let sorted_new_nullifiers_indexes = sorted.sorted_index_hints;
@@ -480,7 +480,7 @@ mod tests {
         let sorted_nullifiers = builder.previous_kernel.new_nullifiers.storage;
 
         let mut reversed_note_hashes = [NoteHashContext::empty(); 10];
-        let mut reversed_nullifiers = [SideEffectLinkedToNoteHash::empty(); 10];
+        let mut reversed_nullifiers = [Nullifier::empty(); 10];
 
         for i in 0..10 {
             reversed_note_hashes[9 - i] = builder.previous_kernel.new_note_hashes.pop();

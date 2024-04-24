@@ -1,4 +1,4 @@
-use dep::types::abis::{note_hash::NoteHashContext, side_effect::SideEffectLinkedToNoteHash};
+use dep::types::abis::{note_hash::NoteHashContext, nullifier::Nullifier};
 
 pub fn squash_transient_note_hashes<N>(note_hashes: [NoteHashContext; N]) -> [NoteHashContext; N] {
     let mut final_note_hashes = [NoteHashContext::empty(); N];
@@ -15,8 +15,8 @@ pub fn squash_transient_note_hashes<N>(note_hashes: [NoteHashContext; N]) -> [No
     final_note_hashes
 }
 
-pub fn squash_transient_nullifiers<N>(nullifiers: [SideEffectLinkedToNoteHash; N]) -> [SideEffectLinkedToNoteHash; N] {
-    let mut final_nullifiers = [SideEffectLinkedToNoteHash::empty(); N];
+pub fn squash_transient_nullifiers<N>(nullifiers: [Nullifier; N]) -> [Nullifier; N] {
+    let mut final_nullifiers = [Nullifier::empty(); N];
 
     let mut num_nullifiers = 0;
     for i in 0..N {

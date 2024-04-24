@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::SideEffect
 },
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_previous_kernel_state
 };
@@ -77,8 +77,8 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        max_block_number::MaxBlockNumber, note_hash::NoteHash,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        max_block_number::MaxBlockNumber, note_hash::NoteHash, nullifier::Nullifier,
+        side_effect::SideEffect
     },
         address::{AztecAddress, EthAddress}, constants::MAX_NEW_NOTE_HASHES_PER_CALL,
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
@@ -421,8 +421,8 @@ mod tests {
 
         builder.private_call.public_inputs.new_nullifiers.extend_from_array(
             [
-            SideEffectLinkedToNoteHash { value: 0, note_hash: 0, counter: 0 },
-            SideEffectLinkedToNoteHash { value: 12, note_hash: 0, counter: 1 }
+            Nullifier { value: 0, note_hash: 0, counter: 0 },
+            Nullifier { value: 12, note_hash: 0, counter: 1 }
         ]
         );
 
@@ -748,7 +748,7 @@ mod tests {
     fn creating_new_nullifiers_on_static_call_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_static_call();
 
-        builder.private_call.public_inputs.new_nullifiers.push(SideEffectLinkedToNoteHash { value: 1, note_hash: 0, counter: 0 });
+        builder.private_call.public_inputs.new_nullifiers.push(Nullifier { value: 1, note_hash: 0, counter: 0 });
 
         builder.failed();
     }

@@ -7,9 +7,8 @@ use crate::{
     private_accumulated_data::PrivateAccumulatedData, public_accumulated_data::PublicAccumulatedData,
     public_accumulated_data_builder::PublicAccumulatedDataBuilder
 },
-    call_request::CallRequest, note_hash::{NoteHash, NoteHashContext},
-    public_data_update_request::PublicDataUpdateRequest,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    call_request::CallRequest, note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier,
+    public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -21,7 +20,7 @@ use crate::{
 
 struct PrivateAccumulatedDataBuilder {
     new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
@@ -60,7 +59,7 @@ impl PrivateAccumulatedDataBuilder {
 
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: SideEffectLinkedToNoteHash| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: Nullifier| n.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hash,
             unencrypted_logs_hash,
@@ -138,8 +137,8 @@ mod tests {
         abis::{
         accumulated_data::private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
         call_request::CallRequest, caller_context::CallerContext,
-        note_hash::{NoteHash, NoteHashContext}, public_data_update_request::PublicDataUpdateRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier,
+        public_data_update_request::PublicDataUpdateRequest, side_effect::SideEffect
     },
         address::AztecAddress, utils::arrays::array_eq
     };
@@ -154,8 +153,8 @@ mod tests {
         ];
 
         let non_revertible_nullifiers = [
-            SideEffectLinkedToNoteHash { value: 10, note_hash: 1, counter: 2 },
-            SideEffectLinkedToNoteHash { value: 20, note_hash: 2, counter: 4 }
+            Nullifier { value: 10, note_hash: 1, counter: 2 },
+            Nullifier { value: 20, note_hash: 2, counter: 4 }
         ];
 
         let non_revertible_public_stack = [
@@ -181,8 +180,8 @@ mod tests {
         ];
 
         let revertible_nullifiers = [
-            SideEffectLinkedToNoteHash { value: 30, note_hash: 3, counter: 8 },
-            SideEffectLinkedToNoteHash { value: 40, note_hash: 4, counter: 11 }
+            Nullifier { value: 30, note_hash: 3, counter: 8 },
+            Nullifier { value: 40, note_hash: 4, counter: 11 }
         ];
 
         let revertible_public_call_stack = [

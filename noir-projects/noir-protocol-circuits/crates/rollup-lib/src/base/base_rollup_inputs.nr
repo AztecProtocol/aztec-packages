@@ -12,8 +12,7 @@ use dep::types::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     membership_witness::{ArchiveRootMembershipWitness, NullifierMembershipWitness, PublicDataMembershipWitness},
     nullifier_leaf_preimage::NullifierLeafPreimage, public_data_update_request::PublicDataUpdateRequest,
-    public_data_read::PublicDataRead, kernel_data::KernelData,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    public_data_read::PublicDataRead, kernel_data::KernelData
 },
     constants::{
     NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,

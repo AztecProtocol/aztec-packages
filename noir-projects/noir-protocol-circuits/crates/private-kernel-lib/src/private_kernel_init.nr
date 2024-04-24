@@ -4,7 +4,7 @@ use dep::types::{
     gas_settings::GasSettings, combined_constant_data::CombinedConstantData,
     private_kernel::private_call_data::PrivateCallData,
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    nullifier::Nullifier, side_effect::SideEffect
 },
     address::{AztecAddress, PublicKeysHash, compute_initialization_hash},
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::{Proof, verify_previous_kernel_state},
@@ -74,7 +74,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
     fn update_end_values(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
         // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-        public_inputs.end.new_nullifiers.push(SideEffectLinkedToNoteHash { value: self.tx_request.hash(), note_hash: 0, counter: 0 });
+        public_inputs.end.new_nullifiers.push(Nullifier { value: self.tx_request.hash(), note_hash: 0, counter: 0 });
         // Note that we do not need to nullify the transaction request nonce anymore.
         // Should an account want to additionally use nonces for replay protection or handling cancellations,
         // they will be able to do so in the account contract logic:
@@ -128,7 +128,7 @@ mod tests {
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
         nullifier_key_validation_request::NullifierKeyValidationRequest,
         private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+        nullifier::Nullifier, side_effect::SideEffect
     },
         address::{AztecAddress, EthAddress, compute_initialization_hash},
         constants::{MAX_NEW_NOTE_HASHES_PER_CALL, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
@@ -238,8 +238,8 @@ mod tests {
 
         builder.private_call.public_inputs.new_nullifiers.extend_from_array(
             [
-            SideEffectLinkedToNoteHash { value: 0, note_hash: 0, counter: 0 },
-            SideEffectLinkedToNoteHash { value: 9123, note_hash: 0, counter: 1 }
+            Nullifier { value: 0, note_hash: 0, counter: 0 },
+            Nullifier { value: 9123, note_hash: 0, counter: 1 }
         ]
         );
 
