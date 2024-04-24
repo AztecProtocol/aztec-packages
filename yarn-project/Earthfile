@@ -69,15 +69,28 @@ aztec:
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
     EXPOSE 8080
 
+# We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
     FROM +build
     RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
+    # Remove a bunch of stuff that we don't need that takes up space.
+    RUN rm -rf \
+        ../noir-projects \
+        ../l1-contracts \
+        ../barretenberg/ts/src \
+        ../barretenberg/ts/dest/node-cjs \
+        ../barretenberg/ts/dest/browser \
+        **/artifacts
     SAVE ARTIFACT /usr/src /usr/src
 
 end-to-end:
     FROM ubuntu:noble
-    RUN apt update && apt install nodejs jq chromium netcat-openbsd -y
-    ENV CHROME_BIN="/usr/bin/chromium-browser"
+    RUN apt-get update && apt-get install -y wget gnupg \
+        && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+        && echo "deb [arch=$(dpkg --print-architecture)] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+        && apt update && apt install nodejs jq google-chrome-stable netcat-openbsd -y \
+        && rm -rf /var/lib/apt/lists/*
+    ENV CHROME_BIN="/usr/bin/google-chrome-stable"
     ENV PATH=/opt/foundry/bin:$PATH
     COPY ../build-images+build/anvil /opt/foundry/bin/anvil
     COPY +end-to-end-prod/usr/src /usr/src
@@ -87,7 +100,6 @@ end-to-end:
 
 all:
     BUILD +aztec
-    BUILD +cli
     BUILD +end-to-end
 
 export-aztec:
