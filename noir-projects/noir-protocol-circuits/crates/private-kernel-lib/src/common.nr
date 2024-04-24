@@ -186,9 +186,7 @@ pub fn update_end_values(
         }
     }
 
-    // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
-    //
-    // nullifiers
+    // Nullifiers
     let new_nullifiers = private_call_public_inputs.new_nullifiers;
     let mut siloed_new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL> = BoundedVec::new();
     for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {

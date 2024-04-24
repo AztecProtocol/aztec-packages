@@ -20,22 +20,16 @@ fn initialize_end_values(
     public_inputs.validation_requests.nullifier_read_requests = array_to_bounded_vec(start.nullifier_read_requests);
     public_inputs.validation_requests.nullifier_key_validation_requests = array_to_bounded_vec(start.nullifier_key_validation_requests);
 
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
-    // functions within this circuit:
     let start = previous_kernel_public_inputs.end;
-
     public_inputs.end.new_note_hashes = array_to_bounded_vec(start.new_note_hashes);
     public_inputs.end.new_nullifiers = array_to_bounded_vec(start.new_nullifiers);
-
-    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
-    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
     public_inputs.end.new_l2_to_l1_msgs = array_to_bounded_vec(start.new_l2_to_l1_msgs);
-
     public_inputs.end.encrypted_logs_hashes = array_to_bounded_vec(start.encrypted_logs_hashes);
     public_inputs.end.unencrypted_logs_hashes = array_to_bounded_vec(start.unencrypted_logs_hashes);
-
     public_inputs.end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
     public_inputs.end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
+    public_inputs.end.private_call_stack = array_to_bounded_vec(start.private_call_stack);
+    public_inputs.end.public_call_stack = array_to_bounded_vec(start.public_call_stack);
 }
 
 struct PrivateKernelCircuitPublicInputsComposer {

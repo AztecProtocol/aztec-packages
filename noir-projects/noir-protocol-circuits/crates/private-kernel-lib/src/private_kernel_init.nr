@@ -219,7 +219,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_commitments() {
+    fn input_validation_malformed_arrays_note_hashes() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
         builder.private_call.public_inputs.new_note_hashes.extend_from_array(

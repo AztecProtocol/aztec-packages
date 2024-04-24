@@ -402,7 +402,7 @@ mod tests {
     }
 
     #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_commitments() {
+    fn input_validation_malformed_arrays_note_hashes() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         builder.private_call.public_inputs.new_note_hashes.extend_from_array(
@@ -476,13 +476,13 @@ mod tests {
     }
 
     #[test(should_fail_with = "push out of bounds")]
-    fn private_kernel_should_fail_if_aggregating_too_many_commitments() {
+    fn private_kernel_should_fail_if_aggregating_too_many_note_hashes() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
-        // The current call stack has 1 commitment;
+        // The current call stack has 1 note_hash;
         builder.private_call.public_inputs.new_note_hashes.push(NoteHash { value: 4321, counter: 0 });
 
-        // Mock the previous new note hashes to be full, therefore no more commitments can be added.
+        // Mock the previous new note hashes to be full, therefore no more note_hashes can be added.
         builder.previous_kernel.append_new_note_hashes(MAX_NEW_NOTE_HASHES_PER_TX);
 
         builder.failed();
