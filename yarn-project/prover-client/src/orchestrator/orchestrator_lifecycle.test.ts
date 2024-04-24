@@ -7,8 +7,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
-
 const logger = createDebugLogger('aztec:orchestrator-lifecycle');
 
 describe('prover/orchestrator/lifecycle', () => {

@@ -5,12 +5,12 @@ import { type FieldsOf } from '@aztec/foundation/types';
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '../../constants.gen.js';
 import { AggregationObject } from '../aggregation_object.js';
 import { Header } from '../header.js';
 import { RootParityInput } from '../parity/root_parity_input.js';
-import { NESTED_RECURSIVE_PROOF_LENGTH } from '../recursive_proof.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { PreviousRollupData } from './previous_rollup_data.js';
 

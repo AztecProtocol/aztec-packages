@@ -305,7 +305,7 @@ export class ProvingOrchestrator {
   private enqueueJob<T extends ProvingRequest>(
     provingState: ProvingState | undefined,
     request: T,
-    callback: (output: ProvingRequestPublicInputs[T['type']], proof: Proof) => void | Promise<void>,
+    callback: (output: ProvingRequestPublicInputs[T['type']]) => void | Promise<void>,
   ) {
     if (!provingState?.verifyState()) {
       logger.debug(`Not enqueuing job type ${ProvingRequestType[request.type]}, state no longer valid`);
@@ -316,11 +316,12 @@ export class ProvingOrchestrator {
     const safeJob = async () => {
       try {
         const timer = new Timer();
-        const [publicInputs, proof] = await this.queue.prove(request);
+        const result = await this.queue.prove(request);
         const duration = timer.ms();
 
         const inputSize = 'toBuffer' in request.inputs ? request.inputs.toBuffer().length : 0;
-        const outputSize = 'toBuffer' in publicInputs ? publicInputs.toBuffer().length : 0;
+        // TODO(@PhilWindle) Temporary fudge until all real proving result types are defined
+        const outputSize = 'inputs' in result && 'toBuffer' in result.inputs ? result.inputs.toBuffer().length : 0;
         const circuitName = this.getCircuitNameFromRequest(request);
         const stats: CircuitSimulationStats | undefined = circuitName
           ? {
@@ -339,7 +340,7 @@ export class ProvingOrchestrator {
           return;
         }
 
-        await callback(publicInputs, proof);
+        await callback(result);
       } catch (err) {
         logger.error(`Error thrown when proving job type ${ProvingRequestType[request.type]}: ${err}`);
         provingState!.reject(`${err}`);
@@ -465,10 +466,10 @@ export class ProvingOrchestrator {
         inputs: tx.baseRollupInputs,
         type: ProvingRequestType.BASE_ROLLUP,
       },
-      (publicInputs, proof) => {
-        validatePartialState(publicInputs.end, tx.treeSnapshots);
+      result => {
+        validatePartialState(result.inputs.end, tx.treeSnapshots);
         const currentLevel = provingState.numMergeLevels + 1n;
-        this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [publicInputs, proof]);
+        this.storeAndExecuteNextMergeLevel(provingState, currentLevel, index, [result.inputs, result.proof]);
       },
     );
   }
@@ -492,8 +493,8 @@ export class ProvingOrchestrator {
         type: ProvingRequestType.MERGE_ROLLUP,
         inputs,
       },
-      (publicInputs, proof) => {
-        this.storeAndExecuteNextMergeLevel(provingState, level, index, [publicInputs, proof]);
+      result => {
+        this.storeAndExecuteNextMergeLevel(provingState, level, index, [result.inputs, result.proof]);
       },
     );
   }
@@ -525,9 +526,9 @@ export class ProvingOrchestrator {
         type: ProvingRequestType.ROOT_ROLLUP,
         inputs,
       },
-      (publicInputs, proof) => {
-        provingState.rootRollupPublicInputs = publicInputs;
-        provingState.finalProof = proof;
+      result => {
+        provingState.rootRollupPublicInputs = result.inputs;
+        provingState.finalProof = result.proof;
 
         const provingResult: ProvingResult = {
           status: PROVING_STATUS.SUCCESS,
@@ -548,10 +549,15 @@ export class ProvingOrchestrator {
       },
       rootInput => {
         provingState.setRootParityInputs(rootInput, index);
-        const rootParityInputs = new RootParityInputs(
-          provingState.rootParityInput as Tuple<RootParityInput, typeof NUM_BASE_PARITY_PER_ROOT_PARITY>,
-        );
-        this.enqueueRootParityCircuit(provingState, rootParityInputs);
+        if (provingState.areRootParityInputsReady()) {
+          const rootParityInputs = new RootParityInputs(
+            provingState.rootParityInput as Tuple<
+              RootParityInput<typeof RECURSIVE_PROOF_LENGTH>,
+              typeof NUM_BASE_PARITY_PER_ROOT_PARITY
+            >,
+          );
+          this.enqueueRootParityCircuit(provingState, rootParityInputs);
+        }
       },
     );
   }
@@ -634,7 +640,7 @@ export class ProvingOrchestrator {
           type: ProvingRequestType.PUBLIC_VM,
           inputs: {},
         },
-        (_1, _2) => {
+        _1 => {
           logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
           this.checkAndEnqueuePublicKernel(provingState, txIndex, functionIndex);
         },
@@ -673,9 +679,9 @@ export class ProvingOrchestrator {
     const txProvingState = provingState.getTxProvingState(txIndex);
     const provingRequest = txProvingState.getPublicFunctionState(functionIndex).provingRequest;
 
-    this.enqueueJob(provingState, provingRequest, (_, proof) => {
+    this.enqueueJob(provingState, provingRequest, result => {
       logger.debug(`Proven ${PublicKernelType[provingRequest.type]} at index ${functionIndex} for tx index ${txIndex}`);
-      const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(functionIndex, proof);
+      const nextKernelRequest = txProvingState.getNextPublicKernelFromKernelProof(functionIndex, result.proof as Proof);
       // What's the status of the next kernel?
       if (nextKernelRequest.code === TX_PROVING_CODE.NOT_READY) {
         // Must be waiting on a VM proof

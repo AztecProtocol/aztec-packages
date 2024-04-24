@@ -3,7 +3,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { elapsed } from '@aztec/foundation/timer';
 
-import { type CircuitProver } from '../prover/interface.js';
+import { type CircuitProver, makeResult } from '../prover/interface.js';
 import { type ProvingAgent } from './prover-agent.js';
 import { type ProvingQueueConsumer } from './proving-queue.js';
 import { type ProvingRequest, type ProvingRequestResult, ProvingRequestType } from './proving-request.js';
@@ -62,7 +62,7 @@ export class CircuitProverAgent implements ProvingAgent {
     const { type, inputs } = request;
     switch (type) {
       case ProvingRequestType.PUBLIC_VM: {
-        return Promise.resolve([{}, makeEmptyProof()] as const);
+        return Promise.resolve(makeResult<object>({}, makeEmptyProof()));
       }
 
       case ProvingRequestType.PUBLIC_KERNEL_NON_TAIL: {

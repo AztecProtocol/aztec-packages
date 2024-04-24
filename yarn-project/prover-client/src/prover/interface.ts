@@ -56,6 +56,19 @@ export const KernelArtifactMapping: KernelTypeToArtifact = {
   [PublicKernelType.TAIL]: undefined,
 };
 
+export type PublicInputsAndProof<T> = {
+  inputs: T;
+  proof: Proof;
+};
+
+export function makeResult<T>(inputs: T, proof: Proof) {
+  const result: PublicInputsAndProof<T> = {
+    inputs,
+    proof,
+  };
+  return result;
+}
+
 /**
  * Generates proofs for parity and rollup circuits.
  */
@@ -76,31 +89,33 @@ export interface CircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]>;
+  getBaseRollupProof(input: BaseRollupInputs): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>>;
 
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]>;
+  getMergeRollupProof(input: MergeRollupInputs): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>>;
 
   /**
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
-  getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]>;
+  getRootRollupProof(input: RootRollupInputs): Promise<PublicInputsAndProof<RootRollupPublicInputs>>;
 
   /**
    * Create a public kernel proof.
    * @param kernelRequest - Object containing the details of the proof required
    */
-  getPublicKernelProof(kernelRequest: PublicKernelNonTailRequest): Promise<[PublicKernelCircuitPublicInputs, Proof]>;
+  getPublicKernelProof(
+    kernelRequest: PublicKernelNonTailRequest,
+  ): Promise<PublicInputsAndProof<PublicKernelCircuitPublicInputs>>;
 
   /**
    * Create a public kernel tail proof.
    * @param kernelRequest - Object containing the details of the proof required
    */
-  getPublicTailProof(kernelRequest: PublicKernelTailRequest): Promise<[KernelCircuitPublicInputs, Proof]>;
+  getPublicTailProof(kernelRequest: PublicKernelTailRequest): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>>;
 
   /**
    * Verifies a circuit proof

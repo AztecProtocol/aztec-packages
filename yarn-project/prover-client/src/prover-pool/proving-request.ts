@@ -5,13 +5,16 @@ import {
   type BaseRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
-  type ParityPublicInputs,
-  type Proof,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type PublicKernelCircuitPublicInputs,
+  type RECURSIVE_PROOF_LENGTH,
+  type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
 } from '@aztec/circuits.js';
+
+import { type PublicInputsAndProof } from '../prover/interface.js';
 
 export enum ProvingRequestType {
   PUBLIC_VM,
@@ -65,17 +68,17 @@ export type ProvingRequest =
     };
 
 export type ProvingRequestPublicInputs = {
-  [ProvingRequestType.PUBLIC_VM]: object;
+  [ProvingRequestType.PUBLIC_VM]: PublicInputsAndProof<object>;
 
-  [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicKernelCircuitPublicInputs;
-  [ProvingRequestType.PUBLIC_KERNEL_TAIL]: KernelCircuitPublicInputs;
+  [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicInputsAndProof<PublicKernelCircuitPublicInputs>;
+  [ProvingRequestType.PUBLIC_KERNEL_TAIL]: PublicInputsAndProof<KernelCircuitPublicInputs>;
 
-  [ProvingRequestType.BASE_ROLLUP]: BaseOrMergeRollupPublicInputs;
-  [ProvingRequestType.MERGE_ROLLUP]: BaseOrMergeRollupPublicInputs;
-  [ProvingRequestType.ROOT_ROLLUP]: RootRollupPublicInputs;
+  [ProvingRequestType.BASE_ROLLUP]: PublicInputsAndProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndProof<RootRollupPublicInputs>;
 
-  [ProvingRequestType.BASE_PARITY]: ParityPublicInputs;
-  [ProvingRequestType.ROOT_PARITY]: ParityPublicInputs;
+  [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
+  [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
 };
 
-export type ProvingRequestResult<T extends ProvingRequestType> = [ProvingRequestPublicInputs[T], Proof];
+export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestPublicInputs[T];

@@ -1,4 +1,5 @@
-import { makeBaseParityInputs, makeParityPublicInputs, makeProof } from '@aztec/circuits.js/testing';
+import { RECURSIVE_PROOF_LENGTH, RootParityInput, VerificationKey, makeRecursiveProof } from '@aztec/circuits.js';
+import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -30,8 +31,10 @@ describe('LocalProvingAgent', () => {
 
   it('takes jobs from the queue', async () => {
     const publicInputs = makeParityPublicInputs();
-    const proof = makeProof();
-    prover.getBaseParityProof.mockResolvedValue([publicInputs, proof]);
+    const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
+    prover.getBaseParityProof.mockResolvedValue(
+      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, VerificationKey.makeFake(), publicInputs),
+    );
 
     const inputs = makeBaseParityInputs();
     const promise = queue.prove({
@@ -59,8 +62,10 @@ describe('LocalProvingAgent', () => {
 
   it('continues to process jobs', async () => {
     const publicInputs = makeParityPublicInputs();
-    const proof = makeProof();
-    prover.getBaseParityProof.mockResolvedValue([publicInputs, proof]);
+    const proof = makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH);
+    prover.getBaseParityProof.mockResolvedValue(
+      new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(proof, VerificationKey.makeFake(), publicInputs),
+    );
 
     const inputs = makeBaseParityInputs();
     const promise1 = queue.prove({

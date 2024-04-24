@@ -47,7 +47,7 @@ import { type WitnessMap } from '@noir-lang/types';
 import * as fs from 'fs/promises';
 
 import { BB_RESULT, generateKeyForNoirCircuit, generateProof, verifyProof } from '../bb/execute.js';
-import { type CircuitProver, KernelArtifactMapping } from './interface.js';
+import { type CircuitProver, KernelArtifactMapping, type PublicInputsAndProof, makeResult } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -117,7 +117,7 @@ export class BBNativeRollupProver implements CircuitProver {
     logger.debug(`Public inputs sha root: ${circuitOutput.shaRoot.toString()}`);
     logger.debug(`Public inputs converted root: ${circuitOutput.convertedRoot.toString()}`);
 
-    return Promise.resolve(new RootParityInput(proof, vk, circuitOutput));
+    return new RootParityInput(proof, vk, circuitOutput);
   }
 
   /**
@@ -139,7 +139,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const vk = new VerificationKey(verificationKey.keyAsFields, verificationKey.hash);
 
-    return Promise.resolve(new RootParityInput(proof, vk, circuitOutput));
+    return new RootParityInput(proof, vk, circuitOutput);
   }
 
   /**
@@ -149,7 +149,7 @@ export class BBNativeRollupProver implements CircuitProver {
    */
   public async getPublicKernelProof(
     kernelRequest: PublicKernelNonTailRequest,
-  ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
+  ): Promise<PublicInputsAndProof<PublicKernelCircuitPublicInputs>> {
     const kernelOps = KernelArtifactMapping[kernelRequest.type];
     if (kernelOps === undefined) {
       throw new Error(`Unable to prove kernel type ${PublicKernelType[kernelRequest.type]}`);
@@ -159,7 +159,7 @@ export class BBNativeRollupProver implements CircuitProver {
     const [outputWitness, proof] = await this.createProof(witnessMap, kernelOps.artifact);
 
     const result = kernelOps.convertOutputs(outputWitness);
-    return Promise.resolve([result, proof]);
+    return makeResult(result, proof);
   }
 
   /**
@@ -167,13 +167,15 @@ export class BBNativeRollupProver implements CircuitProver {
    * @param kernelRequest - The object encapsulating the request for a proof
    * @returns The requested circuit's public inputs and proof
    */
-  public async getPublicTailProof(kernelRequest: PublicKernelTailRequest): Promise<[KernelCircuitPublicInputs, Proof]> {
+  public async getPublicTailProof(
+    kernelRequest: PublicKernelTailRequest,
+  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
     const witnessMap = convertPublicTailInputsToWitnessMap(kernelRequest.inputs);
 
     const [outputWitness, proof] = await this.createProof(witnessMap, 'PublicKernelTailArtifact');
 
     const result = convertPublicTailOutputFromWitnessMap(outputWitness);
-    return [result, proof];
+    return makeResult(result, proof);
   }
 
   /**
@@ -181,21 +183,25 @@ export class BBNativeRollupProver implements CircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+  public async getBaseRollupProof(
+    input: BaseRollupInputs,
+  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
     const witnessMap = convertBaseRollupInputsToWitnessMap(input);
 
     const [outputWitness, proof] = await this.createProof(witnessMap, 'BaseRollupArtifact');
 
     const result = convertBaseRollupOutputsFromWitnessMap(outputWitness);
 
-    return Promise.resolve([result, proof]);
+    return makeResult(result, proof);
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+  public async getMergeRollupProof(
+    input: MergeRollupInputs,
+  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
     // verify both inputs
     await Promise.all(input.previousRollupData.map(prev => this.verifyPreviousRollupProof(prev)));
 
@@ -205,7 +211,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const result = convertMergeRollupOutputsFromWitnessMap(outputWitness);
 
-    return Promise.resolve([result, proof]);
+    return makeResult(result, proof);
   }
 
   /**
@@ -213,7 +219,7 @@ export class BBNativeRollupProver implements CircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]> {
+  public async getRootRollupProof(input: RootRollupInputs): Promise<PublicInputsAndProof<RootRollupPublicInputs>> {
     // verify the inputs
     await Promise.all(input.previousRollupData.map(prev => this.verifyPreviousRollupProof(prev)));
 
@@ -224,7 +230,7 @@ export class BBNativeRollupProver implements CircuitProver {
     await this.verifyProof('RootRollupArtifact', proof);
 
     const result = convertRootRollupOutputsFromWitnessMap(outputWitness);
-    return Promise.resolve([result, proof]);
+    return makeResult(result, proof);
   }
 
   // TODO(@PhilWindle): Delete when no longer required

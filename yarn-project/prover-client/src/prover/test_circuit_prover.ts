@@ -43,7 +43,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import { type CircuitProver, KernelArtifactMapping } from './interface.js';
+import { type CircuitProver, KernelArtifactMapping, type PublicInputsAndProof, makeResult } from './interface.js';
 
 /**
  * A class for use in testing situations (e2e, unit test etc)
@@ -108,21 +108,25 @@ export class TestCircuitProver implements CircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getBaseRollupProof(input: BaseRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+  public async getBaseRollupProof(
+    input: BaseRollupInputs,
+  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
     const witnessMap = convertSimulatedBaseRollupInputsToWitnessMap(input);
 
     const witness = await this.simulationProvider.simulateCircuit(witnessMap, SimulatedBaseRollupArtifact);
 
     const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([result, makeEmptyProof()]);
+    return makeResult(result, makeEmptyProof());
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getMergeRollupProof(input: MergeRollupInputs): Promise<[BaseOrMergeRollupPublicInputs, Proof]> {
+  public async getMergeRollupProof(
+    input: MergeRollupInputs,
+  ): Promise<PublicInputsAndProof<BaseOrMergeRollupPublicInputs>> {
     const witnessMap = convertMergeRollupInputsToWitnessMap(input);
 
     // use WASM here as it is faster for small circuits
@@ -130,7 +134,7 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
 
-    return Promise.resolve([result, makeEmptyProof()]);
+    return makeResult(result, makeEmptyProof());
   }
 
   /**
@@ -138,7 +142,7 @@ export class TestCircuitProver implements CircuitProver {
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
    */
-  public async getRootRollupProof(input: RootRollupInputs): Promise<[RootRollupPublicInputs, Proof]> {
+  public async getRootRollupProof(input: RootRollupInputs): Promise<PublicInputsAndProof<RootRollupPublicInputs>> {
     const witnessMap = convertRootRollupInputsToWitnessMap(input);
 
     // use WASM here as it is faster for small circuits
@@ -153,12 +157,12 @@ export class TestCircuitProver implements CircuitProver {
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
-    return Promise.resolve([result, makeEmptyProof()]);
+    return makeResult(result, makeEmptyProof());
   }
 
   public async getPublicKernelProof(
     kernelRequest: PublicKernelNonTailRequest,
-  ): Promise<[PublicKernelCircuitPublicInputs, Proof]> {
+  ): Promise<PublicInputsAndProof<PublicKernelCircuitPublicInputs>> {
     const kernelOps = KernelArtifactMapping[kernelRequest.type];
     if (kernelOps === undefined) {
       throw new Error(`Unable to prove for kernel type ${PublicKernelType[kernelRequest.type]}`);
@@ -168,10 +172,12 @@ export class TestCircuitProver implements CircuitProver {
     const witness = await this.wasmSimulator.simulateCircuit(witnessMap, ServerCircuitArtifacts[kernelOps.artifact]);
 
     const result = kernelOps.convertOutputs(witness);
-    return [result, makeEmptyProof()];
+    return makeResult(result, makeEmptyProof());
   }
 
-  public async getPublicTailProof(kernelRequest: PublicKernelTailRequest): Promise<[KernelCircuitPublicInputs, Proof]> {
+  public async getPublicTailProof(
+    kernelRequest: PublicKernelTailRequest,
+  ): Promise<PublicInputsAndProof<KernelCircuitPublicInputs>> {
     const witnessMap = convertPublicTailInputsToWitnessMap(kernelRequest.inputs);
     // use WASM here as it is faster for small circuits
     const witness = await this.wasmSimulator.simulateCircuit(
@@ -180,7 +186,7 @@ export class TestCircuitProver implements CircuitProver {
     );
 
     const result = convertPublicTailOutputFromWitnessMap(witness);
-    return [result, makeEmptyProof()];
+    return makeResult(result, makeEmptyProof());
   }
 
   // Not implemented for test circuits

@@ -10,8 +10,6 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { makeBloatedProcessedTx, makeEmptyProcessedTestTx, updateExpectedTreesFromTxs } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
-export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
-
 const logger = createDebugLogger('aztec:orchestrator-single-blocks');
 
 describe('prover/orchestrator/blocks', () => {
