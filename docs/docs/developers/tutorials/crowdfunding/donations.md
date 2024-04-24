@@ -3,6 +3,8 @@ title: Build a donations contract
 tags: [developers, tutorial, example]
 ---
 
+# Build a donations contract
+
 In this tutorial we'll create two contracts related to crowdfunding:
 
 - A crowdfunding contract with two core components
