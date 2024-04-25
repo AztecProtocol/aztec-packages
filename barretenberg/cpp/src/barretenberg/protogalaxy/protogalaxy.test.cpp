@@ -142,7 +142,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         if constexpr (IsGoblinFlavor<Flavor>) {
             instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
         }
-        instance->proving_key.polynomials.set_shifted();
         instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
         for (auto& alpha : instance->alphas) {

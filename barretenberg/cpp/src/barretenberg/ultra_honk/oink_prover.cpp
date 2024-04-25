@@ -155,9 +155,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
-    // Ensure that the shifts have been set for use in the lookup grand product
-    proving_key.polynomials.set_shifted();
-
     proving_key.compute_grand_product_polynomials(relation_parameters);
 
     witness_commitments.z_perm = commitment_key->commit(proving_key.polynomials.z_perm);
