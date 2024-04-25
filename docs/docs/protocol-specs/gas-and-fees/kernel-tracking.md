@@ -330,12 +330,14 @@ class PublicCallStackItem {
 PublicCallStackItem --> PublicCircuitPublicInputs
 
 class PublicCircuitPublicInputs {
-    revert_code: u8,
-    start_gas_left: Gas,
-    end_gas_left: Gas,
-    transaction_fee: Field,
+    +u8: revert_code
+    +Gas start_gas_left
+    +Gas end_gas_left
+    +Field transaction_fee
+    +GlobalVariables global_variables
 }
 PublicCircuitPublicInputs --> Gas
+PublicCircuitPublicInputs --> GlobalVariables
 
 class PublicKernelAppLogicCircuitPrivateInputs {
   +PublicKernelData previous_kernel
@@ -400,16 +402,13 @@ class GasFees {
     +Fr fee_per_l2_gas
 }
 
-
-
-
 ```
 
 ## Public Context Initialization
 
 Whenever a public function is run, it has a `PublicContext` associated with it, which is initialized in part from a `PublicContextInputs` object.
 
-The sequencer must provide information including the `gas_left` and the `transaction_fee`, but we cannot trust these values to be correct: we must compute the correct values in the public kernel circuits, and validate that the sequencer provided the correct values.
+The sequencer must provide information including the current `gas_fees`, the current `gas_left`, and the `transaction_fee`, but we cannot trust these values to be correct: we must compute the correct values in the public kernel circuits, and validate that the sequencer provided the correct values.
 
 Further, the sequencer is only obligated to provide the `transaction_fee` to the teardown function, as that is the only point at which the transaction fee can be known.
 
@@ -426,6 +425,8 @@ Further, we can trust that the `transaction_fee` the public VM reported is the o
 The PublicKernelSetup circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
 
 It must assert that the `revert_code` in the `PublicCircuitPublicInputs` is equal to zero.
+
+It must assert that the `public_call.call_stack_item.public_inputs.global_variables.gas_fees` are valid according to the [update rules defined](./published-gas-and-fee-data.md#updating-the-gasfees-object).
 
 It must compute the gas used in the `PublicKernelData` provided, and verify that the `gas_limits` in the  `PublicKernelData`'s `TxContext` *minus* the computed `gas_used` is equal to the `start_gas_left` specified on the `PublicCircuitPublicInputs`.
 
@@ -454,7 +455,7 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
 
 The PublicKernelAppLogic circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
 
-It must perform the same computation as the PublicKernelSetup regarding verification of the `start_gas_left`.
+It must perform the same computation as the PublicKernelSetup regarding verification of the `start_gas_left` and the `gas_fees`.
 
 It must check the `revert_code` in the `PublicCircuitPublicInputs`.
 
@@ -505,6 +506,8 @@ Consuming all gas left in the event of revert creates incentives for the sequenc
 ## Public Kernel Teardown
 
 The PublicKernelTeardown circuit takes in a `PublicKernelData` and a `PublicCallData` and outputs a `PublicKernelCircuitPublicInputs`.
+
+It must perform the same computation as the PublicKernelSetup regarding verification of the `gas_fees`.
 
 It must assert that the `start_gas_left` is equal to the PublicKernelData's `public_inputs.constants.tx_context.gas_settings.teardown_gas_allocations`
 

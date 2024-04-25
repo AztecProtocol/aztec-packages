@@ -71,7 +71,10 @@ l2_gas_used = AVM_STARTUP_L2_GAS * num_avm_invocations +
 ```
 
 :::warning L2 Gas from Private
-In the current implementation, private execution does not consume L2 gas. This may change in future versions of the protocol, because, for example, when a nullifier is emitted in a private transaction, it must be proven unique across the block by the sequencer, which is effectively L2 gas.
+In the current implementation, private execution does not consume L2 gas. This will change in future versions of the protocol, because there is still work that needs to be performed by the sequencer correspondent to the private outputs, which is effectively L2 gas. The following operations performed in private execution will likely consume L2 gas in future versions of the protocol:
+- emitting note hashes (due to tree insertion)
+- emitting nullifiers (due to tree insertion)
+- possibly emitting logs (due to validation checks)
 :::
 
 # Max Inclusion Fee
