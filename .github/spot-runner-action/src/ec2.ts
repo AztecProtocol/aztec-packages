@@ -224,8 +224,9 @@ export class Ec2Instance {
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
-        SpotTargetCapacity: useOnDemand ? 0 : 1
-      }
+        SpotTargetCapacity: useOnDemand ? 0 : 1,
+        DefaultTargetCapacityType: useOnDemand ? "on-demand" : "spot"
+      },
     };
     // const config: SpotFleetRequestConfigData = {
     //   IamFleetRole:
