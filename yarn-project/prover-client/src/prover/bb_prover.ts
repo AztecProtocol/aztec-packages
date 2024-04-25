@@ -318,55 +318,57 @@ export class BBNativeRollupProver implements CircuitProver {
 
     await fs.access(bbWorkingDirectory);
 
-    // Have the ACVM write the partial witness here
-    const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
+    try {
+      // Have the ACVM write the partial witness here
+      const outputWitnessFile = `${bbWorkingDirectory}/partial-witness.gz`;
 
-    // Generate the partial witness using the ACVM
-    // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
-    const simulator = new NativeACVMSimulator(
-      this.config.acvmWorkingDirectory,
-      this.config.acvmBinaryPath,
-      outputWitnessFile,
-    );
+      // Generate the partial witness using the ACVM
+      // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
+      const simulator = new NativeACVMSimulator(
+        this.config.acvmWorkingDirectory,
+        this.config.acvmBinaryPath,
+        outputWitnessFile,
+      );
 
-    const artifact = ServerCircuitArtifacts[circuitType];
+      const artifact = ServerCircuitArtifacts[circuitType];
 
-    logger.debug(`Generating witness data for ${circuitType}`);
+      logger.debug(`Generating witness data for ${circuitType}`);
 
-    const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
+      const outputWitness = await simulator.simulateCircuit(witnessMap, artifact);
 
-    const outputType = convertOutput(outputWitness);
+      const outputType = convertOutput(outputWitness);
 
-    // Now prove the circuit from the generated witness
-    logger.debug(`Proving ${circuitType}...`);
+      // Now prove the circuit from the generated witness
+      logger.debug(`Proving ${circuitType}...`);
 
-    const provingResult = await generateProof(
-      this.config.bbBinaryPath,
-      bbWorkingDirectory,
-      circuitType,
-      artifact,
-      outputWitnessFile,
-      logger.debug,
-    );
+      const provingResult = await generateProof(
+        this.config.bbBinaryPath,
+        bbWorkingDirectory,
+        circuitType,
+        artifact,
+        outputWitnessFile,
+        logger.debug,
+      );
 
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
-      throw new Error(provingResult.reason);
+      if (provingResult.status === BB_RESULT.FAILURE) {
+        logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
+        throw new Error(provingResult.reason);
+      }
+
+      // Ensure our vk cache is up to date
+      await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
+
+      // Read the proof and then cleanup up our temporary directory
+      const proof = await this.readProofAsFields<PROOF_LENGTH>(provingResult.proofPath!, circuitType);
+
+      logger.info(
+        `Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proof.proof.length} fields`,
+      );
+
+      return [outputType, proof];
+    } finally {
+      await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
     }
-
-    // Ensure our vk cache is up to date
-    await this.updateVerificationKeyAfterProof(provingResult.vkPath!, circuitType);
-
-    // Read the proof and then cleanup up our temporary directory
-    const proof = await this.readProofAsFields<PROOF_LENGTH>(provingResult.proofPath!, circuitType);
-
-    await fs.rm(bbWorkingDirectory, { recursive: true, force: true });
-
-    logger.info(
-      `Generated proof for ${circuitType} in ${provingResult.duration} ms, size: ${proof.proof.length} fields`,
-    );
-
-    return [outputType, proof];
   }
 
   /**

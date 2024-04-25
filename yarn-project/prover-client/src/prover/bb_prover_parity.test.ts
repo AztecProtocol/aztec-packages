@@ -117,7 +117,12 @@ describe('prover/bb_prover/parity', () => {
       return rootParityInputs.children[i];
     });
 
-    const defectiveTuples = [tupleWithDefectiveProof, tupleWithDefectiveInputs, tupleWithDefectiveVK];
+    // Check the invalid VK scenario with an invalid witness assertion
+    await expect(context.prover.getRootParityProof(new RootParityInputs(tupleWithDefectiveVK))).rejects.toEqual(
+      new Error("Failed to generate witness: Failed assertion: 'Inconsistent vk hashes across base parity circuits'\n"),
+    );
+
+    const defectiveTuples = [tupleWithDefectiveProof, tupleWithDefectiveInputs];
 
     for (const t of defectiveTuples) {
       try {
