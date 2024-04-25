@@ -169,14 +169,19 @@ export class Ec2Instance {
         },
       },
     };
-    const arr =
-      (
-        await client
-          .describeLaunchTemplates({
-            LaunchTemplateNames: [launchTemplateName],
-          })
-          .promise()
-      ).LaunchTemplates || [];
+
+    let arr: any = []
+    try {
+      arr =
+        (
+          await client
+            .describeLaunchTemplates({
+              LaunchTemplateNames: [launchTemplateName],
+            })
+            .promise()
+        ).LaunchTemplates || [];
+    } catch (error) {
+    }
     core.info("Launch templates found: " + arr);
     if (arr.length <= 0) {
       core.info("Creating launch template: " + launchTemplateName);
