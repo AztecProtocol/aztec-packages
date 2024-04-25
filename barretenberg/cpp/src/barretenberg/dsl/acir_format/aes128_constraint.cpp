@@ -2,6 +2,7 @@
 #include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "round.hpp"
+#include <cstddef>
 
 namespace acir_format {
 
@@ -22,16 +23,27 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 
     std::vector<field_ct> input;
 
+    uint8_t input_bytes[input.size()];
     uint8_t iv[16];
     uint8_t key[16];
 
+    size_t i = 0;
     for (const auto& witness_index_num_bits : constraint.inputs) {
         auto witness_index = witness_index_num_bits.witness;
-        field_ct element = field_ct::from_witness_index(&builder, witness_index);
-        input.push_back(element);
-    }
+        std::vector<uint8_t> fr_bytes(sizeof(fr));
 
-    size_t i = 0;
+        fr value = builder.get_variable(witness_index);
+
+        fr::serialize_to_buffer(value, &fr_bytes[0]);
+
+        input_bytes[i] = fr_bytes.back();
+        i++;
+    }
+    i = 0;
+    for (i = 0; i < constraint.inputs.size(); i += 16) {
+        input.push_back(witness_ct(&builder, fr(convert_bytes(input_bytes + i))));
+    }
+    i = 0;
     for (const auto& witness_index_num_bits : constraint.iv) {
         auto witness_index = witness_index_num_bits.witness;
         std::vector<uint8_t> fr_bytes(sizeof(fr));
