@@ -314,6 +314,11 @@ contract Test {
         aes128_encrypt(input, iv, key)
     }
 
+    #[aztec(private)]
+    fn encrypt_with_padding(input: [u8; 65], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
+        aes128_encrypt(input, iv, key)
+    }
+
     #[aztec(public)]
     fn assert_public_global_vars(
         chain_id: Field,

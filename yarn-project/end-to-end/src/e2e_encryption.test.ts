@@ -21,14 +21,34 @@ describe('e2e_encryption', () => {
 
   afterAll(() => teardown());
 
-  it('encrypts 🔒📄🔑💻', async () => {
+  it('🔒📄🔑💻', async () => {
     const input = randomBytes(64);
     const iv = randomBytes(16);
     const key = randomBytes(16);
 
     const expectedCiphertext = aes128.encryptBufferCBC(input, iv, key);
 
-    const ciphertext = await contract.methods.encrypt(Array.from(input), Array.from(iv), Array.from(key)).simulate();
+    const ciphertextAsBigInts = await contract.methods
+      .encrypt(Array.from(input), Array.from(iv), Array.from(key))
+      .simulate();
+    const ciphertext = Buffer.from(ciphertextAsBigInts.map((x: bigint) => Number(x)));
+
+    expect(ciphertext).toEqual(expectedCiphertext);
+  });
+
+  it('🔒📄🔑💻 with padding', async () => {
+    const input = randomBytes(65);
+    const iv = randomBytes(16);
+    const key = randomBytes(16);
+
+    const expectedCiphertext = aes128.encryptBufferCBC(input, iv, key);
+    // AES 128 CBC with PKCS7 is padding to multiples of 16 bytes so from 65 bytes long input we get 80 bytes long output
+    expect(expectedCiphertext.length).toBe(80);
+
+    const ciphertextAsBigInts = await contract.methods
+      .encrypt_with_padding(Array.from(input), Array.from(iv), Array.from(key))
+      .simulate();
+    const ciphertext = Buffer.from(ciphertextAsBigInts.map((x: bigint) => Number(x)));
 
     expect(ciphertext).toEqual(expectedCiphertext);
   });
