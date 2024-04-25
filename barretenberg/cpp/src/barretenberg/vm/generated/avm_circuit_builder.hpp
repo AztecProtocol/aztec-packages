@@ -205,7 +205,8 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_w_in_tag{};
     FF avm_mem_addr{};
     FF avm_mem_clk{};
-    FF avm_mem_diff{};
+    FF avm_mem_diff_hi{};
+    FF avm_mem_diff_lo{};
     FF avm_mem_ind_op_a{};
     FF avm_mem_ind_op_b{};
     FF avm_mem_ind_op_c{};
@@ -219,6 +220,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_op_c{};
     FF avm_mem_op_d{};
     FF avm_mem_r_in_tag{};
+    FF avm_mem_rng_chk_sel{};
     FF avm_mem_rw{};
     FF avm_mem_sel_cmov{};
     FF avm_mem_sel_mov_a{};
@@ -338,8 +340,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 273;
-    static constexpr size_t num_polys = 232;
+    static constexpr size_t num_fixed_columns = 275;
+    static constexpr size_t num_polys = 234;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -507,7 +509,8 @@ class AvmCircuitBuilder {
             polys.avm_main_w_in_tag[i] = rows[i].avm_main_w_in_tag;
             polys.avm_mem_addr[i] = rows[i].avm_mem_addr;
             polys.avm_mem_clk[i] = rows[i].avm_mem_clk;
-            polys.avm_mem_diff[i] = rows[i].avm_mem_diff;
+            polys.avm_mem_diff_hi[i] = rows[i].avm_mem_diff_hi;
+            polys.avm_mem_diff_lo[i] = rows[i].avm_mem_diff_lo;
             polys.avm_mem_ind_op_a[i] = rows[i].avm_mem_ind_op_a;
             polys.avm_mem_ind_op_b[i] = rows[i].avm_mem_ind_op_b;
             polys.avm_mem_ind_op_c[i] = rows[i].avm_mem_ind_op_c;
@@ -521,6 +524,7 @@ class AvmCircuitBuilder {
             polys.avm_mem_op_c[i] = rows[i].avm_mem_op_c;
             polys.avm_mem_op_d[i] = rows[i].avm_mem_op_d;
             polys.avm_mem_r_in_tag[i] = rows[i].avm_mem_r_in_tag;
+            polys.avm_mem_rng_chk_sel[i] = rows[i].avm_mem_rng_chk_sel;
             polys.avm_mem_rw[i] = rows[i].avm_mem_rw;
             polys.avm_mem_sel_cmov[i] = rows[i].avm_mem_sel_cmov;
             polys.avm_mem_sel_mov_a[i] = rows[i].avm_mem_sel_mov_a;

@@ -13,6 +13,7 @@ namespace avm_mem(256);
     pol commit lastAccess; // Boolean (1 when this row is the last of a given address)
     pol commit last; // Boolean indicating the last row of the memory trace (not execution trace)
     pol commit mem_sel; // Selector for every row pertaining to the memory trace
+    pol commit rng_chk_sel; // Selector for row on which range-checks apply.
 
     pol commit r_in_tag; // Instruction memory tag ("foreign key" pointing to avm_main.r_in_tag)
     pol commit w_in_tag; // Instruction memory tag ("foreign key" pointing to avm_main.w_in_tag)
@@ -42,7 +43,10 @@ namespace avm_mem(256);
 
     // Helper columns
     pol commit one_min_inv; // Extra value to prove r_in_tag != tag with error handling
-    pol commit diff; // Difference between two consecutive timestamps or two consecutive addresses
+    // pol DIFF: Difference between two consecutive timestamps or two consecutive addresses
+    pol commit diff_hi; // Higher 16-bit limb of diff.
+    pol commit diff_lo; // Lower 16-bit limb of diff.
+
 
     // Type constraints
     lastAccess * (1 - lastAccess) = 0;
@@ -65,6 +69,9 @@ namespace avm_mem(256);
     mem_sel = op_a + op_b + op_c + op_d + ind_op_a + ind_op_b + ind_op_c + ind_op_d;
     // Maximum one memory operation enabled per row
     mem_sel * (mem_sel - 1) = 0; // TODO: might be be infered in the main trace
+
+    // Definition of rng_chk_sel. It is a boolean as mem_sel and last are booleans.
+    rng_chk_sel = mem_sel * (1 - last);
 
     // sub_clk derivation
     pol IND_OP = ind_op_a + ind_op_b + ind_op_c + ind_op_d;
@@ -102,8 +109,10 @@ namespace avm_mem(256);
     // if addr' - addr is 0 or 1, the following is equiv. to lastAccess
     // (addr' - addr)
     
-    #[MEM_DIFF]
-    diff = lastAccess * (addr' - addr) + (1 - lastAccess) * (tsp'-tsp);
+    pol DIFF = lastAccess * (addr' - addr) + (1 - lastAccess) * (tsp' - tsp);
+
+    #[DIFF_RNG_CHK_DEC]
+    rng_chk_sel * (DIFF - diff_hi * 2**16 - diff_lo) = 0;
 
     // lastAccess == 0 && rw' == 0 ==> val == val'
     // This condition does not apply on the last row.

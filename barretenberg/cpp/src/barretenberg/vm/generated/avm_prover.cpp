@@ -210,7 +210,8 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_main_w_in_tag = commitment_key->commit(key->avm_main_w_in_tag);
     witness_commitments.avm_mem_addr = commitment_key->commit(key->avm_mem_addr);
     witness_commitments.avm_mem_clk = commitment_key->commit(key->avm_mem_clk);
-    witness_commitments.avm_mem_diff = commitment_key->commit(key->avm_mem_diff);
+    witness_commitments.avm_mem_diff_hi = commitment_key->commit(key->avm_mem_diff_hi);
+    witness_commitments.avm_mem_diff_lo = commitment_key->commit(key->avm_mem_diff_lo);
     witness_commitments.avm_mem_ind_op_a = commitment_key->commit(key->avm_mem_ind_op_a);
     witness_commitments.avm_mem_ind_op_b = commitment_key->commit(key->avm_mem_ind_op_b);
     witness_commitments.avm_mem_ind_op_c = commitment_key->commit(key->avm_mem_ind_op_c);
@@ -224,6 +225,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_mem_op_c = commitment_key->commit(key->avm_mem_op_c);
     witness_commitments.avm_mem_op_d = commitment_key->commit(key->avm_mem_op_d);
     witness_commitments.avm_mem_r_in_tag = commitment_key->commit(key->avm_mem_r_in_tag);
+    witness_commitments.avm_mem_rng_chk_sel = commitment_key->commit(key->avm_mem_rng_chk_sel);
     witness_commitments.avm_mem_rw = commitment_key->commit(key->avm_mem_rw);
     witness_commitments.avm_mem_sel_cmov = commitment_key->commit(key->avm_mem_sel_cmov);
     witness_commitments.avm_mem_sel_mov_a = commitment_key->commit(key->avm_mem_sel_mov_a);
@@ -423,7 +425,8 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_main_w_in_tag, witness_commitments.avm_main_w_in_tag);
     transcript->send_to_verifier(commitment_labels.avm_mem_addr, witness_commitments.avm_mem_addr);
     transcript->send_to_verifier(commitment_labels.avm_mem_clk, witness_commitments.avm_mem_clk);
-    transcript->send_to_verifier(commitment_labels.avm_mem_diff, witness_commitments.avm_mem_diff);
+    transcript->send_to_verifier(commitment_labels.avm_mem_diff_hi, witness_commitments.avm_mem_diff_hi);
+    transcript->send_to_verifier(commitment_labels.avm_mem_diff_lo, witness_commitments.avm_mem_diff_lo);
     transcript->send_to_verifier(commitment_labels.avm_mem_ind_op_a, witness_commitments.avm_mem_ind_op_a);
     transcript->send_to_verifier(commitment_labels.avm_mem_ind_op_b, witness_commitments.avm_mem_ind_op_b);
     transcript->send_to_verifier(commitment_labels.avm_mem_ind_op_c, witness_commitments.avm_mem_ind_op_c);
@@ -437,6 +440,7 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_mem_op_c, witness_commitments.avm_mem_op_c);
     transcript->send_to_verifier(commitment_labels.avm_mem_op_d, witness_commitments.avm_mem_op_d);
     transcript->send_to_verifier(commitment_labels.avm_mem_r_in_tag, witness_commitments.avm_mem_r_in_tag);
+    transcript->send_to_verifier(commitment_labels.avm_mem_rng_chk_sel, witness_commitments.avm_mem_rng_chk_sel);
     transcript->send_to_verifier(commitment_labels.avm_mem_rw, witness_commitments.avm_mem_rw);
     transcript->send_to_verifier(commitment_labels.avm_mem_sel_cmov, witness_commitments.avm_mem_sel_cmov);
     transcript->send_to_verifier(commitment_labels.avm_mem_sel_mov_a, witness_commitments.avm_mem_sel_mov_a);
