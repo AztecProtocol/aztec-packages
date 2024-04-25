@@ -432,9 +432,6 @@ class GoblinUltraFlavor {
                 relation_parameters.beta, relation_parameters.gamma, this->circuit_size);
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
-            // Ensure shifts are set properly; needed for lookup grand product
-            this->polynomials.set_shifted();
-
             // Compute permutation and lookup grand product polynomials
             compute_grand_products<GoblinUltraFlavor>(this->polynomials, relation_parameters);
         }

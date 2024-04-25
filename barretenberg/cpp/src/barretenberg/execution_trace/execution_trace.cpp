@@ -34,6 +34,7 @@ void ExecutionTrace_<Flavor>::add_wires_and_selectors_to_proving_key(TraceData& 
         for (auto [pkey_wire, trace_wire] : zip_view(proving_key.polynomials.get_wires(), trace_data.wires)) {
             pkey_wire = trace_wire.share();
         }
+        proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
         for (auto [pkey_selector, trace_selector] :
              zip_view(proving_key.polynomials.get_selectors(), trace_data.selectors)) {
             pkey_selector = trace_selector.share();
