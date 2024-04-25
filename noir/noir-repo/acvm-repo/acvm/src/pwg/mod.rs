@@ -410,17 +410,8 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         &self,
         location: OpcodeLocation,
     ) -> Option<ResolvedAssertionPayload> {
-        let Some(found_assertion_payload) =
-            self.assertion_payloads.iter().find_map(|(loc, payload)| {
-                if location == *loc {
-                    Some(payload)
-                } else {
-                    None
-                }
-            })
-        else {
-            return None;
-        };
+        let (_, found_assertion_payload) =
+            self.assertion_payloads.iter().find(|(loc, _)| location == *loc)?;
         match found_assertion_payload {
             AssertionPayload::StaticString(string) => {
                 Some(ResolvedAssertionPayload::String(string.clone()))
