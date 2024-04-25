@@ -19,6 +19,9 @@ template <class Fr, size_t view_domain_end, size_t view_domain_start, size_t ski
  * @brief A univariate polynomial represented by its values on {domain_start, domain_start + 1,..., domain_end - 1}. For
  * memory efficiency purposes, we store the evaluations in an array starting from 0 and make the mapping to the right
  * domain under the hood.
+ *
+ * @tparam skip_count Skip computing the values of elements [domain_start+1,..,domain_start+skip_count]. Used for
+ * optimising computation in protogalaxy
  */
 template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0> class Univariate {
   public:
@@ -40,6 +43,13 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate(Univariate&& other) noexcept = default;
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
+
+    /**
+     * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped
+     * locations)
+     *
+     * @return Univariate<Fr, domain_end, domain_start>
+     */
     Univariate<Fr, domain_end, domain_start> convert() const noexcept
     {
         Univariate<Fr, domain_end, domain_start, 0> result;

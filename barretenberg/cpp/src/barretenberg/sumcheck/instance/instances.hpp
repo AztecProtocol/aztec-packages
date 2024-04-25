@@ -54,6 +54,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
      * and the function returns the univariates [{a_1, b_1, c_1, d_1}, {a_2, b_2, c_2, d_2}, ...]
      *
      * @param row_idx A fixed row position in several execution traces
+     * @tparam skip_count Construct univariates that skip some of the indices when computing results
      * @return The univariates whose extensions will be used to construct the combiner.
      */
     template <size_t skip_count = 0> auto row_to_univariates(size_t row_idx) const

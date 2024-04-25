@@ -243,9 +243,7 @@ static constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 
 /**
  * @brief Recursive utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
- * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
- * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
- * tuple is determined by the corresponding subrelation length and the number of instances to be folded.
+ * @details Differs from the non-optimised method by using optimised univariates that skip redundant computation
  */
 template <typename Tuple, size_t NUM_INSTANCES, size_t Index = 0>
 static constexpr auto create_optimised_protogalaxy_tuple_of_tuples_of_univariates()

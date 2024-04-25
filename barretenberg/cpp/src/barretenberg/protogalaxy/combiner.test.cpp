@@ -53,7 +53,7 @@ TEST(Protogalaxy, CombinerOn2Instances)
             ProverInstances instances{ instance_data };
             instances.alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             auto pow_polynomial = PowPolynomial(std::vector<FF>{ 2 });
-            auto result = prover.compute_combiner<true>(instances, pow_polynomial);
+            auto result = prover.compute_combiner</*disable_optimisation=*/true>(instances, pow_polynomial);
             auto expected_result = Univariate<FF, 12>(std::array<FF, 12>{
                 87706,
                 13644570,
