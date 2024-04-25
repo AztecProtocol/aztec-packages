@@ -25,7 +25,6 @@ export function computeContractAddressFromInstance(
     | ({ contractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeysHash'>),
 ): AztecAddress {
   const partialAddress = computePartialAddress(instance);
-  console.log('partialAddress', partialAddress);
   const publicKeysHash = instance.publicKeysHash;
   return computeContractAddressFromPartial({ partialAddress, publicKeysHash });
 }
