@@ -222,19 +222,19 @@ if(WASM)
         $<TARGET_OBJECTS:wasi_objects>
     )
 
-    # add_executable(
-    #     acvm_backend.wasm
-    #     $<TARGET_OBJECTS:wasi_objects>
-    #     $<TARGET_OBJECTS:env_objects>
-    #     $<TARGET_OBJECTS:common_objects>
-    #     $<TARGET_OBJECTS:numeric_objects>
-    #     $<TARGET_OBJECTS:ecc_objects>
-    #     $<TARGET_OBJECTS:crypto_blake2s_objects>
-    #     $<TARGET_OBJECTS:crypto_keccak_objects>
-    #     $<TARGET_OBJECTS:crypto_schnorr_objects>
-    #     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
-    #     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
-    # )
+    add_executable(
+        acvm_backend.wasm
+        $<TARGET_OBJECTS:wasi_objects>
+        $<TARGET_OBJECTS:env_objects>
+        $<TARGET_OBJECTS:common_objects>
+        $<TARGET_OBJECTS:numeric_objects>
+        $<TARGET_OBJECTS:ecc_objects>
+        $<TARGET_OBJECTS:crypto_blake2s_objects>
+        $<TARGET_OBJECTS:crypto_keccak_objects>
+        $<TARGET_OBJECTS:crypto_schnorr_objects>
+        $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
+        $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
+    )
 
     target_link_options(
         barretenberg.wasm
@@ -242,9 +242,9 @@ if(WASM)
         -nostartfiles -Wl,--no-entry,--export-dynamic
     )
 
-    # target_link_options(
-    #     acvm_backend.wasm
-    #     PRIVATE
-    #     -nostartfiles -Wl,--no-entry,--export-dynamic
-    # )
+    target_link_options(
+        acvm_backend.wasm
+        PRIVATE
+        -nostartfiles -Wl,--no-entry,--export-dynamic
+    )
 endif()
