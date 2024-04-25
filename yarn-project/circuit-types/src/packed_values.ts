@@ -7,15 +7,15 @@ import { type FieldsOf } from '@aztec/foundation/types';
  * Packs a set of values into a hash.
  */
 export class PackedValues {
-  constructor(
+  private constructor(
     /**
      *  Raw values.
      */
-    public values: Fr[],
+    public readonly values: Fr[],
     /**
      * The hash of the raw values
      */
-    public hash: Fr,
+    public readonly hash: Fr,
   ) {}
 
   static getFields(fields: FieldsOf<PackedValues>) {
