@@ -131,24 +131,14 @@ class GoblinTranslatorFlavor {
 
         inline void compute_lagrange_polynomials(const CircuitBuilder& builder)
         {
-            const size_t circuit_size = compute_dyadic_circuit_size(builder);
             const size_t mini_circuit_dyadic_size = compute_mini_circuit_dyadic_size(builder);
 
-            Polynomial lagrange_polynomial_odd_in_minicircuit(circuit_size);
-            Polynomial lagrange_polynomial_even_in_minicircut(circuit_size);
-            Polynomial lagrange_polynomial_second(circuit_size);
-            Polynomial lagrange_polynomial_second_to_last_in_minicircuit(circuit_size);
-
             for (size_t i = 1; i < mini_circuit_dyadic_size - 1; i += 2) {
-                lagrange_polynomial_odd_in_minicircuit[i] = 1;
-                lagrange_polynomial_even_in_minicircut[i + 1] = 1;
+                this->lagrange_odd_in_minicircuit[i] = 1;
+                this->lagrange_even_in_minicircuit[i + 1] = 1;
             }
-            this->lagrange_odd_in_minicircuit = lagrange_polynomial_odd_in_minicircuit.share();
-            this->lagrange_even_in_minicircuit = lagrange_polynomial_even_in_minicircut.share();
-            lagrange_polynomial_second[1] = 1;
-            lagrange_polynomial_second_to_last_in_minicircuit[mini_circuit_dyadic_size - 2] = 1;
-            this->lagrange_second_to_last_in_minicircuit = lagrange_polynomial_second_to_last_in_minicircuit.share();
-            this->lagrange_second = lagrange_polynomial_second.share();
+            this->lagrange_second[1] = 1;
+            this->lagrange_second_to_last_in_minicircuit[mini_circuit_dyadic_size - 2] = 1;
         }
 
         /**
@@ -832,10 +822,8 @@ class GoblinTranslatorFlavor {
             , polynomials(this->circuit_size)
         {
             // First and last lagrange polynomials (in the full circuit size)
-            const auto [lagrange_first, lagrange_last] =
-                compute_first_and_last_lagrange_polynomials<FF>(compute_dyadic_circuit_size(builder));
-            this->polynomials.lagrange_first = lagrange_first; // WORKTODO: share
-            this->polynomials.lagrange_last = lagrange_last;
+            polynomials.lagrange_first[0] = 1;
+            polynomials.lagrange_last[circuit_size - 1] = 1;
 
             // Compute polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
             // polynomials at second and second to last indices in the minicircuit
