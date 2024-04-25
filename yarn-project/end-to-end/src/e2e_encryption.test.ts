@@ -21,7 +21,7 @@ describe('e2e_encryption', () => {
 
   afterAll(() => teardown());
 
-  it('🔒📄🔑💻', async () => {
+  it('encrypts 🔒📄🔑💻', async () => {
     const input = randomBytes(64);
     const iv = randomBytes(16);
     const key = randomBytes(16);
@@ -36,7 +36,7 @@ describe('e2e_encryption', () => {
     expect(ciphertext).toEqual(expectedCiphertext);
   });
 
-  it('🔒📄🔑💻 with padding', async () => {
+  it('encrypts with padding 🔒📄🔑💻 ➕ 📦', async () => {
     const input = randomBytes(65);
     const iv = randomBytes(16);
     const key = randomBytes(16);
