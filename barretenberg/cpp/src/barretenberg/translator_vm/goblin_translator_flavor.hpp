@@ -808,7 +808,7 @@ class GoblinTranslatorFlavor {
       public:
         BF batching_challenge_v = { 0 };
         BF evaluation_input_x = { 0 };
-        ProverPolynomials polynomials;
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;

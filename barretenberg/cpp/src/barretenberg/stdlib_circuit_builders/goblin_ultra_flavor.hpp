@@ -313,8 +313,7 @@ class GoblinUltraFlavor {
 
     /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
-     * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
-     * from ProvingKey.
+     *
      */
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
@@ -329,7 +328,7 @@ class GoblinUltraFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         std::array<Polynomial, 4> sorted_polynomials;
-        ProverPolynomials polynomials;
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
         {

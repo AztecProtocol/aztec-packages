@@ -611,7 +611,7 @@ class ECCVMFlavor {
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
-        ProverPolynomials polynomials;
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         ProvingKey(const CircuitBuilder& builder)
             : Base(builder.get_circuit_subgroup_size(builder.get_num_gates()), 0)

@@ -32,7 +32,7 @@ void GoblinTranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
         return;
     }
 
-    // Construct the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator wires
+    // Populate the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator wires
     // come as is, since they have to reflect the structure of polynomials in the first 4 wires, which we've commited to
     for (auto [wire_poly, wire] : zip_view(key->polynomials.get_wires(), circuit_builder.wires)) {
         for (size_t i = 0; i < circuit_builder.num_gates; ++i) {
