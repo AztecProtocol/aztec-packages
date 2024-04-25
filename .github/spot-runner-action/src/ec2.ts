@@ -174,7 +174,7 @@ export class Ec2Instance {
     // NOTE: This should be deterministic or we will create a launch template each time
     const userData = await new UserData(this.config).getUserData();
     const ec2InstanceTypeHash = this.getHashOfStringArray(
-      this.config.ec2InstanceType.concat([userData])
+      this.config.ec2InstanceType.concat([userData]).concat([JSON.stringify(this.tags)])
     );
     const launchTemplateName =
       "aztec-packages-spot-" + this.config.ec2AmiId + "-" + ec2InstanceTypeHash;
@@ -190,7 +190,21 @@ export class Ec2Instance {
           MemoryMiB: { Min: 0 },
           AllowedInstanceTypes: this.config.ec2InstanceType,
         },
-        UserData: userData
+        UserData: userData,
+        TagSpecifications: [
+          {
+            ResourceType: "instance",
+            Tags: this.tags,
+          },
+        ],
+        BlockDeviceMappings: [
+          {
+            DeviceName: "/dev/sda1",
+            Ebs: {
+              VolumeSize: 32,
+            },
+          },
+        ],
       },
     };
     let arr: any[] = [];
@@ -226,20 +240,6 @@ export class Ec2Instance {
         InstanceType: instanceType,
         AvailabilityZone: availabilityZone,
         SubnetId: this.config.ec2SubnetId,
-        TagSpecifications: [
-          {
-            ResourceType: "instance",
-            Tags: this.tags,
-          },
-        ],
-        BlockDeviceMappings: [
-          {
-            DeviceName: "/dev/sda1",
-            Ebs: {
-              VolumeSize: 32,
-            },
-          },
-        ],
       })),
     };
     const createFleetRequest: CreateFleetRequest = {
