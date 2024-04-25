@@ -1,7 +1,8 @@
 VERSION 0.8
 
 wasmtime:
-    FROM ../../build-images+build
+    FROM ubuntu:noble
+    RUN apt update && apt install -y curl xz-utils
     RUN curl https://wasmtime.dev/install.sh -sSf | bash
     SAVE ARTIFACT /root/.wasmtime/bin/wasmtime
 
@@ -119,7 +120,7 @@ bench-binaries:
 # Runs on the bench image, sent from the builder runner
 bench-ultra-honk:
     BUILD +wasmtime # prefetch
-    FROM +source
+    FROM ubuntu:noble
     COPY --dir +bench-binaries/* .
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
@@ -131,7 +132,7 @@ bench-ultra-honk:
 
 bench-client-ivc:
     BUILD +wasmtime # prefetch
-    FROM +source
+    FROM ubuntu:noble
     COPY --dir +bench-binaries/* .
     # install SRS needed for proving
     COPY --dir ./srs_db/+build/. srs_db
