@@ -100,5 +100,4 @@ template class uint<bb::StandardCircuitBuilder, uint8_t>;
 template class uint<bb::StandardCircuitBuilder, uint16_t>;
 template class uint<bb::StandardCircuitBuilder, uint32_t>;
 template class uint<bb::StandardCircuitBuilder, uint64_t>;
-// SIMULATOR?
 } // namespace bb::stdlib

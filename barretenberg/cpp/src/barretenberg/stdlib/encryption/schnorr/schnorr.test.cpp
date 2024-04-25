@@ -3,7 +3,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-// #include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "schnorr.hpp"
 
@@ -11,7 +10,6 @@ using namespace bb;
 using namespace bb::stdlib;
 using namespace bb::crypto;
 
-// using Builder = bb::CircuitSimulatorBN254;
 using Builder = bb::UltraCircuitBuilder;
 using bool_ct = bool_t<Builder>;
 using byte_array_ct = byte_array<Builder>;

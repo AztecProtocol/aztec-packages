@@ -1,21 +1,20 @@
 // #include <benchmark/benchmark.h>
 
 // #include "barretenberg/benchmark/benchmark_utilities.hpp"
-// #include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
 // #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 // #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
-// #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 // #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 // #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
+// #include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
 
 // using namespace benchmark;
 
 // namespace simulator_bench {
 
 // using Simulator = bb::CircuitSimulatorBN254;
-// using witness_ct = proof_system::plonk::stdlib::witness_t<Simulator>;
-// using field_ct = proof_system::plonk::stdlib::field_t<Simulator>;
-// using byte_array_ct = proof_system::plonk::stdlib::byte_array<Simulator>;
+// using witness_ct = bb::stdlib::witness_t<Simulator>;
+// using field_ct = bb::stdlib::field_t<Simulator>;
+// using byte_array_ct = bb::stdlib::byte_array<Simulator>;
 
 // // Number of times to perform operation of interest in the benchmark circuits, e.g. # of hashes to perform
 // constexpr size_t MIN_NUM_ITERATIONS = bench_utils::BenchParams::MIN_NUM_ITERATIONS;
@@ -50,7 +49,7 @@
 //         field_ct left = witness_ct(&simulator, left_in);
 //         field_ct right = witness_ct(&simulator, right_in);
 //         state.ResumeTiming();
-//         auto result = proof_system::plonk::stdlib::pedersen_commitment<Simulator>::compress(left, right);
+//         auto result = bb::stdlib::pedersen_commitment<Simulator>::compress(left, right);
 //         DoNotOptimize(result);
 //     }
 // };
@@ -74,7 +73,7 @@
 
 //         byte_array_ct circuit_input(&simulator, input);
 //         state.ResumeTiming();
-//         auto result = proof_system::plonk::stdlib::pedersen_commitment<Simulator>::compress(circuit_input);
+//         auto result = bb::stdlib::pedersen_commitment<Simulator>::compress(circuit_input);
 //         DoNotOptimize(result);
 //     }
 // };
@@ -92,15 +91,15 @@
 
 //         byte_array_ct input_arr(&simulator, input_v);
 //         state.ResumeTiming();
-//         byte_array_ct result = proof_system::plonk::stdlib::blake3s(input_arr);
+//         byte_array_ct result = bb::stdlib::blake3s(input_arr);
 //         DoNotOptimize(result);
 //     }
 // };
 
 // void ecdsa(State& state) noexcept
 // {
-//     using curve = proof_system::plonk::stdlib::secp256k1<Simulator>;
-//     using namespace proof_system::plonk::stdlib;
+//     using curve = bb::stdlib::secp256k1<Simulator>;
+//     using namespace bb::stdlib;
 
 //     for (auto _ : state) {
 //         state.PauseTiming();
@@ -137,9 +136,9 @@
 
 // void biggroup_batch_mul(State& state) noexcept
 // {
-//     using curve = proof_system::plonk::stdlib::bn254<Simulator>;
-//     using element_t = barretenberg::g1::element;
-//     using affine_element_t = barretenberg::g1::affine_element;
+//     using curve = bb::stdlib::bn254<Simulator>;
+//     using element_t = bb::g1::element;
+//     using affine_element_t = bb::g1::affine_element;
 //     using element_ct = typename curve::Group;
 //     using scalar_ct = typename curve::ScalarField;
 

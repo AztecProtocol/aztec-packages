@@ -1,7 +1,7 @@
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
-// #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+// #include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "blake2s.hpp"
 #include "blake2s_plookup.hpp"
 #include <gtest/gtest.h>
@@ -9,7 +9,7 @@
 using namespace bb;
 using namespace bb::stdlib;
 
-using Builder = CircuitSimulatorBN254;
+using Builder = UltraCircuitBuilder;
 
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;

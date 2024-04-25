@@ -81,7 +81,7 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
     }
 };
 
-using CircuitTypes = testing::Types</*bb::CircuitSimulatorBN254,*/ bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(StdlibPedersen, CircuitTypes);
 

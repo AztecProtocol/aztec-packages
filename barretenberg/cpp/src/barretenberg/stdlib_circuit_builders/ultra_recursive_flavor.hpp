@@ -15,6 +15,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
@@ -48,7 +49,7 @@ namespace bb {
 template <typename BuilderType> class UltraRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
-    using Curve = stdlib::bn254<CircuitBuilder>;
+    using Curve = std::conditional_t<IsSimulator<CircuitBuilder>, curve::BN254, stdlib::bn254<CircuitBuilder>>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;

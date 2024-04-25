@@ -10,7 +10,7 @@
 using namespace bb;
 using namespace bb::crypto;
 
-using Builder = UltraCircuitBuilder; // CHANGE TO SIMULATOR
+using Builder = UltraCircuitBuilder;
 using curve_ = stdlib::secp256k1<Builder>;
 using curveR1 = stdlib::secp256r1<Builder>;
 

@@ -136,4 +136,5 @@ template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<UltraCircuitBui
 template class UltraRecursiveVerifier_<bb::UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+
 } // namespace bb::stdlib::recursion::honk
