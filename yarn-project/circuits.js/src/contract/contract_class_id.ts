@@ -57,7 +57,7 @@ export type ContractClassIdPreimage = {
 };
 
 // TODO(#5860): Replace with actual implementation
-// Changed to work with Key Regsitry
+// Changed to work with canonical contracts that may have non-deterministic noir compiles and we want to keep the address constant
 export function computePublicBytecodeCommitment(_bytecode: Buffer) {
   return new Fr(5);
 }
