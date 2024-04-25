@@ -1,4 +1,10 @@
-import { type PublicKernelNonTailRequest, type PublicKernelTailRequest, PublicKernelType } from '@aztec/circuit-types';
+import {
+  type PublicInputsAndProof,
+  type PublicKernelNonTailRequest,
+  type PublicKernelTailRequest,
+  PublicKernelType,
+  makePublicInputsAndProof,
+} from '@aztec/circuit-types';
 import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type BaseOrMergeRollupPublicInputs,
@@ -43,7 +49,7 @@ import {
 } from '@aztec/noir-protocol-circuits-types';
 import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
-import { type CircuitProver, KernelArtifactMapping, type PublicInputsAndProof, makeResult } from './interface.js';
+import { type CircuitProver, KernelArtifactMapping } from './interface.js';
 
 /**
  * A class for use in testing situations (e2e, unit test etc)
@@ -117,7 +123,7 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertSimulatedBaseRollupOutputsFromWitnessMap(witness);
 
-    return makeResult(result, makeEmptyProof());
+    return makePublicInputsAndProof(result, makeEmptyProof());
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
@@ -134,7 +140,7 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertMergeRollupOutputsFromWitnessMap(witness);
 
-    return makeResult(result, makeEmptyProof());
+    return makePublicInputsAndProof(result, makeEmptyProof());
   }
 
   /**
@@ -157,7 +163,7 @@ export class TestCircuitProver implements CircuitProver {
       inputSize: input.toBuffer().length,
       outputSize: result.toBuffer().length,
     } satisfies CircuitSimulationStats);
-    return makeResult(result, makeEmptyProof());
+    return makePublicInputsAndProof(result, makeEmptyProof());
   }
 
   public async getPublicKernelProof(
@@ -172,7 +178,7 @@ export class TestCircuitProver implements CircuitProver {
     const witness = await this.wasmSimulator.simulateCircuit(witnessMap, ServerCircuitArtifacts[kernelOps.artifact]);
 
     const result = kernelOps.convertOutputs(witness);
-    return makeResult(result, makeEmptyProof());
+    return makePublicInputsAndProof(result, makeEmptyProof());
   }
 
   public async getPublicTailProof(
@@ -186,7 +192,7 @@ export class TestCircuitProver implements CircuitProver {
     );
 
     const result = convertPublicTailOutputFromWitnessMap(witness);
-    return makeResult(result, makeEmptyProof());
+    return makePublicInputsAndProof(result, makeEmptyProof());
   }
 
   // Not implemented for test circuits

@@ -1,5 +1,5 @@
 /* eslint-disable require-await */
-import { type PublicKernelNonTailRequest, type PublicKernelTailRequest, PublicKernelType } from '@aztec/circuit-types';
+import { type PublicKernelNonTailRequest, type PublicKernelTailRequest, PublicKernelType, type PublicInputsAndProof, makePublicInputsAndProof } from '@aztec/circuit-types';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -56,7 +56,7 @@ import {
   generateProof,
   verifyProof,
 } from '../bb/execute.js';
-import { type CircuitProver, KernelArtifactMapping, type PublicInputsAndProof, makeResult } from './interface.js';
+import { type CircuitProver, KernelArtifactMapping } from './interface.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
 
@@ -165,7 +165,7 @@ export class BBNativeRollupProver implements CircuitProver {
     const [outputWitness, proof] = await this.createProof(witnessMap, kernelOps.artifact);
 
     const result = kernelOps.convertOutputs(outputWitness);
-    return makeResult(result, proof);
+    return makePublicInputsAndProof(result, proof);
   }
 
   /**
@@ -181,7 +181,7 @@ export class BBNativeRollupProver implements CircuitProver {
     const [outputWitness, proof] = await this.createProof(witnessMap, 'PublicKernelTailArtifact');
 
     const result = convertPublicTailOutputFromWitnessMap(outputWitness);
-    return makeResult(result, proof);
+    return makePublicInputsAndProof(result, proof);
   }
 
   /**
@@ -198,7 +198,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const result = convertBaseRollupOutputsFromWitnessMap(outputWitness);
 
-    return makeResult(result, proof);
+    return makePublicInputsAndProof(result, proof);
   }
   /**
    * Simulates the merge rollup circuit from its inputs.
@@ -217,7 +217,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const result = convertMergeRollupOutputsFromWitnessMap(outputWitness);
 
-    return makeResult(result, proof);
+    return makePublicInputsAndProof(result, proof);
   }
 
   /**
@@ -236,7 +236,7 @@ export class BBNativeRollupProver implements CircuitProver {
     await this.verifyProof('RootRollupArtifact', proof);
 
     const result = convertRootRollupOutputsFromWitnessMap(outputWitness);
-    return makeResult(result, proof);
+    return makePublicInputsAndProof(result, proof);
   }
 
   // TODO(@PhilWindle): Delete when no longer required

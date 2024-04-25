@@ -1,4 +1,9 @@
-import { type PublicKernelNonTailRequest, type PublicKernelTailRequest, PublicKernelType } from '@aztec/circuit-types';
+import {
+  type PublicInputsAndProof,
+  type PublicKernelNonTailRequest,
+  type PublicKernelTailRequest,
+  PublicKernelType,
+} from '@aztec/circuit-types';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
@@ -55,19 +60,6 @@ export const KernelArtifactMapping: KernelTypeToArtifact = {
   },
   [PublicKernelType.TAIL]: undefined,
 };
-
-export type PublicInputsAndProof<T> = {
-  inputs: T;
-  proof: Proof;
-};
-
-export function makeResult<T>(inputs: T, proof: Proof) {
-  const result: PublicInputsAndProof<T> = {
-    inputs,
-    proof,
-  };
-  return result;
-}
 
 /**
  * Generates proofs for parity and rollup circuits.
