@@ -3,11 +3,15 @@ import {
   Fr,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
-  type RECURSIVE_PROOF_LENGTH,
-  type RootParityInput,
+  ParityPublicInputs,
+  RECURSIVE_PROOF_LENGTH,
+  RootParityInput,
   RootParityInputs,
+  VerificationKey,
+  makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
+import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type Tuple } from '@aztec/foundation/serialize';
 
@@ -60,5 +64,68 @@ describe('prover/bb_prover/parity', () => {
 
     // Verify the root parity proof
     await expect(context.prover.verifyProof('RootParityArtifact', rootOutput.proof.binaryProof)).resolves.not.toThrow();
+
+    // Now test for negative cases. We will try and generate 3 invalid proofs.
+    // One where a single child has an invalid proof
+    // One where a child has incorrect public inputs
+    // One where a child has an invalid verification key
+    // In each case either the proof should fail to generate or verify
+
+    const validVk = rootParityInputs.children[0].verificationKey;
+    const validPublicInputs = rootParityInputs.children[0].publicInputs;
+    const validProof = rootParityInputs.children[0].proof;
+
+    const defectiveProofInput = new RootParityInput(
+      makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH, 0x500),
+      validVk,
+      validPublicInputs,
+    );
+
+    const shaRoot = randomBytes(32);
+    shaRoot[0] = 0;
+
+    const defectivePublicInputs = new RootParityInput(
+      validProof,
+      validVk,
+      new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random()),
+    );
+
+    const defectiveVerificationKey = new RootParityInput(validProof, VerificationKey.makeFake(), validPublicInputs);
+
+    const tupleWithDefectiveProof = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, (i: number) => {
+      if (i == 0) {
+        return defectiveProofInput;
+      }
+      return rootParityInputs.children[i];
+    });
+
+    const tupleWithDefectiveInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, (i: number) => {
+      if (i == 0) {
+        return defectivePublicInputs;
+      }
+      return rootParityInputs.children[i];
+    });
+
+    const tupleWithDefectiveVK = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, (i: number) => {
+      if (i == 0) {
+        return defectiveVerificationKey;
+      }
+      return rootParityInputs.children[i];
+    });
+
+    const defectiveTuples = [tupleWithDefectiveProof, tupleWithDefectiveInputs, tupleWithDefectiveVK];
+
+    for (const t of defectiveTuples) {
+      try {
+        const result = await context.prover.getRootParityProof(new RootParityInputs(t));
+        await context.prover.verifyProof('RootParityArtifact', result.proof.binaryProof);
+        fail('Proof should not be generated and verified');
+      } catch (error) {
+        expect([
+          new Error('Failed to generate proof'),
+          new Error('Failed to verify RootParityArtifact proof!'),
+        ]).toContainEqual(error);
+      }
+    }
   }, 100_000);
 });
