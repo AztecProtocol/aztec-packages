@@ -1,5 +1,11 @@
 /* eslint-disable require-await */
-import { type PublicKernelNonTailRequest, type PublicKernelTailRequest, PublicKernelType, type PublicInputsAndProof, makePublicInputsAndProof } from '@aztec/circuit-types';
+import {
+  type PublicInputsAndProof,
+  type PublicKernelNonTailRequest,
+  type PublicKernelTailRequest,
+  PublicKernelType,
+  makePublicInputsAndProof,
+} from '@aztec/circuit-types';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
