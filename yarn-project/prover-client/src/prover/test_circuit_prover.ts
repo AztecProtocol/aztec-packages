@@ -51,6 +51,18 @@ import { type SimulationProvider, WASMSimulator } from '@aztec/simulator';
 
 import { type CircuitProver, KernelArtifactMapping } from './interface.js';
 
+const VERIFICATION_KEYS: Record<ServerProtocolArtifact, VerificationKeyAsFields> = {
+  BaseParityArtifact: VerificationKeyAsFields.makeFake(),
+  RootParityArtifact: VerificationKeyAsFields.makeFake(),
+  PublicKernelAppLogicArtifact: VerificationKeyAsFields.makeFake(),
+  PublicKernelSetupArtifact: VerificationKeyAsFields.makeFake(),
+  PublicKernelTailArtifact: VerificationKeyAsFields.makeFake(),
+  PublicKernelTeardownArtifact: VerificationKeyAsFields.makeFake(),
+  BaseRollupArtifact: VerificationKeyAsFields.makeFake(),
+  MergeRollupArtifact: VerificationKeyAsFields.makeFake(),
+  RootRollupArtifact: VerificationKeyAsFields.makeFake(),
+};
+
 /**
  * A class for use in testing situations (e2e, unit test etc)
  * Simulates circuits using the most efficient method and performs no proving
@@ -76,13 +88,13 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertBaseParityOutputsFromWitnessMap(witness);
 
-    const rootParityInputs = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
+    const rootParityInput = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
-      VerificationKeyAsFields.makeFake(),
+      VERIFICATION_KEYS['BaseParityArtifact'],
       result,
     );
 
-    return Promise.resolve(rootParityInputs);
+    return Promise.resolve(rootParityInput);
   }
 
   /**
@@ -100,13 +112,13 @@ export class TestCircuitProver implements CircuitProver {
 
     const result = convertRootParityOutputsFromWitnessMap(witness);
 
-    const rootParityInputs = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
+    const rootParityInput = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKeyAsFields.makeFake(),
+      VERIFICATION_KEYS['RootParityArtifact'],
       result,
     );
 
-    return Promise.resolve(rootParityInputs);
+    return Promise.resolve(rootParityInput);
   }
 
   /**
