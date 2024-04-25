@@ -95,7 +95,7 @@ async function start() {
         // Start instance
         instanceId = await ec2Client.requestMachine(
           // we fallback to on-demand
-          ec2Strategy.toLocaleUpperCase() === "none"
+          ec2Strategy.toLocaleLowerCase() === "none"
         ) || "";
         if (instanceId) {
           break;
@@ -108,7 +108,7 @@ async function start() {
           error?.code &&
           error.code === "InsufficientInstanceCapacity" &&
           ec2SpotStrategies.length > 0 &&
-          ec2Strategy.toLocaleUpperCase() != "none"
+          ec2Strategy.toLocaleLowerCase() != "none"
         ) {
           core.info(
             "Failed to create instance due to 'InsufficientInstanceCapacity', waiting 10 seconds and trying again."
