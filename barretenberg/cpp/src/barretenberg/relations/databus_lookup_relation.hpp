@@ -186,8 +186,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                               auto& relation_parameters,
                                               const size_t circuit_size)
     {
-        polynomials.set_shifted(); // WORKTODO: is there a better way?
-
         auto& inverse_polynomial = BusData<bus_idx, Polynomials>::inverses(polynomials);
         bool is_read = false;
         bool nonzero_read_count = false;
