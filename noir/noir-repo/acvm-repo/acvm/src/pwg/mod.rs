@@ -410,21 +410,22 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         &self,
         location: OpcodeLocation,
     ) -> Option<ResolvedAssertionPayload> {
-        let found_assertion_payload = self.assertion_payloads.iter().find_map(|(loc, payload)| {
-            if location == *loc {
-                Some(payload)
-            } else {
-                None
-            }
-        });
-        let Some(found_assertion_payload) = found_assertion_payload else {
+        let Some(found_assertion_payload) =
+            self.assertion_payloads.iter().find_map(|(loc, payload)| {
+                if location == *loc {
+                    Some(payload)
+                } else {
+                    None
+                }
+            })
+        else {
             return None;
         };
         match found_assertion_payload {
             AssertionPayload::StaticString(string) => {
                 Some(ResolvedAssertionPayload::String(string.clone()))
             }
-            AssertionPayload::Raw(error_selector, expression) => {
+            AssertionPayload::Dynamic(error_selector, expression) => {
                 let mut fields = vec![];
                 for expr in expression {
                     match expr {
@@ -450,7 +451,11 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
                         let string = fields
                             .iter()
                             .map(|field| {
-                                let as_u8 = field.try_to_u64().unwrap_or_default() as u8;
+                                let as_u8: u8 = field
+                                    .try_to_u64()
+                                    .expect("String character doesn't fit in u64")
+                                    .try_into()
+                                    .expect("String character doesn't fit in u8");
                                 as_u8 as char
                             })
                             .collect();
@@ -516,9 +521,9 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             unreachable!("Not executing a Brillig opcode");
         };
 
-        let witness = &mut self.witness_map;
-        if is_predicate_false(witness, predicate)? {
-            return BrilligSolver::<B>::zero_out_brillig_outputs(witness, outputs).map(|_| None);
+        if is_predicate_false(&self.witness_map, predicate)? {
+            return BrilligSolver::<B>::zero_out_brillig_outputs(&mut self.witness_map, outputs)
+                .map(|_| None);
         }
 
         // If we're resuming execution after resolving a foreign call then
@@ -526,7 +531,7 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         let mut solver: BrilligSolver<'_, B> = match self.brillig_solver.take() {
             Some(solver) => solver,
             None => BrilligSolver::new_call(
-                witness,
+                &self.witness_map,
                 &self.block_solvers,
                 inputs,
                 &self.unconstrained_functions[*id as usize].bytecode,
@@ -535,32 +540,9 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             )?,
         };
 
-        let result = solver.solve().map_err(|mut err| {
-            match &mut err {
-                OpcodeResolutionError::BrilligFunctionFailed { call_stack, payload } => {
-                    // Some brillig errors have static strings as payloads, we can resolve them here
-                    let last_location =
-                        call_stack.last().expect("Call stacks should have at least one item");
-                    let assertion_descriptor =
-                        self.assertion_payloads.iter().find_map(|(loc, payload)| {
-                            if loc == last_location {
-                                Some(payload)
-                            } else {
-                                None
-                            }
-                        });
+        let result = solver.solve().map_err(|err| self.map_brillig_error(err))?;
 
-                    if let Some(AssertionPayload::StaticString(string)) = assertion_descriptor {
-                        *payload = Some(ResolvedAssertionPayload::String(string.clone()));
-                    }
-
-                    err
-                }
-                _ => err,
-            }
-        });
-
-        match result? {
+        match result {
             BrilligSolverStatus::ForeignCallWait(foreign_call) => {
                 // Cache the current state of the solver
                 self.brillig_solver = Some(solver);
@@ -571,9 +553,34 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
             }
             BrilligSolverStatus::Finished => {
                 // Write execution outputs
-                solver.finalize(witness, outputs)?;
+                solver.finalize(&mut self.witness_map, outputs)?;
                 Ok(None)
             }
+        }
+    }
+
+    fn map_brillig_error(&self, mut err: OpcodeResolutionError) -> OpcodeResolutionError {
+        match &mut err {
+            OpcodeResolutionError::BrilligFunctionFailed { call_stack, payload } => {
+                // Some brillig errors have static strings as payloads, we can resolve them here
+                let last_location =
+                    call_stack.last().expect("Call stacks should have at least one item");
+                let assertion_descriptor =
+                    self.assertion_payloads.iter().find_map(|(loc, payload)| {
+                        if loc == last_location {
+                            Some(payload)
+                        } else {
+                            None
+                        }
+                    });
+
+                if let Some(AssertionPayload::StaticString(string)) = assertion_descriptor {
+                    *payload = Some(ResolvedAssertionPayload::String(string.clone()));
+                }
+
+                err
+            }
+            _ => err,
         }
     }
 

@@ -717,7 +717,7 @@ impl<'a> FunctionContext<'a> {
                 self.builder.record_error_type(error_type_id, assert_message_typ.clone());
             }
         };
-        Ok(Some(ConstrainError::UserDefined(values, error_type_id)))
+        Ok(Some(ConstrainError::UserDefined(error_type_id, values)))
     }
 
     fn codegen_assign(&mut self, assign: &ast::Assign) -> Result<Values, RuntimeError> {

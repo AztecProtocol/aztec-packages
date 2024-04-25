@@ -354,10 +354,10 @@ impl Instruction {
                 let lhs = f(*lhs);
                 let rhs = f(*rhs);
                 let assert_message = assert_message.as_ref().map(|error| match error {
-                    ConstrainError::UserDefined(payload_values, typ) => {
+                    ConstrainError::UserDefined(selector, payload_values) => {
                         ConstrainError::UserDefined(
+                            *selector,
                             payload_values.iter().map(|&value| f(value)).collect(),
-                            *typ,
                         )
                     }
                     _ => error.clone(),
@@ -419,7 +419,7 @@ impl Instruction {
             Instruction::Constrain(lhs, rhs, assert_error) => {
                 f(*lhs);
                 f(*rhs);
-                if let Some(ConstrainError::UserDefined(values, _)) = assert_error.as_ref() {
+                if let Some(ConstrainError::UserDefined(_, values)) = assert_error.as_ref() {
                     values.iter().for_each(|&val| {
                         f(val);
                     });
@@ -632,7 +632,7 @@ pub(crate) enum ConstrainError {
     // These are errors which have been hardcoded during SSA gen
     Intrinsic(String),
     // These are errors issued by the user
-    UserDefined(Vec<ValueId>, ErrorSelector),
+    UserDefined(ErrorSelector, Vec<ValueId>),
 }
 
 impl From<String> for ConstrainError {

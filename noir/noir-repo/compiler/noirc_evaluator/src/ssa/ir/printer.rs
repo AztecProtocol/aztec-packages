@@ -243,7 +243,7 @@ fn display_constrain_error(
         ConstrainError::Intrinsic(assert_message_string) => {
             writeln!(f, " '{assert_message_string:?}'")
         }
-        ConstrainError::UserDefined(values, selector) => {
+        ConstrainError::UserDefined(selector, values) => {
             if let Some(constant_string) =
                 try_to_extract_string_from_error_payload(*selector, values, &function.dfg)
             {

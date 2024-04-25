@@ -1127,15 +1127,15 @@ namespace Program {
             static StaticString bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        struct Raw {
+        struct Dynamic {
             std::tuple<uint64_t, std::vector<Program::ExpressionOrMemory>> value;
 
-            friend bool operator==(const Raw&, const Raw&);
+            friend bool operator==(const Dynamic&, const Dynamic&);
             std::vector<uint8_t> bincodeSerialize() const;
-            static Raw bincodeDeserialize(std::vector<uint8_t>);
+            static Dynamic bincodeDeserialize(std::vector<uint8_t>);
         };
 
-        std::variant<StaticString, Raw> value;
+        std::variant<StaticString, Dynamic> value;
 
         friend bool operator==(const AssertionPayload&, const AssertionPayload&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1316,20 +1316,20 @@ Program::AssertionPayload::StaticString serde::Deserializable<Program::Assertion
 
 namespace Program {
 
-    inline bool operator==(const AssertionPayload::Raw &lhs, const AssertionPayload::Raw &rhs) {
+    inline bool operator==(const AssertionPayload::Dynamic &lhs, const AssertionPayload::Dynamic &rhs) {
         if (!(lhs.value == rhs.value)) { return false; }
         return true;
     }
 
-    inline std::vector<uint8_t> AssertionPayload::Raw::bincodeSerialize() const {
+    inline std::vector<uint8_t> AssertionPayload::Dynamic::bincodeSerialize() const {
         auto serializer = serde::BincodeSerializer();
-        serde::Serializable<AssertionPayload::Raw>::serialize(*this, serializer);
+        serde::Serializable<AssertionPayload::Dynamic>::serialize(*this, serializer);
         return std::move(serializer).bytes();
     }
 
-    inline AssertionPayload::Raw AssertionPayload::Raw::bincodeDeserialize(std::vector<uint8_t> input) {
+    inline AssertionPayload::Dynamic AssertionPayload::Dynamic::bincodeDeserialize(std::vector<uint8_t> input) {
         auto deserializer = serde::BincodeDeserializer(input);
-        auto value = serde::Deserializable<AssertionPayload::Raw>::deserialize(deserializer);
+        auto value = serde::Deserializable<AssertionPayload::Dynamic>::deserialize(deserializer);
         if (deserializer.get_buffer_offset() < input.size()) {
             throw serde::deserialization_error("Some input bytes were not read");
         }
@@ -1340,14 +1340,14 @@ namespace Program {
 
 template <>
 template <typename Serializer>
-void serde::Serializable<Program::AssertionPayload::Raw>::serialize(const Program::AssertionPayload::Raw &obj, Serializer &serializer) {
+void serde::Serializable<Program::AssertionPayload::Dynamic>::serialize(const Program::AssertionPayload::Dynamic &obj, Serializer &serializer) {
     serde::Serializable<decltype(obj.value)>::serialize(obj.value, serializer);
 }
 
 template <>
 template <typename Deserializer>
-Program::AssertionPayload::Raw serde::Deserializable<Program::AssertionPayload::Raw>::deserialize(Deserializer &deserializer) {
-    Program::AssertionPayload::Raw obj;
+Program::AssertionPayload::Dynamic serde::Deserializable<Program::AssertionPayload::Dynamic>::deserialize(Deserializer &deserializer) {
+    Program::AssertionPayload::Dynamic obj;
     obj.value = serde::Deserializable<decltype(obj.value)>::deserialize(deserializer);
     return obj;
 }

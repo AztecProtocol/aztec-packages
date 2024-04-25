@@ -203,24 +203,23 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                             None
                         } else {
                             let memory = self.vm.get_memory();
-                            let mut fields: Vec<_> = memory
+                            let mut revert_values_iter = memory
                                 [revert_data_offset..(revert_data_offset + revert_data_size)]
-                                .iter()
-                                .map(|memory_value| memory_value.to_field())
-                                .collect();
-                            let error_selector = fields
-                                .remove(0)
-                                .try_to_u64()
-                                .expect("Error selector doesn't fit in a u64");
+                                .iter();
+                            let error_selector = revert_values_iter
+                                .next()
+                                .expect("Incorrect revert data size")
+                                .try_into()
+                                .expect("Error selector is not u64");
 
                             match error_selector {
                                 STRING_ERROR_SELECTOR => {
                                     // If the error selector is 0, it means the error is a string
-                                    let string = fields
-                                        .iter()
-                                        .map(|field| {
-                                            let as_u8 =
-                                                field.try_to_u64().unwrap_or_default() as u8;
+                                    let string = revert_values_iter
+                                        .map(|memory_value| {
+                                            let as_u8: u8 = memory_value
+                                                .try_into()
+                                                .expect("String item is not u8");
                                             as_u8 as char
                                         })
                                         .collect();
@@ -228,7 +227,10 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
                                 }
                                 _ => {
                                     // If the error selector is not 0, it means the error is a custom error
-                                    Some(ResolvedAssertionPayload::Raw(error_selector, fields))
+                                    Some(ResolvedAssertionPayload::Raw(
+                                        error_selector,
+                                        revert_values_iter.map(|value| value.to_field()).collect(),
+                                    ))
                                 }
                             }
                         }

@@ -620,7 +620,7 @@ impl<'a> Context<'a> {
                         ConstrainError::Intrinsic(string) => {
                             Some(AssertionPayload::StaticString(string.clone()))
                         }
-                        ConstrainError::UserDefined(values, error_selector) => {
+                        ConstrainError::UserDefined(error_selector, values) => {
                             if let Some(constant_string) = try_to_extract_string_from_error_payload(
                                 *error_selector,
                                 values,
@@ -636,7 +636,7 @@ impl<'a> Context<'a> {
                                 let expressions_or_memory =
                                     self.acir_context.vars_to_expressions_or_memory(&acir_vars)?;
 
-                                Some(AssertionPayload::Raw(
+                                Some(AssertionPayload::Dynamic(
                                     error_selector.to_u64(),
                                     expressions_or_memory,
                                 ))

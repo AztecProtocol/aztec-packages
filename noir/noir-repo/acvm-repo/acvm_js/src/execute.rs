@@ -168,7 +168,7 @@ async fn execute_program_with_native_type_return(
     let program: Program = Program::deserialize_program(&program)
     .map_err(|_| JsExecutionError::new(
         "Failed to deserialize circuit. This is likely due to differing serialization formats between ACVM_JS and your compiler".to_string(), 
-        None ,
+        None,
         None))?;
 
     execute_program_with_native_program_and_return(
