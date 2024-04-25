@@ -1,5 +1,3 @@
-
-
 include "avm_main.pil";
 
 namespace avm_mem(256);
@@ -47,7 +45,6 @@ namespace avm_mem(256);
     pol commit diff_hi; // Higher 16-bit limb of diff.
     pol commit diff_lo; // Lower 16-bit limb of diff.
 
-
     // Type constraints
     lastAccess * (1 - lastAccess) = 0;
     last * (1 - last) = 0;
@@ -62,13 +59,22 @@ namespace avm_mem(256);
     ind_op_c * (1 - ind_op_c) = 0;
     ind_op_d * (1 - ind_op_d) = 0;
 
-    // TODO: addr is u32 and 0 <= tag <= 6
-    //       (r_in_tag, w_in_tag will be constrained through inclusion check to main trace)
+    // TODO:  1) Ensure that addr is constrained to be 32 bits by the main trace and/or bytecode decomposition
+    //        2) Ensure that tag, r_in_tag, w_in_tag are properly constrained by the main trace and/or bytecode decomposition
 
     // Definition of mem_sel
     mem_sel = op_a + op_b + op_c + op_d + ind_op_a + ind_op_b + ind_op_c + ind_op_d;
     // Maximum one memory operation enabled per row
-    mem_sel * (mem_sel - 1) = 0; // TODO: might be be infered in the main trace
+    mem_sel * (mem_sel - 1) = 0; // TODO: might be infered by the main trace
+
+    // Enforce the memory entries to be contiguous, i.e., as soon as
+    // mem_sel is disabled all subsequent rows have mem_sel disabled.
+    #[MEM_CONTIGUOUS]
+    (1 - avm_main.first) * mem_sel' * (1 - mem_sel) = 0;
+
+    // Memory trace rows cannot start at first row
+    #[MEM_FIRST_EMPTY]
+    avm_main.first * mem_sel = 0;
 
     // Definition of rng_chk_sel. It is a boolean as mem_sel and last are booleans.
     rng_chk_sel = mem_sel * (1 - last);
@@ -95,22 +101,18 @@ namespace avm_mem(256);
     // We need: lastAccess == 1 ==> addr' > addr
     // The above implies: addr' == addr ==> lastAccess == 0
     // This condition does not apply on the last row.
-    // clk + 1 used as an expression for positive integers
-    // TODO: Uncomment when lookups are supported
-    // (1 - first) * (1 - last) * lastAccess { (addr' - addr) } in clk + 1; // Gated inclusion check. Is it supported?
-    
-    // TODO: following constraint
-    // addr' == addr && clk == clk' ==> sub_clk' - sub_clk > 0
-    // Can be enforced with (1 - first) * (1 - lastAccess) { 6 * (clk' - clk) + sub_clk' - sub_clk } in clk + 1
-    
-    // Alternatively to the above, one could require
-    // that addr' - addr is 0 or 1 (needs to add placeholders addr values):
-    // (addr' - addr) * (addr' - addr) - (addr' - addr) = 0;
-    // if addr' - addr is 0 or 1, the following is equiv. to lastAccess
-    // (addr' - addr)
-    
+ 
+    // In addition, we need addr' == addr ==> tsp' > tsp
+    // For all rows pertaining to the memory trace (mem_sel == 1) except the last one,
+    // i.e., when rng_chk_sel == 1, we compute the difference:
+    // 1) addr' - addr if lastAccess == 1
+    // 2) tsp' - tsp   if lastAccess == 0 (i.e., whenever addr' == addr)
     pol DIFF = lastAccess * (addr' - addr) + (1 - lastAccess) * (tsp' - tsp);
 
+    // We perform a 32-bit range check of DIFF which proves that addr' > addr if lastAccess == 1
+    // and tsp' > tsp whenever addr' == addr
+    // Therefore, we ensure proper grouping of each address and each memory access pertaining to a given
+    // address is sorted according the arrow of time.
     #[DIFF_RNG_CHK_DEC]
     rng_chk_sel * (DIFF - diff_hi * 2**16 - diff_lo) = 0;
 
@@ -135,7 +137,7 @@ namespace avm_mem(256);
     lastAccess * (1 - rw') * val' = 0;
 
     // Skip check tag
-     #[SKIP_CHECK_TAG]
+    #[SKIP_CHECK_TAG]
     skip_check_tag = sel_cmov * (op_d + op_a * (1-sel_mov_a) + op_b * (1-sel_mov_b));
 
     // Memory tag consistency check for load operations, i.e., rw == 0.

@@ -21,6 +21,8 @@
 #include "barretenberg/relations/generated/avm/incl_mem_tag_err.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_lengths.hpp"
 #include "barretenberg/relations/generated/avm/lookup_byte_operations.hpp"
+#include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_hi.hpp"
+#include "barretenberg/relations/generated/avm/lookup_mem_rng_chk_lo.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_0.hpp"
 #include "barretenberg/relations/generated/avm/lookup_pow_2_1.hpp"
 #include "barretenberg/relations/generated/avm/lookup_u16_0.hpp"
@@ -71,11 +73,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 232;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 236;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 275;
+    static constexpr size_t NUM_ALL_ENTITIES = 280;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -91,6 +93,8 @@ class AvmFlavor {
                                              lookup_byte_operations_relation<FF>,
                                              incl_main_tag_err_relation<FF>,
                                              incl_mem_tag_err_relation<FF>,
+                                             lookup_mem_rng_chk_lo_relation<FF>,
+                                             lookup_mem_rng_chk_hi_relation<FF>,
                                              lookup_pow_2_0_relation<FF>,
                                              lookup_pow_2_1_relation<FF>,
                                              lookup_u8_0_relation<FF>,
@@ -129,6 +133,8 @@ class AvmFlavor {
                                  lookup_byte_operations_relation<FF>,
                                  incl_main_tag_err_relation<FF>,
                                  incl_mem_tag_err_relation<FF>,
+                                 lookup_mem_rng_chk_lo_relation<FF>,
+                                 lookup_mem_rng_chk_hi_relation<FF>,
                                  lookup_pow_2_0_relation<FF>,
                                  lookup_pow_2_1_relation<FF>,
                                  lookup_u8_0_relation<FF>,
@@ -371,6 +377,8 @@ class AvmFlavor {
                               lookup_byte_operations,
                               incl_main_tag_err,
                               incl_mem_tag_err,
+                              lookup_mem_rng_chk_lo,
+                              lookup_mem_rng_chk_hi,
                               lookup_pow_2_0,
                               lookup_pow_2_1,
                               lookup_u8_0,
@@ -394,6 +402,8 @@ class AvmFlavor {
                               lookup_byte_operations_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
+                              lookup_mem_rng_chk_lo_counts,
+                              lookup_mem_rng_chk_hi_counts,
                               lookup_pow_2_0_counts,
                               lookup_pow_2_1_counts,
                               lookup_u8_0_counts,
@@ -606,6 +616,8 @@ class AvmFlavor {
                      lookup_byte_operations,
                      incl_main_tag_err,
                      incl_mem_tag_err,
+                     lookup_mem_rng_chk_lo,
+                     lookup_mem_rng_chk_hi,
                      lookup_pow_2_0,
                      lookup_pow_2_1,
                      lookup_u8_0,
@@ -629,6 +641,8 @@ class AvmFlavor {
                      lookup_byte_operations_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
+                     lookup_mem_rng_chk_lo_counts,
+                     lookup_mem_rng_chk_hi_counts,
                      lookup_pow_2_0_counts,
                      lookup_pow_2_1_counts,
                      lookup_u8_0_counts,
@@ -846,6 +860,8 @@ class AvmFlavor {
                               lookup_byte_operations,
                               incl_main_tag_err,
                               incl_mem_tag_err,
+                              lookup_mem_rng_chk_lo,
+                              lookup_mem_rng_chk_hi,
                               lookup_pow_2_0,
                               lookup_pow_2_1,
                               lookup_u8_0,
@@ -869,6 +885,8 @@ class AvmFlavor {
                               lookup_byte_operations_counts,
                               incl_main_tag_err_counts,
                               incl_mem_tag_err_counts,
+                              lookup_mem_rng_chk_lo_counts,
+                              lookup_mem_rng_chk_hi_counts,
                               lookup_pow_2_0_counts,
                               lookup_pow_2_1_counts,
                               lookup_u8_0_counts,
@@ -925,6 +943,7 @@ class AvmFlavor {
                               avm_main_internal_return_ptr_shift,
                               avm_main_pc_shift,
                               avm_mem_addr_shift,
+                              avm_mem_mem_sel_shift,
                               avm_mem_rw_shift,
                               avm_mem_tag_shift,
                               avm_mem_tsp_shift,
@@ -1124,6 +1143,8 @@ class AvmFlavor {
                      lookup_byte_operations,
                      incl_main_tag_err,
                      incl_mem_tag_err,
+                     lookup_mem_rng_chk_lo,
+                     lookup_mem_rng_chk_hi,
                      lookup_pow_2_0,
                      lookup_pow_2_1,
                      lookup_u8_0,
@@ -1147,6 +1168,8 @@ class AvmFlavor {
                      lookup_byte_operations_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
+                     lookup_mem_rng_chk_lo_counts,
+                     lookup_mem_rng_chk_hi_counts,
                      lookup_pow_2_0_counts,
                      lookup_pow_2_1_counts,
                      lookup_u8_0_counts,
@@ -1203,6 +1226,7 @@ class AvmFlavor {
                      avm_main_internal_return_ptr_shift,
                      avm_main_pc_shift,
                      avm_mem_addr_shift,
+                     avm_mem_mem_sel_shift,
                      avm_mem_rw_shift,
                      avm_mem_tag_shift,
                      avm_mem_tsp_shift,
@@ -1402,6 +1426,8 @@ class AvmFlavor {
                      lookup_byte_operations,
                      incl_main_tag_err,
                      incl_mem_tag_err,
+                     lookup_mem_rng_chk_lo,
+                     lookup_mem_rng_chk_hi,
                      lookup_pow_2_0,
                      lookup_pow_2_1,
                      lookup_u8_0,
@@ -1425,6 +1451,8 @@ class AvmFlavor {
                      lookup_byte_operations_counts,
                      incl_main_tag_err_counts,
                      incl_mem_tag_err_counts,
+                     lookup_mem_rng_chk_lo_counts,
+                     lookup_mem_rng_chk_hi_counts,
                      lookup_pow_2_0_counts,
                      lookup_pow_2_1_counts,
                      lookup_u8_0_counts,
@@ -1484,6 +1512,7 @@ class AvmFlavor {
                      avm_main_internal_return_ptr,
                      avm_main_pc,
                      avm_mem_addr,
+                     avm_mem_mem_sel,
                      avm_mem_rw,
                      avm_mem_tag,
                      avm_mem_tsp,
@@ -1528,6 +1557,7 @@ class AvmFlavor {
                      avm_main_internal_return_ptr_shift,
                      avm_main_pc_shift,
                      avm_mem_addr_shift,
+                     avm_mem_mem_sel_shift,
                      avm_mem_rw_shift,
                      avm_mem_tag_shift,
                      avm_mem_tsp_shift,
@@ -1581,6 +1611,7 @@ class AvmFlavor {
                      avm_main_internal_return_ptr,
                      avm_main_pc,
                      avm_mem_addr,
+                     avm_mem_mem_sel,
                      avm_mem_rw,
                      avm_mem_tag,
                      avm_mem_tsp,
@@ -1618,6 +1649,10 @@ class AvmFlavor {
             bb::compute_logderivative_inverse<AvmFlavor, incl_main_tag_err_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, incl_mem_tag_err_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_lo_relation<FF>>(
+                prover_polynomials, relation_parameters, this->circuit_size);
+            bb::compute_logderivative_inverse<AvmFlavor, lookup_mem_rng_chk_hi_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
             bb::compute_logderivative_inverse<AvmFlavor, lookup_pow_2_0_relation<FF>>(
                 prover_polynomials, relation_parameters, this->circuit_size);
@@ -1941,6 +1976,8 @@ class AvmFlavor {
             Base::lookup_byte_operations = "LOOKUP_BYTE_OPERATIONS";
             Base::incl_main_tag_err = "INCL_MAIN_TAG_ERR";
             Base::incl_mem_tag_err = "INCL_MEM_TAG_ERR";
+            Base::lookup_mem_rng_chk_lo = "LOOKUP_MEM_RNG_CHK_LO";
+            Base::lookup_mem_rng_chk_hi = "LOOKUP_MEM_RNG_CHK_HI";
             Base::lookup_pow_2_0 = "LOOKUP_POW_2_0";
             Base::lookup_pow_2_1 = "LOOKUP_POW_2_1";
             Base::lookup_u8_0 = "LOOKUP_U8_0";
@@ -1964,6 +2001,8 @@ class AvmFlavor {
             Base::lookup_byte_operations_counts = "LOOKUP_BYTE_OPERATIONS_COUNTS";
             Base::incl_main_tag_err_counts = "INCL_MAIN_TAG_ERR_COUNTS";
             Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
+            Base::lookup_mem_rng_chk_lo_counts = "LOOKUP_MEM_RNG_CHK_LO_COUNTS";
+            Base::lookup_mem_rng_chk_hi_counts = "LOOKUP_MEM_RNG_CHK_HI_COUNTS";
             Base::lookup_pow_2_0_counts = "LOOKUP_POW_2_0_COUNTS";
             Base::lookup_pow_2_1_counts = "LOOKUP_POW_2_1_COUNTS";
             Base::lookup_u8_0_counts = "LOOKUP_U8_0_COUNTS";
@@ -2192,6 +2231,8 @@ class AvmFlavor {
         Commitment lookup_byte_operations;
         Commitment incl_main_tag_err;
         Commitment incl_mem_tag_err;
+        Commitment lookup_mem_rng_chk_lo;
+        Commitment lookup_mem_rng_chk_hi;
         Commitment lookup_pow_2_0;
         Commitment lookup_pow_2_1;
         Commitment lookup_u8_0;
@@ -2215,6 +2256,8 @@ class AvmFlavor {
         Commitment lookup_byte_operations_counts;
         Commitment incl_main_tag_err_counts;
         Commitment incl_mem_tag_err_counts;
+        Commitment lookup_mem_rng_chk_lo_counts;
+        Commitment lookup_mem_rng_chk_hi_counts;
         Commitment lookup_pow_2_0_counts;
         Commitment lookup_pow_2_1_counts;
         Commitment lookup_u8_0_counts;
@@ -2444,6 +2487,8 @@ class AvmFlavor {
             lookup_byte_operations = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_mem_rng_chk_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_mem_rng_chk_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_1 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_0 = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2467,6 +2512,8 @@ class AvmFlavor {
             lookup_byte_operations_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_main_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             incl_mem_tag_err_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_mem_rng_chk_lo_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            lookup_mem_rng_chk_hi_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_pow_2_1_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             lookup_u8_0_counts = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2699,6 +2746,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_byte_operations, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_0, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_1, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_0, Transcript::proof_data);
@@ -2722,6 +2771,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(lookup_byte_operations_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_main_tag_err_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(incl_mem_tag_err_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_lo_counts, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(lookup_mem_rng_chk_hi_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_0_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_pow_2_1_counts, Transcript::proof_data);
             serialize_to_buffer<Commitment>(lookup_u8_0_counts, Transcript::proof_data);
