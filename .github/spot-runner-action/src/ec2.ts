@@ -1,19 +1,15 @@
 import * as _ from "lodash";
 import AWS from "aws-sdk";
 import {
+  CreateFleetInstance,
   CreateFleetRequest,
   CreateLaunchTemplateRequest,
   FleetLaunchTemplateConfig,
-  GetSpotPlacementScoresRequest,
-  RequestSpotFleetRequest,
   RunInstancesRequest,
-  SpotFleetRequestConfigData,
-  SpotInstanceRequest,
 } from "aws-sdk/clients/ec2";
 import * as crypto from "crypto";
 import * as core from "@actions/core";
 import { ConfigInterface } from "./config";
-import { UserData } from "./userdata";
 
 interface Tag {
   Key: string;
@@ -119,16 +115,16 @@ export class Ec2Instance {
     }
   }
 
-  async runInstances(params: RunInstancesRequest) {
-    const client = await this.getEc2Client();
+  // async runInstances(params: RunInstancesRequest) {
+  //   const client = await this.getEc2Client();
 
-    try {
-      return (await client.runInstances(params).promise()).Instances;
-    } catch (error) {
-      core.error(`Failed to create instance(s)`);
-      throw error;
-    }
-  }
+  //   try {
+  //     return (await client.runInstances(params).promise()).Instances;
+  //   } catch (error) {
+  //     core.error(`Failed to create instance(s)`);
+  //     throw error;
+  //   }
+  // }
 
   async getSubnetAzId() {
     const client = await this.getEc2Client();
@@ -170,104 +166,144 @@ export class Ec2Instance {
     return hash.digest("hex");
   }
 
-  async getSpotInstanceRequestConfiguration(useOnDemand: boolean) {
+  async getLaunchTemplate(): Promise<string> {
+    const client = await this.getEc2Client();
+
+    const ec2InstanceTypeHash = this.getHashOfStringArray(
+      this.config.ec2InstanceType
+    );
+    const launchTemplateName =
+      "aztec-packages-spot-runner-" + ec2InstanceTypeHash;
+
+    const launchTemplateParams: CreateLaunchTemplateRequest = {
+      LaunchTemplateName: launchTemplateName,
+      LaunchTemplateData: {
+        InstanceRequirements: {
+          // We do not know what the instance types correspond to
+          // just let the user send a list of allowed instance types
+          VCpuCount: { Min: 0 },
+          MemoryMiB: { Min: 0 },
+          AllowedInstanceTypes: this.config.ec2InstanceType,
+        },
+      },
+    };
+    const arr =
+      (
+        await client
+          .describeLaunchTemplates({
+            LaunchTemplateNames: [launchTemplateName],
+          })
+          .promise()
+      ).LaunchTemplates || [];
+    core.info("Launch templates found: " + arr);
+    if (arr.length <= 0) {
+      core.info("Creating launch template: " + launchTemplateName);
+      await client.createLaunchTemplate(launchTemplateParams).promise();
+    }
+    return launchTemplateName;
+  }
+
+  async requestMachine(useOnDemand: boolean): Promise<string|undefined> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
-    const userData = await new UserData(this.config).getUserData();
     const availabilityZone = await this.getSubnetAz();
-    const f: FleetLaunchTemplateConfig = {
-      Overrides: [{
-        InstanceType: this.config.ec2InstanceType[0],
+    const fleetLaunchConfig: FleetLaunchTemplateConfig = {
+      LaunchTemplateSpecification: {
+        LaunchTemplateName: await this.getLaunchTemplate()
+      },
+      Overrides: this.config.ec2InstanceType.map(instanceType => ({
+        InstanceType: instanceType,
         AvailabilityZone: availabilityZone,
         SubnetId: this.config.ec2SubnetId,
-        KeyName: this.config.ec2KeyName,
-      }]
+      }))
     };
-    const c: CreateFleetRequest = {
-      LaunchTemplateConfigs: f,
+    const createFleetRequest: CreateFleetRequest = {
+      Type: "instant",
+      LaunchTemplateConfigs: fleetLaunchConfig,
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
         SpotTargetCapacity: useOnDemand ? 0 : 1
       }
     };
-    const config: SpotFleetRequestConfigData = {
-      IamFleetRole:
-        "arn:aws:iam::278380418400:role/aws-ec2-spot-fleet-tagging-role",
-      TargetCapacity: 1,
-      // We always ask for 1 instance, but might ask for 100% on demand or spot
-      OnDemandTargetCapacity: useOnDemand ? 1 : 0,
-      TerminateInstancesWithExpiration: true,
-      Type: "request",
-      LaunchSpecifications:
-    };
-    const params: RequestSpotFleetRequest = {
-      SpotFleetRequestConfig: config,
-    };
+    // const config: SpotFleetRequestConfigData = {
+    //   IamFleetRole:
+    //     "arn:aws:iam::278380418400:role/aws-ec2-spot-fleet-tagging-role",
+    //   TargetCapacity: 1,
+    //   // We always ask for 1 instance, but might ask for 100% on demand or spot
+    //   OnDemandTargetCapacity: useOnDemand ? 1 : 0,
+    //   TerminateInstancesWithExpiration: true,
+    //   Type: "request",
+    //   LaunchSpecifications:
+    // };
+    // const params: RequestSpotFleetRequest = {
+    //   SpotFleetRequestConfig: config,
+    // };
     const client = await this.getEc2Client();
-    const requestId = await client.requestSpotFleet(params)?.SpotFleetRequestId;
-    return params;
+    const fleet = await client.createFleet(createFleetRequest).promise();
+    const instances: CreateFleetInstance = (fleet?.Instances || [])[0] || {};
+    return (instances.InstanceIds || [])[0];
   }
 
-  async getOnDemandInstanceConfiguration(
-    ec2SpotInstanceStrategy: string
-  ): Promise<RunInstancesRequest> {
-    const userData = new UserData(this.config);
+  // async getOnDemandInstanceConfiguration(
+  //   ec2SpotInstanceStrategy: string
+  // ): Promise<RunInstancesRequest> {
+  //   const userData = new UserData(this.config);
 
-    const params: RunInstancesRequest = {
-      ImageId: this.config.ec2AmiId,
-      InstanceInitiatedShutdownBehavior: "terminate",
-      InstanceMarketOptions: {},
-      InstanceType: "",
-      MaxCount: 1,
-      MinCount: 1,
-      SecurityGroupIds: [this.config.ec2SecurityGroupId],
-      SubnetId: this.config.ec2SubnetId,
-      KeyName: this.config.ec2KeyName,
-      Placement: {
-        AvailabilityZone: await this.getSubnetAz(),
-      },
-      TagSpecifications: [
-        {
-          ResourceType: "instance",
-          Tags: this.tags,
-        },
-      ],
-      // <aztec>parity with build-system
-      BlockDeviceMappings: [
-        {
-          DeviceName: "/dev/sda1",
-          Ebs: {
-            VolumeSize: 32,
-          },
-        },
-      ],
-      // parity with build-system</aztec>
-      UserData: await userData.getUserData(),
-    };
+  //   const params: RunInstancesRequest = {
+  //     ImageId: this.config.ec2AmiId,
+  //     InstanceInitiatedShutdownBehavior: "terminate",
+  //     InstanceMarketOptions: {},
+  //     InstanceType: "",
+  //     MaxCount: 1,
+  //     MinCount: 1,
+  //     SecurityGroupIds: [this.config.ec2SecurityGroupId],
+  //     SubnetId: this.config.ec2SubnetId,
+  //     KeyName: this.config.ec2KeyName,
+  //     Placement: {
+  //       AvailabilityZone: await this.getSubnetAz(),
+  //     },
+  //     TagSpecifications: [
+  //       {
+  //         ResourceType: "instance",
+  //         Tags: this.tags,
+  //       },
+  //     ],
+  //     // <aztec>parity with build-system
+  //     BlockDeviceMappings: [
+  //       {
+  //         DeviceName: "/dev/sda1",
+  //         Ebs: {
+  //           VolumeSize: 32,
+  //         },
+  //       },
+  //     ],
+  //     // parity with build-system</aztec>
+  //     UserData: await userData.getUserData(),
+  //   };
 
-    switch (ec2SpotInstanceStrategy.toLowerCase()) {
-      case "besteffort":
-      case "spotonly": {
-        params.InstanceMarketOptions = {
-          MarketType: "spot",
-          SpotOptions: {
-            InstanceInterruptionBehavior: "terminate",
-            SpotInstanceType: "one-time",
-          },
-        };
-        break;
-      }
-      case "none": {
-        params.InstanceMarketOptions = {};
-        break;
-      }
-      default: {
-        throw new TypeError("Invalid value for ec2_spot_instance_strategy");
-      }
-    }
+  //   switch (ec2SpotInstanceStrategy.toLowerCase()) {
+  //     case "besteffort":
+  //     case "spotonly": {
+  //       params.InstanceMarketOptions = {
+  //         MarketType: "spot",
+  //         SpotOptions: {
+  //           InstanceInterruptionBehavior: "terminate",
+  //           SpotInstanceType: "one-time",
+  //         },
+  //       };
+  //       break;
+  //     }
+  //     case "none": {
+  //       params.InstanceMarketOptions = {};
+  //       break;
+  //     }
+  //     default: {
+  //       throw new TypeError("Invalid value for ec2_spot_instance_strategy");
+  //     }
+  //   }
 
-    return params;
-  }
+  //   return params;
+  // }
 
   async getInstanceStatus(instanceId: string) {
     const client = await this.getEc2Client();

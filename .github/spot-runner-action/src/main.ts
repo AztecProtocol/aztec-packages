@@ -91,19 +91,19 @@ async function start() {
     // 6 * 10000ms = 1 minute per strategy
     // TODO make longer lived spot request?
     for (let i = 0; i < 6; i++) {
-      // Get instance config
-      const instanceConfig = await ec2Client.getInstanceConfiguration(
-        ec2Strategy
-      );
       try {
         // Start instance
-        const response = await ec2Client.runInstances(instanceConfig);
-        if (response?.length && response.length > 0 && response[0].InstanceId) {
-          instanceId = response[0].InstanceId;
+        instanceId = await ec2Client.requestMachine(
+          // we fallback to on-demand
+          ec2Strategy.toLocaleUpperCase() === "none"
+        ) || "";
+        if (instanceId) {
+          break;
         }
         // let's exit, only loop on InsufficientInstanceCapacity
         break;
       } catch (error) {
+        // TODO is this still the relevant error?
         if (
           error?.code &&
           error.code === "InsufficientInstanceCapacity" &&
