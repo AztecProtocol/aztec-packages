@@ -47,6 +47,10 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
 
+build-dev:
+    FROM +build
+    SAVE ARTIFACT /usr/src /usr/src
+
 aztec-prod:
     FROM +build
     RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
