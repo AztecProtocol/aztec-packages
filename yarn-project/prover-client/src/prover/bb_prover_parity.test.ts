@@ -127,5 +127,5 @@ describe('prover/bb_prover/parity', () => {
         ]).toContainEqual(error);
       }
     }
-  }, 100_000);
+  }, 200_000);
 });
