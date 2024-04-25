@@ -24,6 +24,7 @@ contract AvmTest {
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
 
     // Libs
+    use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
     use dep::aztec::prelude::{Map, Deserialize};
     use dep::aztec::state_vars::PublicMutable;
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH};
@@ -172,20 +173,20 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn test_get_contract_instance_raw() {
         let fields = get_contract_instance_internal_avm(context.this_address());
-        assert(fields.len() == 7);
+        // The values here should match those in `avm_simulator.test.ts>Contract>GETCONTRACTINSTANCE deserializes correctly`
+        assert(fields.len() == CONTRACT_INSTANCE_LENGTH + 1);
         assert(fields[0] == 0x1);
         assert(fields[1] == 0x123);
         assert(fields[2] == 0x456);
         assert(fields[3] == 0x789);
         assert(fields[4] == 0x101112);
-        assert(fields[5] == 0x131415);
-        assert(fields[6] == 0x161718);
+        assert(fields[5] == 0x161718);
     }
 
     #[aztec(public-vm)]
     fn test_get_contract_instance() {
         let ci = get_contract_instance_avm(context.this_address());
-        assert(ci.is_some());
+        assert(ci.is_some(), "Contract instance not found!");
     }
 
     /************************************************************************
@@ -204,16 +205,6 @@ contract AvmTest {
     #[aztec(public-vm)]
     fn get_sender() -> pub AztecAddress {
         context.msg_sender()
-    }
-
-    #[aztec(public-vm)]
-    fn get_origin() -> pub AztecAddress {
-        context.origin()
-    }
-
-    #[aztec(public-vm)]
-    fn get_portal() -> pub EthAddress {
-        context.this_portal_address()
     }
 
     #[aztec(public-vm)]
@@ -258,7 +249,9 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn check_selector() {
-        assert(context.selector() == FunctionSelector::from_signature("check_selector()"));
+        assert(
+            context.selector() == FunctionSelector::from_signature("check_selector()"), "Unexpected selector!"
+        );
     }
 
     #[aztec(public-vm)]
@@ -268,10 +261,10 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn emit_unencrypted_log() {
-        context.accumulate_unencrypted_logs(/*event_selector=*/ 5, /*message=*/ [10, 20, 30]);
-        context.accumulate_unencrypted_logs(/*event_selector=*/ 8, /*message=*/ "Hello, world!");
+        context.emit_unencrypted_log(/*event_selector=*/ 5, /*message=*/ [10, 20, 30]);
+        context.emit_unencrypted_log(/*event_selector=*/ 8, /*message=*/ "Hello, world!");
         let s: CompressedString<2,44> = CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.accumulate_unencrypted_logs(/*event_selector=*/ 10, /*message=*/ s);
+        context.emit_unencrypted_log(/*event_selector=*/ 10, /*message=*/ s);
     }
 
     #[aztec(public-vm)]
@@ -299,7 +292,7 @@ contract AvmTest {
 
     #[aztec(public-vm)]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier, context.this_address()));
+        assert(context.nullifier_exists(nullifier, context.this_address()), "Nullifier doesn't exist!");
     }
 
     // Use the standard context interface to emit a new nullifier

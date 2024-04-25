@@ -1,5 +1,4 @@
-import { SiblingPath } from '@aztec/circuit-types';
-import { GasFees, GlobalVariables, Header, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/circuits.js';
+import { GasFees, GasSettings, GlobalVariables, Header } from '@aztec/circuits.js';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -8,12 +7,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import {
-  type CommitmentsDB,
-  MessageLoadOracleInputs,
-  type PublicContractsDB,
-  type PublicStateDB,
-} from '../../index.js';
+import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '../../index.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
@@ -61,9 +55,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
     overrides?.storageAddress ?? AztecAddress.zero(),
-    overrides?.origin ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
-    overrides?.portal ?? EthAddress.ZERO,
     overrides?.feePerL1Gas ?? Fr.zero(),
     overrides?.feePerL2Gas ?? Fr.zero(),
     overrides?.feePerDaGas ?? Fr.zero(),
@@ -73,6 +65,8 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
+    overrides?.gasSettings ?? GasSettings.empty(),
+    overrides?.transactionFee ?? Fr.ZERO,
     overrides?.temporaryFunctionSelector ?? FunctionSelector.empty(),
   );
 }
@@ -108,18 +102,6 @@ export function initMachineState(overrides?: Partial<AvmMachineState>): AvmMachi
  */
 export function allSameExcept(original: any, overrides: any): any {
   return merge({}, original, overrides);
-}
-
-/**
- * Create an empty L1ToL2Message oracle input
- */
-export function initL1ToL2MessageOracleInput(
-  leafIndex?: bigint,
-): MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT> {
-  return new MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
-    leafIndex ?? 0n,
-    new SiblingPath(L1_TO_L2_MSG_TREE_HEIGHT, Array(L1_TO_L2_MSG_TREE_HEIGHT)),
-  );
 }
 
 /**

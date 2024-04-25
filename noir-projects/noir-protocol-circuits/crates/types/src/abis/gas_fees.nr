@@ -11,8 +11,12 @@ struct GasFees {
 }
 
 impl GasFees {
-    fn new(fee_per_da_gas: Field, fee_per_l1_gas: Field, fee_per_l2_gas: Field) -> Self {
+    pub fn new(fee_per_da_gas: Field, fee_per_l1_gas: Field, fee_per_l2_gas: Field) -> Self {
         Self { fee_per_da_gas, fee_per_l1_gas, fee_per_l2_gas }
+    }
+
+    pub fn default() -> Self {
+        GasFees::new(1, 1, 1)
     }
 }
 

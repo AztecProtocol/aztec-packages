@@ -3,7 +3,6 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { EventSelector, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { keccak256, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 import { AvmNestedCallsTestContractArtifact, AvmTestContractArtifact } from '@aztec/noir-contracts.js';
@@ -20,7 +19,6 @@ import {
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
-  initL1ToL2MessageOracleInput,
   initMachineState,
   randomMemoryBytes,
   randomMemoryFields,
@@ -106,6 +104,18 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(4), new Fr(6)]);
   });
 
+  it('Assertion message', async () => {
+    const calldata: Fr[] = [new Fr(20)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('assert_nullifier_exists');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(true);
+    expect(results.revertReason?.message).toEqual("Reverted with output: Nullifier doesn't exist!");
+    expect(results.output).toEqual([..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))));
+  });
+
   describe.each([
     ['set_opcode_u8', 8n],
     ['set_opcode_u32', 1n << 30n],
@@ -124,23 +134,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe.each([
-    [
-      'sha256_hash',
-      /*input=*/ randomMemoryBytes(10),
-      /*output=*/ (bytes: Uint8[]) => [...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)),
-    ],
-    [
-      'keccak_hash',
-      /*input=*/ randomMemoryBytes(10),
-      /*output=*/ (bytes: Uint8[]) => [...keccak256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b)),
-    ],
-    ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ (fields: Fieldable[]) => [poseidon2Hash(fields)]],
-    ['pedersen_hash', /*input=*/ randomMemoryFields(10), /*output=*/ (fields: Fieldable[]) => [pedersenHash(fields)]],
-    [
-      'pedersen_hash_with_index',
-      /*input=*/ randomMemoryFields(10),
-      /*output=*/ (fields: Fieldable[]) => [pedersenHash(fields, /*index=*/ 20)],
-    ],
+    ['sha256_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ sha256FromMemoryBytes],
+    ['keccak_hash', /*input=*/ randomMemoryBytes(10), /*output=*/ keccak256FromMemoryBytes],
+    ['poseidon2_hash', /*input=*/ randomMemoryFields(10), /*output=*/ poseidon2FromMemoryFields],
+    ['pedersen_hash', /*input=*/ randomMemoryFields(10), /*output=*/ pedersenFromMemoryFields],
+    ['pedersen_hash_with_index', /*input=*/ randomMemoryFields(10), /*output=*/ indexedPedersenFromMemoryFields],
   ])('Hashes in noir contracts', (name: string, input: MemoryValue[], output: (msg: any[]) => Fr[]) => {
     it(`Should execute contract function that performs ${name}`, async () => {
       const calldata = input.map(e => e.toFr());
@@ -187,16 +185,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     it('sender', async () => {
       const sender = AztecAddress.fromField(new Fr(1));
       await testEnvGetter('sender', sender, 'get_sender');
-    });
-
-    it('origin', async () => {
-      const origin = AztecAddress.fromField(new Fr(1));
-      await testEnvGetter('origin', origin, 'get_origin');
-    });
-
-    it('portal', async () => {
-      const portal = EthAddress.fromField(new Fr(1));
-      await testEnvGetter('portal', portal, 'get_portal');
     });
 
     it('getFeePerL1Gas', async () => {
@@ -454,6 +442,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(true);
+      expect(results.revertReason?.message).toMatch(/Attempted to emit duplicate nullifier/);
       // Only the first nullifier should be in the trace, second one failed to add
       expect(context.persistableState.flush().newNullifiers).toEqual([
         expect.objectContaining({
@@ -488,9 +477,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const calldata = [msgHash, leafIndex];
 
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.commitmentsDb, 'getL1ToL2MembershipWitness')
-        .mockResolvedValue(initL1ToL2MessageOracleInput(leafIndex.toBigInt()));
+      jest.spyOn(context.persistableState.hostStorage.commitmentsDb, 'getL1ToL2LeafValue').mockResolvedValue(msgHash);
       const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
@@ -779,7 +766,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         deployer: AztecAddress.fromBigInt(0x456n),
         contractClassId: new Fr(0x789),
         initializationHash: new Fr(0x101112),
-        portalContractAddress: EthAddress.fromField(new Fr(0x131415)),
         publicKeysHash: new Fr(0x161718),
       };
 
@@ -794,27 +780,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Nested external calls', () => {
-    it(`Nested call succeeds`, async () => {
-      const calldata: Fr[] = [new Fr(1), new Fr(2)];
-      const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_call_to_add');
-      const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
-      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValue(Promise.resolve(addBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.revertReason).toBeUndefined();
-      expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([new Fr(3)]);
-    });
-
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5625): gas not plumbed through correctly in nested calls.
     // it(`Nested call with not enough gas`, async () => {
     //   const gas = [/*l1=*/ 10000, /*l2=*/ 20, /*da=*/ 10000].map(g => new Fr(g));
     //   const calldata: Fr[] = [new Fr(1), new Fr(2), ...gas];
-    //   const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_call_to_add_with_gas');
+    //   const callBytecode = getAvmNestedCallsTestContractBytecode('nested_call_to_add_with_gas');
     //   const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
     //   const context = initContext({ env: initExecutionEnvironment({ calldata }) });
     //   jest
@@ -829,7 +799,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     //   expect(results.output).toEqual([new Fr(0)]);
     // });
 
-    it(`Nested call through the old interface`, async () => {
+    it(`Nested call`, async () => {
       const calldata: Fr[] = [new Fr(1), new Fr(2)];
       const callBytecode = getAvmNestedCallsTestContractBytecode('nested_call_to_add');
       const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
@@ -846,35 +816,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     it(`Nested static call`, async () => {
       const calldata: Fr[] = [new Fr(1), new Fr(2)];
-      const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_static_call_to_add');
-      const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
-      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValue(Promise.resolve(addBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([/*result=*/ new Fr(3), /*success=*/ new Fr(1)]);
-    });
-
-    it(`Nested static call which modifies storage`, async () => {
-      const callBytecode = getAvmNestedCallsTestContractBytecode('raw_nested_static_call_to_set_storage');
-      const nestedBytecode = getAvmNestedCallsTestContractBytecode('set_storage_single');
-      const context = initContext();
-      jest
-        .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
-        .mockReturnValue(Promise.resolve(nestedBytecode));
-
-      const results = await new AvmSimulator(context).executeBytecode(callBytecode);
-
-      expect(results.reverted).toBe(false); // The outer call should not revert.
-      expect(results.output).toEqual([new Fr(0)]); // The inner call should have reverted.
-    });
-
-    it(`Nested static call (old interface)`, async () => {
-      const calldata: Fr[] = [new Fr(1), new Fr(2)];
       const callBytecode = getAvmNestedCallsTestContractBytecode('nested_static_call_to_add');
       const addBytecode = getAvmNestedCallsTestContractBytecode('add_args_return');
       const context = initContext({ env: initExecutionEnvironment({ calldata }) });
@@ -888,7 +829,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       expect(results.output).toEqual([/*result=*/ new Fr(3)]);
     });
 
-    it(`Nested static call which modifies storage (old interface)`, async () => {
+    it(`Nested static call which modifies storage`, async () => {
       const callBytecode = getAvmNestedCallsTestContractBytecode('nested_static_call_to_set_storage');
       const nestedBytecode = getAvmNestedCallsTestContractBytecode('set_storage_single');
       const context = initContext();
@@ -899,8 +840,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(callBytecode);
 
       expect(results.reverted).toBe(true); // The outer call should revert.
-      // TODO(fcarreiro): revertReason lost in translation between results.
-      // expect(results.revertReason).toEqual(/StaticCallStorageAlterError/);
+      expect(results.revertReason?.message).toMatch(/Nested static call failed/);
     });
   });
 });
@@ -921,4 +861,24 @@ function getAvmNestedCallsTestContractBytecode(functionName: string): Buffer {
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
   );
   return artifact.bytecode;
+}
+
+function sha256FromMemoryBytes(bytes: Uint8[]): Fr[] {
+  return [...sha256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b));
+}
+
+function keccak256FromMemoryBytes(bytes: Uint8[]): Fr[] {
+  return [...keccak256(Buffer.concat(bytes.map(b => b.toBuffer())))].map(b => new Fr(b));
+}
+
+function poseidon2FromMemoryFields(fields: Fieldable[]): Fr[] {
+  return [poseidon2Hash(fields)];
+}
+
+function pedersenFromMemoryFields(fields: Fieldable[]): Fr[] {
+  return [pedersenHash(fields)];
+}
+
+function indexedPedersenFromMemoryFields(fields: Fieldable[]): Fr[] {
+  return [pedersenHash(fields, /*index=*/ 20)];
 }

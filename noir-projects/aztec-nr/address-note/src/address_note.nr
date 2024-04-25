@@ -2,10 +2,10 @@
 use dep::aztec::log::emit_encrypted_log;
 // docs:end:encrypted_import
 use dep::aztec::{
-    protocol_types::{address::AztecAddress, traits::Empty},
+    protocol_types::{address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER},
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_consumption},
-    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_nullifier_secret_key, get_public_key::get_public_key},
-    hash::pedersen_hash, context::PrivateContext
+    oracle::{unsafe_rand::unsafe_rand, nullifier_key::get_app_nullifier_secret_key, get_public_key::get_public_key},
+    context::PrivateContext, hash::poseidon2_hash
 };
 
 global ADDRESS_NOTE_LEN: Field = 3;
@@ -19,28 +19,26 @@ struct AddressNote {
     randomness: Field,
 }
 
-impl NoteInterface<ADDRESS_NOTE_LEN>  for AddressNote {
+impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = context.request_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = context.request_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_consumption(self);
-        let secret = get_nullifier_secret_key(self.owner);
-        // TODO(#1205) Should use a non-zero generator index.
-        pedersen_hash([
+        let secret = get_app_nullifier_secret_key(self.owner);
+        poseidon2_hash([
             note_hash_for_nullify,
-            secret.low,
-            secret.high,
-        ],0)
+            secret,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        ])
     }
 
     // Broadcasts the note as an encrypted log on L1.

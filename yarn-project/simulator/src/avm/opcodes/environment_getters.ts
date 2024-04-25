@@ -41,15 +41,6 @@ export class Sender extends EnvironmentGetterInstruction {
   }
 }
 
-export class Origin extends EnvironmentGetterInstruction {
-  static type: string = 'ORIGIN';
-  static readonly opcode: Opcode = Opcode.ORIGIN;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return env.origin;
-  }
-}
-
 export class FeePerL1Gas extends EnvironmentGetterInstruction {
   static type: string = 'FEEPERL1GAS';
   static readonly opcode: Opcode = Opcode.FEEPERL1GAS;
@@ -74,15 +65,6 @@ export class FeePerDAGas extends EnvironmentGetterInstruction {
 
   protected getEnvironmentValue(env: AvmExecutionEnvironment) {
     return env.feePerDaGas;
-  }
-}
-
-export class Portal extends EnvironmentGetterInstruction {
-  static type: string = 'PORTAL';
-  static readonly opcode: Opcode = Opcode.PORTAL;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return env.portal.toField();
   }
 }
 

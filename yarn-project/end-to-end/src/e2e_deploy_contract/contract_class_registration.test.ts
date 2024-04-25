@@ -5,7 +5,6 @@ import {
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type DebugLogger,
-  EthAddress,
   Fr,
   type PXE,
   TxStatus,
@@ -19,7 +18,7 @@ import {
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
-import { type ContractClassIdPreimage, Point } from '@aztec/circuits.js';
+import { type ContractClassIdPreimage } from '@aztec/circuits.js';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
 import { writeTestData } from '@aztec/foundation/testing';
 import { StatefulTestContract } from '@aztec/noir-contracts.js';
@@ -96,13 +95,11 @@ describe('e2e_deploy_contract contract class registration', () => {
       const deployInstance = async (opts: { constructorName?: string; deployer?: AztecAddress } = {}) => {
         const initArgs = [wallet.getAddress(), 42] as StatefulContractCtorArgs;
         const salt = Fr.random();
-        const portalAddress = EthAddress.random();
-        const publicKey = Point.random();
+        const publicKeysHash = Fr.random();
         const instance = getContractInstanceFromDeployParams(artifact, {
           constructorArgs: initArgs,
           salt,
-          publicKey,
-          portalAddress,
+          publicKeysHash,
           constructorArtifact: opts.constructorName,
           deployer: opts.deployer,
         });
@@ -122,14 +119,13 @@ describe('e2e_deploy_contract contract class registration', () => {
         const registered = await t.registerContract(wallet, StatefulTestContract, {
           constructorName: opts.constructorName,
           salt: instance.salt,
-          portalAddress: instance.portalContractAddress,
-          publicKey,
+          publicKeysHash,
           initArgs,
           deployer: opts.deployer,
         });
         expect(registered.address).toEqual(instance.address);
         const contract = await StatefulTestContract.at(instance.address, wallet);
-        return { contract, initArgs, instance, publicKey };
+        return { contract, initArgs, instance, publicKeysHash };
       };
 
       describe('using a private constructor', () => {
@@ -143,7 +139,6 @@ describe('e2e_deploy_contract contract class registration', () => {
           expect(deployed!.address).toEqual(instance.address);
           expect(deployed!.contractClassId).toEqual(contractClass.id);
           expect(deployed!.initializationHash).toEqual(instance.initializationHash);
-          expect(deployed!.portalContractAddress).toEqual(instance.portalContractAddress);
           expect(deployed!.publicKeysHash).toEqual(instance.publicKeysHash);
           expect(deployed!.salt).toEqual(instance.salt);
           expect(deployed!.deployer).toEqual(instance.deployer);

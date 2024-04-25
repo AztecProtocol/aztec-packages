@@ -1,4 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr, FunctionSelector, TxStatus } from '@aztec/aztec.js';
+import { GasSettings } from '@aztec/circuits.js';
 import {
   AvmAcvmInteropTestContract,
   AvmInitializerTestContract,
@@ -31,6 +32,21 @@ describe('e2e_avm_simulator', () => {
     beforeEach(async () => {
       avmContract = await AvmTestContract.deploy(wallet).send().deployed();
     }, 50_000);
+
+    describe('Gas metering', () => {
+      it('Tracks L2 gas usage on simulation', async () => {
+        const request = await avmContract.methods.add_args_return(20n, 30n).create();
+        const simulation = await wallet.simulateTx(request, true, wallet.getAddress());
+        // Subtract the teardown gas allocation from the gas used to figure out the gas used by the contract logic.
+        const l2TeardownAllocation = GasSettings.simulation().getTeardownLimits().l2Gas;
+        const l2GasUsed = simulation.publicOutput!.end.gasUsed.l2Gas! - l2TeardownAllocation;
+        // L2 gas used will vary a lot depending on codegen and other factors,
+        // so we just set a wide range for it, and check it's not a suspiciously round number.
+        expect(l2GasUsed).toBeGreaterThan(1e3);
+        expect(l2GasUsed).toBeLessThan(1e6);
+        expect(l2GasUsed! % 1000).not.toEqual(0);
+      });
+    });
 
     describe('Storage', () => {
       it('Modifies storage (Field)', async () => {
@@ -80,15 +96,15 @@ describe('e2e_avm_simulator', () => {
     }, 50_000);
 
     it('Can execute ACVM function among AVM functions', async () => {
-      expect(await avmContract.methods.constant_field_acvm().simulate()).toEqual([123456n]);
+      expect(await avmContract.methods.constant_field_acvm().simulate()).toEqual(123456n);
     });
 
     it('Can call AVM function from ACVM', async () => {
-      expect(await avmContract.methods.call_avm_from_acvm().simulate()).toEqual([123456n]);
+      expect(await avmContract.methods.call_avm_from_acvm().simulate()).toEqual(123456n);
     });
 
     it('Can call ACVM function from AVM', async () => {
-      expect(await avmContract.methods.call_acvm_from_avm().simulate()).toEqual([123456n]);
+      expect(await avmContract.methods.call_acvm_from_avm().simulate()).toEqual(123456n);
     });
 
     it('AVM sees settled nullifiers by ACVM', async () => {
@@ -105,6 +121,7 @@ describe('e2e_avm_simulator', () => {
         .send()
         .wait();
     });
+
     describe('Authwit', () => {
       it('Works if authwit provided', async () => {
         const recipient = AztecAddress.random();
@@ -146,7 +163,7 @@ describe('e2e_avm_simulator', () => {
 
       describe('Storage', () => {
         it('Read immutable (initialized) storage (Field)', async () => {
-          expect(await avmContract.methods.read_storage_immutable().simulate()).toEqual([42n]);
+          expect(await avmContract.methods.read_storage_immutable().simulate()).toEqual(42n);
         });
       });
     });
@@ -167,6 +184,7 @@ describe('e2e_avm_simulator', () => {
         avmContract.methods.create_same_nullifier_in_nested_call(avmContract.address, nullifier).send().wait(),
       ).rejects.toThrow();
     });
+
     it('Should be able to emit different unsiloed nullifiers from the same contract', async () => {
       const nullifier = new Fr(1);
       const tx = await avmContract.methods
@@ -175,6 +193,7 @@ describe('e2e_avm_simulator', () => {
         .wait();
       expect(tx.status).toEqual(TxStatus.MINED);
     });
+
     // TODO(4293): this should work! Fails in public kernel because both nullifiers are incorrectly being siloed by same address
     it.skip('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
       const nullifier = new Fr(1);
@@ -184,6 +203,7 @@ describe('e2e_avm_simulator', () => {
         .wait();
       expect(tx.status).toEqual(TxStatus.MINED);
     });
+
     it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
       const nullifier = new Fr(1);
       const tx = await avmContract.methods

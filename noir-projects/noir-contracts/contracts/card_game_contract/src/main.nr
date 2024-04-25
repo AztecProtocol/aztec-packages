@@ -2,12 +2,12 @@ mod cards;
 mod game;
 
 contract CardGame {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, constants::MAX_NOTES_PER_PAGE};
+    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
     use dep::aztec::{context::Context, hash::pedersen_hash, state_vars::{Map, PublicMutable}};
 
     use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
-    use dep::aztec::note::note_header::NoteHeader;
+    use dep::aztec::note::{note_header::NoteHeader, constants::MAX_NOTES_PER_PAGE};
 
     use crate::cards::{PACK_CARDS, Deck, Card, get_pack_cards, compute_deck_strength};
     use crate::game::{NUMBER_OF_PLAYERS, NUMBER_OF_CARDS_DECK, PLAYABLE_CARDS, PlayerEntry, Game, GAME_SERIALIZED_LEN};
@@ -39,13 +39,8 @@ contract CardGame {
         collection.remove_cards(cards, player);
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
         let _added_to_game_deck = game_deck.add_cards(cards, player);
-        let selector = FunctionSelector::from_signature("on_game_joined(u32,(Field),u32)");
         let strength = compute_deck_strength(cards);
-        context.call_public_function(
-            context.this_address(),
-            selector,
-            [game as Field, player.to_field(), strength]
-        );
+        CardGame::at(context.this_address()).on_game_joined(game, player, strength as u32).enqueue(&mut context);
     }
 
     #[aztec(public)]
@@ -75,13 +70,8 @@ contract CardGame {
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
         game_deck.remove_cards([card], player);
 
-        let selector = FunctionSelector::from_signature("on_card_played(u32,(Field),Field)");
         // docs:start:call_public_function
-        context.call_public_function(
-            context.this_address(),
-            selector,
-            [game as Field, player.to_field(), card.to_field()]
-        );
+        CardGame::at(context.this_address()).on_card_played(game, player, card.to_field()).enqueue(&mut context);
         // docs:end:call_public_function
     }
 
@@ -107,13 +97,7 @@ contract CardGame {
 
         let mut collection = storage.collections.at(player);
         let _inserted_cards = collection.add_cards(cards, player);
-
-        let selector = FunctionSelector::from_signature("on_cards_claimed(u32,(Field),Field)");
-        context.call_public_function(
-            context.this_address(),
-            selector,
-            [game as Field, player.to_field(), pedersen_hash(cards_fields, 0)]
-        );
+        CardGame::at(context.this_address()).on_cards_claimed(game, player, pedersen_hash(cards_fields, 0)).enqueue(&mut context);
     }
 
     #[aztec(public)]

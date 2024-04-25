@@ -153,7 +153,6 @@ yarn-project-test:
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
-    - ^yarn-project/cli/aztec-cli
   dependencies:
     - bb.js
     - noir-packages
@@ -185,7 +184,6 @@ yarn-project:
   rebuildPatterns:
     - ^yarn-project/.*\.(ts|tsx|js|cjs|mjs|json|html|md|sh|nr|toml|snap)$
     - ^yarn-project/Dockerfile$
-    - ^yarn-project/cli/aztec-cli
   dependencies:
     - bb.js
     - noir-packages
@@ -199,22 +197,6 @@ yarn-project:
 aztec:
   buildDir: yarn-project
   projectDir: yarn-project/aztec
-  dependencies:
-    - yarn-project
-  multiarch: buildx
-
-# Aztec faucet server. Has these dependencies because it's part of workspace. Consider moving out?
-aztec-faucet:
-  buildDir: yarn-project
-  projectDir: yarn-project/aztec-faucet
-  dependencies:
-    - bb.js
-    - noir-packages
-
-# A runnable container, sets entrypoint to be the aztec-cli entrypoint.
-cli:
-  buildDir: yarn-project
-  projectDir: yarn-project/cli
   dependencies:
     - yarn-project
   multiarch: buildx
@@ -244,10 +226,6 @@ end-to-end:
   runDependencies:
     - aztec
 
-mainnet-fork:
-  buildDir: iac/mainnet-fork
-  projectDir: iac/mainnet-fork
-
 docs:
   buildDir: .
   dockerfile: docs/Dockerfile
@@ -263,8 +241,3 @@ docs:
     - noir-packages
     - l1-contracts
     - noir-projects
-
-yellow-paper:
-  buildDir: yellow-paper
-  rebuildPatterns:
-    - ^yellow-paper/

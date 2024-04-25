@@ -18,12 +18,6 @@ contract SchnorrSingleKeyAccount {
     }
 
     #[aztec(private)]
-    fn pay_init_fee(fee_payload: pub FeePayload) {
-        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
-        actions.pay_init_fee(fee_payload);
-    }
-
-    #[aztec(private)]
     fn spend_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.spend_private_authwit(inner_hash)
@@ -51,7 +45,9 @@ contract SchnorrSingleKeyAccount {
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
         let witness = get_auth_witness(outer_hash);
-        assert(recover_address(outer_hash, witness).eq(context.this_address()));
+        // TODO(#5830): the following is currently broken because we are no longer able to compute public keys hash
+        // in recover_address(...) just from user public key.
+        // assert(recover_address(outer_hash, witness).eq(context.this_address()));
         true
     }
 }

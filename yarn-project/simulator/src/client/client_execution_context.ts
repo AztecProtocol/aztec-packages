@@ -14,15 +14,15 @@ import {
   CallContext,
   FunctionData,
   FunctionSelector,
-  GasSettings,
   type Header,
   NoteHashReadRequestMembershipWitness,
+  PrivateContextInputs,
   PublicCallRequest,
   type SideEffect,
-  TxContext,
+  type TxContext,
 } from '@aztec/circuits.js';
-import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
+import { Aes128, type Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
@@ -65,21 +65,21 @@ export class ClientExecutionContext extends ViewDataOracle {
   private enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
 
   constructor(
-    protected readonly contractAddress: AztecAddress,
+    contractAddress: AztecAddress,
     private readonly argsHash: Fr,
     private readonly txContext: TxContext,
     private readonly callContext: CallContext,
     /** Header of a block whose state is used during private execution (not the block the transaction is included in). */
     protected readonly historicalHeader: Header,
     /** List of transient auth witnesses to be used during this simulation */
-    protected readonly authWitnesses: AuthWitness[],
+    authWitnesses: AuthWitness[],
     private readonly packedValuesCache: PackedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
-    protected readonly db: DBOracle,
+    db: DBOracle,
     private readonly curve: Grumpkin,
     private node: AztecNode,
     protected sideEffectCounter: number = 0,
-    protected log = createDebugLogger('aztec:simulator:client_execution_context'),
+    log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {
     super(contractAddress, authWitnesses, db, node, log);
   }
@@ -100,18 +100,14 @@ export class ClientExecutionContext extends ViewDataOracle {
       throw new Error('Invalid arguments size');
     }
 
-    const fields = [
-      ...this.callContext.toFields(),
-      ...this.historicalHeader.toFields(),
+    const privateContextInputs = new PrivateContextInputs(
+      this.callContext,
+      this.historicalHeader,
+      this.txContext,
+      this.sideEffectCounter,
+    );
 
-      this.txContext.chainId,
-      this.txContext.version,
-
-      new Fr(this.sideEffectCounter),
-
-      ...args,
-    ];
-
+    const fields = [...privateContextInputs.toFields(), ...args];
     return toACVMWitness(0, fields);
   }
 
@@ -172,10 +168,10 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
-   * Pack the given arguments.
+   * Pack the given array of arguments.
    * @param args - Arguments to pack
    */
-  public packArguments(args: Fr[]): Promise<Fr> {
+  public override packArgumentsArray(args: Fr[]): Promise<Fr> {
     return Promise.resolve(this.packedValuesCache.pack(args));
   }
 
@@ -183,7 +179,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Pack the given returns.
    * @param returns - Returns to pack
    */
-  public packReturns(returns: Fr[]): Promise<Fr> {
+  public override packReturns(returns: Fr[]): Promise<Fr> {
     return Promise.resolve(this.packedValuesCache.pack(returns));
   }
 
@@ -191,7 +187,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * Unpack the given returns.
    * @param returnsHash - Returns hash to unpack
    */
-  public unpackReturns(returnsHash: Fr): Promise<Fr[]> {
+  public override unpackReturns(returnsHash: Fr): Promise<Fr[]> {
     return Promise.resolve(this.packedValuesCache.unpack(returnsHash));
   }
 
@@ -215,7 +211,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param status - The status of notes to fetch.
    * @returns Array of note data.
    */
-  public async getNotes(
+  public override async getNotes(
     storageSlot: Fr,
     numSelects: number,
     selectByIndexes: number[],
@@ -261,7 +257,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     notes.forEach(n => {
       if (n.index !== undefined) {
         const siloedNoteHash = siloNoteHash(n.contractAddress, n.innerNoteHash);
-        const uniqueSiloedNoteHash = computeUniqueCommitment(n.nonce, siloedNoteHash);
+        const uniqueSiloedNoteHash = computeUniqueNoteHash(n.nonce, siloedNoteHash);
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
         const noteHashForReadRequest = n.nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
@@ -282,7 +278,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param innerNoteHash - The inner note hash of the new note.
    * @returns
    */
-  public notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], innerNoteHash: Fr) {
+  public override notifyCreatedNote(storageSlot: Fr, noteTypeId: Fr, noteItems: Fr[], innerNoteHash: Fr) {
     const note = new Note(noteItems);
     this.noteCache.addNewNote({
       contractAddress: this.callContext.storageContractAddress,
@@ -305,7 +301,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    * @param innerNoteHash - The inner note hash of the new note.
    */
-  public notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr) {
+  public override notifyNullifiedNote(innerNullifier: Fr, innerNoteHash: Fr) {
     this.noteCache.nullifyNote(this.callContext.storageContractAddress, innerNullifier, innerNoteHash);
     return Promise.resolve();
   }
@@ -318,22 +314,31 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param publicKey - The public key of the account that can decrypt the log.
    * @param log - The log contents.
    */
-  public emitEncryptedLog(contractAddress: AztecAddress, storageSlot: Fr, noteTypeId: Fr, publicKey: Point, log: Fr[]) {
+  public override emitEncryptedLog(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    noteTypeId: Fr,
+    publicKey: Point,
+    log: Fr[],
+  ) {
     const note = new Note(log);
     const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
     const taggedNote = new TaggedNote(l1NotePayload);
     const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
-    this.encryptedLogs.push(new EncryptedL2Log(encryptedNote));
+    const encryptedLog = new EncryptedL2Log(encryptedNote);
+    this.encryptedLogs.push(encryptedLog);
+    return Fr.fromBuffer(encryptedLog.hash());
   }
 
   /**
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public emitUnencryptedLog(log: UnencryptedL2Log) {
+  public override emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
     const text = log.toHumanReadable();
     this.log.verbose(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
+    return Fr.fromBuffer(log.hash());
   }
 
   #checkValidStaticCall(childExecutionResult: ExecutionResult) {
@@ -358,7 +363,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param isStaticCall - Whether the call is a delegate call.
    * @returns The execution result.
    */
-  async callPrivateFunction(
+  override async callPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -375,9 +380,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
-    const derivedTxContext = new TxContext(false, false, this.txContext.chainId, this.txContext.version);
+    const derivedTxContext = this.txContext.clone();
 
-    const derivedCallContext = await this.deriveCallContext(
+    const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
       sideEffectCounter,
@@ -427,7 +432,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The public call stack item with the request information.
    */
-  public async enqueuePublicFunctionCall(
+  public override async enqueuePublicFunctionCall(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     argsHash: Fr,
@@ -438,7 +443,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const derivedCallContext = await this.deriveCallContext(
+    const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
       sideEffectCounter,
@@ -476,25 +481,20 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
-  private async deriveCallContext(
+  private deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
     startSideEffectCounter: number,
     isDelegateCall = false,
     isStaticCall = false,
   ) {
-    const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
-    const transactionFee = Fr.ZERO; // TODO(palla/gas-in-circuits)
     return new CallContext(
       isDelegateCall ? this.callContext.msgSender : this.contractAddress,
       isDelegateCall ? this.contractAddress : targetContractAddress,
-      portalContractAddress,
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
       isDelegateCall,
       isStaticCall,
       startSideEffectCounter,
-      GasSettings.empty(), // TODO(palla/gas-in-circuits)
-      transactionFee,
     );
   }
 
@@ -503,7 +503,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param startStorageSlot - The starting storage slot.
    * @param numberOfElements - Number of elements to read from the starting storage slot.
    */
-  public async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
+  public override async storageRead(startStorageSlot: Fr, numberOfElements: number): Promise<Fr[]> {
     // TODO(#4320): This is a hack to work around not having directly access to the public data tree but
     // still having access to the witnesses
     const bn = await this.db.getBlockNumber();
@@ -521,5 +521,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       values.push(value);
     }
     return values;
+  }
+
+  public override aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
+    const aes128 = new Aes128();
+    return aes128.encryptBufferCBC(input, initializationVector, key);
   }
 }

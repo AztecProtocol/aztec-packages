@@ -62,23 +62,13 @@ impl AccountActions {
         let fee_hash = fee_payload.hash();
         assert(valid_fn(private_context, fee_hash));
         fee_payload.execute_calls(private_context);
-        private_context.capture_min_revertible_side_effect_counter();
+        private_context.end_setup();
 
         let app_hash = app_payload.hash();
         assert(valid_fn(private_context, app_hash));
         app_payload.execute_calls(private_context);
     }
     // docs:end:entrypoint
-
-    pub fn pay_init_fee(self, fee_payload: FeePayload) {
-        let valid_fn = self.is_valid_impl;
-        let mut private_context = self.context.private.unwrap();
-
-        let fee_hash = fee_payload.hash();
-        assert(valid_fn(private_context, fee_hash));
-        fee_payload.execute_calls(private_context);
-        private_context.capture_min_revertible_side_effect_counter();
-    }
 
     // docs:start:spend_private_authwit
     pub fn spend_private_authwit(self, inner_hash: Field) -> Field {
