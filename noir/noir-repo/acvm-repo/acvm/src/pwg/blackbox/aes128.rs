@@ -22,7 +22,7 @@ pub(super) fn aes128_encrypt(
     let iv = to_u8_array(initial_witness, iv)?;
     let key = to_u8_array(initial_witness, key)?;
 
-    let cyphertext = backend.aes128_encrypt(&scalars, iv, key, scalars.len() as u32)?;
+    let cyphertext = backend.aes128_encrypt(&scalars, iv, key)?;
 
     // Write witness assignments
     for (output_witness, value) in outputs.iter().zip(cyphertext.into_iter()) {

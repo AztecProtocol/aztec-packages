@@ -28,7 +28,6 @@ struct BlackBoxFuncCall {
         std::vector<Program::FunctionInput> inputs;
         std::array<Program::FunctionInput, 16> iv;
         std::array<Program::FunctionInput, 16> key;
-        Program::FunctionInput length;
         std::vector<Program::Witness> outputs;
 
         friend bool operator==(const AES128Encrypt&, const AES128Encrypt&);
@@ -532,7 +531,7 @@ struct BlackBoxOp {
         Program::HeapArray iv;
         Program::HeapArray key;
         Program::MemoryAddress length;
-        Program::MemoryAddress result;
+        Program::HeapVector outputs;
 
         friend bool operator==(const AES128Encrypt&, const AES128Encrypt&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -2240,9 +2239,6 @@ inline bool operator==(const BlackBoxFuncCall::AES128Encrypt& lhs, const BlackBo
     if (!(lhs.key == rhs.key)) {
         return false;
     }
-    if (!(lhs.length == rhs.length)) {
-        return false;
-    }
     if (!(lhs.outputs == rhs.outputs)) {
         return false;
     }
@@ -2276,7 +2272,6 @@ void serde::Serializable<Program::BlackBoxFuncCall::AES128Encrypt>::serialize(
     serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
     serde::Serializable<decltype(obj.iv)>::serialize(obj.iv, serializer);
     serde::Serializable<decltype(obj.key)>::serialize(obj.key, serializer);
-    serde::Serializable<decltype(obj.length)>::serialize(obj.length, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -2289,7 +2284,6 @@ Program::BlackBoxFuncCall::AES128Encrypt serde::Deserializable<Program::BlackBox
     obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
     obj.iv = serde::Deserializable<decltype(obj.iv)>::deserialize(deserializer);
     obj.key = serde::Deserializable<decltype(obj.key)>::deserialize(deserializer);
-    obj.length = serde::Deserializable<decltype(obj.length)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }
@@ -3747,7 +3741,7 @@ inline bool operator==(const BlackBoxOp::AES128Encrypt& lhs, const BlackBoxOp::A
     if (!(lhs.length == rhs.length)) {
         return false;
     }
-    if (!(lhs.result == rhs.result)) {
+    if (!(lhs.outputs == rhs.outputs)) {
         return false;
     }
     return true;
@@ -3780,8 +3774,7 @@ void serde::Serializable<Program::BlackBoxOp::AES128Encrypt>::serialize(const Pr
     serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
     serde::Serializable<decltype(obj.iv)>::serialize(obj.iv, serializer);
     serde::Serializable<decltype(obj.key)>::serialize(obj.key, serializer);
-    serde::Serializable<decltype(obj.length)>::serialize(obj.length, serializer);
-    serde::Serializable<decltype(obj.result)>::serialize(obj.result, serializer);
+    serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
 template <>
@@ -3793,8 +3786,7 @@ Program::BlackBoxOp::AES128Encrypt serde::Deserializable<Program::BlackBoxOp::AE
     obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
     obj.iv = serde::Deserializable<decltype(obj.iv)>::deserialize(deserializer);
     obj.key = serde::Deserializable<decltype(obj.key)>::deserialize(deserializer);
-    obj.length = serde::Deserializable<decltype(obj.length)>::deserialize(deserializer);
-    obj.result = serde::Deserializable<decltype(obj.result)>::deserialize(deserializer);
+    obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }
 

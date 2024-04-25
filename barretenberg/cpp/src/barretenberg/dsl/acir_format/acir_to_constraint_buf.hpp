@@ -246,7 +246,6 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                                        .num_bits = e.num_bits,
                                    };
                                }),
-                    .length = arg.length.witness.value,
                     .outputs = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SHA256>) {

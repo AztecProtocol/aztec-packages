@@ -19,11 +19,10 @@ struct AES128Constraint {
     std::vector<AES128Input> inputs;
     std::array<AES128Input, 16> iv;
     std::array<AES128Input, 16> key;
-    uint32_t length;
     std::vector<uint32_t> outputs;
 
     // For serialization, update with any new fields
-    MSGPACK_FIELDS(inputs, iv, key, length, outputs);
+    MSGPACK_FIELDS(inputs, iv, key, outputs);
     friend bool operator==(AES128Constraint const& lhs, AES128Constraint const& rhs) = default;
 };
 

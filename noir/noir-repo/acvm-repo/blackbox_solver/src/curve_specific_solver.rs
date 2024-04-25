@@ -12,7 +12,6 @@ pub trait BlackBoxFunctionSolver {
         inputs: &[u8],
         iv: [u8; 16],
         key: [u8; 16],
-        length: u32,
     ) -> Result<Vec<u8>, BlackBoxResolutionError>;
     fn schnorr_verify(
         &self,
@@ -67,7 +66,6 @@ impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
         _inputs: &[u8],
         _iv: [u8; 16],
         _key: [u8; 16],
-        _length: u32,
     ) -> Result<Vec<u8>, BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::AES128Encrypt))
     }

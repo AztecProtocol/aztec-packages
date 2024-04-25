@@ -11,9 +11,8 @@ impl BlackBoxFunctionSolver for WrapperSolver {
         inputs: &[u8],
         iv: [u8; 16],
         key: [u8; 16],
-        length: u32,
     ) -> Result<Vec<u8>, acvm::BlackBoxResolutionError> {
-        self.0.aes128_encrypt(inputs, iv, key, length)
+        self.0.aes128_encrypt(inputs, iv, key)
     }
 
     fn schnorr_verify(
