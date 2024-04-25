@@ -854,29 +854,6 @@ fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> Avm
 /// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
-        BlackBoxOp::Sha256 { message, output } => {
-            let message_offset = message.pointer.0;
-            let message_size_offset = message.size.0;
-            let dest_offset = output.pointer.0;
-            assert_eq!(output.size, 32, "SHA256 output size must be 32!");
-
-            avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::SHA256,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
-                operands: vec![
-                    AvmOperand::U32 {
-                        value: dest_offset as u32,
-                    },
-                    AvmOperand::U32 {
-                        value: message_offset as u32,
-                    },
-                    AvmOperand::U32 {
-                        value: message_size_offset as u32,
-                    },
-                ],
-                ..Default::default()
-            });
-        }
         BlackBoxOp::PedersenHash {
             inputs,
             domain_separator,
