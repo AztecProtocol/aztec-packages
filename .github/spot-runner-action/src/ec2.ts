@@ -189,14 +189,19 @@ export class Ec2Instance {
         },
       },
     };
-    const arr =
-      (
+    let arr: any[] = [];
+
+    try {
+      arr = (
         await client
           .describeLaunchTemplates({
             LaunchTemplateNames: [launchTemplateName],
           })
           .promise()
       ).LaunchTemplates || [];
+    } catch (err) {
+      core.info("Launch templates describe error, note this will be likely resolved by creating the template in the next step: " + err);
+    }
     core.info("Launch templates found: " + JSON.stringify(arr, null, 2));
     if (arr.length <= 0) {
       core.info("Creating launch template: " + launchTemplateName);
