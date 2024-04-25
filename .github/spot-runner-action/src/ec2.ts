@@ -11,6 +11,7 @@ import {
 import * as crypto from "crypto";
 import * as core from "@actions/core";
 import { ConfigInterface } from "./config";
+import { UserData } from "./userdata";
 
 interface Tag {
   Key: string;
@@ -170,8 +171,10 @@ export class Ec2Instance {
   async getLaunchTemplate(): Promise<string> {
     const client = await this.getEc2Client();
 
+    // NOTE: This should be deterministic or we will create a launch template each time
+    const userData = await new UserData(this.config).getUserData();
     const ec2InstanceTypeHash = this.getHashOfStringArray(
-      this.config.ec2InstanceType
+      this.config.ec2InstanceType.concat([userData])
     );
     const launchTemplateName =
       "aztec-packages-spot-" + this.config.ec2AmiId + "-" + ec2InstanceTypeHash;
@@ -187,6 +190,7 @@ export class Ec2Instance {
           MemoryMiB: { Min: 0 },
           AllowedInstanceTypes: this.config.ec2InstanceType,
         },
+        UserData: userData
       },
     };
     let arr: any[] = [];
@@ -216,13 +220,27 @@ export class Ec2Instance {
     const fleetLaunchConfig: FleetLaunchTemplateConfigRequest = {
       LaunchTemplateSpecification: {
         Version: "$Latest",
-        LaunchTemplateName: await this.getLaunchTemplate()
+        LaunchTemplateName: await this.getLaunchTemplate(),
       },
-      Overrides: this.config.ec2InstanceType.map(instanceType => ({
+      Overrides: this.config.ec2InstanceType.map((instanceType) => ({
         InstanceType: instanceType,
         AvailabilityZone: availabilityZone,
         SubnetId: this.config.ec2SubnetId,
-      }))
+        TagSpecifications: [
+          {
+            ResourceType: "instance",
+            Tags: this.tags,
+          },
+        ],
+        BlockDeviceMappings: [
+          {
+            DeviceName: "/dev/sda1",
+            Ebs: {
+              VolumeSize: 32,
+            },
+          },
+        ],
+      })),
     };
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
@@ -231,7 +249,7 @@ export class Ec2Instance {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
         SpotTargetCapacity: useOnDemand ? 0 : 1,
-        DefaultTargetCapacityType: useOnDemand ? "on-demand" : "spot"
+        DefaultTargetCapacityType: useOnDemand ? "on-demand" : "spot",
       },
     };
     // const config: SpotFleetRequestConfigData = {
