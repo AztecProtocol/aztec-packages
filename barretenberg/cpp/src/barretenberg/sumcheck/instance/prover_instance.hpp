@@ -68,7 +68,7 @@ template <class Flavor> class ProverInstance_ {
         proving_key.polynomials.lagrange_first = lagrange_first;
         proving_key.polynomials.lagrange_last = lagrange_last;
 
-        construct_table_polynomials(circuit, dyadic_circuit_size);
+        construct_lookup_table_polynomials<Flavor>(proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
 
         proving_key.sorted_polynomials = construct_sorted_list_polynomials<Flavor>(circuit, dyadic_circuit_size);
 
@@ -84,9 +84,6 @@ template <class Flavor> class ProverInstance_ {
     ProverInstance_() = default;
     ~ProverInstance_() = default;
 
-    void compute_databus_id()
-        requires IsGoblinFlavor<Flavor>;
-
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
@@ -96,8 +93,6 @@ template <class Flavor> class ProverInstance_ {
 
     void construct_databus_polynomials(Circuit&)
         requires IsGoblinFlavor<Flavor>;
-
-    void construct_table_polynomials(Circuit&, size_t);
 };
 
 } // namespace bb
