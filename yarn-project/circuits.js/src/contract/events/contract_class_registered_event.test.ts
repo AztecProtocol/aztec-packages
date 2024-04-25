@@ -11,6 +11,7 @@ describe('ContractClassRegisteredEvent', () => {
     );
     expect(event.artifactHash.toString()).toEqual('0x072dce903b1a299d6820eeed695480fe9ec46658b1101885816aed6dd86037f0');
     expect(event.packedPublicBytecode.length).toEqual(27090);
+    // TODO: #5860
     expect(computePublicBytecodeCommitment(event.packedPublicBytecode).toString()).toEqual(
       '0x0000000000000000000000000000000000000000000000000000000000000005',
     );

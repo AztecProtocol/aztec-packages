@@ -3,7 +3,7 @@ import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS } from '@aztec/circuits.js
 import { type ProtocolContract, getCanonicalProtocolContract } from '../protocol_contract.js';
 import { KeyRegistryArtifact } from './artifact.js';
 
-/** Returns the canonical deployment of the gas token. */
+/** Returns the canonical deployment of the public key registry. */
 export function getCanonicalKeyRegistry(): ProtocolContract {
   const contract = getCanonicalProtocolContract(KeyRegistryArtifact, 1);
 
