@@ -20,42 +20,6 @@ GoblinTranslatorProver::GoblinTranslatorProver(CircuitBuilder& circuit_builder,
     key = std::make_shared<ProvingKey>(circuit_builder);
     compute_witness(circuit_builder);
     compute_commitment_key(key->circuit_size);
-
-    key->polynomials.set_shifted(); // WORKTODO: only prior to sumcheck?
-}
-
-/**
- * @brief Construct the witness polynomials from the witness vectors in the circuit constructor.
- *
- * @details In goblin translator wires come as is, since they have to reflect the structure of polynomials in the first
- * 4 wires, which we've commited to
- *
- * @tparam Flavor provides the circuit constructor type and the number of wires.
- * @param circuit_builder
- * @param dyadic_circuit_size Power of 2 circuit size
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/783) Optimize memory operations.
- * @return std::vector<Polynomial>
- * */
-std::vector<GoblinTranslatorProver::Polynomial> construct_wire_polynomials(
-    const GoblinTranslatorProver::CircuitBuilder& circuit_builder, const size_t dyadic_circuit_size)
-{
-    const size_t num_gates = circuit_builder.num_gates;
-
-    std::vector<GoblinTranslatorProver::Polynomial> wire_polynomials;
-    // Populate the wire polynomials with values from conventional wires
-    for (size_t wire_idx = 0; wire_idx < GoblinTranslatorFlavor::NUM_WIRES; ++wire_idx) {
-        // Expect all values to be set to 0 initially
-        GoblinTranslatorProver::Polynomial w_lagrange(dyadic_circuit_size);
-
-        // Insert conventional gate wire values into the wire polynomial
-        for (size_t i = 0; i < num_gates; ++i) {
-            auto& wire = circuit_builder.wires[wire_idx];
-            w_lagrange[i] = circuit_builder.get_variable(wire[i]);
-        }
-
-        wire_polynomials.push_back(std::move(w_lagrange));
-    }
-    return wire_polynomials;
 }
 
 /**
@@ -68,12 +32,12 @@ void GoblinTranslatorProver::compute_witness(CircuitBuilder& circuit_builder)
         return;
     }
 
-    // Construct the conventional wire polynomials
-    auto wire_polynomials = construct_wire_polynomials(circuit_builder, dyadic_circuit_size);
-
-    // WORKTODO: could just set these directly in construct_wire_polynomials
-    for (auto [wire, wire_in] : zip_view(key->polynomials.get_wires(), wire_polynomials)) {
-        wire = wire_in.share();
+    // Construct the wire polynomials from the wire vectors in the circuit constructor. Note: In goblin translator wires
+    // come as is, since they have to reflect the structure of polynomials in the first 4 wires, which we've commited to
+    for (auto [wire_poly, wire] : zip_view(key->polynomials.get_wires(), circuit_builder.wires)) {
+        for (size_t i = 0; i < circuit_builder.num_gates; ++i) {
+            wire_poly[i] = circuit_builder.get_variable(wire[i]);
+        }
     }
 
     // We construct concatenated versions of range constraint polynomials, where several polynomials are concatenated
