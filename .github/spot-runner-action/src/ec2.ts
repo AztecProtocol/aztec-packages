@@ -174,11 +174,12 @@ export class Ec2Instance {
       this.config.ec2InstanceType
     );
     const launchTemplateName =
-      "aztec-packages-spot-runner-" + ec2InstanceTypeHash;
+      "aztec-packages-spot-" + this.config.ec2AmiId + "-" + ec2InstanceTypeHash;
 
     const launchTemplateParams: CreateLaunchTemplateRequest = {
       LaunchTemplateName: launchTemplateName,
       LaunchTemplateData: {
+        ImageId: this.config.ec2AmiId,
         InstanceRequirements: {
           // We do not know what the instance types correspond to
           // just let the user send a list of allowed instance types
