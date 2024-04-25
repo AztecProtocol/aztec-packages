@@ -2,18 +2,14 @@ contract KeyRegistry {
   use dep::authwit::auth::assert_current_call_valid_authwit_public;
 
   use dep::aztec::{
-    context::gas::GasOpts,
     state_vars::{
       SharedMutable,
       Map
     }, 
     protocol_types::{
-      abis::function_selector::FunctionSelector,
-      contract_class_id::ContractClassId,
       grumpkin_point::GrumpkinPoint,
       address::{
         AztecAddress,
-        EthAddress,
         PublicKeysHash,
         PartialAddress,
       },
@@ -22,10 +18,6 @@ contract KeyRegistry {
         GENERATOR_INDEX__PUBLIC_KEYS_HASH
       },
       hash::poseidon2_hash,
-      traits::{
-        Serialize,
-        Deserialize,
-      }
     },
   };
 
