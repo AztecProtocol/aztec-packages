@@ -1,21 +1,33 @@
-import { type Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
+import { type GasFees } from './gas_fees.js';
 import { type UInt32 } from './shared.js';
+
+export const GasDimensions = ['da', 'l1', 'l2'] as const;
+export type GasDimensions = (typeof GasDimensions)[number];
 
 /** Gas amounts in each dimension. */
 export class Gas {
   constructor(public readonly daGas: UInt32, public readonly l1Gas: UInt32, public readonly l2Gas: UInt32) {}
 
+  clone(): Gas {
+    return new Gas(this.daGas, this.l1Gas, this.l2Gas);
+  }
+
+  get(dimension: GasDimensions) {
+    return this[`${dimension}Gas`];
+  }
+
   equals(other: Gas) {
     return this.daGas === other.daGas && this.l1Gas === other.l1Gas && this.l2Gas === other.l2Gas;
   }
 
-  static from(fields: FieldsOf<Gas>) {
-    return new Gas(fields.daGas, fields.l1Gas, fields.l2Gas);
+  static from(fields: Partial<FieldsOf<Gas>>) {
+    return new Gas(fields.daGas ?? 0, fields.l1Gas ?? 0, fields.l2Gas ?? 0);
   }
 
   static empty() {
@@ -54,6 +66,13 @@ export class Gas {
 
   mul(scalar: number) {
     return new Gas(Math.ceil(this.daGas * scalar), Math.ceil(this.l1Gas * scalar), Math.ceil(this.l2Gas * scalar));
+  }
+
+  computeFee(gasFees: GasFees) {
+    return GasDimensions.reduce(
+      (acc, dimension) => acc.add(gasFees.get(dimension).mul(new Fr(this.get(dimension)))),
+      Fr.ZERO,
+    );
   }
 
   toFields() {

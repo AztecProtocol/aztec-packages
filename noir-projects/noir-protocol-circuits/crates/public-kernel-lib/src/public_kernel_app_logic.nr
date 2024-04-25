@@ -33,6 +33,9 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
         // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
 
+        common::validate_start_gas(self.public_call, self.previous_kernel);
+        common::validate_transaction_fee_is_zero(self.public_call);
+
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
         common::update_revertible_gas_used(self.public_call, &mut public_inputs);
@@ -268,7 +271,7 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         let contract_address = builder.public_call.contract_address;
-        let portal_contract_address = builder.public_call.portal_contract_address;
+        let portal_contract_address = EthAddress::from_field(0xdead);
         // Setup 1 new l2 to l1 message on the previous kernel.
         let previous = [12345];
 
@@ -448,22 +451,38 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         // Transaction gas limit is 1k
-        builder.previous_kernel.gas_settings.da.gas_limit = 1000;
-        builder.previous_kernel.gas_settings.l1.gas_limit = 1000;
-        builder.previous_kernel.gas_settings.l2.gas_limit = 1000;
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
 
         // Revertible has already used 300
         builder.previous_kernel.gas_used = Gas::new(300, 300, 300);
 
         // This call starts with 700 gas left
-        builder.public_call.public_inputs.call_context.gas_left = Gas::new(700, 700, 700);
+        builder.public_call.public_inputs.start_gas_left = Gas::new(700, 700, 700);
 
         // And uses 200, ending with 500 left
-        builder.public_call.public_inputs.gas_left = Gas::new(500, 500, 500);
+        builder.public_call.public_inputs.end_gas_left = Gas::new(500, 500, 500);
 
         // So the updated gas used by revertible must go up by 200, and non-revertible must stay the same
         let output = builder.execute();
         assert_eq(output.end.gas_used, Gas::new(500, 500, 500));
         assert_eq(output.end_non_revertible.gas_used, Gas::new(0, 0, 0));
+    }
+
+    #[test(should_fail_with="Start gas for public phase does not match transaction gas left")]
+    fn validates_start_gas() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.start_gas_left = Gas::new(200, 100, 100);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Transaction fee must be zero on setup and app phases")]
+    fn validates_transaction_fee() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.transaction_fee = 10;
+
+        builder.failed();
     }
 }

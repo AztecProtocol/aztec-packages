@@ -3,9 +3,10 @@ use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, NoteHe
 use dep::aztec::{
     protocol_types::{
     traits::{ToField, Serialize, FromField},
-    constants::{MAX_NOTES_PER_PAGE, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL}
+    constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
 },
-    context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet
+    context::{PublicContext, Context}, note::note_getter::view_notes, state_vars::PrivateSet,
+    note::constants::MAX_NOTES_PER_PAGE,
 };
 use dep::std;
 use dep::std::{option::Option};
@@ -165,24 +166,16 @@ impl Deck {
 
 global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 
-pub fn to_le_32_bytes(a: Field) -> [u8; 32] {
-    let bytes = a.to_le_bytes(32);
-    let mut result = [0; 32];
-    for i in 0..32 {
-        result[i] = bytes[i];
-    }
-    result
-}
-
 pub fn get_pack_cards(
     seed: Field,
     owner: AztecAddress,
     context: &mut PrivateContext
 ) -> [Card; PACK_CARDS] {
     // generate pseudo randomness deterministically from 'seed' and user secret
-    let secret = context.request_nullifier_secret_key(owner);
-    let mix = secret.high + secret.low + seed;
-    let random_bytes = std::hash::sha256(to_le_32_bytes(mix));
+    let secret = context.request_app_nullifier_secret_key(owner);
+    let mix = secret + seed;
+    let mix_bytes: [u8; 32] = mix.to_le_bytes(32).as_array();
+    let random_bytes = std::hash::sha256(mix_bytes);
 
     let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards
