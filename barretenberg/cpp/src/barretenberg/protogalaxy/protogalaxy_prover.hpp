@@ -301,9 +301,36 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         }
     }
 
+    void extend_univariates(ExtendedUnivariates& extended_univariates,
+                            const ProverInstances& instances,
+                            const size_t row_idx)
+    {
+        auto base_univariates = instances.template row_to_univariates(row_idx);
+        for (auto [extended_univariate, base_univariate] : zip_view(extended_univariates.get_all(), base_univariates)) {
+            extended_univariate = base_univariate.template extend_to<ExtendedUnivariate::LENGTH>();
+        }
+    }
+
     template <typename Parameters, size_t relation_idx = 0>
     void accumulate_relation_univariates(OptimisedTupleOfTuplesOfUnivariates& univariate_accumulators,
                                          const OptimisedExtendedUnivariates& extended_univariates,
+                                         const Parameters& relation_parameters,
+                                         const FF& scaling_factor)
+    {
+        using Relation = std::tuple_element_t<relation_idx, Relations>;
+        Relation::accumulate(
+            std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
+
+        // Repeat for the next relation.
+        if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
+            accumulate_relation_univariates<Parameters, relation_idx + 1>(
+                univariate_accumulators, extended_univariates, relation_parameters, scaling_factor);
+        }
+    }
+
+    template <typename Parameters, size_t relation_idx = 0>
+    void accumulate_relation_univariates(TupleOfTuplesOfUnivariates& univariate_accumulators,
+                                         const ExtendedUnivariates& extended_univariates,
                                          const Parameters& relation_parameters,
                                          const FF& scaling_factor)
     {
@@ -322,6 +349,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
      * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper.
      *
      */
+    template <bool disable_optimisation = false>
     ExtendedUnivariateWithRandomization compute_combiner(const ProverInstances& instances, PowPolynomial<FF>& pow_betas)
     {
         BB_OP_COUNT_TIME();
@@ -338,15 +366,21 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = common_instance_size / num_threads;   // actual iterations per thread
+
         // Construct univariate accumulator containers; one per thread
-        std::vector<OptimisedTupleOfTuplesOfUnivariates> thread_univariate_accumulators(num_threads);
+        using ThreadAccumulators =
+            std::conditional_t<disable_optimisation, TupleOfTuplesOfUnivariates, OptimisedTupleOfTuplesOfUnivariates>;
+        using ExtendedUnivatiatesType =
+            std::conditional_t<disable_optimisation, ExtendedUnivariates, OptimisedExtendedUnivariates>;
+
+        std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             // just normal relation lengths
             Utils::zero_univariates(accum);
         }
 
         // Construct extended univariates containers; one per thread
-        std::vector<OptimisedExtendedUnivariates> extended_univariates;
+        std::vector<ExtendedUnivatiatesType> extended_univariates;
         extended_univariates.resize(num_threads);
 
         // Accumulate the contribution from each sub-relation
@@ -356,31 +390,67 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
 
             for (size_t idx = start; idx < end; idx++) {
                 // No need to initialise extended_univariates to 0, it's assigned to
-                extend_univariates<ProverInstances::NUM - 1>(extended_univariates[thread_idx], instances, idx);
+                if constexpr (disable_optimisation) {
+                    extend_univariates(extended_univariates[thread_idx], instances, idx);
+                } else {
+                    extend_univariates<ProverInstances::NUM - 1>(extended_univariates[thread_idx], instances, idx);
+                }
 
                 FF pow_challenge = pow_betas[idx];
 
                 // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
                 // this function have already been folded. Moreover, linear-dependent relations that act over the
                 // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
-                accumulate_relation_univariates(
-                    thread_univariate_accumulators[thread_idx],
-                    extended_univariates[thread_idx],
-                    instances.optimised_relation_parameters, // these parameters have already been folded
-                    pow_challenge);
+                if constexpr (disable_optimisation) {
+                    accumulate_relation_univariates(
+                        thread_univariate_accumulators[thread_idx],
+                        extended_univariates[thread_idx],
+                        instances.relation_parameters, // these parameters have already been folded
+                        pow_challenge);
+                } else {
+                    accumulate_relation_univariates(
+                        thread_univariate_accumulators[thread_idx],
+                        extended_univariates[thread_idx],
+                        instances.optimised_relation_parameters, // these parameters have already been folded
+                        pow_challenge);
+                }
             }
         });
-        OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators;
-        Utils::zero_univariates(optimised_univariate_accumulators);
-        // Accumulate the per-thread univariate accumulators into a single set of accumulators
-        for (auto& accumulators : thread_univariate_accumulators) {
-            Utils::add_nested_tuples(optimised_univariate_accumulators, accumulators);
-        }
-        zero_skipped_indices(optimised_univariate_accumulators);
-        // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations(univariate_accumulators, instances.alphas);
-    }
+        if constexpr (disable_optimisation) {
+            Utils::zero_univariates(univariate_accumulators);
+            for (auto& accumulators : thread_univariate_accumulators) {
+                Utils::add_nested_tuples(univariate_accumulators, accumulators);
+            }
 
+            return batch_over_relations(univariate_accumulators, instances.alphas);
+        } else {
+            OptimisedTupleOfTuplesOfUnivariates optimised_univariate_accumulators;
+            Utils::zero_univariates(optimised_univariate_accumulators);
+            // Accumulate the per-thread univariate accumulators into a single set of accumulators
+            for (auto& accumulators : thread_univariate_accumulators) {
+                Utils::add_nested_tuples(optimised_univariate_accumulators, accumulators);
+            }
+
+            zero_skipped_indices(optimised_univariate_accumulators);
+            // print_comparison(optimised_univariate_accumulators, univariate_accumulators);
+            deoptimise_univariates(optimised_univariate_accumulators, univariate_accumulators);
+            //  Batch the univariate contributions from each sub-relation to obtain the round univariate
+            return batch_over_relations(univariate_accumulators, instances.alphas);
+        }
+    }
+    static void deoptimise_univariates(const OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators,
+                                       TupleOfTuplesOfUnivariates& new_univariate_accumulators
+
+    )
+    {
+        auto deoptimise = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            auto& optimised_element = std::get<inner_idx>(std::get<outer_idx>(optimised_univariate_accumulators));
+            element = optimised_element.convert();
+            // info("Element ", outer_idx, ".", inner_idx, "[", ":", "] = ", element);
+        };
+
+        Utils::template apply_to_tuple_of_tuples<0, 0>(new_univariate_accumulators, deoptimise);
+    }
     static void zero_skipped_indices(OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators
 
     )
@@ -394,6 +464,18 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         };
 
         Utils::template apply_to_tuple_of_tuples<0, 0>(optimised_univariate_accumulators, deoptimise);
+    }
+    static void print_comparison(OptimisedTupleOfTuplesOfUnivariates& optimised_univariate_accumulators,
+                                 TupleOfTuplesOfUnivariates& new_univariate_accumulators)
+
+    {
+        auto deoptimise = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            auto& optimised_element = std::get<inner_idx>(std::get<outer_idx>(optimised_univariate_accumulators));
+            info("Element ", outer_idx, ".", inner_idx, "[", ":", "] = ", element);
+            info("Optimisation ", outer_idx, ".", inner_idx, "[", ":", "] = ", optimised_element);
+        };
+
+        Utils::template apply_to_tuple_of_tuples<0, 0>(new_univariate_accumulators, deoptimise);
     }
 
     static ExtendedUnivariateWithRandomization batch_over_relations(TupleOfTuplesOfUnivariates& univariate_accumulators,
@@ -478,10 +560,8 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                 instance_idx++;
             }
             folded_parameter = tmp.template extend_to<ProverInstances::EXTENDED_LENGTH>();
-            optimised_folded_parameter.value_at(0) = folded_parameter.value_at(0);
-            std::copy(std::next(folded_parameter.evaluations.begin(), ProverInstances::NUM),
-                      folded_parameter.evaluations.end(),
-                      std::next(optimised_folded_parameter.evaluations.begin(), 1));
+            optimised_folded_parameter =
+                tmp.template extend_to<ProverInstances::EXTENDED_LENGTH, ProverInstances::NUM - 1>();
             param_idx++;
         }
     }

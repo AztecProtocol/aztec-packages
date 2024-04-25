@@ -40,8 +40,20 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate(Univariate&& other) noexcept = default;
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
-    // Construct constant Univariate from scalar which represents the value that all the points in the domain evaluate
-    // to
+    Univariate<Fr, domain_end, domain_start> convert() const noexcept
+    {
+        Univariate<Fr, domain_end, domain_start, 0> result;
+        result.evaluations[0] = evaluations[0];
+        for (size_t i = 1; i < skip_count + 1; i++) {
+            result.evaluations[i] = Fr::zero();
+        }
+        for (size_t i = skip_count + 1; i < LENGTH; i++) {
+            result.evaluations[i] = evaluations[i];
+        }
+        return result;
+    }
+    // Construct constant Univariate from scalar which represents the value that all the points in the domain
+    // evaluate to
     explicit Univariate(Fr value)
         : evaluations{}
     {
