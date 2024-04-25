@@ -77,15 +77,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         return instances;
     }
 
-    static ProverPolynomials construct_full_prover_polynomials(auto& input_polynomials)
-    {
-        ProverPolynomials full_polynomials;
-        for (auto [prover_poly, input_poly] : zip_view(full_polynomials.get_all(), input_polynomials)) {
-            prover_poly = input_poly.share();
-        }
-        return full_polynomials;
-    }
-
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
         const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
         const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
@@ -151,6 +142,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         if constexpr (IsGoblinFlavor<Flavor>) {
             instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
         }
+        instance->proving_key.polynomials.set_shifted();
         instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
 
         for (auto& alpha : instance->alphas) {
@@ -193,11 +185,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         using RelationSeparator = typename Flavor::RelationSeparator;
         const size_t log_instance_size(3);
         const size_t instance_size(1 << log_instance_size);
-        std::array<bb::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> random_polynomials;
-        for (auto& poly : random_polynomials) {
+        // Construct fully random prover polynomials
+        ProverPolynomials full_polynomials;
+        for (auto& poly : full_polynomials.get_all()) {
             poly = bb::Polynomial<FF>::random(instance_size);
         }
-        auto full_polynomials = construct_full_prover_polynomials(random_polynomials);
+
         auto relation_parameters = bb::RelationParameters<FF>::get_random();
         RelationSeparator alphas;
         for (auto& alpha : alphas) {
