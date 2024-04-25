@@ -21,21 +21,15 @@ describe('e2e_encryption', () => {
 
   afterAll(() => teardown());
 
-  it('encrypts', async () => {
+  it('encrypts 🔒📄🔑💻', async () => {
     const input = randomBytes(64);
     const iv = randomBytes(16);
     const key = randomBytes(16);
 
     const expectedCiphertext = aes128.encryptBufferCBC(input, iv, key);
 
-    const logs = await contract.methods
-      .encrypt(Array.from(input), Array.from(iv), Array.from(key))
-      .send()
-      .getUnencryptedLogs();
-    // Each byte of encrypted data is in its own field and it's all serialized into a long buffer so we simply extract
-    // each 32nd byte from the buffer to get the encrypted data
-    const recoveredCiphertext = logs.logs[0].log.data.filter((_, i) => (i + 1) % 32 === 0);
+    const ciphertext = await contract.methods.encrypt(Array.from(input), Array.from(iv), Array.from(key)).simulate();
 
-    expect(recoveredCiphertext).toEqual(expectedCiphertext);
+    expect(ciphertext).toEqual(expectedCiphertext);
   });
 });
