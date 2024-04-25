@@ -1,7 +1,7 @@
 use std::{future::Future, pin::Pin};
 
 use acvm::acir::circuit::brillig::BrilligBytecode;
-use acvm::pwg::ResolvedAssertionPayload;
+use acvm::acir::circuit::ResolvedAssertionPayload;
 use acvm::BlackBoxFunctionSolver;
 use acvm::{
     acir::circuit::{Circuit, Program},

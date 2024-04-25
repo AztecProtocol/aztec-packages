@@ -51,7 +51,7 @@ impl FunctionBuilder {
             current_function: new_function,
             finished_functions: Vec::new(),
             call_stack: CallStack::new(),
-            error_types: Default::default(),
+            error_types: BTreeMap::default(),
         }
     }
 

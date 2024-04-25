@@ -148,7 +148,7 @@ impl BrilligContext {
         condition: SingleAddrVariable,
         revert_data_items: Vec<BrilligVariable>,
         revert_data_types: Vec<BrilligParameter>,
-        revert_data_type: u64,
+        error_selector: u64,
     ) {
         assert!(condition.bit_size == 1);
 
@@ -163,7 +163,7 @@ impl BrilligContext {
             let current_revert_data_pointer = ctx.allocate_register();
             ctx.mov_instruction(current_revert_data_pointer, revert_data.pointer);
             let revert_data_id =
-                ctx.make_usize_constant_instruction((revert_data_type as u128).into());
+                ctx.make_usize_constant_instruction((error_selector as u128).into());
             ctx.store_instruction(current_revert_data_pointer, revert_data_id.address);
 
             ctx.codegen_usize_op_in_place(current_revert_data_pointer, BrilligBinaryOp::Add, 1);

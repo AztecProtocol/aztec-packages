@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use acvm::{
-    acir::circuit::{OpcodeLocation, ResolvedOpcodeLocation},
-    pwg::{ErrorLocation, OpcodeResolutionError, ResolvedAssertionPayload},
+    acir::circuit::{OpcodeLocation, ResolvedAssertionPayload, ResolvedOpcodeLocation},
+    pwg::{ErrorLocation, OpcodeResolutionError},
     FieldElement,
 };
 use noirc_abi::{Abi, AbiType, Sign};
@@ -61,7 +61,7 @@ impl NargoError {
     /// in tests to expected failure messages
     pub fn user_defined_failure_message(
         &self,
-        error_types: BTreeMap<u64, AbiType>,
+        error_types: &BTreeMap<u64, AbiType>,
     ) -> Option<String> {
         let execution_error = match self {
             NargoError::ExecutionError(error) => error,

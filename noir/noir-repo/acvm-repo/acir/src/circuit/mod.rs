@@ -4,6 +4,7 @@ pub mod directives;
 pub mod opcodes;
 
 use crate::native_types::{Expression, Witness};
+use acir_field::FieldElement;
 pub use opcodes::Opcode;
 use thiserror::Error;
 
@@ -74,6 +75,10 @@ pub struct Circuit {
     pub recursive: bool,
 }
 
+/// This selector indicates that the payload is a string.
+/// This is used to parse any error with a string payload directly,
+/// to avoid users having to parse the error externally to the ACVM.
+/// Only non-string errors need to be parsed externally to the ACVM using the circuit ABI.
 pub const STRING_ERROR_SELECTOR: u64 = 0;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,6 +91,12 @@ pub enum ExpressionOrMemory {
 pub enum AssertionPayload {
     StaticString(String),
     Dynamic(/* error_selector */ u64, Vec<ExpressionOrMemory>),
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ResolvedAssertionPayload {
+    String(String),
+    Raw(/*error_selector:*/ u64, Vec<FieldElement>),
 }
 
 #[derive(Debug, Copy, Clone)]

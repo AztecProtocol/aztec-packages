@@ -110,7 +110,7 @@ fn inversion_brillig_oracle_equivalence() {
         &opcodes,
         witness_assignments,
         &unconstrained_functions,
-        Default::default(),
+        &[],
     );
     // use the partial witness generation solver with our acir program
     let solver_status = acvm.solve();
@@ -253,7 +253,7 @@ fn double_inversion_brillig_oracle() {
         &opcodes,
         witness_assignments,
         &unconstrained_functions,
-        Default::default(),
+        &[],
     );
 
     // use the partial witness generation solver with our acir program
@@ -388,7 +388,7 @@ fn oracle_dependent_execution() {
         &opcodes,
         witness_assignments,
         &unconstrained_functions,
-        Default::default(),
+        &[],
     );
 
     // use the partial witness generation solver with our acir program
@@ -498,7 +498,7 @@ fn brillig_oracle_predicate() {
         &opcodes,
         witness_assignments,
         &unconstrained_functions,
-        Default::default(),
+        &[],
     );
     let solver_status = acvm.solve();
     assert_eq!(solver_status, ACVMStatus::Solved, "should be fully solved");
@@ -534,13 +534,8 @@ fn unsatisfied_opcode_resolved() {
 
     let opcodes = vec![Opcode::AssertZero(opcode_a)];
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(
-        &StubbedBlackBoxSolver,
-        &opcodes,
-        values,
-        &unconstrained_functions,
-        Default::default(),
-    );
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, values, &unconstrained_functions, &[]);
     let solver_status = acvm.solve();
     assert_eq!(
         solver_status,
@@ -624,13 +619,8 @@ fn unsatisfied_opcode_resolved_brillig() {
 
     let opcodes = vec![brillig_opcode, Opcode::AssertZero(opcode_a)];
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(
-        &StubbedBlackBoxSolver,
-        &opcodes,
-        values,
-        &unconstrained_functions,
-        Default::default(),
-    );
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, values, &unconstrained_functions, &[]);
     let solver_status = acvm.solve();
     assert_eq!(
         solver_status,
@@ -674,13 +664,8 @@ fn memory_operations() {
 
     let opcodes = vec![init, read_op, expression];
     let unconstrained_functions = vec![];
-    let mut acvm = ACVM::new(
-        &StubbedBlackBoxSolver,
-        &opcodes,
-        initial_witness,
-        &unconstrained_functions,
-        Default::default(),
-    );
+    let mut acvm =
+        ACVM::new(&StubbedBlackBoxSolver, &opcodes, initial_witness, &unconstrained_functions, &[]);
     let solver_status = acvm.solve();
     assert_eq!(solver_status, ACVMStatus::Solved);
     let witness_map = acvm.finalize();

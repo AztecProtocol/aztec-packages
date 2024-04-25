@@ -6,7 +6,7 @@ use acir::{
     brillig::ForeignCallResult,
     circuit::{
         brillig::BrilligBytecode, opcodes::BlockId, AssertionPayload, ExpressionOrMemory, Opcode,
-        OpcodeLocation, STRING_ERROR_SELECTOR,
+        OpcodeLocation, ResolvedAssertionPayload, STRING_ERROR_SELECTOR,
     },
     native_types::{Expression, Witness, WitnessMap},
     BlackBoxFunc, FieldElement,
@@ -113,12 +113,6 @@ impl std::fmt::Display for ErrorLocation {
             }
         }
     }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum ResolvedAssertionPayload {
-    String(String),
-    Raw(/*error_selector:*/ u64, Vec<FieldElement>),
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Error)]
