@@ -4,7 +4,8 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
     public_call_data::PublicCallData, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequestContext,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, global_variables::GlobalVariables,
+    combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -31,6 +32,13 @@ pub fn validate_inputs(public_call: PublicCallData) {
         this_call_stack_item.function_data.is_private == false, "Cannot execute a private function with the public kernel circuit"
     );
     assert(public_call.bytecode_hash != 0, "Bytecode hash cannot be zero");
+}
+
+pub fn validate_public_call_constants(public_call: PublicCallData, constants: CombinedConstantData) {
+    let public_call_globals = public_call.call_stack_item.public_inputs.global_variables;
+    assert(
+        public_call_globals == constants.global_variables, "Global variables injected into the public call do not match constants"
+    );
 }
 
 pub fn validate_public_call_non_revert(public_call: PublicCallData) {

@@ -30,6 +30,12 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
 
+        // validate constants injected into the public call are correct
+        common::validate_public_call_constants(
+            self.public_call,
+            self.previous_kernel.public_inputs.constants
+        );
+
         // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
 
@@ -482,6 +488,15 @@ mod tests {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
 
         builder.public_call.public_inputs.transaction_fee = 10;
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Global variables injected into the public call do not match constants")]
+    fn validates_global_varialbles() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
     }

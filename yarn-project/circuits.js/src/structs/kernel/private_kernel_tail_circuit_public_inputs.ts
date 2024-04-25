@@ -3,6 +3,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MAX_NEW_NULLIFIERS_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { AggregationObject } from '../aggregation_object.js';
+import { type GlobalVariables } from '../global_variables.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { RevertCode } from '../revert_code.js';
 import { RollupValidationRequests } from '../rollup_validation_requests.js';
@@ -113,16 +114,19 @@ export class PrivateKernelTailCircuitPublicInputs {
     }
   }
 
-  toPublicKernelCircuitPublicInputs() {
+  toPublicKernelCircuitPublicInputs(globalVariables: GlobalVariables) {
     if (!this.forPublic) {
       throw new Error('Private tail public inputs is not for public circuit.');
     }
+    // We patch constants with global variables here because the public kernel circuit needs them.
+    // See the note at the beginning of noir-projects/noir-protocol-circuits/crates/public-kernel-lib/src/public_kernel_setup.nr
+    const constants = CombinedConstantData.from({ ...this.constants, globalVariables });
     return new PublicKernelCircuitPublicInputs(
       this.aggregationObject,
       this.forPublic.validationRequests,
       this.forPublic.endNonRevertibleData,
       this.forPublic.end,
-      this.constants,
+      constants,
       this.revertCode,
     );
   }

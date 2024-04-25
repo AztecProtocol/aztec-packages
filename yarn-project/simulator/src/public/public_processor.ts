@@ -165,7 +165,7 @@ export class PublicProcessor {
     );
     this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
     let proof = tx.proof;
-    let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
+    let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs(this.globalVariables);
     let finalKernelOutput: KernelCircuitPublicInputs | undefined;
     let revertReason: SimulationError | undefined;
     const timer = new Timer();
