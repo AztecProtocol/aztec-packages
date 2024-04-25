@@ -16,12 +16,13 @@ import {
   FunctionSelector,
   type Header,
   NoteHashReadRequestMembershipWitness,
+  PrivateContextInputs,
   PublicCallRequest,
   type SideEffect,
-  TxContext,
+  type TxContext,
 } from '@aztec/circuits.js';
-import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { computePublicDataTreeLeafSlot, computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
+import { Aes128, type Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { computePublicDataTreeLeafSlot, computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, type Point } from '@aztec/foundation/fields';
@@ -99,18 +100,14 @@ export class ClientExecutionContext extends ViewDataOracle {
       throw new Error('Invalid arguments size');
     }
 
-    const fields = [
-      ...this.callContext.toFields(),
-      ...this.historicalHeader.toFields(),
+    const privateContextInputs = new PrivateContextInputs(
+      this.callContext,
+      this.historicalHeader,
+      this.txContext,
+      this.sideEffectCounter,
+    );
 
-      this.txContext.chainId,
-      this.txContext.version,
-
-      new Fr(this.sideEffectCounter),
-
-      ...args,
-    ];
-
+    const fields = [...privateContextInputs.toFields(), ...args];
     return toACVMWitness(0, fields);
   }
 
@@ -260,7 +257,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     notes.forEach(n => {
       if (n.index !== undefined) {
         const siloedNoteHash = siloNoteHash(n.contractAddress, n.innerNoteHash);
-        const uniqueSiloedNoteHash = computeUniqueCommitment(n.nonce, siloedNoteHash);
+        const uniqueSiloedNoteHash = computeUniqueNoteHash(n.nonce, siloedNoteHash);
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386)
         // Should always be uniqueSiloedNoteHash when publicly created notes include nonces.
         const noteHashForReadRequest = n.nonce.isZero() ? siloedNoteHash : uniqueSiloedNoteHash;
@@ -383,9 +380,9 @@ export class ClientExecutionContext extends ViewDataOracle {
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetArtifact);
 
-    const derivedTxContext = new TxContext(false, false, this.txContext.chainId, this.txContext.version);
+    const derivedTxContext = this.txContext.clone();
 
-    const derivedCallContext = await this.deriveCallContext(
+    const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
       sideEffectCounter,
@@ -446,7 +443,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
     const targetArtifact = await this.db.getFunctionArtifact(targetContractAddress, functionSelector);
-    const derivedCallContext = await this.deriveCallContext(
+    const derivedCallContext = this.deriveCallContext(
       targetContractAddress,
       targetArtifact,
       sideEffectCounter,
@@ -484,25 +481,20 @@ export class ClientExecutionContext extends ViewDataOracle {
    * @param isStaticCall - Whether the call is a static call.
    * @returns The derived call context.
    */
-  private async deriveCallContext(
+  private deriveCallContext(
     targetContractAddress: AztecAddress,
     targetArtifact: FunctionArtifact,
     startSideEffectCounter: number,
     isDelegateCall = false,
     isStaticCall = false,
   ) {
-    const portalContractAddress = await this.db.getPortalContractAddress(targetContractAddress);
     return new CallContext(
       isDelegateCall ? this.callContext.msgSender : this.contractAddress,
       isDelegateCall ? this.contractAddress : targetContractAddress,
-      portalContractAddress,
       FunctionSelector.fromNameAndParameters(targetArtifact.name, targetArtifact.parameters),
-      this.callContext.gasLeft, // TODO(palla/gas): We should deduct DA and L1 gas used for the derived context
       isDelegateCall,
       isStaticCall,
       startSideEffectCounter,
-      this.callContext.gasSettings,
-      this.callContext.transactionFee,
     );
   }
 
@@ -529,5 +521,10 @@ export class ClientExecutionContext extends ViewDataOracle {
       values.push(value);
     }
     return values;
+  }
+
+  public override aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
+    const aes128 = new Aes128();
+    return aes128.encryptBufferCBC(input, initializationVector, key);
   }
 }

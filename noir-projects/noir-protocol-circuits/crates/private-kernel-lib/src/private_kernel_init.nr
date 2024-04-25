@@ -22,7 +22,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
         public_inputs.constants = CombinedConstantData {
             historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
             tx_context: self.tx_request.tx_context,
-            gas_settings: self.tx_request.gas_settings,
         };
         public_inputs.min_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.min_revertible_side_effect_counter;
     }
@@ -51,6 +50,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // Ensure we are passing the correct arguments to the function.
         let args_match = tx_request.args_hash == call_stack_item.public_inputs.args_hash;
         assert(args_match, "noir function args passed to tx_request must match args in the call_stack_item");
+        //
+        // Ensure we are passing the correct tx context
+        let tx_context_matches = tx_request.tx_context == call_stack_item.public_inputs.tx_context;
+        assert(tx_context_matches, "tx_context in tx_request must match tx_context in call_stack_item");
     }
 
     fn validate_inputs(self) {
@@ -163,9 +166,15 @@ mod tests {
         let unencrypted_logs_hashes = [26, 46];
         let unencrypted_log_preimages_length = [50, 25];
         builder.private_call.set_encrypted_logs(encrypted_logs_hashes[0], encrypted_log_preimages_length[0]);
-        builder.private_call.set_unencrypted_logs(unencrypted_logs_hashes[0], unencrypted_log_preimages_length[0]);
+        builder.private_call.set_unencrypted_logs(
+            unencrypted_logs_hashes[0],
+            unencrypted_log_preimages_length[0]
+        );
         builder.private_call.set_encrypted_logs(encrypted_logs_hashes[1], encrypted_log_preimages_length[1]);
-        builder.private_call.set_unencrypted_logs(unencrypted_logs_hashes[1], unencrypted_log_preimages_length[1]);
+        builder.private_call.set_unencrypted_logs(
+            unencrypted_logs_hashes[1],
+            unencrypted_log_preimages_length[1]
+        );
 
         let public_inputs = builder.execute();
 
@@ -174,8 +183,12 @@ mod tests {
         assert_eq(public_inputs.end.new_nullifiers[0].value, tx_hash);
 
         // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length.reduce(|a, b| a + b));
-        assert_eq(public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length.reduce(|a, b| a + b));
+        assert_eq(
+            public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length.reduce(|a, b| a + b)
+        );
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length.reduce(|a, b| a + b)
+        );
         assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, encrypted_logs_hashes[0]);
         assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, unencrypted_logs_hashes[0]);
         assert_eq(public_inputs.end.encrypted_logs_hashes[1].value, encrypted_logs_hashes[1]);
@@ -547,7 +560,7 @@ mod tests {
     fn propagate_nullifier_key_validation_requests() {
         let mut builder = PrivateKernelInitInputsBuilder::new();
 
-        let request = NullifierKeyValidationRequest { public_key: GrumpkinPoint { x: 1, y: 2 }, secret_key: GrumpkinPrivateKey { high: 3, low: 4 } };
+        let request = NullifierKeyValidationRequest { master_nullifier_public_key: GrumpkinPoint { x: 1, y: 2 }, app_nullifier_secret_key: 3 };
         builder.private_call.public_inputs.nullifier_key_validation_requests.push(request);
 
         let public_inputs = builder.execute();
@@ -555,8 +568,8 @@ mod tests {
         assert_eq(array_length(public_inputs.validation_requests.nullifier_key_validation_requests), 1);
 
         let request_context = public_inputs.validation_requests.nullifier_key_validation_requests[0];
-        assert_eq(request_context.public_key, request.public_key);
-        assert_eq(request_context.secret_key, request.secret_key);
+        assert_eq(request_context.master_nullifier_public_key, request.master_nullifier_public_key);
+        assert_eq(request_context.app_nullifier_secret_key, request.app_nullifier_secret_key);
         assert_eq(
             request_context.contract_address, builder.private_call.public_inputs.call_context.storage_contract_address
         );

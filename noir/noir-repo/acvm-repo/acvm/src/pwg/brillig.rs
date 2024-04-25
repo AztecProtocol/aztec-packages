@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use acir::{
     brillig::{ForeignCallParam, ForeignCallResult, Opcode as BrilligOpcode},
     circuit::{
-        brillig::{Brillig, BrilligInputs, BrilligOutputs},
+        brillig::{BrilligInputs, BrilligOutputs},
         opcodes::BlockId,
         OpcodeLocation,
     },
@@ -30,19 +30,6 @@ pub struct BrilligSolver<'b, B: BlackBoxFunctionSolver> {
 }
 
 impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
-    /// Evaluates if the Brillig block should be skipped entirely
-    pub(super) fn should_skip(
-        witness: &WitnessMap,
-        brillig: &Brillig,
-    ) -> Result<bool, OpcodeResolutionError> {
-        // If the predicate is `None`, the block should never be skipped
-        // If the predicate is `Some` but we cannot find a value, then we return stalled
-        match &brillig.predicate {
-            Some(pred) => Ok(get_value(pred, witness)?.is_zero()),
-            None => Ok(false),
-        }
-    }
-
     /// Assigns the zero value to all outputs of the given [`Brillig`] bytecode.
     pub(super) fn zero_out_brillig_outputs(
         initial_witness: &mut WitnessMap,
@@ -61,26 +48,6 @@ impl<'b, B: BlackBoxFunctionSolver> BrilligSolver<'b, B> {
             }
         }
         Ok(())
-    }
-
-    // TODO: Delete this old method once `Brillig` is deleted
-    /// Constructs a solver for a Brillig block given the bytecode and initial
-    /// witness.
-    pub(crate) fn new(
-        initial_witness: &WitnessMap,
-        memory: &HashMap<BlockId, MemoryOpSolver>,
-        brillig: &'b Brillig,
-        bb_solver: &'b B,
-        acir_index: usize,
-    ) -> Result<Self, OpcodeResolutionError> {
-        let vm = Self::setup_brillig_vm(
-            initial_witness,
-            memory,
-            &brillig.inputs,
-            &brillig.bytecode,
-            bb_solver,
-        )?;
-        Ok(Self { vm, acir_index })
     }
 
     /// Constructs a solver for a Brillig block given the bytecode and initial

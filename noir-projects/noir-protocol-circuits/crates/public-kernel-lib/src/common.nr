@@ -172,8 +172,8 @@ pub fn update_validation_requests(public_call: PublicCallData, circuit_outputs: 
 }
 
 pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
-    let tx_gas_limits = circuit_outputs.constants.gas_settings.get_gas_limits();
-    let call_gas_left = public_call.call_stack_item.public_inputs.gas_left;
+    let tx_gas_limits = circuit_outputs.constants.tx_context.gas_settings.gas_limits;
+    let call_gas_left = public_call.call_stack_item.public_inputs.end_gas_left;
     let accum_end_non_revertible_gas_used = circuit_outputs.end_non_revertible.gas_used;
 
     // dep::types::debug_log::debug_log_format(
@@ -191,14 +191,18 @@ pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: 
     // ]
     // );
 
+    // println(
+    //     f"Updating revertible gas: tx_gas_limits={tx_gas_limits} call_gas_left={call_gas_left} accum_end_non_revertible_gas_used={accum_end_non_revertible_gas_used}"
+    // );
+
     circuit_outputs.end.gas_used = tx_gas_limits
         .sub(call_gas_left)
         .sub(accum_end_non_revertible_gas_used);
 }
 
 pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outputs: &mut PublicKernelCircuitPublicInputsBuilder) {
-    let tx_gas_limits = circuit_outputs.constants.gas_settings.get_gas_limits();
-    let call_gas_left = public_call.call_stack_item.public_inputs.gas_left;
+    let tx_gas_limits = circuit_outputs.constants.tx_context.gas_settings.gas_limits;
+    let call_gas_left = public_call.call_stack_item.public_inputs.end_gas_left;
     let accum_end_gas_used = circuit_outputs.end.gas_used;
 
     // dep::types::debug_log::debug_log_format(
@@ -223,6 +227,22 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
     circuit_outputs.end_non_revertible.gas_used = tx_gas_limits
         .sub(call_gas_left)
         .sub(accum_end_gas_used);
+}
+
+// Validates that the start gas injected into the app circuit matches the remaining gas
+pub fn validate_start_gas(public_call: PublicCallData, previous_kernel: PublicKernelData) {
+    let public_call_start_gas = public_call.call_stack_item.public_inputs.start_gas_left;
+    let tx_gas_limits = previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+    let computed_start_gas = tx_gas_limits.sub(previous_kernel.public_inputs.end.gas_used).sub(previous_kernel.public_inputs.end_non_revertible.gas_used);
+    assert(
+        public_call_start_gas == computed_start_gas, "Start gas for public phase does not match transaction gas left"
+    );
+}
+
+// Validates the transaction fee injected into the app circuit is zero for non-teardown phases
+pub fn validate_transaction_fee_is_zero(public_call: PublicCallData) {
+    let transaction_fee = public_call.call_stack_item.public_inputs.transaction_fee;
+    assert(transaction_fee == 0, "Transaction fee must be zero on setup and app phases");
 }
 
 pub fn update_public_end_non_revertible_values(
@@ -519,7 +539,10 @@ pub fn propagate_new_unencrypted_logs(public_call: PublicCallData, public_inputs
     public_inputs.end.unencrypted_log_preimages_length += public_call.call_stack_item.public_inputs.unencrypted_log_preimages_length;
 }
 
-pub fn propagate_new_unencrypted_logs_non_revertible(public_call: PublicCallData, public_inputs: &mut PublicKernelCircuitPublicInputsBuilder) {
+pub fn propagate_new_unencrypted_logs_non_revertible(
+    public_call: PublicCallData,
+    public_inputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
     // new unencrypted logs
     let new_logs = public_call.call_stack_item.public_inputs.unencrypted_logs_hashes;
     // TODO(Miranda): silo logs here once we have finalised struct
