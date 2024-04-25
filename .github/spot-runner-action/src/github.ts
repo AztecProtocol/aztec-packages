@@ -1,8 +1,8 @@
-import { ConfigInterface } from "../config/config";
 import * as github from "@actions/github";
 import { HttpClient, HttpClientResponse } from "@actions/http-client";
 import * as _ from "lodash";
 import * as core from "@actions/core";
+import { ConfigInterface } from "./config";
 
 export class GithubClient {
   config: ConfigInterface;

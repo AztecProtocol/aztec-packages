@@ -1,10 +1,13 @@
-import { ConfigInterface } from "../config/config";
 import * as _ from "lodash";
 import AWS from "aws-sdk";
+import {
+  CreateLaunchTemplateRequest,
+  RunInstancesRequest,
+} from "aws-sdk/clients/ec2";
 import * as crypto from "crypto";
 import * as core from "@actions/core";
+import { ConfigInterface } from "./config";
 import { UserData } from "./userdata";
-import { CreateLaunchTemplateRequest, InstanceRequirementsRequest, RunInstancesRequest } from "aws-sdk/clients/ec2";
 
 interface Tag {
   Key: string;
@@ -52,8 +55,8 @@ export class Ec2Instance {
 
   getTags() {
     // Parse custom tags
-    let customTags = []
-    if(this.config.ec2InstanceTags){
+    let customTags = [];
+    if (this.config.ec2InstanceTags) {
       customTags = JSON.parse(this.config.ec2InstanceTags);
     }
 
@@ -78,7 +81,7 @@ export class Ec2Instance {
         Key: "github_repo",
         Value: this.config.githubRepo,
       },
-        ...customTags
+      ...customTags,
     ];
   }
 
@@ -139,9 +142,9 @@ export class Ec2Instance {
   }
 
   getHashOfStringArray(strings: string[]): string {
-    const hash = crypto.createHash('sha256');
-    hash.update(strings.join('')); // Concatenate all strings in the array
-    return hash.digest('hex');
+    const hash = crypto.createHash("sha256");
+    hash.update(strings.join("")); // Concatenate all strings in the array
+    return hash.digest("hex");
   }
 
   async getLaunchTemplate(): Promise<string> {
@@ -165,20 +168,23 @@ export class Ec2Instance {
         },
       },
     };
-    const arr = (await client
-      .describeLaunchTemplates({
-        LaunchTemplateNames: [launchTemplateName],
-      })
-      .promise()).LaunchTemplates || [];
-    if (
-      arr.length <= 0
-    ) {
+    const arr =
+      (
+        await client
+          .describeLaunchTemplates({
+            LaunchTemplateNames: [launchTemplateName],
+          })
+          .promise()
+      ).LaunchTemplates || [];
+    if (arr.length <= 0) {
       await client.createLaunchTemplate(launchTemplateParams).promise();
     }
     return launchTemplateName;
   }
 
-  async getInstanceConfiguration(ec2SpotInstanceStrategy: string): Promise<RunInstancesRequest> {
+  async getInstanceConfiguration(
+    ec2SpotInstanceStrategy: string
+  ): Promise<RunInstancesRequest> {
     const userData = new UserData(this.config);
 
     const params: RunInstancesRequest = {
@@ -267,12 +273,20 @@ export class Ec2Instance {
       };
 
       let instances: AWS.EC2.Instance[] = [];
-      for (const reservation of (await client.describeInstances(params).promise()).Reservations || []) {
+      for (const reservation of (
+        await client.describeInstances(params).promise()
+      ).Reservations || []) {
         instances = instances.concat(reservation.Instances || []);
       }
       return instances;
     } catch (error) {
-      core.error(`Failed to lookup status for instance for tags ${JSON.stringify(filters, null, 2)}`);
+      core.error(
+        `Failed to lookup status for instance for tags ${JSON.stringify(
+          filters,
+          null,
+          2
+        )}`
+      );
       throw error;
     }
   }
@@ -298,7 +312,7 @@ export class Ec2Instance {
     const client = await this.getEc2Client();
     try {
       await client.terminateInstances({ InstanceIds: instanceIds }).promise();
-      core.info(`AWS EC2 instances ${instanceIds.join(', ')} are terminated`);
+      core.info(`AWS EC2 instances ${instanceIds.join(", ")} are terminated`);
       return;
     } catch (error) {
       core.info(`Failed to terminate instances ${instanceIds.join(", ")}`);

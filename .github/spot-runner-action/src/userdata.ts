@@ -1,6 +1,6 @@
-import { ConfigInterface } from "../config/config";
 import * as github from "@actions/github";
-import { GithubClient } from "../github/github";
+import { ConfigInterface } from "./config";
+import { GithubClient } from "./github";
 
 export class UserData {
   config: ConfigInterface;
@@ -14,7 +14,9 @@ export class UserData {
     const githubActionRunnerVersion = await ghClient.getRunnerVersion();
     // Retrieve runner registration tokens in parallel
     const tokens = await Promise.all(
-      Array.from({ length: this.config.githubActionRunnerConcurrency }, () => ghClient.getRunnerRegistrationToken())
+      Array.from({ length: this.config.githubActionRunnerConcurrency }, () =>
+        ghClient.getRunnerRegistrationToken()
+      )
     );
     if (!this.config.githubActionRunnerLabel)
       throw Error("failed to object job ID for label");
@@ -65,7 +67,10 @@ export class UserData {
       "done",
       "wait", // Wait for all background processes to finish
     ];
-    console.log("Sending: ", cmds.filter(x => !x.startsWith("TOKENS")).join("\n"));
+    console.log(
+      "Sending: ",
+      cmds.filter((x) => !x.startsWith("TOKENS")).join("\n")
+    );
     return Buffer.from(cmds.join("\n")).toString("base64");
   }
 }

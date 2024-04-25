@@ -1,10 +1,14 @@
-import { ActionConfig } from "./config/config";
-import { Ec2Instance } from "./ec2/ec2";
 import * as core from "@actions/core";
-import { GithubClient } from "./github/github";
-import { assertIsError } from "./utils/utils";
+import { ActionConfig } from "./config";
+import { Ec2Instance } from "./ec2";
+import { GithubClient } from "./github";
+import { assertIsError } from "./utils";
 
-async function pollSpotStatus(config: ActionConfig, ec2Client: Ec2Instance, ghClient: GithubClient): Promise<'usable' | 'unusable' | 'none'> {
+async function pollSpotStatus(
+  config: ActionConfig,
+  ec2Client: Ec2Instance,
+  ghClient: GithubClient
+): Promise<"usable" | "unusable" | "none"> {
   // 12 iters x 10000 ms = 2 minutes
   for (let iter = 0; iter < 12; iter++) {
     const instances = await ec2Client.getInstancesForTags();
@@ -12,21 +16,23 @@ async function pollSpotStatus(config: ActionConfig, ec2Client: Ec2Instance, ghCl
       instances.filter((i) => i.State?.Name === "running").length > 0;
     if (!hasInstance) {
       // we need to start an instance
-      return 'none';
+      return "none";
     }
     try {
-      core.info("Found ec2 instance, looking for runners.")
+      core.info("Found ec2 instance, looking for runners.");
       if (await ghClient.hasRunner([config.githubJobId])) {
         // we have runners
-        return 'usable';
+        return "usable";
       }
-    } catch (err) { }
+    } catch (err) {}
     // wait 10 seconds
     await new Promise((r) => setTimeout(r, 10000));
   }
   // we have a bad state for a while, error
-  core.warning("Looped for 2 minutes and could only find spot with no runners!");
-  return 'unusable';
+  core.warning(
+    "Looped for 2 minutes and could only find spot with no runners!"
+  );
+  return "unusable";
 }
 
 async function start() {
@@ -84,7 +90,7 @@ async function start() {
     core.info(`Starting instance with ${ec2Strategy} strategy`);
     // 6 * 10000ms = 1 minute per strategy
     // TODO make longer lived spot request?
-    for (let i = 0; i < 6 ; i++) {
+    for (let i = 0; i < 6; i++) {
       // Get instance config
       const instanceConfig = await ec2Client.getInstanceConfiguration(
         ec2Strategy
@@ -108,15 +114,15 @@ async function start() {
             "Failed to create instance due to 'InsufficientInstanceCapacity', waiting 10 seconds and trying again."
           );
           // we loop after 10 seconds
-        } else { throw error; }
+        } else {
+          throw error;
+        }
       }
       // wait 10 seconds
       await new Promise((r) => setTimeout(r, 10000));
     }
     if (instanceId) {
-      core.info(
-        "Successfully requested instance with ID " + instanceId
-      );
+      core.info("Successfully requested instance with ID " + instanceId);
       break;
     }
   }
