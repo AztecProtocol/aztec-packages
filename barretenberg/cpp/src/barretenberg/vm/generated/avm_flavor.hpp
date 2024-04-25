@@ -71,11 +71,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 229;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 230;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 271;
+    static constexpr size_t NUM_ALL_ENTITIES = 273;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -331,6 +331,7 @@ class AvmFlavor {
                               avm_main_w_in_tag,
                               avm_mem_addr,
                               avm_mem_clk,
+                              avm_mem_diff,
                               avm_mem_ind_op_a,
                               avm_mem_ind_op_b,
                               avm_mem_ind_op_c,
@@ -563,6 +564,7 @@ class AvmFlavor {
                      avm_main_w_in_tag,
                      avm_mem_addr,
                      avm_mem_clk,
+                     avm_mem_diff,
                      avm_mem_ind_op_a,
                      avm_mem_ind_op_b,
                      avm_mem_ind_op_c,
@@ -800,6 +802,7 @@ class AvmFlavor {
                               avm_main_w_in_tag,
                               avm_mem_addr,
                               avm_mem_clk,
+                              avm_mem_diff,
                               avm_mem_ind_op_a,
                               avm_mem_ind_op_b,
                               avm_mem_ind_op_c,
@@ -918,6 +921,7 @@ class AvmFlavor {
                               avm_mem_addr_shift,
                               avm_mem_rw_shift,
                               avm_mem_tag_shift,
+                              avm_mem_tsp_shift,
                               avm_mem_val_shift)
 
         RefVector<DataType> get_wires()
@@ -1074,6 +1078,7 @@ class AvmFlavor {
                      avm_main_w_in_tag,
                      avm_mem_addr,
                      avm_mem_clk,
+                     avm_mem_diff,
                      avm_mem_ind_op_a,
                      avm_mem_ind_op_b,
                      avm_mem_ind_op_c,
@@ -1192,6 +1197,7 @@ class AvmFlavor {
                      avm_mem_addr_shift,
                      avm_mem_rw_shift,
                      avm_mem_tag_shift,
+                     avm_mem_tsp_shift,
                      avm_mem_val_shift };
         };
         RefVector<DataType> get_unshifted()
@@ -1348,6 +1354,7 @@ class AvmFlavor {
                      avm_main_w_in_tag,
                      avm_mem_addr,
                      avm_mem_clk,
+                     avm_mem_diff,
                      avm_mem_ind_op_a,
                      avm_mem_ind_op_b,
                      avm_mem_ind_op_c,
@@ -1469,6 +1476,7 @@ class AvmFlavor {
                      avm_mem_addr,
                      avm_mem_rw,
                      avm_mem_tag,
+                     avm_mem_tsp,
                      avm_mem_val };
         };
         RefVector<DataType> get_shifted()
@@ -1512,6 +1520,7 @@ class AvmFlavor {
                      avm_mem_addr_shift,
                      avm_mem_rw_shift,
                      avm_mem_tag_shift,
+                     avm_mem_tsp_shift,
                      avm_mem_val_shift };
         };
     };
@@ -1564,6 +1573,7 @@ class AvmFlavor {
                      avm_mem_addr,
                      avm_mem_rw,
                      avm_mem_tag,
+                     avm_mem_tsp,
                      avm_mem_val };
         };
 
@@ -1881,6 +1891,7 @@ class AvmFlavor {
             Base::avm_main_w_in_tag = "AVM_MAIN_W_IN_TAG";
             Base::avm_mem_addr = "AVM_MEM_ADDR";
             Base::avm_mem_clk = "AVM_MEM_CLK";
+            Base::avm_mem_diff = "AVM_MEM_DIFF";
             Base::avm_mem_ind_op_a = "AVM_MEM_IND_OP_A";
             Base::avm_mem_ind_op_b = "AVM_MEM_IND_OP_B";
             Base::avm_mem_ind_op_c = "AVM_MEM_IND_OP_C";
@@ -2129,6 +2140,7 @@ class AvmFlavor {
         Commitment avm_main_w_in_tag;
         Commitment avm_mem_addr;
         Commitment avm_mem_clk;
+        Commitment avm_mem_diff;
         Commitment avm_mem_ind_op_a;
         Commitment avm_mem_ind_op_b;
         Commitment avm_mem_ind_op_c;
@@ -2378,6 +2390,7 @@ class AvmFlavor {
             avm_main_w_in_tag = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_addr = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_clk = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_diff = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_ind_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_ind_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_ind_op_c = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2630,6 +2643,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_main_w_in_tag, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_addr, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_clk, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_diff, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_ind_op_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_ind_op_b, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_ind_op_c, Transcript::proof_data);

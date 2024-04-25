@@ -296,6 +296,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_main_w_in_tag);
     commitments.avm_mem_addr = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_addr);
     commitments.avm_mem_clk = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_clk);
+    commitments.avm_mem_diff = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_diff);
     commitments.avm_mem_ind_op_a =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_ind_op_a);
     commitments.avm_mem_ind_op_b =

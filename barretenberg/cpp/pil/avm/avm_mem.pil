@@ -42,6 +42,7 @@ namespace avm_mem(256);
 
     // Helper columns
     pol commit one_min_inv; // Extra value to prove r_in_tag != tag with error handling
+    pol commit diff; // Difference between two consecutive timestamps or two consecutive addresses
 
     // Type constraints
     lastAccess * (1 - lastAccess) = 0;
@@ -101,6 +102,9 @@ namespace avm_mem(256);
     // if addr' - addr is 0 or 1, the following is equiv. to lastAccess
     // (addr' - addr)
     
+    #[MEM_DIFF]
+    diff = lastAccess * (addr' - addr) + (1 - lastAccess) * (tsp'-tsp);
+
     // lastAccess == 0 && rw' == 0 ==> val == val'
     // This condition does not apply on the last row.
     // Note: in barretenberg, a shifted polynomial will be 0 on the last row (shift is not cyclic)

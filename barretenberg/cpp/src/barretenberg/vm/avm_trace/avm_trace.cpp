@@ -1537,13 +1537,19 @@ std::vector<Row> AvmTraceBuilder::finalize()
     main_trace.at(*trace_size - 1).avm_main_last = FF(1);
 
     // Memory trace inclusion
+
+    // We compute in the main loop the timestamp of next row provided mem_trace exists.
+    if (mem_trace_size > 0) {
+        main_trace.at(0).avm_mem_tsp =
+            FF(AvmMemTraceBuilder::NUM_SUB_CLK * mem_trace.at(0).m_clk + mem_trace.at(0).m_sub_clk);
+    }
+
     for (size_t i = 0; i < mem_trace_size; i++) {
         auto const& src = mem_trace.at(i);
         auto& dest = main_trace.at(i);
 
         dest.avm_mem_mem_sel = FF(1);
         dest.avm_mem_clk = FF(src.m_clk);
-        dest.avm_mem_tsp = FF(AvmMemTraceBuilder::NUM_SUB_CLK * src.m_clk + src.m_sub_clk);
         dest.avm_mem_addr = FF(src.m_addr);
         dest.avm_mem_val = src.m_val;
         dest.avm_mem_rw = FF(static_cast<uint32_t>(src.m_rw));
@@ -1598,10 +1604,19 @@ std::vector<Row> AvmTraceBuilder::finalize()
 
         if (i + 1 < mem_trace_size) {
             auto const& next = mem_trace.at(i + 1);
-            dest.avm_mem_lastAccess = FF(static_cast<uint32_t>(src.m_addr != next.m_addr));
+            auto& dest_next = main_trace.at(i + 1);
+            dest_next.avm_mem_tsp = FF(AvmMemTraceBuilder::NUM_SUB_CLK * next.m_clk + next.m_sub_clk);
+
+            if (src.m_addr == next.m_addr) {
+                dest.avm_mem_diff = dest_next.avm_mem_tsp - dest.avm_mem_tsp;
+            } else {
+                dest.avm_mem_diff = next.m_addr - src.m_addr;
+                dest.avm_mem_lastAccess = FF(1);
+            }
         } else {
             dest.avm_mem_lastAccess = FF(1);
             dest.avm_mem_last = FF(1);
+            dest.avm_mem_diff = -FF(src.m_addr);
         }
     }
 
@@ -1828,7 +1843,8 @@ std::vector<Row> AvmTraceBuilder::finalize()
         }
     }
     // Adding extra row for the shifted values at the top of the execution trace.
-    Row first_row = Row{ .avm_main_first = FF(1), .avm_mem_lastAccess = FF(1) };
+    Row first_row =
+        Row{ .avm_main_first = FF(1), .avm_mem_diff = main_trace.at(0).avm_mem_addr, .avm_mem_lastAccess = FF(1) };
     main_trace.insert(main_trace.begin(), first_row);
 
     auto trace = std::move(main_trace);

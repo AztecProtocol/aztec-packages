@@ -205,6 +205,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_main_w_in_tag{};
     FF avm_mem_addr{};
     FF avm_mem_clk{};
+    FF avm_mem_diff{};
     FF avm_mem_ind_op_a{};
     FF avm_mem_ind_op_b{};
     FF avm_mem_ind_op_c{};
@@ -323,6 +324,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_addr_shift{};
     FF avm_mem_rw_shift{};
     FF avm_mem_tag_shift{};
+    FF avm_mem_tsp_shift{};
     FF avm_mem_val_shift{};
 };
 
@@ -336,8 +338,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 271;
-    static constexpr size_t num_polys = 231;
+    static constexpr size_t num_fixed_columns = 273;
+    static constexpr size_t num_polys = 232;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -505,6 +507,7 @@ class AvmCircuitBuilder {
             polys.avm_main_w_in_tag[i] = rows[i].avm_main_w_in_tag;
             polys.avm_mem_addr[i] = rows[i].avm_mem_addr;
             polys.avm_mem_clk[i] = rows[i].avm_mem_clk;
+            polys.avm_mem_diff[i] = rows[i].avm_mem_diff;
             polys.avm_mem_ind_op_a[i] = rows[i].avm_mem_ind_op_a;
             polys.avm_mem_ind_op_b[i] = rows[i].avm_mem_ind_op_b;
             polys.avm_mem_ind_op_c[i] = rows[i].avm_mem_ind_op_c;
@@ -592,6 +595,7 @@ class AvmCircuitBuilder {
         polys.avm_mem_addr_shift = Polynomial(polys.avm_mem_addr.shifted());
         polys.avm_mem_rw_shift = Polynomial(polys.avm_mem_rw.shifted());
         polys.avm_mem_tag_shift = Polynomial(polys.avm_mem_tag.shifted());
+        polys.avm_mem_tsp_shift = Polynomial(polys.avm_mem_tsp.shifted());
         polys.avm_mem_val_shift = Polynomial(polys.avm_mem_val.shifted());
 
         return polys;

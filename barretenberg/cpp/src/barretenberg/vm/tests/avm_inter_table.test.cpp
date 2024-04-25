@@ -574,6 +574,9 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIaInMem)
 
     // Adjust timestamp value
     trace.at(mem_idx_a).avm_mem_tsp += FF(AvmMemTraceBuilder::SUB_CLK_STORE_A - AvmMemTraceBuilder::SUB_CLK_LOAD_A);
+    // Adjust diff value of previous row as well
+    trace.at(mem_idx_a - 1).avm_mem_diff +=
+        FF(AvmMemTraceBuilder::SUB_CLK_STORE_A - AvmMemTraceBuilder::SUB_CLK_LOAD_A);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
 }
@@ -585,6 +588,9 @@ TEST_F(AvmPermMainMemNegativeTests, wrongRwIbInMem)
 
     // Adjust timestamp value
     trace.at(mem_idx_b).avm_mem_tsp += FF(AvmMemTraceBuilder::SUB_CLK_STORE_B - AvmMemTraceBuilder::SUB_CLK_LOAD_B);
+    // Adjust diff value of previous row as well
+    trace.at(mem_idx_b - 1).avm_mem_diff +=
+        FF(AvmMemTraceBuilder::SUB_CLK_STORE_B - AvmMemTraceBuilder::SUB_CLK_LOAD_B);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
 }
@@ -608,6 +614,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongClkIaInMem)
     executeSub(87, 23);
     trace.at(mem_idx_a).avm_mem_clk += 3;
     trace.at(mem_idx_a).avm_mem_tsp += AvmMemTraceBuilder::NUM_SUB_CLK * 3;
+    // Adjust diff value on previous row
+    trace.at(mem_idx_a - 1).avm_mem_diff += AvmMemTraceBuilder::NUM_SUB_CLK * 3;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_A");
 }
@@ -617,6 +625,8 @@ TEST_F(AvmPermMainMemNegativeTests, wrongClkIbInMem)
     executeSub(87, 23);
     trace.at(mem_idx_b).avm_mem_clk += 5;
     trace.at(mem_idx_b).avm_mem_tsp += AvmMemTraceBuilder::NUM_SUB_CLK * 5;
+    // Adjust diff value on previous row
+    trace.at(mem_idx_b - 1).avm_mem_diff += AvmMemTraceBuilder::NUM_SUB_CLK * 5;
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "PERM_MAIN_MEM_B");
 }

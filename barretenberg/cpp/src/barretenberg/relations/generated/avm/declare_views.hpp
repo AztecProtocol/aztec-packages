@@ -154,6 +154,7 @@
     [[maybe_unused]] auto avm_main_w_in_tag = View(new_term.avm_main_w_in_tag);                                        \
     [[maybe_unused]] auto avm_mem_addr = View(new_term.avm_mem_addr);                                                  \
     [[maybe_unused]] auto avm_mem_clk = View(new_term.avm_mem_clk);                                                    \
+    [[maybe_unused]] auto avm_mem_diff = View(new_term.avm_mem_diff);                                                  \
     [[maybe_unused]] auto avm_mem_ind_op_a = View(new_term.avm_mem_ind_op_a);                                          \
     [[maybe_unused]] auto avm_mem_ind_op_b = View(new_term.avm_mem_ind_op_b);                                          \
     [[maybe_unused]] auto avm_mem_ind_op_c = View(new_term.avm_mem_ind_op_c);                                          \
@@ -273,4 +274,5 @@
     [[maybe_unused]] auto avm_mem_addr_shift = View(new_term.avm_mem_addr_shift);                                      \
     [[maybe_unused]] auto avm_mem_rw_shift = View(new_term.avm_mem_rw_shift);                                          \
     [[maybe_unused]] auto avm_mem_tag_shift = View(new_term.avm_mem_tag_shift);                                        \
+    [[maybe_unused]] auto avm_mem_tsp_shift = View(new_term.avm_mem_tsp_shift);                                        \
     [[maybe_unused]] auto avm_mem_val_shift = View(new_term.avm_mem_val_shift);
