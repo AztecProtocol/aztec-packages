@@ -73,6 +73,14 @@ export PATH=/opt/foundry/bin:$PATH
 # instuctions or hints on how to remedy.
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
+  # Check cmake version.
+  CMAKE_MIN_VERSION="3.24"
+  CMAKE_INSTALLED_VERSION=$(cmake --version | head -n1 | awk '{print $3}')
+  if [[ "$(printf '%s\n' "$CMAKE_MIN_VERSION" "$CMAKE_INSTALLED_VERSION" | sort -V | head -n1)" != "$CMAKE_MIN_VERSION" ]]; then
+    encourage_dev_container
+    echo "Minimum cmake version 3.24 not found."
+    exit 1
+  fi
   # Check clang version.
   if ! clang++-16 --version > /dev/null; then
     encourage_dev_container
@@ -81,11 +89,11 @@ function check_toolchains {
     exit 1
   fi
   # Check rust version.
-  if ! rustup show | grep "1.73" > /dev/null; then
+  if ! rustup show | grep "1.74" > /dev/null; then
     encourage_dev_container
-    echo "Rust version 1.73 not installed."
+    echo "Rust version 1.74 not installed."
     echo "Installation:"
-    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.73.0"
+    echo "  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.74.1"
     exit 1
   fi
   # Check wasi-sdk version.
@@ -107,14 +115,12 @@ function check_toolchains {
       exit 1
     fi
   done
-  # Check node version.
-  node_version=$(node -v | tr -d 'v')
-  major=${node_version%%.*}
-  rest=${node_version#*.}
-  minor=${rest%%.*}
-  if ((major < 18 || (major == 18 && minor < 19))); then
+  # Check Node.js version.
+  NODE_MIN_VERSION="18.19.0"
+  NODE_INSTALLED_VERSION=$(node --version | cut -d 'v' -f 2)
+  if [[ "$(printf '%s\n' "$NODE_MIN_VERSION" "$NODE_INSTALLED_VERSION" | sort -V | head -n1)" != "$NODE_MIN_VERSION" ]]; then
     encourage_dev_container
-    echo "Node.js not in PATH or version is less than 18.19."
+    echo "Minimum Node.js version 18.19.0 not found."
     echo "Installation: nvm install 18"
     exit 1
   fi
