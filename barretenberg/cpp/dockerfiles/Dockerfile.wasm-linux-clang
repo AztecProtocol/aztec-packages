@@ -4,7 +4,9 @@ WORKDIR /usr/src/barretenberg/cpp
 COPY ./scripts/install-wasi-sdk.sh ./scripts/install-wasi-sdk.sh
 RUN ./scripts/install-wasi-sdk.sh
 COPY . .
-RUN cmake --preset wasm && cmake --build --preset wasm
+# TODO(AD): We need this for e2e browser tests, but this is no longer part of the CI this is a part of
+# The solution will just be to eventually delete this.
+# RUN cmake --preset wasm && cmake --build --preset wasm
 RUN cmake --preset wasm-threads && cmake --build --preset wasm-threads
 RUN ./scripts/strip-wasm.sh
 
