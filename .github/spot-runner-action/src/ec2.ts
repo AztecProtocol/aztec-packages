@@ -200,6 +200,7 @@ export class Ec2Instance {
       InstanceInitiatedShutdownBehavior: "terminate",
       InstanceMarketOptions: {},
       LaunchTemplate: { LaunchTemplateName: await this.getLaunchTemplate() },
+      InstanceType: "",
       MaxCount: 1,
       MinCount: 1,
       SecurityGroupIds: [this.config.ec2SecurityGroupId],
