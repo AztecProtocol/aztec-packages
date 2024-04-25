@@ -57,8 +57,13 @@ jobs:
     concurrency:
       group: start-builder-${{ inputs.runner_label }}
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
       - name: Start EC2 runner
-        uses: AztecProtocol/ec2-action-builder@v0.15
+        uses: ./.github/spot-runner-action
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
