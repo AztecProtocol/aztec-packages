@@ -155,6 +155,7 @@ export class Ec2Instance {
     );
     const launchTemplateName =
       "aztec-packages-spot-runner-" + ec2InstanceTypeHash;
+    core.info("Initializing launch template: " + launchTemplateName);
 
     const launchTemplateParams: CreateLaunchTemplateRequest = {
       LaunchTemplateName: launchTemplateName,
