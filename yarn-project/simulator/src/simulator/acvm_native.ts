@@ -40,13 +40,8 @@ function parseIntoWitnessMap(outputString: string) {
     lines
       .filter((line: string) => line.length)
       .map((line: string) => {
-        try {
-          const pair = line.replaceAll(' ', '').split('=');
-          return [Number(pair[0]), pair[1].replaceAll('"', '')];
-        } catch (error) {
-          logger.debug(line);
-          return [0, ''];
-        }
+        const pair = line.replaceAll(' ', '').split('=');
+        return [Number(pair[0]), pair[1].replaceAll('"', '')];
       }),
   );
 }
