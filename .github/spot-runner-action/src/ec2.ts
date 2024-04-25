@@ -1,8 +1,14 @@
 import * as _ from "lodash";
 import AWS from "aws-sdk";
 import {
+  CreateFleetRequest,
   CreateLaunchTemplateRequest,
+  FleetLaunchTemplateConfig,
+  GetSpotPlacementScoresRequest,
+  RequestSpotFleetRequest,
   RunInstancesRequest,
+  SpotFleetRequestConfigData,
+  SpotInstanceRequest,
 } from "aws-sdk/clients/ec2";
 import * as crypto from "crypto";
 import * as core from "@actions/core";
@@ -124,6 +130,23 @@ export class Ec2Instance {
     }
   }
 
+  async getSubnetAzId() {
+    const client = await this.getEc2Client();
+    try {
+      const subnets = (
+        await client
+          .describeSubnets({
+            SubnetIds: [this.config.ec2SubnetId],
+          })
+          .promise()
+      ).Subnets;
+      return subnets?.at(0)?.AvailabilityZoneId;
+    } catch (error) {
+      core.error(`Failed to lookup subnet az`);
+      throw error;
+    }
+  }
+
   async getSubnetAz() {
     const client = await this.getEc2Client();
     try {
@@ -147,50 +170,45 @@ export class Ec2Instance {
     return hash.digest("hex");
   }
 
-  async getLaunchTemplate(): Promise<string> {
-    const client = await this.getEc2Client();
-
-    const ec2InstanceTypeHash = this.getHashOfStringArray(
-      this.config.ec2InstanceType
-    );
-    const launchTemplateName =
-      "aztec-packages-spot-runner-" + ec2InstanceTypeHash;
-    core.info("Initializing launch template: " + launchTemplateName);
-
-    const launchTemplateParams: CreateLaunchTemplateRequest = {
-      LaunchTemplateName: launchTemplateName,
-      LaunchTemplateData: {
-        InstanceRequirements: {
-          // We do not know what the instance types correspond to
-          // just let the user send a list of allowed instance types
-          VCpuCount: { Min: 0 },
-          MemoryMiB: { Min: 0 },
-          AllowedInstanceTypes: this.config.ec2InstanceType,
-        },
-      },
+  async getSpotInstanceRequestConfiguration(useOnDemand: boolean) {
+    // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
+    const userData = await new UserData(this.config).getUserData();
+    const availabilityZone = await this.getSubnetAz();
+    const f: FleetLaunchTemplateConfig = {
+      Overrides: [{
+        InstanceType: this.config.ec2InstanceType[0],
+        AvailabilityZone: availabilityZone,
+        SubnetId: this.config.ec2SubnetId,
+        KeyName: this.config.ec2KeyName,
+      }]
     };
-
-    let arr: any = []
-    try {
-      arr =
-        (
-          await client
-            .describeLaunchTemplates({
-              LaunchTemplateNames: [launchTemplateName],
-            })
-            .promise()
-        ).LaunchTemplates || [];
-    } catch (error) {
-    }
-    core.info("Launch templates found: " + arr);
-    if (arr.length <= 0) {
-      core.info("Creating launch template: " + launchTemplateName);
-      await client.createLaunchTemplate(launchTemplateParams).promise();
-    }
-    return launchTemplateName;
+    const c: CreateFleetRequest = {
+      LaunchTemplateConfigs: f,
+      TargetCapacitySpecification: {
+        TotalTargetCapacity: 1,
+        OnDemandTargetCapacity: useOnDemand ? 1 : 0,
+        SpotTargetCapacity: useOnDemand ? 0 : 1
+      }
+    };
+    const config: SpotFleetRequestConfigData = {
+      IamFleetRole:
+        "arn:aws:iam::278380418400:role/aws-ec2-spot-fleet-tagging-role",
+      TargetCapacity: 1,
+      // We always ask for 1 instance, but might ask for 100% on demand or spot
+      OnDemandTargetCapacity: useOnDemand ? 1 : 0,
+      TerminateInstancesWithExpiration: true,
+      Type: "request",
+      LaunchSpecifications:
+    };
+    const params: RequestSpotFleetRequest = {
+      SpotFleetRequestConfig: config,
+    };
+    const client = await this.getEc2Client();
+    const requestId = await client.requestSpotFleet(params)?.SpotFleetRequestId;
+    return params;
   }
 
-  async getInstanceConfiguration(
+  async getOnDemandInstanceConfiguration(
     ec2SpotInstanceStrategy: string
   ): Promise<RunInstancesRequest> {
     const userData = new UserData(this.config);
@@ -199,7 +217,6 @@ export class Ec2Instance {
       ImageId: this.config.ec2AmiId,
       InstanceInitiatedShutdownBehavior: "terminate",
       InstanceMarketOptions: {},
-      LaunchTemplate: { LaunchTemplateName: await this.getLaunchTemplate() },
       InstanceType: "",
       MaxCount: 1,
       MinCount: 1,
