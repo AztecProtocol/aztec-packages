@@ -1,10 +1,10 @@
-import { VerificationKey } from './verification_key.js';
+import { VerificationKeyAsFields } from './verification_key.js';
 
 describe('structs/verification_key', () => {
   it(`can serialise and deserialise a verification key`, () => {
-    const vk = VerificationKey.makeFake();
+    const vk = VerificationKeyAsFields.makeFake();
     const serialised = vk.toBuffer();
-    const deserialised = VerificationKey.fromBuffer(serialised);
+    const deserialised = VerificationKeyAsFields.fromBuffer(serialised);
     expect(vk).toEqual(deserialised);
     expect(vk).not.toBe(deserialised);
   });

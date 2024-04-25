@@ -20,7 +20,7 @@ import {
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
-  VerificationKey,
+  VerificationKeyAsFields,
   makeEmptyProof,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
@@ -78,7 +78,7 @@ export class TestCircuitProver implements CircuitProver {
 
     const rootParityInputs = new RootParityInput<typeof RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
-      VerificationKey.makeFake(),
+      VerificationKeyAsFields.makeFake(),
       result,
     );
 
@@ -102,7 +102,7 @@ export class TestCircuitProver implements CircuitProver {
 
     const rootParityInputs = new RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(
       makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH),
-      VerificationKey.makeFake(),
+      VerificationKeyAsFields.makeFake(),
       result,
     );
 

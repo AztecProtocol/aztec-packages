@@ -90,6 +90,8 @@ impl RootRollupInputs {
     }
 
     fn verify_root_parity(self) {
+        // TODO: Verify that self.l1_to_l2_roots.verification_key.hash is the hash of the RootParityCircuit
+        //assert(self.l1_to_l2_roots.verification_key.hash == ROOT_PARITY_CIRCUIT_HASH) 
         std::verify_proof(
             self.l1_to_l2_roots.verification_key.key.as_slice(),
             self.l1_to_l2_roots.proof.fields.as_slice(),

@@ -130,6 +130,7 @@ import {
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
+  VerificationKeyAsFields,
   computeContractClassId,
   computePublicBytecodeCommitment,
   makeRecursiveProof,
@@ -614,8 +615,16 @@ export function makeEmptyNoteHashReadRequestMembershipWitness(): NoteHashReadReq
 }
 
 /**
+ * Creates arbitrary/mocked verification key in fields format.
+ * @returns A verification key as fields object
+ */
+export function makeVerificationKeyAsFields(): VerificationKeyAsFields {
+  return VerificationKeyAsFields.makeFake();
+}
+
+/**
  * Creates arbitrary/mocked verification key.
- * @returns A verification key.
+ * @returns A verification key object
  */
 export function makeVerificationKey(): VerificationKey {
   return VerificationKey.makeFake();
@@ -1075,7 +1084,7 @@ export function makeRootParityInput<PROOF_LENGTH extends number>(
 ): RootParityInput<PROOF_LENGTH> {
   return new RootParityInput<PROOF_LENGTH>(
     makeRecursiveProof<PROOF_LENGTH>(proofSize, seed),
-    VerificationKey.makeFake(seed + 0x100),
+    VerificationKeyAsFields.makeFake(seed + 0x100),
     makeParityPublicInputs(seed + 0x200),
   );
 }

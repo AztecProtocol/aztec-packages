@@ -108,7 +108,7 @@ import {
   TxContext,
   type TxRequest,
   ValidationRequests,
-  type VerificationKey,
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
@@ -1270,7 +1270,7 @@ export function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
   };
 }
 
-export function mapVerificationKeyToNoir(key: VerificationKey) {
+export function mapVerificationKeyToNoir(key: VerificationKeyAsFields) {
   return {
     key: mapTuple(key.key, mapFieldToNoir),
     hash: mapFieldToNoir(key.hash),

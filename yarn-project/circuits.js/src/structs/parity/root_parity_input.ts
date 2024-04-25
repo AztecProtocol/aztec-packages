@@ -2,7 +2,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { RecursiveProof } from '../recursive_proof.js';
-import { VerificationKey } from '../verification_key.js';
+import { VerificationKeyAsFields } from '../verification_key.js';
 import { ParityPublicInputs } from './parity_public_inputs.js';
 
 export class RootParityInput<PROOF_LENGTH extends number> {
@@ -10,7 +10,7 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     /** The proof of the execution of the parity circuit. */
     public readonly proof: RecursiveProof<PROOF_LENGTH>,
     /** The circuit's verification key */
-    public readonly verificationKey: VerificationKey,
+    public readonly verificationKey: VerificationKeyAsFields,
     /** The public inputs of the parity circuit. */
     public readonly publicInputs: ParityPublicInputs,
   ) {}
@@ -33,7 +33,7 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     const reader = BufferReader.asReader(buffer);
     return new RootParityInput(
       RecursiveProof.fromBuffer<PROOF_LENGTH>(reader, size),
-      reader.readObject(VerificationKey),
+      reader.readObject(VerificationKeyAsFields),
       reader.readObject(ParityPublicInputs),
     );
   }

@@ -37,7 +37,8 @@ import {
   StateDiffHints,
   type StateReference,
   VK_TREE_HEIGHT,
-  type VerificationKey,
+  VerificationKey,
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';

@@ -26,7 +26,7 @@ import {
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  VerificationKey,
+  VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -127,7 +127,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('BaseParityArtifact');
 
-    const vk = new VerificationKey(verificationKey.keyAsFields, verificationKey.hash);
+    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
 
     return new RootParityInput(proof, vk, circuitOutput);
   }
@@ -149,7 +149,7 @@ export class BBNativeRollupProver implements CircuitProver {
 
     const verificationKey = await this.getVerificationKeyDataForCircuit('RootParityArtifact');
 
-    const vk = new VerificationKey(verificationKey.keyAsFields, verificationKey.hash);
+    const vk = new VerificationKeyAsFields(verificationKey.keyAsFields, verificationKey.hash);
 
     return new RootParityInput(proof, vk, circuitOutput);
   }
@@ -409,9 +409,9 @@ export class BBNativeRollupProver implements CircuitProver {
    * @param circuitType - The type of circuit for which the verification key is required
    * @returns The verification key
    */
-  public async getVerificationKeyForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKey> {
+  public async getVerificationKeyForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKeyAsFields> {
     const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
-    return new VerificationKey(vkData.keyAsFields, vkData.hash);
+    return new VerificationKeyAsFields(vkData.keyAsFields, vkData.hash);
   }
 
   private async verifyPreviousRollupProof(previousRollupData: PreviousRollupData) {

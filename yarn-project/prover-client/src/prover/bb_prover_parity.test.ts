@@ -7,7 +7,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   RootParityInput,
   RootParityInputs,
-  VerificationKey,
+  VerificationKeyAsFields,
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -90,7 +90,11 @@ describe('prover/bb_prover/parity', () => {
       new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random()),
     );
 
-    const defectiveVerificationKey = new RootParityInput(validProof, VerificationKey.makeFake(), validPublicInputs);
+    const defectiveVerificationKey = new RootParityInput(
+      validProof,
+      VerificationKeyAsFields.makeFake(),
+      validPublicInputs,
+    );
 
     const tupleWithDefectiveProof = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, (i: number) => {
       if (i == 0) {
