@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# Usage:
-# Bootstrap the repo from scratch:
-#   ./bootstrap.sh full
-# Bootstrap the repo using CI cache where possible to save on building:
-#   ./bootstrap.sh fast
-# Force a complete clean of the repo. Erases untracked files, be careful!
-#   ./bootstrap.sh clean
+# Usage: ./bootstrap.sh <full|fast|check|clean>"
+#   full: Bootstrap the repo from scratch.
+#   fast: Bootstrap the repo using CI cache where possible to save time building.
+#   check: Check required toolchains and versions are installed.
+#   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 set -eu
 
 cd "$(dirname "$0")"
@@ -19,60 +17,24 @@ RESET="\033[0m"
 
 source ./build-system/scripts/setup_env '' '' '' > /dev/null
 
-if [ "$CMD" = "clean" ]; then
-  echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
-  echo -n "Continue? [y/n] "
-  read user_input
-  if [ "$user_input" != "y" ] && [ "$user_input" != "Y" ]; then
-    exit 1
-  fi
-
-  # Remove hooks and submodules.
-  rm -rf .git/hooks/*
-  rm -rf .git/modules/*
-  for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
-    rm -rf $SUBMODULE
-  done
-
-  # Remove all untracked files, directories, nested repos, and .gitignore files.
-  git clean -ffdx
-
-  exit 0
-elif [ "$CMD" = "full" ]; then
-  if can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
-    echo
-  fi
-elif [ "$CMD" = "fast" ]; then
-  export USE_CACHE=1
-  if ! can_use_ci_cache; then
-    echo -e "${BOLD}${YELLOW}WARNING: Either docker or aws credentials are missing. Install docker and request credentials. Note this is for internal aztec devs only.${RESET}"
-    exit 1
-  fi
-else
-  echo "usage: $0 <full|fast|clean>"
-  exit 1
-fi
-
-# Install pre-commit git hooks.
-HOOKS_DIR=$(git rev-parse --git-path hooks)
-echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
-chmod +x $HOOKS_DIR/pre-commit
-
-git submodule update --init --recursive
+# Let's update PATH to find foundry where our build images puts it.
+export PATH=/opt/foundry/bin:$PATH
 
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
 }
 
-# Let's update PATH to find foundry where our build images puts it.
-export PATH=/opt/foundry/bin:$PATH
-
-# Checks for the major toolchains and their versions.
-# This isn't an exhaustive check of all required tools and utilities, but covers the main ones and provides
-# instuctions or hints on how to remedy.
+# Checks for required utilities, toolchains and their versions.
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
+  # Check for various required utilities.
+  for util in jq parallel awk git curl; do
+    if ! command -v $util > /dev/null; then
+      encourage_dev_container
+      echo "Utility $util not found."
+      exit 1
+    fi
+  done
   # Check cmake version.
   CMAKE_MIN_VERSION="3.24"
   CMAKE_INSTALLED_VERSION=$(cmake --version | head -n1 | awk '{print $3}')
@@ -104,7 +66,7 @@ function check_toolchains {
     echo "  curl -s -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-22/wasi-sdk-22.0-linux.tar.gz | tar zxf - && sudo mv wasi-sdk-22.0 /opt/wasi-sdk"
     exit 1
   fi
-  # Check anvil version.
+  # Check foundry version.
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep de33b6a > /dev/null; then
       encourage_dev_container
@@ -124,21 +86,62 @@ function check_toolchains {
     echo "Installation: nvm install 18"
     exit 1
   fi
-  # Check for yarn.
-  if ! yarn --version > /dev/null; then
-    encourage_dev_container
-    echo "yarn not in PATH."
-    echo "Installation: npm install --global yarn"
-    exit 1
-  fi
-  # Check for solhint.
-  if ! solhint --version > /dev/null; then
-    encourage_dev_container
-    echo "solhint not in PATH."
-    echo "Installation: npm install --global solhint"
-    exit 1
-  fi
+  # Check for required npm globals.
+  for util in yarn solhint; do
+    if ! command -v $util > /dev/null; then
+      encourage_dev_container
+      echo "$util not found."
+      echo "Installation: npm install --global $util"
+      exit 1
+    fi
+  done
 }
+
+if [ "$CMD" = "clean" ]; then
+  echo "WARNING: This will erase *all* untracked files, including hooks and submodules."
+  echo -n "Continue? [y/n] "
+  read user_input
+  if [ "$user_input" != "y" ] && [ "$user_input" != "Y" ]; then
+    exit 1
+  fi
+
+  # Remove hooks and submodules.
+  rm -rf .git/hooks/*
+  rm -rf .git/modules/*
+  for SUBMODULE in $(git config --file .gitmodules --get-regexp path | awk '{print $2}'); do
+    rm -rf $SUBMODULE
+  done
+
+  # Remove all untracked files, directories, nested repos, and .gitignore files.
+  git clean -ffdx
+
+  exit 0
+elif [ "$CMD" = "full" ]; then
+  if can_use_ci_cache; then
+    echo -e "${BOLD}${YELLOW}WARNING: Performing a full bootstrap. Consider leveraging './bootstrap.sh fast' to use CI cache.${RESET}"
+    echo
+  fi
+elif [ "$CMD" = "fast" ]; then
+  export USE_CACHE=1
+  if ! can_use_ci_cache; then
+    echo -e "${BOLD}${YELLOW}WARNING: Either docker or aws credentials are missing. Install docker and request credentials. Note this is for internal aztec devs only.${RESET}"
+    exit 1
+  fi
+elif [ "$CMD" = "check" ]; then
+  check_toolchains
+  echo "Toolchains look good! 🎉"
+  exit 0
+else
+  echo "usage: $0 <full|fast|check|clean>"
+  exit 1
+fi
+
+# Install pre-commit git hooks.
+HOOKS_DIR=$(git rev-parse --git-path hooks)
+echo "(cd barretenberg/cpp && ./format.sh staged)" >$HOOKS_DIR/pre-commit
+chmod +x $HOOKS_DIR/pre-commit
+
+git submodule update --init --recursive
 
 check_toolchains
 
