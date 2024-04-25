@@ -126,10 +126,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
         // TODO(maxim): input_aggregation_object to be non-zero.
         // TODO(maxim): if not, we can add input_aggregation_object to the proof too for all recursive proofs
         // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
-        std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> current_input_aggregation_object = {
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-        };
-        std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> current_output_aggregation_object = {
+        std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> current_aggregation_object = {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         };
 
@@ -174,12 +171,11 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                                        constraint.proof.begin() +
                                            static_cast<std::ptrdiff_t>(RecursionConstraint::AGGREGATION_OBJECT_SIZE));
             }
-            current_output_aggregation_object = create_recursion_constraints(builder,
-                                                                             constraint,
-                                                                             current_input_aggregation_object,
-                                                                             nested_aggregation_object,
-                                                                             has_valid_witness_assignments);
-            current_input_aggregation_object = current_output_aggregation_object;
+            current_aggregation_object = create_recursion_constraints(builder,
+                                                                      constraint,
+                                                                      current_aggregation_object,
+                                                                      nested_aggregation_object,
+                                                                      has_valid_witness_assignments);
         }
 
         // Now that the circuit has been completely built, we add the output aggregation as public
@@ -189,14 +185,14 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             // First add the output aggregation object as public inputs
             // Set the indices as public inputs because they are no longer being
             // created in ACIR
-            for (const auto& idx : current_output_aggregation_object) {
+            for (const auto& idx : current_aggregation_object) {
                 builder.set_public_input(idx);
             }
 
             // Make sure the verification key records the public input indices of the
             // final recursion output.
-            std::vector<uint32_t> proof_output_witness_indices(current_output_aggregation_object.begin(),
-                                                               current_output_aggregation_object.end());
+            std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
+                                                               current_aggregation_object.end());
             builder.set_recursive_proof(proof_output_witness_indices);
         }
     }
