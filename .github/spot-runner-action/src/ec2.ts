@@ -5,6 +5,7 @@ import {
   CreateFleetRequest,
   CreateLaunchTemplateRequest,
   FleetLaunchTemplateConfig,
+  FleetLaunchTemplateConfigRequest,
   RunInstancesRequest,
 } from "aws-sdk/clients/ec2";
 import * as crypto from "crypto";
@@ -206,7 +207,7 @@ export class Ec2Instance {
   async requestMachine(useOnDemand: boolean): Promise<string|undefined> {
     // Note advice re max bid: "If you specify a maximum price, your instances will be interrupted more frequently than if you do not specify this parameter."
     const availabilityZone = await this.getSubnetAz();
-    const fleetLaunchConfig: FleetLaunchTemplateConfig = {
+    const fleetLaunchConfig: FleetLaunchTemplateConfigRequest = {
       LaunchTemplateSpecification: {
         LaunchTemplateName: await this.getLaunchTemplate()
       },
@@ -218,7 +219,7 @@ export class Ec2Instance {
     };
     const createFleetRequest: CreateFleetRequest = {
       Type: "instant",
-      LaunchTemplateConfigs: fleetLaunchConfig,
+      LaunchTemplateConfigs: [fleetLaunchConfig],
       TargetCapacitySpecification: {
         TotalTargetCapacity: 1,
         OnDemandTargetCapacity: useOnDemand ? 1 : 0,
