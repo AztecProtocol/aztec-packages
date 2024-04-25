@@ -92,11 +92,6 @@ aws ec2 detach-volume \
   --region $REGION \
   --volume-id $VOLUME_ID || true
 
-# Force detach after for good measure, if this is attached to an instance actually doing a build we have other problems
-aws ec2 detach-volume \
-  --region $REGION \
-  --volume-id $VOLUME_ID --force || true
-
 # Attach volume to the instance
 aws ec2 attach-volume \
   --region $REGION \
