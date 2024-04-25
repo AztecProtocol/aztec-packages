@@ -71,11 +71,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 228;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 229;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 270;
+    static constexpr size_t NUM_ALL_ENTITIES = 271;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -337,6 +337,7 @@ class AvmFlavor {
                               avm_mem_ind_op_d,
                               avm_mem_last,
                               avm_mem_lastAccess,
+                              avm_mem_mem_sel,
                               avm_mem_one_min_inv,
                               avm_mem_op_a,
                               avm_mem_op_b,
@@ -568,6 +569,7 @@ class AvmFlavor {
                      avm_mem_ind_op_d,
                      avm_mem_last,
                      avm_mem_lastAccess,
+                     avm_mem_mem_sel,
                      avm_mem_one_min_inv,
                      avm_mem_op_a,
                      avm_mem_op_b,
@@ -804,6 +806,7 @@ class AvmFlavor {
                               avm_mem_ind_op_d,
                               avm_mem_last,
                               avm_mem_lastAccess,
+                              avm_mem_mem_sel,
                               avm_mem_one_min_inv,
                               avm_mem_op_a,
                               avm_mem_op_b,
@@ -1077,6 +1080,7 @@ class AvmFlavor {
                      avm_mem_ind_op_d,
                      avm_mem_last,
                      avm_mem_lastAccess,
+                     avm_mem_mem_sel,
                      avm_mem_one_min_inv,
                      avm_mem_op_a,
                      avm_mem_op_b,
@@ -1350,6 +1354,7 @@ class AvmFlavor {
                      avm_mem_ind_op_d,
                      avm_mem_last,
                      avm_mem_lastAccess,
+                     avm_mem_mem_sel,
                      avm_mem_one_min_inv,
                      avm_mem_op_a,
                      avm_mem_op_b,
@@ -1882,6 +1887,7 @@ class AvmFlavor {
             Base::avm_mem_ind_op_d = "AVM_MEM_IND_OP_D";
             Base::avm_mem_last = "AVM_MEM_LAST";
             Base::avm_mem_lastAccess = "AVM_MEM_LASTACCESS";
+            Base::avm_mem_mem_sel = "AVM_MEM_MEM_SEL";
             Base::avm_mem_one_min_inv = "AVM_MEM_ONE_MIN_INV";
             Base::avm_mem_op_a = "AVM_MEM_OP_A";
             Base::avm_mem_op_b = "AVM_MEM_OP_B";
@@ -2129,6 +2135,7 @@ class AvmFlavor {
         Commitment avm_mem_ind_op_d;
         Commitment avm_mem_last;
         Commitment avm_mem_lastAccess;
+        Commitment avm_mem_mem_sel;
         Commitment avm_mem_one_min_inv;
         Commitment avm_mem_op_a;
         Commitment avm_mem_op_b;
@@ -2377,6 +2384,7 @@ class AvmFlavor {
             avm_mem_ind_op_d = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_last = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_lastAccess = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_mem_mem_sel = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_one_min_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_op_a = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_mem_op_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2628,6 +2636,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_mem_ind_op_d, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_last, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_lastAccess, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_mem_mem_sel, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_one_min_inv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_op_a, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_mem_op_b, Transcript::proof_data);

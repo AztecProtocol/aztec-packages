@@ -307,6 +307,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_mem_last = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_last);
     commitments.avm_mem_lastAccess =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_lastAccess);
+    commitments.avm_mem_mem_sel =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_mem_sel);
     commitments.avm_mem_one_min_inv =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_one_min_inv);
     commitments.avm_mem_op_a = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_mem_op_a);

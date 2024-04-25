@@ -211,6 +211,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_mem_ind_op_d{};
     FF avm_mem_last{};
     FF avm_mem_lastAccess{};
+    FF avm_mem_mem_sel{};
     FF avm_mem_one_min_inv{};
     FF avm_mem_op_a{};
     FF avm_mem_op_b{};
@@ -335,8 +336,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 270;
-    static constexpr size_t num_polys = 230;
+    static constexpr size_t num_fixed_columns = 271;
+    static constexpr size_t num_polys = 231;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -510,6 +511,7 @@ class AvmCircuitBuilder {
             polys.avm_mem_ind_op_d[i] = rows[i].avm_mem_ind_op_d;
             polys.avm_mem_last[i] = rows[i].avm_mem_last;
             polys.avm_mem_lastAccess[i] = rows[i].avm_mem_lastAccess;
+            polys.avm_mem_mem_sel[i] = rows[i].avm_mem_mem_sel;
             polys.avm_mem_one_min_inv[i] = rows[i].avm_mem_one_min_inv;
             polys.avm_mem_op_a[i] = rows[i].avm_mem_op_a;
             polys.avm_mem_op_b[i] = rows[i].avm_mem_op_b;

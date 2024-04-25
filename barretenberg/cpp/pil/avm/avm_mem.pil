@@ -9,9 +9,10 @@ namespace avm_mem(256);
     pol commit addr;
     pol commit tag; // Memory tag (0: uninitialized, 1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6:field)
     pol commit val;
+    pol commit rw; // Enum: 0 (read), 1 (write)
     pol commit lastAccess; // Boolean (1 when this row is the last of a given address)
     pol commit last; // Boolean indicating the last row of the memory trace (not execution trace)
-    pol commit rw; // Enum: 0 (read), 1 (write)
+    pol commit mem_sel; // Selector for every row pertaining to the memory trace
 
     pol commit r_in_tag; // Instruction memory tag ("foreign key" pointing to avm_main.r_in_tag)
     pol commit w_in_tag; // Instruction memory tag ("foreign key" pointing to avm_main.w_in_tag)
@@ -59,14 +60,15 @@ namespace avm_mem(256);
     // TODO: addr is u32 and 0 <= tag <= 6
     //       (r_in_tag, w_in_tag will be constrained through inclusion check to main trace)
 
+    // Definition of mem_sel
+    mem_sel = op_a + op_b + op_c + op_d + ind_op_a + ind_op_b + ind_op_c + ind_op_d;
     // Maximum one memory operation enabled per row
-    pol MEM_SEL = op_a + op_b + op_c + op_d + ind_op_a + ind_op_b + ind_op_c + ind_op_d;
-    MEM_SEL * (MEM_SEL - 1) = 0;
+    mem_sel * (mem_sel - 1) = 0; // TODO: might be be infered in the main trace
 
     // sub_clk derivation
     pol IND_OP = ind_op_a + ind_op_b + ind_op_c + ind_op_d;
-    pol SUB_CLK = MEM_SEL * (ind_op_b + op_b + 2 * (ind_op_c + op_c) + 3 * (ind_op_d + op_d) + 4 * (1 - IND_OP + rw));
-    // We need the MEM_SEL factor as the right factor is not zero when all columns are zero.
+    pol SUB_CLK = mem_sel * (ind_op_b + op_b + 2 * (ind_op_c + op_c) + 3 * (ind_op_d + op_d) + 4 * (1 - IND_OP + rw));
+    // We need the mem_sel factor as the right factor is not zero when all columns are zero.
 
     #[TIMESTAMP]
     tsp = 12 * clk + SUB_CLK;

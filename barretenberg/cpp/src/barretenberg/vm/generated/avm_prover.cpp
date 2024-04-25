@@ -216,6 +216,7 @@ void AvmProver::execute_wire_commitments_round()
     witness_commitments.avm_mem_ind_op_d = commitment_key->commit(key->avm_mem_ind_op_d);
     witness_commitments.avm_mem_last = commitment_key->commit(key->avm_mem_last);
     witness_commitments.avm_mem_lastAccess = commitment_key->commit(key->avm_mem_lastAccess);
+    witness_commitments.avm_mem_mem_sel = commitment_key->commit(key->avm_mem_mem_sel);
     witness_commitments.avm_mem_one_min_inv = commitment_key->commit(key->avm_mem_one_min_inv);
     witness_commitments.avm_mem_op_a = commitment_key->commit(key->avm_mem_op_a);
     witness_commitments.avm_mem_op_b = commitment_key->commit(key->avm_mem_op_b);
@@ -427,6 +428,7 @@ void AvmProver::execute_wire_commitments_round()
     transcript->send_to_verifier(commitment_labels.avm_mem_ind_op_d, witness_commitments.avm_mem_ind_op_d);
     transcript->send_to_verifier(commitment_labels.avm_mem_last, witness_commitments.avm_mem_last);
     transcript->send_to_verifier(commitment_labels.avm_mem_lastAccess, witness_commitments.avm_mem_lastAccess);
+    transcript->send_to_verifier(commitment_labels.avm_mem_mem_sel, witness_commitments.avm_mem_mem_sel);
     transcript->send_to_verifier(commitment_labels.avm_mem_one_min_inv, witness_commitments.avm_mem_one_min_inv);
     transcript->send_to_verifier(commitment_labels.avm_mem_op_a, witness_commitments.avm_mem_op_a);
     transcript->send_to_verifier(commitment_labels.avm_mem_op_b, witness_commitments.avm_mem_op_b);

@@ -160,6 +160,7 @@
     [[maybe_unused]] auto avm_mem_ind_op_d = View(new_term.avm_mem_ind_op_d);                                          \
     [[maybe_unused]] auto avm_mem_last = View(new_term.avm_mem_last);                                                  \
     [[maybe_unused]] auto avm_mem_lastAccess = View(new_term.avm_mem_lastAccess);                                      \
+    [[maybe_unused]] auto avm_mem_mem_sel = View(new_term.avm_mem_mem_sel);                                            \
     [[maybe_unused]] auto avm_mem_one_min_inv = View(new_term.avm_mem_one_min_inv);                                    \
     [[maybe_unused]] auto avm_mem_op_a = View(new_term.avm_mem_op_a);                                                  \
     [[maybe_unused]] auto avm_mem_op_b = View(new_term.avm_mem_op_b);                                                  \
