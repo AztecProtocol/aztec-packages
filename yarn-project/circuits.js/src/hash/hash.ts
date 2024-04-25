@@ -1,13 +1,35 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { pedersenHash, pedersenHashBuffer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import chunk from 'lodash.chunk';
 
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex } from '../constants.gen.js';
-import type { SideEffect, SideEffectLinkedToNoteHash } from '../structs/index.js';
+import { type SideEffect, type SideEffectLinkedToNoteHash, VerificationKey } from '../structs/index.js';
+
+/**
+ * Computes a hash of a given verification key.
+ * @param vkBuf - The verification key.
+ * @returns The hash of the verification key.
+ */
+export function hashVK(vkBuf: Buffer) {
+  const vk = VerificationKey.fromBuffer(vkBuf);
+  const toHash = Buffer.concat([
+    numToUInt8(vk.circuitType),
+    numToUInt16BE(5), // fr::coset_generator(0)?
+    numToUInt32BE(vk.circuitSize),
+    numToUInt32BE(vk.numPublicInputs),
+    ...Object.values(vk.commitments)
+      .map(e => [e.y.toBuffer(), e.x.toBuffer()])
+      .flat(),
+    // Montgomery form of fr::one()? Not sure. But if so, why?
+    Buffer.from('1418144d5b080fcac24cdb7649bdadf246a6cb2426e324bedb94fb05118f023a', 'hex'),
+  ]);
+  return pedersenHashBuffer(toHash);
+}
 
 /**
  * Computes a commitment nonce, which will be used to create a unique commitment.
