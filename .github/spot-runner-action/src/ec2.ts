@@ -209,6 +209,7 @@ export class Ec2Instance {
     const availabilityZone = await this.getSubnetAz();
     const fleetLaunchConfig: FleetLaunchTemplateConfigRequest = {
       LaunchTemplateSpecification: {
+        Version: "$Latest",
         LaunchTemplateName: await this.getLaunchTemplate()
       },
       Overrides: this.config.ec2InstanceType.map(instanceType => ({
