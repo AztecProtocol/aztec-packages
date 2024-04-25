@@ -21,6 +21,7 @@ class AvmAluTraceBuilder {
         bool alu_op_cast_prev = false;
         bool alu_op_shr = false;
         bool alu_op_shl = false;
+        bool alu_op_div = false;
 
         bool alu_ff_tag = false;
         bool alu_u8_tag = false;
@@ -55,6 +56,11 @@ class AvmAluTraceBuilder {
         uint8_t mem_tag_bits = 0;
         uint8_t mem_tag_sub_shift = 0;
         bool shift_lt_bit_len = true;
+        FF quot_div_rem_lo{};
+        FF quot_div_rem_hi{};
+
+        // Div Operations
+        FF remainder{};
     };
 
     std::array<std::unordered_map<uint8_t, uint32_t>, 2> u8_range_chk_counters;
@@ -75,6 +81,7 @@ class AvmAluTraceBuilder {
     FF op_cast(FF const& a, AvmMemoryTag in_tag, uint32_t clk);
     FF op_shr(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
     FF op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
+    FF op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uint32_t clk);
 
     bool is_range_check_required() const;
     static bool is_alu_row_enabled(AvmAluTraceBuilder::AluTraceEntry const& r);

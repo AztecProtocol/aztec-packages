@@ -76,6 +76,8 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_op_cast{};
     FF avm_alu_op_cast_prev{};
     FF avm_alu_op_div{};
+    FF avm_alu_op_div_a_lt_b{};
+    FF avm_alu_op_div_std{};
     FF avm_alu_op_eq{};
     FF avm_alu_op_eq_diff_inv{};
     FF avm_alu_op_lt{};
@@ -91,6 +93,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_p_sub_a_lo{};
     FF avm_alu_p_sub_b_hi{};
     FF avm_alu_p_sub_b_lo{};
+    FF avm_alu_remainder{};
     FF avm_alu_res_hi{};
     FF avm_alu_res_lo{};
     FF avm_alu_rng_chk_lookup_selector{};
@@ -303,6 +306,7 @@ template <typename FF> struct AvmFullRow {
     FF avm_alu_op_add_shift{};
     FF avm_alu_op_cast_prev_shift{};
     FF avm_alu_op_cast_shift{};
+    FF avm_alu_op_div_shift{};
     FF avm_alu_op_mul_shift{};
     FF avm_alu_op_shl_shift{};
     FF avm_alu_op_shr_shift{};
@@ -347,8 +351,8 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 280;
-    static constexpr size_t num_polys = 238;
+    static constexpr size_t num_fixed_columns = 284;
+    static constexpr size_t num_polys = 241;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }
@@ -385,6 +389,8 @@ class AvmCircuitBuilder {
             polys.avm_alu_op_cast[i] = rows[i].avm_alu_op_cast;
             polys.avm_alu_op_cast_prev[i] = rows[i].avm_alu_op_cast_prev;
             polys.avm_alu_op_div[i] = rows[i].avm_alu_op_div;
+            polys.avm_alu_op_div_a_lt_b[i] = rows[i].avm_alu_op_div_a_lt_b;
+            polys.avm_alu_op_div_std[i] = rows[i].avm_alu_op_div_std;
             polys.avm_alu_op_eq[i] = rows[i].avm_alu_op_eq;
             polys.avm_alu_op_eq_diff_inv[i] = rows[i].avm_alu_op_eq_diff_inv;
             polys.avm_alu_op_lt[i] = rows[i].avm_alu_op_lt;
@@ -400,6 +406,7 @@ class AvmCircuitBuilder {
             polys.avm_alu_p_sub_a_lo[i] = rows[i].avm_alu_p_sub_a_lo;
             polys.avm_alu_p_sub_b_hi[i] = rows[i].avm_alu_p_sub_b_hi;
             polys.avm_alu_p_sub_b_lo[i] = rows[i].avm_alu_p_sub_b_lo;
+            polys.avm_alu_remainder[i] = rows[i].avm_alu_remainder;
             polys.avm_alu_res_hi[i] = rows[i].avm_alu_res_hi;
             polys.avm_alu_res_lo[i] = rows[i].avm_alu_res_lo;
             polys.avm_alu_rng_chk_lookup_selector[i] = rows[i].avm_alu_rng_chk_lookup_selector;
@@ -579,6 +586,7 @@ class AvmCircuitBuilder {
         polys.avm_alu_op_add_shift = Polynomial(polys.avm_alu_op_add.shifted());
         polys.avm_alu_op_cast_prev_shift = Polynomial(polys.avm_alu_op_cast_prev.shifted());
         polys.avm_alu_op_cast_shift = Polynomial(polys.avm_alu_op_cast.shifted());
+        polys.avm_alu_op_div_shift = Polynomial(polys.avm_alu_op_div.shifted());
         polys.avm_alu_op_mul_shift = Polynomial(polys.avm_alu_op_mul.shifted());
         polys.avm_alu_op_shl_shift = Polynomial(polys.avm_alu_op_shl.shifted());
         polys.avm_alu_op_shr_shift = Polynomial(polys.avm_alu_op_shr.shifted());

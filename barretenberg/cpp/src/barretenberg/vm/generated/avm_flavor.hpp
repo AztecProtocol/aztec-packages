@@ -73,11 +73,11 @@ class AvmFlavor {
     using RelationSeparator = FF;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 2;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 236;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 239;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 280;
+    static constexpr size_t NUM_ALL_ENTITIES = 284;
 
     using GrandProductRelations = std::tuple<perm_main_alu_relation<FF>,
                                              perm_main_bin_relation<FF>,
@@ -206,6 +206,8 @@ class AvmFlavor {
                               avm_alu_op_cast,
                               avm_alu_op_cast_prev,
                               avm_alu_op_div,
+                              avm_alu_op_div_a_lt_b,
+                              avm_alu_op_div_std,
                               avm_alu_op_eq,
                               avm_alu_op_eq_diff_inv,
                               avm_alu_op_lt,
@@ -221,6 +223,7 @@ class AvmFlavor {
                               avm_alu_p_sub_a_lo,
                               avm_alu_p_sub_b_hi,
                               avm_alu_p_sub_b_lo,
+                              avm_alu_remainder,
                               avm_alu_res_hi,
                               avm_alu_res_lo,
                               avm_alu_rng_chk_lookup_selector,
@@ -445,6 +448,8 @@ class AvmFlavor {
                      avm_alu_op_cast,
                      avm_alu_op_cast_prev,
                      avm_alu_op_div,
+                     avm_alu_op_div_a_lt_b,
+                     avm_alu_op_div_std,
                      avm_alu_op_eq,
                      avm_alu_op_eq_diff_inv,
                      avm_alu_op_lt,
@@ -460,6 +465,7 @@ class AvmFlavor {
                      avm_alu_p_sub_a_lo,
                      avm_alu_p_sub_b_hi,
                      avm_alu_p_sub_b_lo,
+                     avm_alu_remainder,
                      avm_alu_res_hi,
                      avm_alu_res_lo,
                      avm_alu_rng_chk_lookup_selector,
@@ -689,6 +695,8 @@ class AvmFlavor {
                               avm_alu_op_cast,
                               avm_alu_op_cast_prev,
                               avm_alu_op_div,
+                              avm_alu_op_div_a_lt_b,
+                              avm_alu_op_div_std,
                               avm_alu_op_eq,
                               avm_alu_op_eq_diff_inv,
                               avm_alu_op_lt,
@@ -704,6 +712,7 @@ class AvmFlavor {
                               avm_alu_p_sub_a_lo,
                               avm_alu_p_sub_b_hi,
                               avm_alu_p_sub_b_lo,
+                              avm_alu_remainder,
                               avm_alu_res_hi,
                               avm_alu_res_lo,
                               avm_alu_rng_chk_lookup_selector,
@@ -916,6 +925,7 @@ class AvmFlavor {
                               avm_alu_op_add_shift,
                               avm_alu_op_cast_prev_shift,
                               avm_alu_op_cast_shift,
+                              avm_alu_op_div_shift,
                               avm_alu_op_mul_shift,
                               avm_alu_op_shl_shift,
                               avm_alu_op_shr_shift,
@@ -972,6 +982,8 @@ class AvmFlavor {
                      avm_alu_op_cast,
                      avm_alu_op_cast_prev,
                      avm_alu_op_div,
+                     avm_alu_op_div_a_lt_b,
+                     avm_alu_op_div_std,
                      avm_alu_op_eq,
                      avm_alu_op_eq_diff_inv,
                      avm_alu_op_lt,
@@ -987,6 +999,7 @@ class AvmFlavor {
                      avm_alu_p_sub_a_lo,
                      avm_alu_p_sub_b_hi,
                      avm_alu_p_sub_b_lo,
+                     avm_alu_remainder,
                      avm_alu_res_hi,
                      avm_alu_res_lo,
                      avm_alu_rng_chk_lookup_selector,
@@ -1199,6 +1212,7 @@ class AvmFlavor {
                      avm_alu_op_add_shift,
                      avm_alu_op_cast_prev_shift,
                      avm_alu_op_cast_shift,
+                     avm_alu_op_div_shift,
                      avm_alu_op_mul_shift,
                      avm_alu_op_shl_shift,
                      avm_alu_op_shr_shift,
@@ -1255,6 +1269,8 @@ class AvmFlavor {
                      avm_alu_op_cast,
                      avm_alu_op_cast_prev,
                      avm_alu_op_div,
+                     avm_alu_op_div_a_lt_b,
+                     avm_alu_op_div_std,
                      avm_alu_op_eq,
                      avm_alu_op_eq_diff_inv,
                      avm_alu_op_lt,
@@ -1270,6 +1286,7 @@ class AvmFlavor {
                      avm_alu_p_sub_a_lo,
                      avm_alu_p_sub_b_hi,
                      avm_alu_p_sub_b_lo,
+                     avm_alu_remainder,
                      avm_alu_res_hi,
                      avm_alu_res_lo,
                      avm_alu_rng_chk_lookup_selector,
@@ -1475,92 +1492,52 @@ class AvmFlavor {
         };
         RefVector<DataType> get_to_be_shifted()
         {
-            return { avm_alu_a_hi,
-                     avm_alu_a_lo,
-                     avm_alu_alu_sel,
-                     avm_alu_b_hi,
-                     avm_alu_b_lo,
-                     avm_alu_cmp_rng_ctr,
-                     avm_alu_cmp_sel,
-                     avm_alu_op_add,
-                     avm_alu_op_cast_prev,
-                     avm_alu_op_cast,
-                     avm_alu_op_mul,
-                     avm_alu_op_shl,
-                     avm_alu_op_shr,
-                     avm_alu_op_sub,
-                     avm_alu_p_sub_a_hi,
-                     avm_alu_p_sub_a_lo,
-                     avm_alu_p_sub_b_hi,
-                     avm_alu_p_sub_b_lo,
-                     avm_alu_rng_chk_lookup_selector,
-                     avm_alu_rng_chk_sel,
-                     avm_alu_u16_r0,
-                     avm_alu_u16_r1,
-                     avm_alu_u16_r2,
-                     avm_alu_u16_r3,
-                     avm_alu_u16_r4,
-                     avm_alu_u16_r5,
-                     avm_alu_u16_r6,
-                     avm_alu_u8_r0,
-                     avm_alu_u8_r1,
-                     avm_binary_acc_ia,
-                     avm_binary_acc_ib,
-                     avm_binary_acc_ic,
-                     avm_binary_mem_tag_ctr,
-                     avm_binary_op_id,
-                     avm_main_internal_return_ptr,
-                     avm_main_pc,
-                     avm_mem_addr,
-                     avm_mem_mem_sel,
-                     avm_mem_rw,
-                     avm_mem_tag,
-                     avm_mem_tsp,
+            return { avm_alu_a_hi,         avm_alu_a_lo,
+                     avm_alu_alu_sel,      avm_alu_b_hi,
+                     avm_alu_b_lo,         avm_alu_cmp_rng_ctr,
+                     avm_alu_cmp_sel,      avm_alu_op_add,
+                     avm_alu_op_cast_prev, avm_alu_op_cast,
+                     avm_alu_op_div,       avm_alu_op_mul,
+                     avm_alu_op_shl,       avm_alu_op_shr,
+                     avm_alu_op_sub,       avm_alu_p_sub_a_hi,
+                     avm_alu_p_sub_a_lo,   avm_alu_p_sub_b_hi,
+                     avm_alu_p_sub_b_lo,   avm_alu_rng_chk_lookup_selector,
+                     avm_alu_rng_chk_sel,  avm_alu_u16_r0,
+                     avm_alu_u16_r1,       avm_alu_u16_r2,
+                     avm_alu_u16_r3,       avm_alu_u16_r4,
+                     avm_alu_u16_r5,       avm_alu_u16_r6,
+                     avm_alu_u8_r0,        avm_alu_u8_r1,
+                     avm_binary_acc_ia,    avm_binary_acc_ib,
+                     avm_binary_acc_ic,    avm_binary_mem_tag_ctr,
+                     avm_binary_op_id,     avm_main_internal_return_ptr,
+                     avm_main_pc,          avm_mem_addr,
+                     avm_mem_mem_sel,      avm_mem_rw,
+                     avm_mem_tag,          avm_mem_tsp,
                      avm_mem_val };
         };
         RefVector<DataType> get_shifted()
         {
-            return { avm_alu_a_hi_shift,
-                     avm_alu_a_lo_shift,
-                     avm_alu_alu_sel_shift,
-                     avm_alu_b_hi_shift,
-                     avm_alu_b_lo_shift,
-                     avm_alu_cmp_rng_ctr_shift,
-                     avm_alu_cmp_sel_shift,
-                     avm_alu_op_add_shift,
-                     avm_alu_op_cast_prev_shift,
-                     avm_alu_op_cast_shift,
-                     avm_alu_op_mul_shift,
-                     avm_alu_op_shl_shift,
-                     avm_alu_op_shr_shift,
-                     avm_alu_op_sub_shift,
-                     avm_alu_p_sub_a_hi_shift,
-                     avm_alu_p_sub_a_lo_shift,
-                     avm_alu_p_sub_b_hi_shift,
-                     avm_alu_p_sub_b_lo_shift,
-                     avm_alu_rng_chk_lookup_selector_shift,
-                     avm_alu_rng_chk_sel_shift,
-                     avm_alu_u16_r0_shift,
-                     avm_alu_u16_r1_shift,
-                     avm_alu_u16_r2_shift,
-                     avm_alu_u16_r3_shift,
-                     avm_alu_u16_r4_shift,
-                     avm_alu_u16_r5_shift,
-                     avm_alu_u16_r6_shift,
-                     avm_alu_u8_r0_shift,
-                     avm_alu_u8_r1_shift,
-                     avm_binary_acc_ia_shift,
-                     avm_binary_acc_ib_shift,
-                     avm_binary_acc_ic_shift,
-                     avm_binary_mem_tag_ctr_shift,
-                     avm_binary_op_id_shift,
-                     avm_main_internal_return_ptr_shift,
-                     avm_main_pc_shift,
-                     avm_mem_addr_shift,
-                     avm_mem_mem_sel_shift,
-                     avm_mem_rw_shift,
-                     avm_mem_tag_shift,
-                     avm_mem_tsp_shift,
+            return { avm_alu_a_hi_shift,         avm_alu_a_lo_shift,
+                     avm_alu_alu_sel_shift,      avm_alu_b_hi_shift,
+                     avm_alu_b_lo_shift,         avm_alu_cmp_rng_ctr_shift,
+                     avm_alu_cmp_sel_shift,      avm_alu_op_add_shift,
+                     avm_alu_op_cast_prev_shift, avm_alu_op_cast_shift,
+                     avm_alu_op_div_shift,       avm_alu_op_mul_shift,
+                     avm_alu_op_shl_shift,       avm_alu_op_shr_shift,
+                     avm_alu_op_sub_shift,       avm_alu_p_sub_a_hi_shift,
+                     avm_alu_p_sub_a_lo_shift,   avm_alu_p_sub_b_hi_shift,
+                     avm_alu_p_sub_b_lo_shift,   avm_alu_rng_chk_lookup_selector_shift,
+                     avm_alu_rng_chk_sel_shift,  avm_alu_u16_r0_shift,
+                     avm_alu_u16_r1_shift,       avm_alu_u16_r2_shift,
+                     avm_alu_u16_r3_shift,       avm_alu_u16_r4_shift,
+                     avm_alu_u16_r5_shift,       avm_alu_u16_r6_shift,
+                     avm_alu_u8_r0_shift,        avm_alu_u8_r1_shift,
+                     avm_binary_acc_ia_shift,    avm_binary_acc_ib_shift,
+                     avm_binary_acc_ic_shift,    avm_binary_mem_tag_ctr_shift,
+                     avm_binary_op_id_shift,     avm_main_internal_return_ptr_shift,
+                     avm_main_pc_shift,          avm_mem_addr_shift,
+                     avm_mem_mem_sel_shift,      avm_mem_rw_shift,
+                     avm_mem_tag_shift,          avm_mem_tsp_shift,
                      avm_mem_val_shift };
         };
     };
@@ -1575,47 +1552,27 @@ class AvmFlavor {
 
         RefVector<DataType> get_to_be_shifted()
         {
-            return { avm_alu_a_hi,
-                     avm_alu_a_lo,
-                     avm_alu_alu_sel,
-                     avm_alu_b_hi,
-                     avm_alu_b_lo,
-                     avm_alu_cmp_rng_ctr,
-                     avm_alu_cmp_sel,
-                     avm_alu_op_add,
-                     avm_alu_op_cast_prev,
-                     avm_alu_op_cast,
-                     avm_alu_op_mul,
-                     avm_alu_op_shl,
-                     avm_alu_op_shr,
-                     avm_alu_op_sub,
-                     avm_alu_p_sub_a_hi,
-                     avm_alu_p_sub_a_lo,
-                     avm_alu_p_sub_b_hi,
-                     avm_alu_p_sub_b_lo,
-                     avm_alu_rng_chk_lookup_selector,
-                     avm_alu_rng_chk_sel,
-                     avm_alu_u16_r0,
-                     avm_alu_u16_r1,
-                     avm_alu_u16_r2,
-                     avm_alu_u16_r3,
-                     avm_alu_u16_r4,
-                     avm_alu_u16_r5,
-                     avm_alu_u16_r6,
-                     avm_alu_u8_r0,
-                     avm_alu_u8_r1,
-                     avm_binary_acc_ia,
-                     avm_binary_acc_ib,
-                     avm_binary_acc_ic,
-                     avm_binary_mem_tag_ctr,
-                     avm_binary_op_id,
-                     avm_main_internal_return_ptr,
-                     avm_main_pc,
-                     avm_mem_addr,
-                     avm_mem_mem_sel,
-                     avm_mem_rw,
-                     avm_mem_tag,
-                     avm_mem_tsp,
+            return { avm_alu_a_hi,         avm_alu_a_lo,
+                     avm_alu_alu_sel,      avm_alu_b_hi,
+                     avm_alu_b_lo,         avm_alu_cmp_rng_ctr,
+                     avm_alu_cmp_sel,      avm_alu_op_add,
+                     avm_alu_op_cast_prev, avm_alu_op_cast,
+                     avm_alu_op_div,       avm_alu_op_mul,
+                     avm_alu_op_shl,       avm_alu_op_shr,
+                     avm_alu_op_sub,       avm_alu_p_sub_a_hi,
+                     avm_alu_p_sub_a_lo,   avm_alu_p_sub_b_hi,
+                     avm_alu_p_sub_b_lo,   avm_alu_rng_chk_lookup_selector,
+                     avm_alu_rng_chk_sel,  avm_alu_u16_r0,
+                     avm_alu_u16_r1,       avm_alu_u16_r2,
+                     avm_alu_u16_r3,       avm_alu_u16_r4,
+                     avm_alu_u16_r5,       avm_alu_u16_r6,
+                     avm_alu_u8_r0,        avm_alu_u8_r1,
+                     avm_binary_acc_ia,    avm_binary_acc_ib,
+                     avm_binary_acc_ic,    avm_binary_mem_tag_ctr,
+                     avm_binary_op_id,     avm_main_internal_return_ptr,
+                     avm_main_pc,          avm_mem_addr,
+                     avm_mem_mem_sel,      avm_mem_rw,
+                     avm_mem_tag,          avm_mem_tsp,
                      avm_mem_val };
         };
 
@@ -1765,13 +1722,6 @@ class AvmFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-    /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck with some of the computation
-     * optmistically ignored
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH, size_t SKIP_COUNT>
-    using OptimisedProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
@@ -1813,6 +1763,8 @@ class AvmFlavor {
             Base::avm_alu_op_cast = "AVM_ALU_OP_CAST";
             Base::avm_alu_op_cast_prev = "AVM_ALU_OP_CAST_PREV";
             Base::avm_alu_op_div = "AVM_ALU_OP_DIV";
+            Base::avm_alu_op_div_a_lt_b = "AVM_ALU_OP_DIV_A_LT_B";
+            Base::avm_alu_op_div_std = "AVM_ALU_OP_DIV_STD";
             Base::avm_alu_op_eq = "AVM_ALU_OP_EQ";
             Base::avm_alu_op_eq_diff_inv = "AVM_ALU_OP_EQ_DIFF_INV";
             Base::avm_alu_op_lt = "AVM_ALU_OP_LT";
@@ -1828,6 +1780,7 @@ class AvmFlavor {
             Base::avm_alu_p_sub_a_lo = "AVM_ALU_P_SUB_A_LO";
             Base::avm_alu_p_sub_b_hi = "AVM_ALU_P_SUB_B_HI";
             Base::avm_alu_p_sub_b_lo = "AVM_ALU_P_SUB_B_LO";
+            Base::avm_alu_remainder = "AVM_ALU_REMAINDER";
             Base::avm_alu_res_hi = "AVM_ALU_RES_HI";
             Base::avm_alu_res_lo = "AVM_ALU_RES_LO";
             Base::avm_alu_rng_chk_lookup_selector = "AVM_ALU_RNG_CHK_LOOKUP_SELECTOR";
@@ -2068,6 +2021,8 @@ class AvmFlavor {
         Commitment avm_alu_op_cast;
         Commitment avm_alu_op_cast_prev;
         Commitment avm_alu_op_div;
+        Commitment avm_alu_op_div_a_lt_b;
+        Commitment avm_alu_op_div_std;
         Commitment avm_alu_op_eq;
         Commitment avm_alu_op_eq_diff_inv;
         Commitment avm_alu_op_lt;
@@ -2083,6 +2038,7 @@ class AvmFlavor {
         Commitment avm_alu_p_sub_a_lo;
         Commitment avm_alu_p_sub_b_hi;
         Commitment avm_alu_p_sub_b_lo;
+        Commitment avm_alu_remainder;
         Commitment avm_alu_res_hi;
         Commitment avm_alu_res_lo;
         Commitment avm_alu_rng_chk_lookup_selector;
@@ -2323,6 +2279,8 @@ class AvmFlavor {
             avm_alu_op_cast = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_cast_prev = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_div = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_op_div_a_lt_b = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_op_div_std = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_eq = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_eq_diff_inv = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_op_lt = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2338,6 +2296,7 @@ class AvmFlavor {
             avm_alu_p_sub_a_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_p_sub_b_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_p_sub_b_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
+            avm_alu_remainder = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_res_hi = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_res_lo = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
             avm_alu_rng_chk_lookup_selector = deserialize_from_buffer<Commitment>(Transcript::proof_data, num_frs_read);
@@ -2583,6 +2542,8 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_alu_op_cast, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_cast_prev, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_div, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_op_div_a_lt_b, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_op_div_std, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_eq, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_eq_diff_inv, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_op_lt, Transcript::proof_data);
@@ -2598,6 +2559,7 @@ class AvmFlavor {
             serialize_to_buffer<Commitment>(avm_alu_p_sub_a_lo, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_p_sub_b_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_p_sub_b_lo, Transcript::proof_data);
+            serialize_to_buffer<Commitment>(avm_alu_remainder, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_res_hi, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_res_lo, Transcript::proof_data);
             serialize_to_buffer<Commitment>(avm_alu_rng_chk_lookup_selector, Transcript::proof_data);

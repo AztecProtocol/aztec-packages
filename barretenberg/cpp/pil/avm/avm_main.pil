@@ -197,15 +197,16 @@ namespace avm_main(256);
     #[SUBOP_FDIV]
     sel_op_fdiv * (1 - op_err) * (ic * ib - ia) = 0;
 
-    // When sel_op_fdiv == 1, we want ib == 0 <==> op_err == 1
+    // When sel_op_fdiv == 1 or sel_op_div, we want ib == 0 <==> op_err == 1
     // This can be achieved with the 2 following relations.
     // inv is an extra witness to show that we can invert ib, i.e., inv = ib^(-1)
     // If ib == 0, we have to set inv = 1 to satisfy the second relation,
     // because op_err == 1 from the first relation.
+    // TODO: Update the name of these relations once negative tests are updated
     #[SUBOP_FDIV_ZERO_ERR1]
-    sel_op_fdiv * (ib * inv - 1 + op_err) = 0;
+    (sel_op_fdiv + sel_op_div) * (ib * inv - 1 + op_err) = 0;
     #[SUBOP_FDIV_ZERO_ERR2]
-    sel_op_fdiv * op_err * (1 - inv) = 0;
+    (sel_op_fdiv + sel_op_div) * op_err * (1 - inv) = 0;
 
     // Enforcement that instruction tags are FF (tag constant 6).
     // TODO: These 2 conditions might be removed and enforced through
@@ -222,7 +223,7 @@ namespace avm_main(256);
     // that exactly one sel_op_XXX must be true.
     // At this time, we have only division producing an error.
     #[SUBOP_ERROR_RELEVANT_OP]
-    op_err * (sel_op_fdiv - 1) = 0;
+    op_err * ((sel_op_fdiv + sel_op_div) - 1) = 0;
 
     // TODO: constraint that we stop execution at the first error (tag_err or op_err)
     // An error can only happen at the last sub-operation row.

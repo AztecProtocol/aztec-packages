@@ -23,6 +23,8 @@
     [[maybe_unused]] auto avm_alu_op_cast = View(new_term.avm_alu_op_cast);                                            \
     [[maybe_unused]] auto avm_alu_op_cast_prev = View(new_term.avm_alu_op_cast_prev);                                  \
     [[maybe_unused]] auto avm_alu_op_div = View(new_term.avm_alu_op_div);                                              \
+    [[maybe_unused]] auto avm_alu_op_div_a_lt_b = View(new_term.avm_alu_op_div_a_lt_b);                                \
+    [[maybe_unused]] auto avm_alu_op_div_std = View(new_term.avm_alu_op_div_std);                                      \
     [[maybe_unused]] auto avm_alu_op_eq = View(new_term.avm_alu_op_eq);                                                \
     [[maybe_unused]] auto avm_alu_op_eq_diff_inv = View(new_term.avm_alu_op_eq_diff_inv);                              \
     [[maybe_unused]] auto avm_alu_op_lt = View(new_term.avm_alu_op_lt);                                                \
@@ -38,6 +40,7 @@
     [[maybe_unused]] auto avm_alu_p_sub_a_lo = View(new_term.avm_alu_p_sub_a_lo);                                      \
     [[maybe_unused]] auto avm_alu_p_sub_b_hi = View(new_term.avm_alu_p_sub_b_hi);                                      \
     [[maybe_unused]] auto avm_alu_p_sub_b_lo = View(new_term.avm_alu_p_sub_b_lo);                                      \
+    [[maybe_unused]] auto avm_alu_remainder = View(new_term.avm_alu_remainder);                                        \
     [[maybe_unused]] auto avm_alu_res_hi = View(new_term.avm_alu_res_hi);                                              \
     [[maybe_unused]] auto avm_alu_res_lo = View(new_term.avm_alu_res_lo);                                              \
     [[maybe_unused]] auto avm_alu_rng_chk_lookup_selector = View(new_term.avm_alu_rng_chk_lookup_selector);            \
@@ -250,6 +253,7 @@
     [[maybe_unused]] auto avm_alu_op_add_shift = View(new_term.avm_alu_op_add_shift);                                  \
     [[maybe_unused]] auto avm_alu_op_cast_prev_shift = View(new_term.avm_alu_op_cast_prev_shift);                      \
     [[maybe_unused]] auto avm_alu_op_cast_shift = View(new_term.avm_alu_op_cast_shift);                                \
+    [[maybe_unused]] auto avm_alu_op_div_shift = View(new_term.avm_alu_op_div_shift);                                  \
     [[maybe_unused]] auto avm_alu_op_mul_shift = View(new_term.avm_alu_op_mul_shift);                                  \
     [[maybe_unused]] auto avm_alu_op_shl_shift = View(new_term.avm_alu_op_shl_shift);                                  \
     [[maybe_unused]] auto avm_alu_op_shr_shift = View(new_term.avm_alu_op_shr_shift);                                  \

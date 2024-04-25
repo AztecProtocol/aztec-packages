@@ -75,6 +75,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
     commitments.avm_alu_op_cast_prev =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_cast_prev);
     commitments.avm_alu_op_div = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_div);
+    commitments.avm_alu_op_div_a_lt_b =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_div_a_lt_b);
+    commitments.avm_alu_op_div_std =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_div_std);
     commitments.avm_alu_op_eq = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_eq);
     commitments.avm_alu_op_eq_diff_inv =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_op_eq_diff_inv);
@@ -97,6 +101,8 @@ bool AvmVerifier::verify_proof(const HonkProof& proof)
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_p_sub_b_hi);
     commitments.avm_alu_p_sub_b_lo =
         transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_p_sub_b_lo);
+    commitments.avm_alu_remainder =
+        transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_remainder);
     commitments.avm_alu_res_hi = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_res_hi);
     commitments.avm_alu_res_lo = transcript->template receive_from_prover<Commitment>(commitment_labels.avm_alu_res_lo);
     commitments.avm_alu_rng_chk_lookup_selector =
