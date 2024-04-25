@@ -8,8 +8,7 @@
     "format": "prettier --write src/**/*.ts",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint src/**/*.ts",
-    "package": "ncc build --source-map --license licenses.txt",
-    "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' DOTENV_CONFIG_PATH=.env mocha -r dotenv/config -r ts-node/register './tests/**/*.ts' -timeout 10000"
+    "package": "ncc build --source-map --license licenses.txt"
   },
   "repository": {
     "type": "git",
