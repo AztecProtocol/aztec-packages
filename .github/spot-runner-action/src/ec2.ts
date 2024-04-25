@@ -176,7 +176,9 @@ export class Ec2Instance {
           })
           .promise()
       ).LaunchTemplates || [];
+    core.info("Launch templates found: " + arr);
     if (arr.length <= 0) {
+      core.info("Creating launch template: " + launchTemplateName);
       await client.createLaunchTemplate(launchTemplateParams).promise();
     }
     return launchTemplateName;
