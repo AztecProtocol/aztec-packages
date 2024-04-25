@@ -169,7 +169,7 @@ export function makeNewSideEffectLinkedToNoteHash(seed: number): SideEffectLinke
  * @param seed - The seed to use for generating the tx context.
  * @returns A tx context.
  */
-export function makeTxContext(seed: number): TxContext {
+export function makeTxContext(seed: number = 1): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
   return new TxContext(new Fr(seed), Fr.ZERO, makeGasSettings());
 }
@@ -292,6 +292,10 @@ export function makeRollupValidationRequests(seed = 1) {
   return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
 
+export function makeCombinedConstantData(seed = 1): CombinedConstantData {
+  return new CombinedConstantData(makeHeader(seed), makeTxContext(seed + 0x100));
+}
+
 /**
  * Creates arbitrary accumulated data.
  * @param seed - The seed to use for generating the accumulated data.
@@ -404,7 +408,6 @@ export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContex
   return CallContext.from({
     msgSender: makeAztecAddress(seed),
     storageContractAddress: makeAztecAddress(seed + 1),
-    portalContractAddress: makeEthAddress(seed + 2),
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
@@ -767,7 +770,6 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
     makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x300),
     makeProof(),
     fr(seed + 1),
-    fr(seed + 2),
   );
 
   return publicCallData;
@@ -863,7 +865,6 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
       makeNoteHashReadRequestMembershipWitness,
       seed + 0x70,
     ),
-    portalContractAddress: makeEthAddress(seed + 0x40).toField(),
     acirHash: fr(seed + 0x60),
   });
 }

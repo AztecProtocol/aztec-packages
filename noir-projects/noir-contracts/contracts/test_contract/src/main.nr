@@ -1,8 +1,11 @@
+mod test_note;
+
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract Test {
+
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
-        PrivateContext, PrivateImmutable, PrivateSet
+        PrivateContext, PrivateImmutable, PrivateSet, SharedImmutable
     };
 
     use dep::aztec::protocol_types::{
@@ -22,11 +25,12 @@ contract Test {
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{get_public_key::get_public_key as get_public_key_oracle, unsafe_rand::unsafe_rand}
+        oracle::{encryption::aes128_encrypt, get_public_key::get_public_key as get_public_key_oracle, unsafe_rand::unsafe_rand}
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
-    use dep::field_note::field_note::FieldNote;
     use dep::value_note::value_note::ValueNote;
+
+    use crate::test_note::TestNote;
 
     #[aztec(event)]
     struct ExampleEvent {
@@ -35,8 +39,8 @@ contract Test {
 
     #[aztec(storage)]
     struct Storage {
-        example_constant: PrivateImmutable<FieldNote>,
-        example_set: PrivateSet<FieldNote>,
+        example_constant: PrivateImmutable<TestNote>,
+        example_set: PrivateSet<TestNote>,
     }
 
     #[aztec(private)]
@@ -44,17 +48,6 @@ contract Test {
         let pub_key = get_public_key_oracle(address);
 
         [pub_key.x, pub_key.y]
-    }
-
-    #[aztec(private)]
-    fn get_portal_contract_address() -> EthAddress {
-        context.this_portal_address()
-    }
-
-    // Get the address of the l1 portal for this contract (taken from the input context)
-    #[aztec(private)]
-    fn get_this_portal_address() -> EthAddress {
-        context.this_portal_address()
     }
 
     // Get the address of this contract (taken from the input context)
@@ -133,10 +126,7 @@ contract Test {
         opt_notes[0].unwrap().value
     }
 
-    unconstrained fn call_view_notes_many(
-        storage_slot: Field,
-        active_or_nullified: bool
-    ) -> pub [Field; 2] {
+    unconstrained fn call_view_notes_many(storage_slot: Field, active_or_nullified: bool) -> pub [Field; 2] {
         assert(
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
@@ -194,12 +184,12 @@ contract Test {
 
     // Purely exists for testing
     #[aztec(public)]
-    fn create_l2_to_l1_message_public(amount: Field, secret_hash: Field) {
+    fn create_l2_to_l1_message_public(amount: Field, secret_hash: Field, portal_address: EthAddress) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secret_hash);
 
         // Public oracle call to emit new commitment.
-        context.message_portal(context.this_portal_address(), note.get_commitment());
+        context.message_portal(portal_address, note.get_commitment());
     }
 
     #[aztec(public)]
@@ -262,30 +252,27 @@ contract Test {
         to: AztecAddress,
         amount: Field,
         secret: Field,
-        message_leaf_index: Field
+        message_leaf_index: Field,
+        portal_address: EthAddress
     ) {
         let content_hash = get_mint_public_content_hash(to, amount);
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(
-            content_hash,
-            secret,
-            context.this_portal_address(),
-            message_leaf_index
-        );
+        context.consume_l1_to_l2_message(content_hash, secret, portal_address, message_leaf_index);
     }
 
     #[aztec(private)]
     fn consume_mint_private_message(
         secret_hash_for_redeeming_minted_notes: Field,
         amount: Field,
-        secret_for_L1_to_L2_message_consumption: Field
+        secret_for_L1_to_L2_message_consumption: Field,
+        portal_address: EthAddress
     ) {
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_private_content_hash(secret_hash_for_redeeming_minted_notes, amount);
         context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
-            context.this_portal_address()
+            portal_address
         );
     }
 
@@ -312,7 +299,7 @@ contract Test {
 
     #[aztec(private)]
     fn set_constant(value: Field) {
-        let mut note = FieldNote::new(value);
+        let mut note = TestNote::new(value);
         storage.example_constant.initialize(&mut note, false);
     }
 
@@ -320,6 +307,16 @@ contract Test {
     fn assert_private_global_vars(chain_id: Field, version: Field) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");
+    }
+
+    #[aztec(private)]
+    fn encrypt(input: [u8; 64], iv: [u8; 16], key: [u8; 16]) -> [u8; 64] {
+        aes128_encrypt(input, iv, key)
+    }
+
+    #[aztec(private)]
+    fn encrypt_with_padding(input: [u8; 65], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
+        aes128_encrypt(input, iv, key)
     }
 
     #[aztec(public)]
@@ -366,7 +363,7 @@ contract Test {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
-        options = options.select(FieldNote::properties().value, secret_hash, Option::none()).set_limit(1);
+        options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
         let notes = notes_set.get_notes(options);
         let note = notes[0].unwrap_unchecked();
         notes_set.remove(note);

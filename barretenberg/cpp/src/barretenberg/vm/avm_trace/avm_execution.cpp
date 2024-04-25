@@ -121,12 +121,11 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint32_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-        case OpCode::DIV:
-            trace_builder.op_div(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint32_t>(inst.operands.at(2)),
-                                 std::get<uint32_t>(inst.operands.at(3)),
-                                 std::get<uint32_t>(inst.operands.at(4)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+        case OpCode::FDIV:
+            trace_builder.op_fdiv(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint32_t>(inst.operands.at(1)),
+                                  std::get<uint32_t>(inst.operands.at(2)),
+                                  std::get<uint32_t>(inst.operands.at(3)));
             break;
         // Compute - Comparators
         case OpCode::EQ:
@@ -175,6 +174,20 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
         case OpCode::XOR:
             trace_builder.op_xor(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::SHR:
+            trace_builder.op_shr(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint32_t>(inst.operands.at(4)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::SHL:
+            trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
                                  std::get<uint32_t>(inst.operands.at(2)),
                                  std::get<uint32_t>(inst.operands.at(3)),
                                  std::get<uint32_t>(inst.operands.at(4)),

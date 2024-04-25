@@ -20,6 +20,17 @@ aztec-nargo compile
 
 This will output a JSON [artifact](./artifacts.md) for each contract in the project to a `target` folder containing the Noir ABI artifacts.
 
+:::note
+This command looks for `Nargo.toml` files by ascending up the parent directories, and will compile the top-most Nargo.toml file it finds.
+Eg: if you are in `/hobbies/cool-game/contracts/easter-egg/`, and both `cool-game` and `easter-egg` contain a Nargo.toml file, then `aztec-nargo compile` will be performed on `cool-game/Nargo.toml` and compile the project(s) specified within it. Eg
+```
+[workspace]
+members = [
+    "contracts/easter-egg",
+]
+```
+:::
+
 ### Typescript Interfaces
 
 You can use the code generator to autogenerate type-safe typescript classes for each of your contracts. These classes define type-safe methods for deploying and interacting with your contract based on their artifact.
@@ -254,7 +265,7 @@ At the moment, the compiler generates these interfaces from already compiled ABI
 
 ## Next steps
 
-Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../../sandbox/references/cli-commands.md#deploying-a-token-contract) and [interact](../../sandbox/references/cli-commands.md#calling-an-unconstrained-view-function) with them.
+Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly.
 
 import Disclaimer from "../../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>

@@ -61,7 +61,6 @@ impl PrivateCircuitPublicInputsBuilder {
         let args_hash = 0;
 
         let contract_data = fixtures::contracts::default_contract;
-        let portal_contract_address = contract_data.portal_contract_address;
 
         let contract_function = fixtures::contract_functions::default_private_function;
         let function_data = contract_function.data;
@@ -71,7 +70,6 @@ impl PrivateCircuitPublicInputsBuilder {
         let call_context = CallContext {
             msg_sender: fixtures::contracts::parent_contract.address,
             storage_contract_address: contract_address,
-            portal_contract_address,
             function_selector: function_data.selector,
             is_delegate_call: false,
             is_static_call: false,
@@ -85,6 +83,10 @@ impl PrivateCircuitPublicInputsBuilder {
         public_inputs.gas_settings = GasSettings::default();
 
         public_inputs
+    }
+
+    pub fn build_tx_context(self) -> TxContext {
+        TxContext::new(self.chain_id, self.version, self.gas_settings)
     }
 
     pub fn finish(self) -> PrivateCircuitPublicInputs {
@@ -109,7 +111,7 @@ impl PrivateCircuitPublicInputsBuilder {
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             historical_header: self.historical_header,
-            tx_context: TxContext::new(self.chain_id, self.version, self.gas_settings)
+            tx_context: self.build_tx_context()
         }
     }
 }

@@ -1,18 +1,18 @@
-use std::borrow::Borrow;
-
 use noirc_errors::Span;
+use noirc_frontend::ast::{
+    BlockExpression, Expression, ExpressionKind, FunctionDefinition, Ident, Literal, NoirFunction,
+    NoirStruct, PathKind, Pattern, StatementKind, TypeImpl, UnresolvedType, UnresolvedTypeData,
+};
 use noirc_frontend::{
     graph::CrateId,
     macros_api::{
         FieldElement, FileId, HirContext, HirExpression, HirLiteral, HirStatement, NodeInterner,
     },
-    node_interner::{TraitId, TraitImplKind},
+    node_interner::TraitId,
     parse_program,
     parser::SortedModule,
     token::SecondaryAttribute,
-    BlockExpression, Expression, ExpressionKind, FunctionDefinition, Ident, Literal, NoirFunction,
-    NoirStruct, PathKind, Pattern, StatementKind, Type, TypeImpl, UnresolvedType,
-    UnresolvedTypeData,
+    Type,
 };
 
 use crate::{
@@ -23,7 +23,9 @@ use crate::{
             make_type, pattern, return_type, variable, variable_path,
         },
         errors::AztecMacroError,
-        hir_utils::{collect_crate_structs, collect_traits, get_contract_module_data},
+        hir_utils::{
+            collect_crate_structs, collect_traits, get_contract_module_data, get_serialized_length,
+        },
     },
 };
 
@@ -196,7 +198,7 @@ pub fn generate_storage_implementation(
 }
 
 /// Obtains the serialized length of a type that implements the Serialize trait.
-fn get_serialized_length(
+pub fn get_storage_serialized_length(
     traits: &[TraitId],
     typ: &Type,
     interner: &NodeInterner,
@@ -227,37 +229,9 @@ fn get_serialized_length(
         return Ok(1);
     }
 
-    let serialized_trait_impl_kind = traits
-        .iter()
-        .find_map(|&trait_id| {
-            let r#trait = interner.get_trait(trait_id);
-            if r#trait.borrow().name.0.contents == "Serialize"
-                && r#trait.borrow().generics.len() == 1
-            {
-                interner
-                    .lookup_all_trait_implementations(stored_in_state, trait_id)
-                    .into_iter()
-                    .next()
-            } else {
-                None
-            }
-        })
-        .ok_or(AztecMacroError::CouldNotAssignStorageSlots {
-            secondary_message: Some("Stored data must implement Serialize trait".to_string()),
-        })?;
-
-    let serialized_trait_impl_id = match serialized_trait_impl_kind {
-        TraitImplKind::Normal(trait_impl_id) => Ok(trait_impl_id),
-        _ => Err(AztecMacroError::CouldNotAssignStorageSlots { secondary_message: None }),
-    }?;
-
-    let serialized_trait_impl_shared = interner.get_trait_implementation(*serialized_trait_impl_id);
-    let serialized_trait_impl = serialized_trait_impl_shared.borrow();
-
-    match serialized_trait_impl.trait_generics.first().unwrap() {
-        Type::Constant(value) => Ok(*value),
-        _ => Err(AztecMacroError::CouldNotAssignStorageSlots { secondary_message: None }),
-    }
+    get_serialized_length(traits, "Serialize", stored_in_state, interner).map_err(|err| {
+        AztecMacroError::CouldNotAssignStorageSlots { secondary_message: Some(err.primary_message) }
+    })
 }
 
 /// Assigns storage slots to the storage struct fields based on the serialized length of the types. This automatic assignment
@@ -438,7 +412,7 @@ pub fn assign_storage_slots(
                 };
 
                 let type_serialized_len =
-                    get_serialized_length(&traits, field_type, &context.def_interner)
+                    get_storage_serialized_length(&traits, field_type, &context.def_interner)
                         .map_err(|err| (err, file_id))?;
 
                 context.def_interner.update_expression(new_call_expression.arguments[1], |expr| {

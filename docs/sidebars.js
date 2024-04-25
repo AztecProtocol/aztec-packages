@@ -138,18 +138,12 @@ const sidebars = {
         {
           label: "Communication",
           type: "category",
+          link: {
+            type: "doc",
+            id: "learn/concepts/communication/main",
+          },
           items: [
-            {
-              label: "Public <> Private Communication",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "learn/concepts/communication/public_private_calls/main",
-              },
-              items: [
-                "learn/concepts/communication/public_private_calls/slow_updates_tree",
-              ],
-            },
+            "learn/concepts/communication/public_private_calls",
             "learn/concepts/communication/cross_chain_calls",
           ],
         },
@@ -234,7 +228,7 @@ const sidebars = {
       items: [
         "developers/tutorials/writing_token_contract",
         "developers/tutorials/writing_private_voting_contract",
-
+        "developers/tutorials/crowdfunding/donations",
         {
           label: "Writing a DApp",
           type: "category",
@@ -308,7 +302,6 @@ const sidebars = {
           label: "References",
           type: "category",
           items: [
-            "developers/sandbox/references/cli-commands",
             "developers/sandbox/references/sandbox-reference",
             "developers/sandbox/references/cheat_codes",
             {
@@ -407,29 +400,7 @@ const sidebars = {
               label: "Historical Data",
               type: "category",
               items: [
-                {
-                  label: "Historical Blockchain Data (Archive Tree)",
-                  type: "category",
-                  link: {
-                    type: "doc",
-                    id: "developers/contracts/writing_contracts/historical_data/slow_updates_tree/main",
-                  },
-                  items: [
-                    "developers/contracts/writing_contracts/historical_data/archive_tree/how_to_prove_history",
-                  ],
-                },
-              ],
-            },
-            {
-              label:
-                "Access public data from private state (Slow Updates Tree)",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "developers/contracts/writing_contracts/historical_data/slow_updates_tree/main",
-              },
-              items: [
-                "developers/contracts/writing_contracts/historical_data/slow_updates_tree/implement_slow_updates",
+                "developers/contracts/writing_contracts/historical_data/archive_tree/how_to_prove_history",
               ],
             },
           ],
@@ -483,7 +454,6 @@ const sidebars = {
               items: aztecNRSidebar,
             },
             "developers/contracts/references/history_lib_reference",
-            "developers/contracts/references/slow_updates_tree",
           ],
         },
         {
