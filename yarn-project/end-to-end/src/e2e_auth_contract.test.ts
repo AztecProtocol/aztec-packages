@@ -60,7 +60,7 @@ describe('e2e_auth_contract', () => {
   it('authorized is not yet set, cannot use permission', async () => {
     expect(await contract.methods.get_authorized().simulate()).toEqual(AztecAddress.ZERO);
 
-    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().send().wait()).rejects.toThrow(
+    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().prove()).rejects.toThrow(
       'caller is not authorized',
     );
   });
@@ -93,11 +93,11 @@ describe('e2e_auth_contract', () => {
 
     expect(await contract.methods.get_scheduled_authorized().simulate()).toEqual(other.getAddress());
 
-    await expect(contract.withWallet(other).methods.do_private_authorized_thing().send().wait()).rejects.toThrow(
+    await expect(contract.withWallet(other).methods.do_private_authorized_thing().prove()).rejects.toThrow(
       'caller is not authorized',
     );
 
-    expect((await contract.withWallet(authorized).methods.do_private_authorized_thing().send().wait()).status).toEqual(
+    expect((await contract.withWallet(authorized).methods.do_private_authorized_thing().prove()).status).toEqual(
       'mined',
     );
   });
@@ -107,11 +107,11 @@ describe('e2e_auth_contract', () => {
 
     expect(await contract.methods.get_authorized().simulate()).toEqual(other.getAddress());
 
-    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().send().wait()).rejects.toThrow(
+    await expect(contract.withWallet(authorized).methods.do_private_authorized_thing().prove()).rejects.toThrow(
       'caller is not authorized',
     );
 
-    expect((await contract.withWallet(other).methods.do_private_authorized_thing().send().wait()).status).toEqual(
+    expect((await contract.withWallet(other).methods.do_private_authorized_thing().prove()).status).toEqual(
       'mined',
     );
   });
