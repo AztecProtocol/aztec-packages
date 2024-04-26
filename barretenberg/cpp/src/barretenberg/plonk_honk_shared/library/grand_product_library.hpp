@@ -65,16 +65,14 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // Populate `numerator` and `denominator` with the algebra described by Relation
     const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
     const size_t block_size = circuit_size / num_threads;
-    auto full_polynomials_view = full_polynomials.get_all();
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx + 1) * block_size;
         typename Flavor::AllValues evaluations;
-        auto evaluations_view = evaluations.get_all();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): construction of evaluations is equivalent to
         // calling get_row which creates full copies. avoid?
         for (size_t i = start; i < end; ++i) {
-            for (auto [eval, full_poly] : zip_view(evaluations_view, full_polynomials_view)) {
+            for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
                 eval = full_poly.size() > i ? full_poly[i] : 0;
             }
             numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
