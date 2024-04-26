@@ -62,6 +62,24 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Ensure CI Consistency
+        # Only check PRs
+        if: ${{ github.event.pull_request.head.sha != '' }}
+        run: |
+          # Fetch the reference CI configuration files
+          curl -o reference_ci.yml https://github.com/AztecProtocol/aztec-packages/blob/master/.github/workflows/ci.yml
+          curl -o reference_setup_runner.yml https://github.com/AztecProtocol/aztec-packages/blob/master/.github/workflows/setup-runner.yml
+
+          # Compare the checked-out CI configuration files with the reference files
+          if ! diff .github/workflows/ci.yml reference_ci.yml; then
+            echo "Error: CI configuration does not match the reference."
+            exit 1
+          fi
+          if ! diff .github/workflows/setup-runner.yml reference_setup_runner.yml; then
+            echo "Error: Setup runner configuration does not match the reference."
+            exit 1
+          fi
+
       - name: Start EC2 runner
         uses: ./.github/spot-runner-action
         with:
