@@ -19,7 +19,7 @@ contract Test {
     use dep::aztec::state_vars::shared_mutable::SharedMutablePrivateGetter;
 
     use dep::aztec::{
-        keys::assert_public_key_freshness::assert_nullifier_public_key_fresh,
+        keys::assert_public_key_freshness::assert_nullifier_public_key_is_fresh,
         context::{Context, inputs::private_context_inputs::PrivateContextInputs},
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher},
         note::{
@@ -415,7 +415,7 @@ contract Test {
         address: AztecAddress,
         public_nullifying_key: GrumpkinPoint,
     ) {
-        assert_nullifier_public_key_fresh(&mut context, address, public_nullifying_key);
+        assert_nullifier_public_key_is_fresh(&mut context, address, public_nullifying_key);
     }
 
     #[aztec(public)]

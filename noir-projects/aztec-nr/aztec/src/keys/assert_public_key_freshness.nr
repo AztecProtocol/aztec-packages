@@ -27,7 +27,7 @@ global PublicKeyType = PublicKeyTypeEnum {
   NULLIFIER: 0,
 };
 
-pub fn assert_nullifier_public_key_fresh(
+pub fn assert_nullifier_public_key_is_fresh(
   context: &mut PrivateContext,
   address: AztecAddress, 
   nullifier_public_key_to_test: GrumpkinPoint,
