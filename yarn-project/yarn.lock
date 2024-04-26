@@ -645,7 +645,15 @@ __metadata:
     "@multiformats/multiaddr": ^12.1.14
     "@types/jest": ^29.5.0
     "@types/node": ^18.14.6
+    interface-datastore: ^8.2.11
+    interface-store: ^5.1.8
+    it-all: ^3.0.4
+    it-drain: ^3.0.5
+    it-filter: ^3.0.4
+    it-map: ^3.1.0
     it-pipe: ^3.0.1
+    it-sort: ^3.0.4
+    it-take: ^3.0.4
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
     libp2p: ^1.4.0
@@ -8014,7 +8022,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"interface-store@npm:^5.0.0":
+"interface-store@npm:^5.0.0, interface-store@npm:^5.1.8":
   version: 5.1.8
   resolution: "interface-store@npm:5.1.8"
   checksum: 7b3b67e5fc3e2d9286db94e1941893176a989f89e6cb8027425acfbb5509b8d9845aaa614bac1b03514f6e7852cc713e568c67e3ab349bf56b3c9ffdc516e9bb
@@ -8587,6 +8595,15 @@ __metadata:
   dependencies:
     it-peekable: ^3.0.0
   checksum: bdaa2f1662325457a4eba487dfb04ca8aee0b1d91356b285bf6133aaeda67fba5b7d5c6644838ea8a025e4bd0e8a46910dd7b203f75940ed7ce0d8f3d159bbf3
+  languageName: node
+  linkType: hard
+
+"it-map@npm:^3.1.0":
+  version: 3.1.0
+  resolution: "it-map@npm:3.1.0"
+  dependencies:
+    it-peekable: ^3.0.0
+  checksum: 003c0f1b51a59278efbcadf2117eff91789855556f8f42a4ee594aa44d292ad476d29fa10ab37db74e4b80b04862e6a605dda68af69d511cfea074928da78641
   languageName: node
   linkType: hard
 

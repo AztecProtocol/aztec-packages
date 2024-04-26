@@ -42,6 +42,7 @@ describe('e2e_p2p_network', () => {
   afterEach(() => teardown());
 
   it('should rollup txs from all peers', async () => {
+    logger.info('starting');
     // create the bootstrap node for the network
     const bootstrapNode = await createBootstrapNode();
     const bootstrapNodeEnr = bootstrapNode.getENR();
