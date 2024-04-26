@@ -63,6 +63,7 @@ import { type PxeDatabase } from '../database/index.js';
 import { NoteDao } from '../database/note_dao.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
+import { ProverFactory } from '../kernel_prover/prover_factory.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchronizer } from '../synchronizer/index.js';
 
@@ -75,6 +76,7 @@ export class PXEService implements PXE {
   private simulator: AcirSimulator;
   private log: DebugLogger;
   private nodeVersion: string;
+  private proverFactory: ProverFactory;
   // serialize synchronizer and calls to proveTx.
   // ensures that state is not changed while simulating
   private jobQueue = new SerialQueue();
@@ -91,6 +93,7 @@ export class PXEService implements PXE {
     this.contractDataOracle = new ContractDataOracle(db);
     this.simulator = getAcirSimulator(db, node, keyStore, this.contractDataOracle);
     this.nodeVersion = getPackageInfo().version;
+    this.proverFactory = new ProverFactory(config);
 
     this.jobQueue.start();
   }
@@ -654,7 +657,7 @@ export class PXEService implements PXE {
     const executionResult = await this.#simulate(txExecutionRequest, msgSender);
 
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
-    const kernelProver = new KernelProver(kernelOracle);
+    const kernelProver = new KernelProver(kernelOracle, await this.proverFactory.createKernelProofCreator());
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 

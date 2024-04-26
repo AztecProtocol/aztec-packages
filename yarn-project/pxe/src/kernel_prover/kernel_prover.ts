@@ -30,7 +30,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { type ExecutionResult } from '@aztec/simulator';
 
 import { HintsBuilder } from './hints_builder.js';
-import { KernelProofCreator, type ProofCreator, type ProofOutput, type ProofOutputFinal } from './proof_creator.js';
+import { type ProofCreator, type ProofOutput, type ProofOutputFinal } from './interface/proof_creator.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
@@ -43,7 +43,7 @@ export class KernelProver {
   private log = createDebugLogger('aztec:kernel-prover');
   private hintsBuilder: HintsBuilder;
 
-  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator = new KernelProofCreator()) {
+  constructor(private oracle: ProvingDataOracle, private proofCreator: ProofCreator) {
     this.hintsBuilder = new HintsBuilder(oracle);
   }
 
