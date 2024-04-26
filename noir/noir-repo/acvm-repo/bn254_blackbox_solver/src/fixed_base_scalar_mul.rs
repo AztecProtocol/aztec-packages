@@ -16,7 +16,11 @@ pub fn fixed_base_scalar_mul(
     let generator_x = FieldElement::from_repr(*generator.x().unwrap());
     let generator_y = FieldElement::from_repr(*generator.y().unwrap());
 
-    variable_base_scalar_mul(&generator_x, &generator_y, low, high)
+    variable_base_scalar_mul(&generator_x, &generator_y, low, high).map_err(|err| match err {
+       BlackBoxResolutionError::Failed(_, message) => {
+          BlackBoxResolutionError::Failed(BlackBoxFunc::FixedBaseScalarMul, message)
+       }
+    }
 }
 
 pub fn variable_base_scalar_mul(
@@ -134,7 +138,7 @@ mod grumpkin_fixed_base_scalar_mul {
         let invalid_limb = max_limb + FieldElement::one();
 
         let expected_error = Err(BlackBoxResolutionError::Failed(
-            BlackBoxFunc::VariableBaseScalarMul,
+            BlackBoxFunc::FixedBaseScalarMul,
             "Limb 0000000000000000000000000000000100000000000000000000000000000000 is not less than 2^128".into(),
         ));
 
