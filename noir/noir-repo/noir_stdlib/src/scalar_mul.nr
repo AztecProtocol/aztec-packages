@@ -1,5 +1,6 @@
 use crate::ops::Add;
 
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061)
 struct EmbeddedCurvePoint {
     x: Field,
     y: Field,
@@ -32,9 +33,11 @@ pub fn fixed_base_embedded_curve(
 // docs:end:fixed_base_embedded_curve
 {}
 
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061): use a point struct instead of two fields
 #[foreign(variable_base_scalar_mul)]
 pub fn variable_base_embedded_curve(
-    point: EmbeddedCurvePoint, // point to multiply the scalar with
+    point_x: Field, // x coordinate of a point to multiply the scalar with
+    point_y: Field, // y coordinate of a point to multiply the scalar with
     scalar_low: Field, // low limb of the scalar
     scalar_high: Field // high limb of the scalar
 ) -> [Field; 2]

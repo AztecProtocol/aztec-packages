@@ -3,6 +3,7 @@ use dep::std::cmp::Eq;
 
 global GRUMPKIN_POINT_SERIALIZED_LEN: Field = 2;
 
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061)
 struct GrumpkinPoint {
     x: Field,
     y: Field,
