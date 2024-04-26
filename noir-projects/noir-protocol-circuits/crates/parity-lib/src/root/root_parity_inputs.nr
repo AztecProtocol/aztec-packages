@@ -32,7 +32,7 @@ impl RootParityInputs {
     }
 
     fn verify_child_proofs(self) {
-        //TODO: baseParityCircuitVKHash should the actual base parity circuit vk hash, not that of the first child
+        //TODO(@PhilWindle): Validate all keys against the actual BASE_PARITY_CIRCUIT_VK_HASH
         //assert(self.children[0].verification_key.hash == BASE_PARITY_CIRCUIT_VK_HASH);
         for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
             assert(
