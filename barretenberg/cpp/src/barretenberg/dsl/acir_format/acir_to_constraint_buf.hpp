@@ -319,8 +319,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::VariableBaseScalarMul>) {
                 af.variable_base_scalar_mul_constraints.push_back(VariableBaseScalarMul{
-                    .point_x = arg.low.witness.point_x,
-                    .point_y = arg.low.witness.point_y,
+                    .point_x = arg.point_x.witness.value,
+                    .point_y = arg.point_y.witness.value,
                     .low = arg.low.witness.value,
                     .high = arg.high.witness.value,
                     .pub_key_x = arg.outputs[0].value,

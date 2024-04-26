@@ -20,7 +20,7 @@ mod pedersen;
 mod range;
 mod signature;
 
-use fixed_base_scalar_mul::{embedded_curve_add, fixed_base_scalar_mul};
+use fixed_base_scalar_mul::{embedded_curve_add, fixed_base_scalar_mul, variable_base_scalar_mul};
 // Hash functions should eventually be exposed for external consumers.
 use hash::{solve_generic_256_hash_opcode, solve_sha_256_permutation_opcode};
 use logic::{and, xor};

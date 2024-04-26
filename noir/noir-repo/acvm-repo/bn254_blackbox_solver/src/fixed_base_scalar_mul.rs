@@ -66,7 +66,7 @@ pub fn variable_base_scalar_mul(
     low: &FieldElement,
     high: &FieldElement,
 ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-    let point1 = create_point(point_x, point_y)
+    let point1 = create_point(*point_x, *point_y)
     .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
 
     let low: u128 = low.try_into_u128().ok_or_else(|| {
