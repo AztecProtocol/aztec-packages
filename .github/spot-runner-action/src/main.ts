@@ -11,10 +11,8 @@ async function pollSpotStatus(
 ): Promise<"usable" | "unusable" | "none"> {
   // 12 iters x 10000 ms = 2 minutes
   for (let iter = 0; iter < 12; iter++) {
-    const instances = await ec2Client.getInstancesForTags();
-    const hasInstance =
-      instances.filter((i) => i.State?.Name === "running").length > 0;
-    if (!hasInstance) {
+    const instances = await ec2Client.getInstancesForTags("running");
+    if (instances.length <= 0) {
       // we need to start an instance
       return "none";
     }
@@ -38,12 +36,15 @@ async function pollSpotStatus(
 async function start() {
   const config = new ActionConfig();
   if (config.subaction === "stop") {
-    await stop();
+    await terminate();
     return;
   } else if (config.subaction === "restart") {
-    await stop();
+    await terminate();
     // then we make a fresh instance
-  } else if (config.subaction !== "start") {
+  } else if (config.subaction === "start") {
+    // We need to terminate
+    await terminate("stopped", false);
+  } else {
     throw new Error("Unexpected subaction: " + config.subaction);
   }
   // subaction is 'start' or 'restart'estart'
@@ -65,7 +66,7 @@ async function start() {
         "Taking down spot we just started. This seems wrong, erroring out."
       );
     }
-    await stop();
+    await terminate();
   }
 
   var ec2SpotStrategies: string[];
@@ -138,22 +139,26 @@ async function start() {
   }
 }
 
-async function stop() {
+async function terminate(instanceStatus?: string, cleanupRunners = true) {
   try {
     core.info("Starting instance cleanup");
     const config = new ActionConfig();
     const ec2Client = new Ec2Instance(config);
     const ghClient = new GithubClient(config);
-    const instances = await ec2Client.getInstancesForTags();
+    const instances = await ec2Client.getInstancesForTags(instanceStatus);
     await ec2Client.terminateInstances(instances.map((i) => i.InstanceId!));
-    core.info("Clearing previously installed runners");
-    const result = await ghClient.removeRunnersWithLabels([config.githubJobId]);
-    if (result) {
-      core.info("Finished runner cleanup");
-    } else {
-      throw Error(
-        "Failed to cleanup runners. Continuing, but failure expected!"
-      );
+    if (cleanupRunners) {
+      core.info("Clearing previously installed runners");
+      const result = await ghClient.removeRunnersWithLabels([
+        config.githubJobId,
+      ]);
+      if (result) {
+        core.info("Finished runner cleanup");
+      } else {
+        throw Error(
+          "Failed to cleanup runners. Continuing, but failure expected!"
+        );
+      }
     }
   } catch (error) {
     core.info(error);
@@ -164,7 +169,7 @@ async function stop() {
   try {
     start();
   } catch (error) {
-    stop();
+    terminate();
     assertIsError(error);
     core.error(error);
     core.setFailed(error.message);

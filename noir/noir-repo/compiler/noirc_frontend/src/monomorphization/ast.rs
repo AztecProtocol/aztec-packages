@@ -5,7 +5,7 @@ use noirc_errors::{
     Location,
 };
 
-use crate::hir_def::function::FunctionSignature;
+use crate::hir_def::{function::FunctionSignature, types::Type as HirType};
 use crate::{
     ast::{BinaryOpKind, Distinctness, IntegerBitSize, Signedness, Visibility},
     token::{Attributes, FunctionAttribute},
@@ -36,7 +36,7 @@ pub enum Expression {
     ExtractTupleField(Box<Expression>, usize),
     Call(Call),
     Let(Let),
-    Constrain(Box<Expression>, Location, Option<Box<Expression>>),
+    Constrain(Box<Expression>, Location, Option<Box<(Expression, HirType)>>),
     Assign(Assign),
     Semi(Box<Expression>),
     Break,
