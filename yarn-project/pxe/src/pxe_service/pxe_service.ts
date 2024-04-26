@@ -219,6 +219,7 @@ export class PXEService implements PXE {
   public async registerRecipient(recipient: CompleteAddress, publicKeys: Point[] = []): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
 
+    // #5834
     if (publicKeys.length !== 0) {
       await this.keyStore.addPublicKeysForAccount(
         recipient.address,
