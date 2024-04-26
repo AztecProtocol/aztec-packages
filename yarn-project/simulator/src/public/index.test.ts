@@ -333,7 +333,7 @@ describe('ACIR public execution simulator', () => {
 
       const execution: PublicExecution = { contractAddress: parentContractAddress, functionData, args, callContext };
 
-      const result = await executor.simulate(execution, globalVariables);
+      const result = await simulate(execution, globalVariables);
       const childExecutionResult = result.nestedExecutions[0];
       expect(Fr.fromBuffer(childExecutionResult.unencryptedLogs.logs[0].data)).toEqual(new Fr(newValue));
       expect(Fr.fromBuffer(childExecutionResult.unencryptedLogs.logs[0].hash())).toEqual(

@@ -41,12 +41,12 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly stateDb: PublicStateDB,
     public readonly contractsDb: PublicContractsDB,
     public readonly commitmentsDb: CommitmentsDB,
-    // Unencrypted logs emitted during this call AND any nested calls
-    // Useful for maintaining correct ordering in ts
-    private allUnencryptedLogs: UnencryptedL2Log[] = [],
     public readonly availableGas: Gas,
     public readonly transactionFee: Fr,
     public readonly gasSettings: GasSettings,
+    // Unencrypted logs emitted during this call AND any nested calls
+    // Useful for maintaining correct ordering in ts
+    private allUnencryptedLogs: UnencryptedL2Log[] = [],
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -236,10 +236,10 @@ export class PublicExecutionContext extends TypedOracle {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
-      this.allUnencryptedLogs,
       this.availableGas,
       this.transactionFee,
       this.gasSettings,
+      this.allUnencryptedLogs,
       this.log,
     );
 
