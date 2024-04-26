@@ -318,6 +318,24 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
      * @brief Testing two valid rounds of folding followed by the decider.
      *
      */
+    static void test_full_structured_protogalaxy()
+    {
+        TupleOfInstances insts = construct_instances(2);
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(insts), get<1>(insts));
+        check_accumulator_target_sum_manual(prover_accumulator, true);
+
+        TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
+        auto [prover_accumulator_2, verifier_accumulator_2] =
+            fold_and_verify({ prover_accumulator, get<0>(insts_2)[0] }, { verifier_accumulator, get<1>(insts_2)[0] });
+        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+
+        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
+    }
+
+    /**
+     * @brief Testing two valid rounds of folding followed by the decider.
+     *
+     */
     static void test_full_protogalaxy()
     {
         TupleOfInstances insts = construct_instances(2);

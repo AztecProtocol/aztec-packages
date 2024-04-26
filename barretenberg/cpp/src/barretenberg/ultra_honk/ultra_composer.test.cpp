@@ -92,7 +92,7 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
 TEST_F(UltraHonkComposerTests, StructuredTrace)
 {
     auto builder = UltraCircuitBuilder();
-    size_t num_gates = 1;
+    size_t num_gates = 3;
 
     // Add some arbitrary arithmetic gates that utilize public inputs
     for (size_t i = 0; i < num_gates; ++i) {
@@ -112,6 +112,7 @@ TEST_F(UltraHonkComposerTests, StructuredTrace)
     // Construct an instance with a structured execution trace
     auto instance = std::make_shared<ProverInstance>(builder, /*is_structured=*/true);
     // builder.blocks.summarize();
+    info(instance->proving_key.circuit_size);
     UltraProver prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     UltraVerifier verifier(verification_key);

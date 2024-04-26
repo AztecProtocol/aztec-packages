@@ -119,7 +119,7 @@ template <typename FF_> class UltraArith {
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 11;
-    static constexpr size_t FIXED_BLOCK_SIZE = 5; // tiny for testing (5 * 6 = 30 < 2^5)
+    static constexpr size_t FIXED_BLOCK_SIZE = 1 << 10; // Size of each block in a structured trace
     using FF = FF_;
 
     class UltraTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {
@@ -197,7 +197,8 @@ template <typename FF_> class UltraHonkArith {
   public:
     static constexpr size_t NUM_WIRES = 4;
     static constexpr size_t NUM_SELECTORS = 14;
-    static constexpr size_t FIXED_BLOCK_SIZE = 5; // tiny for testing (6 * 10 = 60 < 2^6)
+    static constexpr size_t FIXED_BLOCK_SIZE = 1 << 10; // Size of each block in a structured trace
+
     using FF = FF_;
 
     class UltraHonkTraceBlock : public ExecutionTraceBlock<FF, NUM_WIRES, NUM_SELECTORS> {

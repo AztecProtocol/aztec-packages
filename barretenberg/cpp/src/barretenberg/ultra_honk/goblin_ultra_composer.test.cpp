@@ -34,6 +34,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     bool construct_and_verify_honk_proof(auto& builder)
     {
         auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder);
+        // builder.blocks.summarize();
         GoblinUltraProver prover(instance);
         auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
         GoblinUltraVerifier verifier(verification_key);
@@ -58,6 +59,42 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     }
 };
 } // namespace
+
+/**
+ * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
+ * gates
+ *
+ */
+TEST_F(GoblinUltraHonkComposerTests, Basic)
+{
+    GoblinUltraCircuitBuilder builder;
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct and verify Honk proof
+    bool honk_verified = construct_and_verify_honk_proof(builder);
+    EXPECT_TRUE(honk_verified);
+}
+
+/**
+ * @brief Test proof construction/verification for a structured execution trace
+ *
+ */
+TEST_F(GoblinUltraHonkComposerTests, BasicStructured)
+{
+    GoblinUltraCircuitBuilder builder;
+
+    GoblinMockCircuits::construct_simple_circuit(builder);
+
+    // Construct and verify Honk proof
+    auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder, /*is_structured=*/true);
+    builder.blocks.summarize();
+    GoblinUltraProver prover(instance);
+    auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
+    GoblinUltraVerifier verifier(verification_key);
+    auto proof = prover.construct_proof();
+    EXPECT_TRUE(verifier.verify_proof(proof));
+}
 
 /**
  * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
