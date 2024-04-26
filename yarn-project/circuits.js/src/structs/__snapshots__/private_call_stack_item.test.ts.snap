@@ -2,4 +2,4 @@
 
 exports[`PrivateCallStackItem computes empty item hash 1`] = `Fr<0x25d9c6ba3de2cf8baec904e5c1ba76e130c5181bc2d6c4f1ceea4663287ba9ba>`;
 
-exports[`PrivateCallStackItem computes hash 1`] = `Fr<0x1b183e4ba97199f9b205f7748e363d628a8624156f95ebf306c5da1925a79ddc>`;
+exports[`PrivateCallStackItem computes hash 1`] = `Fr<0x2730b6e2ea87fbc6c863e1a13b6ebbf64572a95bf495d2052db627418220c816>`;

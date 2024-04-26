@@ -8,14 +8,14 @@ use dep::types::{
     constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_previous_kernel_state
 };
 
-struct PrivateKernekInnerHints {
+struct PrivateKernelInnerHints {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
 }
 
 struct PrivateKernelInnerCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
     private_call: PrivateCallData,
-    hints: PrivateKernekInnerHints,
+    hints: PrivateKernelInnerHints,
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
@@ -72,7 +72,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, PrivateKernekInnerHints};
+    use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, PrivateKernelInnerHints};
     use dep::types::constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NEW_NOTE_HASHES_PER_TX};
     use dep::types::{
         abis::{
@@ -88,14 +88,14 @@ mod tests {
     struct PrivateKernelInnerInputsBuilder {
         previous_kernel: FixtureBuilder,
         private_call: PrivateCallDataBuilder,
-        hints: PrivateKernekInnerHints,
+        hints: PrivateKernelInnerHints,
     }
 
     impl PrivateKernelInnerInputsBuilder {
         pub fn new() -> Self {
             let mut previous_kernel = FixtureBuilder::new();
             let private_call = PrivateCallDataBuilder::new();
-            let hints = PrivateKernekInnerHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
+            let hints = PrivateKernelInnerHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
 
             // 0th nullifier must be non-zero.
             previous_kernel.append_new_nullifiers(1);

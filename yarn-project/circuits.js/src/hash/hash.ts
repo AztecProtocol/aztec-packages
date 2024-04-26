@@ -9,7 +9,6 @@ import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex } from '../constants.gen.js';
-import type { SideEffect, SideEffectLinkedToNoteHash } from '../structs/index.js';
 import { VerificationKey } from '../structs/verification_key.js';
 
 /**
@@ -146,14 +145,6 @@ export function computeVarArgsHash(args: Fr[]) {
   }
 
   return pedersenHash(chunksHashes, GeneratorIndex.FUNCTION_ARGS);
-}
-
-export function computeCommitmentsHash(input: SideEffect) {
-  return pedersenHash([input.value, input.counter], GeneratorIndex.SIDE_EFFECT);
-}
-
-export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
-  return pedersenHash([input.value, input.noteHash, input.counter], GeneratorIndex.SIDE_EFFECT);
 }
 
 /**

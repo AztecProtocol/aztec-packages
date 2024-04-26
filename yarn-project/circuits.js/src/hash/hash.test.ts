@@ -1,13 +1,11 @@
 import { times } from '@aztec/foundation/collection';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
-import { AztecAddress, Fr, SideEffect, SideEffectLinkedToNoteHash } from '../index.js';
+import { AztecAddress, Fr } from '../index.js';
 import { makeAztecAddress, makeVerificationKey } from '../tests/factories.js';
 import {
   computeCommitmentNonce,
-  computeCommitmentsHash,
   computeMessageSecretHash,
-  computeNullifierHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
   computeUniqueCommitment,
@@ -87,19 +85,6 @@ describe('hash', () => {
     const value = new Fr(8n);
     const hash = computeMessageSecretHash(value);
     expect(hash).toMatchSnapshot();
-  });
-
-  it('Computes an empty nullifier hash ', () => {
-    const emptyNull = SideEffectLinkedToNoteHash.empty();
-
-    const emptyHash = computeNullifierHash(emptyNull).toString();
-    expect(emptyHash).toMatchSnapshot();
-  });
-
-  it('Computes an empty sideeffect hash ', () => {
-    const emptySideEffect = SideEffect.empty();
-    const emptyHash = computeCommitmentsHash(emptySideEffect).toString();
-    expect(emptyHash).toMatchSnapshot();
   });
 
   it('Var args hash matches noir', () => {
