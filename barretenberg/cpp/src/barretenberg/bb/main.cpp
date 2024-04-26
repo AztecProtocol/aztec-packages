@@ -689,7 +689,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
         vinfo("vk written to: ", outputPath);
     }
 }
-/*
+/**
  * @brief Creates a proof for an ACIR circuit, outputs the proof and verification key in binary and 'field' format
  *
  * Communication:
