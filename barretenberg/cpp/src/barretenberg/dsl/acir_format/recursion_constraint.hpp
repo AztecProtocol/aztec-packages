@@ -64,6 +64,10 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object,
     bool has_valid_witness_assignments = false);
 
+void dummy_recursion_input(Builder& builder,
+                           const RecursionConstraint& input,
+                           bool inner_proof_contains_recursive_proof);
+
 std::vector<bb::fr> export_key_in_recursion_format(std::shared_ptr<verification_key> const& vkey);
 std::vector<bb::fr> export_dummy_key_in_recursion_format(const PolynomialManifest& polynomial_manifest,
                                                          bool contains_recursive_proof = 0);

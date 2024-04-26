@@ -43,49 +43,8 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     }
     const bool inner_proof_contains_recursive_proof = !nested_aggregation_indices_all_zero;
 
-    // If we do not have a witness, we must ensure that our dummy witness will not trigger
-    // on-curve errors and inverting-zero errors
-    {
-        // get a fake key/proof that satisfies on-curve + inversion-zero checks
-        const std::vector<fr> dummy_key = export_dummy_key_in_recursion_format(
-            PolynomialManifest(Builder::CIRCUIT_TYPE), inner_proof_contains_recursive_proof);
-        const auto manifest = Composer::create_manifest(input.public_inputs.size());
-        std::vector<bb::fr> dummy_proof =
-            export_dummy_transcript_in_recursion_format(manifest, inner_proof_contains_recursive_proof);
-
-        for (size_t i = 0; i < input.public_inputs.size(); ++i) {
-            const auto public_input_idx = input.public_inputs[i];
-            // if we do NOT have a witness assignment (i.e. are just building the proving/verification keys),
-            // we add our dummy public input values as Builder variables.
-            // if we DO have a valid witness assignment, we use the real witness assignment
-            bb::fr dummy_field =
-                has_valid_witness_assignments ? builder.get_variable(public_input_idx) : dummy_proof[i];
-            // Create a copy constraint between our dummy field and the witness index provided by RecursionConstraint.
-            // This will make the RecursionConstraint idx equal to `dummy_field`.
-            // In the case of a valid witness assignment, this does nothing (as dummy_field = real value)
-            // In the case of no valid witness assignment, this makes sure that the RecursionConstraint witness indices
-            // will not trigger basic errors (check inputs are on-curve, check we are not inverting 0)
-            //
-            // Failing to do these copy constraints on public inputs will trigger these basic errors
-            // in the case of a nested proof, as an aggregation object is expected to be two G1 points even
-            // in the case of no valid witness assignments.
-            builder.assert_equal(builder.add_variable(dummy_field), public_input_idx);
-        }
-        // Remove the public inputs from the dummy proof
-        // The proof supplied to the recursion constraint will already be stripped of public inputs
-        // while the barretenberg API works with public inputs prepended to the proof.
-        dummy_proof.erase(dummy_proof.begin(),
-                          dummy_proof.begin() + static_cast<std::ptrdiff_t>(input.public_inputs.size()));
-        for (size_t i = 0; i < input.proof.size(); ++i) {
-            const auto proof_field_idx = input.proof[i];
-            bb::fr dummy_field = has_valid_witness_assignments ? builder.get_variable(proof_field_idx) : dummy_proof[i];
-            builder.assert_equal(builder.add_variable(dummy_field), proof_field_idx);
-        }
-        for (size_t i = 0; i < input.key.size(); ++i) {
-            const auto key_field_idx = input.key[i];
-            bb::fr dummy_field = has_valid_witness_assignments ? builder.get_variable(key_field_idx) : dummy_key[i];
-            builder.assert_equal(builder.add_variable(dummy_field), key_field_idx);
-        }
+    if (!has_valid_witness_assignments) {
+        dummy_recursion_input(builder, input, inner_proof_contains_recursive_proof);
     }
 
     // Construct an in-circuit representation of the verification key.
@@ -94,7 +53,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     const auto& aggregation_input = input_aggregation_object;
     aggregation_state_ct previous_aggregation;
 
-    // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
+    // If we have previously recursively verified proofs, `inner_aggregation_indices_all_zero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
     bool inner_aggregation_indices_all_zero = true;
     for (const auto& idx : aggregation_input) {
@@ -169,6 +128,53 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
               resulting_output_aggregation_object.begin());
 
     return resulting_output_aggregation_object;
+}
+
+// If we do not have a witness, we must ensure that our dummy witness will not trigger
+// on-curve errors and inverting-zero errors
+void dummy_recursion_input(Builder& builder,
+                           const RecursionConstraint& input,
+                           bool inner_proof_contains_recursive_proof)
+{
+    // get a fake key/proof that satisfies on-curve + inversion-zero checks
+    const std::vector<fr> dummy_key = export_dummy_key_in_recursion_format(PolynomialManifest(Builder::CIRCUIT_TYPE),
+                                                                           inner_proof_contains_recursive_proof);
+    const auto manifest = Composer::create_manifest(input.public_inputs.size());
+    std::vector<bb::fr> dummy_proof =
+        export_dummy_transcript_in_recursion_format(manifest, inner_proof_contains_recursive_proof);
+
+    for (size_t i = 0; i < input.public_inputs.size(); ++i) {
+        const auto public_input_idx = input.public_inputs[i];
+        // if we do NOT have a witness assignment (i.e. are just building the proving/verification keys),
+        // we add our dummy public input values as Builder variables.
+        // if we DO have a valid witness assignment, we use the real witness assignment
+        bb::fr dummy_field = dummy_proof[i];
+        // Create a copy constraint between our dummy field and the witness index provided by RecursionConstraint.
+        // This will make the RecursionConstraint idx equal to `dummy_field`.
+        // In the case of a valid witness assignment, this does nothing (as dummy_field = real value)
+        // In the case of no valid witness assignment, this makes sure that the RecursionConstraint witness indices
+        // will not trigger basic errors (check inputs are on-curve, check we are not inverting 0)
+        //
+        // Failing to do these copy constraints on public inputs will trigger these basic errors
+        // in the case of a nested proof, as an aggregation object is expected to be two G1 points even
+        // in the case of no valid witness assignments.
+        builder.assert_equal(builder.add_variable(dummy_field), public_input_idx);
+    }
+    // Remove the public inputs from the dummy proof
+    // The proof supplied to the recursion constraint will already be stripped of public inputs
+    // while the barretenberg API works with public inputs prepended to the proof.
+    dummy_proof.erase(dummy_proof.begin(),
+                      dummy_proof.begin() + static_cast<std::ptrdiff_t>(input.public_inputs.size()));
+    for (size_t i = 0; i < input.proof.size(); ++i) {
+        const auto proof_field_idx = input.proof[i];
+        bb::fr dummy_field = dummy_proof[i];
+        builder.assert_equal(builder.add_variable(dummy_field), proof_field_idx);
+    }
+    for (size_t i = 0; i < input.key.size(); ++i) {
+        const auto key_field_idx = input.key[i];
+        bb::fr dummy_field = dummy_key[i];
+        builder.assert_equal(builder.add_variable(dummy_field), key_field_idx);
+    }
 }
 
 /**
