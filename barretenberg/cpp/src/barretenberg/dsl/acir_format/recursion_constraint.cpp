@@ -23,11 +23,9 @@ void generate_dummy_proof() {}
  * @param input
  * @tparam has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
  * @tparam inner_proof_contains_recursive_proof. Do we expect the inner proof to also have performed recursive
- * verification? We need to know this at circuit-compile time.
+ * verification? We need to know this at circuit-compile time. This is set by the caller of
+ * `create_recursion_constraints`
  *
- * @note We currently only support RecursionConstraint where inner_proof_contains_recursive_proof = false.
- *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
- *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
 std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recursion_constraints(
     Builder& builder,
