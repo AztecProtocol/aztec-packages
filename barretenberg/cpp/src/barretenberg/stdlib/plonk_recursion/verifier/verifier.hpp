@@ -341,6 +341,12 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
                 const fr_ct l1 = public_inputs[idx1];
                 const fr_ct l2 = public_inputs[idx2];
                 const fr_ct l3 = public_inputs[idx3];
+
+                info("l0: ", l0.get_value());
+                info("l1: ", l1.get_value());
+                info("l2: ", l2.get_value());
+                info("l3: ", l3.get_value());
+
                 l0.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l0");
                 l1.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l1");
                 l2.create_range_constraint(fq_ct::NUM_LIMB_BITS, "l2");
@@ -350,27 +356,40 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
 
         fr_ct recursion_separator_challenge = transcript.get_challenge_field_element("separator", 2);
 
+        info("x0: ");
         const auto x0 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[0],
                                                       key->recursive_proof_public_input_indices[1],
                                                       key->recursive_proof_public_input_indices[2],
                                                       key->recursive_proof_public_input_indices[3]);
+        info("y0: ");
         const auto y0 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[4],
                                                       key->recursive_proof_public_input_indices[5],
                                                       key->recursive_proof_public_input_indices[6],
                                                       key->recursive_proof_public_input_indices[7]);
+        info("x1: ");
+
         const auto x1 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[8],
                                                       key->recursive_proof_public_input_indices[9],
                                                       key->recursive_proof_public_input_indices[10],
                                                       key->recursive_proof_public_input_indices[11]);
+        info("y1: ");
         const auto y1 = recover_fq_from_public_inputs(key->recursive_proof_public_input_indices[12],
                                                       key->recursive_proof_public_input_indices[13],
                                                       key->recursive_proof_public_input_indices[14],
                                                       key->recursive_proof_public_input_indices[15]);
 
-        opening_elements.push_back(g1_ct(x0, y0));
+        auto g1_0 = g1_ct(x0, y0);
+        info("is g1_0 infinity: ", g1_0.get_value().is_point_at_infinity());
+        info("g1_0: ", g1_0.get_value());
+
+        opening_elements.push_back(g1_0);
         opening_scalars.push_back(recursion_separator_challenge);
 
-        rhs_elements.push_back((-g1_ct(x1, y1)));
+        auto g1_1 = -g1_ct(x1, y1);
+        info("is g1_1 infinity: ", g1_1.get_value().is_point_at_infinity());
+        info("g1_1: ", g1_0.get_value());
+
+        rhs_elements.push_back((g1_1));
         rhs_scalars.push_back(recursion_separator_challenge);
     }
 

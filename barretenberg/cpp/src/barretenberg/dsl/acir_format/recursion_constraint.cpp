@@ -10,7 +10,7 @@ namespace acir_format {
 using namespace bb::plonk;
 
 // `NUM_LIMB_BITS_IN_FIELD_SIMULATION` is the limb size when simulating a non-native field using the bigfield class
-// A aggregation object is two acir_format::g1_ct types where each coordinate in a point is a non-native field.
+// An aggregation object is two acir_format::g1_ct types where each coordinate in a point is a non-native field.
 // Each field is represented as four limbs. We split those limbs in half when serializing to/from buffer.
 static constexpr uint64_t TWO_LIMBS_BITS_IN_FIELD_SIMULATION = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2;
 static constexpr uint64_t FOUR_LIMBS_BITS_IN_FIELD_SIMULATION = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 4;
@@ -42,7 +42,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
         nested_aggregation_indices_all_zero &= (idx == 0);
     }
     const bool inner_proof_contains_recursive_proof = !nested_aggregation_indices_all_zero;
-
+    info("inner_proof_contains_recursive_proof: ", inner_proof_contains_recursive_proof);
     // If we do not have a witness, we must ensure that our dummy witness will not trigger
     // on-curve errors and inverting-zero errors
     {
@@ -94,7 +94,7 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     const auto& aggregation_input = input_aggregation_object;
     aggregation_state_ct previous_aggregation;
 
-    // If we have previously recursively verified proofs, `is_aggregation_object_nonzero = true`
+    // If we have previously recursively verified proofs, `inner_aggregation_indices_all_zero = true`
     // For now this is a complile-time constant i.e. whether this is true/false is fixed for the circuit!
     bool inner_aggregation_indices_all_zero = true;
     for (const auto& idx : aggregation_input) {
@@ -133,10 +133,12 @@ std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> create_recurs
     // Prepend the public inputs to the proof fields because this is how the
     // core barretenberg library processes proofs (with the public inputs first and not separated)
     proof_fields.reserve(input.proof.size() + input.public_inputs.size());
+    info("input.public_inputs.size(): ", input.public_inputs.size());
     for (const auto& idx : input.public_inputs) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
     }
+
     for (const auto& idx : input.proof) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);

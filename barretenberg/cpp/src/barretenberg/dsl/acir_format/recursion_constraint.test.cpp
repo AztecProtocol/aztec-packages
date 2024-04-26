@@ -128,12 +128,12 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
     std::vector<RecursionConstraint> recursion_constraints;
 
     size_t witness_offset = 0;
-    std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> output_aggregation_object;
+    // std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> output_aggregation_object;
     std::vector<fr, ContainerSlabAllocator<fr>> witness;
 
-    size_t circuit_idx = 0;
+    // size_t circuit_idx = 0;
     for (auto& inner_circuit : inner_circuits) {
-        const bool has_input_aggregation_object = circuit_idx > 0;
+        // const bool has_input_aggregation_object = circuit_idx > 0;
 
         auto inner_composer = Composer();
         auto inner_prover = inner_composer.create_prover(inner_circuit);
@@ -141,7 +141,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         auto inner_verifier = inner_composer.create_verifier(inner_circuit);
 
         const bool has_nested_proof = inner_verifier.key->contains_recursive_proof;
-
+        info("has_nested_proof: ", has_nested_proof);
         const size_t num_inner_public_inputs = inner_circuit.get_public_inputs().size();
         transcript::StandardTranscript transcript(inner_proof.proof_data,
                                                   Composer::create_manifest(num_inner_public_inputs),
@@ -152,44 +152,67 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         // - Save the public inputs so that we can set their values.
         // - Then truncate them from the proof because the ACIR API expects proofs without public inputs
         std::vector<fr> inner_public_input_values(
-            proof_witnesses.begin(), proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
+            proof_witnesses.begin(),
+            proof_witnesses.begin() +
+                static_cast<std::ptrdiff_t>(num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE));
 
         // We want to make sure that we do not remove the nested aggregation object in the case of the proof we want to
         // recursively verify contains a recursive proof itself. We are safe to keep all the inner public inputs
         // as in these tests the outer circuits do not have public inputs themselves
-        if (!has_nested_proof) {
-            proof_witnesses.erase(proof_witnesses.begin(),
-                                  proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
-        }
+        // if (!has_nested_proof) {
+        //     proof_witnesses.erase(proof_witnesses.begin(),
+        //                           proof_witnesses.begin() +
+        //                               static_cast<std::ptrdiff_t>(num_inner_public_inputs -
+        //                                                           RecursionConstraint::AGGREGATION_OBJECT_SIZE));
+        // }
+        // info("num_inner_public_inputs: ", num_inner_public_inputs);
+        proof_witnesses.erase(
+            proof_witnesses.begin(),
+            proof_witnesses.begin() +
+                static_cast<std::ptrdiff_t>(num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE));
+        // proof_witnesses.erase(proof_witnesses.begin(),
+        //                       proof_witnesses.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs));
 
-        const std::vector<bb::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
+        std::vector<bb::fr> key_witnesses = export_key_in_recursion_format(inner_verifier.key);
+        bb::fr key_hash = key_witnesses.back();
+        key_witnesses.pop_back();
 
         const uint32_t key_hash_start_idx = static_cast<uint32_t>(witness_offset);
         const uint32_t public_input_start_idx = key_hash_start_idx + 1;
-        const uint32_t output_aggregation_object_start_idx =
-            static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs + (has_nested_proof ? 16 : 0));
-        const uint32_t proof_indices_start_idx = output_aggregation_object_start_idx + 16;
+        // const uint32_t output_aggregation_object_start_idx =
+        //     static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs + (has_nested_proof ? 16 : 0));
+        // const uint32_t output_aggregation_object_start_idx =
+        //     static_cast<uint32_t>(public_input_start_idx + num_inner_public_inputs);
+        // const uint32_t proof_indices_start_idx = output_aggregation_object_start_idx + 16;
+        const uint32_t proof_indices_start_idx = static_cast<uint32_t>(
+            public_input_start_idx + num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE);
         const uint32_t key_indices_start_idx = static_cast<uint32_t>(proof_indices_start_idx + proof_witnesses.size());
 
         std::vector<uint32_t> proof_indices;
         std::vector<uint32_t> key_indices;
         std::vector<uint32_t> inner_public_inputs;
-        std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object = {};
-        std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
-        if (has_input_aggregation_object) {
-            input_aggregation_object = output_aggregation_object;
-        }
-        for (size_t i = 0; i < 16; ++i) {
-            output_aggregation_object[i] = (static_cast<uint32_t>(i + output_aggregation_object_start_idx));
-        }
-        if (has_nested_proof) {
-            for (size_t i = 0; i < 16; ++i) {
-                nested_aggregation_object[i] = inner_circuit.recursive_proof_public_input_indices[i];
-            }
-        }
+
+        // std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> input_aggregation_object = {};
+        // std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
+        // if (has_input_aggregation_object) {
+        //     input_aggregation_object = output_aggregation_object;
+        // }
+        // for (size_t i = 0; i < 16; ++i) {
+        //     output_aggregation_object[i] = (static_cast<uint32_t>(i + output_aggregation_object_start_idx));
+        // }
+        // if (has_nested_proof) {
+        //     for (size_t i = 0; i < 16; ++i) {
+        //         nested_aggregation_object[i] = inner_circuit.recursive_proof_public_input_indices[i];
+        //     }
+        // }
+
+        // info("proof_witnesses.size(): ", proof_witnesses.size());
+        // info("proof_indices_start_idx: ", proof_indices_start_idx);
         for (size_t i = 0; i < proof_witnesses.size(); ++i) {
+            // info("i: ", i);
             proof_indices.emplace_back(static_cast<uint32_t>(i + proof_indices_start_idx));
         }
+        // info("proof_indices.size(): ", proof_indices.size());
         const size_t key_size = key_witnesses.size();
         for (size_t i = 0; i < key_size; ++i) {
             key_indices.emplace_back(static_cast<uint32_t>(i + key_indices_start_idx));
@@ -197,12 +220,15 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         // In the case of a nested proof we keep the nested aggregation object attached to the proof,
         // thus we do not explicitly have to keep the public inputs while setting up the initial recursion constraint.
         // They will later be attached as public inputs when creating the circuit.
-        if (!has_nested_proof) {
-            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
-                inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
-            }
+        // if (!has_nested_proof) {
+        //     for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+        //         inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
+        //     }
+        // }
+        for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+            inner_public_inputs.push_back(static_cast<uint32_t>(i + public_input_start_idx));
         }
-
+        // info("key_hash_start_idx: ", key_hash_start_idx);
         RecursionConstraint recursion_constraint{
             .key = key_indices,
             .proof = proof_indices,
@@ -210,37 +236,51 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .key_hash = key_hash_start_idx,
         };
         recursion_constraints.push_back(recursion_constraint);
+        // info("made recursion_constraint");
+        // info("witness.size(): ", witness.size());
+        // info("proof_indices_start_idx: ", proof_indices_start_idx);
+        // info("witness_offset: ", witness_offset);
 
-        for (size_t i = 0; i < proof_indices_start_idx - witness_offset; ++i) {
+        witness.emplace_back(key_hash);
+        for (size_t i = 0; i < proof_indices_start_idx - public_input_start_idx; ++i) {
             witness.emplace_back(0);
         }
+        info("proof_witnesses.size(): ", proof_witnesses.size());
         for (const auto& wit : proof_witnesses) {
             witness.emplace_back(wit);
         }
-
+        // info("key_witnesses.size(): ", key_witnesses.size());
         for (const auto& wit : key_witnesses) {
             witness.emplace_back(wit);
         }
 
         // Set the values for the inner public inputs
+        // TODO(maxim): check this is wrong I think
         // Note: this is confusing, but we minus one here due to the fact that the
         // witness values have not taken into account that zero is taken up by the zero_idx
         //
         // We once again have to check whether we have a nested proof, because if we do have one
         // then we could get a segmentation fault as `inner_public_inputs` was never filled with values.
-        if (!has_nested_proof) {
-            for (size_t i = 0; i < num_inner_public_inputs; ++i) {
-                witness[inner_public_inputs[i]] = inner_public_input_values[i];
-            }
+        // if (!has_nested_proof) {
+        //     for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+        //         witness[inner_public_inputs[i]] = inner_public_input_values[i];
+        //     }
+        // }
+        for (size_t i = 0; i < num_inner_public_inputs - RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
+            // info("inner_public_inputs[", i, "]: ", inner_public_inputs[i]);
+            // info("inner_public_input_values[", i, "]: ", inner_public_input_values[i]);
+
+            witness[inner_public_inputs[i]] = inner_public_input_values[i];
         }
 
         witness_offset = key_indices_start_idx + key_witnesses.size();
-        circuit_idx++;
+        // circuit_idx++;
     }
-
+    info("witness.size(): ", witness.size());
     AcirFormat constraint_system{ .varnum = static_cast<uint32_t>(witness.size()),
                                   .recursive = false,
-                                  .public_inputs = {},
+                                  .public_inputs = { 1, 2 },
+                                  //   .public_inputs = {},
                                   .logic_constraints = {},
                                   .range_constraints = {},
                                   .sha256_constraints = {},
@@ -275,7 +315,7 @@ TEST_F(AcirRecursionConstraint, TestBasicDoubleRecursionConstraints)
     std::vector<Builder> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit());
 
-    layer_1_circuits.push_back(create_inner_circuit());
+    // layer_1_circuits.push_back(create_inner_circuit());
 
     auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
 

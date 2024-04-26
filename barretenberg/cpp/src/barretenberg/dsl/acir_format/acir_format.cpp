@@ -1,5 +1,8 @@
 #include "acir_format.hpp"
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/ecc/fields/field_conversion.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <cstddef>
@@ -146,14 +149,18 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             std::array<uint32_t, RecursionConstraint::AGGREGATION_OBJECT_SIZE> nested_aggregation_object = {};
             // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
             if (constraint.proof.size() > proof_size_no_pub_inputs) {
+                info("constraint.proof.size(): ", constraint.proof.size());
+                info("proof_size_no_pub_inputs: ", proof_size_no_pub_inputs);
                 // The public inputs attached to a proof should match the aggregation object in size
                 if (constraint.proof.size() - proof_size_no_pub_inputs !=
                     RecursionConstraint::AGGREGATION_OBJECT_SIZE) {
                     auto error_string = format(
                         "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
                         "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                        "which is {}\n",
+                        "which is ",
                         RecursionConstraint::AGGREGATION_OBJECT_SIZE);
+                    info("constraint.proof.size(): ", constraint.proof.size());
+                    info("proof_size_no_pub_inputs: ", proof_size_no_pub_inputs);
                     throw_or_abort(error_string);
                 }
                 for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE; ++i) {
@@ -163,6 +170,8 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
                     nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
                     // Attach the nested aggregation object to the end of the public inputs to fill in
                     // the slot where the nested aggregation object index will point into
+                    // info("nested_aggregation_object[", i, "]: ", nested_aggregation_object[i]);
+                    // info("constraint.proof[", i, "]: ", constraint.proof[i]);
                     constraint.public_inputs.emplace_back(constraint.proof[i]);
                 }
                 // Remove the aggregation object so that they can be handled as normal public inputs
@@ -188,7 +197,84 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
             for (const auto& idx : current_aggregation_object) {
                 builder.set_public_input(idx);
             }
+            // Make sure the verification key records the public input indices of the
+            // final recursion output.
+            std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
+                                                               current_aggregation_object.end());
+            builder.set_recursive_proof(proof_output_witness_indices);
+        } else if (builder.is_recursive_circuit) {
+            info("g1 infinity: ", bb::g1::affine_point_at_infinity);
+            // const auto zero = bb::fr::zero();
+            // const auto group_zero = bb::g1::affine_one * zero;
+            // info("group_zero: ", group_zero);
+            info("fq_ct::NUM_LAST_LIMB_BITS: ", fq_ct::NUM_LAST_LIMB_BITS);
+            info("bb::stdlib::field_conversion::TOTAL_BITS: ", bb::stdlib::field_conversion::TOTAL_BITS);
+            for (size_t i = 0; i < RecursionConstraint::AGGREGATION_OBJECT_SIZE / 8; ++i) {
+                const auto group_element = bb::g1::affine_point_at_infinity;
+                info("is group_element infinity: ", group_element.is_point_at_infinity());
 
+                // const auto x = bb::field_conversion::convert_to_bn254_frs(const T &val);
+                const uint256_t x = group_element.x;
+                const uint256_t y = group_element.y;
+                const bb::fr x_1 = x.slice(0, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+
+                const bb::fr x_2 =
+                    x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2);
+                const bb::fr x_3 = x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2,
+                                           stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3);
+                const bb::fr x_4 =
+                    x.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3, bb::stdlib::field_conversion::TOTAL_BITS);
+
+                const bb::fr y_1 = y.slice(0, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION);
+                const bb::fr y_2 =
+                    y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION, stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2);
+                const bb::fr y_3 = y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2,
+                                           stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3);
+                const bb::fr y_4 =
+                    y.slice(stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3, bb::stdlib::field_conversion::TOTAL_BITS);
+
+                info("x_1: ", x_1);
+                info("x_2: ", x_2);
+                info("x_3: ", x_3);
+                info("x_4: ", x_4);
+
+                info("y_1: ", y_1);
+                info("y_2: ", y_2);
+                info("y_3: ", y_3);
+                info("y_4: ", y_4);
+
+                uint32_t idx = builder.add_variable(x_1);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8] = idx;
+
+                idx = builder.add_variable(x_2);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 1] = idx;
+
+                idx = builder.add_variable(x_3);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 2] = idx;
+
+                idx = builder.add_variable(x_4);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 3] = idx;
+
+                idx = builder.add_variable(y_1);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 4] = idx;
+
+                idx = builder.add_variable(y_2);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 5] = idx;
+
+                idx = builder.add_variable(y_3);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 6] = idx;
+
+                idx = builder.add_variable(y_4);
+                builder.set_public_input(idx);
+                current_aggregation_object[i * 8 + 7] = idx;
+            }
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             std::vector<uint32_t> proof_output_witness_indices(current_aggregation_object.begin(),
