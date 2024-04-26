@@ -72,12 +72,9 @@ impl NargoError {
             ExecutionError::AssertionFailed(payload, _) => match payload {
                 ResolvedAssertionPayload::String(message) => Some(message.to_string()),
                 ResolvedAssertionPayload::Raw(error_selector, fields) => {
-                    if let Some(abi_type) = error_types.get(error_selector) {
-                        let decoded = prepare_for_display(fields, abi_type.clone());
-                        Some(decoded.to_string())
-                    } else {
-                        None
-                    }
+                    let abi_type = error_types.get(error_selector)?;
+                    let decoded = prepare_for_display(fields, abi_type.clone());
+                    Some(decoded.to_string())
                 }
             },
             ExecutionError::SolvingError(error, _) => match error {

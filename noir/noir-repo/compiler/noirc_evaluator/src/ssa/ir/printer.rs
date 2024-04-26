@@ -209,17 +209,8 @@ pub(crate) fn try_to_extract_string_from_error_payload(
             let Value::Array { array: values, .. } = &dfg[values[0]] else {
                 return None;
             };
-            let fields: Option<Vec<_>> = values
-                .iter()
-                .map(|value_id| {
-                    let value = &dfg[*value_id];
-                    if let Value::NumericConstant { constant, .. } = value {
-                        Some(constant)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+            let fields: Option<Vec<_>> =
+                values.iter().map(|value_id| dfg.get_numeric_constant(*value_id)).collect();
 
             fields
         })
