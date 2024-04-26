@@ -17,10 +17,10 @@ pub fn fixed_base_scalar_mul(
     let generator_y = FieldElement::from_repr(*generator.y().unwrap());
 
     variable_base_scalar_mul(&generator_x, &generator_y, low, high).map_err(|err| match err {
-       BlackBoxResolutionError::Failed(_, message) => {
-          BlackBoxResolutionError::Failed(BlackBoxFunc::FixedBaseScalarMul, message)
-       }
-    }
+        BlackBoxResolutionError::Failed(_, message) => {
+            BlackBoxResolutionError::Failed(BlackBoxFunc::FixedBaseScalarMul, message)
+        }
+    })
 }
 
 pub fn variable_base_scalar_mul(
@@ -30,7 +30,7 @@ pub fn variable_base_scalar_mul(
     scalar_high: &FieldElement,
 ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
     let point1 = create_point(*point_x, *point_y)
-        .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
+        .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::VariableBaseScalarMul, e))?;
 
     let scalar_low: u128 = scalar_low.try_into_u128().ok_or_else(|| {
         BlackBoxResolutionError::Failed(
@@ -182,6 +182,29 @@ mod grumpkin_fixed_base_scalar_mul {
 
         assert_eq!(fixed_res, variable_res);
         Ok(())
+    }
+
+    #[test]
+    fn variable_base_scalar_mul_rejects_invalid_point() {
+        let invalid_point_x = FieldElement::one();
+        let invalid_point_y = FieldElement::one();
+        let valid_scalar_low = FieldElement::zero();
+        let valid_scalar_high = FieldElement::zero();
+
+        let res = variable_base_scalar_mul(
+            &invalid_point_x,
+            &invalid_point_y,
+            &valid_scalar_low,
+            &valid_scalar_high,
+        );
+
+        assert_eq!(
+            res,
+            Err(BlackBoxResolutionError::Failed(
+                BlackBoxFunc::VariableBaseScalarMul,
+                "Point (0000000000000000000000000000000000000000000000000000000000000001, 0000000000000000000000000000000000000000000000000000000000000001) is not on curve".into(),
+            ))
+        );
     }
 
     #[test]
