@@ -193,7 +193,22 @@ mod grumpkin_fixed_base_scalar_mul {
         );
     }
 
-    // TODO(benesjan): variable_base_scalar_mul tests
+    #[test]
+    fn variable_base_matches_fixed_base_for_generator_on_input(
+    ) -> Result<(), BlackBoxResolutionError> {
+        let low = FieldElement::one();
+        let high = FieldElement::from(2u128);
+
+        let generator = grumpkin::SWAffine::generator();
+        let generator_x = FieldElement::from_repr(*generator.x().unwrap());
+        let generator_y = FieldElement::from_repr(*generator.y().unwrap());
+
+        let fixed_res = fixed_base_scalar_mul(&low, &high)?;
+        let variable_res = variable_base_scalar_mul(&generator_x, &generator_y, &low, &high)?;
+
+        assert_eq!(fixed_res, variable_res);
+        Ok(())
+    }
 
     #[test]
     fn rejects_addition_of_points_not_in_curve() {
