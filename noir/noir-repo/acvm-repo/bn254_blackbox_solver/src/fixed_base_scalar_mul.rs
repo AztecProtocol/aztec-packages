@@ -19,17 +19,6 @@ pub fn fixed_base_scalar_mul(
     variable_base_scalar_mul(&generator_x, &generator_y, low, high)
 }
 
-fn create_point(x: FieldElement, y: FieldElement) -> Result<grumpkin::SWAffine, String> {
-    let point = grumpkin::SWAffine::new_unchecked(x.into_repr(), y.into_repr());
-    if !point.is_on_curve() {
-        return Err(format!("Point ({}, {}) is not on curve", x.to_hex(), y.to_hex()));
-    };
-    if !point.is_in_correct_subgroup_assuming_on_curve() {
-        return Err(format!("Point ({}, {}) is not in correct subgroup", x.to_hex(), y.to_hex()));
-    };
-    Ok(point)
-}
-
 pub fn variable_base_scalar_mul(
     point_x: &FieldElement,
     point_y: &FieldElement,
@@ -93,6 +82,17 @@ pub fn embedded_curve_add(
             "Point is not on curve".to_string(),
         ))
     }
+}
+
+fn create_point(x: FieldElement, y: FieldElement) -> Result<grumpkin::SWAffine, String> {
+    let point = grumpkin::SWAffine::new_unchecked(x.into_repr(), y.into_repr());
+    if !point.is_on_curve() {
+        return Err(format!("Point ({}, {}) is not on curve", x.to_hex(), y.to_hex()));
+    };
+    if !point.is_in_correct_subgroup_assuming_on_curve() {
+        return Err(format!("Point ({}, {}) is not in correct subgroup", x.to_hex(), y.to_hex()));
+    };
+    Ok(point)
 }
 
 #[cfg(test)]

@@ -26,8 +26,8 @@ impl Add for EmbeddedCurvePoint {
 #[foreign(fixed_base_scalar_mul)]
 // docs:start:fixed_base_embedded_curve
 pub fn fixed_base_embedded_curve(
-    low: Field,
-    high: Field
+    low: Field, // low limb of the scalar
+    high: Field // high limb of the scalar
 ) -> [Field; 2]
 // docs:end:fixed_base_embedded_curve
 {}
@@ -35,8 +35,8 @@ pub fn fixed_base_embedded_curve(
 #[foreign(variable_base_scalar_mul)]
 pub fn variable_base_embedded_curve(
     point: EmbeddedCurvePoint, // point to multiply the scalar with
-    low: Field, // low limb of the scalar
-    high: Field // high limb of the scalar
+    scalar_low: Field, // low limb of the scalar
+    scalar_high: Field // high limb of the scalar
 ) -> [Field; 2]
 {}
 

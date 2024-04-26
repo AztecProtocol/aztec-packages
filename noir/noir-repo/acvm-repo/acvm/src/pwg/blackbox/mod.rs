@@ -161,16 +161,16 @@ pub(crate) fn solve(
         BlackBoxFuncCall::VariableBaseScalarMul {
             point_x,
             point_y,
-            scalar_low: low,
-            scalar_high: high,
+            scalar_low,
+            scalar_high,
             outputs,
         } => variable_base_scalar_mul(
             backend,
             initial_witness,
             *point_x,
             *point_y,
-            *low,
-            *high,
+            *scalar_low,
+            *scalar_high,
             *outputs,
         ),
         BlackBoxFuncCall::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, outputs } => {
