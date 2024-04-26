@@ -1220,6 +1220,7 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
   return new CombinedConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
+    mapGlobalVariablesFromNoir(combinedConstantData.global_variables),
   );
 }
 
@@ -1232,6 +1233,7 @@ export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedCons
   return {
     historical_header: mapHeaderToNoir(combinedConstantData.historicalHeader),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
+    global_variables: mapGlobalVariablesToNoir(combinedConstantData.globalVariables),
   };
 }
 
@@ -1602,6 +1604,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     unencrypted_logs_hashes: mapTuple(publicInputs.unencryptedLogsHashes, mapSideEffectToNoir),
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
+    global_variables: mapGlobalVariablesToNoir(publicInputs.globalVariables),
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
     revert_code: mapRevertCodeToNoir(publicInputs.revertCode),
     start_gas_left: mapGasToNoir(publicInputs.startGasLeft),
