@@ -32,6 +32,14 @@ pub fn fixed_base_embedded_curve(
 // docs:end:fixed_base_embedded_curve
 {}
 
+#[foreign(variable_base_scalar_mul)]
+pub fn variable_base_embedded_curve(
+    point: EmbeddedCurvePoint, // point to multiply the scalar with
+    low: Field, // low limb of the scalar
+    high: Field // high limb of the scalar
+) -> [Field; 2]
+{}
+
 // This is a hack as returning an `EmbeddedCurvePoint` from a foreign function in brillig returns a [BrilligVariable::SingleAddr; 2] rather than BrilligVariable::BrilligArray
 // as is defined in the brillig bytecode format. This is a workaround which allows us to fix this without modifying the serialization format.
 fn embedded_curve_add(point1: EmbeddedCurvePoint, point2: EmbeddedCurvePoint) -> EmbeddedCurvePoint {
