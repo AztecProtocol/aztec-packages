@@ -73,7 +73,7 @@ export interface PXE {
    * the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    * public key.
    */
-  // TODO: FIX THIS AFTER THE COMPLETE ADDRESS REFACTOR
+  // TODO: #5834: FIX THIS AFTER THE COMPLETE ADDRESS REFACTOR
   registerRecipient(recipient: CompleteAddress, publicKeys?: Point[]): Promise<void>;
 
   /**

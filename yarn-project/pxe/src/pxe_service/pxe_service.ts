@@ -219,7 +219,7 @@ export class PXEService implements PXE {
   public async registerRecipient(recipient: CompleteAddress, publicKeys: Point[] = []): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
 
-    // #5834
+    // TODO #5834: This should be refactored to be okay with only adding complete address
     if (publicKeys.length !== 0) {
       await this.keyStore.addPublicKeysForAccount(
         recipient.address,
