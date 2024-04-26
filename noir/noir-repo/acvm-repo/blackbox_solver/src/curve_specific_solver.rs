@@ -29,6 +29,13 @@ pub trait BlackBoxFunctionSolver {
         low: &FieldElement,
         high: &FieldElement,
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
+    fn variable_base_scalar_mul(
+        &self,
+        point_x: &FieldElement,
+        point_y: &FieldElement,
+        low: &FieldElement,
+        high: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
     fn ec_add(
         &self,
         input1_x: &FieldElement,

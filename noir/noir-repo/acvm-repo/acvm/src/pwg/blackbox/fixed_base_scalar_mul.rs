@@ -24,6 +24,29 @@ pub(super) fn fixed_base_scalar_mul(
     Ok(())
 }
 
+// TODO(benesjan): rename this file to something more generic?
+pub(super) fn variable_base_scalar_mul(
+    backend: &impl BlackBoxFunctionSolver,
+    initial_witness: &mut WitnessMap,
+    point_x: FunctionInput,
+    point_y: FunctionInput,
+    low: FunctionInput,
+    high: FunctionInput,
+    outputs: (Witness, Witness),
+) -> Result<(), OpcodeResolutionError> {
+    let point_x = witness_to_value(initial_witness, point_x.witness)?;
+    let point_y = witness_to_value(initial_witness, point_y.witness)?;
+    let low = witness_to_value(initial_witness, low.witness)?;
+    let high = witness_to_value(initial_witness, high.witness)?;
+
+    let (pub_x, pub_y) = backend.variable_base_scalar_mul(point_x, point_y, low, high)?;
+
+    insert_value(&outputs.0, pub_x, initial_witness)?;
+    insert_value(&outputs.1, pub_y, initial_witness)?;
+
+    Ok(())
+}
+
 pub(super) fn embedded_curve_add(
     backend: &impl BlackBoxFunctionSolver,
     initial_witness: &mut WitnessMap,

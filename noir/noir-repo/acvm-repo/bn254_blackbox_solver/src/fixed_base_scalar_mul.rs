@@ -58,6 +58,54 @@ fn create_point(x: FieldElement, y: FieldElement) -> Result<grumpkin::SWAffine, 
     Ok(point)
 }
 
+// TODO(benesjan): rename this file to something more generic?
+// TODO(benesjan): make fixed_base_scalar_mul(...) call variable_base_scalar_mul(...)
+pub fn variable_base_scalar_mul(
+    point_x: &FieldElement,
+    point_y: &FieldElement,
+    low: &FieldElement,
+    high: &FieldElement,
+) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+    let point1 = create_point(point_x, point_y)
+    .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
+
+    let low: u128 = low.try_into_u128().ok_or_else(|| {
+        BlackBoxResolutionError::Failed(
+            BlackBoxFunc::VariableBaseScalarMul,
+            format!("Limb {} is not less than 2^128", low.to_hex()),
+        )
+    })?;
+
+    let high: u128 = high.try_into_u128().ok_or_else(|| {
+        BlackBoxResolutionError::Failed(
+            BlackBoxFunc::VariableBaseScalarMul,
+            format!("Limb {} is not less than 2^128", high.to_hex()),
+        )
+    })?;
+
+    let mut bytes = high.to_be_bytes().to_vec();
+    bytes.extend_from_slice(&low.to_be_bytes());
+
+    // Check if this is smaller than the grumpkin modulus
+    let grumpkin_integer = BigUint::from_bytes_be(&bytes);
+
+    if grumpkin_integer >= grumpkin::FrConfig::MODULUS.into() {
+        return Err(BlackBoxResolutionError::Failed(
+            BlackBoxFunc::VariableBaseScalarMul,
+            format!("{} is not a valid grumpkin scalar", grumpkin_integer.to_str_radix(16)),
+        ));
+    }
+
+    let result = grumpkin::SWAffine::from(
+        point1.mul_bigint(grumpkin_integer.to_u64_digits()),
+    );
+    if let Some((res_x, res_y)) = result.xy() {
+        Ok((FieldElement::from_repr(*res_x), FieldElement::from_repr(*res_y)))
+    } else {
+        Ok((FieldElement::zero(), FieldElement::zero()))
+    }
+}
+
 pub fn embedded_curve_add(
     input1_x: FieldElement,
     input1_y: FieldElement,
@@ -146,6 +194,8 @@ mod grumpkin_fixed_base_scalar_mul {
             ))
         );
     }
+
+    // TODO(benesjan): variable_base_scalar_mul tests
 
     #[test]
     fn rejects_addition_of_points_not_in_curve() {

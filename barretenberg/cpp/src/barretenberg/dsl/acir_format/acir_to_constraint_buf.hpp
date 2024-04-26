@@ -317,6 +317,15 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                     .pub_key_x = arg.outputs[0].value,
                     .pub_key_y = arg.outputs[1].value,
                 });
+            } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::VariableBaseScalarMul>) {
+                af.variable_base_scalar_mul_constraints.push_back(VariableBaseScalarMul{
+                    .point_x = arg.low.witness.point_x,
+                    .point_y = arg.low.witness.point_y,
+                    .low = arg.low.witness.value,
+                    .high = arg.high.witness.value,
+                    .pub_key_x = arg.outputs[0].value,
+                    .pub_key_y = arg.outputs[1].value,
+                });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 af.ec_add_constraints.push_back(EcAdd{
                     .input1_x = arg.input1_x.witness.value,

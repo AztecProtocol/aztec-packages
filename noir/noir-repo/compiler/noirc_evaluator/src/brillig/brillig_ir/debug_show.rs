@@ -324,6 +324,17 @@ impl DebugShow {
                     result
                 );
             }
+            BlackBoxOp::VariableBaseScalarMul { point_x, point_y, low, high, result } => {
+                debug_println!(
+                    self.enable_debug_trace,
+                    "  VARIABLE_BASE_SCALAR_MUL {} {} -> {}",
+                    point_x,
+                    point_y,
+                    low,
+                    high,
+                    result
+                );
+            }
             BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {
                 debug_println!(
                     self.enable_debug_trace,

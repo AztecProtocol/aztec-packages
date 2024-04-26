@@ -205,6 +205,25 @@ pub(crate) fn convert_black_box_call(
                 )
             }
         }
+        BlackBoxFunc::VariableBaseScalarMul => {
+            if let (
+                [BrilligVariable::SingleAddr(point_x), BrilligVariable::SingleAddr(point_y), BrilligVariable::SingleAddr(low), BrilligVariable::SingleAddr(high)],
+                [BrilligVariable::BrilligArray(result_array)],
+            ) = (function_arguments, function_results)
+            {
+                brillig_context.black_box_op_instruction(BlackBoxOp::VariableBaseScalarMul {
+                    point_x: point_x.address,
+                    point_y: point_y.address,
+                    low: low.address,
+                    high: high.address,
+                    result: result_array.to_heap_array(),
+                });
+            } else {
+                unreachable!(
+                    "ICE: VariableBaseScalarMul expects one register argument and one array result"
+                )
+            }
+        }
         BlackBoxFunc::EmbeddedCurveAdd => {
             if let (
                 [BrilligVariable::SingleAddr(input1_x), BrilligVariable::SingleAddr(input1_y), BrilligVariable::SingleAddr(input2_x), BrilligVariable::SingleAddr(input2_y)],
