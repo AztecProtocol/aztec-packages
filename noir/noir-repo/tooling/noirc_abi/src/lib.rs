@@ -172,7 +172,6 @@ impl AbiType {
                 let fields = vecmap(fields, |typ| Self::from_type(context, typ));
                 Self::Tuple { fields }
             }
-
             Type::Error
             | Type::Unit
             | Type::Constant(_)
@@ -182,8 +181,8 @@ impl AbiType {
             | Type::Forall(..)
             | Type::Code
             | Type::Slice(_)
-            | Type::FmtString(_, _)
             | Type::Function(_, _, _) => unreachable!("{typ} cannot be used in the abi"),
+            Type::FmtString(_, _) => unreachable!("format strings cannot be used in the abi"),
             Type::MutableReference(_) => unreachable!("&mut cannot be used in the abi"),
         }
     }
@@ -610,7 +609,7 @@ mod test {
                 visibility: AbiVisibility::Public,
             }),
             return_witnesses: vec![Witness(3)],
-            error_types: Default::default(),
+            error_types: BTreeMap::default(),
         };
 
         // Note we omit return value from inputs
