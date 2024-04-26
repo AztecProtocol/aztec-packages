@@ -34,7 +34,6 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
     bool construct_and_verify_honk_proof(auto& builder)
     {
         auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder);
-        // builder.blocks.summarize();
         GoblinUltraProver prover(instance);
         auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
         GoblinUltraVerifier verifier(verification_key);
