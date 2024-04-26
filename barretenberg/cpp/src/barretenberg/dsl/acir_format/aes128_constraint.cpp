@@ -33,11 +33,13 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
     };
 
     ASSERT(constraint.inputs.size() % 16 == 0); // check input is multiple of 16
+
     std::vector<field_ct> converted_inputs;
     for (size_t i = 0; i < constraint.inputs.size(); i += 16) {
         std::span<const AES128Input, 16> inputs{ &constraint.inputs[i], 16 };
         converted_inputs.emplace_back(convert_input(inputs));
     }
+
     std::vector<field_ct> converted_outputs;
     for (size_t i = 0; i < constraint.outputs.size(); i += 16) {
         std::span<const uint32_t, 16> outputs{ &constraint.outputs[i], 16 };
