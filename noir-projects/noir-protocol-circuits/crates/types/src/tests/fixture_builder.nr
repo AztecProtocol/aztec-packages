@@ -6,7 +6,7 @@ use crate::{
     CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
     PublicAccumulatedData, PublicAccumulatedDataBuilder
 },
-    combined_constant_data::CombinedConstantData,
+    global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
@@ -35,6 +35,7 @@ struct FixtureBuilder {
     // Constant data.
     historical_header: Header,
     tx_context: TxContext,
+    global_variables: GlobalVariables,
     
     // Accumulated data.
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
@@ -50,6 +51,7 @@ struct FixtureBuilder {
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     gas_used: Gas,
+    non_revertible_gas_used: Gas,
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
@@ -109,12 +111,18 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: 0,
             counter: 0,
             start_state: PartialStateReference::empty(),
-            gas_used: Gas::empty()
+            gas_used: Gas::empty(),
+            non_revertible_gas_used: Gas::empty(),
+            global_variables: GlobalVariables::empty()
         }
     }
 
     pub fn to_constant_data(self) -> CombinedConstantData {
-        CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context }
+        CombinedConstantData {
+            historical_header: self.historical_header,
+            tx_context: self.tx_context,
+            global_variables: self.global_variables
+        }
     }
 
     pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
@@ -128,7 +136,8 @@ impl FixtureBuilder {
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             private_call_stack: self.private_call_stack,
             public_call_stack: self.public_call_stack,
-            gas_used: self.gas_used
+            gas_used: self.gas_used,
+            non_revertible_gas_used: self.non_revertible_gas_used
         };
         public_inputs.finish()
     }
@@ -374,7 +383,7 @@ impl FixtureBuilder {
         self.public_call_stack.push(call_stack_item);
     }
 
-    pub fn capture_min_revertible_side_effect_counter(&mut self) {
+    pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.counter;
     }
 
@@ -424,6 +433,7 @@ impl Empty for FixtureBuilder {
             storage_contract_address: AztecAddress::zero(),
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
+            global_variables: GlobalVariables::empty(),
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
@@ -451,6 +461,7 @@ impl Empty for FixtureBuilder {
             counter: 0,
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
+            non_revertible_gas_used: Gas::empty(),
         }
     }
 }

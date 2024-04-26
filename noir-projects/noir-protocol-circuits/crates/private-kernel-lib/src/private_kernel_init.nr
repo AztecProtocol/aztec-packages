@@ -19,10 +19,10 @@ struct PrivateKernelInitCircuitPrivateInputs {
 
 impl PrivateKernelInitCircuitPrivateInputs {
     fn initialize_end_values(self, public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder) {
-        public_inputs.constants = CombinedConstantData {
-            historical_header: self.private_call.call_stack_item.public_inputs.historical_header,
-            tx_context: self.tx_request.tx_context,
-        };
+        public_inputs.constants = CombinedConstantData::private(
+            self.private_call.call_stack_item.public_inputs.historical_header,
+            self.tx_request.tx_context,
+        );
         public_inputs.min_revertible_side_effect_counter = self.private_call.call_stack_item.public_inputs.min_revertible_side_effect_counter;
     }
 
@@ -50,6 +50,10 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // Ensure we are passing the correct arguments to the function.
         let args_match = tx_request.args_hash == call_stack_item.public_inputs.args_hash;
         assert(args_match, "noir function args passed to tx_request must match args in the call_stack_item");
+        //
+        // Ensure we are passing the correct tx context
+        let tx_context_matches = tx_request.tx_context == call_stack_item.public_inputs.tx_context;
+        assert(tx_context_matches, "tx_context in tx_request must match tx_context in call_stack_item");
     }
 
     fn validate_inputs(self) {

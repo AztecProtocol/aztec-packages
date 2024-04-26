@@ -9,7 +9,7 @@ use crate::{
 };
 use dep::protocol_types::{
     abis::{
-    gas::Gas, call_context::CallContext, function_data::FunctionData,
+    global_variables::GlobalVariables, gas::Gas, call_context::CallContext, function_data::FunctionData,
     function_selector::FunctionSelector, max_block_number::MaxBlockNumber,
     nullifier_key_validation_request::NullifierKeyValidationRequest,
     private_call_stack_item::PrivateCallStackItem,
@@ -192,7 +192,7 @@ impl PrivateContext {
         priv_circuit_pub_inputs
     }
 
-    pub fn capture_min_revertible_side_effect_counter(&mut self) {
+    pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 
@@ -500,6 +500,7 @@ impl PrivateContext {
                 unencrypted_logs_hashes: [SideEffect::empty(); MAX_UNENCRYPTED_LOGS_PER_CALL],
                 unencrypted_log_preimages_length: 0,
                 historical_header: Header::empty(),
+                global_variables: GlobalVariables::empty(),
                 prover_address: AztecAddress::zero(),
                 revert_code: 0,
                 start_gas_left: Gas::empty(),

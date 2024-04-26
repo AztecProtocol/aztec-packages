@@ -4,7 +4,8 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
     public_call_data::PublicCallData, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequestContext,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, global_variables::GlobalVariables,
+    combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -31,6 +32,34 @@ pub fn validate_inputs(public_call: PublicCallData) {
         this_call_stack_item.function_data.is_private == false, "Cannot execute a private function with the public kernel circuit"
     );
     assert(public_call.bytecode_hash != 0, "Bytecode hash cannot be zero");
+}
+
+pub fn validate_public_call_global_variables(public_call: PublicCallData, constants: CombinedConstantData) {
+    let public_call_globals = public_call.call_stack_item.public_inputs.global_variables;
+    assert(
+        public_call_globals == constants.global_variables, "Global variables injected into the public call do not match constants"
+    );
+}
+
+// Validates constants injected into the public call are correct.
+// Note that the previous_kernel.public_inputs.constants returned from the private kernel tail
+// will be empty, so in the first run on of this circuit we load them from the first public
+// call, following the same pattern as in the private_kernel_init.
+// TODO(@spalladino): This can be a security risk since it allows a sequencer to run public
+// circuits with empty global variables. This must be patched by having a differentiated init public
+// circuit that runs only once, or by having a way to differentiate when we're coming from a private 
+// kernel tail vs from another public run.
+pub fn initialize_from_or_validate_public_call_variables(
+    previous_kernel: PublicKernelData,
+    public_call: PublicCallData,
+    public_inputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
+    if public_inputs.constants.global_variables.is_empty() {
+        let public_call_global_variables = public_call.call_stack_item.public_inputs.global_variables;
+        public_inputs.constants.global_variables = public_call_global_variables;
+    } else {
+        validate_public_call_global_variables(public_call, previous_kernel.public_inputs.constants);
+    }
 }
 
 pub fn validate_public_call_non_revert(public_call: PublicCallData) {
@@ -227,6 +256,22 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
     circuit_outputs.end_non_revertible.gas_used = tx_gas_limits
         .sub(call_gas_left)
         .sub(accum_end_gas_used);
+}
+
+// Validates that the start gas injected into the app circuit matches the remaining gas
+pub fn validate_start_gas(public_call: PublicCallData, previous_kernel: PublicKernelData) {
+    let public_call_start_gas = public_call.call_stack_item.public_inputs.start_gas_left;
+    let tx_gas_limits = previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+    let computed_start_gas = tx_gas_limits.sub(previous_kernel.public_inputs.end.gas_used).sub(previous_kernel.public_inputs.end_non_revertible.gas_used);
+    assert(
+        public_call_start_gas == computed_start_gas, "Start gas for public phase does not match transaction gas left"
+    );
+}
+
+// Validates the transaction fee injected into the app circuit is zero for non-teardown phases
+pub fn validate_transaction_fee_is_zero(public_call: PublicCallData) {
+    let transaction_fee = public_call.call_stack_item.public_inputs.transaction_fee;
+    assert(transaction_fee == 0, "Transaction fee must be zero on setup and app phases");
 }
 
 pub fn update_public_end_non_revertible_values(

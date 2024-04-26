@@ -228,7 +228,7 @@ const sidebars = {
       items: [
         "developers/tutorials/writing_token_contract",
         "developers/tutorials/writing_private_voting_contract",
-
+        "developers/tutorials/crowdfunding/donations",
         {
           label: "Writing a DApp",
           type: "category",
@@ -770,8 +770,12 @@ const sidebars = {
       type: "category",
       link: { type: "doc", id: "protocol-specs/gas-and-fees/index" },
       items: [
-        "protocol-specs/gas-and-fees/fee-payments-and-metering",
+        "protocol-specs/gas-and-fees/fee-payment-asset",
+        "protocol-specs/gas-and-fees/specifying-gas-fee-info",
+        "protocol-specs/gas-and-fees/tx-setup-and-teardown",
+        "protocol-specs/gas-and-fees/kernel-tracking",
         "protocol-specs/gas-and-fees/fee-schedule",
+        "protocol-specs/gas-and-fees/published-gas-and-fee-data",
       ],
     },
     {
