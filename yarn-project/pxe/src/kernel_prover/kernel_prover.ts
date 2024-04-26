@@ -15,6 +15,7 @@ import {
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
   type SideEffect,
   type SideEffectLinkedToNoteHash,
   type TxRequest,
@@ -30,7 +31,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { type ExecutionResult } from '@aztec/simulator';
 
 import { HintsBuilder } from './hints_builder.js';
-import { type ProofCreator, type ProofOutput, type ProofOutputFinal } from './interface/proof_creator.js';
+import { type ProofCreator, type ProofOutput } from './interface/proof_creator.js';
 import { type ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
@@ -57,12 +58,15 @@ export class KernelProver {
    * @param executionResult - The execution result object containing nested executions and preimages.
    * @returns A Promise that resolves to a KernelProverOutput object containing proof, public inputs, and output notes.
    */
-  async prove(txRequest: TxRequest, executionResult: ExecutionResult): Promise<ProofOutputFinal> {
+  async prove(
+    txRequest: TxRequest,
+    executionResult: ExecutionResult,
+  ): Promise<ProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const executionStack = [executionResult];
     let firstIteration = true;
     let previousVerificationKey = VerificationKey.makeFake();
 
-    let output: ProofOutput = {
+    let output: ProofOutput<PrivateKernelCircuitPublicInputs> = {
       publicInputs: PrivateKernelCircuitPublicInputs.empty(),
       proof: makeEmptyProof(),
     };

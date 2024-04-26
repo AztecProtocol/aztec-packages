@@ -13,6 +13,7 @@ import { join } from 'path';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
+import { ProverFactory } from '../kernel_prover/prover_factory.js';
 import { PXEService } from './pxe_service.js';
 
 /**
@@ -42,7 +43,9 @@ export async function createPXEService(
   );
   const db = new KVPxeDatabase(await initStoreForRollup(AztecLmdbStore.open(pxeDbPath), l1Contracts.rollupAddress));
 
-  const server = new PXEService(keyStore, aztecNode, db, config, logSuffix);
+  const proverFactory = new ProverFactory(config);
+
+  const server = new PXEService(keyStore, aztecNode, db, proverFactory, config, logSuffix);
   for (const contract of [
     getCanonicalClassRegisterer(),
     getCanonicalInstanceDeployer(),

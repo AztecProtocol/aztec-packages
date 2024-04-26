@@ -1,9 +1,11 @@
 import { type CircuitSimulationStats } from '@aztec/circuit-types/stats';
 import {
   type PrivateCircuitPublicInputs,
+  type PrivateKernelCircuitPublicInputs,
   type PrivateKernelInitCircuitPrivateInputs,
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
+  type PrivateKernelTailCircuitPublicInputs,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
@@ -11,7 +13,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import { executeInit, executeInner, executeTail, executeTailForPublic } from '@aztec/noir-protocol-circuits-types';
 
-import { type ProofCreator, type ProofOutput, type ProofOutputFinal } from '../interface/proof_creator.js';
+import { type ProofCreator, type ProofOutput } from '../interface/proof_creator.js';
 
 /**
  * Test Proof Creator executes circuit simulations and provides fake proofs.
@@ -27,7 +29,9 @@ export class TestProofCreator implements ProofCreator {
     );
   }
 
-  public async createProofInit(privateInputs: PrivateKernelInitCircuitPrivateInputs): Promise<ProofOutput> {
+  public async createProofInit(
+    privateInputs: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<ProofOutput<PrivateKernelCircuitPublicInputs>> {
     const [duration, result] = await elapsed(() => executeInit(privateInputs));
     this.log.debug(`Simulated private kernel init`, {
       eventName: 'circuit-simulation',
@@ -44,7 +48,9 @@ export class TestProofCreator implements ProofCreator {
     };
   }
 
-  public async createProofInner(privateInputs: PrivateKernelInnerCircuitPrivateInputs): Promise<ProofOutput> {
+  public async createProofInner(
+    privateInputs: PrivateKernelInnerCircuitPrivateInputs,
+  ): Promise<ProofOutput<PrivateKernelCircuitPublicInputs>> {
     const [duration, result] = await elapsed(() => executeInner(privateInputs));
     this.log.debug(`Simulated private kernel inner`, {
       eventName: 'circuit-simulation',
@@ -61,7 +67,9 @@ export class TestProofCreator implements ProofCreator {
     };
   }
 
-  public async createProofTail(privateInputs: PrivateKernelTailCircuitPrivateInputs): Promise<ProofOutputFinal> {
+  public async createProofTail(
+    privateInputs: PrivateKernelTailCircuitPrivateInputs,
+  ): Promise<ProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const isForPublic = privateInputs.isForPublic();
     const [duration, result] = await elapsed(() =>
       isForPublic ? executeTailForPublic(privateInputs) : executeTail(privateInputs),

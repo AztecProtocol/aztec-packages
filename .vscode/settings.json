@@ -166,5 +166,6 @@
     "**/l1-contracts/lib/**": true,
     "**/barretenberg/cpp/build*/**": true
   },
-  "cmake.sourceDirectory": "/mnt/user-data/adam/aztec-packages/barretenberg/cpp"
+  "cmake.sourceDirectory": "/mnt/user-data/adam/aztec-packages/barretenberg/cpp",
+  "cSpell.words": ["barretenberg"]
 }
