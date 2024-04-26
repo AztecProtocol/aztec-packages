@@ -5,7 +5,7 @@ use acvm::{
     pwg::{ErrorLocation, OpcodeResolutionError},
     FieldElement,
 };
-use noirc_abi::{Abi, AbiErrorType, AbiType, Sign};
+use noirc_abi::{Abi, AbiErrorType};
 use noirc_errors::{
     debug_info::DebugInfo, reporter::ReportedErrors, CustomDiagnostic, FileDiagnostic,
 };
@@ -160,37 +160,6 @@ fn extract_locations_from_error(
     )
 }
 
-fn map_non_fmt_to_printable_type(abi_typ: AbiType) -> PrintableType {
-    match abi_typ {
-        AbiType::Field => PrintableType::Field,
-        AbiType::String { length } => PrintableType::String { length },
-        AbiType::Tuple { fields } => {
-            let fields =
-                fields.iter().map(|field| map_non_fmt_to_printable_type(field.clone())).collect();
-            PrintableType::Tuple { types: fields }
-        }
-        AbiType::Array { length, typ } => {
-            let typ = map_non_fmt_to_printable_type(*typ);
-            PrintableType::Array { length: Some(length), typ: Box::new(typ) }
-        }
-        AbiType::Boolean => PrintableType::Boolean,
-        AbiType::Struct { path, fields } => {
-            let fields = fields
-                .iter()
-                .map(|(name, field)| (name.clone(), map_non_fmt_to_printable_type(field.clone())))
-                .collect();
-            PrintableType::Struct {
-                name: path.split("::").last().unwrap_or_default().to_string(),
-                fields,
-            }
-        }
-        AbiType::Integer { sign: Sign::Unsigned, width } => {
-            PrintableType::UnsignedInteger { width }
-        }
-        AbiType::Integer { sign: Sign::Signed, width } => PrintableType::SignedInteger { width },
-    }
-}
-
 fn prepare_for_display(fields: &[FieldElement], error_type: AbiErrorType) -> PrintableValueDisplay {
     match error_type {
         AbiErrorType::FmtString { length, item_types } => {
@@ -202,14 +171,14 @@ fn prepare_for_display(fields: &[FieldElement], error_type: AbiErrorType) -> Pri
             };
             let _length_of_items = fields_iter.next();
             let items = item_types.into_iter().map(|abi_type| {
-                let printable_typ = map_non_fmt_to_printable_type(abi_type);
+                let printable_typ = (&abi_type).into();
                 let decoded = decode_value(&mut fields_iter, &printable_typ);
                 (decoded, printable_typ)
             });
             PrintableValueDisplay::FmtString(string, items.collect())
         }
         AbiErrorType::Custom(abi_typ) => {
-            let printable_type = map_non_fmt_to_printable_type(abi_typ);
+            let printable_type = (&abi_typ).into();
             let decoded = decode_value(&mut fields.iter().copied(), &printable_type);
             PrintableValueDisplay::Plain(decoded, printable_type)
         }

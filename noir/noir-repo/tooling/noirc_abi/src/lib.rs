@@ -12,8 +12,9 @@ use input_parser::InputValue;
 use iter_extended::{try_btree_map, try_vecmap, vecmap};
 use noirc_frontend::ast::{Signedness, Visibility};
 use noirc_frontend::{hir::Context, Type, TypeBinding, TypeVariableKind};
+use noirc_printable_type::PrintableType;
 use serde::{Deserialize, Serialize};
-use std::ops::Range;
+use std::{borrow::Borrow, ops::Range};
 use std::{collections::BTreeMap, str};
 // This is the ABI used to bridge the different TOML formats for the initial
 // witness, the partial witness generator and the interpreter.
@@ -199,6 +200,38 @@ impl AbiType {
                 fields.iter().fold(0, |acc, field_typ| acc + field_typ.field_count())
             }
             AbiType::String { length } => *length as u32,
+        }
+    }
+}
+
+impl From<&AbiType> for PrintableType {
+    fn from(value: &AbiType) -> Self {
+        match value {
+            AbiType::Field => PrintableType::Field,
+            AbiType::String { length } => PrintableType::String { length: *length },
+            AbiType::Tuple { fields } => {
+                let fields = fields.iter().map(|field| field.into()).collect();
+                PrintableType::Tuple { types: fields }
+            }
+            AbiType::Array { length, typ } => {
+                let borrowed: &AbiType = typ.borrow();
+                PrintableType::Array { length: Some(*length), typ: Box::new(borrowed.into()) }
+            }
+            AbiType::Boolean => PrintableType::Boolean,
+            AbiType::Struct { path, fields } => {
+                let fields =
+                    fields.iter().map(|(name, field)| (name.clone(), field.into())).collect();
+                PrintableType::Struct {
+                    name: path.split("::").last().unwrap_or_default().to_string(),
+                    fields,
+                }
+            }
+            AbiType::Integer { sign: Sign::Unsigned, width } => {
+                PrintableType::UnsignedInteger { width: *width }
+            }
+            AbiType::Integer { sign: Sign::Signed, width } => {
+                PrintableType::SignedInteger { width: *width }
+            }
         }
     }
 }

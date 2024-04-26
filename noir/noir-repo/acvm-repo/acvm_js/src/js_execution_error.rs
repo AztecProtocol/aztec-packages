@@ -7,7 +7,7 @@ use crate::js_witness_map::field_element_to_js_string;
 #[wasm_bindgen(typescript_custom_section)]
 const EXECUTION_ERROR: &'static str = r#"
 export type RawAssertionPayload = {
-    typeId: number;
+    selector: number;
     fields: string[];
 };
 export type ExecutionError = Error & {
@@ -49,10 +49,10 @@ impl JsExecutionError {
             None => JsValue::UNDEFINED,
         };
         let assertion_payload = match assertion_payload {
-            Some((type_id, fields)) => {
+            Some((selector, fields)) => {
                 let raw_payload_map = Map::new();
                 raw_payload_map
-                    .set(&JsValue::from_str("typeId"), &JsValue::from(type_id.to_string()));
+                    .set(&JsValue::from_str("selector"), &JsValue::from(selector.to_string()));
                 let js_fields = Array::new();
                 for field in fields {
                     js_fields.push(&field_element_to_js_string(&field));
