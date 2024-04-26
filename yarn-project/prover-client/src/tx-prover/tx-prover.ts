@@ -6,12 +6,14 @@ import {
   type ProvingTicket,
 } from '@aztec/circuit-types/interfaces';
 import { type Fr, type GlobalVariables } from '@aztec/circuits.js';
+import { type SimulationProvider } from '@aztec/simulator';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
+import { type ProverConfig } from '../config.js';
 import { type VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { MemoryProvingQueue } from '../prover-pool/memory-proving-queue.js';
-import { type ProverPool } from '../prover-pool/prover-pool.js';
+import { ProverPool } from '../prover-pool/prover-pool.js';
 
 /**
  * A prover accepting individual transaction requests
@@ -48,8 +50,30 @@ export class TxProver implements ProverClient {
    * @param worldStateSynchronizer - An instance of the world state
    * @returns An instance of the prover, constructed and started.
    */
-  public static async new(worldStateSynchronizer: WorldStateSynchronizer, proverPool?: ProverPool) {
-    const prover = new TxProver(worldStateSynchronizer, getVerificationKeys(), proverPool);
+  public static async new(
+    config: ProverConfig,
+    simulationProvider: SimulationProvider,
+    worldStateSynchronizer: WorldStateSynchronizer,
+  ) {
+    let pool: ProverPool | undefined;
+    if (config.proverAgents === 0) {
+      pool = undefined;
+    } else if (config.realProofs) {
+      if (
+        !config.acvmBinaryPath ||
+        !config.acvmWorkingDirectory ||
+        !config.bbBinaryPath ||
+        !config.bbWorkingDirectory
+      ) {
+        throw new Error();
+      }
+
+      pool = ProverPool.nativePool(config, config.proverAgents, 10);
+    } else {
+      pool = ProverPool.testPool(simulationProvider, config.proverAgents, 10);
+    }
+
+    const prover = new TxProver(worldStateSynchronizer, getVerificationKeys(), pool);
     await prover.start();
     return prover;
   }

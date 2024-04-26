@@ -47,7 +47,7 @@ export class ProverAgent {
         this.log.error(
           `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${err}`,
         );
-        await queue.rejectProvingJob(job.id, new ProvingError(String(err)));
+        await queue.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       }
     }, this.intervalMs);
 

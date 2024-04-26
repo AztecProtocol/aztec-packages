@@ -36,7 +36,6 @@ import { openTmpStore } from '@aztec/kv-store/utils';
 import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { TxProver } from '@aztec/prover-client';
-import { ProverPool } from '@aztec/prover-client/prover-pool';
 import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
 import { WASMSimulator } from '@aztec/simulator';
 import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
@@ -144,7 +143,7 @@ describe('L1Publisher integration', () => {
     };
     const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(worldStateSynchronizer, ProverPool.testPool(new WASMSimulator(), 4));
+    builder = await TxProver.new(config, new WASMSimulator(), worldStateSynchronizer);
     l2Proof = Buffer.alloc(0);
 
     publisher = getL1Publisher({
