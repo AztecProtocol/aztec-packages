@@ -44,13 +44,13 @@ pub fn assert_nullifier_public_key_is_fresh(
   // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
   // We read from the canonical Key Registry
   let registry_private_getter: SharedMutablePrivateGetter<Field, 5> = SharedMutablePrivateGetter::new(*context, AztecAddress::from_field(CANONICAL_KEY_REGISTRY_ADDRESS), derived_slot);
-  let hashed_nullifier_public_key = registry_private_getter.get_current_value_in_private();
+  let hashed_nullifier_public_key_in_registry = registry_private_getter.get_current_value_in_private();
 
   // In the case that the value is not found in the registry we need to manually pass in the address preimage
-  if (hashed_nullifier_public_key == 0) {
+  if (hashed_nullifier_public_key_in_registry == 0) {
     check_public_key_validity(address, PublicKeyType.NULLIFIER, nullifier_public_key_to_test);
   } else {
-    assert(hashed_nullifier_public_key == poseidon2_hash(nullifier_public_key_to_test.serialize()));
+    assert(hashed_nullifier_public_key_in_registry == poseidon2_hash(nullifier_public_key_to_test.serialize()));
   }
 }
 

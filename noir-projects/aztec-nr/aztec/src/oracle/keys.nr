@@ -66,9 +66,9 @@ fn _check_public_key_validity_constrain_oracle(
 
   let computed_address = AztecAddress::from_field(
     poseidon2_hash([
-        partial_address.to_field(),
-        public_keys_hash.to_field(),
-        GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
+      partial_address.to_field(),
+      public_keys_hash.to_field(),
+      GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
     ])
   );
 
