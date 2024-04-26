@@ -117,7 +117,7 @@ jobs:
           concurrency_key: noir-projects-${{ inputs.username || github.actor }}-x86
       - name: "Noir Projects"
         timeout-minutes: 25
-        run: earthly --no-output ./noir-projects/+test
+        run: earthly-ci --no-output ./noir-projects/+test
 
   yarn-project-formatting:
     needs: setup
@@ -134,7 +134,7 @@ jobs:
           concurrency_key: yarn-project-formatting-${{ github.actor }}-x86
       - name: "Yarn Project Tests"
         timeout-minutes: 25
-        run: earthly --no-output ./yarn-project/+format-check
+        run: earthly-ci --no-output ./yarn-project/+format-check
 
   yarn-project-test:
     needs: noir-projects
@@ -151,7 +151,7 @@ jobs:
           concurrency_key: yarn-project-test-${{ github.actor }}-x86
       - name: "Yarn Project Tests"
         timeout-minutes: 25
-        run: earthly --no-output ./yarn-project/+test
+        run: earthly-ci --no-output ./yarn-project/+test
 
   # push benchmarking binaries to dockerhub registry
   bb-bench-binaries:
