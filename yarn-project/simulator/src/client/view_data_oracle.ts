@@ -166,6 +166,13 @@ export class ViewDataOracle extends TypedOracle {
     return this.db.popCapsule();
   }
 
+
+  /**
+   * Gets public keys for an address, getCompleteAddress should be modified to include this
+   * @param The address to look up
+   * @returns The public keys for a specific address
+   * TODO: #5834
+   */
   public override getPublicKeysForAddress(address: AztecAddress) {
     return this.db.getPublicKeysForAddress(address);
   }

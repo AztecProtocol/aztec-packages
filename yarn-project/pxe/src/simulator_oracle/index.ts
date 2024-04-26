@@ -44,6 +44,7 @@ export class SimulatorOracle implements DBOracle {
     return { masterNullifierPublicKey, appNullifierSecretKey };
   }
 
+  // TODO: #5834
   async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
     const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress) {
@@ -78,6 +79,7 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
+  // TODO: #5834
   async getPublicKeysForAddress(address: AztecAddress): Promise<Point[]> {
     const nullifierPublicKey = await this.keyStore.getMasterNullifierPublicKey(address);
     const incomingViewingPublicKey = await this.keyStore.getMasterIncomingViewingPublicKey(address);

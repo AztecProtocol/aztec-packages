@@ -55,53 +55,13 @@ pub fn assert_nullifier_public_key_is_fresh(
 }
 
 fn check_public_key_validity(address: AztecAddress, key_type: u8, key: GrumpkinPoint) {
-  let (partial_address, keys) = get_public_keys_and_partial_address_internal(address);
+  let keys = get_public_keys_internal(address);
 
   assert(keys[key_type].eq(key));
-
-  _check_public_key_validity_constrain_internal(
-    address,
-    partial_address,
-    keys[0],
-    keys[1],
-    keys[2],
-    keys[3],
-  )
 }
 
-unconstrained fn get_public_keys_and_partial_address_internal(address: AztecAddress) -> (PartialAddress, [GrumpkinPoint; 4]) {
-  let (partial_address, public_keys) = oracle::keys::get_public_keys_and_partial_address(address);
+fn get_public_keys_internal(address: AztecAddress) -> [GrumpkinPoint; 4] {
+  let (_, public_keys) = oracle::keys::get_public_keys_and_partial_address(address);
 
-  (partial_address, public_keys)
-}
-
-fn _check_public_key_validity_constrain_internal(
-  address: AztecAddress,
-  partial_address: PartialAddress,
-  nullifier_public_key: GrumpkinPoint,
-  incoming_public_key: GrumpkinPoint,
-  outgoing_public_key: GrumpkinPoint,
-  tagging_public_key: GrumpkinPoint
-  ) {
-  let public_keys_hash = poseidon2_hash([
-      nullifier_public_key.serialize()[0],
-      nullifier_public_key.serialize()[1],
-      incoming_public_key.serialize()[0],
-      incoming_public_key.serialize()[1],
-      outgoing_public_key.serialize()[0],
-      outgoing_public_key.serialize()[1],
-      tagging_public_key.serialize()[0],
-      tagging_public_key.serialize()[1],
-      GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-  ]);
-
-  let computed_address = AztecAddress::from_field(
-    poseidon2_hash([
-      partial_address.to_field(),
-      public_keys_hash.to_field(),
-      GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
-    ])
-  );
-
-  assert(computed_address.eq(address));
+  public_keys
 }

@@ -64,6 +64,12 @@ export interface DBOracle extends CommitmentsDB {
    */
   popCapsule(): Promise<Fr[]>;
 
+  /**
+   * Gets public keys for an address, getCompleteAddress should be modified to include this
+   * @param The address to look up
+   * @returns The public keys for a specific address
+   * TODO: #5834
+   */
   getPublicKeysForAddress(address: AztecAddress): Promise<Point[]>;
 
   /**

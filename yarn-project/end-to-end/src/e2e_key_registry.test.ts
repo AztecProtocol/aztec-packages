@@ -22,7 +22,7 @@ describe('Key Registry', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, pxe, wallets } = await setup(2));
+    ({ teardown, pxe, wallets } = await setup(3));
     keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
@@ -42,12 +42,11 @@ describe('Key Registry', () => {
     let accountAddedToRegistry: AztecAddress;
 
     describe('should fail registering with bad input', () => {
-      const partialAddress = new Fr(69);
-
-      const masterNullifierPublicKey = new Fr(12);
-      const masterIncomingViewingPublicKey = new Fr(34);
-      const masterOutgoingViewingPublicKey = new Fr(56);
-      const masterTaggingPublicKey = new Fr(78);
+      const masterNullifierPublicKey: Point = new Point(new Fr(1), new Fr(2));
+      const masterIncomingViewingPublicKey: Point = new Point(new Fr(3), new Fr(4));
+      const masterOutgoingViewingPublicKey: Point = new Point(new Fr(5), new Fr(6));
+      const masterTaggingPublicKey: Point = new Point(new Fr(7), new Fr(8));
+      const partialAddress: PartialAddress = new Fr(69);
 
       // TODO(#5726): use computePublicKeysHash function
       const publicKeysHash = poseidon2Hash([
@@ -82,7 +81,7 @@ describe('Key Registry', () => {
       });
 
       it('should fail registering with mismatched nullifier public key', async () => {
-        const mismatchedMasterNullifierPublicKey = Fr.random();
+        const mismatchedMasterNullifierPublicKey = Point.random();
 
         await expect(
           keyRegistry
@@ -106,7 +105,7 @@ describe('Key Registry', () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
-            .methods.rotate_nullifier_public_key(wallets[0].getAddress(), new Fr(0))
+            .methods.rotate_nullifier_public_key(wallets[0].getAddress(), Point.ZERO)
             .send()
             .wait(),
         ).rejects.toThrow('New nullifier public key must be non-zero');
@@ -116,7 +115,7 @@ describe('Key Registry', () => {
         await expect(
           keyRegistry
             .withWallet(wallets[0])
-            .methods.rotate_nullifier_public_key(wallets[1].getAddress(), new Fr(2))
+            .methods.rotate_nullifier_public_key(wallets[1].getAddress(), Point.random())
             .send()
             .wait(),
         ).rejects.toThrow('Assertion failed: Message not authorized by account');
@@ -126,14 +125,13 @@ describe('Key Registry', () => {
 
   describe('key registration flow', () => {
     let accountAddedToRegistry: AztecAddress;
+    const masterNullifierPublicKey: Point = new Point(new Fr(1), new Fr(2));
 
     it('should generate and register with original keys', async () => {
-      const partialAddress = new Fr(69);
-
-      const masterNullifierPublicKey = new Fr(12);
-      const masterIncomingViewingPublicKey = new Fr(34);
-      const masterOutgoingViewingPublicKey = new Fr(56);
-      const masterTaggingPublicKey = new Fr(78);
+      const masterIncomingViewingPublicKey: Point = new Point(new Fr(3), new Fr(4));
+      const masterOutgoingViewingPublicKey: Point = new Point(new Fr(5), new Fr(6));
+      const masterTaggingPublicKey: Point = new Point(new Fr(7), new Fr(8));
+      const partialAddress: PartialAddress = new Fr(69);
 
       const publicKeysHash = poseidon2Hash([
         masterNullifierPublicKey,
@@ -181,86 +179,89 @@ describe('Key Registry', () => {
 
       const rawLogs = await pxe.getUnencryptedLogs({ txHash });
 
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(12));
+      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(poseidon2Hash(masterNullifierPublicKey.toFields()));
     });
   });
 
-  describe('key rotation flow', () => {
-    it('we rotate the nullifier key', async () => {
+  describe('key rotation flows', () => {
+    const firstNewMasterNullifierPublicKey = Point.random();
+
+    describe('normal key rotation flow', () => {
       // This changes
-      const newMasterNullifierPublicKey = new Fr(910);
-
-      await keyRegistry
-        .withWallet(wallets[0])
-        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey)
-        .send()
-        .wait();
+  
+      it('we rotate the nullifier key', async () => {
+        await keyRegistry
+          .withWallet(wallets[0])
+          .methods.rotate_nullifier_public_key(wallets[0].getAddress(), firstNewMasterNullifierPublicKey)
+          .send()
+          .wait();
+      });
+  
+      it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
+        const { txHash } = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+          .send()
+          .wait();
+  
+        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
+        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(0));
+      });
+  
+      it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
+        await delay(5);
+  
+        const { txHash } = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+          .send()
+          .wait();
+  
+        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
+  
+        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
+      });
     });
-
-    it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-        .send()
-        .wait();
-
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(0));
-    });
-
-    it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
-      await delay(5);
-
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-        .send()
-        .wait();
-
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(910));
-    });
-  });
-
-  describe('key rotation flow with authwit', () => {
-    it('wallet 0 lets wallet 1 call rotate_nullifier_public_key on his behalf with a pre-defined new public key', async () => {
+  
+    describe('key rotation flow with authwit', () => {
       // This changes
-      const newMasterNullifierPublicKey = new Fr(420);
-
-      const action = keyRegistry
-        .withWallet(wallets[1])
-        .methods.rotate_nullifier_public_key(wallets[0].getAddress(), newMasterNullifierPublicKey);
-
-      await wallets[0]
-        .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)
-        .send()
-        .wait();
-
-      await action.send().wait();
+      const secondNewMasterNullifierPublicKey = Point.random();
+  
+      it('wallet 0 lets wallet 1 call rotate_nullifier_public_key on his behalf with a pre-defined new public key', async () => {
+        const action = keyRegistry
+          .withWallet(wallets[1])
+          .methods.rotate_nullifier_public_key(wallets[0].getAddress(), secondNewMasterNullifierPublicKey);
+  
+        await wallets[0]
+          .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)
+          .send()
+          .wait();
+  
+        await action.send().wait();
+      });
+  
+      it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
+        const { txHash } = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+          .send()
+          .wait();
+  
+        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
+        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
+      });
+  
+      it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
+        await delay(5);
+  
+        const { txHash } = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
+          .send()
+          .wait();
+  
+        const rawLogs = await pxe.getUnencryptedLogs({ txHash });
+  
+        expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(poseidon2Hash(secondNewMasterNullifierPublicKey.toFields()));
+      });
     });
-
-    it("checks our registry contract from test contract and finds our old public key because the key rotation hasn't been applied yet", async () => {
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-        .send()
-        .wait();
-
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(910));
-    });
-
-    it('checks our registry contract from test contract and finds the new nullifier public key that has been rotated', async () => {
-      await delay(5);
-
-      const { txHash } = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(keyRegistry.address, 1, wallets[0].getAddress())
-        .send()
-        .wait();
-
-      const rawLogs = await pxe.getUnencryptedLogs({ txHash });
-
-      expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(new Fr(420));
-    });
-  });
+  })
 
   describe('key registration flow no PXE', () => {
     const masterNullifierPublicKey: Point = new Point(new Fr(9), new Fr(10));
@@ -325,11 +326,12 @@ describe('Key Registry', () => {
   });
 
   describe('key registration flow via PXE', () => {
-    const masterNullifierPublicKey: Point = new Point(new Fr(1), new Fr(2));
-    const masterIncomingViewingPublicKey: Point = new Point(new Fr(3), new Fr(4));
-    const masterOutgoingViewingPublicKey: Point = new Point(new Fr(5), new Fr(6));
-    const masterTaggingPublicKey: Point = new Point(new Fr(7), new Fr(8));
-    const partialAddress: PartialAddress = new Fr(69);
+    const masterNullifierPublicKey: Point = new Point(new Fr(17), new Fr(18));
+    const masterIncomingViewingPublicKey: Point = new Point(new Fr(19), new Fr(20));
+    const masterOutgoingViewingPublicKey: Point = new Point(new Fr(21), new Fr(22));
+    const masterTaggingPublicKey: Point = new Point(new Fr(23), new Fr(24));
+
+    const partialAddress: PartialAddress = new Fr(69420);
 
     const publicKeysHash = poseidon2Hash([
       masterNullifierPublicKey,
@@ -397,7 +399,7 @@ describe('Key Registry', () => {
         .wait();
     });
 
-    it('in the case where the key exists both in the pxe and our registry, we know it works', async () => {
+    it('in the case where the key exists both in the pxe and our registry, we know nothing weird will happen', async () => {
       await delay(5);
 
       const { txHash } = await testContract.methods
