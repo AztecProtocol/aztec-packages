@@ -46,3 +46,11 @@ deploy-preview:
   COPY ./deploy_preview.sh .
   RUN NETLIFY_AUTH_TOKEN=$NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID=$NETLIFY_SITE_ID ./deploy_preview.sh $PR $AZTEC_BOT_COMMENTER_GITHUB_TOKEN
 
+deploy-prod:
+  BUILD ../yarn-project/+scripts-prod
+  ARG NETLIFY_AUTH_TOKEN
+  ARG NETLIFY_SITE_ID
+  FROM +serve
+  COPY ./netlify.toml .
+  COPY ./deploy_prod.sh .
+  RUN NETLIFY_AUTH_TOKEN=$NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID=$NETLIFY_SITE_ID ./deploy_prod.sh
