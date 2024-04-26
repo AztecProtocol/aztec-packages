@@ -16,7 +16,7 @@ RUN apt update && apt install -y \
   bash \
   libstdc++6
 
-RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16 clang-format-16
+RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh && ./llvm.sh 16
 
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
