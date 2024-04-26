@@ -57,7 +57,7 @@ contract Uniswap {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
-        let input_asset = TokenBridge::at(input_asset_bridge).get_token().call(&mut context);
+        let input_asset = TokenBridge::at(input_asset_bridge).get_token().static_call(&mut context);
 
         // Transfer funds to this contract
         Token::at(input_asset).transfer_public(
@@ -71,8 +71,8 @@ contract Uniswap {
         Uniswap::at(context.this_address())._approve_bridge_and_exit_input_asset_to_L1(input_asset, input_asset_bridge, input_amount).call(&mut context);
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
-        let input_asset_bridge_portal_address = TokenBridge::at(input_asset_bridge).get_portal_address_public().call(&mut context);
-        let output_asset_bridge_portal_address = TokenBridge::at(output_asset_bridge).get_portal_address_public().call(&mut context);
+        let input_asset_bridge_portal_address = TokenBridge::at(input_asset_bridge).get_portal_address_public().static_call(&mut context);
+        let output_asset_bridge_portal_address = TokenBridge::at(output_asset_bridge).get_portal_address_public().static_call(&mut context);
         // ensure portal exists - else funds might be lost
         assert(
             !input_asset_bridge_portal_address.is_zero(), "L1 portal address of input_asset's bridge is 0"
@@ -129,8 +129,8 @@ contract Uniswap {
 
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
-        let input_asset_bridge_portal_address = TokenBridge::at(input_asset_bridge).get_portal_address().call(&mut context);
-        let output_asset_bridge_portal_address = TokenBridge::at(output_asset_bridge).get_portal_address().call(&mut context);
+        let input_asset_bridge_portal_address = TokenBridge::at(input_asset_bridge).get_portal_address().static_call(&mut context);
+        let output_asset_bridge_portal_address = TokenBridge::at(output_asset_bridge).get_portal_address().static_call(&mut context);
         // ensure portal exists - else funds might be lost
         assert(
             !input_asset_bridge_portal_address.is_zero(), "L1 portal address of input_asset's bridge is 0"
@@ -220,7 +220,7 @@ contract Uniswap {
     #[aztec(internal)]
     fn _assert_token_is_same(token: AztecAddress, token_bridge: AztecAddress) {
         assert(
-            token.eq(TokenBridge::at(token_bridge).get_token().call(&mut context)), "input_asset address is not the same as seen in the bridge contract"
+            token.eq(TokenBridge::at(token_bridge).get_token().static_call(&mut context)), "input_asset address is not the same as seen in the bridge contract"
         );
     }
     // docs:end:assert_token_is_same
