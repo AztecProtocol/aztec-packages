@@ -36,10 +36,10 @@ impl BlackBoxFunctionSolver for WrapperSolver {
         &self,
         point_x: &acvm::FieldElement,
         point_y: &acvm::FieldElement,
-        low: &acvm::FieldElement,
-        high: &acvm::FieldElement,
+        scalar_low: &acvm::FieldElement,
+        scalar_high: &acvm::FieldElement,
     ) -> Result<(acvm::FieldElement, acvm::FieldElement), acvm::BlackBoxResolutionError> {
-        self.0.variable_base_scalar_mul(point_x, point_y, low, high)
+        self.0.variable_base_scalar_mul(point_x, point_y, scalar_low, scalar_high)
     }
 
     fn pedersen_hash(

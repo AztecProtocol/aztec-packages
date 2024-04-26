@@ -91,8 +91,8 @@ fn variable_base_scalar_mul_circuit() {
         Opcode::BlackBoxFuncCall(BlackBoxFuncCall::VariableBaseScalarMul {
             point_x: FunctionInput { witness: Witness(1), num_bits: 128 },
             point_y: FunctionInput { witness: Witness(2), num_bits: 128 },
-            low: FunctionInput { witness: Witness(3), num_bits: 128 },
-            high: FunctionInput { witness: Witness(4), num_bits: 128 },
+            scalar_low: FunctionInput { witness: Witness(3), num_bits: 128 },
+            scalar_high: FunctionInput { witness: Witness(4), num_bits: 128 },
             outputs: (Witness(5), Witness(6)),
         });
 

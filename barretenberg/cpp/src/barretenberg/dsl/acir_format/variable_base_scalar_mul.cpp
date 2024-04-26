@@ -18,16 +18,16 @@ template <typename Builder> void create_variable_base_constraint(Builder& builde
     cycle_group_ct input_point(point_x, point_y, false);
 
     // We reconstruct the scalar from the low and high limbs
-    field_ct low_as_field = field_ct::from_witness_index(&builder, input.low);
-    field_ct high_as_field = field_ct::from_witness_index(&builder, input.high);
-    cycle_scalar_ct scalar(low_as_field, high_as_field);
+    field_ct scalar_low_as_field = field_ct::from_witness_index(&builder, input.scalar_low);
+    field_ct scalar_high_as_field = field_ct::from_witness_index(&builder, input.scalar_high);
+    cycle_scalar_ct scalar(scalar_low_as_field, scalar_high_as_field);
 
     // We multiply the scalar with input point/variable base to get the result
     auto result = input_point * scalar;
 
     // Finally we add the constraints
-    builder.assert_equal(result.x.get_witness_index(), input.pub_key_x);
-    builder.assert_equal(result.y.get_witness_index(), input.pub_key_y);
+    builder.assert_equal(result.x.get_witness_index(), input.out_point_x);
+    builder.assert_equal(result.y.get_witness_index(), input.out_point_y);
 }
 
 template void create_variable_base_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,

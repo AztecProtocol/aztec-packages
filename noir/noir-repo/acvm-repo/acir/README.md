@@ -149,7 +149,7 @@ $a=low+high*2^{128},$ with $low, high < 2^{128}$
 **VariableBaseScalarMul**: scalar multiplication with a variable base/input point (P) of the embedded curve
 - input:
     point_x, point_y representing x and y coordinates of input point P
-    low, high are 2 (field , 254), representing the low and high part of the input scalar. For Barretenberg, they must both be less than 128 bits.
+    scalar_low, scalar_high are 2 (field , 254), representing the low and high part of the input scalar. For Barretenberg, they must both be less than 128 bits.
 - output: x and y coordinates of $low*P+high*2^{128}*P$, where P is the input point P
 
 Because the Grumpkin scalar field is bigger than the ACIR field, we provide 2 ACIR fields representing the low and high parts of the Grumpkin scalar $a$:

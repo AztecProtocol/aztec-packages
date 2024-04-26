@@ -321,10 +321,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg, Aci
                 af.variable_base_scalar_mul_constraints.push_back(VariableBaseScalarMul{
                     .point_x = arg.point_x.witness.value,
                     .point_y = arg.point_y.witness.value,
-                    .low = arg.low.witness.value,
-                    .high = arg.high.witness.value,
-                    .pub_key_x = arg.outputs[0].value,
-                    .pub_key_y = arg.outputs[1].value,
+                    .scalar_low = arg.scalar_low.witness.value,
+                    .scalar_high = arg.scalar_high.witness.value,
+                    .out_point_x = arg.outputs[0].value,
+                    .out_point_y = arg.outputs[1].value,
                 });
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 af.ec_add_constraints.push_back(EcAdd{

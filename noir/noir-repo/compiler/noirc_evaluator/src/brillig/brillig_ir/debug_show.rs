@@ -324,14 +324,20 @@ impl DebugShow {
                     result
                 );
             }
-            BlackBoxOp::VariableBaseScalarMul { point_x, point_y, low, high, result } => {
+            BlackBoxOp::VariableBaseScalarMul {
+                point_x,
+                point_y,
+                scalar_low,
+                scalar_high,
+                result,
+            } => {
                 debug_println!(
                     self.enable_debug_trace,
                     "  VARIABLE_BASE_SCALAR_MUL ({} {}) ({} {}) -> {}",
                     point_x,
                     point_y,
-                    low,
-                    high,
+                    scalar_low,
+                    scalar_high,
                     result
                 );
             }

@@ -143,15 +143,16 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             memory.write_slice(memory.read_ref(result.pointer), &[x.into(), y.into()]);
             Ok(())
         }
-        BlackBoxOp::VariableBaseScalarMul { point_x, point_y, low, high, result } => {
+        BlackBoxOp::VariableBaseScalarMul { point_x, point_y, scalar_low, scalar_high, result } => {
             let point_x = memory.read(*point_x).try_into().unwrap();
             let point_y = memory.read(*point_y).try_into().unwrap();
-            let low = memory.read(*low).try_into().unwrap();
-            let high = memory.read(*high).try_into().unwrap();
-            let (x, y) = solver.variable_base_scalar_mul(&point_x, &point_y, &low, &high)?;
+            let scalar_low = memory.read(*scalar_low).try_into().unwrap();
+            let scalar_high = memory.read(*scalar_high).try_into().unwrap();
+            let (out_point_x, out_point_y) =
+                solver.variable_base_scalar_mul(&point_x, &point_y, &scalar_low, &scalar_high)?;
             memory.write_slice(
                 memory.read_ref(result.pointer),
-                &[point_x.into(), point_y.into(), x.into(), y.into()],
+                &[point_x.into(), point_y.into(), out_point_x.into(), out_point_y.into()],
             );
             Ok(())
         }

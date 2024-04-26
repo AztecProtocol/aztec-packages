@@ -207,15 +207,15 @@ pub(crate) fn convert_black_box_call(
         }
         BlackBoxFunc::VariableBaseScalarMul => {
             if let (
-                [BrilligVariable::SingleAddr(point_x), BrilligVariable::SingleAddr(point_y), BrilligVariable::SingleAddr(low), BrilligVariable::SingleAddr(high)],
+                [BrilligVariable::SingleAddr(point_x), BrilligVariable::SingleAddr(point_y), BrilligVariable::SingleAddr(scalar_low), BrilligVariable::SingleAddr(scalar_high)],
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
                 brillig_context.black_box_op_instruction(BlackBoxOp::VariableBaseScalarMul {
                     point_x: point_x.address,
                     point_y: point_y.address,
-                    low: low.address,
-                    high: high.address,
+                    scalar_low: scalar_low.address,
+                    scalar_high: scalar_high.address,
                     result: result_array.to_heap_array(),
                 });
             } else {

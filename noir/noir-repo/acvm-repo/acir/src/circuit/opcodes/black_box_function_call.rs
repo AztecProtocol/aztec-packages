@@ -88,8 +88,8 @@ pub enum BlackBoxFuncCall {
     VariableBaseScalarMul {
         point_x: FunctionInput,
         point_y: FunctionInput,
-        low: FunctionInput,
-        high: FunctionInput,
+        scalar_low: FunctionInput,
+        scalar_high: FunctionInput,
         outputs: (Witness, Witness),
     },
     EmbeddedCurveAdd {
@@ -240,8 +240,14 @@ impl BlackBoxFuncCall {
             | BlackBoxFuncCall::BigIntDiv { .. }
             | BlackBoxFuncCall::BigIntToLeBytes { .. } => Vec::new(),
             BlackBoxFuncCall::FixedBaseScalarMul { low, high, .. } => vec![*low, *high],
-            BlackBoxFuncCall::VariableBaseScalarMul { point_x, point_y, low, high, .. } => {
-                vec![*point_x, *point_y, *low, *high]
+            BlackBoxFuncCall::VariableBaseScalarMul {
+                point_x,
+                point_y,
+                scalar_low,
+                scalar_high,
+                ..
+            } => {
+                vec![*point_x, *point_y, *scalar_low, *scalar_high]
             }
             BlackBoxFuncCall::EmbeddedCurveAdd {
                 input1_x, input1_y, input2_x, input2_y, ..

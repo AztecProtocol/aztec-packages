@@ -33,8 +33,8 @@ pub trait BlackBoxFunctionSolver {
         &self,
         point_x: &FieldElement,
         point_y: &FieldElement,
-        low: &FieldElement,
-        high: &FieldElement,
+        scalar_low: &FieldElement,
+        scalar_high: &FieldElement,
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError>;
     fn ec_add(
         &self,
@@ -96,8 +96,8 @@ impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
         &self,
         _point_x: &FieldElement,
         _point_y: &FieldElement,
-        _low: &FieldElement,
-        _high: &FieldElement,
+        _scalar_low: &FieldElement,
+        _scalar_high: &FieldElement,
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::VariableBaseScalarMul))
     }

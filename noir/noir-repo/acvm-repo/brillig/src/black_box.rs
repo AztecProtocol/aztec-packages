@@ -76,8 +76,8 @@ pub enum BlackBoxOp {
     VariableBaseScalarMul {
         point_x: MemoryAddress,
         point_y: MemoryAddress,
-        low: MemoryAddress,
-        high: MemoryAddress,
+        scalar_low: MemoryAddress,
+        scalar_high: MemoryAddress,
         result: HeapArray,
     },
     /// Performs addition over the embedded curve.

@@ -148,8 +148,8 @@ struct BlackBoxFuncCall {
     struct VariableBaseScalarMul {
         Program::FunctionInput point_x;
         Program::FunctionInput point_y;
-        Program::FunctionInput low;
-        Program::FunctionInput high;
+        Program::FunctionInput scalar_low;
+        Program::FunctionInput scalar_high;
         std::array<Program::Witness, 2> outputs;
 
         friend bool operator==(const VariableBaseScalarMul&, const VariableBaseScalarMul&);
@@ -769,8 +769,8 @@ struct BlackBoxOp {
     struct VariableBaseScalarMul {
         Program::MemoryAddress point_x;
         Program::MemoryAddress point_y;
-        Program::MemoryAddress low;
-        Program::MemoryAddress high;
+        Program::MemoryAddress scalar_low;
+        Program::MemoryAddress scalar_high;
         Program::HeapArray result;
 
         friend bool operator==(const VariableBaseScalarMul&, const VariableBaseScalarMul&);
@@ -3103,10 +3103,10 @@ inline bool operator==(const BlackBoxFuncCall::VariableBaseScalarMul& lhs,
     if (!(lhs.point_y == rhs.point_y)) {
         return false;
     }
-    if (!(lhs.low == rhs.low)) {
+    if (!(lhs.scalar_low == rhs.scalar_low)) {
         return false;
     }
-    if (!(lhs.high == rhs.high)) {
+    if (!(lhs.scalar_high == rhs.scalar_high)) {
         return false;
     }
     if (!(lhs.outputs == rhs.outputs)) {
@@ -3142,8 +3142,8 @@ void serde::Serializable<Program::BlackBoxFuncCall::VariableBaseScalarMul>::seri
 {
     serde::Serializable<decltype(obj.point_x)>::serialize(obj.point_x, serializer);
     serde::Serializable<decltype(obj.point_y)>::serialize(obj.point_y, serializer);
-    serde::Serializable<decltype(obj.low)>::serialize(obj.low, serializer);
-    serde::Serializable<decltype(obj.high)>::serialize(obj.high, serializer);
+    serde::Serializable<decltype(obj.scalar_low)>::serialize(obj.scalar_low, serializer);
+    serde::Serializable<decltype(obj.scalar_high)>::serialize(obj.scalar_high, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
 }
 
@@ -3155,8 +3155,8 @@ Program::BlackBoxFuncCall::VariableBaseScalarMul serde::Deserializable<
     Program::BlackBoxFuncCall::VariableBaseScalarMul obj;
     obj.point_x = serde::Deserializable<decltype(obj.point_x)>::deserialize(deserializer);
     obj.point_y = serde::Deserializable<decltype(obj.point_y)>::deserialize(deserializer);
-    obj.low = serde::Deserializable<decltype(obj.low)>::deserialize(deserializer);
-    obj.high = serde::Deserializable<decltype(obj.high)>::deserialize(deserializer);
+    obj.scalar_low = serde::Deserializable<decltype(obj.scalar_low)>::deserialize(deserializer);
+    obj.scalar_high = serde::Deserializable<decltype(obj.scalar_high)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
     return obj;
 }
@@ -4547,10 +4547,10 @@ inline bool operator==(const BlackBoxOp::VariableBaseScalarMul& lhs, const Black
     if (!(lhs.point_y == rhs.point_y)) {
         return false;
     }
-    if (!(lhs.low == rhs.low)) {
+    if (!(lhs.scalar_low == rhs.scalar_low)) {
         return false;
     }
-    if (!(lhs.high == rhs.high)) {
+    if (!(lhs.scalar_high == rhs.scalar_high)) {
         return false;
     }
     if (!(lhs.result == rhs.result)) {
@@ -4586,8 +4586,8 @@ void serde::Serializable<Program::BlackBoxOp::VariableBaseScalarMul>::serialize(
 {
     serde::Serializable<decltype(obj.point_x)>::serialize(obj.point_x, serializer);
     serde::Serializable<decltype(obj.point_y)>::serialize(obj.point_y, serializer);
-    serde::Serializable<decltype(obj.low)>::serialize(obj.low, serializer);
-    serde::Serializable<decltype(obj.high)>::serialize(obj.high, serializer);
+    serde::Serializable<decltype(obj.scalar_low)>::serialize(obj.scalar_low, serializer);
+    serde::Serializable<decltype(obj.scalar_high)>::serialize(obj.scalar_high, serializer);
     serde::Serializable<decltype(obj.result)>::serialize(obj.result, serializer);
 }
 
@@ -4599,8 +4599,8 @@ Program::BlackBoxOp::VariableBaseScalarMul serde::Deserializable<
     Program::BlackBoxOp::VariableBaseScalarMul obj;
     obj.point_x = serde::Deserializable<decltype(obj.point_x)>::deserialize(deserializer);
     obj.point_y = serde::Deserializable<decltype(obj.point_y)>::deserialize(deserializer);
-    obj.low = serde::Deserializable<decltype(obj.low)>::deserialize(deserializer);
-    obj.high = serde::Deserializable<decltype(obj.high)>::deserialize(deserializer);
+    obj.scalar_low = serde::Deserializable<decltype(obj.scalar_low)>::deserialize(deserializer);
+    obj.scalar_high = serde::Deserializable<decltype(obj.scalar_high)>::deserialize(deserializer);
     obj.result = serde::Deserializable<decltype(obj.result)>::deserialize(deserializer);
     return obj;
 }

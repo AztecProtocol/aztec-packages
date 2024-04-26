@@ -286,8 +286,8 @@ impl GeneratedAcir {
             BlackBoxFunc::VariableBaseScalarMul => BlackBoxFuncCall::VariableBaseScalarMul {
                 point_x: inputs[0][0],
                 point_y: inputs[1][0],
-                low: inputs[2][0],
-                high: inputs[3][0],
+                scalar_low: inputs[2][0],
+                scalar_high: inputs[3][0],
                 outputs: (outputs[0], outputs[1]),
             },
             BlackBoxFunc::EmbeddedCurveAdd => BlackBoxFuncCall::EmbeddedCurveAdd {
