@@ -34,12 +34,12 @@ contract KeyRegistry {
   }
 
   #[aztec(public)]
-  fn rotate_nullifier_public_key_hash(
+  fn rotate_nullifier_public_key(
     address: AztecAddress,
-    new_nullifier_public_key_hash: Field,
+    new_nullifier_public_key: GrumpkinPoint,
   ) {
     assert(
-      new_nullifier_public_key_hash != 0,
+      !new_nullifier_public_key.is_zero(),
       "New nullifier public key must be non-zero"
     );
 
@@ -49,7 +49,7 @@ contract KeyRegistry {
 
     let nullifier_key_registry = storage.nullifier_public_key_hash_registry.at(address);
 
-    nullifier_key_registry.schedule_value_change(new_nullifier_public_key_hash);
+    nullifier_key_registry.schedule_value_change(poseidon2_hash(new_nullifier_public_key.serialize()));
   }
 
   #[aztec(public)]

@@ -414,9 +414,8 @@ contract Test {
     fn test_nullifier_key_freshness(
         address: AztecAddress,
         public_nullifying_key: GrumpkinPoint,
-        key_registry_contract: AztecAddress,
     ) {
-        assert_nullifier_public_key_fresh(&mut context, address, public_nullifying_key, key_registry_contract);
+        assert_nullifier_public_key_fresh(&mut context, address, public_nullifying_key);
     }
 
     #[aztec(public)]
