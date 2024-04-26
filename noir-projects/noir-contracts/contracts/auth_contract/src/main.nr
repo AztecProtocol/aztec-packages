@@ -29,10 +29,12 @@ contract Auth {
         storage.authorized.schedule_value_change(authorized);
     }
 
+    // docs:start:public_getter
     #[aztec(public)]
     fn get_authorized() -> AztecAddress {
         storage.authorized.get_current_value_in_public()
     }
+    // docs:end:public_getter
 
     #[aztec(public)]
     fn get_scheduled_authorized() -> AztecAddress {

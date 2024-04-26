@@ -47,7 +47,9 @@ contract AppSubscription {
         note.remaining_txs -= 1;
         storage.subscriptions.at(user_address).replace(&mut note, true);
 
+        // docs:start:enqueue
         GasToken::at(storage.gas_token_address.read_private()).pay_fee(42).enqueue(&mut context);
+        // docs:end:enqueue-public
 
         context.capture_min_revertible_side_effect_counter();
 
