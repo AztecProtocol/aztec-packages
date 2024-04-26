@@ -53,7 +53,7 @@ export class Oracle {
     ];
   }
 
-  // TODO (ek): Nuke this
+  // TODO: #5830 Nuke this
   async getPublicKeyAndPartialAddress([address]: ACVMField[]) {
     const { publicKey, partialAddress } = await this.typedOracle.getCompleteAddress(
       AztecAddress.fromField(fromACVMField(address)),
