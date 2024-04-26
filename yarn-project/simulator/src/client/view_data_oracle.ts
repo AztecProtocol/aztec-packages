@@ -166,7 +166,6 @@ export class ViewDataOracle extends TypedOracle {
     return this.db.popCapsule();
   }
 
-
   /**
    * Gets public keys for an address, getCompleteAddress should be modified to include this
    * @param The address to look up
