@@ -166,7 +166,7 @@ template <typename FF_> class UltraArith {
 
         auto get() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
 
-        void summarize()
+        void summarize() const
         {
             info("Gate blocks summary:");
             info("pub inputs:\t", pub_inputs.size());
@@ -282,7 +282,7 @@ template <typename FF_> class UltraHonkArith {
                              aux,    lookup,     busread,    poseidon_external, poseidon_internal };
         }
 
-        void summarize()
+        void summarize() const
         {
             info("Gate blocks summary:");
             info("goblin ecc op:\t", ecc_op.size());
