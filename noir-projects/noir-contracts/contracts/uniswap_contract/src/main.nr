@@ -114,7 +114,7 @@ contract Uniswap {
     ) {
         // Assert that user provided token address is same as expected by token bridge.
         // we can't directly use `input_asset_bridge.token` because that is a public method and public can't return data to private
-        Uniswap::at(context.this_address())._assert_token_is_same(input_asset, input_asset_bridge).enqueue(&mut context);
+        Uniswap::at(context.this_address())._assert_token_is_same(input_asset, input_asset_bridge).static_enqueue(&mut context);
 
         // Transfer funds to this contract
         Token::at(input_asset).unshield(
