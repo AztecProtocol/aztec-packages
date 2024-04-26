@@ -1,3 +1,4 @@
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6058): rename this file to something more generic
 use acir::{
     circuit::opcodes::FunctionInput,
     native_types::{Witness, WitnessMap},
@@ -24,7 +25,6 @@ pub(super) fn fixed_base_scalar_mul(
     Ok(())
 }
 
-// TODO(benesjan): rename this file to something more generic?
 pub(super) fn variable_base_scalar_mul(
     backend: &impl BlackBoxFunctionSolver,
     initial_witness: &mut WitnessMap,

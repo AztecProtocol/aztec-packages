@@ -1,3 +1,4 @@
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6058): rename this file to something more generic
 use ark_ec::AffineRepr;
 use ark_ff::MontConfig;
 use num_bigint::BigUint;
@@ -6,45 +7,16 @@ use acir::{BlackBoxFunc, FieldElement};
 
 use crate::BlackBoxResolutionError;
 
+/// Performs fixed-base scalar multiplication by calling variable_base_scalar_mul with a predefined generator point.
 pub fn fixed_base_scalar_mul(
     low: &FieldElement,
     high: &FieldElement,
 ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
-    let low: u128 = low.try_into_u128().ok_or_else(|| {
-        BlackBoxResolutionError::Failed(
-            BlackBoxFunc::FixedBaseScalarMul,
-            format!("Limb {} is not less than 2^128", low.to_hex()),
-        )
-    })?;
+    let generator = grumpkin::SWAffine::generator();
+    let generator_x = FieldElement::from_repr(*generator.x().unwrap());
+    let generator_y = FieldElement::from_repr(*generator.y().unwrap());
 
-    let high: u128 = high.try_into_u128().ok_or_else(|| {
-        BlackBoxResolutionError::Failed(
-            BlackBoxFunc::FixedBaseScalarMul,
-            format!("Limb {} is not less than 2^128", high.to_hex()),
-        )
-    })?;
-
-    let mut bytes = high.to_be_bytes().to_vec();
-    bytes.extend_from_slice(&low.to_be_bytes());
-
-    // Check if this is smaller than the grumpkin modulus
-    let grumpkin_integer = BigUint::from_bytes_be(&bytes);
-
-    if grumpkin_integer >= grumpkin::FrConfig::MODULUS.into() {
-        return Err(BlackBoxResolutionError::Failed(
-            BlackBoxFunc::FixedBaseScalarMul,
-            format!("{} is not a valid grumpkin scalar", grumpkin_integer.to_str_radix(16)),
-        ));
-    }
-
-    let result = grumpkin::SWAffine::from(
-        grumpkin::SWAffine::generator().mul_bigint(grumpkin_integer.to_u64_digits()),
-    );
-    if let Some((res_x, res_y)) = result.xy() {
-        Ok((FieldElement::from_repr(*res_x), FieldElement::from_repr(*res_y)))
-    } else {
-        Ok((FieldElement::zero(), FieldElement::zero()))
-    }
+    variable_base_scalar_mul(&generator_x, &generator_y, low, high)
 }
 
 fn create_point(x: FieldElement, y: FieldElement) -> Result<grumpkin::SWAffine, String> {
@@ -58,8 +30,6 @@ fn create_point(x: FieldElement, y: FieldElement) -> Result<grumpkin::SWAffine, 
     Ok(point)
 }
 
-// TODO(benesjan): rename this file to something more generic?
-// TODO(benesjan): make fixed_base_scalar_mul(...) call variable_base_scalar_mul(...)
 pub fn variable_base_scalar_mul(
     point_x: &FieldElement,
     point_y: &FieldElement,
@@ -164,7 +134,7 @@ mod grumpkin_fixed_base_scalar_mul {
         let invalid_limb = max_limb + FieldElement::one();
 
         let expected_error = Err(BlackBoxResolutionError::Failed(
-            BlackBoxFunc::FixedBaseScalarMul,
+            BlackBoxFunc::VariableBaseScalarMul,
             "Limb 0000000000000000000000000000000100000000000000000000000000000000 is not less than 2^128".into(),
         ));
 
@@ -187,7 +157,7 @@ mod grumpkin_fixed_base_scalar_mul {
         assert_eq!(
             res,
             Err(BlackBoxResolutionError::Failed(
-                BlackBoxFunc::FixedBaseScalarMul,
+                BlackBoxFunc::VariableBaseScalarMul,
                 "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 is not a valid grumpkin scalar".into(),
             ))
         );
