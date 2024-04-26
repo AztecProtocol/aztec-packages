@@ -18,6 +18,6 @@ struct VariableBaseScalarMul {
     friend bool operator==(VariableBaseScalarMul const& lhs, VariableBaseScalarMul const& rhs) = default;
 };
 
-template <typename Builder> void create_fixed_base_constraint(Builder& builder, const VariableBaseScalarMul& input);
+template <typename Builder> void create_variable_base_constraint(Builder& builder, const VariableBaseScalarMul& input);
 
 } // namespace acir_format

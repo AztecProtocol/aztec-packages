@@ -148,7 +148,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             let point_y = memory.read(*point_y).try_into().unwrap();
             let low = memory.read(*low).try_into().unwrap();
             let high = memory.read(*high).try_into().unwrap();
-            let (x, y) = solver.fixed_base_scalar_mul(&low, &high)?;
+            let (x, y) = solver.variable_base_scalar_mul(&point_x, &point_y, &low, &high)?;
             memory.write_slice(memory.read_ref(result.pointer), &[point_x.into(), point_y.into(), x.into(), y.into()]);
             Ok(())
         }

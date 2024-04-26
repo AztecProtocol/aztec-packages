@@ -12,24 +12,20 @@ template <typename Builder> void create_variable_base_constraint(Builder& builde
     using cycle_scalar_ct = typename bb::stdlib::cycle_group<Builder>::cycle_scalar;
     using field_ct = bb::stdlib::field_t<Builder>;
 
-    // Computes low * P + high * 2^128 * P where P is the variable base we multiply the scalar with
-    //
-    // Low and high need to be less than 2^128
-    // TODO(benesjan): nuke the following 4 lines
-    auto x = field_ct::from_witness_index(&builder, input.pub_key_x);
-    auto y = field_ct::from_witness_index(&builder, input.pub_key_y);
-    grumpkin::g1::affine_element base_point_var(x.get_value(), y.get_value());
-    cycle_group_ct base_point(base_point_var);
-
+    // We instantiate the input point/variable base as `cycle_group_ct`
     auto point_x = field_ct::from_witness_index(&builder, input.point_x);
     auto point_y = field_ct::from_witness_index(&builder, input.point_y);
     cycle_group_ct input_point(point_x, point_y, false);
 
+    // We reconstruct the scalar from the low and high limbs
     field_ct low_as_field = field_ct::from_witness_index(&builder, input.low);
     field_ct high_as_field = field_ct::from_witness_index(&builder, input.high);
     cycle_scalar_ct scalar(low_as_field, high_as_field);
+
+    // We multiply the scalar with input point/variable base to get the result
     auto result = input_point * scalar;
 
+    // Finally we add the constraints
     builder.assert_equal(result.x.get_witness_index(), input.pub_key_x);
     builder.assert_equal(result.y.get_witness_index(), input.pub_key_y);
 }

@@ -92,6 +92,15 @@ impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
     ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
         Err(Self::fail(BlackBoxFunc::FixedBaseScalarMul))
     }
+    fn variable_base_scalar_mul(
+        &self,
+        _point_x: &FieldElement,
+        _point_y: &FieldElement,
+        _low: &FieldElement,
+        _high: &FieldElement,
+    ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
+        Err(Self::fail(BlackBoxFunc::VariableBaseScalarMul))
+    }
     fn ec_add(
         &self,
         _input1_x: &FieldElement,

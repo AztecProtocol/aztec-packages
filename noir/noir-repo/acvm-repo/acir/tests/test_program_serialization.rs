@@ -85,6 +85,8 @@ fn fixed_base_scalar_mul_circuit() {
     assert_eq!(bytes, expected_serialization)
 }
 
+// TODO(benesjan): variable_base_scalar_mul_circuit test
+
 #[test]
 fn pedersen_circuit() {
     let pedersen = Opcode::BlackBoxFuncCall(BlackBoxFuncCall::PedersenCommitment {
