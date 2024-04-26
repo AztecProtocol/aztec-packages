@@ -42,7 +42,7 @@ import {
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type ContractArtifact, type DecodedReturn, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { arrayNonEmptyLength, padArrayEnd } from '@aztec/foundation/collection';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -218,9 +218,15 @@ export class PXEService implements PXE {
 
   public async registerRecipient(recipient: CompleteAddress, publicKeys: Point[] = []): Promise<void> {
     const wasAdded = await this.db.addCompleteAddress(recipient);
-    
+
     if (publicKeys.length !== 0) {
-      await this.keyStore.addPublicKeysForAccount(recipient.address, publicKeys[0], publicKeys[1], publicKeys[2], publicKeys[3]);
+      await this.keyStore.addPublicKeysForAccount(
+        recipient.address,
+        publicKeys[0],
+        publicKeys[1],
+        publicKeys[2],
+        publicKeys[3],
+      );
     }
 
     if (wasAdded) {

@@ -1,9 +1,9 @@
 import {
-  Point,
   type AztecAddress,
   type Fr,
   type GrumpkinPrivateKey,
   type PartialAddress,
+  type Point,
   type PublicKey,
 } from '@aztec/circuits.js';
 
@@ -119,7 +119,7 @@ export interface KeyStore {
   getPublicKeysHash(account: AztecAddress): Promise<Fr>;
 
   /**
-   * 
+   *
    */
   addPublicKeysForAccount(
     accountAddress: AztecAddress,

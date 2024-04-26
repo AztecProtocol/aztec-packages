@@ -9,14 +9,13 @@ import {
   type SiblingPath,
 } from '@aztec/circuit-types';
 import {
-  Fr,
-  Point,
   type AztecAddress,
   type CompleteAddress,
-  type EthAddress,
+  type Fr,
   type FunctionSelector,
   type Header,
   type L1_TO_L2_MSG_TREE_HEIGHT,
+  type Point,
 } from '@aztec/circuits.js';
 import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifactWithDebugMetadata, getFunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
@@ -85,7 +84,7 @@ export class SimulatorOracle implements DBOracle {
     const outgoingViewingPublicKey = await this.keyStore.getMasterOutgoingViewingPublicKey(address);
     const taggingPublicKey = await this.keyStore.getMasterTaggingPublicKey(address);
 
-    return [nullifierPublicKey, incomingViewingPublicKey, outgoingViewingPublicKey, taggingPublicKey]
+    return [nullifierPublicKey, incomingViewingPublicKey, outgoingViewingPublicKey, taggingPublicKey];
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {

@@ -1,5 +1,5 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
-import { CompleteAddress, GeneratorIndex, PartialAddress, Point } from '@aztec/circuits.js';
+import { CompleteAddress, GeneratorIndex, type PartialAddress, Point } from '@aztec/circuits.js';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
@@ -13,7 +13,7 @@ const TIMEOUT = 100_000;
 describe('Key Registry', () => {
   let keyRegistry: KeyRegistryContract;
 
-  let pxe: PXE;                                                    
+  let pxe: PXE;
   let testContract: TestContract;
   jest.setTimeout(TIMEOUT);
 
@@ -282,7 +282,12 @@ describe('Key Registry', () => {
     const accountAddedToRegistry = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
 
     it('should fail as we have not registered anything to the registry nor have we registered a recipient', async () => {
-      await expect(testContract.methods.test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey).send().wait()).rejects.toThrow();
+      await expect(
+        testContract.methods
+          .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
+          .send()
+          .wait(),
+      ).rejects.toThrow();
     });
 
     it('Now we add it to registry', async () => {
@@ -301,13 +306,21 @@ describe('Key Registry', () => {
     });
 
     it('checks key freshness and fails because the address change has not been applied yet due to lack of delay', async () => {
-      await expect(testContract.methods.test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey).send().wait()).rejects.toThrow();
+      await expect(
+        testContract.methods
+          .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
+          .send()
+          .wait(),
+      ).rejects.toThrow();
     });
 
     it('checks key freshness after a delay, and is successful', async () => {
       await delay(5);
 
-      await testContract.methods.test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey).send().wait();
+      await testContract.methods
+        .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
+        .send()
+        .wait();
     });
   });
 
@@ -316,7 +329,7 @@ describe('Key Registry', () => {
     const masterIncomingViewingPublicKey: Point = new Point(new Fr(3), new Fr(4));
     const masterOutgoingViewingPublicKey: Point = new Point(new Fr(5), new Fr(6));
     const masterTaggingPublicKey: Point = new Point(new Fr(7), new Fr(8));
-    const partialAddress: PartialAddress = new Fr(69);;
+    const partialAddress: PartialAddress = new Fr(69);
 
     const publicKeysHash = poseidon2Hash([
       masterNullifierPublicKey,
@@ -331,8 +344,13 @@ describe('Key Registry', () => {
     const accountAddedToRegistry = poseidon2Hash([partialAddress, publicKeysHash, GeneratorIndex.CONTRACT_ADDRESS_V1]);
 
     it('should fail as we have not registered anything to the registry nor have we registered a recipient', async () => {
-      await expect(testContract.methods.test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey).send().wait()).rejects.toThrow();
-    })
+      await expect(
+        testContract.methods
+          .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
+          .send()
+          .wait(),
+      ).rejects.toThrow();
+    });
 
     it('should succeed because we register our recipient manually and the lib checks our pxe', async () => {
       // FIX THIS
@@ -340,9 +358,13 @@ describe('Key Registry', () => {
         masterNullifierPublicKey,
         masterIncomingViewingPublicKey,
         masterOutgoingViewingPublicKey,
-        masterTaggingPublicKey]);
-      await testContract.methods.test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey).send().wait();
-    })
+        masterTaggingPublicKey,
+      ]);
+      await testContract.methods
+        .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
+        .send()
+        .wait();
+    });
 
     it('Now we add it to registry', async () => {
       await keyRegistry
@@ -357,7 +379,7 @@ describe('Key Registry', () => {
         )
         .send()
         .wait();
-    })
+    });
 
     it('we start the change in the registry, it has not been applied yet, but we still see we have a fresh key due to it being added in the pxe', async () => {
       const { txHash } = await testContract.methods
@@ -369,7 +391,10 @@ describe('Key Registry', () => {
       expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(Fr.ZERO);
 
       // Checks freshness of newly added keys, but the change hasn't been affected yet, but we have manually added it to our pxe so it should pass
-      await testContract.methods.test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey).send().wait();
+      await testContract.methods
+        .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
+        .send()
+        .wait();
     });
 
     it('in the case where the key exists both in the pxe and our registry, we know it works', async () => {
@@ -384,7 +409,10 @@ describe('Key Registry', () => {
 
       expect(Fr.fromBuffer(rawLogs.logs[0].log.data)).toEqual(poseidon2Hash(masterNullifierPublicKey.toFields()));
 
-      await testContract.methods.test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey).send().wait();
+      await testContract.methods
+        .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
+        .send()
+        .wait();
     });
   });
 
@@ -400,13 +428,21 @@ describe('Key Registry', () => {
     });
 
     it("checks our registry contract from test contract and fails because the change hasn't been applied yet", async () => {
-      await expect(testContract.methods.test_nullifier_key_freshness(wallets[0].getAddress(), newMasterNullifierPublicKey).send().wait()).rejects.toThrow();
+      await expect(
+        testContract.methods
+          .test_nullifier_key_freshness(wallets[0].getAddress(), newMasterNullifierPublicKey)
+          .send()
+          .wait(),
+      ).rejects.toThrow();
     });
 
     it('checks our registry contract from test contract and succeeds because the change has been applied', async () => {
       await delay(5);
 
-      await testContract.methods.test_nullifier_key_freshness(wallets[0].getAddress(), newMasterNullifierPublicKey).send().wait();
+      await testContract.methods
+        .test_nullifier_key_freshness(wallets[0].getAddress(), newMasterNullifierPublicKey)
+        .send()
+        .wait();
     });
   });
 });

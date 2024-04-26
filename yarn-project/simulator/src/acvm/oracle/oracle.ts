@@ -176,21 +176,16 @@ export class Oracle {
     let partialAddress: PartialAddress;
     let publicKeys: Point[] | undefined;
     try {
-      ({ partialAddress } = await this.typedOracle.getCompleteAddress(
-        AztecAddress.fromField(fromACVMField(address)),
-      ));
+      ({ partialAddress } = await this.typedOracle.getCompleteAddress(AztecAddress.fromField(fromACVMField(address))));
     } catch (err) {
       partialAddress = Fr.ZERO;
     }
 
     try {
       publicKeys = await this.typedOracle.getPublicKeysForAddress(AztecAddress.fromField(fromACVMField(address)));
-    } catch(err) {
+    } catch (err) {
       publicKeys = Array(4).fill(Point.ZERO);
     }
-
-    console.log('partial address', partialAddress);
-    console.log('public keys', publicKeys);
 
     const acvmKeys = publicKeys.flatMap(key => key.toFields());
 
