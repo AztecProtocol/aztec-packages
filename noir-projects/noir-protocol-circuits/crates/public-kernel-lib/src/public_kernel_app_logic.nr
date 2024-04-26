@@ -30,8 +30,14 @@ impl PublicKernelAppLogicCircuitPrivateInputs {
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
 
+        // validate constants injected into the public call are correct or set them if this is the first public call
+        common::initialize_from_or_validate_public_call_variables(self.previous_kernel, self.public_call, &mut public_inputs);
+
         // validate the inputs unique to having a previous public kernel
         self.validate_inputs();
+
+        common::validate_start_gas(self.public_call, self.previous_kernel);
+        common::validate_transaction_fee_is_zero(self.public_call);
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
@@ -463,5 +469,44 @@ mod tests {
         let output = builder.execute();
         assert_eq(output.end.gas_used, Gas::new(500, 500, 500));
         assert_eq(output.end_non_revertible.gas_used, Gas::new(0, 0, 0));
+    }
+
+    #[test(should_fail_with="Start gas for public phase does not match transaction gas left")]
+    fn validates_start_gas() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.start_gas_left = Gas::new(200, 100, 100);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Transaction fee must be zero on setup and app phases")]
+    fn validates_transaction_fee() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.transaction_fee = 10;
+
+        builder.failed();
+    }
+
+    #[test]
+    fn propagates_global_variables_if_empty() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.global_variables.block_number = 11;
+
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.constants.global_variables.block_number, 11);
+    }
+
+    #[test(should_fail_with="Global variables injected into the public call do not match constants")]
+    fn validates_global_variables() {
+        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel.global_variables.block_number = 10;
+        builder.public_call.public_inputs.global_variables.block_number = 11;
+
+        builder.failed();
     }
 }
