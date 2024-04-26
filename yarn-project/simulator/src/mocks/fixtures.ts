@@ -117,6 +117,7 @@ export class PublicExecutionResultBuilder {
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
+      allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,

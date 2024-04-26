@@ -22,6 +22,7 @@ function emptyExecutionResult(): ExecutionResult {
     enqueuedPublicFunctionCalls: [],
     encryptedLogs: EncryptedFunctionL2Logs.empty(),
     unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
+    allEncryptedLogs: EncryptedFunctionL2Logs.empty(),
   };
 }
 

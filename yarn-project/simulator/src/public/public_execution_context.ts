@@ -40,6 +40,9 @@ export class PublicExecutionContext extends TypedOracle {
     public readonly stateDb: PublicStateDB,
     public readonly contractsDb: PublicContractsDB,
     public readonly commitmentsDb: CommitmentsDB,
+    // Unencrypted logs emitted during this call AND any nested calls
+    // Useful for maintaining correct ordering in ts
+    private allUnencryptedLogs: UnencryptedL2Log[] = [],
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -82,6 +85,14 @@ export class PublicExecutionContext extends TypedOracle {
   public getUnencryptedLogs() {
     return new UnencryptedFunctionL2Logs(this.unencryptedLogs);
   }
+
+  /**
+   * Return the encrypted logs emitted during this execution, including nested calls.
+   */
+  public getAllUnencryptedLogs() {
+    return new UnencryptedFunctionL2Logs(this.allUnencryptedLogs);
+  }
+  
 
   /**
    * Return the data read and updated during this execution.
@@ -133,6 +144,7 @@ export class PublicExecutionContext extends TypedOracle {
    */
   public override emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
+    this.allUnencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);
   }
 
@@ -220,6 +232,7 @@ export class PublicExecutionContext extends TypedOracle {
       this.stateDb,
       this.contractsDb,
       this.commitmentsDb,
+      this.allUnencryptedLogs,
       this.log,
     );
 

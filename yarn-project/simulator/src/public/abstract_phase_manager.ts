@@ -242,6 +242,7 @@ export abstract class AbstractPhaseManager {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
+        // TODO(6052): Extract correct new counter from nested calls
         const sideEffectCounter = lastSideEffectCounter(tx) + 1;
 
         const result = isExecutionRequest
@@ -257,8 +258,8 @@ export abstract class AbstractPhaseManager {
           );
           throw result.revertReason;
         }
-
-        newUnencryptedFunctionLogs.push(result.unencryptedLogs);
+        
+        if (isExecutionRequest) newUnencryptedFunctionLogs.push(result.allUnencryptedLogs);
 
         this.log.debug(
           `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,

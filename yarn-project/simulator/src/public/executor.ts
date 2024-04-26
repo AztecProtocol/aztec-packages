@@ -151,6 +151,7 @@ async function executePublicFunctionAcvm(
       unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       unencryptedLogPreimagesLength: new Fr(4n), // empty logs have len 4
+      allUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       reverted,
       revertReason,
       gasLeft: Gas.empty(),
@@ -198,6 +199,7 @@ async function executePublicFunctionAcvm(
 
   const nestedExecutions = context.getNestedExecutions();
   const unencryptedLogs = context.getUnencryptedLogs();
+  const allUnencryptedLogs = context.getAllUnencryptedLogs();
   const gasLeft = Gas.test(); // TODO(palla/gas): Set proper value
 
   return {
@@ -216,6 +218,7 @@ async function executePublicFunctionAcvm(
     unencryptedLogsHashes,
     unencryptedLogs,
     unencryptedLogPreimagesLength,
+    allUnencryptedLogs,
     reverted: false,
     revertReason: undefined,
     gasLeft,

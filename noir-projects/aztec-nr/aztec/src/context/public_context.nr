@@ -111,7 +111,7 @@ impl PublicContext {
         is_delegate_call: bool
     ) -> FunctionReturns<RETURNS_COUNT> {
         let side_effect_counter = self.side_effect_counter;
-        // TODO get next value from output of `call_public_function_internal`
+        // TODO(6052): get next value from output of `call_public_function_internal`
         self.side_effect_counter += 1;
 
         let raw_returns = call_public_function_internal(
