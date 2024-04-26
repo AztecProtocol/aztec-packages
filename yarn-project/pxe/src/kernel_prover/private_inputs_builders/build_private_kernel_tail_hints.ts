@@ -19,6 +19,7 @@ import {
   type SideEffect,
   type SideEffectType,
   buildNullifierReadRequestHints,
+  buildTransientDataHints,
   countAccumulatedItems,
   sortByCounterGetSortedHints,
 } from '@aztec/circuits.js';
@@ -26,8 +27,8 @@ import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
-import { buildTransientDataHints } from './build_transient_data_hints.js';
 
+/** @deprecated Use sortByCounterGetSortedHints instead */
 function sortSideEffects<T extends SideEffectType, K extends number>(
   sideEffects: Tuple<T, K>,
 ): [Tuple<T, K>, Tuple<number, K>] {
