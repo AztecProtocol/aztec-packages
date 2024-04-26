@@ -49,7 +49,7 @@ fn pad(input: &[u8]) -> Vec<u8> {
 pub(super) fn aes128_encrypt(
     backend: &impl BlackBoxFunctionSolver,
     initial_witness: &mut WitnessMap,
-    inputs: &Vec<FunctionInput>,
+    inputs: &[FunctionInput],
     iv: &[FunctionInput; 16],
     key: &[FunctionInput; 16],
     outputs: &[Witness],

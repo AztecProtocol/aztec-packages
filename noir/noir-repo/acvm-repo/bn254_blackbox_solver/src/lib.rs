@@ -3,14 +3,13 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies, unused_extern_crates))]
 
 use acir::{BlackBoxFunc, FieldElement};
-use acvm_blackbox_solver::{BlackBoxFunctionSolver, BlackBoxResolutionError};
+use acvm_blackbox_solver::{aes128_encrypt, BlackBoxFunctionSolver, BlackBoxResolutionError};
 
 mod fixed_base_scalar_mul;
 mod poseidon2;
 mod wasm;
 
 pub use fixed_base_scalar_mul::{embedded_curve_add, fixed_base_scalar_mul};
-use libaes::Cipher;
 pub use poseidon2::poseidon2_permutation;
 use wasm::Barretenberg;
 
@@ -55,9 +54,7 @@ impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
         iv: [u8; 16],
         key: [u8; 16],
     ) -> Result<Vec<u8>, BlackBoxResolutionError> {
-        let cipher = Cipher::new_128(&key);
-        let encrypted = cipher.cbc_encrypt(&iv, inputs);
-        Ok(encrypted)
+        aes128_encrypt(inputs, iv, key)
     }
 
     fn schnorr_verify(
