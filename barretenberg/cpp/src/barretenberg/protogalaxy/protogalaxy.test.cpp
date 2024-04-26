@@ -367,14 +367,14 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         Builder builder1;
         Builder builder2;
         Builder builder3;
-        // Create inhomogenous circuits by calling the circuit gen function multiple times
         construct_circuit(builder1);
-        for (size_t i = 0; i < 3; ++i) {
-            construct_circuit(builder2);
-        }
-        for (size_t i = 0; i < 20; ++i) {
-            construct_circuit(builder3);
-        }
+        construct_circuit(builder2);
+        construct_circuit(builder3);
+
+        // Create inhomogenous circuits by adding a different number of add gates to each
+        MockCircuits::add_arithmetic_gates(builder1, 10);
+        MockCircuits::add_arithmetic_gates(builder2, 100);
+        MockCircuits::add_arithmetic_gates(builder3, 1000);
 
         // Construct the Prover/Verifier instances for the first two circuits
         TupleOfInstances instances;
