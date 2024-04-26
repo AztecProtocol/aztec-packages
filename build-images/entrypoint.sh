@@ -19,10 +19,4 @@ if [ -S /var/run/docker.sock ]; then
     fi
 fi
 
-# Make npm global installs go the users home directory.
-# gosu aztec-dev mkdir -p /home/aztec-dev/.npm-global
-# gosu aztec-dev npm config set prefix '/home/aztec-dev/.npm-global'
-# export PATH=/home/aztec-dev/.npm-global/bin:/home/aztec-dev/.cargo/bin:$PATH
-# export CARGO_HOME=/home/aztec-dev/.cargo
-
 exec /usr/sbin/gosu aztec-dev "$@"

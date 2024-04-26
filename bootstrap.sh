@@ -17,9 +17,6 @@ RESET="\033[0m"
 
 source ./build-system/scripts/setup_env '' '' '' > /dev/null
 
-# Let's update PATH to find foundry where our build images puts it.
-export PATH=/opt/foundry/bin:$PATH
-
 function encourage_dev_container {
   echo -e "${BOLD}${RED}ERROR: Toolchain incompatability. We encourage use of our dev container. See build-images/README.md.${RESET}"
 }
