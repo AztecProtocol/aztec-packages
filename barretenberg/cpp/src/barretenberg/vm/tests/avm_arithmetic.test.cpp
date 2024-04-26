@@ -353,7 +353,6 @@ TEST_F(AvmArithmeticTestsFF, subtraction)
     EXPECT_EQ(alu_row.avm_alu_cf, FF(0));
     EXPECT_EQ(alu_row.avm_alu_u8_r0, FF(0));
 
-    avm_trace::log_avm_trace(trace, 0, 10);
     validate_trace(std::move(trace));
 }
 
@@ -512,7 +511,7 @@ TEST_F(AvmArithmeticTestsFF, mixedOperationsWithError)
     trace_builder.halt();
 
     auto trace = trace_builder.finalize();
-    validate_trace(std::move(trace));
+    validate_trace(std::move(trace), true);
 }
 
 // Test of equality on FF elements
