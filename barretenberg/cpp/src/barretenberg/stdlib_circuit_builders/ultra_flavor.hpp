@@ -284,6 +284,7 @@ class UltraFlavor {
     /**
      * @brief A container for polynomials handles.
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/966): use inheritance
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
         // Define all operations as default, except copy construction/assignment
