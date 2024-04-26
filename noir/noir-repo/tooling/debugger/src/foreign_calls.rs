@@ -5,7 +5,7 @@ use acvm::{
 };
 use nargo::{
     artifacts::debug::{DebugArtifact, DebugVars, StackFrame},
-    ops::{DefaultForeignCallExecutor, ForeignCallExecutor},
+    ops::{DefaultForeignCallExecutor, ForeignCallExecutor, ResolverOpts},
 };
 use noirc_errors::debug_info::{DebugFnId, DebugVarId};
 use noirc_printable_type::ForeignCallError;
@@ -51,7 +51,7 @@ pub struct DefaultDebugForeignCallExecutor {
 impl DefaultDebugForeignCallExecutor {
     pub fn new(show_output: bool) -> Self {
         Self {
-            executor: DefaultForeignCallExecutor::new(show_output, None),
+            executor: DefaultForeignCallExecutor::new(show_output, &ResolverOpts::none()),
             debug_vars: DebugVars::default(),
         }
     }

@@ -14,11 +14,11 @@ WORKDIR /usr/src/noir-projects
 COPY . .
 # Build
 WORKDIR /usr/src/noir-projects/noir-contracts
-RUN ./bootstrap.sh && nargo test --silence-warnings
+RUN ./bootstrap.sh && nargo test --silence-warnings --mock-oracle-resolver
 WORKDIR /usr/src/noir-projects/noir-protocol-circuits
-RUN ./bootstrap.sh && nargo test --silence-warnings
+RUN ./bootstrap.sh && nargo test --silence-warnings --mock-oracle-resolver
 WORKDIR /usr/src/noir-projects/aztec-nr
-RUN nargo test --silence-warnings
+RUN nargo test --silence-warnings --mock-oracle-resolver
 
 FROM scratch
 COPY --from=builder /usr/src/noir-projects /usr/src/noir-projects

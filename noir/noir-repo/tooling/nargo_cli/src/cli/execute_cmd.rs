@@ -5,7 +5,7 @@ use clap::Args;
 use nargo::artifacts::debug::DebugArtifact;
 use nargo::constants::PROVER_INPUT_FILE;
 use nargo::errors::try_to_diagnose_runtime_error;
-use nargo::ops::{compile_program, report_errors, DefaultForeignCallExecutor};
+use nargo::ops::{compile_program, report_errors, DefaultForeignCallExecutor, ResolverOpts};
 use nargo::package::Package;
 use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
@@ -46,6 +46,10 @@ pub(crate) struct ExecuteCommand {
     /// JSON RPC url to solve oracle calls
     #[clap(long)]
     oracle_resolver: Option<String>,
+
+    /// Use a mock oracle resolver that returns zero to every request
+    #[clap(long)]
+    mock_oracle_resolver: bool,
 }
 
 pub(crate) fn run(
@@ -91,11 +95,14 @@ pub(crate) fn run(
 
         let compiled_program = nargo::ops::transform_program(compiled_program, expression_width);
 
+        let resolver_opts =
+            ResolverOpts::new(args.oracle_resolver.as_deref(), args.mock_oracle_resolver);
+
         let (return_value, witness_stack) = execute_program_and_decode(
             compiled_program,
             package,
             &args.prover_name,
-            args.oracle_resolver.as_deref(),
+            &resolver_opts,
         )?;
 
         println!("[{}] Circuit witness successfully solved", package.name);
@@ -115,12 +122,12 @@ fn execute_program_and_decode(
     program: CompiledProgram,
     package: &Package,
     prover_name: &str,
-    foreign_call_resolver_url: Option<&str>,
+    resolver_opts: &ResolverOpts,
 ) -> Result<(Option<InputValue>, WitnessStack), CliError> {
     // Parse the initial witness values from Prover.toml
     let (inputs_map, _) =
         read_inputs_from_file(&package.root_dir, prover_name, Format::Toml, &program.abi)?;
-    let witness_stack = execute_program(&program, &inputs_map, foreign_call_resolver_url)?;
+    let witness_stack = execute_program(&program, &inputs_map, resolver_opts)?;
     let public_abi = program.abi.public_abi();
     // Get the entry point witness for the ABI
     let main_witness =
@@ -133,7 +140,7 @@ fn execute_program_and_decode(
 pub(crate) fn execute_program(
     compiled_program: &CompiledProgram,
     inputs_map: &InputMap,
-    foreign_call_resolver_url: Option<&str>,
+    resolver_opts: &ResolverOpts,
 ) -> Result<WitnessStack, CliError> {
     let blackbox_solver = Bn254BlackBoxSolver::new();
 
@@ -143,7 +150,7 @@ pub(crate) fn execute_program(
         &compiled_program.program,
         initial_witness,
         &blackbox_solver,
-        &mut DefaultForeignCallExecutor::new(true, foreign_call_resolver_url),
+        &mut DefaultForeignCallExecutor::new(true, resolver_opts),
     );
     match solved_witness_stack_err {
         Ok(solved_witness_stack) => Ok(solved_witness_stack),

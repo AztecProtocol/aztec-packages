@@ -3,7 +3,7 @@ use std::future::{self, Future};
 use async_lsp::{ErrorCode, ResponseError};
 use nargo::{
     insert_all_files_for_workspace_into_file_manager,
-    ops::{run_test, TestStatus},
+    ops::{run_test, ResolverOpts, TestStatus},
     prepare_package,
 };
 use nargo_toml::{find_package_manifest, resolve_workspace_from_toml, PackageSelection};
@@ -86,7 +86,7 @@ fn on_test_run_request_inner(
                 &mut context,
                 &test_function,
                 false,
-                None,
+                &ResolverOpts::none(),
                 &CompileOptions::default(),
             );
             let result = match test_result {

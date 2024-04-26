@@ -1,6 +1,6 @@
 use clap::Args;
 use nargo::constants::{PROVER_INPUT_FILE, VERIFIER_INPUT_FILE};
-use nargo::ops::{compile_program, report_errors};
+use nargo::ops::{compile_program, report_errors, ResolverOpts};
 use nargo::package::Package;
 use nargo::workspace::Workspace;
 use nargo::{insert_all_files_for_workspace_into_file_manager, parse_all};
@@ -48,6 +48,10 @@ pub(crate) struct ProveCommand {
     /// JSON RPC url to solve oracle calls
     #[clap(long)]
     oracle_resolver: Option<String>,
+
+    /// Use a mock oracle resolver that returns zero to every request
+    #[clap(long)]
+    mock_oracle_resolver: bool,
 }
 
 pub(crate) fn run(
@@ -92,6 +96,9 @@ pub(crate) fn run(
 
         let compiled_program = nargo::ops::transform_program(compiled_program, expression_width);
 
+        let resolver_opts =
+            ResolverOpts::new(args.oracle_resolver.as_deref(), args.mock_oracle_resolver);
+
         prove_package(
             backend,
             &workspace,
@@ -100,7 +107,7 @@ pub(crate) fn run(
             &args.prover_name,
             &args.verifier_name,
             args.verify,
-            args.oracle_resolver.as_deref(),
+            &resolver_opts,
         )?;
     }
 
@@ -116,13 +123,13 @@ pub(crate) fn prove_package(
     prover_name: &str,
     verifier_name: &str,
     check_proof: bool,
-    foreign_call_resolver_url: Option<&str>,
+    resolver_opts: &ResolverOpts,
 ) -> Result<(), CliError> {
     // Parse the initial witness values from Prover.toml
     let (inputs_map, _) =
         read_inputs_from_file(&package.root_dir, prover_name, Format::Toml, &compiled_program.abi)?;
 
-    let witness_stack = execute_program(&compiled_program, &inputs_map, foreign_call_resolver_url)?;
+    let witness_stack = execute_program(&compiled_program, &inputs_map, resolver_opts)?;
 
     // Write public inputs into Verifier.toml
     let public_abi = compiled_program.abi.public_abi();

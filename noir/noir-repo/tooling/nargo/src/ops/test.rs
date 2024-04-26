@@ -9,7 +9,7 @@ use noirc_frontend::hir::{def_map::TestFunction, Context};
 
 use crate::{errors::try_to_diagnose_runtime_error, NargoError};
 
-use super::{execute_program, DefaultForeignCallExecutor};
+use super::{execute_program, DefaultForeignCallExecutor, ResolverOpts};
 
 pub enum TestStatus {
     Pass,
@@ -28,7 +28,7 @@ pub fn run_test<B: BlackBoxFunctionSolver>(
     context: &mut Context,
     test_function: &TestFunction,
     show_output: bool,
-    foreign_call_resolver_url: Option<&str>,
+    resolver_opts: &ResolverOpts,
     config: &CompileOptions,
 ) -> TestStatus {
     let compiled_program = compile_no_check(context, config, test_function.get_id(), None, false);
@@ -40,7 +40,7 @@ pub fn run_test<B: BlackBoxFunctionSolver>(
                 &compiled_program.program,
                 WitnessMap::new(),
                 blackbox_solver,
-                &mut DefaultForeignCallExecutor::new(show_output, foreign_call_resolver_url),
+                &mut DefaultForeignCallExecutor::new(show_output, resolver_opts),
             );
             test_status_program_compile_pass(
                 test_function,

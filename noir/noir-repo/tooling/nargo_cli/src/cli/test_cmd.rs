@@ -5,8 +5,10 @@ use bn254_blackbox_solver::Bn254BlackBoxSolver;
 use clap::Args;
 use fm::FileManager;
 use nargo::{
-    insert_all_files_for_workspace_into_file_manager, ops::TestStatus, package::Package, parse_all,
-    prepare_package,
+    insert_all_files_for_workspace_into_file_manager,
+    ops::{ResolverOpts, TestStatus},
+    package::Package,
+    parse_all, prepare_package,
 };
 use nargo_toml::{get_package_manifest, resolve_workspace_from_toml, PackageSelection};
 use noirc_driver::{
@@ -52,6 +54,10 @@ pub(crate) struct TestCommand {
     /// JSON RPC url to solve oracle calls
     #[clap(long)]
     oracle_resolver: Option<String>,
+
+    /// Use a mock oracle resolver that returns zero to every request
+    #[clap(long)]
+    mock_oracle_resolver: bool,
 }
 
 pub(crate) fn run(
@@ -84,6 +90,9 @@ pub(crate) fn run(
         None => FunctionNameMatch::Anything,
     };
 
+    let resolver_opts =
+        ResolverOpts::new(args.oracle_resolver.as_deref(), args.mock_oracle_resolver);
+
     let test_reports: Vec<Vec<(String, TestStatus)>> = workspace
         .into_iter()
         .par_bridge()
@@ -94,7 +103,7 @@ pub(crate) fn run(
                 package,
                 pattern,
                 args.show_output,
-                args.oracle_resolver.as_deref(),
+                &resolver_opts,
                 &args.compile_options,
             )
         })
@@ -129,7 +138,7 @@ fn run_tests<S: BlackBoxFunctionSolver + Default>(
     package: &Package,
     fn_name: FunctionNameMatch,
     show_output: bool,
-    foreign_call_resolver_url: Option<&str>,
+    resolver_opts: &ResolverOpts,
     compile_options: &CompileOptions,
 ) -> Result<Vec<(String, TestStatus)>, CliError> {
     let test_functions =
@@ -149,7 +158,7 @@ fn run_tests<S: BlackBoxFunctionSolver + Default>(
                 package,
                 &test_name,
                 show_output,
-                foreign_call_resolver_url,
+                resolver_opts,
                 compile_options,
             );
 
@@ -167,7 +176,7 @@ fn run_test<S: BlackBoxFunctionSolver + Default>(
     package: &Package,
     fn_name: &str,
     show_output: bool,
-    foreign_call_resolver_url: Option<&str>,
+    resolver_opts: &nargo::ops::ResolverOpts,
     compile_options: &CompileOptions,
 ) -> TestStatus {
     // This is really hacky but we can't share `Context` or `S` across threads.
@@ -193,7 +202,7 @@ fn run_test<S: BlackBoxFunctionSolver + Default>(
         &mut context,
         test_function,
         show_output,
-        foreign_call_resolver_url,
+        resolver_opts,
         compile_options,
     )
 }

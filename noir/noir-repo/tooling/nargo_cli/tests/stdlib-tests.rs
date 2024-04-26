@@ -5,7 +5,7 @@ use noirc_driver::{check_crate, file_manager_with_stdlib, CompileOptions};
 use noirc_frontend::hir::FunctionNameMatch;
 
 use nargo::{
-    ops::{report_errors, run_test, TestStatus},
+    ops::{report_errors, run_test, ResolverOpts, TestStatus},
     package::{Package, PackageType},
     parse_all, prepare_package,
 };
@@ -49,7 +49,7 @@ fn stdlib_noir_tests() {
                 &mut context,
                 &test_function,
                 false,
-                None,
+                &ResolverOpts::none(),
                 &CompileOptions::default(),
             );
 

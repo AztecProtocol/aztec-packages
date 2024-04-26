@@ -26,6 +26,6 @@ build:
 
 test:
   FROM +build
-  RUN cd noir-protocol-circuits && nargo test --silence-warnings
-  RUN cd aztec-nr && nargo test --silence-warnings
-  RUN cd noir-contracts && nargo test --silence-warnings
+  RUN cd noir-protocol-circuits && nargo test --silence-warnings --mock-oracle-resolver
+  RUN cd aztec-nr && nargo test --silence-warnings --mock-oracle-resolver
+  RUN cd noir-contracts && nargo test --silence-warnings --mock-oracle-resolver

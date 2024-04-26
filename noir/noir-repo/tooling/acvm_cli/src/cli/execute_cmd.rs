@@ -7,7 +7,7 @@ use clap::Args;
 
 use crate::cli::fs::inputs::{read_bytecode_from_file, read_inputs_from_file};
 use crate::errors::CliError;
-use nargo::ops::{execute_program, DefaultForeignCallExecutor};
+use nargo::ops::{execute_program, DefaultForeignCallExecutor, ResolverOpts};
 
 use super::fs::witness::{create_output_witness_string, save_witness_to_dir};
 
@@ -38,7 +38,8 @@ pub(crate) struct ExecuteCommand {
 fn run_command(args: ExecuteCommand) -> Result<String, CliError> {
     let bytecode = read_bytecode_from_file(&args.working_directory, &args.bytecode)?;
     let circuit_inputs = read_inputs_from_file(&args.working_directory, &args.input_witness)?;
-    let output_witness = execute_program_from_witness(circuit_inputs, &bytecode, None)?;
+    let output_witness =
+        execute_program_from_witness(circuit_inputs, &bytecode, &ResolverOpts::none())?;
     assert_eq!(output_witness.length(), 1, "ACVM CLI only supports a witness stack of size 1");
     let output_witness_string = create_output_witness_string(
         &output_witness.peek().expect("Should have a witness stack item").witness,
@@ -65,7 +66,7 @@ pub(crate) fn run(args: ExecuteCommand) -> Result<String, CliError> {
 pub(crate) fn execute_program_from_witness(
     inputs_map: WitnessMap,
     bytecode: &[u8],
-    foreign_call_resolver_url: Option<&str>,
+    resolver_opts: &ResolverOpts,
 ) -> Result<WitnessStack, CliError> {
     let blackbox_solver = Bn254BlackBoxSolver::new();
     let program: Program = Program::deserialize_program(bytecode)
@@ -74,7 +75,7 @@ pub(crate) fn execute_program_from_witness(
         &program,
         inputs_map,
         &blackbox_solver,
-        &mut DefaultForeignCallExecutor::new(true, foreign_call_resolver_url),
+        &mut DefaultForeignCallExecutor::new(true, resolver_opts),
     )
     .map_err(CliError::CircuitExecutionError)
 }

@@ -94,6 +94,51 @@ impl MockedCall {
     }
 }
 
+trait ExternalResolver: std::fmt::Debug {
+    fn execute(&self, call: &ForeignCallWaitInfo) -> ForeignCallResult;
+}
+
+#[derive(Debug)]
+struct JsonRpcExternalResolver {
+    client: Client,
+}
+
+impl JsonRpcExternalResolver {
+    fn new(resolver_url: &str) -> Self {
+        let mut transport_builder =
+            Builder::new().url(resolver_url).expect("Invalid oracle resolver URL");
+
+        if let Some(Ok(timeout)) =
+            std::env::var("NARGO_FOREIGN_CALL_TIMEOUT").ok().map(|timeout| timeout.parse())
+        {
+            let timeout_duration = std::time::Duration::from_millis(timeout);
+            transport_builder = transport_builder.timeout(timeout_duration);
+        };
+
+        let client = Client::with_transport(transport_builder.build());
+
+        JsonRpcExternalResolver { client }
+    }
+}
+
+impl ExternalResolver for JsonRpcExternalResolver {
+    fn execute(&self, call: &ForeignCallWaitInfo) -> ForeignCallResult {
+        let encoded_params: Vec<_> = call.inputs.iter().map(build_json_rpc_arg).collect();
+        let request = self.client.build_request(call.function.as_str(), &encoded_params);
+        let response = self.client.send_request(request).expect("Failed to send request");
+        response.result().expect("Failed to parse response")
+    }
+}
+
+#[derive(Debug)]
+struct MockExternalResolver;
+
+impl ExternalResolver for MockExternalResolver {
+    fn execute(&self, _call: &ForeignCallWaitInfo) -> ForeignCallResult {
+        FieldElement::from(0_usize).into()
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct DefaultForeignCallExecutor {
     /// Mocks have unique ids used to identify them in Noir, allowing to update or remove them.
@@ -102,27 +147,54 @@ pub struct DefaultForeignCallExecutor {
     mocked_responses: Vec<MockedCall>,
     /// Whether to print [`ForeignCall::Print`] output.
     show_output: bool,
-    /// JSON RPC client to resolve foreign calls
-    external_resolver: Option<Client>,
+    /// External resolver for foreign calls
+    external_resolver: Option<Box<dyn ExternalResolver>>,
+}
+
+#[derive(Debug)]
+pub struct ResolverOpts {
+    pub resolver_url: Option<String>,
+    pub mock_resolver: bool,
+}
+
+impl ResolverOpts {
+    pub fn new(resolver_url: Option<&str>, mock_resolver: bool) -> Self {
+        Self {
+            resolver_url: resolver_url.map(|resolver_url| resolver_url.to_string()),
+            mock_resolver,
+        }
+    }
+
+    pub fn none() -> Self {
+        Self { resolver_url: None, mock_resolver: false }
+    }
+
+    pub fn rpc(resolver_url: &str) -> Self {
+        Self { resolver_url: Some(resolver_url.to_string()), mock_resolver: false }
+    }
+
+    pub fn mock() -> Self {
+        Self { resolver_url: None, mock_resolver: true }
+    }
 }
 
 impl DefaultForeignCallExecutor {
-    pub fn new(show_output: bool, resolver_url: Option<&str>) -> Self {
-        let oracle_resolver = resolver_url.map(|resolver_url| {
-            let mut transport_builder =
-                Builder::new().url(resolver_url).expect("Invalid oracle resolver URL");
-
-            if let Some(Ok(timeout)) =
-                std::env::var("NARGO_FOREIGN_CALL_TIMEOUT").ok().map(|timeout| timeout.parse())
-            {
-                let timeout_duration = std::time::Duration::from_millis(timeout);
-                transport_builder = transport_builder.timeout(timeout_duration);
+    pub fn new(show_output: bool, resolver: &ResolverOpts) -> Self {
+        let ResolverOpts { resolver_url, mock_resolver } = resolver;
+        let external_resolver: Option<Box<dyn ExternalResolver>> =
+            match (resolver_url, mock_resolver) {
+                (Some(_), true) => {
+                    panic!("Cannot have both an external resolver and a mock resolver")
+                }
+                (Some(resolver_url), _) => {
+                    Some(Box::new(JsonRpcExternalResolver::new(resolver_url.as_str())))
+                }
+                (None, true) => Some(Box::new(MockExternalResolver {})),
+                _ => None,
             };
-            Client::with_transport(transport_builder.build())
-        });
         DefaultForeignCallExecutor {
             show_output,
-            external_resolver: oracle_resolver,
+            external_resolver,
             ..DefaultForeignCallExecutor::default()
         }
     }
@@ -269,19 +341,7 @@ impl ForeignCallExecutor for DefaultForeignCallExecutor {
 
                         Ok(result.into())
                     }
-                    (None, Some(external_resolver)) => {
-                        let encoded_params: Vec<_> =
-                            foreign_call.inputs.iter().map(build_json_rpc_arg).collect();
-
-                        let req =
-                            external_resolver.build_request(foreign_call_name, &encoded_params);
-
-                        let response = external_resolver.send_request(req)?;
-
-                        let parsed_response: ForeignCallResult = response.result()?;
-
-                        Ok(parsed_response)
-                    }
+                    (None, Some(external_resolver)) => Ok(external_resolver.execute(foreign_call)),
                     (None, None) => panic!(
                         "No mock for foreign call {}({:?})",
                         foreign_call_name, &foreign_call.inputs
@@ -302,7 +362,9 @@ mod tests {
     use jsonrpc_derive::rpc;
     use jsonrpc_http_server::{Server, ServerBuilder};
 
-    use crate::ops::{DefaultForeignCallExecutor, ForeignCallExecutor};
+    use crate::ops::{
+        foreign_calls::ResolverOpts, DefaultForeignCallExecutor, ForeignCallExecutor,
+    };
 
     #[allow(unreachable_pub)]
     #[rpc]
@@ -349,7 +411,7 @@ mod tests {
     fn test_oracle_resolver_echo() {
         let (server, url) = build_oracle_server();
 
-        let mut executor = DefaultForeignCallExecutor::new(false, Some(&url));
+        let mut executor = DefaultForeignCallExecutor::new(false, &ResolverOpts::rpc(&url));
 
         let foreign_call = ForeignCallWaitInfo {
             function: "echo".to_string(),
@@ -366,7 +428,7 @@ mod tests {
     fn test_oracle_resolver_sum() {
         let (server, url) = build_oracle_server();
 
-        let mut executor = DefaultForeignCallExecutor::new(false, Some(&url));
+        let mut executor = DefaultForeignCallExecutor::new(false, &ResolverOpts::rpc(&url));
 
         let foreign_call = ForeignCallWaitInfo {
             function: "sum".to_string(),
@@ -377,5 +439,18 @@ mod tests {
         assert_eq!(result.unwrap(), FieldElement::from(3_usize).into());
 
         server.close();
+    }
+
+    #[test]
+    fn test_mock_resolver() {
+        let mut executor = DefaultForeignCallExecutor::new(false, &ResolverOpts::mock());
+
+        let foreign_call = ForeignCallWaitInfo {
+            function: "sum".to_string(),
+            inputs: vec![ForeignCallParam::Array(vec![1_usize.into(), 2_usize.into()])],
+        };
+
+        let result = executor.execute(&foreign_call);
+        assert_eq!(result.unwrap(), FieldElement::from(0_usize).into());
     }
 }
