@@ -43,7 +43,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         PrivateKernelCircuitPublicInputsComposer { public_inputs }
     }
 
-    pub fn initialize_from_previous_kernel(previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs) -> Self {
+    pub fn new_from_previous_kernel(previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs) -> Self {
         let mut public_inputs = PrivateKernelCircuitPublicInputsBuilder::empty();
         initialize_end_values(previous_kernel_public_inputs, &mut public_inputs);
 

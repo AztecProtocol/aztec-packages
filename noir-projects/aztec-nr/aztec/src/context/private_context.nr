@@ -103,14 +103,12 @@ impl ContextInterface for PrivateContext {
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        let side_effect = NoteHash { value: note_hash, counter: self.side_effect_counter };
-        self.new_note_hashes.push(side_effect);
+        self.new_note_hashes.push(NoteHash { value: note_hash, counter: self.side_effect_counter });
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field) {
-        let side_effect = Nullifier { value: nullifier, note_hash: nullified_commitment, counter: self.side_effect_counter };
-        self.new_nullifiers.push(side_effect);
+    fn push_new_nullifier(&mut self, nullifier: Field, nullified_note_hash: Field) {
+        self.new_nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash, counter: self.side_effect_counter });
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 }

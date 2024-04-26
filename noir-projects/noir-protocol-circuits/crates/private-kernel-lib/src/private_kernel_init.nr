@@ -1,4 +1,4 @@
-use crate::{common, private_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer};
+use crate::{common, private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer};
 use dep::types::{
     abis::{
     gas_settings::GasSettings, combined_constant_data::CombinedConstantData,

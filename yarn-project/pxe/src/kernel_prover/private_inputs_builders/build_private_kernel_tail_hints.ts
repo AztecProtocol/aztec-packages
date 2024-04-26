@@ -26,6 +26,7 @@ import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 import { type ProvingDataOracle } from '../proving_data_oracle.js';
+import { buildTransientDataHints } from './build_transient_data_hints.js';
 
 function sortSideEffects<T extends SideEffectType, K extends number>(
   sideEffects: Tuple<T, K>,
@@ -109,48 +110,6 @@ function getNullifierReadRequestHints(
   return buildNullifierReadRequestHints({ getNullifierMembershipWitness }, nullifierReadRequests, nullifiers);
 }
 
-/**
- * Performs the matching between an array of nullified note hashes and an array of note hashes. This produces
- * hints for the private kernel tail circuit to efficiently match a nullifier with the corresponding
- * note hash. Note that the same note hash value might appear more than once in the note hashes
- * (resp. nullified note hashes) array. It is crucial in this case that each hint points to a different index
- * of the nullified note hashes array. Otherwise, the private kernel will fail to validate.
- *
- * @param nullifiedNoteHashes - The array of nullified note hashes.
- * @param noteHashes - The array of note hashes.
- * @returns An array of hints where each element is the index of the note hash in note hashes array
- *  corresponding to the nullified note hash. In other words we have nullifiedNoteHashes[i] == noteHashes[hints[i]].
- */
-export function getTransientDataHints(
-  noteHashes: Tuple<NoteHashContext, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
-  nullifiers: Tuple<Nullifier, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-): [Tuple<number, typeof MAX_NEW_NOTE_HASHES_PER_TX>, Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>] {
-  const nullifierIndexMap: Map<number, number> = new Map();
-  nullifiers.forEach((n, i) => nullifierIndexMap.set(n.counter, i));
-
-  const nullifierIndexes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, () => MAX_NEW_NULLIFIERS_PER_TX);
-  const indexHints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, () => MAX_NEW_NOTE_HASHES_PER_TX);
-  const numNoteHashes = countAccumulatedItems(noteHashes);
-  for (let i = 0; i < numNoteHashes; i++) {
-    const noteHash = noteHashes[i];
-    if (noteHash.nullifierCounter > 0) {
-      const nullifierIndex = nullifierIndexMap.get(noteHash.nullifierCounter);
-      if (nullifierIndex === undefined) {
-        throw new Error('Unknown nullifier counter.');
-      }
-
-      const nullifier = nullifiers[nullifierIndex];
-      if (!nullifier.noteHash.equals(noteHash.value)) {
-        throw new Error('Note hash of the hinted nullifier does not match.');
-      }
-
-      nullifierIndexes[i] = nullifierIndex;
-      indexHints[nullifierIndex] = i;
-    }
-  }
-  return [nullifierIndexes, indexHints];
-}
-
 async function getMasterNullifierSecretKeys(
   nullifierKeyValidationRequests: Tuple<
     NullifierKeyValidationRequestContext,
@@ -209,14 +168,16 @@ export async function buildPrivateKernelTailHints(
     typeof MAX_UNENCRYPTED_LOGS_PER_TX
   >(publicInputs.end.unencryptedLogsHashes);
 
-  const [transientNullifierIndexesForNoteHashes, transientNullifierIndexHints] = getTransientDataHints(
+  const [transientNullifierIndexesForNoteHashes, transientNoteHashIndexesForNullifiers] = buildTransientDataHints(
     sortedNoteHashes,
     sortedNullifiers,
+    MAX_NEW_NOTE_HASHES_PER_TX,
+    MAX_NEW_NULLIFIERS_PER_TX,
   );
 
   return new PrivateKernelTailHints(
     transientNullifierIndexesForNoteHashes,
-    transientNullifierIndexHints,
+    transientNoteHashIndexesForNullifiers,
     noteHashReadRequestHints,
     nullifierReadRequestHints,
     masterNullifierSecretKeys,

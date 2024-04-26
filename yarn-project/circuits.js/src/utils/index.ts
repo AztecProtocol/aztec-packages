@@ -22,7 +22,7 @@ export function countAccumulatedItems<T extends IsEmpty>(arr: T[]) {
 export function mergeAccumulatedData<T extends IsEmpty, N extends number>(
   arr0: Tuple<T, N>,
   arr1: Tuple<T, N>,
-  length: N = arr0.length as N, // Need this for ts to deduct the return Tuple length.
+  length: N = arr0.length as N, // Need this for ts to infer the return Tuple length.
 ): Tuple<T, N> {
   const numNonEmptyItems0 = countAccumulatedItems(arr0);
   const numNonEmptyItems1 = countAccumulatedItems(arr1);
@@ -53,7 +53,7 @@ export function sortByCounter<T extends Ordered & IsEmpty, N extends number>(arr
 
 export function sortByCounterGetSortedHints<T extends Ordered & IsEmpty, N extends number>(
   arr: Tuple<T, N>,
-  length: N = arr.length as N, // Need this for ts to deduct the return Tuple length.
+  length: N = arr.length as N, // Need this for ts to infer the return Tuple length.
 ): [Tuple<T, N>, Tuple<number, N>] {
   const itemsWithIndexes = arr.map((item, i) => ({
     item,

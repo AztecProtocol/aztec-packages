@@ -33,7 +33,7 @@ struct KernelCircuitPublicInputsComposer {
     nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
     // Hints
     transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    transient_nullifier_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+    transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
     sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
@@ -50,7 +50,7 @@ impl KernelCircuitPublicInputsComposer {
         note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
         nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
         transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        transient_nullifier_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+        transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         sorted_note_hashes: [NoteHashContext; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_note_hashes_indexes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
         sorted_nullifiers: [Nullifier; MAX_NEW_NULLIFIERS_PER_TX],
@@ -68,7 +68,7 @@ impl KernelCircuitPublicInputsComposer {
             note_hashes,
             nullifiers,
             transient_nullifier_indexes_for_note_hashes,
-            transient_nullifier_index_hints,
+            transient_note_hash_indexes_for_nullifiers,
             sorted_note_hashes,
             sorted_note_hashes_indexes,
             sorted_nullifiers,
@@ -196,7 +196,7 @@ impl KernelCircuitPublicInputsComposer {
             self.note_hashes,
             self.nullifiers,
             self.transient_nullifier_indexes_for_note_hashes,
-            self.transient_nullifier_index_hints
+            self.transient_note_hash_indexes_for_nullifiers
         );
 
         // Currently all the transient note hashes and nullifiers must be cleared in the tail circuits.

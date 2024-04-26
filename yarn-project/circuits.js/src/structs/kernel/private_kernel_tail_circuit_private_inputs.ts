@@ -45,7 +45,7 @@ export class PrivateKernelTailHints {
     /**
      * Contains hints for the transient nullifiers to locate corresponding note hashes.
      */
-    public transientNullifierIndexHints: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public transientNoteHashIndexesForNullifiers: Tuple<number, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
@@ -96,7 +96,7 @@ export class PrivateKernelTailHints {
   toBuffer() {
     return serializeToBuffer(
       this.transientNullifierIndexesForNoteHashes,
-      this.transientNullifierIndexHints,
+      this.transientNoteHashIndexesForNullifiers,
       this.noteHashReadRequestHints,
       this.nullifierReadRequestHints,
       this.masterNullifierSecretKeys,

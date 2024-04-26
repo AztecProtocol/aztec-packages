@@ -6,7 +6,7 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
     expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
     expected_nullifiers: [Nullifier; NUM_NULLIFIERS],
     transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
-    transient_nullifier_index_hints: [u64; NUM_NULLIFIERS]
+    transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS]
 ) {
     let mut note_hashes_kept = 0;
     let mut note_hashes_removed = 0;
@@ -39,7 +39,7 @@ pub fn verify_squashed_transient_note_hashes_and_nullifiers<NUM_NOTE_HASHES, NUM
     let mut nullifiers_removed = 0;
     for i in 0..NUM_NULLIFIERS {
         let nullifier = nullifiers[i];
-        let index_hint = transient_nullifier_index_hints[i];
+        let index_hint = transient_note_hash_indexes_for_nullifiers[i];
         if index_hint == NUM_NOTE_HASHES {
             assert_eq(expected_nullifiers[nullifiers_kept], nullifier, "Propagated nullifier does not match");
             nullifiers_kept += 1;
@@ -72,7 +72,7 @@ mod tests {
         expected_note_hashes: [NoteHashContext; NUM_NOTE_HASHES],
         expected_nullifiers: [Nullifier; NUM_NULLIFIERS],
         transient_nullifier_indexes_for_note_hashes: [u64; NUM_NOTE_HASHES],
-        transient_nullifier_index_hints: [u64; NUM_NULLIFIERS],
+        transient_note_hash_indexes_for_nullifiers: [u64; NUM_NULLIFIERS],
     }
 
     impl<NUM_NOTE_HASHES, NUM_NULLIFIERS> TestDataBuilder<NUM_NOTE_HASHES, NUM_NULLIFIERS> {
@@ -93,7 +93,7 @@ mod tests {
             let expected_nullifiers = [nullifiers[2], Nullifier::empty(), Nullifier::empty()];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 3, 0];
-            let transient_nullifier_index_hints = [2, 0, 3];
+            let transient_note_hash_indexes_for_nullifiers = [2, 0, 3];
 
             TestDataBuilder {
                 num_note_hashes: 3,
@@ -103,7 +103,7 @@ mod tests {
                 expected_note_hashes,
                 expected_nullifiers,
                 transient_nullifier_indexes_for_note_hashes,
-                transient_nullifier_index_hints
+                transient_note_hash_indexes_for_nullifiers
             }
         }
 
@@ -124,7 +124,7 @@ mod tests {
             let expected_nullifiers = [Nullifier::empty(); 3];
 
             let transient_nullifier_indexes_for_note_hashes = [1, 2, 0];
-            let transient_nullifier_index_hints = [2, 0, 1];
+            let transient_note_hash_indexes_for_nullifiers = [2, 0, 1];
 
             TestDataBuilder {
                 num_note_hashes: 3,
@@ -134,7 +134,7 @@ mod tests {
                 expected_note_hashes,
                 expected_nullifiers,
                 transient_nullifier_indexes_for_note_hashes,
-                transient_nullifier_index_hints
+                transient_note_hash_indexes_for_nullifiers
             }
         }
 
@@ -145,7 +145,7 @@ mod tests {
                 self.expected_note_hashes,
                 self.expected_nullifiers,
                 self.transient_nullifier_indexes_for_note_hashes,
-                self.transient_nullifier_index_hints
+                self.transient_note_hash_indexes_for_nullifiers
             );
         }
     }
@@ -169,7 +169,7 @@ mod tests {
         builder.expected_note_hashes[0] = builder.note_hashes[1];
 
         // Keep the nullifier at index 2.
-        builder.transient_nullifier_index_hints[2] = builder.num_note_hashes;
+        builder.transient_note_hash_indexes_for_nullifiers[2] = builder.num_note_hashes;
         builder.expected_nullifiers[0] = builder.nullifiers[2];
 
         builder.verify();
@@ -224,7 +224,7 @@ mod tests {
     fn wrong_hint_for_transient_nullifier_index() {
         let mut builder = TestDataBuilder::default_all_clear();
 
-        builder.transient_nullifier_index_hints[0] = 1;
+        builder.transient_note_hash_indexes_for_nullifiers[0] = 1;
 
         builder.verify();
     }
@@ -272,7 +272,7 @@ mod tests {
         let mut builder = TestDataBuilder::default_all_clear();
 
         // Keep the nullifier at index 2.
-        builder.transient_nullifier_index_hints[2] = builder.num_note_hashes;
+        builder.transient_note_hash_indexes_for_nullifiers[2] = builder.num_note_hashes;
         builder.expected_nullifiers[0] = builder.nullifiers[2];
 
         builder.verify();

@@ -1402,7 +1402,7 @@ function mapPrivateKernelTailHintsToNoir(inputs: PrivateKernelTailHints): Privat
       inputs.transientNullifierIndexesForNoteHashes,
       mapNumberToNoir,
     ),
-    transient_nullifier_index_hints: mapTuple(inputs.transientNullifierIndexHints, mapNumberToNoir),
+    transient_note_hash_indexes_for_nullifiers: mapTuple(inputs.transientNoteHashIndexesForNullifiers, mapNumberToNoir),
     note_hash_read_request_hints: mapTuple(inputs.noteHashReadRequestHints, mapFieldToNoir),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     master_nullifier_secret_keys: mapTuple(inputs.masterNullifierSecretKeys, mapGrumpkinPrivateKeyToNoir),

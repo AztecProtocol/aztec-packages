@@ -20,7 +20,7 @@ struct PrivateKernelTailOutputs {
 
 struct PrivateKernelTailHints {
     transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-    transient_nullifier_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+    transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     note_hash_read_request_hints: [u64; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints,
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
@@ -64,7 +64,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
             self.outputs.note_hashes,
             self.outputs.nullifiers,
             self.hints.transient_nullifier_indexes_for_note_hashes,
-            self.hints.transient_nullifier_index_hints,
+            self.hints.transient_note_hash_indexes_for_nullifiers,
             self.hints.sorted_new_note_hashes,
             self.hints.sorted_new_note_hashes_indexes,
             self.hints.sorted_new_nullifiers,
@@ -107,7 +107,7 @@ mod tests {
         previous_kernel: FixtureBuilder,
         note_hash_read_request_hints: [u64; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
         transient_nullifier_indexes_for_note_hashes: [u64; MAX_NEW_NOTE_HASHES_PER_TX],
-        transient_nullifier_index_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+        transient_note_hash_indexes_for_nullifiers: [u64; MAX_NEW_NULLIFIERS_PER_TX],
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder,
     }
 
@@ -120,7 +120,7 @@ mod tests {
                 previous_kernel,
                 note_hash_read_request_hints: [0; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
                 transient_nullifier_indexes_for_note_hashes: [MAX_NEW_NULLIFIERS_PER_TX; MAX_NEW_NOTE_HASHES_PER_TX],
-                transient_nullifier_index_hints: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
+                transient_note_hash_indexes_for_nullifiers: [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX],
                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(MAX_NULLIFIER_READ_REQUESTS_PER_TX)
             }
         }
@@ -160,7 +160,7 @@ mod tests {
             self.previous_kernel.new_note_hashes.storage[note_hash_index].nullifier_counter = self.previous_kernel.new_nullifiers.get(nullifier_index).counter;
             self.previous_kernel.new_nullifiers.storage[nullifier_index].note_hash = self.previous_kernel.new_note_hashes.get(note_hash_index).value;
             self.transient_nullifier_indexes_for_note_hashes[note_hash_index] = nullifier_index;
-            self.transient_nullifier_index_hints[nullifier_index] = note_hash_index;
+            self.transient_note_hash_indexes_for_nullifiers[nullifier_index] = note_hash_index;
         }
 
         pub fn execute(&mut self) -> KernelCircuitPublicInputs {
@@ -206,12 +206,12 @@ mod tests {
                 }
             }
 
-            let mut sorted_transient_nullifier_index_hints = [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX];
-            for i in 0..self.transient_nullifier_index_hints.len() {
-                let old_index_hint = self.transient_nullifier_index_hints[i];
-                if old_index_hint != MAX_NEW_NOTE_HASHES_PER_TX {
+            let mut sorted_transient_note_hash_indexes_for_nullifiers = [MAX_NEW_NOTE_HASHES_PER_TX; MAX_NEW_NULLIFIERS_PER_TX];
+            for i in 0..self.transient_note_hash_indexes_for_nullifiers.len() {
+                let old_index = self.transient_note_hash_indexes_for_nullifiers[i];
+                if old_index != MAX_NEW_NOTE_HASHES_PER_TX {
                     let new_nullifier_index = sorted_new_nullifiers_indexes[i];
-                    sorted_transient_nullifier_index_hints[new_nullifier_index] = sorted_new_note_hashes_indexes[old_index_hint];
+                    sorted_transient_note_hash_indexes_for_nullifiers[new_nullifier_index] = sorted_new_note_hashes_indexes[old_index];
                 }
             }
 
@@ -222,7 +222,7 @@ mod tests {
 
             let hints = PrivateKernelTailHints {
                 transient_nullifier_indexes_for_note_hashes: sorted_transient_nullifier_indexes_for_note_hashes,
-                transient_nullifier_index_hints: sorted_transient_nullifier_index_hints,
+                transient_note_hash_indexes_for_nullifiers: sorted_transient_note_hash_indexes_for_nullifiers,
                 note_hash_read_request_hints: sorted_note_hash_read_request_hints,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
@@ -532,7 +532,7 @@ mod tests {
         // The nullifier at index 2 is nullifying the hash at index 0;
         builder.nullify_pending_note_hash(2, 0);
         // Tweak the hint to be for the hash at index 1.
-        builder.transient_nullifier_index_hints[2] = 1;
+        builder.transient_note_hash_indexes_for_nullifiers[2] = 1;
         builder.failed();
     }
 

@@ -1,4 +1,4 @@
-use crate::{common, private_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer};
+use crate::{common, private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer};
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
@@ -40,7 +40,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
         common::validate_arrays(self.private_call.call_stack_item.public_inputs);
 
-        let mut composer = PrivateKernelCircuitPublicInputsComposer::initialize_from_previous_kernel(self.previous_kernel.public_inputs).compose(
+        let mut composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
             self.private_call.call_stack_item.public_inputs,
             self.hints.note_hash_nullifier_counters
         );
