@@ -8,6 +8,7 @@ pub const ALL_DIRECT: u8 = 0b00000000;
 pub const ZEROTH_OPERAND_INDIRECT: u8 = 0b00000001;
 pub const FIRST_OPERAND_INDIRECT: u8 = 0b00000010;
 pub const SECOND_OPERAND_INDIRECT: u8 = 0b00000100;
+pub const THIRD_OPERAND_INDIRECT: u8 = 0b00001000;
 
 /// A simple representation of an AVM instruction for the purpose
 /// of generating an AVM bytecode from Brillig.

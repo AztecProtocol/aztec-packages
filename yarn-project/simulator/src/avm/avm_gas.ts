@@ -126,7 +126,7 @@ export const GasCosts: Record<Opcode, Gas | typeof DynamicGasCost> = {
   // Gadgets
   [Opcode.KECCAK]: TemporaryDefaultGasCost,
   [Opcode.POSEIDON2]: TemporaryDefaultGasCost,
-  [Opcode.SHA256]: TemporaryDefaultGasCost, // temp - may be removed, but alot of contracts rely on i: TemporaryDefaultGasCost,
+  [Opcode.SHA256COMPRESSION]: TemporaryDefaultGasCost,
   [Opcode.PEDERSEN]: TemporaryDefaultGasCost, // temp - may be removed, but alot of contracts rely on i: TemporaryDefaultGasCost,t
 };
 
