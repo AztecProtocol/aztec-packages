@@ -1,7 +1,8 @@
 {
+  "name": "Development",
   "build": {
-    "dockerfile": "../build-images/Dockerfile",
-    "context": "../build-images",
+    "dockerfile": "../../build-images/Dockerfile",
+    "context": "../../build-images",
     "target": "devbox"
   },
   "containerUser": "aztec-dev",
@@ -17,7 +18,5 @@
   //     "dockerDashComposeVersion": "v1"
   //   }
   // },
-  "mounts": [
-    "source=devbox-home,target=/home/aztec-dev,type=volume"
-  ]
+  "mounts": ["source=devbox-home,target=/home/aztec-dev,type=volume"]
 }
