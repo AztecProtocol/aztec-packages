@@ -147,7 +147,7 @@ This will compile the smart contract and create a `target` folder with a `.json`
 After compiling, you can generate a typescript class. In the same directory, run this:
 
 ```bash
-aztec-compile target -o src/artifacts
+aztec-builder target -o src/artifacts
 ```
 
 You can now use the artifact and/or the TS class in your Aztec.js! If you skipped the Aztec.js getting-started guide, you can follow it [here](aztecjs-getting-started.md). This will teach you about deploying and calling contracts in Aztec.js.

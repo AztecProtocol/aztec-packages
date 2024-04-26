@@ -158,7 +158,7 @@ aztec-nargo compile
 This will create a new directory called `target` and a JSON artifact inside it. To optionally create a typescript interface, run:
 
 ```bash
-aztec-compile target -o src/artifacts
+aztec-builder target -o src/artifacts
 ```
 
 Once it is compiled you can [deploy](../contracts/deploying_contracts/how_to_deploy_contract.md) it to the sandbox. This is out of scope for this tutorial but you can learn how to do this in the [Aztec.js getting-started guide](../getting_started/aztecjs-getting-started.md).

@@ -36,7 +36,7 @@ aztec-nargo compile
 And then generate the typescript interface:
 
 ```bash
-aztec-compile ./target/ -o ../../../src/test/fixtures uniswap
+aztec-builder ./target/ -o ../../../src/test/fixtures uniswap
 ```
 
 This will create a TS interface in our `src/test` folder that will help us write our test.

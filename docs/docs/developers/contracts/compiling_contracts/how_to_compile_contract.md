@@ -25,7 +25,7 @@ This will output a JSON [artifact](./artifacts.md) for each contract in the proj
 You can use the code generator to autogenerate type-safe typescript classes for each of your contracts. These classes define type-safe methods for deploying and interacting with your contract based on their artifact.
 
 ```bash
-aztec-compile ./aztec-nargo/output/target/path -o src/artifacts
+aztec-builder codegen ./aztec-nargo/output/target/path -o src/artifacts
 ```
 
 Below is typescript code generated from the [Token](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) contract:

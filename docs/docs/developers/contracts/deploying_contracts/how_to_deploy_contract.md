@@ -25,7 +25,7 @@ aztec-nargo compile
 Generate the typescript class:
 
 ```bash
-aztec-compile ./aztec-nargo/output/target/path -o src/artifacts
+aztec-builder ./aztec-nargo/output/target/path -o src/artifacts
 ```
 
 This would create a typescript file like `Example.ts` in `./src/artifacts`. Read more on the [compiling page](../compiling_contracts/how_to_compile_contract.md).
