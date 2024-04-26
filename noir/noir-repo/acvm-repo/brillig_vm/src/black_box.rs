@@ -149,7 +149,10 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
             let low = memory.read(*low).try_into().unwrap();
             let high = memory.read(*high).try_into().unwrap();
             let (x, y) = solver.variable_base_scalar_mul(&point_x, &point_y, &low, &high)?;
-            memory.write_slice(memory.read_ref(result.pointer), &[point_x.into(), point_y.into(), x.into(), y.into()]);
+            memory.write_slice(
+                memory.read_ref(result.pointer),
+                &[point_x.into(), point_y.into(), x.into(), y.into()],
+            );
             Ok(())
         }
         BlackBoxOp::EmbeddedCurveAdd { input1_x, input1_y, input2_x, input2_y, result } => {

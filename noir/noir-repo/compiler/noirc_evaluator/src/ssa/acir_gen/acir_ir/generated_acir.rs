@@ -734,7 +734,9 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
 
         // Output of operations over the embedded curve
         // will be 2 field elements representing the point.
-        BlackBoxFunc::FixedBaseScalarMul | BlackBoxFunc::VariableBaseScalarMul | BlackBoxFunc::EmbeddedCurveAdd => Some(2),
+        BlackBoxFunc::FixedBaseScalarMul
+        | BlackBoxFunc::VariableBaseScalarMul
+        | BlackBoxFunc::EmbeddedCurveAdd => Some(2),
 
         // Big integer operations return a big integer
         BlackBoxFunc::BigIntAdd

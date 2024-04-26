@@ -9,7 +9,9 @@ mod fixed_base_scalar_mul;
 mod poseidon2;
 mod wasm;
 
-pub use fixed_base_scalar_mul::{embedded_curve_add, fixed_base_scalar_mul, variable_base_scalar_mul};
+pub use fixed_base_scalar_mul::{
+    embedded_curve_add, fixed_base_scalar_mul, variable_base_scalar_mul,
+};
 pub use poseidon2::poseidon2_permutation;
 use wasm::Barretenberg;
 

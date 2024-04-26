@@ -67,7 +67,7 @@ pub fn variable_base_scalar_mul(
     high: &FieldElement,
 ) -> Result<(FieldElement, FieldElement), BlackBoxResolutionError> {
     let point1 = create_point(*point_x, *point_y)
-    .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
+        .map_err(|e| BlackBoxResolutionError::Failed(BlackBoxFunc::EmbeddedCurveAdd, e))?;
 
     let low: u128 = low.try_into_u128().ok_or_else(|| {
         BlackBoxResolutionError::Failed(
@@ -96,9 +96,7 @@ pub fn variable_base_scalar_mul(
         ));
     }
 
-    let result = grumpkin::SWAffine::from(
-        point1.mul_bigint(grumpkin_integer.to_u64_digits()),
-    );
+    let result = grumpkin::SWAffine::from(point1.mul_bigint(grumpkin_integer.to_u64_digits()));
     if let Some((res_x, res_y)) = result.xy() {
         Ok((FieldElement::from_repr(*res_x), FieldElement::from_repr(*res_y)))
     } else {
