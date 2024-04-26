@@ -17,6 +17,7 @@ RUN make build/wasi-libc.BUILT
 RUN make build/compiler-rt.BUILT
 RUN make build/libcxx.BUILT
 RUN make build/config.BUILT
+RUN make build/version.BUILT
 RUN mv build/install/opt/wasi-sdk /opt/wasi-sdk
 
 ########################################################################################################################
