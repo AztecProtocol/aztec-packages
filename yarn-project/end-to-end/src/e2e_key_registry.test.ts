@@ -487,7 +487,7 @@ describe('Key Registry', () => {
           .send()
           .wait(),
       ).rejects.toThrow(
-        `Cannot satisfy constraint 'hashed_nullifier_public_key == poseidon2_hash(nullifier_public_key_to_test.serialize())`,
+        `Cannot satisfy constraint 'hashed_nullifier_public_key_in_registry == poseidon2_hash(nullifier_public_key_to_test.serialize())'`,
       );
     });
 
