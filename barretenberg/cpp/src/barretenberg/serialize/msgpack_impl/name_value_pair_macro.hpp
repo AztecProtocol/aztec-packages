@@ -43,7 +43,7 @@
                       N,                                                                                               \
                       ...)                                                                                             \
     N
-// AD: support for 30 fields!? one may ask. Well, after 20 not being enough...
+// AD: support for 40 fields!? one may ask. Well, after 30 not being enough...
 #define VA_NARGS(...)                                                                                                  \
     VA_NARGS_IMPL(__VA_ARGS__,                                                                                         \
                   35,                                                                                                  \

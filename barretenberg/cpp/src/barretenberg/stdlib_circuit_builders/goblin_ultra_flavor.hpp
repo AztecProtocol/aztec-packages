@@ -427,6 +427,7 @@ class GoblinUltraFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
