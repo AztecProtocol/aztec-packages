@@ -97,7 +97,7 @@ describe('e2e_auth_contract', () => {
       'caller is not authorized',
     );
 
-    expect((await contract.withWallet(authorized).methods.do_private_authorized_thing().prove()).status).toEqual(
+    expect((await contract.withWallet(authorized).methods.do_private_authorized_thing().send().wait()).status).toEqual(
       'mined',
     );
   });
@@ -111,7 +111,7 @@ describe('e2e_auth_contract', () => {
       'caller is not authorized',
     );
 
-    expect((await contract.withWallet(other).methods.do_private_authorized_thing().prove()).status).toEqual(
+    expect((await contract.withWallet(other).methods.do_private_authorized_thing().send().wait()).status).toEqual(
       'mined',
     );
   });
