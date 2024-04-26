@@ -1,5 +1,7 @@
 import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
+  type Fr,
+  type Gas,
   type GlobalVariables,
   type Header,
   type Proof,
@@ -7,6 +9,8 @@ import {
 } from '@aztec/circuits.js';
 import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
+
+import { inspect } from 'util';
 
 import { AbstractPhaseManager, PublicKernelPhase } from './abstract_phase_manager.js';
 import { type ContractsDataSourcePublicDB } from './public_executor.js';
@@ -17,14 +21,14 @@ import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simul
  */
 export class TeardownPhaseManager extends AbstractPhaseManager {
   constructor(
-    protected db: MerkleTreeOperations,
-    protected publicExecutor: PublicExecutor,
-    protected publicKernel: PublicKernelCircuitSimulator,
-    protected globalVariables: GlobalVariables,
-    protected historicalHeader: Header,
+    db: MerkleTreeOperations,
+    publicExecutor: PublicExecutor,
+    publicKernel: PublicKernelCircuitSimulator,
+    globalVariables: GlobalVariables,
+    historicalHeader: Header,
     protected publicContractsDB: ContractsDataSourcePublicDB,
     protected publicStateDB: PublicStateDB,
-    public phase: PublicKernelPhase = PublicKernelPhase.TEARDOWN,
+    phase: PublicKernelPhase = PublicKernelPhase.TEARDOWN,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
   }
@@ -62,5 +66,19 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       revertReason,
       returnValues: undefined,
     };
+  }
+
+  protected override getTransactionFee(tx: Tx, previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Fr {
+    const gasSettings = tx.data.constants.txContext.gasSettings;
+    const gasFees = this.globalVariables.gasFees;
+    // No need to add teardown limits since they are already included in end.gasUsed
+    const gasUsed = previousPublicKernelOutput.end.gasUsed.add(previousPublicKernelOutput.endNonRevertibleData.gasUsed);
+    const txFee = gasSettings.inclusionFee.add(gasUsed.computeFee(gasFees));
+    this.log.debug(`Computed tx fee`, { txFee, gasUsed: inspect(gasUsed), gasFees: inspect(gasFees) });
+    return txFee;
+  }
+
+  protected override getAvailableGas(tx: Tx, _previousPublicKernelOutput: PublicKernelCircuitPublicInputs): Gas {
+    return tx.data.constants.txContext.gasSettings.getTeardownLimits();
   }
 }

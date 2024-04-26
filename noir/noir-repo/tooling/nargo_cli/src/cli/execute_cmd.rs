@@ -149,12 +149,14 @@ pub(crate) fn execute_program(
         Ok(solved_witness_stack) => Ok(solved_witness_stack),
         Err(err) => {
             let debug_artifact = DebugArtifact {
-                debug_symbols: vec![compiled_program.debug.clone()],
+                debug_symbols: compiled_program.debug.clone(),
                 file_map: compiled_program.file_map.clone(),
                 warnings: compiled_program.warnings.clone(),
             };
 
-            if let Some(diagnostic) = try_to_diagnose_runtime_error(&err, &compiled_program.debug) {
+            if let Some(diagnostic) =
+                try_to_diagnose_runtime_error(&err, &compiled_program.abi, &compiled_program.debug)
+            {
                 diagnostic.report(&debug_artifact, false);
             }
 

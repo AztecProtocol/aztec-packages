@@ -8,10 +8,13 @@ use crate::{
 },
     validation_requests::validation_requests_builder::ValidationRequestsBuilder
 },
-mocked::AggregationObject,
-traits::Empty
+    mocked::AggregationObject, partial_state_reference::PartialStateReference, traits::Empty
 };
 
+// Builds:
+// .finish: PrivateKernelCircuitPublicInputs
+// .finish_tail: KernelCircuitPublicInputs (from KernelCircuitPublicInputsComposer)
+// .finish_to_public: PublicKernelCircuitPublicInputs (from KernelCircuitPublicInputsComposer)
 struct PrivateKernelCircuitPublicInputsBuilder {
     aggregation_object: AggregationObject,
     min_revertible_side_effect_counter: u32,
@@ -37,6 +40,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
             rollup_validation_requests: self.validation_requests.to_rollup(),
             end: self.end.to_combined(),
             constants: self.constants,
+            start_state: PartialStateReference::empty(),
             revert_code: 0
         }
     }

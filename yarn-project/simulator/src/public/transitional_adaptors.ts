@@ -5,7 +5,8 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FunctionData,
-  GasSettings,
+  Gas,
+  type GasSettings,
   type GlobalVariables,
   type Header,
   L2ToL1Message,
@@ -17,6 +18,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type AvmContext } from '../avm/avm_context.js';
 import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
+import { type AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmContractCallResults } from '../avm/avm_message_call_result.js';
 import { type JournalData } from '../avm/journal/journal.js';
 import { Mov } from '../avm/opcodes/memory.js';
@@ -36,22 +38,24 @@ export function createAvmExecutionEnvironment(
   current: PublicExecution,
   header: Header,
   globalVariables: GlobalVariables,
+  gasSettings: GasSettings,
+  transactionFee: Fr,
 ): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
     current.contractAddress,
     current.callContext.storageContractAddress,
-    current.callContext.msgSender, // TODO: origin is not available
     current.callContext.msgSender,
-    current.callContext.portalContractAddress,
-    /*feePerL1Gas=*/ Fr.zero(),
-    /*feePerL2Gas=*/ Fr.zero(),
-    /*feePerDaGas=*/ Fr.zero(),
+    globalVariables.gasFees.feePerL1Gas,
+    globalVariables.gasFees.feePerL2Gas,
+    globalVariables.gasFees.feePerDaGas,
     /*contractCallDepth=*/ Fr.zero(),
     header,
     globalVariables,
     current.callContext.isStaticCall,
     current.callContext.isDelegateCall,
     current.args,
+    gasSettings,
+    transactionFee,
     current.functionData.selector,
   );
 }
@@ -61,13 +65,10 @@ export function createPublicExecutionContext(avmContext: AvmContext, calldata: F
   const callContext = CallContext.from({
     msgSender: avmContext.environment.sender,
     storageContractAddress: avmContext.environment.storageAddress,
-    portalContractAddress: avmContext.environment.portal,
     functionSelector: avmContext.environment.temporaryFunctionSelector,
     isDelegateCall: avmContext.environment.isDelegateCall,
     isStaticCall: avmContext.environment.isStaticCall,
     sideEffectCounter: sideEffectCounter,
-    gasSettings: GasSettings.empty(), // TODO(palla/gas-in-circuits)
-    transactionFee: Fr.ZERO, // TODO(palla/gas-in-circuits)
   });
   const functionData = new FunctionData(avmContext.environment.temporaryFunctionSelector, /*isPrivate=*/ false);
   const execution: PublicExecution = {
@@ -87,6 +88,9 @@ export function createPublicExecutionContext(avmContext: AvmContext, calldata: F
     avmContext.persistableState.hostStorage.publicStateDb,
     avmContext.persistableState.hostStorage.contractsDb,
     avmContext.persistableState.hostStorage.commitmentsDb,
+    Gas.from(avmContext.machineState.gasLeft),
+    avmContext.environment.transactionFee,
+    avmContext.environment.gasSettings,
   );
 
   return context;
@@ -104,14 +108,15 @@ export async function convertAvmResults(
   executionContext: PublicExecutionContext,
   newWorldState: JournalData,
   result: AvmContractCallResults,
+  endMachineState: AvmMachineState,
 ): Promise<PublicExecutionResult> {
   const execution = executionContext.execution;
 
   const contractStorageReads: ContractStorageRead[] = newWorldState.storageReads.map(
-    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber()),
+    read => new ContractStorageRead(read.slot, read.value, read.counter.toNumber(), read.storageAddress),
   );
   const contractStorageUpdateRequests: ContractStorageUpdateRequest[] = newWorldState.storageWrites.map(
-    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber()),
+    write => new ContractStorageUpdateRequest(write.slot, write.value, write.counter.toNumber(), write.storageAddress),
   );
   // We need to write the storage updates to the DB, because that's what the ACVM expects.
   // Assumes the updates are in the right order.
@@ -139,6 +144,9 @@ export async function convertAvmResults(
   const unencryptedLogs: UnencryptedFunctionL2Logs = new UnencryptedFunctionL2Logs(
     newWorldState.newLogs.map(log => new UnencryptedL2Log(log.contractAddress, log.selector, log.data)),
   );
+  const unencryptedLogsHashes = newWorldState.newLogsHashes.map(
+    logHash => new SideEffect(logHash.logHash, logHash.counter),
+  );
   const newL2ToL1Messages = newWorldState.newL1Messages.map(m => new L2ToL1Message(m.recipient, m.content));
 
   const returnValues = result.output;
@@ -162,9 +170,13 @@ export async function convertAvmResults(
     contractStorageUpdateRequests,
     returnValues,
     nestedExecutions,
+    unencryptedLogsHashes,
     unencryptedLogs,
     reverted: result.reverted,
     revertReason: result.revertReason ? createSimulationError(result.revertReason) : undefined,
+    startGasLeft: executionContext.availableGas,
+    endGasLeft: endMachineState.gasLeft,
+    transactionFee: executionContext.transactionFee,
   };
 }
 

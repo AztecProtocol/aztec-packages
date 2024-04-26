@@ -1,5 +1,5 @@
 import {
-  type AccountWalletWithPrivateKey,
+  type AccountWalletWithSecretKey,
   type AztecAddress,
   type EthAddress,
   type FeePaymentMethod,
@@ -8,6 +8,7 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
 } from '@aztec/aztec.js';
+import { GasSettings } from '@aztec/circuits.js';
 import { FPCContract, GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
@@ -18,7 +19,7 @@ import { publicDeployAccounts, setup } from '../fixtures/utils.js';
 jest.setTimeout(50_000);
 
 describe('benchmarks/tx_size_fees', () => {
-  let aliceWallet: AccountWalletWithPrivateKey;
+  let aliceWallet: AccountWalletWithSecretKey;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
   let gas: GasTokenContract;
@@ -53,11 +54,11 @@ describe('benchmarks/tx_size_fees', () => {
   // mint tokens
   beforeAll(async () => {
     await Promise.all([
-      gas.methods.mint_public(aliceWallet.getAddress(), 1000n).send().wait(),
-      gas.methods.mint_public(fpc.address, 1000n).send().wait(),
+      gas.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait(),
+      gas.methods.mint_public(fpc.address, 100e9).send().wait(),
     ]);
-    await token.methods.privately_mint_private_note(1000n).send().wait();
-    await token.methods.mint_public(aliceWallet.getAddress(), 1000n).send().wait();
+    await token.methods.privately_mint_private_note(100e9).send().wait();
+    await token.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait();
   });
 
   it.each<() => Promise<FeePaymentMethod | undefined>>([
@@ -67,16 +68,10 @@ describe('benchmarks/tx_size_fees', () => {
     () => Promise.resolve(new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet)),
   ])('sends a tx with a fee', async createPaymentMethod => {
     const paymentMethod = await createPaymentMethod();
+    const gasSettings = GasSettings.default();
     const tx = await token.methods
       .transfer(aliceWallet.getAddress(), bobAddress, 1n, 0)
-      .send({
-        fee: paymentMethod
-          ? {
-              maxFee: 3n,
-              paymentMethod,
-            }
-          : undefined,
-      })
+      .send({ fee: paymentMethod ? { gasSettings, paymentMethod } : undefined })
       .wait();
 
     expect(tx.status).toEqual(TxStatus.MINED);

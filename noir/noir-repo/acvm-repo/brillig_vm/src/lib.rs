@@ -16,7 +16,7 @@ use acir::brillig::{
     HeapVector, MemoryAddress, Opcode, ValueOrArray,
 };
 use acir::FieldElement;
-use acvm_blackbox_solver::BlackBoxFunctionSolver;
+use acvm_blackbox_solver::{BigIntSolver, BlackBoxFunctionSolver};
 use arithmetic::{evaluate_binary_field_op, evaluate_binary_int_op, BrilligArithmeticError};
 use black_box::evaluate_black_box;
 use num_bigint::BigUint;
@@ -87,6 +87,8 @@ pub struct VM<'a, B: BlackBoxFunctionSolver> {
     call_stack: Vec<usize>,
     /// The solver for blackbox functions
     black_box_solver: &'a B,
+    // The solver for big integers
+    bigint_solver: BigIntSolver,
 }
 
 impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
@@ -107,6 +109,7 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
             memory: Memory::default(),
             call_stack: Vec::new(),
             black_box_solver,
+            bigint_solver: Default::default(),
         }
     }
 
@@ -302,8 +305,12 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 }
                 self.increment_program_counter()
             }
-            Opcode::Trap { revert_data_offset, revert_data_size } => {
-                self.trap(*revert_data_offset, *revert_data_size)
+            Opcode::Trap { revert_data } => {
+                if revert_data.size > 0 {
+                    self.trap(self.memory.read_ref(revert_data.pointer).0, revert_data.size)
+                } else {
+                    self.trap(0, 0)
+                }
             }
             Opcode::Stop { return_data_offset, return_data_size } => {
                 self.finish(*return_data_offset, *return_data_size)
@@ -334,7 +341,12 @@ impl<'a, B: BlackBoxFunctionSolver> VM<'a, B> {
                 self.increment_program_counter()
             }
             Opcode::BlackBox(black_box_op) => {
-                match evaluate_black_box(black_box_op, self.black_box_solver, &mut self.memory) {
+                match evaluate_black_box(
+                    black_box_op,
+                    self.black_box_solver,
+                    &mut self.memory,
+                    &mut self.bigint_solver,
+                ) {
                     Ok(()) => self.increment_program_counter(),
                     Err(e) => self.fail(e.to_string()),
                 }
@@ -707,7 +719,7 @@ mod tests {
 
         let jump_opcode = Opcode::Jump { location: 3 };
 
-        let trap_opcode = Opcode::Trap { revert_data_offset: 0, revert_data_size: 0 };
+        let trap_opcode = Opcode::Trap { revert_data: HeapArray::default() };
 
         let not_equal_cmp_opcode = Opcode::BinaryFieldOp {
             op: BinaryFieldOp::Equals,

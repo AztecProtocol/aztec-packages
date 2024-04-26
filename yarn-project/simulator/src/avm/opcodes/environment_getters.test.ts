@@ -8,8 +8,6 @@ import {
   FeePerDAGas,
   FeePerL1Gas,
   FeePerL2Gas,
-  Origin,
-  Portal,
   Sender,
   StorageAddress,
   Timestamp,
@@ -17,20 +15,16 @@ import {
 } from './environment_getters.js';
 
 type EnvInstruction =
-  | typeof Portal
   | typeof FeePerL1Gas
   | typeof FeePerL2Gas
   | typeof FeePerDAGas
-  | typeof Origin
   | typeof Sender
   | typeof StorageAddress
   | typeof Address;
 describe.each([
-  [Portal, 'portal'],
   [FeePerL1Gas, 'feePerL1Gas'],
   [FeePerL2Gas, 'feePerL2Gas'],
   [FeePerDAGas, 'feePerDaGas'],
-  [Origin, 'origin'],
   [Sender, 'sender'],
   [StorageAddress, 'storageAddress'],
   [Address, 'address'],

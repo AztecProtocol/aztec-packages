@@ -1,7 +1,6 @@
-import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circuits.js';
+import { FunctionSelector, type GasSettings, type GlobalVariables, type Header } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Fr } from '@aztec/foundation/fields';
 
 export class AvmContextInputs {
@@ -23,9 +22,7 @@ export class AvmExecutionEnvironment {
   constructor(
     public readonly address: AztecAddress,
     public readonly storageAddress: AztecAddress,
-    public readonly origin: AztecAddress,
     public readonly sender: AztecAddress,
-    public readonly portal: EthAddress,
     public readonly feePerL1Gas: Fr,
     public readonly feePerL2Gas: Fr,
     public readonly feePerDaGas: Fr,
@@ -35,6 +32,8 @@ export class AvmExecutionEnvironment {
     public readonly isStaticCall: boolean,
     public readonly isDelegateCall: boolean,
     public readonly calldata: Fr[],
+    public readonly gasSettings: GasSettings,
+    public readonly transactionFee: Fr,
 
     // Function selector is temporary since eventually public contract bytecode will be one blob
     // containing all functions, and function selector will become an application-level mechanism
@@ -55,9 +54,7 @@ export class AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
       targetAddress,
       /*storageAddress=*/ targetAddress,
-      this.origin,
       this.address,
-      this.portal,
       this.feePerL1Gas,
       this.feePerL2Gas,
       this.feePerDaGas,
@@ -67,6 +64,8 @@ export class AvmExecutionEnvironment {
       this.isStaticCall,
       this.isDelegateCall,
       calldata,
+      this.gasSettings,
+      this.transactionFee,
       temporaryFunctionSelector,
     );
   }
@@ -79,9 +78,7 @@ export class AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
       address,
       /*storageAddress=*/ address,
-      this.origin,
       this.sender,
-      this.portal,
       this.feePerL1Gas,
       this.feePerL2Gas,
       this.feePerDaGas,
@@ -91,6 +88,8 @@ export class AvmExecutionEnvironment {
       /*isStaticCall=*/ true,
       this.isDelegateCall,
       calldata,
+      this.gasSettings,
+      this.transactionFee,
       temporaryFunctionSelector,
     );
   }
@@ -103,9 +102,7 @@ export class AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
       address,
       this.storageAddress,
-      this.origin,
       this.sender,
-      this.portal,
       this.feePerL1Gas,
       this.feePerL2Gas,
       this.feePerDaGas,
@@ -115,6 +112,8 @@ export class AvmExecutionEnvironment {
       this.isStaticCall,
       /*isDelegateCall=*/ true,
       calldata,
+      this.gasSettings,
+      this.transactionFee,
       temporaryFunctionSelector,
     );
   }

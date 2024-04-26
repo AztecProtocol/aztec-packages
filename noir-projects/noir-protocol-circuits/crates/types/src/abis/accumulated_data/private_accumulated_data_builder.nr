@@ -1,6 +1,7 @@
 use crate::{
+    hash::compute_tx_logs_hash,
     abis::{
-    gas_used::GasUsed,
+    gas::Gas,
     accumulated_data::{
     combined_accumulated_data::CombinedAccumulatedData,
     private_accumulated_data::PrivateAccumulatedData, public_accumulated_data::PublicAccumulatedData,
@@ -12,18 +13,22 @@ use crate::{
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
     traits::Empty
 };
 
+// Builds via PrivateKernelCircuitPublicInputsBuilder:
+// .finish: PrivateKernelCircuitPublicInputs.end
+// .to_combined: KernelCircuitPublicInputs.end
+// .split_to_public: PublicKernelCircuitPublicInputs.(end,end_non_revertible)
 struct PrivateAccumulatedDataBuilder {
     new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
     new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
 
-    encrypted_logs_hash: Field,
-    unencrypted_logs_hash: Field,
+    encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
+    unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -33,36 +38,43 @@ struct PrivateAccumulatedDataBuilder {
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
-    gas_used: GasUsed
+    gas_used: Gas,
+    non_revertible_gas_used: Gas,
 }
 
 impl PrivateAccumulatedDataBuilder {
     pub fn finish(self) -> PrivateAccumulatedData {
+        assert(self.gas_used.is_empty());
+        assert(self.non_revertible_gas_used.is_empty());
+
         PrivateAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             private_call_stack: self.private_call_stack.storage,
-            public_call_stack: self.public_call_stack.storage,
-            gas_used: self.gas_used
+            public_call_stack: self.public_call_stack.storage
         }
     }
 
     pub fn to_combined(self) -> CombinedAccumulatedData {
+        // TODO(Miranda): Hash here or elsewhere?
+        let encrypted_logs_hash = compute_tx_logs_hash(self.encrypted_logs_hashes.storage);
+        let unencrypted_logs_hash = compute_tx_logs_hash(self.unencrypted_logs_hashes.storage);
+
         CombinedAccumulatedData {
             new_note_hashes: self.new_note_hashes.storage.map(|n: SideEffect| n.value),
             new_nullifiers: self.new_nullifiers.storage.map(|n: SideEffectLinkedToNoteHash| n.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
+            encrypted_logs_hash,
+            unencrypted_logs_hash,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             public_data_update_requests: [PublicDataUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-            gas_used: self.gas_used
+            gas_used: self.gas_used.add(self.non_revertible_gas_used)
         }
     }
 
@@ -81,6 +93,7 @@ impl PrivateAccumulatedDataBuilder {
                 revertible_builder.new_note_hashes.push(note_hash);
             }
         }
+
         for i in 0..MAX_NEW_NULLIFIERS_PER_TX {
             let nullifier = self.new_nullifiers.storage[i];
             if nullifier.counter < min_revertible_side_effect_counter {
@@ -99,12 +112,31 @@ impl PrivateAccumulatedDataBuilder {
             }
         }
 
-        revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
-        revertible_builder.encrypted_logs_hash = self.encrypted_logs_hash;
-        revertible_builder.unencrypted_logs_hash = self.unencrypted_logs_hash;
-        revertible_builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
-        revertible_builder.unencrypted_log_preimages_length= self.unencrypted_log_preimages_length;
+        for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+            let encrypted_logs_hash = self.encrypted_logs_hashes.storage[i];
+            if encrypted_logs_hash.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash);
+            } else {
+                revertible_builder.encrypted_logs_hashes.push(encrypted_logs_hash);
+            }
+        }
 
+        for i in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
+            let unencrypted_logs_hash = self.unencrypted_logs_hashes.storage[i];
+            if unencrypted_logs_hash.counter < min_revertible_side_effect_counter {
+                non_revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
+            } else {
+                revertible_builder.unencrypted_logs_hashes.push(unencrypted_logs_hash);
+            }
+        }
+
+        revertible_builder.new_l2_to_l1_msgs =  self.new_l2_to_l1_msgs;
+        // TODO(1165): Once we have individual lens, split here
+        revertible_builder.encrypted_log_preimages_length =  self.encrypted_log_preimages_length;
+        revertible_builder.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length;
+
+        revertible_builder.gas_used = self.gas_used;
+        non_revertible_builder.gas_used = self.non_revertible_gas_used;
         (non_revertible_builder.finish(), revertible_builder.finish())
     }
 }
@@ -112,7 +144,7 @@ impl PrivateAccumulatedDataBuilder {
 mod tests {
     use crate::{
         abis::{
-        accumulated_data::private_accumulated_data_builder::PrivateAccumulatedDataBuilder,
+        accumulated_data::private_accumulated_data_builder::PrivateAccumulatedDataBuilder, gas::Gas,
         call_request::CallRequest, caller_context::CallerContext,
         public_data_update_request::PublicDataUpdateRequest,
         side_effect::{SideEffect, SideEffectLinkedToNoteHash}
@@ -180,6 +212,9 @@ mod tests {
         builder.public_call_stack.extend_from_array(non_revertible_public_stack);
         builder.public_call_stack.extend_from_array(revertible_public_call_stack);
 
+        builder.gas_used = Gas::new(20,20,20);
+        builder.non_revertible_gas_used = Gas::new(10,10,10);
+
         let (non_revertible, revertible) = builder.split_to_public(7);
 
         assert(array_eq(non_revertible.new_note_hashes, non_revertible_commitments));
@@ -189,6 +224,9 @@ mod tests {
         assert(array_eq(revertible.new_note_hashes, revertible_commitments));
         assert(array_eq(revertible.new_nullifiers, revertible_nullifiers));
         assert(array_eq(revertible.public_call_stack, revertible_public_call_stack));
+
+        assert_eq(revertible.gas_used, Gas::new(20, 20, 20));
+        assert_eq(non_revertible.gas_used, Gas::new(10, 10, 10));
     }
 }
 
@@ -198,13 +236,14 @@ impl Empty for PrivateAccumulatedDataBuilder {
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
-            encrypted_logs_hash: 0,
-            unencrypted_logs_hash: 0,
+            encrypted_logs_hashes: BoundedVec::new(),
+            unencrypted_logs_hashes: BoundedVec::new(),
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
             private_call_stack: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            gas_used: GasUsed::empty(),
+            gas_used: Gas::empty(),
+            non_revertible_gas_used: Gas::empty(),
         }
     }
 }

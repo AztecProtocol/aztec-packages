@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::ssa::ir::dfg::CallStack;
 
 /// Represents a parameter or a return value of an entry point function.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub(crate) enum BrilligParameter {
     /// A single address parameter or return value. Holds the bit size of the parameter.
     SingleAddr(u32),
@@ -17,7 +17,7 @@ pub(crate) enum BrilligParameter {
 
 /// The result of compiling and linking brillig artifacts.
 /// This is ready to run bytecode with attached metadata.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct GeneratedBrillig {
     pub(crate) byte_code: Vec<BrilligOpcode>,
     pub(crate) locations: BTreeMap<OpcodeLocation, CallStack>,
@@ -29,7 +29,9 @@ pub(crate) struct GeneratedBrillig {
 /// It includes the bytecode of the function and all the metadata that allows linking with other functions.
 pub(crate) struct BrilligArtifact {
     pub(crate) byte_code: Vec<BrilligOpcode>,
-    /// A map of bytecode positions to assertion messages
+    /// A map of bytecode positions to assertion messages.
+    /// Some error messages (compiler intrinsics) are not emitted via revert data,
+    /// instead, they are handled externally so they don't add size to user programs.
     pub(crate) assert_messages: BTreeMap<OpcodeLocation, String>,
     /// The set of jumps that need to have their locations
     /// resolved.

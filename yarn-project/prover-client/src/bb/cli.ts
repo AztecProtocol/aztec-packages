@@ -26,7 +26,7 @@ export function getProgram(log: LogFn): Command {
     });
 
   program
-    .command('write_pk')
+    .command('write-pk')
     .description('Generates the proving key for the specified circuit')
     .requiredOption(
       '-w, --working-directory <string>',
@@ -42,7 +42,7 @@ export function getProgram(log: LogFn): Command {
         return;
       }
       try {
-        await fs.access(options.workingDirectory);
+        await fs.access(options.workingDirectory, fs.constants.W_OK);
       } catch (error) {
         log(`Working directory does not exist`);
         return;
@@ -58,7 +58,7 @@ export function getProgram(log: LogFn): Command {
     });
 
   program
-    .command('write_vk')
+    .command('write-vk')
     .description('Generates the verification key for the specified circuit')
     .requiredOption(
       '-w, --working-directory <string>',
@@ -74,7 +74,7 @@ export function getProgram(log: LogFn): Command {
         return;
       }
       try {
-        await fs.access(options.workingDirectory);
+        await fs.access(options.workingDirectory, fs.constants.W_OK);
       } catch (error) {
         log(`Working directory does not exist`);
         return;

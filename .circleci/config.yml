@@ -407,18 +407,6 @@ jobs:
           command: create_ecr_manifest yarn-project x86_64,arm64
           aztec_manifest_key: yarn-project
 
-  yarn-project-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build yarn-project-test 64
-          aztec_manifest_key: yarn-project-test
-
   prover-client-test:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -442,42 +430,6 @@ jobs:
           name: "Build and test"
           command: build aztec
           aztec_manifest_key: aztec
-
-  cli:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build cli
-          aztec_manifest_key: cli
-
-  mainnet-fork:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: build mainnet-fork | add_timestamps
-          aztec_manifest_key: mainnet-fork
-
-  aztec-faucet:
-    machine:
-      image: default
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build aztec-faucet | add_timestamps
-          aztec_manifest_key: aztec-faucet
 
   boxes:
     docker:
@@ -531,35 +483,35 @@ jobs:
   # Semantics are similar to Dockerfile
 
   # NOTE: Unlike other e2e, these will be re-enabled here as currently the logs functionality is not in the new earthfile setup
-  # bench-publish-rollup:
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Benchmark"
-  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-  #         aztec_manifest_key: end-to-end
-  #   <<: *defaults_e2e_test
+  bench-publish-rollup:
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_publish_rollup.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+          aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
-  # bench-process-history:
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Benchmark"
-  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-  #         aztec_manifest_key: end-to-end
-  #   <<: *defaults_e2e_test
+  bench-process-history:
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_process_history.test.ts DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+          aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
-  # bench-tx-size:
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Benchmark"
-  #         command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_tx_size_fees.test.ts ENABLE_GAS=1 DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
-  #         aztec_manifest_key: end-to-end
-  #   <<: *defaults_e2e_test
+  bench-tx-size:
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Benchmark"
+          command: cond_spot_run_compose end-to-end 4 ./scripts/docker-compose-no-sandbox.yml TEST=benchmarks/bench_tx_size_fees.test.ts ENABLE_GAS=1 DEBUG=aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees
+          aztec_manifest_key: end-to-end
+    <<: *defaults_e2e_test
 
   build-docs:
     machine:
@@ -597,15 +549,15 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  # bench-summary:
-  #   machine:
-  #     image: default
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Assemble benchmark summary from uploaded logs"
-  #         command: ./scripts/ci/assemble_e2e_benchmark.sh
+  bench-summary:
+    machine:
+      image: default
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Assemble benchmark summary from uploaded logs"
+          command: ./scripts/ci/assemble_e2e_benchmark.sh
 
   # Deploy & release jobs.
   deploy-and-release:
@@ -621,15 +573,6 @@ jobs:
             should_release || exit 0
             deploy_dockerhub noir
             deploy_dockerhub aztec
-            deploy_dockerhub cli
-            deploy_dockerhub aztec-faucet
-            deploy_dockerhub mainnet-fork
-      - run:
-          name: "Deploy mainnet fork"
-          command: |
-            should_deploy || exit 0
-            deploy_terraform_services iac/mainnet-fork mainnet-fork mainnet-fork aws_efs_file_system.aztec_mainnet_fork_data_store
-            ./iac/mainnet-fork/scripts/wait_for_fork
       - run:
           name: "Release canary to NPM: bb.js"
           command: |
@@ -660,43 +603,6 @@ jobs:
           command: |
             should_release || exit 0
             deploy_npm l1-contracts latest
-      - run:
-          name: "Deploy L1 contracts to mainnet fork"
-          working_directory: l1-contracts
-          command: |
-            should_deploy || exit 0
-            ./scripts/ci_deploy_contracts.sh
-      - run:
-          name: "Deploy P2P bootstrap servers to AWS"
-          command: |
-            should_deploy 0 || exit 0
-            # Export variables for Terraform.
-            export TF_VAR_BOOTNODE_1_PRIVATE_KEY=$BOOTNODE_1_PRIVATE_KEY
-            export TF_VAR_BOOTNODE_2_PRIVATE_KEY=$BOOTNODE_2_PRIVATE_KEY
-            deploy_terraform_services yarn-project/p2p-bootstrap aztec
-      - run:
-          name: "Deploy Aztec Nodes to AWS"
-          command: |
-            should_deploy 0 || exit 0
-            export TF_VAR_BOOTNODE_1_PEER_ID=$BOOTNODE_1_PEER_ID
-            export TF_VAR_BOOTNODE_2_PEER_ID=$BOOTNODE_2_PEER_ID
-            export TF_VAR_SEQ_1_PUBLISHER_PRIVATE_KEY=$SEQ_1_PUBLISHER_PRIVATE_KEY
-            export TF_VAR_SEQ_2_PUBLISHER_PRIVATE_KEY=$SEQ_2_PUBLISHER_PRIVATE_KEY
-            export TF_VAR_NODE_1_PRIVATE_KEY=$NODE_1_PRIVATE_KEY
-            export TF_VAR_NODE_2_PRIVATE_KEY=$NODE_2_PRIVATE_KEY
-            # Check if l1-contracts have changed
-            if [ "$CONTRACTS_DEPLOYED" -eq 1 ]; then
-              echo "Contracts have changed, taint nodes to force redeploy.."
-              deploy_terraform_services yarn-project/aztec-node aztec aztec-node "aws_ecs_task_definition.aztec-node[0],aws_ecs_task_definition.aztec-node[1]" 1
-            else
-              deploy_terraform_services yarn-project/aztec-node aztec
-            fi
-      - run:
-          name: "Deploy Aztec Faucet to AWS"
-          command: |
-            should_deploy 0 || exit 0
-            export TF_VAR_FAUCET_PRIVATE_KEY=$FAUCET_PRIVATE_KEY
-            deploy_terraform_services yarn-project/aztec-faucet aztec
 
 # Repeatable config for defining the workflow below.
 defaults: &defaults
@@ -820,8 +726,6 @@ workflows:
 
       - l1-contracts: *defaults
 
-      - mainnet-fork: *defaults
-
       - noir-projects:
           requires:
             - avm-transpiler
@@ -837,10 +741,8 @@ workflows:
             - noir-projects
           <<: *defaults
       - end-to-end: *defaults_yarn_project
-      - aztec-faucet: *defaults_yarn_project_pre_join
       - build-docs: *defaults_yarn_project_pre_join
       - prover-client-test: *defaults_yarn_project
-      - yarn-project-test: *defaults_yarn_project
       - yarn-project-x86_64: *defaults_yarn_project_pre_join
       - yarn-project-arm64: *defaults_yarn_project_pre_join
       - yarn-project-ecr-manifest:
@@ -851,7 +753,6 @@ workflows:
 
       # Artifacts
       - aztec-package: *defaults_yarn_project
-      - cli: *defaults_yarn_project
 
       # Boxes.
       - boxes:
@@ -872,7 +773,6 @@ workflows:
           requires:
             - end-to-end
             - aztec-package
-            - cli
           <<: *defaults
 
       # Everything that must complete before deployment.
@@ -888,25 +788,23 @@ workflows:
             - barretenberg-acir-tests-bb-sol
             - barretenberg-docs
             - build-docs
-            - mainnet-fork
             - boxes-vanilla
             - boxes-react
             - noir-packages-tests
-            - yarn-project-test
             - prover-client-test
             - e2e-join
           <<: *defaults
 
       # Benchmark jobs.
-      # - bench-publish-rollup: *e2e_test
-      # - bench-process-history: *e2e_test
-      # - bench-tx-size: *e2e_test
-      # - bench-summary:
-      #     requires:
-      #       - bench-publish-rollup
-      #       - bench-process-history
-      #       - bench-tx-size
-      #     <<: *defaults
+      - bench-publish-rollup: *e2e_test
+      - bench-process-history: *e2e_test
+      - bench-tx-size: *e2e_test
+      - bench-summary:
+          requires:
+            - bench-publish-rollup
+            - bench-process-history
+            - bench-tx-size
+          <<: *defaults
 
       # Production releases.
       - deploy-and-release: *defaults_deploy

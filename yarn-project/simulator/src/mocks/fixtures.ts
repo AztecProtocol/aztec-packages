@@ -5,10 +5,9 @@ import {
   CallContext,
   CallRequest,
   type ContractStorageUpdateRequest,
-  EthAddress,
   Fr,
   FunctionData,
-  GasSettings,
+  Gas,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   type PrivateKernelTailCircuitPublicInputs,
   type PublicCallRequest,
@@ -66,17 +65,7 @@ export class PublicExecutionResultBuilder {
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(
-        from,
-        tx.to,
-        EthAddress.ZERO,
-        tx.functionData.selector,
-        false,
-        false,
-        0,
-        GasSettings.empty(),
-        Fr.ZERO,
-      ),
+      callContext: new CallContext(from, tx.to, tx.functionData.selector, false, false, 0),
       contractAddress: tx.to,
       functionData: tx.functionData,
       args: tx.args,
@@ -113,7 +102,7 @@ export class PublicExecutionResultBuilder {
     return this;
   }
 
-  build(): PublicExecutionResult {
+  build(overrides: Partial<PublicExecutionResult> = {}): PublicExecutionResult {
     return {
       execution: this._execution,
       nestedExecutions: this._nestedExecutions,
@@ -125,11 +114,16 @@ export class PublicExecutionResultBuilder {
       newNullifiers: [],
       newL2ToL1Messages: [],
       contractStorageReads: [],
+      unencryptedLogsHashes: [],
       unencryptedLogs: UnencryptedFunctionL2Logs.empty(),
       startSideEffectCounter: Fr.ZERO,
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
       revertReason: this._revertReason,
+      startGasLeft: Gas.test(),
+      endGasLeft: Gas.test(),
+      transactionFee: Fr.ZERO,
+      ...overrides,
     };
   }
 }

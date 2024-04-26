@@ -168,8 +168,8 @@ The circuit undergoes the following validations for data within [`private_inputs
        For each `note_hash` at index `i` in `note_hashes`:
 
        - Find the `request_index` at [`hints`](#hints).`note_hash_range_hints[i]`, which is the index of the `private_call_requests` with the smallest `counter_start` that was emitted after the `note_hash`.
-       - If `request_index` equals `NM`, indicating no request was emitted after the `note_hash`, its counter must be greater the the `counter_end` of the last request.
-       - If `request_index` equals `0`, indicating no request was emitted before the `note_hash`. Its counter must be less the the `counter_start` of the first request.
+       - If `request_index` equals `NM`, indicating no request was emitted after the `note_hash`, its counter must be greater the `counter_end` of the last request.
+       - If `request_index` equals `0`, indicating no request was emitted before the `note_hash`. Its counter must be less the `counter_start` of the first request.
        - Otherwise, the request was emitted after the `note_hash`, and its immediate previous request was emitted before the `note_hash`. Its counter must fall between those two requests.
 
        The code simplifies as:
@@ -351,9 +351,11 @@ class TransactionRequest {
     function_data: FunctionData
     args_hash: field
     tx_context: TransactionContext
+    gas_settings: GasSettings
 }
 TransactionRequest *-- FunctionData: function_data
 TransactionRequest *-- TransactionContext: tx_context
+TransactionRequest *-- GasSettings: gas_settings
 
 TransactionRequest ..> ConstantData: tx_context
 
@@ -426,6 +428,19 @@ ContractInstance .. PrivateCallStackItem: hash(contract_instance) == contract_ad
 class FunctionData {
     function_selector: u32
     function_type: private|public
+}
+
+class GasSettings {
+    da.gas_limit: u32
+    da.teardown_gas_limit: u32
+    da.max_fee_per_gas: Fr
+    l1.gas_limit: u32
+    l1.teardown_gas_limit: u32
+    l1.max_fee_per_gas: Fr
+    l2.gas_limit: u32
+    l2.teardown_gas_limit: u32
+    l2.max_fee_per_gas: Fr
+    inclusion_fee: Fr
 }
 
 class PrivateFunctionPublicInputs {
@@ -696,12 +711,13 @@ TransientAccumulatedData --* PublicInputs: transient_accumulated_data
 
 Data that represents the caller's intent.
 
-| Field           | Type                                        | Description                                  |
-| --------------- | ------------------------------------------- | -------------------------------------------- |
-| `origin`        | `AztecAddress`                              | The Aztec address of the transaction sender. |
-| `function_data` | [`FunctionData`](#functiondata)             | Data of the function being called.           |
-| `args_hash`     | `field`                                     | Hash of the function arguments.              |
-| `tx_context`    | [`TransactionContext`](#transactioncontext) | Information about the transaction.           |
+| Field           | Type                                        | Description                           |
+| --------------- | ------------------------------------------- | ------------------------------------- |
+| `origin`        | `AztecAddress`                              | Address of the entrypoint contract.   |
+| `function_data` | [`FunctionData`](#functiondata)             | Data of the function being called.    |
+| `args_hash`     | `field`                                     | Hash of the function arguments.       |
+| `tx_context`    | [`TransactionContext`](#transactioncontext) | Information about the transaction.    |
+| `gas_settings`  | [`GasSettings`](#gassettings)               | User-defined gas limits and max fees. |
 
 ### `PrivateCall`
 

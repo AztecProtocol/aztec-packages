@@ -6,7 +6,7 @@ import { mock } from 'jest-mock-extended';
 import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '../../index.js';
 import { markBytecodeAsAvm } from '../../public/transitional_adaptors.js';
 import { type AvmContext } from '../avm_context.js';
-import { Field, Uint8 } from '../avm_memory_types.js';
+import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { adjustCalldataIndex, initContext } from '../fixtures/index.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
@@ -36,7 +36,7 @@ describe('External Calls', () => {
         ...Buffer.from('12345678', 'hex'), // gasOffset
         ...Buffer.from('a2345678', 'hex'), // addrOffset
         ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSize
+        ...Buffer.from('c2345678', 'hex'), // argsSizeOffset
         ...Buffer.from('d2345678', 'hex'), // retOffset
         ...Buffer.from('e2345678', 'hex'), // retSize
         ...Buffer.from('f2345678', 'hex'), // successOffset
@@ -47,7 +47,7 @@ describe('External Calls', () => {
         /*gasOffset=*/ 0x12345678,
         /*addrOffset=*/ 0xa2345678,
         /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
+        /*argsSizeOffset=*/ 0xc2345678,
         /*retOffset=*/ 0xd2345678,
         /*retSize=*/ 0xe2345678,
         /*successOffset=*/ 0xf2345678,
@@ -68,6 +68,7 @@ describe('External Calls', () => {
       const argsOffset = 4;
       const args = [new Field(1n), new Field(2n), new Field(3n)];
       const argsSize = args.length;
+      const argsSizeOffset = 20;
       const retOffset = 8;
       const retSize = 2;
       const successOffset = 7;
@@ -93,6 +94,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(1, new Field(l2Gas));
       context.machineState.memory.set(2, new Field(daGas));
       context.machineState.memory.set(3, new Field(addr));
+      context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(4, args);
       jest
         .spyOn(context.persistableState.hostStorage.contractsDb, 'getBytecode')
@@ -103,7 +105,7 @@ describe('External Calls', () => {
         gasOffset,
         addrOffset,
         argsOffset,
-        argsSize,
+        argsSizeOffset,
         retOffset,
         retSize,
         successOffset,
@@ -137,7 +139,7 @@ describe('External Calls', () => {
 
     it('Should refuse to execute a call if not enough gas', async () => {
       const gasOffset = 0;
-      const l1Gas = 1e12; // We request more gas than what we have
+      const l1Gas = 1e9; // We request more gas than what we have
       const l2Gas = 2e6;
       const daGas = 3e6;
       const addrOffset = 3;
@@ -145,6 +147,7 @@ describe('External Calls', () => {
       const argsOffset = 4;
       const args = [new Field(1n), new Field(2n), new Field(3n)];
       const argsSize = args.length;
+      const argsSizeOffset = 20;
       const retOffset = 8;
       const retSize = 2;
       const successOffset = 7;
@@ -153,6 +156,7 @@ describe('External Calls', () => {
       context.machineState.memory.set(1, new Field(l2Gas));
       context.machineState.memory.set(2, new Field(daGas));
       context.machineState.memory.set(3, new Field(addr));
+      context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(4, args);
 
       jest
@@ -164,7 +168,7 @@ describe('External Calls', () => {
         gasOffset,
         addrOffset,
         argsOffset,
-        argsSize,
+        argsSizeOffset,
         retOffset,
         retSize,
         successOffset,
@@ -183,7 +187,7 @@ describe('External Calls', () => {
         ...Buffer.from('12345678', 'hex'), // gasOffset
         ...Buffer.from('a2345678', 'hex'), // addrOffset
         ...Buffer.from('b2345678', 'hex'), // argsOffset
-        ...Buffer.from('c2345678', 'hex'), // argsSize
+        ...Buffer.from('c2345678', 'hex'), // argsSizeOffset
         ...Buffer.from('d2345678', 'hex'), // retOffset
         ...Buffer.from('e2345678', 'hex'), // retSize
         ...Buffer.from('f2345678', 'hex'), // successOffset
@@ -194,7 +198,7 @@ describe('External Calls', () => {
         /*gasOffset=*/ 0x12345678,
         /*addrOffset=*/ 0xa2345678,
         /*argsOffset=*/ 0xb2345678,
-        /*argsSize=*/ 0xc2345678,
+        /*argsSizeOffset=*/ 0xc2345678,
         /*retOffset=*/ 0xd2345678,
         /*retSize=*/ 0xe2345678,
         /*successOffset=*/ 0xf2345678,
@@ -214,12 +218,14 @@ describe('External Calls', () => {
       const args = [new Field(1n), new Field(2n), new Field(3n)];
 
       const argsSize = args.length;
+      const argsSizeOffset = 20;
       const retOffset = 8;
       const retSize = 2;
       const successOffset = 7;
 
       context.machineState.memory.set(0, gas);
       context.machineState.memory.set(1, addr);
+      context.machineState.memory.set(argsSizeOffset, new Uint32(argsSize));
       context.machineState.memory.setSlice(2, args);
 
       const otherContextInstructions: Instruction[] = [
@@ -243,7 +249,7 @@ describe('External Calls', () => {
         gasOffset,
         addrOffset,
         argsOffset,
-        argsSize,
+        argsSizeOffset,
         retOffset,
         retSize,
         successOffset,
@@ -304,11 +310,10 @@ describe('External Calls', () => {
     });
 
     it('Should return data and revert from the revert opcode', async () => {
-      const returnData = [new Fr(1n), new Fr(2n), new Fr(3n)];
+      const returnData = [...'assert message'].flatMap(c => new Field(c.charCodeAt(0)));
+      returnData.unshift(new Field(0n)); // Prepend an error selector
 
-      context.machineState.memory.set(0, new Field(1n));
-      context.machineState.memory.set(1, new Field(2n));
-      context.machineState.memory.set(2, new Field(3n));
+      context.machineState.memory.setSlice(0, returnData);
 
       const instruction = new Revert(/*indirect=*/ 0, /*returnOffset=*/ 0, returnData.length);
       await instruction.execute(context);
@@ -316,7 +321,8 @@ describe('External Calls', () => {
       expect(context.machineState.halted).toBe(true);
       expect(context.machineState.getResults()).toEqual({
         reverted: true,
-        output: returnData,
+        revertReason: new Error('Reverted with output: assert message'),
+        output: returnData.map(f => f.toFr()),
       });
     });
   });

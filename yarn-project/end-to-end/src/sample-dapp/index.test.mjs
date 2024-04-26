@@ -1,13 +1,5 @@
 import { createAccount } from '@aztec/accounts/testing';
-import {
-  Contract,
-  ExtendedNote,
-  Fr,
-  Note,
-  computeMessageSecretHash,
-  createPXEClient,
-  waitForPXE,
-} from '@aztec/aztec.js';
+import { Contract, ExtendedNote, Fr, Note, computeSecretHash, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
@@ -27,11 +19,11 @@ describe('token', () => {
 
     const initialBalance = 20n;
     const secret = Fr.random();
-    const secretHash = await computeMessageSecretHash(secret);
+    const secretHash = await computeSecretHash(secret);
     const receipt = await token.methods.mint_private(initialBalance, secretHash).send().wait();
 
-    const storageSlot = new Fr(5);
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+    const storageSlot = token.artifact.storageLayout['pending_shields'].slot;
+    const noteTypeId = token.artifact.notes['TransparentNote'].id;
     const note = new Note([new Fr(initialBalance), secretHash]);
     const extendedNote = new ExtendedNote(
       note,

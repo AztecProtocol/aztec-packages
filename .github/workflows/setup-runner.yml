@@ -3,7 +3,7 @@
 # just for the CI job. These are specced per user and run the entire CI.
 # TODO These have a persistent EBS volume that forms a fast-online docker image cache (used by Earthly), meaning
 # TODO build steps that ran in previous invocations are quickly ran from cache.
-name: Reusable Spot Instance and Setup Workflow
+name: Setup Runner and CI
 on:
   workflow_call:
     inputs:
@@ -19,6 +19,7 @@ on:
       ec2_ami_id:
         required: true
         type: string
+      # how much time to add to shutdown when a job finishes or starts
       ec2_instance_ttl:
         required: true
         type: number
@@ -29,7 +30,7 @@ on:
         default: sg-0ccd4e5df0dcca0c9
         type: string
       ec2_spot_instance_strategy:
-        default: BestEffort
+        default: None
         type: string
       aws_region:
         default: "us-east-2"
@@ -52,9 +53,41 @@ on:
 jobs:
   start-builder:
     runs-on: ubuntu-latest
+    # we want to avoid race conditions when making spot across multiple PRs as we only use one runner
+    concurrency:
+      group: start-builder-${{ inputs.runner_label }}
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Checkout Merge Pipeline Files
+        uses: actions/checkout@v4
+        # Only check PRs for consistency (not master)
+        if: ${{ github.event.pull_request.head.sha != '' }}
+        with:
+          path: merge-commit-pipeline-files
+          sparse-checkout: |
+            .github/workflows/ci.yml
+            .github/workflows/setup-runner.yml
+
+      - name: Ensure CI Consistency
+        # Only check PRs for consistency (not master)
+        if: ${{ github.event.pull_request.head.sha != '' }}
+        run: |
+          # Compare the checked-out CI configuration files with the reference files
+          if ! git diff --no-index .github/workflows/ci.yml merge-commit-pipeline-files/.github/workflows/ci.yml; then
+            echo "Error: ci.yml changes in master (or PR base). Please merge these changes."
+            exit 1
+          fi
+          if ! git diff --no-index .github/workflows/setup-runner.yml merge-commit-pipeline-files/.github/workflows/setup-runner.yml; then
+            echo "Error: setup-runner.yml changes in master (or PR base). Please merge these changes."
+            exit 1
+          fi
+
       - name: Start EC2 runner
-        uses: AztecProtocol/ec2-action-builder@v0.8
+        uses: ./.github/spot-runner-action
         with:
           github_token: ${{ secrets.GH_SELF_HOSTED_RUNNER_TOKEN }}
           aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -64,7 +97,7 @@ jobs:
           ec2_security_group_id: ${{ inputs.ec2_security_group_id }}
           ec2_spot_instance_strategy: ${{ inputs.ec2_spot_instance_strategy }}
           runner_label: ${{ inputs.runner_label }}
-          subaction: ${{inputs.subaction }}
+          subaction: ${{ inputs.subaction }}
           runner_concurrency: ${{ inputs.runner_concurrency }}
           ec2_instance_type: ${{ inputs.ec2_instance_type }}
           ec2_ami_id: ${{ inputs.ec2_ami_id }}
@@ -93,22 +126,25 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: ./scripts/attach_ebs_cache.sh ${{ inputs.runner_label }} ${{ inputs.ebs_cache_size_gb }}
 
-      - name: Configure and Restart Docker
+      - name: Configure Machine
         shell: bash
         run: |
-          # We need to restart after attaching disk cache
-          # Both only happen once, so we just make sure this happens once
+          # One-time config
           if ! [ -f /etc/docker/daemon.json ] ; then
             echo '{"default-address-pools":[{"base":"172.17.0.0/12","size":20}, {"base":"10.99.0.0/12","size":20}, {"base":"192.168.0.0/16","size":24}]}' > /etc/docker/daemon.json
             sudo service docker restart
+            # helps to not overuse space
+            docker system prune -f -a || true
             echo "Configured docker daemon for making many networks."
+            # Run maybe_exit_spot.sh every minute
+            cp scripts/ci/spot_runner_graceful_exit.sh /run/spot_runner_graceful_exit.sh
+            cp scripts/ci/maybe_exit_spot.sh /run/maybe_exit_spot.sh
+            chmod +x /run/spot_runner_graceful_exit.sh
+            chmod +x /run/maybe_exit_spot.sh
+            echo "* * * * * /run/maybe_exit_spot.sh" | crontab -
           else
             echo "Docker daemon already configured."
           fi
-
-      - name: Run Docker Prune
-        # helps to not overuse space
-        run: docker system prune -f || true
 
       - name: Run Earthly Bootstrap
         run: earthly bootstrap

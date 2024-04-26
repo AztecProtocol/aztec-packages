@@ -10,7 +10,7 @@ import {
   GrumpkinScalar,
   Note,
   Schnorr,
-  computeMessageSecretHash,
+  computeSecretHash,
 } from '@aztec/aztec.js';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -56,8 +56,8 @@ describe('guides/writing_an_account_contract', () => {
   it('works', async () => {
     const { pxe, logger } = context;
     // docs:start:account-contract-deploy
-    const encryptionPrivateKey = GrumpkinScalar.random();
-    const account = new AccountManager(pxe, encryptionPrivateKey, new SchnorrHardcodedKeyAccountContract());
+    const secretKey = Fr.random();
+    const account = new AccountManager(pxe, secretKey, new SchnorrHardcodedKeyAccountContract());
     const wallet = await account.waitSetup();
     const address = wallet.getCompleteAddress().address;
     // docs:end:account-contract-deploy
@@ -68,7 +68,7 @@ describe('guides/writing_an_account_contract', () => {
     logger.info(`Deployed token contract at ${token.address}`);
 
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const mintAmount = 50n;
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
@@ -94,7 +94,7 @@ describe('guides/writing_an_account_contract', () => {
     // docs:start:account-contract-fails
     const wrongKey = GrumpkinScalar.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
-    const wrongAccount = new AccountManager(pxe, encryptionPrivateKey, wrongAccountContract, account.salt);
+    const wrongAccount = new AccountManager(pxe, secretKey, wrongAccountContract, account.salt);
     const wrongWallet = await wrongAccount.getWallet();
     const tokenWithWrongWallet = token.withWallet(wrongWallet);
 
