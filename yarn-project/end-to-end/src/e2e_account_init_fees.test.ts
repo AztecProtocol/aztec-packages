@@ -12,7 +12,7 @@ import {
   type TxHash,
   TxStatus,
   type Wallet,
-  computeMessageSecretHash,
+  computeSecretHash,
   deriveKeys,
 } from '@aztec/aztec.js';
 import { type AztecAddress, CompleteAddress, Fq, GasSettings } from '@aztec/circuits.js';
@@ -173,7 +173,7 @@ describe('e2e_fees_account_init', () => {
         await bobsAccountManager.register();
 
         const secret = Fr.random();
-        const secretHash = computeMessageSecretHash(secret);
+        const secretHash = computeSecretHash(secret);
         const mintTx = await bananaCoin.methods.mint_private(mintedPrivateBananas, secretHash).send().wait();
         await addTransparentNoteToPxe(sequencersAddress, mintedPrivateBananas, secretHash, mintTx.txHash);
 
@@ -219,7 +219,7 @@ describe('e2e_fees_account_init', () => {
         // the new account should have received a refund
         await expect(
           // this rejects if note can't be added
-          addTransparentNoteToPxe(bobsAddress, maxFee - actualFee, computeMessageSecretHash(rebateSecret), tx.txHash),
+          addTransparentNoteToPxe(bobsAddress, maxFee - actualFee, computeSecretHash(rebateSecret), tx.txHash),
         ).resolves.toBeUndefined();
 
         // and it can redeem the refund
@@ -333,8 +333,8 @@ describe('e2e_fees_account_init', () => {
   });
 
   async function addTransparentNoteToPxe(owner: AztecAddress, amount: bigint, secretHash: Fr, txHash: TxHash) {
-    const storageSlot = new Fr(5); // The storage slot of `pending_shields` is 5.
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
+    const storageSlot = bananaCoin.artifact.storageLayout['pending_shields'].slot;
+    const noteTypeId = bananaCoin.artifact.notes['TransparentNote'].id;
 
     const note = new Note([new Fr(amount), secretHash]);
     // this note isn't encrypted but we need to provide a registered public key

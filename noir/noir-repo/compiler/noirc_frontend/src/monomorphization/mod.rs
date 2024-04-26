@@ -8,6 +8,7 @@
 //!
 //! The entry point to this pass is the `monomorphize` function which, starting from a given
 //! function, will monomorphize the entire reachable program.
+use crate::ast::{FunctionKind, IntegerBitSize, Signedness, UnaryOp, Visibility};
 use crate::{
     debug::DebugInstrumenter,
     hir_def::{
@@ -18,8 +19,7 @@ use crate::{
     },
     node_interner::{self, DefinitionKind, NodeInterner, StmtId, TraitImplKind, TraitMethodId},
     token::FunctionAttribute,
-    FunctionKind, IntegerBitSize, Signedness, Type, TypeBinding, TypeBindings, TypeVariable,
-    TypeVariableKind, UnaryOp, Visibility,
+    Type, TypeBinding, TypeBindings, TypeVariable, TypeVariableKind,
 };
 use acvm::FieldElement;
 use iter_extended::{btree_map, try_vecmap, vecmap};
@@ -283,12 +283,18 @@ impl<'interner> Monomorphizer<'interner> {
         }
 
         let meta = self.interner.function_meta(&f).clone();
-        let func_sig = meta.function_signature();
+        let mut func_sig = meta.function_signature();
+        // Follow the bindings of the function signature for entry points
+        // which are not `main` such as foldable functions.
+        for param in func_sig.0.iter_mut() {
+            param.1 = param.1.follow_bindings();
+        }
+        func_sig.1 = func_sig.1.map(|return_type| return_type.follow_bindings());
 
         let modifiers = self.interner.function_modifiers(&f);
         let name = self.interner.function_name(&f).to_owned();
 
-        let body_expr_id = *self.interner.function(&f).as_expr();
+        let body_expr_id = self.interner.function(&f).as_expr();
         let body_return_type = self.interner.id_type(body_expr_id);
         let return_type = match meta.return_type() {
             Type::TraitAsType(..) => &body_return_type,
@@ -454,7 +460,7 @@ impl<'interner> Monomorphizer<'interner> {
 
                     // If this is a comparison operator, the result is a boolean but
                     // the actual method call returns an Ordering
-                    use crate::BinaryOpKind::*;
+                    use crate::ast::BinaryOpKind::*;
                     let ret = if matches!(operator, Less | LessEqual | Greater | GreaterEqual) {
                         self.interner.ordering_type()
                     } else {
@@ -515,6 +521,12 @@ impl<'interner> Monomorphizer<'interner> {
             }
             HirExpression::Error => unreachable!("Encountered Error node during monomorphization"),
             HirExpression::Quote(_) => unreachable!("quote expression remaining in runtime code"),
+            HirExpression::Unquote(_) => {
+                unreachable!("unquote expression remaining in runtime code")
+            }
+            HirExpression::Comptime(_) => {
+                unreachable!("comptime expression remaining in runtime code")
+            }
         };
 
         Ok(expr)
@@ -581,7 +593,11 @@ impl<'interner> Monomorphizer<'interner> {
                 let location = self.interner.expr_location(&constrain.0);
                 let assert_message = constrain
                     .2
-                    .map(|assert_msg_expr| self.expr(assert_msg_expr))
+                    .map(|assert_msg_expr| {
+                        self.expr(assert_msg_expr).map(|expr| {
+                            (expr, self.interner.id_type(assert_msg_expr).follow_bindings())
+                        })
+                    })
                     .transpose()?
                     .map(Box::new);
                 Ok(ast::Expression::Constrain(Box::new(expr), location, assert_message))
@@ -618,6 +634,9 @@ impl<'interner> Monomorphizer<'interner> {
             HirStatement::Break => Ok(ast::Expression::Break),
             HirStatement::Continue => Ok(ast::Expression::Continue),
             HirStatement::Error => unreachable!(),
+
+            // All `comptime` statements & expressions should be removed before runtime.
+            HirStatement::Comptime(_) => unreachable!("comptime statement in runtime code"),
         }
     }
 
@@ -1085,9 +1104,6 @@ impl<'interner> Monomorphizer<'interner> {
                     // The first argument to the `print` oracle is a bool, indicating a newline to be inserted at the end of the input
                     // The second argument is expected to always be an ident
                     self.append_printable_type_info(&hir_arguments[1], &mut arguments);
-                } else if name.as_str() == "assert_message" {
-                    // The first argument to the `assert_message` oracle is the expression passed as a message to an `assert` or `assert_eq` statement
-                    self.append_printable_type_info(&hir_arguments[0], &mut arguments);
                 }
             }
         }
@@ -1259,7 +1275,7 @@ impl<'interner> Monomorphizer<'interner> {
     ) -> ast::Expression {
         use ast::*;
 
-        let int_type = Type::Integer(crate::Signedness::Unsigned, arr_elem_bits);
+        let int_type = Type::Integer(crate::ast::Signedness::Unsigned, arr_elem_bits);
 
         let bytes_as_expr = vecmap(bytes, |byte| {
             Expression::Literal(Literal::Integer((byte as u128).into(), int_type.clone(), location))
@@ -1588,7 +1604,7 @@ impl<'interner> Monomorphizer<'interner> {
                 }))
             }
             ast::Type::MutableReference(element) => {
-                use crate::UnaryOp::MutableReference;
+                use crate::ast::UnaryOp::MutableReference;
                 let rhs = Box::new(self.zeroed_value_of_type(element, location));
                 let result_type = typ.clone();
                 ast::Expression::Unary(ast::Unary {
@@ -1673,7 +1689,7 @@ impl<'interner> Monomorphizer<'interner> {
         let mut result =
             ast::Expression::Call(ast::Call { func, arguments, return_type, location });
 
-        use crate::BinaryOpKind::*;
+        use crate::ast::BinaryOpKind::*;
         match operator.kind {
             // Negate the result of the == operation
             NotEqual => {

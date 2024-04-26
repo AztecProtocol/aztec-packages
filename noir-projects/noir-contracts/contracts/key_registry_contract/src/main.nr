@@ -1,19 +1,14 @@
 contract KeyRegistry {
-  use dep::std::hash::poseidon2::Poseidon2::hash as poseidon2_hash;
   use dep::authwit::auth::assert_current_call_valid_authwit_public;
 
   use dep::aztec::{
-    context::gas::GasOpts,
     state_vars::{
       SharedMutable,
       Map
     }, 
     protocol_types::{
-      abis::function_selector::FunctionSelector,
-      contract_class_id::ContractClassId,
       address::{
         AztecAddress,
-        EthAddress,
         PublicKeysHash,
         PartialAddress,
       },
@@ -21,10 +16,7 @@ contract KeyRegistry {
         GENERATOR_INDEX__CONTRACT_ADDRESS_V1,
         GENERATOR_INDEX__PUBLIC_KEYS_HASH
       },
-      traits::{
-        Serialize,
-        Deserialize,
-      }
+      hash::poseidon2_hash,
     },
   };
 
@@ -86,8 +78,7 @@ contract KeyRegistry {
         outgoing_public_key,
         tagging_public_key,
         GENERATOR_INDEX__PUBLIC_KEYS_HASH,
-      ],
-      5
+      ]
     );
 
     let computed_address = AztecAddress::from_field(
@@ -95,8 +86,7 @@ contract KeyRegistry {
           partial_address.to_field(),
           public_keys_hash.to_field(),
           GENERATOR_INDEX__CONTRACT_ADDRESS_V1 as Field,
-        ],
-        3
+        ]
       )
     );
 

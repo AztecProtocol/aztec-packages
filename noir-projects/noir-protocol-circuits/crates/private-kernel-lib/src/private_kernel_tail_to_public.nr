@@ -96,7 +96,7 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
         note_hash::{NoteHash, NoteHashContext}, nullifier::Nullifier, side_effect::{SideEffect, Ordered}
     },
         grumpkin_private_key::GrumpkinPrivateKey,
@@ -511,7 +511,7 @@ mod tests {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         // expect 3 non-revertible nullifiers: the tx nullifier + 2 new ones
         builder.previous_kernel.append_new_nullifiers(2);
-        builder.previous_kernel.capture_min_revertible_side_effect_counter();
+        builder.previous_kernel.end_setup();
 
         // expect 2 revertible nullifiers
         builder.previous_kernel.append_new_nullifiers(2);
@@ -540,7 +540,7 @@ mod tests {
 
         // expect 2 non-revertible note hashes
         builder.previous_kernel.append_new_note_hashes(2);
-        builder.previous_kernel.capture_min_revertible_side_effect_counter();
+        builder.previous_kernel.end_setup();
 
         // expect 2 revertible note hashes
         builder.previous_kernel.append_new_note_hashes(2);
@@ -571,7 +571,7 @@ mod tests {
 
         // add one hash in non-revertible part
         builder.previous_kernel.append_new_note_hashes(1);
-        builder.previous_kernel.capture_min_revertible_side_effect_counter();
+        builder.previous_kernel.end_setup();
 
         // nullify it in revertible part
         builder.previous_kernel.append_new_nullifiers(1);
@@ -583,5 +583,15 @@ mod tests {
         assert(is_empty_array(public_inputs.end_non_revertible.new_note_hashes));
         assert(is_empty_array(public_inputs.end.new_note_hashes));
         assert(is_empty_array(public_inputs.end.new_nullifiers));
+    }
+
+    #[test]
+    unconstrained fn set_teardown_gas_as_gas_used() {
+        // TODO(gas): When we compute DA gas used, we'll have to include it here as well.
+        let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
+        builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300, 300);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.gas_used, Gas::new(300, 300, 300));
     }
 }

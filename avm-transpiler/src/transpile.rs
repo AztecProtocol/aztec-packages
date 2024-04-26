@@ -251,19 +251,16 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode]) -> Vec<u8> {
                     ..Default::default()
                 });
             }
-            BrilligOpcode::Trap {
-                revert_data_offset,
-                revert_data_size,
-            } => {
+            BrilligOpcode::Trap { revert_data } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::REVERT,
-                    indirect: Some(ALL_DIRECT),
+                    indirect: Some(ZEROTH_OPERAND_INDIRECT),
                     operands: vec![
                         AvmOperand::U32 {
-                            value: *revert_data_offset as u32,
+                            value: revert_data.pointer.0 as u32,
                         },
                         AvmOperand::U32 {
-                            value: *revert_data_size as u32,
+                            value: revert_data.size as u32,
                         },
                     ],
                     ..Default::default()
@@ -744,7 +741,6 @@ fn handle_getter_instruction(
         "avmOpcodeAddress" => AvmOpcode::ADDRESS,
         "avmOpcodeStorageAddress" => AvmOpcode::STORAGEADDRESS,
         "avmOpcodeSender" => AvmOpcode::SENDER,
-        "avmOpcodePortal" => AvmOpcode::PORTAL,
         "avmOpcodeFeePerL1Gas" => AvmOpcode::FEEPERL1GAS,
         "avmOpcodeFeePerL2Gas" => AvmOpcode::FEEPERL2GAS,
         "avmOpcodeFeePerDaGas" => AvmOpcode::FEEPERDAGAS,

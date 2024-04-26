@@ -89,19 +89,21 @@ library Constants {
   uint256 internal constant DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    0x0cde95a10e1160d0ff69ac8212cb5902fa5add38d8596595631fcf3a667798e0;
+    0x0097949bb96834550868230a1b6cc242d1f662f7c52946245e4e73da1b8b2165;
   uint256 internal constant DEFAULT_GAS_LIMIT = 1_000_000_000;
   uint256 internal constant DEFAULT_TEARDOWN_GAS_LIMIT = 100_000_000;
   uint256 internal constant DEFAULT_MAX_FEE_PER_GAS = 10;
   uint256 internal constant DEFAULT_INCLUSION_FEE = 0;
+  uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
+    0x1585e564a60e6ec974bc151b62705292ebfc75c33341986a47fd9749cedb567e;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 3;
   uint256 internal constant GAS_LENGTH = 3;
   uint256 internal constant GAS_SETTINGS_LENGTH =
     GAS_LENGTH * 2 + GAS_FEES_LENGTH /* inclusion_fee */ + 1;
-  uint256 internal constant CALL_CONTEXT_LENGTH = 7;
+  uint256 internal constant CALL_CONTEXT_LENGTH = 6;
   uint256 internal constant CONTENT_COMMITMENT_LENGTH = 4;
-  uint256 internal constant CONTRACT_INSTANCE_LENGTH = 6;
+  uint256 internal constant CONTRACT_INSTANCE_LENGTH = 5;
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
   uint256 internal constant CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 2;
   uint256 internal constant ETH_ADDRESS_LENGTH = 1;
@@ -159,4 +161,7 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 93;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 109;
+  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
 }

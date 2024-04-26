@@ -22,7 +22,6 @@ import {
   CallContext,
   CallRequest,
   CallerContext,
-  CircuitType,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -68,6 +67,7 @@ import {
   MaxBlockNumber,
   MembershipWitness,
   MergeRollupInputs,
+  NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
@@ -115,6 +115,7 @@ import {
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
+  RECURSIVE_PROOF_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequest,
   ReadRequestContext,
@@ -131,8 +132,10 @@ import {
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
+  VerificationKeyAsFields,
   computeContractClassId,
   computePublicBytecodeCommitment,
+  makeRecursiveProof,
   packBytecode,
 } from '../index.js';
 import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../structs/content_commitment.js';
@@ -172,7 +175,7 @@ function makeNullifier(seed: number) {
  * @param seed - The seed to use for generating the tx context.
  * @returns A tx context.
  */
-export function makeTxContext(seed: number): TxContext {
+export function makeTxContext(seed: number = 1): TxContext {
   // @todo @LHerskind should probably take value for chainId as it will be verified later.
   return new TxContext(new Fr(seed), Fr.ZERO, makeGasSettings());
 }
@@ -295,6 +298,10 @@ export function makeRollupValidationRequests(seed = 1) {
   return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
 
+export function makeCombinedConstantData(seed = 1): CombinedConstantData {
+  return new CombinedConstantData(makeHeader(seed), makeTxContext(seed + 0x100));
+}
+
 /**
  * Creates arbitrary accumulated data.
  * @param seed - The seed to use for generating the accumulated data.
@@ -397,7 +404,6 @@ export function makeCallContext(seed = 0, overrides: Partial<FieldsOf<CallContex
   return CallContext.from({
     msgSender: makeAztecAddress(seed),
     storageContractAddress: makeAztecAddress(seed + 1),
-    portalContractAddress: makeEthAddress(seed + 2),
     functionSelector: makeSelector(seed + 3),
     isStaticCall: false,
     isDelegateCall: false,
@@ -597,20 +603,19 @@ export function makeEmptyNoteHashReadRequestMembershipWitness(): NoteHashReadReq
 }
 
 /**
+ * Creates arbitrary/mocked verification key in fields format.
+ * @returns A verification key as fields object
+ */
+export function makeVerificationKeyAsFields(): VerificationKeyAsFields {
+  return VerificationKeyAsFields.makeFake();
+}
+
+/**
  * Creates arbitrary/mocked verification key.
- * @returns A verification key.
+ * @returns A verification key object
  */
 export function makeVerificationKey(): VerificationKey {
-  return new VerificationKey(
-    CircuitType.STANDARD,
-    101, // arbitrary
-    102, // arbitrary
-    {
-      A: new G1AffineElement(new Fq(0x200), new Fq(0x300)),
-    },
-    /* recursive proof */ true,
-    range(5, 400),
-  );
+  return VerificationKey.makeFake();
 }
 
 /**
@@ -734,7 +739,6 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
     makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makeCallRequest, seed + 0x300),
     makeProof(),
     fr(seed + 1),
-    fr(seed + 2),
   );
 
   return publicCallData;
@@ -830,7 +834,6 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
       makeNoteHashReadRequestMembershipWitness,
       seed + 0x70,
     ),
-    portalContractAddress: makeEthAddress(seed + 0x40).toField(),
     acirHash: fr(seed + 0x60),
   });
 }
@@ -1033,7 +1036,7 @@ export function makePreviousRollupData(
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
   return new RootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
-    makeRootParityInput(seed + 0x2000),
+    makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
@@ -1042,16 +1045,19 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
   );
 }
 
-export function makeRootParityInput(seed = 0): RootParityInput {
-  return new RootParityInput(makeProof(seed), makeParityPublicInputs(seed + 0x100));
+export function makeRootParityInput<PROOF_LENGTH extends number>(
+  proofSize: PROOF_LENGTH,
+  seed = 0,
+): RootParityInput<PROOF_LENGTH> {
+  return new RootParityInput<PROOF_LENGTH>(
+    makeRecursiveProof<PROOF_LENGTH>(proofSize, seed),
+    VerificationKeyAsFields.makeFake(seed + 0x100),
+    makeParityPublicInputs(seed + 0x200),
+  );
 }
 
 export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
-  return new ParityPublicInputs(
-    makeAggregationObject(seed),
-    new Fr(BigInt(seed + 0x200)),
-    new Fr(BigInt(seed + 0x300)),
-  );
+  return new ParityPublicInputs(new Fr(BigInt(seed + 0x200)), new Fr(BigInt(seed + 0x300)));
 }
 
 export function makeBaseParityInputs(seed = 0): BaseParityInputs {
@@ -1059,7 +1065,13 @@ export function makeBaseParityInputs(seed = 0): BaseParityInputs {
 }
 
 export function makeRootParityInputs(seed = 0): RootParityInputs {
-  return new RootParityInputs(makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, makeRootParityInput, seed + 0x4000));
+  return new RootParityInputs(
+    makeTuple(
+      NUM_BASE_PARITY_PER_ROOT_PARITY,
+      () => makeRootParityInput<typeof RECURSIVE_PROOF_LENGTH>(RECURSIVE_PROOF_LENGTH),
+      seed + 0x4100,
+    ),
+  );
 }
 
 /**

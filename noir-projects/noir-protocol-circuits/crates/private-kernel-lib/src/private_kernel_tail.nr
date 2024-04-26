@@ -94,7 +94,7 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}
+        note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}, gas::Gas
     },
         grumpkin_private_key::GrumpkinPrivateKey,
         hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, accumulate_sha256},
@@ -555,5 +555,15 @@ mod tests {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.new_nullifiers = BoundedVec::new();
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn set_teardown_gas_as_gas_used() {
+        // TODO(gas): When we compute DA gas used, we'll have to include it here as well.
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300, 300);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.gas_used, Gas::new(300, 300, 300));
     }
 }

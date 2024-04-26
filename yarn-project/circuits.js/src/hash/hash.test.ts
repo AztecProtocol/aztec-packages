@@ -2,26 +2,20 @@ import { times } from '@aztec/foundation/collection';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
 
 import { AztecAddress, Fr } from '../index.js';
-import { makeAztecAddress, makeVerificationKey } from '../tests/factories.js';
+import { makeAztecAddress } from '../tests/factories.js';
 import {
   computeCommitmentNonce,
-  computeMessageSecretHash,
   computePublicDataTreeLeafSlot,
   computePublicDataTreeValue,
-  computeUniqueCommitment,
+  computeSecretHash,
+  computeUniqueNoteHash,
   computeVarArgsHash,
-  hashVK,
   siloNoteHash,
   siloNullifier,
 } from './hash.js';
 
 describe('hash', () => {
   setupCustomSnapshotSerializers(expect);
-  it('hashes VK', () => {
-    const vk = makeVerificationKey();
-    const res = hashVK(vk.toBuffer());
-    expect(res).toMatchSnapshot();
-  });
 
   it('computes commitment nonce', () => {
     const nullifierZero = new Fr(123n);
@@ -33,7 +27,7 @@ describe('hash', () => {
   it('computes unique commitment', () => {
     const nonce = new Fr(123n);
     const innerCommitment = new Fr(456);
-    const res = computeUniqueCommitment(nonce, innerCommitment);
+    const res = computeUniqueNoteHash(nonce, innerCommitment);
     expect(res).toMatchSnapshot();
   });
 
@@ -83,7 +77,7 @@ describe('hash', () => {
 
   it('compute secret message hash', () => {
     const value = new Fr(8n);
-    const hash = computeMessageSecretHash(value);
+    const hash = computeSecretHash(value);
     expect(hash).toMatchSnapshot();
   });
 

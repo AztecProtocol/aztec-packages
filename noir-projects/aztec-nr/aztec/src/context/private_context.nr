@@ -82,10 +82,6 @@ impl ContextInterface for PrivateContext {
         self.inputs.call_context.storage_contract_address
     }
 
-    fn this_portal_address(self) -> EthAddress {
-        self.inputs.call_context.portal_contract_address
-    }
-
     fn chain_id(self) -> Field {
         self.inputs.tx_context.chain_id
     }
@@ -194,7 +190,7 @@ impl PrivateContext {
         priv_circuit_pub_inputs
     }
 
-    pub fn capture_min_revertible_side_effect_counter(&mut self) {
+    pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.side_effect_counter;
     }
 

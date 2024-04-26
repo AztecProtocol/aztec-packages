@@ -8,7 +8,7 @@ import {
   Note,
   type PXE,
   type Wallet,
-  computeMessageSecretHash,
+  computeSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -29,6 +29,7 @@ describe('e2e_2_pxes', () => {
   let walletB: Wallet;
   let logger: DebugLogger;
   let teardownA: () => Promise<void>;
+  let teardownB: () => Promise<void>;
 
   beforeEach(async () => {
     ({
@@ -42,14 +43,13 @@ describe('e2e_2_pxes', () => {
     ({
       pxe: pxeB,
       wallets: [walletB],
+      teardown: teardownB,
     } = await setupPXEService(1, aztecNode!, {}, undefined, true));
   }, 100_000);
 
   afterEach(async () => {
+    await teardownB();
     await teardownA();
-    if ((pxeB as any).stop) {
-      await (pxeB as any).stop();
-    }
   });
 
   const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
@@ -93,7 +93,7 @@ describe('e2e_2_pxes', () => {
 
   const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint, pxe: PXE) => {
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await contract.methods.mint_private(balance, secretHash).send().wait();
 

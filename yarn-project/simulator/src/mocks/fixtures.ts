@@ -5,7 +5,6 @@ import {
   CallContext,
   CallRequest,
   type ContractStorageUpdateRequest,
-  EthAddress,
   Fr,
   FunctionData,
   Gas,
@@ -66,7 +65,7 @@ export class PublicExecutionResultBuilder {
     revertReason?: SimulationError;
   }) {
     const builder = new PublicExecutionResultBuilder({
-      callContext: new CallContext(from, tx.to, EthAddress.ZERO, tx.functionData.selector, false, false, 0),
+      callContext: new CallContext(from, tx.to, tx.functionData.selector, false, false, 0),
       contractAddress: tx.to,
       functionData: tx.functionData,
       args: tx.args,
@@ -103,7 +102,7 @@ export class PublicExecutionResultBuilder {
     return this;
   }
 
-  build(): PublicExecutionResult {
+  build(overrides: Partial<PublicExecutionResult> = {}): PublicExecutionResult {
     return {
       execution: this._execution,
       nestedExecutions: this._nestedExecutions,
@@ -121,7 +120,10 @@ export class PublicExecutionResultBuilder {
       endSideEffectCounter: Fr.ZERO,
       reverted: this._reverted,
       revertReason: this._revertReason,
-      gasLeft: Gas.test(), // TODO(palla/gas): Set a proper value
+      startGasLeft: Gas.test(),
+      endGasLeft: Gas.test(),
+      transactionFee: Fr.ZERO,
+      ...overrides,
     };
   }
 }
