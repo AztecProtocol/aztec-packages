@@ -44,7 +44,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static void construct_circuit(Builder& builder)
     {
-        MockCircuits::add_some_arithmetic_gates(builder);
+        MockCircuits::add_arithmetic_gates(builder);
         if constexpr (IsGoblinFlavor<Flavor>) {
             GoblinMockCircuits::add_some_ecc_op_gates(builder);
         }
@@ -57,8 +57,6 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     {
 
         auto prover_instance = std::make_shared<ProverInstance>(builder, structured);
-        builder.blocks.summarize();
-        info(prover_instance->proving_key.circuit_size);
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->proving_key);
         auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
         get<0>(instances).emplace_back(prover_instance);

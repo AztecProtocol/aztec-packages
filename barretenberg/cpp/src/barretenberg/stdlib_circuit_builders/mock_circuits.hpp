@@ -10,13 +10,13 @@ class MockCircuits {
     using Point = Curve::AffineElement;
 
     /**
-     * @brief A simple method for adding arithmetic gates that can be called arbitrarily many times
+     * @brief Add a specified number of arithmetic gates (with public inputs) to the provided circuit
      *
      * @param builder
      * @param num_gates
      */
     template <typename Builder>
-    static void add_some_arithmetic_gates_with_public_inputs(Builder& builder, const size_t num_gates = 4)
+    static void add_arithmetic_gates_with_public_inputs(Builder& builder, const size_t num_gates = 4)
     {
         // For good measure, include a gate with some public inputs
         for (size_t i = 0; i < num_gates; ++i) {
@@ -34,12 +34,12 @@ class MockCircuits {
     }
 
     /**
-     * @brief A simple method for adding arithmetic gates that can be called arbitrarily many times
+     * @brief Add a specified number of arithmetic gates to the provided circuit
      *
      * @param builder
      * @param num_gates
      */
-    template <typename Builder> static void add_some_arithmetic_gates(Builder& builder, const size_t num_gates = 4)
+    template <typename Builder> static void add_arithmetic_gates(Builder& builder, const size_t num_gates = 4)
     {
         // For good measure, include a gate with some public inputs
         for (size_t i = 0; i < num_gates; ++i) {
@@ -71,7 +71,7 @@ class MockCircuits {
 
         // For good measure, include a gate with some public inputs
         if (target_dyadic_size > num_preamble_gates) {
-            add_some_arithmetic_gates_with_public_inputs(builder, 1);
+            add_arithmetic_gates_with_public_inputs(builder, 1);
         }
 
         // A proper treatment of this would dynamically calculate how many gates to add given static information about
@@ -87,7 +87,7 @@ class MockCircuits {
         size_t num_gates_to_add = target_dyadic_size - OFFSET_HACK - 1 - num_preamble_gates;
 
         // Add arbitrary arithmetic gates to obtain a total of num_gates-many gates
-        add_some_arithmetic_gates(builder, num_gates_to_add);
+        add_arithmetic_gates(builder, num_gates_to_add);
     }
 
     /**

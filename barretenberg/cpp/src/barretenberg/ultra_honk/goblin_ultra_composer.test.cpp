@@ -86,8 +86,9 @@ TEST_F(GoblinUltraHonkComposerTests, BasicStructured)
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
-    // Construct and verify Honk proof
-    auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder, /*is_structured=*/true);
+    // Construct and verify Honk proof using a structured trace
+    bool structured = true;
+    auto instance = std::make_shared<ProverInstance_<GoblinUltraFlavor>>(builder, structured);
     builder.blocks.summarize();
     GoblinUltraProver prover(instance);
     auto verification_key = std::make_shared<GoblinUltraFlavor::VerificationKey>(instance->proving_key);
