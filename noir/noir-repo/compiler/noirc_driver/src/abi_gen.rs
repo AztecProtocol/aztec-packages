@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use acvm::acir::native_types::Witness;
 use iter_extended::{btree_map, vecmap};
-use noirc_abi::{Abi, AbiParameter, AbiReturnType, AbiType, AbiValue};
+use noirc_abi::{Abi, AbiErrorType, AbiParameter, AbiReturnType, AbiType, AbiValue};
 use noirc_frontend::ast::Visibility;
 use noirc_frontend::{
     hir::Context,
@@ -28,7 +28,7 @@ pub(super) fn gen_abi(
         .map(|typ| AbiReturnType { abi_type: typ, visibility: return_visibility.into() });
     let error_types = error_types
         .into_iter()
-        .map(|(loc, typ)| (loc, AbiType::from_type(context, &typ)))
+        .map(|(selector, typ)| (selector, AbiErrorType::from_type(context, &typ)))
         .collect();
     Abi { parameters, return_type, param_witnesses, return_witnesses, error_types }
 }

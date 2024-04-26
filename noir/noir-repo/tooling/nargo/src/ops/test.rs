@@ -107,7 +107,7 @@ fn test_status_program_compile_pass(
 
     check_expected_failure_message(
         test_function,
-        circuit_execution_err.user_defined_failure_message(&abi.error_types).map(|s| s.to_string()),
+        circuit_execution_err.user_defined_failure_message(&abi.error_types),
         diagnostic,
     )
 }

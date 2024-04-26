@@ -5,7 +5,7 @@ use acvm::{
     pwg::{ErrorLocation, OpcodeResolutionError},
     FieldElement,
 };
-use noirc_abi::{Abi, AbiType, Sign};
+use noirc_abi::{Abi, AbiErrorType, AbiType, Sign};
 use noirc_errors::{
     debug_info::DebugInfo, reporter::ReportedErrors, CustomDiagnostic, FileDiagnostic,
 };
@@ -61,7 +61,7 @@ impl NargoError {
     /// in tests to expected failure messages
     pub fn user_defined_failure_message(
         &self,
-        error_types: &BTreeMap<u64, AbiType>,
+        error_types: &BTreeMap<u64, AbiErrorType>,
     ) -> Option<String> {
         let execution_error = match self {
             NargoError::ExecutionError(error) => error,
@@ -188,34 +188,36 @@ fn map_non_fmt_to_printable_type(abi_typ: AbiType) -> PrintableType {
             PrintableType::UnsignedInteger { width }
         }
         AbiType::Integer { sign: Sign::Signed, width } => PrintableType::SignedInteger { width },
-        AbiType::FmtString { .. } => unreachable!("Nested fmt strings are unsupported"),
     }
 }
 
-fn prepare_for_display(fields: &[FieldElement], abi_typ: AbiType) -> PrintableValueDisplay {
-    if let AbiType::FmtString { length, item_types } = abi_typ {
-        let mut fields_iter = fields.iter().copied();
-        let PrintableValue::String(string) =
-            decode_value(&mut fields_iter, &PrintableType::String { length })
-        else {
-            unreachable!("Got non-string from string decoding");
-        };
-        let _length_of_items = fields_iter.next();
-        let items = item_types.into_iter().map(|abi_type| {
-            let printable_typ = map_non_fmt_to_printable_type(abi_type);
-            let decoded = decode_value(&mut fields_iter, &printable_typ);
-            (decoded, printable_typ)
-        });
-        PrintableValueDisplay::FmtString(string, items.collect())
-    } else {
-        let printable_type = map_non_fmt_to_printable_type(abi_typ);
-        let decoded = decode_value(&mut fields.iter().copied(), &printable_type);
-        PrintableValueDisplay::Plain(decoded, printable_type)
+fn prepare_for_display(fields: &[FieldElement], error_type: AbiErrorType) -> PrintableValueDisplay {
+    match error_type {
+        AbiErrorType::FmtString { length, item_types } => {
+            let mut fields_iter = fields.iter().copied();
+            let PrintableValue::String(string) =
+                decode_value(&mut fields_iter, &PrintableType::String { length })
+            else {
+                unreachable!("Got non-string from string decoding");
+            };
+            let _length_of_items = fields_iter.next();
+            let items = item_types.into_iter().map(|abi_type| {
+                let printable_typ = map_non_fmt_to_printable_type(abi_type);
+                let decoded = decode_value(&mut fields_iter, &printable_typ);
+                (decoded, printable_typ)
+            });
+            PrintableValueDisplay::FmtString(string, items.collect())
+        }
+        AbiErrorType::Custom(abi_typ) => {
+            let printable_type = map_non_fmt_to_printable_type(abi_typ);
+            let decoded = decode_value(&mut fields.iter().copied(), &printable_type);
+            PrintableValueDisplay::Plain(decoded, printable_type)
+        }
     }
 }
 
 fn extract_message_from_error(
-    error_types: &BTreeMap<u64, AbiType>,
+    error_types: &BTreeMap<u64, AbiErrorType>,
     nargo_err: &NargoError,
 ) -> String {
     match nargo_err {
@@ -229,8 +231,8 @@ fn extract_message_from_error(
             ResolvedAssertionPayload::Raw(error_selector, fields),
             ..,
         )) => {
-            if let Some(abi_type) = error_types.get(error_selector) {
-                format!("Assertion failed: {}", prepare_for_display(fields, abi_type.clone()))
+            if let Some(error_type) = error_types.get(error_selector) {
+                format!("Assertion failed: {}", prepare_for_display(fields, error_type.clone()))
             } else {
                 "Assertion failed".to_string()
             }
