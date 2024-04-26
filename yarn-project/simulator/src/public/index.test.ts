@@ -3,6 +3,7 @@ import {
   AppendOnlyTreeSnapshot,
   CallContext,
   FunctionData,
+  Gas,
   GasFees,
   GlobalVariables,
   type Header,
@@ -13,7 +14,7 @@ import {
   NullifierLeafPreimage,
 } from '@aztec/circuits.js';
 import { computeInnerNoteHash, computeNoteContentHash, siloNullifier } from '@aztec/circuits.js/hash';
-import { makeHeader } from '@aztec/circuits.js/testing';
+import { makeHeader, makeTxContext } from '@aztec/circuits.js/testing';
 import { type FunctionArtifact, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { pedersenHash, randomInt } from '@aztec/foundation/crypto';
@@ -97,6 +98,9 @@ describe('ACIR public execution simulator', () => {
       ...overrides,
     });
 
+  const simulate = (execution: PublicExecution, globalVariables: GlobalVariables) =>
+    executor.simulate(execution, globalVariables, Gas.test(), makeTxContext(), Fr.ZERO);
+
   describe('Token contract', () => {
     let recipient: AztecAddress;
     let contractAddress: AztecAddress;
@@ -130,7 +134,7 @@ describe('ACIR public execution simulator', () => {
           .mockResolvedValueOnce(previousTotalSupply); // reading total supply
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        const result = await executor.simulate(execution, globalVariables);
+        const result = await simulate(execution, globalVariables);
         expect(result.revertReason).toBeUndefined();
 
         const recipientBalanceStorageSlot = computeSlotForMapping(new Fr(6n), recipient);
@@ -212,7 +216,7 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const result = await executor.simulate(execution, globalVariables);
+        const result = await simulate(execution, globalVariables);
 
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
@@ -240,7 +244,7 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const { reverted, revertReason } = await executor.simulate(execution, globalVariables);
+        const { reverted, revertReason } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch('Assertion failed: attempt to subtract with underflow');
       });
@@ -296,7 +300,7 @@ describe('ACIR public execution simulator', () => {
         new GasFees(new Fr(10), new Fr(11), new Fr(12)),
       );
 
-      const result = await executor.simulate(execution, globalVariables);
+      const result = await simulate(execution, globalVariables);
       expect(result.returnValues[0]).toEqual(
         new Fr(
           initialValue +
@@ -369,7 +373,7 @@ describe('ACIR public execution simulator', () => {
       publicState.storageRead.mockResolvedValue(amount);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, globalVariables);
+      const result = await simulate(execution, globalVariables);
 
       // Assert the note hash was created
       expect(result.newNoteHashes.length).toEqual(1);
@@ -392,7 +396,7 @@ describe('ACIR public execution simulator', () => {
       publicContracts.getBytecode.mockResolvedValue(createL2ToL1MessagePublicArtifact.bytecode);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, globalVariables);
+      const result = await simulate(execution, globalVariables);
 
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
@@ -414,7 +418,7 @@ describe('ACIR public execution simulator', () => {
       publicContracts.getBytecode.mockResolvedValue(createNullifierPublicArtifact.bytecode);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.simulate(execution, globalVariables);
+      const result = await simulate(execution, globalVariables);
 
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);
@@ -516,7 +520,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const result = await executor.simulate(execution, globalVariables);
+        const result = await simulate(execution, globalVariables);
         expect(result.newNullifiers.length).toEqual(1);
       });
 
@@ -533,7 +537,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+        const { revertReason, reverted } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch(`Message not in state`);
       });
@@ -550,7 +554,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+        const { revertReason, reverted } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch(`Message not in state`);
       });
@@ -567,7 +571,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+        const { revertReason, reverted } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch(`Message not in state`);
       });
@@ -584,7 +588,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+        const { revertReason, reverted } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch(`Message not in state`);
       });
@@ -601,7 +605,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+        const { revertReason, reverted } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch(`Message not in state`);
       });
@@ -619,7 +623,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+        const { revertReason, reverted } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch(`Message not in state`);
       });
@@ -637,7 +641,7 @@ describe('ACIR public execution simulator', () => {
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
         executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
-        const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+        const { revertReason, reverted } = await simulate(execution, globalVariables);
         expect(reverted).toBe(true);
         expect(revertReason?.message).toMatch(`Message not in state`);
       });
@@ -704,7 +708,7 @@ describe('ACIR public execution simulator', () => {
           const execution: PublicExecution = { contractAddress, functionData, args, callContext };
           executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
 
-          expect(() => executor.simulate(execution, globalVariables)).not.toThrow();
+          expect(() => simulate(execution, globalVariables)).not.toThrow();
         });
 
         it('Invalid', async () => {
@@ -720,7 +724,7 @@ describe('ACIR public execution simulator', () => {
           const execution: PublicExecution = { contractAddress, functionData, args, callContext };
           executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
 
-          const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+          const { revertReason, reverted } = await simulate(execution, globalVariables);
           expect(reverted).toBe(true);
           expect(revertReason?.message).toMatch(`Invalid ${description.toLowerCase()}`);
         });
@@ -751,7 +755,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
 
-      expect(() => executor.simulate(execution, globalVariables)).not.toThrow();
+      expect(() => simulate(execution, globalVariables)).not.toThrow();
     });
 
     it('Throws when header is not as expected', async () => {
@@ -761,7 +765,7 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, header);
 
-      const { revertReason, reverted } = await executor.simulate(execution, globalVariables);
+      const { revertReason, reverted } = await simulate(execution, globalVariables);
       expect(reverted).toBe(true);
       expect(revertReason?.message).toMatch(`Invalid header hash`);
     });

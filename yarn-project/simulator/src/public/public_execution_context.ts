@@ -3,7 +3,8 @@ import {
   CallContext,
   FunctionData,
   type FunctionSelector,
-  Gas,
+  type Gas,
+  type GasSettings,
   type GlobalVariables,
   type Header,
   PublicContextInputs,
@@ -43,6 +44,9 @@ export class PublicExecutionContext extends TypedOracle {
     // Unencrypted logs emitted during this call AND any nested calls
     // Useful for maintaining correct ordering in ts
     private allUnencryptedLogs: UnencryptedL2Log[] = [],
+    public readonly availableGas: Gas,
+    public readonly transactionFee: Fr,
+    public readonly gasSettings: GasSettings,
     private log = createDebugLogger('aztec:simulator:public_execution_context'),
   ) {
     super();
@@ -65,8 +69,8 @@ export class PublicExecutionContext extends TypedOracle {
       this.header,
       this.globalVariables,
       this.sideEffectCounter.current(),
-      Gas.test(), // TODO(palla/gas): Set proper values
-      new Fr(0),
+      this.availableGas,
+      this.transactionFee,
     );
     const fields = [...publicContextInputs.toFields(), ...args];
     return toACVMWitness(witnessStartIndex, fields);
@@ -233,6 +237,9 @@ export class PublicExecutionContext extends TypedOracle {
       this.contractsDb,
       this.commitmentsDb,
       this.allUnencryptedLogs,
+      this.availableGas,
+      this.transactionFee,
+      this.gasSettings,
       this.log,
     );
 
