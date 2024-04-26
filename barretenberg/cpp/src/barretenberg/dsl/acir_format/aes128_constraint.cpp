@@ -3,78 +3,59 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "round.hpp"
 #include <cstddef>
+#include <cstdint>
 
 namespace acir_format {
 
 template <typename Builder> void create_aes128_constraints(Builder& builder, const AES128Constraint& constraint)
 {
 
-    const auto convert_bytes = [](uint8_t* data) {
-        uint256_t converted(0);
-        for (uint64_t i = 0; i < 16; ++i) {
-            uint256_t to_add = uint256_t((uint64_t)(data[i])) << uint256_t((15 - i) * 8);
-            converted += to_add;
+    using field_ct = bb::stdlib::field_t<Builder>;
+
+    const auto convert_input = [&](std::span<const AES128Input, 16> inputs) {
+        field_ct converted = 0;
+        for (const auto& input : inputs) {
+            converted *= 256;
+            field_ct byte = field_ct::from_witness_index(&builder, input.witness);
+            converted += byte;
         }
         return converted;
     };
 
-    using field_ct = bb::stdlib::field_t<Builder>;
-    using witness_ct = bb::stdlib::witness_t<Builder>;
+    const auto convert_output = [&](std::span<const uint32_t, 16> outputs) {
+        field_ct converted = 0;
+        for (const auto& output : outputs) {
+            converted *= 256;
+            field_ct byte = field_ct::from_witness_index(&builder, output);
+            converted += byte;
+        }
+        return converted;
+    };
 
-    std::vector<field_ct> input;
-
-    uint8_t input_bytes[input.size()];
-    uint8_t iv[16];
-    uint8_t key[16];
-
-    size_t i = 0;
-    for (const auto& witness_index_num_bits : constraint.inputs) {
-        auto witness_index = witness_index_num_bits.witness;
-        std::vector<uint8_t> fr_bytes(sizeof(fr));
-
-        fr value = builder.get_variable(witness_index);
-
-        fr::serialize_to_buffer(value, &fr_bytes[0]);
-
-        input_bytes[i] = fr_bytes.back();
-        i++;
+    ASSERT(constraint.inputs.size() % 16 == 0); // check input is multiple of 16
+    std::vector<field_ct> converted_inputs;
+    for (size_t i = 0; i < constraint.inputs.size(); i += 16) {
+        std::span<const AES128Input, 16> inputs{ &constraint.inputs[i], 16 };
+        converted_inputs.emplace_back(convert_input(inputs));
     }
-    i = 0;
-    for (i = 0; i < constraint.inputs.size(); i += 16) {
-        input.push_back(witness_ct(&builder, fr(convert_bytes(input_bytes + i))));
-    }
-    i = 0;
-    for (const auto& witness_index_num_bits : constraint.iv) {
-        auto witness_index = witness_index_num_bits.witness;
-        std::vector<uint8_t> fr_bytes(sizeof(fr));
-
-        fr value = builder.get_variable(witness_index);
-
-        fr::serialize_to_buffer(value, &fr_bytes[0]);
-
-        iv[i] = fr_bytes.back();
-        i++;
-    }
-    i = 0;
-    for (const auto& witness_index_num_bits : constraint.key) {
-        auto witness_index = witness_index_num_bits.witness;
-        std::vector<uint8_t> fr_bytes(sizeof(fr));
-
-        fr value = builder.get_variable(witness_index);
-
-        fr::serialize_to_buffer(value, &fr_bytes[0]);
-
-        key[i] = fr_bytes.back();
-        i++;
+    std::vector<field_ct> converted_outputs;
+    for (size_t i = 0; i < constraint.outputs.size(); i += 16) {
+        std::span<const uint32_t, 16> outputs{ &constraint.outputs[i], 16 };
+        converted_outputs.emplace_back(convert_output(outputs));
     }
 
-    field_ct key_field(witness_ct(&builder, fr(convert_bytes(key))));
-    field_ct iv_field(witness_ct(&builder, fr(convert_bytes(iv))));
+    printf("input buffer size = %lu \n", constraint.inputs.size());
+    printf("converted input buffer size = %lu \n", converted_inputs.size());
 
-    const auto output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(input, iv_field, key_field);
+    const auto output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(
+        converted_inputs, convert_input(constraint.iv), convert_input(constraint.key));
+
+    printf("generated output buffer size = %lu \n", output_bytes.size());
+    printf("output buffer size = %lu \n", constraint.outputs.size());
+    printf("converted output buffer size = %lu \n", converted_outputs.size());
 
     for (size_t i = 0; i < output_bytes.size(); ++i) {
-        builder.assert_equal(output_bytes[i].normalize().witness_index, constraint.outputs[i]);
+        builder.assert_equal(output_bytes[i].normalize().witness_index, converted_outputs[i].normalize().witness_index);
     }
 }
 
