@@ -204,7 +204,7 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
         trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_mul == 1 && r.avm_main_pc == 13; });
     EXPECT_EQ(row->avm_main_ic, 244140625); // 5^12 = 244140625
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Positive test about a single internal_call and internal_return
@@ -271,7 +271,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_add == 1; });
     EXPECT_EQ(row->avm_main_ic, 345567789);
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Positive test with some nested internall calls
@@ -351,7 +351,7 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
     EXPECT_EQ(row->avm_main_ic, 187);
     EXPECT_EQ(row->avm_main_pc, 4);
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Positive test with JUMP and CALLDATACOPY
@@ -425,7 +425,7 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
     // It must have failed as subtraction was "jumped over".
     EXPECT_EQ(row, trace.end());
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Positive test with MOV.
@@ -473,7 +473,7 @@ TEST_F(AvmExecutionTests, movOpcode)
     EXPECT_EQ(row->avm_main_ia, 19);
     EXPECT_EQ(row->avm_main_ic, 19);
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Positive test with CMOV.
@@ -529,7 +529,7 @@ TEST_F(AvmExecutionTests, cmovOpcode)
     EXPECT_EQ(row->avm_main_ic, 3);
     EXPECT_EQ(row->avm_main_id, 5);
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Positive test with indirect MOV.
@@ -577,7 +577,7 @@ TEST_F(AvmExecutionTests, indMovOpcode)
     EXPECT_EQ(row->avm_main_ia, 255);
     EXPECT_EQ(row->avm_main_ic, 255);
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Positive test for SET and CAST opcodes
@@ -618,7 +618,7 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.avm_main_sel_op_cast == 1; });
     EXPECT_EQ(row->avm_main_ic, 19); // 0XB813 --> 0X13 = 19
 
-    validate_trace(std::move(trace), true);
+    validate_trace(std::move(trace));
 }
 
 // Negative test detecting an invalid opcode byte.
