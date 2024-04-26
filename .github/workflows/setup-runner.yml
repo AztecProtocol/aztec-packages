@@ -67,7 +67,7 @@ jobs:
         # Only check PRs for consistency (not master)
         if: ${{ github.event.pull_request.head.sha != '' }}
         with:
-          path: merge-commit-pipeline-files  # Optional: Check out to a subdirectory
+          path: merge-commit-pipeline-files
           sparse-checkout: |
             .github/workflows/ci.yml
             .github/workflows/setup-runner.yml
