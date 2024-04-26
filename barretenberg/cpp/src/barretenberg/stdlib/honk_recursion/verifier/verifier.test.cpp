@@ -18,7 +18,7 @@ namespace bb::stdlib::recursion::honk {
  *
  * @tparam Builder
  */
-template <typename OuterFlavor> class HonkRecursiveVerifierTest : public testing::Test {
+template <typename RecursiveFlavor> class HonkRecursiveVerifierTest : public testing::Test {
 
     // Define types relevant for testing
 
@@ -32,8 +32,8 @@ template <typename OuterFlavor> class HonkRecursiveVerifierTest : public testing
     using FF = InnerFlavor::FF;
 
     // Types for recursive verifier circuit
-    using OuterBuilder = typename OuterFlavor::CircuitBuilder;
-    using RecursiveFlavor = UltraRecursiveFlavor_<OuterBuilder>;
+    using OuterFlavor = typename RecursiveFlavor::NativeFlavor;
+    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
@@ -234,7 +234,9 @@ template <typename OuterFlavor> class HonkRecursiveVerifierTest : public testing
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using Flavors = testing::Types<UltraFlavor, GoblinUltraFlavor>;
+using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                               GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(HonkRecursiveVerifierTest, Flavors);
 
@@ -257,5 +259,62 @@ HEAVY_TYPED_TEST(HonkRecursiveVerifierTest, DISABLED_SingleRecursiveVerification
 {
     TestFixture::test_recursive_verification_fails();
 };
+
+// TEST(HonkRecursiveVerifierTest, SimulatorTest)
+// {
+//     bb::srs::init_crs_factory("../srs_db/ignition");
+//     using Flavor = UltraFlavor;
+//     using CircuitBuilder = Flavor::CircuitBuilder;
+//     using FF = CircuitBuilder::FF;
+//     using Commitment = Flavor::Commitment;
+//     using Instance = ProverInstance_<Flavor>;
+//     using OuterVerifier = UltraRecursiveVerifier_<UltraRecursiveFlavor_<CircuitSimulatorBN254>>;
+//     using OuterBuilder = CircuitSimulatorBN254;
+//     CircuitBuilder builder;
+//     FF a = FF::random_element();
+//     FF b = FF::random_element();
+//     FF c = FF::random_element();
+//     FF d = a + b + c;
+//     uint32_t a_idx = builder.add_public_variable(a);
+//     uint32_t b_idx = builder.add_variable(b);
+//     uint32_t c_idx = builder.add_variable(c);
+//     uint32_t d_idx = builder.add_variable(d);
+
+//     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+
+//     bool result = CircuitChecker::check(builder);
+//     EXPECT_EQ(result, true);
+
+//     auto instance = std::make_shared<Instance>(builder);
+//     UltraProver prover(instance);
+//     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(instance->proving_key);
+
+//     auto proof = prover.construct_proof();
+
+//     prover.transcript->deserialize_full_transcript();
+//     prover.transcript->sorted_accum_comm = Commitment::one() * FF::random_element();
+//     prover.transcript->serialize_full_transcript();
+//     proof = prover.export_proof();
+
+//     OuterBuilder outer_builder;
+//     OuterVerifier verifier{ &outer_builder, verification_key };
+//     auto pairing_points = verifier.verify_proof(proof);
+
+//     EXPECT_EQ(outer_builder.failed(), false) << outer_builder.err();
+
+//     UltraVerifier native_verifier(verification_key);
+//     auto native_result = native_verifier.verify_proof(proof);
+//     auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
+//                                                                                      pairing_points[1].get_value());
+//     EXPECT_EQ(recursive_result, native_result);
+
+//     // Check 2: Ensure that the underlying native and recursive verification algorithms agree by ensuring
+//     // the manifests produced by each agree.
+//     auto recursive_manifest = verifier.transcript->get_manifest();
+//     auto native_manifest = native_verifier.transcript->get_manifest();
+//     for (size_t i = 0; i < recursive_manifest.size(); ++i) {
+//         EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
+//     }
+// }
 
 } // namespace bb::stdlib::recursion::honk

@@ -49,7 +49,7 @@ namespace bb {
 template <typename BuilderType> class UltraRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
-    using Curve = std::conditional_t<IsSimulator<CircuitBuilder>, curve::BN254, stdlib::bn254<CircuitBuilder>>;
+    using Curve = stdlib::bn254<CircuitBuilder>;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;

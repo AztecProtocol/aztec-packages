@@ -34,7 +34,7 @@ template <typename OuterFlavor> class GoblinRecursiveVerifierTest : public testi
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterProverInstance = ProverInstance_<OuterFlavor>;
-    using RecursiveFlavor = GoblinUltraRecursiveFlavor_<OuterBuilder>;
+    using RecursiveFlavor = GoblinUltraRecursiveFlavor_<O uterBuilder>;
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 

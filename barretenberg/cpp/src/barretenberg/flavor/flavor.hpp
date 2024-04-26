@@ -323,16 +323,19 @@ concept IsGoblinFlavor = IsAnyOf<T, GoblinUltraFlavor,
 template <typename T> 
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>, 
                                        UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 
+                                       UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                       GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+                                       GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>
+/*,GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>*/>;
 
 
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
+template <typename T> concept IπsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor, 
                                                            GoblinUltraFlavor, 
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>, 
                                                            UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 
+                                                           UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>, 
                                                            GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
 
