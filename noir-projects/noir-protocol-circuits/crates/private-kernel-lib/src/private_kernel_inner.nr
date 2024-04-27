@@ -5,7 +5,8 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     side_effect::SideEffect
 },
-    constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_previous_kernel_state
+    constants::MAX_NEW_NOTE_HASHES_PER_CALL, mocked::verify_previous_kernel_state,
+    utils::arrays::array_length
 };
 
 struct PrivateKernelInnerHints {
@@ -19,14 +20,6 @@ struct PrivateKernelInnerCircuitPrivateInputs {
 }
 
 impl PrivateKernelInnerCircuitPrivateInputs {
-    fn pop_and_validate_this_private_call_hash(
-        self,
-        public_inputs: &mut PrivateKernelCircuitPublicInputsBuilder
-    ) {
-        let call_request = public_inputs.end.private_call_stack.pop();
-        common::validate_call_against_request(self.private_call, call_request);
-    }
-
     fn validate_inputs(self) {
         let this_call_stack_item = self.private_call.call_stack_item;
         let function_data = this_call_stack_item.function_data;
@@ -34,40 +27,41 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_inner(self) -> PrivateKernelCircuitPublicInputs {
-        common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
+        let private_call_public_inputs = self.private_call.call_stack_item.public_inputs;
+        let previous_kernel_public_inputs = self.previous_kernel.public_inputs;
+
+        common::validate_previous_kernel_values(previous_kernel_public_inputs.end);
 
         self.validate_inputs();
 
-        common::validate_arrays(self.private_call.call_stack_item.public_inputs);
+        common::validate_private_call_data(self.private_call);
 
-        let mut composer = PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
-            self.private_call.call_stack_item.public_inputs,
-            self.hints.note_hash_nullifier_counters
-        );
-
-        // TODO - Move all the code that build public inputs to the composer.
-        let mut public_inputs = composer.public_inputs;
-
-        self.pop_and_validate_this_private_call_hash(&mut public_inputs);
+        let mut private_call_stack = previous_kernel_public_inputs.end.private_call_stack;
+        // TODO: Should be a hint from private inputs.
+        let private_call_stack_size = array_length(private_call_stack);
+        let call_request = private_call_stack[private_call_stack_size - 1];
+        common::validate_call_against_request(self.private_call, call_request);
 
         // TODO: Do this in a reset circuit.
         common::validate_note_hash_read_requests(
-            public_inputs.constants.historical_header.state.partial.note_hash_tree.root,
-            self.private_call.call_stack_item.public_inputs.note_hash_read_requests, // read requests from private call
+            previous_kernel_public_inputs.constants.historical_header.state.partial.note_hash_tree.root,
+            private_call_public_inputs.note_hash_read_requests, // read requests from private call
             self.private_call.note_hash_read_request_membership_witnesses
         );
 
-        //TODO(David): feels like update_end_values should happen later
-        common::update_end_values(self.private_call, &mut public_inputs);
-
-        common::contract_logic(self.private_call);
-
-        let (is_previous_state_valid, updated_aggregation_object) = verify_previous_kernel_state(public_inputs.aggregation_object, self.private_call.proof);
+        let (is_previous_state_valid, _updated_aggregation_object) = verify_previous_kernel_state(
+            previous_kernel_public_inputs.aggregation_object,
+            self.private_call.proof
+        );
         assert(is_previous_state_valid);
 
-        public_inputs.aggregation_object = updated_aggregation_object;
-
-        public_inputs.finish()
+        PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(self.previous_kernel.public_inputs).compose(
+            private_call_public_inputs,
+            self.hints.note_hash_nullifier_counters,
+            self.private_call.note_hash_read_request_membership_witnesses,
+            self.private_call.private_call_stack,
+            self.private_call.public_call_stack
+        ).finish()
     }
 }
 
@@ -270,9 +264,20 @@ mod tests {
     fn incorrect_storage_contract_for_delegate_calls_fails() {
         let mut builder = PrivateKernelInnerInputsBuilder::new().is_delegate_call();
 
-        builder.private_call.contract_address = builder.private_call.public_inputs.call_context.storage_contract_address;
+        // Change the storage contract address to be the same as the contract address.
+        builder.private_call.public_inputs.call_context.storage_contract_address = builder.private_call.contract_address;
 
-        builder.failed();
+        let private_call = builder.private_call.finish();
+        let hash = private_call.call_stack_item.hash();
+        builder.previous_kernel.push_private_call_request(hash, true);
+        let mut call_request = builder.previous_kernel.private_call_stack.pop();
+        // Change the caller's storage contract address to be the same as the contract address.
+        call_request.caller_context.storage_contract_address = builder.private_call.contract_address;
+        builder.previous_kernel.private_call_stack.push(call_request);
+
+        let previous_kernel = builder.previous_kernel.to_private_kernel_data();
+        let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call, hints: builder.hints };
+        let _ = kernel.native_private_kernel_circuit_inner();
     }
 
     #[test]
@@ -292,8 +297,8 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         builder.private_call.append_private_call_requests(2, false);
-        // Remove one call request.
-        let _ = builder.private_call.private_call_stack.pop();
+        // Remove one call stack item hash.
+        let _ = builder.private_call.public_inputs.private_call_stack_hashes.pop();
 
         builder.failed();
     }
@@ -303,8 +308,8 @@ mod tests {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         builder.private_call.append_public_call_requests(2, false);
-        // Remove one call request.
-        let _ = builder.private_call.public_call_stack.pop();
+        // Remove one call stack item hash.
+        let _ = builder.private_call.public_inputs.public_call_stack_hashes.pop();
 
         builder.failed();
     }
