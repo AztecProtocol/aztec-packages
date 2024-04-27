@@ -5,7 +5,7 @@ set -eu
 
 cd $(dirname $0)/../noir-repo
 
-if [ "$HOST_OSTYPE" == "darwin" ]; then
+if [ "${HOST_OSTYPE:-}" == "darwin" ]; then
   echo -n "Fixing incremental timestamps... "
   find target -type f -print0 | xargs -0 -P $(nproc) -I {} sh -c 'touch -d @$(stat --format="%Y" {}) {}'
   echo "Done."
