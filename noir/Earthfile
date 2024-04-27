@@ -11,6 +11,7 @@ nargo:
       noir-repo/noir_stdlib \
       noir-repo/tooling \
       noir-repo/test_programs \
+      noir-repo/utils \
       noir-repo/Cargo.lock \
       noir-repo/Cargo.toml \
       noir-repo
@@ -44,6 +45,7 @@ packages:
       noir-repo/scripts \
       noir-repo/test_programs \
       noir-repo/tooling \
+      noir-repo/utils \      
       noir-repo/Cargo.lock \
       noir-repo/.yarnrc.yml \
       noir-repo/.yarn \
