@@ -199,8 +199,8 @@ WORKDIR /home/aztec-dev
 COPY --chown=aztec-dev:aztec-dev home .
 # The .npmrc config is set to install global bins here, update PATH.
 ENV PATH=/home/aztec-dev/.npm-global/bin:$PATH
-# Needed to ensure correct permissions when mounting transient volume here.
-RUN mkdir .vscode-server && mkdir .npm-global
+# Need to ensure correct permissions, under some conditions these would otherwise be created by root.
+RUN mkdir .vscode-server .npm-global .ssh
 # Switch back to root. Gives option for root runtime adjustments before becoming aztec-dev.
 USER root
 # Use as entrypoint when running in an environment that requires uid/gid alignment (e.g. vanilla linux docker).

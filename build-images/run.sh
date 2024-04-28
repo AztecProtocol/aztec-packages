@@ -18,6 +18,6 @@ docker run \
   -w/workspaces/aztec-packages \
   -v$PWD/..:/workspaces/aztec-packages \
   -vdevbox-home:/home/aztec-dev \
-  -v$HOME/.ssh:/home/aztec-dev/.ssh:ro \
+  -v$HOME/.ssh/id_rsa:/home/aztec-dev/.ssh/id_rsa:ro \
   -v/var/run/docker.sock:/var/run/docker.sock \
   aztecprotocol/devbox
