@@ -49,12 +49,17 @@ bindkey    "^[3;5~"         delete-char
 bindkey    "^[[A"           history-search-backward
 bindkey    "^[[B"           history-search-forward
 
-export LS_COLORS=
+# Prevent mad background colors on permissive permissions.
+export LS_COLORS="di=34:ln=36:so=35:pi=33:ex=32:bd=1;33:cd=1;33:su=31:sg=32:tw=34:ow=34:st=37"
+
+# Colorize completions using default `ls` colors.
+zstyle ':completion:*' list-colors ''
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+
 export MAKEFLAGS=-j$(nproc)
 
 alias dr="docker run -ti --rm"
 alias drs="docker run -ti --rm --entrypoint /bin/sh"
-alias tat="tmux attach"
 alias vim=nvim
 
 # Graphite aliases
