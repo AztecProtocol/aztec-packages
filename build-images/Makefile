@@ -1,3 +1,6 @@
+wasi-sdk:
+	docker build -t aztecprotocol/wasi-sdk:22.0 --target wasi-sdk --push .
+
 build:
 	docker build -t aztecprotocol/build --target build .
 

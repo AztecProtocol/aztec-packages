@@ -1,6 +1,6 @@
 ########################################################################################################################
 # Build wasi-sdk.
-FROM ubuntu:noble AS wasi-sdk
+FROM ubuntu:noble AS wasi-sdk-build
 RUN apt update && apt install -y \
     clang \
     cmake \
@@ -19,6 +19,8 @@ RUN make build/libcxx.BUILT
 RUN make build/config.BUILT
 RUN make build/version.BUILT
 RUN mv build/install/opt/wasi-sdk /opt/wasi-sdk
+FROM ubuntu:noble AS wasi-sdk
+COPY --from=wasi-sdk-build /opt/wasi-sdk /opt/wasi-sdk
 
 ########################################################################################################################
 # Build foundry.
@@ -69,7 +71,7 @@ RUN apt update && \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Install wasi-sdk.
-COPY --from=wasi-sdk /opt/wasi-sdk /opt/wasi-sdk
+COPY --from=aztecprotocol/wasi-sdk:22.0 /opt/wasi-sdk /opt/wasi-sdk
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry
