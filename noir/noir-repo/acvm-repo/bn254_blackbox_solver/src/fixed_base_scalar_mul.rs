@@ -161,7 +161,7 @@ mod grumpkin_fixed_base_scalar_mul {
         assert_eq!(
             res,
             Err(BlackBoxResolutionError::Failed(
-                BlackBoxFunc::VariableBaseScalarMul,
+                BlackBoxFunc::FixedBaseScalarMul,
                 "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47 is not a valid grumpkin scalar".into(),
             ))
         );
