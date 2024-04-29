@@ -6,7 +6,7 @@ fn main(
     scalar_low: pub Field,
     scalar_high: pub Field
 ) {
-    // We multiply the point by 3
+    // We multiply the point by 3 and check it matches result out of embedded_curve_add func
     let res = std::scalar_mul::variable_base_embedded_curve(point_x, point_y, scalar_low, scalar_high);
 
     let point = std::scalar_mul::EmbeddedCurvePoint { x: point_x, y: point_y };
