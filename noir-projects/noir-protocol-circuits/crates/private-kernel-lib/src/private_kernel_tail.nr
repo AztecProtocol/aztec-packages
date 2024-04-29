@@ -277,8 +277,9 @@ mod tests {
         builder.previous_kernel.append_new_note_hashes(1);
         builder.add_pending_note_hash_read_request(0);
         // Tweak the read request so that it does not match the hash at index 0;
-        let read_request = builder.previous_kernel.note_hash_read_requests.pop();
-        builder.previous_kernel.note_hash_read_requests.push(SideEffect { value: read_request.value + 1, counter: 0 });
+        let mut read_request = builder.previous_kernel.note_hash_read_requests.pop();
+        read_request.value += 1;
+        builder.previous_kernel.note_hash_read_requests.push(read_request);
         builder.failed();
     }
 

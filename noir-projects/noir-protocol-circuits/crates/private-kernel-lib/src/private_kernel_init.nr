@@ -182,8 +182,8 @@ mod tests {
 
         builder.private_call.public_inputs.note_hash_read_requests.extend_from_array(
             [
-            SideEffect { value: 0, counter: 0 },
-            SideEffect { value: 9123, counter: 1 }
+            ReadRequest::empty(),
+            ReadRequest { value: 9123, counter: 1 }
         ]
         );
 
@@ -353,9 +353,10 @@ mod tests {
 
         builder.private_call.append_note_hash_read_requests(2);
 
+        let mut read_request = builder.private_call.public_inputs.note_hash_read_requests.pop();
         // tweak read_request so it gives wrong root when paired with its sibling path
-        let read_request = builder.private_call.public_inputs.note_hash_read_requests.pop();
-        builder.private_call.public_inputs.note_hash_read_requests.push(SideEffect { value: read_request.value + 1, counter: read_request.counter });
+        read_request.value += 1;
+        builder.private_call.public_inputs.note_hash_read_requests.push(read_request);
 
         builder.failed();
     }

@@ -4,7 +4,7 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder},
     max_block_number::MaxBlockNumber, membership_witness::NoteHashReadRequestMembershipWitness,
     nullifier::Nullifier, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    side_effect::SideEffect
+    read_request::ReadRequestContext
 },
     address::AztecAddress,
     constants::{
@@ -126,9 +126,10 @@ impl PrivateKernelCircuitPublicInputsComposer {
             let read_request = read_requests[i];
             let witness = source.note_hash_read_request_membership_witnesses[i];
             if witness.is_transient & (read_request.value != 0) { // only forward transient to public inputs
-                let siloed_read_request = SideEffect {
+                let siloed_read_request = ReadRequestContext {
                     counter: read_request.counter,
-                    value: silo_note_hash(source.storage_contract_address, read_request.value)
+                    value: silo_note_hash(source.storage_contract_address, read_request.value),
+                    contract_address: source.storage_contract_address
                 };
                 self.public_inputs.validation_requests.note_hash_read_requests.push(siloed_read_request);
             }

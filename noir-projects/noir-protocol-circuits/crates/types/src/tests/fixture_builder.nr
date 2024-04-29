@@ -53,7 +53,7 @@ struct FixtureBuilder {
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
-    note_hash_read_requests: BoundedVec<SideEffect, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    note_hash_read_requests: BoundedVec<ReadRequestContext, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ReadRequestContext, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
     nullifier_key_validation_requests: BoundedVec<NullifierKeyValidationRequestContext, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -316,7 +316,7 @@ impl FixtureBuilder {
     pub fn add_read_request_for_pending_note_hash(&mut self, note_hash_index: u64) -> u64 {
         let new_read_request_index = self.note_hash_read_requests.len();
         let note_hash = self.new_note_hashes.get(note_hash_index);
-        let read_request = SideEffect { value: note_hash.value, counter: self.next_counter() };
+        let read_request = ReadRequestContext { value: note_hash.value, counter: self.next_counter(), contract_address: self.storage_contract_address };
         self.note_hash_read_requests.push(read_request);
         new_read_request_index
     }

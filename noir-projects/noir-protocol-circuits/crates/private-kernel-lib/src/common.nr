@@ -4,7 +4,7 @@ use dep::types::{
     call_request::CallRequest, accumulated_data::PrivateAccumulatedData,
     membership_witness::NoteHashReadRequestMembershipWitness,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData, side_effect::SideEffect
+    private_kernel::private_call_data::PrivateCallData, read_request::ReadRequest
 },
     address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
     constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
@@ -39,7 +39,7 @@ fn validate_arrays(app_public_inputs: PrivateCircuitPublicInputs) {
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
 pub fn validate_note_hash_read_requests(
     historical_note_hash_tree_root: Field,
-    read_requests: [SideEffect; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
+    read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     read_request_membership_witnesses: [NoteHashReadRequestMembershipWitness; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL]
 ) {
     // membership witnesses must resolve to the same note hash tree root

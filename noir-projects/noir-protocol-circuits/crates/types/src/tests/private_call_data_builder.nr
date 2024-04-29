@@ -4,7 +4,7 @@ use crate::{
     private_call_stack_item::PrivateCallStackItem, function_data::FunctionData,
     max_block_number::MaxBlockNumber,
     membership_witness::{FunctionLeafMembershipWitness, NoteHashReadRequestMembershipWitness},
-    private_circuit_public_inputs::{PrivateCircuitPublicInputs},
+    private_circuit_public_inputs::PrivateCircuitPublicInputs,
     private_kernel::private_call_data::PrivateCallData, side_effect::SideEffect
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
