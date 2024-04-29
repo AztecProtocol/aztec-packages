@@ -41,3 +41,6 @@
 
 # # Delete the temporary results directory and its contents
 # rm -r $BENCH_RESULTS_DIR
+
+
+# do I need this?
