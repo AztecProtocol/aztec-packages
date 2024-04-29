@@ -212,9 +212,9 @@ impl PrivateContext {
         self.side_effect_counter = self.side_effect_counter + 1;
     }
 
-    pub fn request_app_nullifier_secret_key(&mut self, account: AztecAddress) -> Field {
+    pub fn request_app_nullifier_secret_key(&mut self, master_public_nullifying_key_hash: Field) -> Field {
         let keys = if self.nullifier_key.is_none() {
-            let keys = get_nullifier_keys(account);
+            let keys = get_nullifier_keys(master_public_nullifying_key_hash);
             let request = NullifierKeyValidationRequest {
                 master_nullifier_public_key: keys.master_nullifier_public_key,
                 app_nullifier_secret_key: keys.app_nullifier_secret_key
@@ -226,7 +226,7 @@ impl PrivateContext {
             let keys = self.nullifier_key.unwrap_unchecked();
             // If MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL is larger than 1, need to update the way the key pair is cached.
             assert(MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_CALL == 1);
-            assert(keys.account == account, "Cannot query nullifier key for more than one account per call");
+            assert(keys.master_nullifier_public_key_hash == master_public_nullifying_key_hash, "Cannot query nullifier key for more than one master_nullifying_public_key_hash per call");
             keys
         };
         keys.app_nullifier_secret_key

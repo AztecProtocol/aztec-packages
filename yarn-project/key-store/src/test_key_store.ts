@@ -58,7 +58,7 @@ export class TestKeyStore implements KeyStore {
     const accountAddressFr = poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]);
     const accountAddress = AztecAddress.fromField(accountAddressFr);
 
-    // We save the keys to db
+    // We save the keys to db associated with the account address
     await this.#keys.set(`${accountAddress.toString()}-public_keys_hash`, publicKeysHash.toBuffer());
 
     await this.#keys.set(`${accountAddress.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
@@ -70,6 +70,11 @@ export class TestKeyStore implements KeyStore {
     await this.#keys.set(`${accountAddress.toString()}-ivpk_m`, masterIncomingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
     await this.#keys.set(`${accountAddress.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
+
+    const masterNullifierPublicKeyHash = poseidon2Hash(masterNullifierPublicKey.toFields());
+    // We save nullifier keys to db under the master nullifier key hash
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-nsk_m`, masterNullifierSecretKey.toBuffer());
+    await this.#keys.set(`${masterNullifierPublicKeyHash.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
 
     // At last, we return the newly derived account address
     return Promise.resolve(accountAddress);
@@ -97,6 +102,22 @@ export class TestKeyStore implements KeyStore {
     if (!masterNullifierPublicKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
+    }
+    return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
+  }
+
+    /**
+   * Gets the master nullifier public key for a given master nullifier public key hash.
+   * @throws If the master nullifier public key hash does not exist in the key store.
+   * @param masterNullifierPublicKeyHash - The master nullifier public key hash for which to retrieve the master nullifier public key.
+   * @returns The master nullifier public key for the account.
+   */
+  getMasterNullifierPublicKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr): Promise<PublicKey> {
+    const masterNullifierPublicKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-npk_m`);
+    if (!masterNullifierPublicKeyBuffer) {
+      throw new Error(
+        `Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
       );
     }
     return Promise.resolve(Point.fromBuffer(masterNullifierPublicKeyBuffer));
@@ -162,6 +183,25 @@ export class TestKeyStore implements KeyStore {
     if (!masterNullifierSecretKeyBuffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
+      );
+    }
+    const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);
+    const appNullifierSecretKey = computeAppNullifierSecretKey(masterNullifierSecretKey, app);
+    return Promise.resolve(appNullifierSecretKey);
+  }
+
+/**
+ * Retrieves application nullifier secret key.
+ * @throws If the masterNullifierPublicKeyHash does not exist in the key store.
+ * @param masterNullifierPublicKeyHash - The account to retrieve the application nullifier secret key for.
+ * @param app - The application address to retrieve the nullifier secret key for.
+ * @returns A Promise that resolves to the application nullifier secret key.
+ */
+  getAppNullifierSecretKeyWithMasterNullifierPublicKeyHash(masterNullifierPublicKeyHash: Fr, app: AztecAddress): Promise<Fr> {
+    const masterNullifierSecretKeyBuffer = this.#keys.get(`${masterNullifierPublicKeyHash.toString()}-nsk_m`);
+    if (!masterNullifierSecretKeyBuffer) {
+      throw new Error(
+        `Master nullifier public keys hash ${masterNullifierPublicKeyHash.toString()} does not exist.`,
       );
     }
     const masterNullifierSecretKey = GrumpkinScalar.fromBuffer(masterNullifierSecretKeyBuffer);

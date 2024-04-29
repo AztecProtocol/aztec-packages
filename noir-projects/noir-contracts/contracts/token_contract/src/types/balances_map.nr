@@ -60,7 +60,9 @@ impl<T> BalancesMap<T> {
         owner: AztecAddress,
         addend: U128
     ) where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
-        let mut addend_note = T::new(addend, owner);
+        // Lookup in registry
+        let nullifier_public_key_hash = 0;
+        let mut addend_note = T::new(addend, nullifier_public_key_hash);
 
         // docs:start:insert
         self.map.at(owner).insert(&mut addend_note, true);
