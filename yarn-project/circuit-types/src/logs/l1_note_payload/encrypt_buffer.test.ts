@@ -17,8 +17,8 @@ describe('encrypt buffer', () => {
     const ephPrivKey = GrumpkinScalar.random();
     const ephPubKey = grumpkin.mul(Grumpkin.generator, ephPrivKey);
 
-    const secretBySender = deriveAESSecret(ownerPubKey, ephPrivKey, grumpkin);
-    const secretByReceiver = deriveAESSecret(ephPubKey, ownerPrivKey, grumpkin);
+    const secretBySender = deriveAESSecret(ownerPubKey, ephPrivKey);
+    const secretByReceiver = deriveAESSecret(ephPubKey, ownerPrivKey);
     expect(secretBySender.toString('hex')).toEqual(secretByReceiver.toString('hex'));
   });
 
@@ -27,8 +27,8 @@ describe('encrypt buffer', () => {
     const ownerPrivKey = GrumpkinScalar.random();
     const ownerPubKey = grumpkin.mul(Grumpkin.generator, ownerPrivKey);
     const ephPrivKey = GrumpkinScalar.random();
-    const encrypted = encryptBuffer(data, ownerPubKey, ephPrivKey, grumpkin);
-    const decrypted = decryptBuffer(encrypted, ownerPrivKey, grumpkin);
+    const encrypted = encryptBuffer(data, ownerPubKey, ephPrivKey);
+    const decrypted = decryptBuffer(encrypted, ownerPrivKey);
     expect(decrypted).not.toBeUndefined();
     expect(decrypted).toEqual(data);
   });
@@ -38,12 +38,12 @@ describe('encrypt buffer', () => {
     const ownerPrivKey = GrumpkinScalar.random();
     const ephPrivKey = GrumpkinScalar.random();
     const ownerPubKey = grumpkin.mul(Grumpkin.generator, ownerPrivKey);
-    const encrypted = encryptBuffer(data, ownerPubKey, ephPrivKey, grumpkin);
+    const encrypted = encryptBuffer(data, ownerPubKey, ephPrivKey);
 
     // Introduce gibberish.
     const gibberish = Buffer.concat([randomBytes(8), encrypted.subarray(8)]);
 
-    const decrypted = decryptBuffer(gibberish, ownerPrivKey, grumpkin);
+    const decrypted = decryptBuffer(gibberish, ownerPrivKey);
     expect(decrypted).toBeUndefined();
   });
 });

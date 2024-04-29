@@ -1,5 +1,4 @@
 import { AztecAddress, type GrumpkinPrivateKey, type PublicKey } from '@aztec/circuits.js';
-import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -57,27 +56,21 @@ export class L1NotePayload {
   /**
    * Encrypt the L1NotePayload object using the owner's public key and the ephemeral private key.
    * @param ownerPubKey - Public key of the owner of the L1NotePayload object.
-   * @param curve - The curve instance to use.
    * @returns The encrypted L1NotePayload object.
    */
-  public toEncryptedBuffer(ownerPubKey: PublicKey, curve: Grumpkin): Buffer {
+  public toEncryptedBuffer(ownerPubKey: PublicKey): Buffer {
     const ephPrivKey: GrumpkinPrivateKey = GrumpkinScalar.random();
-    return encryptBuffer(this.toBuffer(), ownerPubKey, ephPrivKey, curve);
+    return encryptBuffer(this.toBuffer(), ownerPubKey, ephPrivKey);
   }
 
   /**
    * Decrypts the L1NotePayload object using the owner's private key.
    * @param data - Encrypted L1NotePayload object.
    * @param ownerPrivKey - Private key of the owner of the L1NotePayload object.
-   * @param curve - The curve instance to use.
    * @returns Instance of L1NotePayload if the decryption was successful, undefined otherwise.
    */
-  static fromEncryptedBuffer(
-    data: Buffer,
-    ownerPrivKey: GrumpkinPrivateKey,
-    curve: Grumpkin,
-  ): L1NotePayload | undefined {
-    const buf = decryptBuffer(data, ownerPrivKey, curve);
+  static fromEncryptedBuffer(data: Buffer, ownerPrivKey: GrumpkinPrivateKey): L1NotePayload | undefined {
+    const buf = decryptBuffer(data, ownerPrivKey);
     if (!buf) {
       return;
     }

@@ -1,5 +1,5 @@
 import { type GrumpkinPrivateKey, type PublicKey } from '@aztec/circuits.js';
-import { type Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
 import { numToUInt8 } from '@aztec/foundation/serialize';
@@ -14,10 +14,10 @@ import { createCipheriv, createDecipheriv } from 'browserify-cipher';
  *
  * @param ecdhPubKey - The ECDH public key represented as a PublicKey object.
  * @param ecdhPrivKey - The ECDH private key represented as a Buffer object.
- * @param grumpkin - The curve to use for curve operations.
  * @returns A Buffer containing the derived AES secret key.
  */
-export function deriveAESSecret(ecdhPubKey: PublicKey, ecdhPrivKey: GrumpkinPrivateKey, curve: Grumpkin): Buffer {
+export function deriveAESSecret(ecdhPubKey: PublicKey, ecdhPrivKey: GrumpkinPrivateKey): Buffer {
+  const curve = new Grumpkin();
   const sharedSecret = curve.mul(ecdhPubKey, ecdhPrivKey);
   const secretBuffer = Buffer.concat([sharedSecret.toBuffer(), numToUInt8(1)]);
   const hash = sha256(secretBuffer);
@@ -33,21 +33,17 @@ export function deriveAESSecret(ecdhPubKey: PublicKey, ecdhPrivKey: GrumpkinPriv
  * @param data - The data buffer to be encrypted.
  * @param ownerPubKey - The owner's public key as a PublicKey instance.
  * @param ephPrivKey - The ephemeral private key as a Buffer instance.
- * @param curve - The curve instance used for elliptic curve operations.
  * @returns A Buffer containing the encrypted data and the ephemeral public key.
  */
-export function encryptBuffer(
-  data: Buffer,
-  ownerPubKey: PublicKey,
-  ephPrivKey: GrumpkinPrivateKey,
-  curve: Grumpkin,
-): Buffer {
-  const aesSecret = deriveAESSecret(ownerPubKey, ephPrivKey, curve);
+export function encryptBuffer(data: Buffer, ownerPubKey: PublicKey, ephPrivKey: GrumpkinPrivateKey): Buffer {
+  const aesSecret = deriveAESSecret(ownerPubKey, ephPrivKey);
   const aesKey = aesSecret.subarray(0, 16);
   const iv = aesSecret.subarray(16, 32);
   const cipher = createCipheriv('aes-128-cbc', aesKey, iv);
   const plaintext = Buffer.concat([iv.subarray(0, 8), data]);
+  const curve = new Grumpkin();
   const ephPubKey = curve.mul(curve.generator(), ephPrivKey);
+
   return Buffer.concat([cipher.update(plaintext), cipher.final(), ephPubKey.toBuffer()]);
 }
 
@@ -59,12 +55,11 @@ export function encryptBuffer(
  *
  * @param data - The encrypted data buffer to be decrypted.
  * @param ownerPrivKey - The private key of the owner used for decryption.
- * @param curve - The curve object used in the decryption process.
  * @returns The decrypted plaintext as a Buffer or undefined if decryption fails.
  */
-export function decryptBuffer(data: Buffer, ownerPrivKey: GrumpkinPrivateKey, curve: Grumpkin): Buffer | undefined {
+export function decryptBuffer(data: Buffer, ownerPrivKey: GrumpkinPrivateKey): Buffer | undefined {
   const ephPubKey = Point.fromBuffer(data.subarray(-64));
-  const aesSecret = deriveAESSecret(ephPubKey, ownerPrivKey, curve);
+  const aesSecret = deriveAESSecret(ephPubKey, ownerPrivKey);
   const aesKey = aesSecret.subarray(0, 16);
   const iv = aesSecret.subarray(16, 32);
   const cipher = createDecipheriv('aes-128-cbc', aesKey, iv);
