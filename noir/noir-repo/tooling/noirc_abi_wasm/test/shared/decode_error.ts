@@ -1,9 +1,9 @@
 import { Abi } from '@noir-lang/noirc_abi';
 
-export const FAKE_FIELD_SELECTOR = 1;
-export const FAKE_TUPLE_SELECTOR = 2;
-export const FAKE_FMT_STRING_SELECTOR = 3;
-export const FAKE_STRUCT_SELECTOR = 4;
+export const FAKE_FIELD_SELECTOR = '1';
+export const FAKE_TUPLE_SELECTOR = '2';
+export const FAKE_FMT_STRING_SELECTOR = '3';
+export const FAKE_STRUCT_SELECTOR = '4';
 
 export const SAMPLE_FMT_STRING = 'hello {a}';
 
