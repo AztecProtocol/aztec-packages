@@ -4,6 +4,7 @@
 #include "barretenberg/protogalaxy/decider_verifier.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 #include <gtest/gtest.h>
 
@@ -43,24 +44,27 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
 
     static void construct_circuit(Builder& builder)
     {
+        MockCircuits::add_arithmetic_gates(builder);
         if constexpr (IsGoblinFlavor<Flavor>) {
-            GoblinMockCircuits::construct_simple_circuit(builder);
-        } else {
-            FF a = FF::random_element();
-            FF b = FF::random_element();
-            FF c = FF::random_element();
-            FF d = a + b + c;
-            uint32_t a_idx = builder.add_public_variable(a);
-            uint32_t b_idx = builder.add_variable(b);
-            uint32_t c_idx = builder.add_variable(c);
-            uint32_t d_idx = builder.add_variable(d);
-
-            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+            GoblinMockCircuits::add_some_ecc_op_gates(builder);
         }
     }
 
+    // Construct prover and verifier instance for a provided circuit and add to tuple
+    static void construct_prover_and_verifier_instance(TupleOfInstances& instances,
+                                                       Builder& builder,
+                                                       bool structured = false)
+    {
+
+        auto prover_instance = std::make_shared<ProverInstance>(builder, structured);
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->proving_key);
+        auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+        get<0>(instances).emplace_back(prover_instance);
+        get<1>(instances).emplace_back(verifier_instance);
+    }
+
     // constructs num_insts number of prover and verifier instances
-    static TupleOfInstances construct_instances(size_t num_insts)
+    static TupleOfInstances construct_instances(size_t num_insts, bool structured = false)
     {
         TupleOfInstances instances;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
@@ -68,22 +72,9 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             auto builder = typename Flavor::CircuitBuilder();
             construct_circuit(builder);
 
-            auto prover_instance = std::make_shared<ProverInstance>(builder);
-            auto verification_key = std::make_shared<VerificationKey>(prover_instance->proving_key);
-            auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
-            get<0>(instances).emplace_back(prover_instance);
-            get<1>(instances).emplace_back(verifier_instance);
+            construct_prover_and_verifier_instance(instances, builder, structured);
         }
         return instances;
-    }
-
-    static ProverPolynomials construct_full_prover_polynomials(auto& input_polynomials)
-    {
-        ProverPolynomials full_polynomials;
-        for (auto [prover_poly, input_poly] : zip_view(full_polynomials.get_all(), input_polynomials)) {
-            prover_poly = input_poly.share();
-        }
-        return full_polynomials;
     }
 
     static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
@@ -102,7 +93,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     {
         auto instance_size = accumulator->proving_key.circuit_size;
         auto expected_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-            accumulator->prover_polynomials, accumulator->alphas, accumulator->relation_parameters);
+            accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         // Construct pow(\vec{betas*}) as in the paper
         auto expected_pows = PowPolynomial(accumulator->gate_challenges);
         expected_pows.compute_values();
@@ -152,13 +143,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
             instance->proving_key.compute_logderivative_inverse(instance->relation_parameters);
         }
         instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
-        instance->prover_polynomials = ProverPolynomials(instance->proving_key);
 
         for (auto& alpha : instance->alphas) {
             alpha = FF::random_element();
         }
         auto full_honk_evals = ProtoGalaxyProver::compute_full_honk_evaluations(
-            instance->prover_polynomials, instance->alphas, instance->relation_parameters);
+            instance->proving_key.polynomials, instance->alphas, instance->relation_parameters);
 
         // Evaluations should be 0 for valid circuit
         for (const auto& eval : full_honk_evals) {
@@ -194,11 +184,12 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         using RelationSeparator = typename Flavor::RelationSeparator;
         const size_t log_instance_size(3);
         const size_t instance_size(1 << log_instance_size);
-        std::array<bb::Polynomial<FF>, Flavor::NUM_ALL_ENTITIES> random_polynomials;
-        for (auto& poly : random_polynomials) {
+        // Construct fully random prover polynomials
+        ProverPolynomials full_polynomials;
+        for (auto& poly : full_polynomials.get_all()) {
             poly = bb::Polynomial<FF>::random(instance_size);
         }
-        auto full_polynomials = construct_full_prover_polynomials(random_polynomials);
+
         auto relation_parameters = bb::RelationParameters<FF>::get_random();
         RelationSeparator alphas;
         for (auto& alpha : alphas) {
@@ -223,7 +214,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         }
 
         auto accumulator = std::make_shared<ProverInstance>();
-        accumulator->prover_polynomials = std::move(full_polynomials);
+        accumulator->proving_key.polynomials = std::move(full_polynomials);
         accumulator->gate_challenges = betas;
         accumulator->target_sum = target_sum;
         accumulator->relation_parameters = relation_parameters;
@@ -338,6 +329,73 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
     }
 
     /**
+     * @brief Testing two valid rounds of folding followed by the decider for a structured trace.
+     *
+     */
+    static void test_full_protogalaxy_structured_trace()
+    {
+        bool structured = true;
+        TupleOfInstances instances = construct_instances(2, structured);
+
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(instances), get<1>(instances));
+        check_accumulator_target_sum_manual(prover_accumulator, true);
+
+        TupleOfInstances instances_2 = construct_instances(1, structured); // just one set of prover/verifier instances
+
+        auto [prover_accumulator_2, verifier_accumulator_2] = fold_and_verify(
+            { prover_accumulator, get<0>(instances_2)[0] }, { verifier_accumulator, get<1>(instances_2)[0] });
+        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        info(prover_accumulator_2->proving_key.circuit_size);
+        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
+    }
+
+    /**
+     * @brief Testing two valid rounds of folding followed by the decider for a structured trace.
+     * @details Here we're interested in folding inhomogeneous circuits, i.e. circuits with different numbers of
+     * constraints, which should be automatically handled by the structured trace
+     *
+     */
+    static void test_full_protogalaxy_structured_trace_inhomogeneous_circuits()
+    {
+        bool structured = true;
+
+        // Construct three circuits to be folded, each with a different number of constraints
+        Builder builder1;
+        Builder builder2;
+        Builder builder3;
+        construct_circuit(builder1);
+        construct_circuit(builder2);
+        construct_circuit(builder3);
+
+        // Create inhomogenous circuits by adding a different number of add gates to each
+        MockCircuits::add_arithmetic_gates(builder1, 10);
+        MockCircuits::add_arithmetic_gates(builder2, 100);
+        MockCircuits::add_arithmetic_gates(builder3, 1000);
+
+        // Construct the Prover/Verifier instances for the first two circuits
+        TupleOfInstances instances;
+        construct_prover_and_verifier_instance(instances, builder1, structured);
+        construct_prover_and_verifier_instance(instances, builder2, structured);
+
+        // Fold the first two instances
+        auto [prover_accumulator, verifier_accumulator] = fold_and_verify(get<0>(instances), get<1>(instances));
+        check_accumulator_target_sum_manual(prover_accumulator, true);
+
+        // Construct the Prover/Verifier instance for the third circuit
+        TupleOfInstances instances_2;
+        construct_prover_and_verifier_instance(instances_2, builder3, structured);
+
+        // Fold 3rd instance into accumulator
+        auto [prover_accumulator_2, verifier_accumulator_2] = fold_and_verify(
+            { prover_accumulator, get<0>(instances_2)[0] }, { verifier_accumulator, get<1>(instances_2)[0] });
+        check_accumulator_target_sum_manual(prover_accumulator_2, true);
+        info(prover_accumulator_2->proving_key.circuit_size);
+
+        // Decide on final accumulator
+        decide_and_verify(prover_accumulator_2, verifier_accumulator_2, true);
+    }
+
+    /**
      * @brief Ensure tampering a commitment and then calling the decider causes the decider verification to fail.
      *
      */
@@ -370,7 +428,7 @@ template <typename Flavor> class ProtoGalaxyTests : public testing::Test {
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
         // Tamper with an accumulator polynomial
-        prover_accumulator->prover_polynomials.w_l[1] = FF::random_element();
+        prover_accumulator->proving_key.polynomials.w_l[1] = FF::random_element();
         check_accumulator_target_sum_manual(prover_accumulator, false);
 
         TupleOfInstances insts_2 = construct_instances(1); // just one set of prover/verifier instances
@@ -434,6 +492,15 @@ TYPED_TEST(ProtoGalaxyTests, CombineAlpha)
 TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyTest)
 {
     TestFixture::test_full_protogalaxy();
+}
+
+TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyStructuredTrace)
+{
+    TestFixture::test_full_protogalaxy_structured_trace();
+}
+TYPED_TEST(ProtoGalaxyTests, FullProtogalaxyStructuredTraceInhomogeneous)
+{
+    TestFixture::test_full_protogalaxy_structured_trace_inhomogeneous_circuits();
 }
 
 TYPED_TEST(ProtoGalaxyTests, TamperedCommitment)

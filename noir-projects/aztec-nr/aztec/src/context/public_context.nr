@@ -167,6 +167,7 @@ impl PublicContext {
             unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             unencrypted_log_preimages_length,
             historical_header: self.inputs.historical_header,
+            global_variables: self.inputs.public_global_variables,
             prover_address: self.prover_address,
             revert_code: 0,
             start_gas_left: self.inputs.gas_left,
@@ -238,10 +239,6 @@ impl PublicContextInterface for PublicContext {
 
     fn fee_per_da_gas(self) -> Field {
         self.inputs.public_global_variables.gas_fees.fee_per_da_gas
-    }
-
-    fn fee_per_l1_gas(self) -> Field {
-        self.inputs.public_global_variables.gas_fees.fee_per_l1_gas
     }
 
     fn fee_per_l2_gas(self) -> Field {

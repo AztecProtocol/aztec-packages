@@ -4,7 +4,8 @@ use dep::types::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputsBuilder, kernel_data::PublicKernelData,
     public_call_data::PublicCallData, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::ReadRequestContext,
-    side_effect::{SideEffect, SideEffectLinkedToNoteHash}
+    side_effect::{SideEffect, SideEffectLinkedToNoteHash}, global_variables::GlobalVariables,
+    combined_constant_data::CombinedConstantData
 },
     address::AztecAddress,
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
@@ -31,6 +32,34 @@ pub fn validate_inputs(public_call: PublicCallData) {
         this_call_stack_item.function_data.is_private == false, "Cannot execute a private function with the public kernel circuit"
     );
     assert(public_call.bytecode_hash != 0, "Bytecode hash cannot be zero");
+}
+
+pub fn validate_public_call_global_variables(public_call: PublicCallData, constants: CombinedConstantData) {
+    let public_call_globals = public_call.call_stack_item.public_inputs.global_variables;
+    assert(
+        public_call_globals == constants.global_variables, "Global variables injected into the public call do not match constants"
+    );
+}
+
+// Validates constants injected into the public call are correct.
+// Note that the previous_kernel.public_inputs.constants returned from the private kernel tail
+// will be empty, so in the first run on of this circuit we load them from the first public
+// call, following the same pattern as in the private_kernel_init.
+// TODO(@spalladino): This can be a security risk since it allows a sequencer to run public
+// circuits with empty global variables. This must be patched by having a differentiated init public
+// circuit that runs only once, or by having a way to differentiate when we're coming from a private 
+// kernel tail vs from another public run.
+pub fn initialize_from_or_validate_public_call_variables(
+    previous_kernel: PublicKernelData,
+    public_call: PublicCallData,
+    public_inputs: &mut PublicKernelCircuitPublicInputsBuilder
+) {
+    if public_inputs.constants.global_variables.is_empty() {
+        let public_call_global_variables = public_call.call_stack_item.public_inputs.global_variables;
+        public_inputs.constants.global_variables = public_call_global_variables;
+    } else {
+        validate_public_call_global_variables(public_call, previous_kernel.public_inputs.constants);
+    }
 }
 
 pub fn validate_public_call_non_revert(public_call: PublicCallData) {
@@ -180,13 +209,10 @@ pub fn update_revertible_gas_used(public_call: PublicCallData, circuit_outputs: 
     //     "Updating revertible gas: limit.da={0} limit.l1={1} limit.l2={2} left.da={3} left.l1={4} left.l2={5} used.da={6} used.l1={7} used.l2={8}",
     //     [
     //     tx_gas_limits.da_gas as Field,
-    //     tx_gas_limits.l1_gas as Field,
     //     tx_gas_limits.l2_gas as Field,
     //     call_gas_left.da_gas as Field,
-    //     call_gas_left.l1_gas as Field,
     //     call_gas_left.l2_gas as Field,
     //     accum_end_non_revertible_gas_used.da_gas as Field,
-    //     accum_end_non_revertible_gas_used.l1_gas as Field,
     //     accum_end_non_revertible_gas_used.l2_gas as Field
     // ]
     // );
@@ -209,13 +235,10 @@ pub fn update_non_revertible_gas_used(public_call: PublicCallData, circuit_outpu
     //     "Updating non-revertible gas: limit.da={0} limit.l1={1} limit.l2={2} left.da={3} left.l1={4} left.l2={5} used.da={6} used.l1={7} used.l2={8}",
     //     [
     //     tx_gas_limits.da_gas as Field,
-    //     tx_gas_limits.l1_gas as Field,
     //     tx_gas_limits.l2_gas as Field,
     //     call_gas_left.da_gas as Field,
-    //     call_gas_left.l1_gas as Field,
     //     call_gas_left.l2_gas as Field,
     //     accum_end_gas_used.da_gas as Field,
-    //     accum_end_gas_used.l1_gas as Field,
     //     accum_end_gas_used.l2_gas as Field
     // ]
     // );
