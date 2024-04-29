@@ -70,5 +70,7 @@ export async function executePrivateFunction(
     enqueuedPublicFunctionCalls,
     encryptedLogs,
     unencryptedLogs,
+    allEncryptedLogs: context.getAllEncryptedLogs(),
+    allUnencryptedLogs: context.getAllUnencryptedLogs(),
   };
 }

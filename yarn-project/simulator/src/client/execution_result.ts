@@ -55,26 +55,16 @@ export interface ExecutionResult {
    * Note: These are preimages to `unencryptedLogsHashes`.
    */
   unencryptedLogs: UnencryptedFunctionL2Logs;
-}
-
-/**
- * Collect all encrypted logs across all nested executions.
- * @param execResult - The topmost execution result.
- * @returns All encrypted logs.
- */
-export function collectEncryptedLogs(execResult: ExecutionResult): EncryptedFunctionL2Logs[] {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
-  return [execResult.encryptedLogs, ...[...execResult.nestedExecutions].reverse().flatMap(collectEncryptedLogs)];
-}
-
-/**
- * Collect all unencrypted logs across all nested executions.
- * @param execResult - The topmost execution result.
- * @returns All unencrypted logs.
- */
-export function collectUnencryptedLogs(execResult: ExecutionResult): UnencryptedFunctionL2Logs[] {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
-  return [execResult.unencryptedLogs, ...[...execResult.nestedExecutions].reverse().flatMap(collectUnencryptedLogs)];
+  /**
+   * Encrypted logs emitted during execution of this function call
+   * AND any nested calls.
+   */
+  allEncryptedLogs: EncryptedFunctionL2Logs;
+  /**
+   * Unencrypted logs emitted during execution of this function call
+   * AND any nested calls.
+   */
+  allUnencryptedLogs: UnencryptedFunctionL2Logs;
 }
 
 /**

@@ -96,7 +96,6 @@ export class PublicExecutionContext extends TypedOracle {
   public getAllUnencryptedLogs() {
     return new UnencryptedFunctionL2Logs(this.allUnencryptedLogs);
   }
-  
 
   /**
    * Return the data read and updated during this execution.

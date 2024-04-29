@@ -269,8 +269,10 @@ export abstract class AbstractPhaseManager {
           );
           throw result.revertReason;
         }
-        
-        if (isExecutionRequest) newUnencryptedFunctionLogs.push(result.allUnencryptedLogs);
+
+        if (isExecutionRequest) {
+          newUnencryptedFunctionLogs.push(result.allUnencryptedLogs);
+        }
 
         this.log.debug(
           `Running public kernel circuit for ${result.execution.contractAddress.toString()}:${functionSelector}`,

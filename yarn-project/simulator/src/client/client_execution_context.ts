@@ -33,6 +33,7 @@ import { type PackedValuesCache } from '../common/packed_values_cache.js';
 import { type DBOracle } from './db_oracle.js';
 import { type ExecutionNoteCache } from './execution_note_cache.js';
 import { type ExecutionResult, type NoteAndSlot } from './execution_result.js';
+import { type LogsCache } from './logs_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction } from './private_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -75,6 +76,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     authWitnesses: AuthWitness[],
     private readonly packedValuesCache: PackedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
+    private readonly logsCache: LogsCache,
     db: DBOracle,
     private readonly curve: Grumpkin,
     private node: AztecNode,
@@ -147,10 +149,24 @@ export class ClientExecutionContext extends ViewDataOracle {
   }
 
   /**
+   * Return the encrypted logs emitted during this execution and nested executions.
+   */
+  public getAllEncryptedLogs() {
+    return new EncryptedFunctionL2Logs(this.logsCache.getEncryptedLogs());
+  }
+
+  /**
    * Return the encrypted logs emitted during this execution.
    */
   public getUnencryptedLogs() {
     return new UnencryptedFunctionL2Logs(this.unencryptedLogs);
+  }
+
+  /**
+   * Return the unencrypted logs emitted during this execution and nested executions.
+   */
+  public getAllUnencryptedLogs() {
+    return new UnencryptedFunctionL2Logs(this.logsCache.getUnencryptedLogs());
   }
 
   /**
@@ -327,6 +343,7 @@ export class ClientExecutionContext extends ViewDataOracle {
     const encryptedNote = taggedNote.toEncryptedBuffer(publicKey, this.curve);
     const encryptedLog = new EncryptedL2Log(encryptedNote);
     this.encryptedLogs.push(encryptedLog);
+    this.logsCache.addEncryptedLog(encryptedLog);
     return encryptedNote;
   }
 
@@ -336,6 +353,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override emitUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
+    this.logsCache.addUnencryptedLog(log);
     const text = log.toHumanReadable();
     this.log.verbose(`Emitted unencrypted log: "${text.length > 100 ? text.slice(0, 100) + '...' : text}"`);
   }
@@ -349,6 +367,7 @@ export class ClientExecutionContext extends ViewDataOracle {
    */
   public override emitContractClassUnencryptedLog(log: UnencryptedL2Log) {
     this.unencryptedLogs.push(log);
+    this.logsCache.addUnencryptedLog(log);
     const text = log.toHumanReadable();
     this.log.verbose(
       `Emitted unencrypted log from ContractClassRegisterer: "${
@@ -416,6 +435,7 @@ export class ClientExecutionContext extends ViewDataOracle {
       this.authWitnesses,
       this.packedValuesCache,
       this.noteCache,
+      this.logsCache,
       this.db,
       this.curve,
       this.node,

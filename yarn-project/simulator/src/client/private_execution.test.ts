@@ -57,7 +57,6 @@ import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { type DBOracle } from './db_oracle.js';
-import { collectUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
@@ -219,7 +218,7 @@ describe('Private Execution test suite', () => {
       );
       expect(newUnencryptedLogs).toHaveLength(1);
 
-      const [functionLogs] = collectUnencryptedLogs(result);
+      const functionLogs = result.allUnencryptedLogs;
       expect(functionLogs.logs).toHaveLength(1);
 
       const [unencryptedLog] = newUnencryptedLogs;
@@ -240,7 +239,7 @@ describe('Private Execution test suite', () => {
         nonEmptySideEffects(result.callStackItem.publicInputs.unencryptedLogsHashes),
       );
       expect(newUnencryptedLogs).toHaveLength(1);
-      const [functionLogs] = collectUnencryptedLogs(result);
+      const functionLogs = result.allUnencryptedLogs;
       expect(functionLogs.logs).toHaveLength(1);
 
       const [unencryptedLog] = newUnencryptedLogs;

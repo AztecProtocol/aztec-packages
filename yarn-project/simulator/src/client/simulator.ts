@@ -20,6 +20,7 @@ import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { type ExecutionResult } from './execution_result.js';
+import { LogsCache } from './logs_cache.js';
 import { executePrivateFunction } from './private_execution.js';
 import { executeUnconstrainedFunction } from './unconstrained_execution.js';
 import { ViewDataOracle } from './view_data_oracle.js';
@@ -103,6 +104,7 @@ export class AcirSimulator {
       request.authWitnesses,
       PackedValuesCache.create(request.argsOfCalls),
       new ExecutionNoteCache(),
+      new LogsCache(),
       this.db,
       curve,
       this.node,
