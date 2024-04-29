@@ -152,7 +152,7 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                 solver.variable_base_scalar_mul(&point_x, &point_y, &scalar_low, &scalar_high)?;
             memory.write_slice(
                 memory.read_ref(result.pointer),
-                &[point_x.into(), point_y.into(), out_point_x.into(), out_point_y.into()],
+                &[out_point_x.into(), out_point_y.into()],
             );
             Ok(())
         }
