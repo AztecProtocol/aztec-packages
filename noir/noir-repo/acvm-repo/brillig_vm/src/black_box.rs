@@ -51,11 +51,9 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                     BlackBoxResolutionError::Failed(bb_func, "Invalid ley length".to_string())
                 })?;
             let cyphertext = aes128_encrypt(&inputs, iv, key)?;
-            let mut values = Vec::new();
-            for byte in cyphertext {
-                values.push(byte.into());
-            }
-            memory.write_slice(memory.read_ref(outputs.pointer), &values);
+
+            memory.write(outputs.size, cyphertext.len().into());
+            memory.write_slice(memory.read_ref(outputs.pointer), &to_value_vec(&cyphertext));
 
             Ok(())
         }
