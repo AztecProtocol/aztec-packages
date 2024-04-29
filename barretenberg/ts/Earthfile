@@ -1,40 +1,46 @@
 VERSION 0.8
 
-FROM node:18.19.0
-WORKDIR /usr/src/barretenberg/ts-build
+build-base:
+    FROM node:18.19.0
+    WORKDIR /usr/src/barretenberg/ts-build
 
-# minimum files to download yarn packages
-# keep timestamps for incremental builds
-COPY --dir .yarn package.json yarn.lock .yarnrc.yml .
-RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
-RUN yarn --immutable
+    # minimum files to download yarn packages
+    # keep timestamps for incremental builds
+    COPY --dir .yarn package.json yarn.lock .yarnrc.yml .
+    RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
+    RUN yarn --immutable
 
-# other source files
-COPY --dir src *.json *.js *.cjs .
+    # other source files
+    COPY --dir src *.json *.js *.cjs .
 
-# copy over wasm build from cpp folder
-COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
-COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
-COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
-COPY ../cpp/+preset-wasm/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+    # copy over wasm build from cpp folder
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg-threads.wasm
+    COPY ../cpp/+preset-wasm/bin/barretenberg.wasm src/barretenberg_wasm/barretenberg.wasm
+    COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node/barretenberg_wasm/barretenberg-threads.wasm
+    COPY ../cpp/+preset-wasm/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
 
 esm:
+    FROM +build-base
     RUN yarn build:esm
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
 
 cjs:
+    FROM +build-base
     COPY scripts/cjs_postprocess.sh scripts/
     RUN yarn build:cjs
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
 
 browser:
+    FROM +build-base
     RUN yarn build:browser
     SAVE ARTIFACT /usr/src/barretenberg/ts-build build
 
 test-prettier-format:
+    FROM +build-base
     RUN yarn formatting
 
 build:
+    FROM +build-base
     # collect all our build types
     COPY +esm/build /usr/src/barretenberg/ts-build
     COPY +cjs/build /usr/src/barretenberg/ts-build
@@ -44,5 +50,16 @@ build:
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 test:
+    FROM +build-base
     BUILD +test-prettier-format
     RUN yarn test
+
+local-build:
+    FROM alpine:3.18
+    WORKDIR /usr/src/barretenberg/ts
+    COPY . .
+    COPY ../cpp/+local-build/bb-wasm-threads src/barretenberg_wasm/barretenberg-threads.wasm
+    COPY ../cpp/+local-build/bb-wasm src/barretenberg_wasm/barretenberg.wasm
+    COPY ../cpp/+local-build/bb-wasm-threads dest/node/barretenberg_wasm/barretenberg-threads.wasm
+    COPY ../cpp/+local-build/bb-wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
+    SAVE ARTIFACT . ts

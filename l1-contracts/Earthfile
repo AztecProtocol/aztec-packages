@@ -21,3 +21,10 @@ build:
     RUN git init && git add . && yarn lint && yarn slither && yarn slither-has-diff
     RUN forge clean && forge fmt --check && forge build && forge test --no-match-contract UniswapPortalTest
     SAVE ARTIFACT /usr/src/l1-contracts /usr/src/l1-contracts
+
+local-build:
+    FROM alpine:3.18
+    WORKDIR /usr/build
+    COPY ./out ./out
+    SAVE ARTIFACT ./out
+        

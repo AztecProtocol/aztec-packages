@@ -247,3 +247,13 @@ test:
         ENV HARDWARE_CONCURRENCY=$hardware_concurrency
     END
     RUN cd build && GTEST_COLOR=1 ctest -j$(nproc) --output-on-failure
+
+local-build:
+    FROM alpine:3.18
+    WORKDIR /usr/build
+    COPY ./build/bin ./build/bin
+    COPY ./build-wasm/bin ./build-wasm/bin
+    COPY ./build-wasm-threads/bin ./build-wasm-threads/bin
+    SAVE ARTIFACT ./build/bin/bb bb-native
+    SAVE ARTIFACT ./build-wasm/bin/barretenberg.wasm bb-wasm
+    SAVE ARTIFACT ./build-wasm-threads/bin/barretenberg.wasm bb-wasm-threads

@@ -28,7 +28,7 @@ deps:
     # by initialising the module more than once. So at present I don't see a viable alternative.
     RUN ln -s /usr/src/yarn-project/node_modules /usr/src/node_modules
 
-build:
+build-from-deps:
     # Prefetch targets to not wait for +deps.
     BUILD ../barretenberg/cpp/+preset-release
     BUILD ../noir/+nargo
@@ -46,6 +46,41 @@ build:
     COPY . .
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
+
+# Rather than building dependencies, it relies on local artifacts, downloaded using bootstrap cache,
+# to build each image. This saves from having to build bb from source when trying to debug anything
+# earthly delated locally.
+build-from-local:
+    FROM node:18.19.0
+    RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
+
+    COPY ../barretenberg/cpp/+local-build/bb-native /usr/src/barretenberg/cpp/build/bin/bb
+    COPY ../barretenberg/cpp/+local-build/bb-wasm /usr/src/barretenberg/cpp/build-wasm/bin/barretenberg.wasm
+    COPY ../barretenberg/cpp/+local-build/bb-wasm-threads /usr/src/barretenberg/cpp/build-wasm-threads/bin/barretenberg.wasm
+    COPY ../barretenberg/ts/+local-build/ts /usr/src/barretenberg/ts
+    
+    COPY ../noir/+local-build/packages /usr/src/noir/packages
+    COPY ../noir/+local-build/release /usr/src/noir/noir-repo/target/release
+
+    COPY ../noir-projects/+local-build/noir-projects /usr/src/noir-projects
+    COPY ../l1-contracts/+local-build/out /usr/src/l1-contracts/out
+
+    WORKDIR /usr/src/barretenberg/ts/
+    RUN yarn install
+
+    WORKDIR /usr/src/yarn-project
+    COPY . .
+    ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+    RUN yarn install && yarn build:fast
+
+build:
+    ARG use_local_builds=false
+    LOCALLY
+    IF [ "$use_local_builds" = "true" ]
+        FROM +build-from-local
+    ELSE
+        FROM +build-from-deps
+    END    
 
 aztec-prod:
     FROM +build

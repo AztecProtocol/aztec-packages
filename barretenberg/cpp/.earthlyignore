@@ -1,1 +1,16 @@
-.gitignore
+.cache/
+build*/
+!build*/bin
+src/wasi-sdk*
+src/barretenberg/plonk_honk_shared/proving_key/fixtures
+src/barretenberg/rollup/proofs/*/fixtures
+srs_db/*/*/transcript*
+srs_db/*/bn254_g*
+CMakeUserPresets.json
+.vscode/settings.json
+acir_tests
+# we may download go in scripts/collect_heap_information.sh
+go*.tar.gz
+barretenberg_modules.dot
+barretenberg_modules.png
+src/barretenberg/bb/config.hpp

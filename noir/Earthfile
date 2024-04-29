@@ -86,6 +86,14 @@ build:
   BUILD +nargo
   BUILD +packages
 
+local-build:
+  FROM alpine:3.18
+  WORKDIR /usr/build
+  COPY ./packages ./packages
+  COPY ./noir-repo/target/release ./release
+  SAVE ARTIFACT ./packages
+  SAVE ARTIFACT ./release
+
 # TOOD
 # test-packages
 # FROM aztecprotocol/noir AS noir

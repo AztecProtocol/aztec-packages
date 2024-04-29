@@ -18,3 +18,4 @@ cmake-build-debug
 .DS_Store
 
 **/*.dockerignore
+.arg
