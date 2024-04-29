@@ -220,7 +220,7 @@ pub(crate) fn convert_black_box_call(
                 });
             } else {
                 unreachable!(
-                    "ICE: VariableBaseScalarMul expects one register argument and one array result"
+                    "ICE: VariableBaseScalarMul expects four register arguments and one array result"
                 )
             }
         }
