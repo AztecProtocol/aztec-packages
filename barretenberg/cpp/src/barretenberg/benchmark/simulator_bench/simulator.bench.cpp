@@ -16,20 +16,23 @@ template <typename RecursiveFlavor> class SimulatorFixture : public benchmark::F
     using VerificationKey = typename Flavor::VerificationKey;
     using CircuitSimulator = typename RecursiveFlavor::CircuitBuilder;
     using SimulatingVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
-    SimulatorFixture() = default;
 
     struct VerifierInput {
         HonkProof proof;
-        std::shared_ptr<typename Flavor::VerificationKey> verification_key;
+        std::shared_ptr<VerificationKey> verification_key;
     };
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
         bb::srs::init_crs_factory("../srs_db/ignition");
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    static VerifierInput create_proof_goblin_builder(bool large = false)
+    /**
+     * @brief Create a Honk proof (either Ultra or GoblinUltra) for a non-trivial circuit.
+     *
+     * @param large determines whether the circuit is 2^17 or 2^19
+     */
+    static VerifierInput create_proof(bool large = false)
     {
 
         auto builder = construct_mock_function_circuit(large);
@@ -40,17 +43,22 @@ template <typename RecursiveFlavor> class SimulatorFixture : public benchmark::F
         return { ultra_proof, verification_key };
     }
 
+    /**
+     * @brief Populate the builder with non-trivial operations that mock a circuit encountered in practice.
+     *
+     * @param large determines whether the circuit is 2^17 or 2^19
+     */
     static Builder construct_mock_function_circuit(bool large = false)
     {
         using InnerCurve = bb::stdlib::bn254<Builder>;
-
         using fr_ct = InnerCurve::ScalarField;
         using point_ct = InnerCurve::AffineElement;
         using fr = typename InnerCurve::ScalarFieldNative;
         using point = typename InnerCurve::GroupNative::affine_element;
         Builder builder;
 
-        // Add some arbitrary goblin-style ECC op gates via a batch mul
+        // Perform a batch mul which will add some arbitrary goblin-style ECC op gates if the circuit arithmetic is
+        // goblinisied otherwise it will add the conventional nonnative gates
         size_t num_points = 5;
         std::vector<point_ct> circuit_points;
         std::vector<fr_ct> circuit_scalars;
@@ -78,9 +86,9 @@ template <typename RecursiveFlavor> class SimulatorFixture : public benchmark::F
 BENCHMARK_TEMPLATE_F(SimulatorFixture, GoblinNative, bb::GoblinUltraRecursiveFlavor_<bb::CircuitSimulatorBN254>)
 (benchmark::State& state)
 {
-    auto verifier_input = SimulatorFixture::create_proof_goblin_builder();
+    auto verifier_input = SimulatorFixture::create_proof();
     for (auto _ : state) {
-        UltraVerifier_<typename SimulatorFixture::Flavor> ultra_verifier{ verifier_input.verification_key };
+        UltraVerifier_<Flavor> ultra_verifier{ verifier_input.verification_key };
         ultra_verifier.verify_proof((verifier_input.proof));
     }
 }
@@ -88,10 +96,10 @@ BENCHMARK_TEMPLATE_F(SimulatorFixture, GoblinNative, bb::GoblinUltraRecursiveFla
 BENCHMARK_TEMPLATE_F(SimulatorFixture, GoblinSimulated, bb::GoblinUltraRecursiveFlavor_<bb::CircuitSimulatorBN254>)
 (benchmark::State& state)
 {
-    auto verifier_input = SimulatorFixture::create_proof_goblin_builder();
+    auto verifier_input = SimulatorFixture::create_proof();
     for (auto _ : state) {
-        typename SimulatorFixture::CircuitSimulator simulator;
-        typename SimulatorFixture::SimulatingVerifier ultra_verifier{ &simulator, verifier_input.verification_key };
+        CircuitSimulator simulator;
+        SimulatingVerifier ultra_verifier{ &simulator, verifier_input.verification_key };
         ultra_verifier.verify_proof((verifier_input.proof));
     }
 }
@@ -99,7 +107,7 @@ BENCHMARK_TEMPLATE_F(SimulatorFixture, GoblinSimulated, bb::GoblinUltraRecursive
 BENCHMARK_TEMPLATE_F(SimulatorFixture, UltraNative, bb::UltraRecursiveFlavor_<bb::CircuitSimulatorBN254>)
 (benchmark::State& state)
 {
-    auto verifier_input = SimulatorFixture::create_proof_goblin_builder();
+    auto verifier_input = SimulatorFixture::create_proof();
     for (auto _ : state) {
         UltraVerifier_<typename SimulatorFixture::Flavor> ultra_verifier{ verifier_input.verification_key };
         ultra_verifier.verify_proof((verifier_input.proof));
@@ -109,10 +117,10 @@ BENCHMARK_TEMPLATE_F(SimulatorFixture, UltraNative, bb::UltraRecursiveFlavor_<bb
 BENCHMARK_TEMPLATE_F(SimulatorFixture, UltraSimulated, bb::UltraRecursiveFlavor_<bb::CircuitSimulatorBN254>)
 (benchmark::State& state)
 {
-    auto verifier_input = SimulatorFixture::create_proof_goblin_builder();
+    auto verifier_input = SimulatorFixture::create_proof();
     for (auto _ : state) {
-        typename SimulatorFixture::CircuitSimulator simulator;
-        typename SimulatorFixture::SimulatingVerifier ultra_verifier{ &simulator, verifier_input.verification_key };
+        CircuitSimulator simulator;
+        SimulatingVerifier ultra_verifier{ &simulator, verifier_input.verification_key };
         ultra_verifier.verify_proof((verifier_input.proof));
     }
 }

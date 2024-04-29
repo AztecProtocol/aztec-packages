@@ -31,8 +31,9 @@ namespace bb {
  * relatively small footprint, but it feels possible to improve upon the idioms, reduce the size of the divergence, or
  * perhaps organize things more cleanly in a way that avoids the use of compile time `if` statements.
  *
- * @todo https://github.com/AztecProtocol/aztec-packages/pull/1195
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/961): Ensure we can execute the simulator in the context of
+// ECCVM which is instantiated on Grumpkin
 class CircuitSimulatorBN254 {
   public:
     using FF = bb::fr;                                                           // IOU templating
