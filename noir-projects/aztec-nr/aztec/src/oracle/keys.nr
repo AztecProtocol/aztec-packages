@@ -20,7 +20,7 @@ unconstrained fn get_public_keys_and_partial_address_oracle_wrapper(address: Azt
   get_public_keys_and_partial_address_oracle(address)
 }
 
-pub fn get_public_keys_and_partial_address(address: AztecAddress) -> (PartialAddress, [GrumpkinPoint; 4]) {
+pub fn get_public_keys_and_partial_address(address: AztecAddress, check_validity: bool) -> (PartialAddress, [GrumpkinPoint; 4]) {
   let result = get_public_keys_and_partial_address_oracle_wrapper(address);
 
   let partial_address = PartialAddress::from_field(result[0]);
@@ -29,14 +29,17 @@ pub fn get_public_keys_and_partial_address(address: AztecAddress) -> (PartialAdd
   let outgoing_pub_key = GrumpkinPoint::new(result[5], result[6]);
   let tagging_pub_key = GrumpkinPoint::new(result[7], result[8]);
 
-  _check_public_key_validity_constrain_oracle(
-    address,
-    partial_address,
-    nullifier_pub_key,
-    incoming_pub_key,
-    outgoing_pub_key,
-    tagging_pub_key,
-  );
+  // check_validity is only used if the address does not exist in the registry, which means that there has been no key rotation
+  if (check_validity) {
+    _check_public_key_validity_constrain_oracle(
+      address,
+      partial_address,
+      nullifier_pub_key,
+      incoming_pub_key,
+      outgoing_pub_key,
+      tagging_pub_key,
+    );
+  }
 
   (partial_address, [nullifier_pub_key, incoming_pub_key, outgoing_pub_key, tagging_pub_key])
 }
