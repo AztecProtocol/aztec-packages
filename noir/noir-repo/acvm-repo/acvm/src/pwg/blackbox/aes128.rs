@@ -3,14 +3,13 @@ use acir::{
     native_types::{Witness, WitnessMap},
     FieldElement,
 };
-use acvm_blackbox_solver::BlackBoxFunctionSolver;
+use acvm_blackbox_solver::aes128_encrypt;
 
 use crate::{pwg::insert_value, OpcodeResolutionError};
 
 use super::utils::{to_u8_array, to_u8_vec};
 
-pub(super) fn aes128_encrypt(
-    backend: &impl BlackBoxFunctionSolver,
+pub(super) fn solve_aes128_encryption_opcode(
     initial_witness: &mut WitnessMap,
     inputs: &[FunctionInput],
     iv: &[FunctionInput; 16],
@@ -22,7 +21,7 @@ pub(super) fn aes128_encrypt(
     let iv = to_u8_array(initial_witness, iv)?;
     let key = to_u8_array(initial_witness, key)?;
 
-    let cyphertext = backend.aes128_encrypt(&scalars, iv, key)?;
+    let cyphertext = aes128_encrypt(&scalars, iv, key)?;
 
     // Write witness assignments
     for (output_witness, value) in outputs.iter().zip(cyphertext.into_iter()) {

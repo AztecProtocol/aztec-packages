@@ -7,12 +7,6 @@ use crate::BlackBoxResolutionError;
 ///
 /// Returns an [`BlackBoxResolutionError`] if the backend does not support the given [`acir::BlackBoxFunc`].
 pub trait BlackBoxFunctionSolver {
-    fn aes128_encrypt(
-        &self,
-        inputs: &[u8],
-        iv: [u8; 16],
-        key: [u8; 16],
-    ) -> Result<Vec<u8>, BlackBoxResolutionError>;
     fn schnorr_verify(
         &self,
         public_key_x: &FieldElement,
@@ -61,14 +55,6 @@ impl StubbedBlackBoxSolver {
 }
 
 impl BlackBoxFunctionSolver for StubbedBlackBoxSolver {
-    fn aes128_encrypt(
-        &self,
-        _inputs: &[u8],
-        _iv: [u8; 16],
-        _key: [u8; 16],
-    ) -> Result<Vec<u8>, BlackBoxResolutionError> {
-        Err(Self::fail(BlackBoxFunc::AES128Encrypt))
-    }
     fn schnorr_verify(
         &self,
         _public_key_x: &FieldElement,

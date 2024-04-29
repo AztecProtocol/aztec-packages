@@ -3,7 +3,7 @@
 #![cfg_attr(not(test), warn(unused_crate_dependencies, unused_extern_crates))]
 
 use acir::{BlackBoxFunc, FieldElement};
-use acvm_blackbox_solver::{aes128_encrypt, BlackBoxFunctionSolver, BlackBoxResolutionError};
+use acvm_blackbox_solver::{BlackBoxFunctionSolver, BlackBoxResolutionError};
 
 mod fixed_base_scalar_mul;
 mod poseidon2;
@@ -48,15 +48,6 @@ impl Default for Bn254BlackBoxSolver {
 }
 
 impl BlackBoxFunctionSolver for Bn254BlackBoxSolver {
-    fn aes128_encrypt(
-        &self,
-        inputs: &[u8],
-        iv: [u8; 16],
-        key: [u8; 16],
-    ) -> Result<Vec<u8>, BlackBoxResolutionError> {
-        aes128_encrypt(inputs, iv, key)
-    }
-
     fn schnorr_verify(
         &self,
         public_key_x: &FieldElement,

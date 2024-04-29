@@ -6,8 +6,8 @@ use acir::{
 use acvm_blackbox_solver::{blake2s, blake3, keccak256, keccakf1600, sha256};
 
 use self::{
-    aes128::aes128_encrypt, bigint::AcvmBigIntSolver, hash::solve_poseidon2_permutation_opcode,
-    pedersen::pedersen_hash,
+    aes128::solve_aes128_encryption_opcode, bigint::AcvmBigIntSolver,
+    hash::solve_poseidon2_permutation_opcode, pedersen::pedersen_hash,
 };
 
 use super::{insert_value, OpcodeNotSolvable, OpcodeResolutionError};
@@ -72,7 +72,7 @@ pub(crate) fn solve(
 
     match bb_func {
         BlackBoxFuncCall::AES128Encrypt { inputs, iv, key, outputs } => {
-            aes128_encrypt(backend, initial_witness, inputs, iv, key, outputs)
+            solve_aes128_encryption_opcode(initial_witness, inputs, iv, key, outputs)
         }
         BlackBoxFuncCall::AND { lhs, rhs, output } => and(initial_witness, lhs, rhs, output),
         BlackBoxFuncCall::XOR { lhs, rhs, output } => xor(initial_witness, lhs, rhs, output),

@@ -6,15 +6,6 @@ use acvm::BlackBoxFunctionSolver;
 pub(super) struct WrapperSolver(pub(super) Box<dyn BlackBoxFunctionSolver>);
 
 impl BlackBoxFunctionSolver for WrapperSolver {
-    fn aes128_encrypt(
-        &self,
-        inputs: &[u8],
-        iv: [u8; 16],
-        key: [u8; 16],
-    ) -> Result<Vec<u8>, acvm::BlackBoxResolutionError> {
-        self.0.aes128_encrypt(inputs, iv, key)
-    }
-
     fn schnorr_verify(
         &self,
         public_key_x: &acvm::FieldElement,
