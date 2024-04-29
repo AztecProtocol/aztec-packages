@@ -30,14 +30,12 @@ template <typename Curve> struct aggregation_state {
     /**
      * @brief TODO(@dbanks12 please migrate A3 circuits to using `assign_object_to_proof_outputs`. Much safer to not
      * independently track `proof_witness_indices` and whether object has been assigned to public inputs)
-     * @deprecated
+     *
      */
     void add_proof_outputs_as_public_inputs()
     {
         auto* context = P0.get_context();
-        if constexpr (!IsSimulator<typename Curve::Builder>) {
-            context->add_recursive_proof(proof_witness_indices);
-        }
+        context->add_recursive_proof(proof_witness_indices);
     }
 
     void assign_object_to_proof_outputs()
@@ -48,35 +46,32 @@ template <typename Curve> struct aggregation_state {
             return;
         }
 
-        auto* context = P0.get_context();
-
         P0 = P0.reduce();
         P1 = P1.reduce();
-        if constexpr (IsSimulator<typename Curve::Builder>) {
-            std::vector<typename Curve::ScalarFieldNative> proof_element_limbs = {
-                P0.x.binary_basis_limbs[0].element.normalize().get_value(),
-                P0.x.binary_basis_limbs[1].element.normalize().get_value(),
-                P0.x.binary_basis_limbs[2].element.normalize().get_value(),
-                P0.x.binary_basis_limbs[3].element.normalize().get_value(),
-                P0.y.binary_basis_limbs[0].element.normalize().get_value(),
-                P0.y.binary_basis_limbs[1].element.normalize().get_value(),
-                P0.y.binary_basis_limbs[2].element.normalize().get_value(),
-                P0.y.binary_basis_limbs[3].element.normalize().get_value(),
-                P1.x.binary_basis_limbs[0].element.normalize().get_value(),
-                P1.x.binary_basis_limbs[1].element.normalize().get_value(),
-                P1.x.binary_basis_limbs[2].element.normalize().get_value(),
-                P1.x.binary_basis_limbs[3].element.normalize().get_value(),
-                P1.y.binary_basis_limbs[0].element.normalize().get_value(),
-                P1.y.binary_basis_limbs[1].element.normalize().get_value(),
-                P1.y.binary_basis_limbs[2].element.normalize().get_value(),
-                P1.y.binary_basis_limbs[3].element.normalize().get_value(),
-            };
-            context->add_recursive_proof(proof_element_limbs);
-        } else {
-            CircuitChecker::check(*context);
-            info("checked circuit before add_recursive_proof");
-            context->add_recursive_proof(proof_witness_indices);
-        }
+        proof_witness_indices = {
+            P0.x.binary_basis_limbs[0].element.normalize().witness_index,
+            P0.x.binary_basis_limbs[1].element.normalize().witness_index,
+            P0.x.binary_basis_limbs[2].element.normalize().witness_index,
+            P0.x.binary_basis_limbs[3].element.normalize().witness_index,
+            P0.y.binary_basis_limbs[0].element.normalize().witness_index,
+            P0.y.binary_basis_limbs[1].element.normalize().witness_index,
+            P0.y.binary_basis_limbs[2].element.normalize().witness_index,
+            P0.y.binary_basis_limbs[3].element.normalize().witness_index,
+            P1.x.binary_basis_limbs[0].element.normalize().witness_index,
+            P1.x.binary_basis_limbs[1].element.normalize().witness_index,
+            P1.x.binary_basis_limbs[2].element.normalize().witness_index,
+            P1.x.binary_basis_limbs[3].element.normalize().witness_index,
+            P1.y.binary_basis_limbs[0].element.normalize().witness_index,
+            P1.y.binary_basis_limbs[1].element.normalize().witness_index,
+            P1.y.binary_basis_limbs[2].element.normalize().witness_index,
+            P1.y.binary_basis_limbs[3].element.normalize().witness_index,
+        };
+
+        auto* context = P0.get_context();
+
+        CircuitChecker::check(*context);
+        info("checked circuit before add_recursive_proof");
+        context->add_recursive_proof(proof_witness_indices);
     }
 };
 
