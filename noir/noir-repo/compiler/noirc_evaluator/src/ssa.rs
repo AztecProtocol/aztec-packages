@@ -12,7 +12,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::errors::{RuntimeError, SsaReport};
 use acvm::acir::{
     circuit::{
-        brillig::BrilligBytecode, Circuit, ExpressionWidth, Program as AcirProgram, PublicInputs,
+        brillig::BrilligBytecode, Circuit, ErrorSelector, ExpressionWidth, Program as AcirProgram,
+        PublicInputs,
     },
     native_types::Witness,
 };
@@ -102,13 +103,13 @@ pub struct SsaProgramArtifact {
     pub main_input_witnesses: Vec<Witness>,
     pub main_return_witnesses: Vec<Witness>,
     pub names: Vec<String>,
-    pub error_types: BTreeMap<u64, HirType>,
+    pub error_types: BTreeMap<ErrorSelector, HirType>,
 }
 
 impl SsaProgramArtifact {
     fn new(
         unconstrained_functions: Vec<BrilligBytecode>,
-        error_types: BTreeMap<u64, HirType>,
+        error_types: BTreeMap<ErrorSelector, HirType>,
     ) -> Self {
         let program = AcirProgram { functions: Vec::default(), unconstrained_functions };
         Self {
@@ -168,7 +169,7 @@ pub fn create_program(
 
     let error_types = error_types
         .into_iter()
-        .map(|(error_typ_id, error_typ)| (error_typ_id.to_u64(), error_typ))
+        .map(|(error_typ_id, error_typ)| (error_typ_id, error_typ))
         .collect();
 
     let mut program_artifact = SsaProgramArtifact::new(generated_brillig, error_types);

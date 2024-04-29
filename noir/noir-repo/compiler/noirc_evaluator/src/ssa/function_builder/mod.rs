@@ -2,7 +2,7 @@ pub(crate) mod data_bus;
 
 use std::{borrow::Cow, collections::BTreeMap, rc::Rc};
 
-use acvm::FieldElement;
+use acvm::{acir::circuit::ErrorSelector, FieldElement};
 use noirc_errors::Location;
 use noirc_frontend::monomorphization::ast::InlineType;
 
@@ -19,7 +19,7 @@ use super::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
         function::RuntimeType,
-        instruction::{ConstrainError, ErrorSelector, ErrorType, InstructionId, Intrinsic},
+        instruction::{ConstrainError, ErrorType, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
 };

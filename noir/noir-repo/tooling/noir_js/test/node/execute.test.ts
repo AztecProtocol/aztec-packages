@@ -17,7 +17,7 @@ it('returns the return value of the circuit', async () => {
   expect(returnValue).to.be.eq('0x05');
 });
 
-it('circuit with a dynamic assert message should fail on an assert failure not the foreign call handler', async () => {
+it('circuit with a dynamic assert message should fail with the resolved assertion message', async () => {
   const inputs = {
     x: '10',
     y: '5',
@@ -26,6 +26,6 @@ it('circuit with a dynamic assert message should fail on an assert failure not t
     await new Noir(assert_msg_runtime).execute(inputs);
   } catch (error) {
     const knownError = error as Error;
-    expect(knownError.message).to.equal('Circuit execution failed: Error: Cannot satisfy constraint');
+    expect(knownError.message).to.equal('Circuit execution failed: Expected x < y but got 10 < 5');
   }
 });
