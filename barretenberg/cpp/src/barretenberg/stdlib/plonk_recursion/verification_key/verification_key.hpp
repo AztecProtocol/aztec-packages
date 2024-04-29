@@ -52,11 +52,12 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
 
         // TODO(@maramihali #2796) replace this with a Poseidon hash once we have one implemented.
         // The current algorithm is splits the buffer into a running hash of size-2 hashes.
-        // We do this because, for UltraPlonk, size-2 Pedersehashes are more efficient than larger hashes as this
-        // small hash can utilize plookup tables. Once we implement an efficient Poseidon hash: we should change
-        // this to a straighforward hash of a vector of field elements. N.B. If we do a plain Pedersen vector-hash
-        // instead of this pairwise method, the Noir recursion circuit size goes beyond 2^19 which breaks many
-        // tests. Poseidon should not have this issue as ideally it is more efficient!
+        // We do this because, for UltraPlonk, size-2 Pedersehashes are more efficient than larger hashes as this small
+        // hash can utilize plookup tables.
+        // Once we implement an efficient Poseidon hash: we should change this to a straighforward hash of a vector of
+        // field elements. N.B. If we do a plain Pedersen vector-hash instead of this pairwise method, the Noir
+        // recursion circuit size goes beyond 2^19 which breaks many tests.
+        // Poseidon should not have this issue as ideally it is more efficient!
         field_t<Builder> hashed = 0;
         if (preimage_data.size() < 2) {
             hashed = pedersen_hash<Builder>::hash_skip_field_validation(preimage_data);
@@ -93,8 +94,8 @@ template <class Builder, size_t bits_per_element = 248> struct PedersenPreimageB
 
     /**
      * @brief Populate `preimage_data` with element whose size is known to be `num_bits`.
-     * `preimage_data` is treated as a bit-array where `bits_per_element` number of bits are packed into a single
-     * field element. `slice_element` will:
+     * `preimage_data` is treated as a bit-array where `bits_per_element` number of bits are packed into a single field
+     * element. `slice_element` will:
      *
      * 1. determine how many bits are remaining in work_element
      * 2. if remaining bits > num_bits, slice `element` into 2 chunks hi/lo
@@ -280,9 +281,9 @@ template <typename Curve> struct verification_key {
     }
 
     /**
-     * @brief Converts a 'native' verification key into a standard library type, instantiating the `input_key`
-     * parameter as circuit variables. This allows the recursive verifier to accept arbitrary verification keys,
-     * where the circuit being verified is not fixed as part of the recursive circuit.
+     * @brief Converts a 'native' verification key into a standard library type, instantiating the `input_key` parameter
+     * as circuit variables. This allows the recursive verifier to accept arbitrary verification keys, where the circuit
+     * being verified is not fixed as part of the recursive circuit.
      */
     static std::shared_ptr<verification_key> from_witness(Builder* ctx,
                                                           const std::shared_ptr<plonk::verification_key>& input_key)
@@ -301,10 +302,10 @@ template <typename Curve> struct verification_key {
         key->recursive_proof_public_input_indices = input_key->recursive_proof_public_input_indices;
         for (const auto& [tag, value] : input_key->commitments) {
             // We do not perform on_curve() circuit checks when constructing the Curve::Group element.
-            // The assumption is that the circuit creator is honest and that the verification key hash (or some
-            // other method) will be used to ensure the provided key matches the key produced by the circuit
-            // creator. If the circuit creator is not honest, the entire set of circuit constraints being proved
-            // over cannot be trusted!
+            // The assumption is that the circuit creator is honest and that the verification key hash (or some other
+            // method) will be used to ensure the provided key matches the key produced by the circuit creator.
+            // If the circuit creator is not honest, the entire set of circuit constraints being proved over cannot be
+            // trusted!
             const typename Curve::BaseField x = Curve::BaseField::from_witness(ctx, value.x);
             const typename Curve::BaseField y = Curve::BaseField::from_witness(ctx, value.y);
             key->commitments.insert({ tag, typename Curve::Group(x, y) });
@@ -381,8 +382,7 @@ template <typename Curve> struct verification_key {
         domain.domain.create_range_constraint(32, "domain.generator");
         num_public_inputs.create_range_constraint(32, "num_public_inputs");
         preimage_buffer.add_element_with_existing_range_constraint(circuit_type, 8);
-        preimage_buffer.add_element_with_existing_range_constraint(domain.generator,
-                                                                   16); // coset generator is small
+        preimage_buffer.add_element_with_existing_range_constraint(domain.generator, 16); // coset generator is small
         preimage_buffer.add_element_with_existing_range_constraint(domain.domain, 32);
         preimage_buffer.add_element_with_existing_range_constraint(num_public_inputs, 32);
         constexpr size_t limb_bits = Curve::BaseField::NUM_LIMB_BITS;
