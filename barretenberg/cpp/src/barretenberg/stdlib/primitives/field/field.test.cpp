@@ -24,21 +24,6 @@ template <typename Builder> class stdlib_field : public testing::Test {
     using witness_ct = stdlib::witness_t<Builder>;
     using public_witness_ct = stdlib::public_witness_t<Builder>;
 
-    static field_ct fibbonaci(Builder& builder)
-    {
-        field_ct a(witness_ct(&builder, fr::one()));
-        field_ct b(witness_ct(&builder, fr::one()));
-
-        field_ct c = a + b;
-
-        for (size_t i = 0; i < 16; ++i) {
-            b = a;
-            a = c;
-            c = a + b;
-        }
-        return c;
-    }
-
     static uint64_t fidget(Builder& builder)
     {
         field_ct a(public_witness_ct(&builder, fr::one())); // a is a legit wire value in our circuit
@@ -204,19 +189,20 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
     }
 
-    // static void test_add_mul_with_constants()
-    // {
-    //     Builder builder = Builder();
-    //     auto gates_before = builder.get_num_gates();
-    //     uint64_t expected = fidget(builder);
-    //     auto gates_after = builder.get_num_gates();
-    //     // SIMULATOR AND BLOCKS?
-    //     auto& block = builder.blocks.arithmetic;
-    //     EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
-    //     info("Number of gates added", gates_after - gates_before);
-    //     bool result = CircuitChecker::check(builder);
-    //     EXPECT_EQ(result, true);
-    // }
+    static void test_add_mul_with_constants()
+    {
+        Builder builder = Builder();
+        auto gates_before = builder.get_num_gates();
+        uint64_t expected = fidget(builder);
+        if constexpr (!IsSimulator<Builder>) {
+            auto gates_after = builder.get_num_gates();
+            auto& block = builder.blocks.arithmetic;
+            EXPECT_EQ(builder.get_variable(block.w_o()[block.size() - 1]), fr(expected));
+            info("Number of gates added", gates_after - gates_before);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
 
     static void test_div()
     {
@@ -283,8 +269,18 @@ template <typename Builder> class stdlib_field : public testing::Test {
     static void test_field_fibbonaci()
     {
         Builder builder = Builder();
+        field_ct a(witness_ct(&builder, fr::one()));
+        field_ct b(witness_ct(&builder, fr::one()));
 
-        EXPECT_EQ(fibbonaci(builder).get_value(), fr(4181));
+        field_ct c = a + b;
+
+        for (size_t i = 0; i < 16; ++i) {
+            b = a;
+            a = c;
+            c = a + b;
+        }
+
+        EXPECT_EQ(c.get_value(), fr(4181));
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -952,7 +948,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     }
 };
 
-typedef testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254> CircuitTypes;
+using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 
 TYPED_TEST_SUITE(stdlib_field, CircuitTypes);
 

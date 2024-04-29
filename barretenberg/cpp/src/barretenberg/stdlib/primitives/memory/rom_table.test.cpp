@@ -1,3 +1,4 @@
+
 #include <gtest/gtest.h>
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"

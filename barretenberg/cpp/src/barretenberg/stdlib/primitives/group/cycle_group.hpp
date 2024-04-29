@@ -228,7 +228,8 @@ template <typename Composer> class cycle_group {
         requires IsNotUltraArithmetic<Composer>;
 };
 
-template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
+template <typename ComposerContext>
+inline std::ostream& operator<<(std::ostream& os, cycle_group<ComposerContext> const& v)
 {
     return os << v.get_value();
 }

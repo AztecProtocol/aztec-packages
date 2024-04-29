@@ -83,10 +83,10 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator-
     // This is equivalent to the condition that (a - b) + modulus <= a.current_max.
     // IF b.current_max >= modulus - a.current_max, then it is possible for this condition to be true
     // because we can let a be 0, and b be b.current_max -> (0 - b.current_max) + modulus <= a.current_max is true.
-    // IF b.current_max < modulus - a.current_max, it is impossible for underflow to happen, no matter how you set a
-    // and b. Therefore, we check that b.current_max >= modulus - a.current_max, which is equivalent to
-    // difference.current_max + other.current_max > MAX_VALUE Note that we will throw an error sometimes even if a-b
-    // is not an underflow but we cannot distinguish it from a case that underflows, so we must throw an error.
+    // IF b.current_max < modulus - a.current_max, it is impossible for underflow to happen, no matter how you set a and
+    // b. Therefore, we check that b.current_max >= modulus - a.current_max, which is equivalent to
+    // difference.current_max + other.current_max > MAX_VALUE Note that we will throw an error sometimes even if a-b is
+    // not an underflow but we cannot distinguish it from a case that underflows, so we must throw an error.
     if (difference.current_max + other.current_max > MAX_VALUE)
         throw_or_abort("maximum value exceeded in safe_uint minus operator");
     return difference;

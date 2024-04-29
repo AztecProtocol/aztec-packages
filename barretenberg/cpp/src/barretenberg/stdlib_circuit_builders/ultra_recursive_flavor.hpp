@@ -15,7 +15,6 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 

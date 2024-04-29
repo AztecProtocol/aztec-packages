@@ -439,10 +439,6 @@ uint<Builder, Native> uint<Builder, Native>::rol(const size_t target_rotation) c
     return ror(width - (target_rotation & (width - 1)));
 }
 
-struct Test {
-    std::vector<uint32_t> testeroni;
-};
-
 /**
  * @brief Implement AND and XOR.
  */

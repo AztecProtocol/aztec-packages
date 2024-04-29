@@ -14,7 +14,7 @@ using namespace bb;
 using namespace bb::plookup;
 
 // Defining ultra-specific types for local testing.
-using Builder = UltraCircuitBuilder; // SIMULATOOOOR
+using Builder = UltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using plookup_read = stdlib::plookup_read<Builder>;

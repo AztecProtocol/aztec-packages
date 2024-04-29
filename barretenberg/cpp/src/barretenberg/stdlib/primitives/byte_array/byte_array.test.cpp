@@ -149,7 +149,7 @@ TYPED_TEST(ByteArrayTest, set_bit)
     const auto out = arr.get_value();
     EXPECT_EQ(out[0], uint8_t(0));
     EXPECT_EQ(out[1], uint8_t(7));
-    EXPECT_EQ(out[3], uint8_t(5)); // ??
+    EXPECT_EQ(out[3], uint8_t(5));
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
