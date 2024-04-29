@@ -36,7 +36,7 @@ bench-aggregate:
 bench-comment:
   FROM +base
   COPY +bench-aggregate/bench $BENCH_FOLDER
-  RUN --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY
+  RUN --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     [ -f $BENCH_FOLDER/benchmarks.json ] \
     && (./scripts/logs/download_base_benchmark_from_s3.sh && yarn bench-comment) \
     || true
