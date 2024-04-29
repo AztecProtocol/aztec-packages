@@ -212,16 +212,14 @@ describe('Private Execution test suite', () => {
       const artifact = getFunctionArtifact(TestContractArtifact, 'emit_msg_sender');
       const result = await runSimulator({ artifact, msgSender: owner });
 
-      const newUnencryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.unencryptedLogsHashes),
-      );
+      const newUnencryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.unencryptedLogsHashes);
       expect(newUnencryptedLogs).toHaveLength(1);
 
       const functionLogs = result.allUnencryptedLogs;
       expect(functionLogs.logs).toHaveLength(1);
 
       const [unencryptedLog] = newUnencryptedLogs;
-      expect(unencryptedLog).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
+      expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
       expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
         new Fr(functionLogs.getSerializedLength()),
       );
@@ -234,15 +232,13 @@ describe('Private Execution test suite', () => {
       const args = [times(5, () => Fr.random())];
       const result = await runSimulator({ artifact, msgSender: owner, args });
 
-      const newUnencryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.unencryptedLogsHashes),
-      );
+      const newUnencryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.unencryptedLogsHashes);
       expect(newUnencryptedLogs).toHaveLength(1);
       const functionLogs = result.allUnencryptedLogs;
       expect(functionLogs.logs).toHaveLength(1);
 
       const [unencryptedLog] = newUnencryptedLogs;
-      expect(unencryptedLog).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
+      expect(unencryptedLog.value).toEqual(Fr.fromBuffer(functionLogs.logs[0].hash()));
       expect(result.callStackItem.publicInputs.unencryptedLogPreimagesLength).toEqual(
         new Fr(functionLogs.getSerializedLength()),
       );
@@ -326,13 +322,11 @@ describe('Private Execution test suite', () => {
         ),
       );
 
-      const newEncryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
-      );
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
         new Fr(result.encryptedLogs.getSerializedLength()),
       );
@@ -359,13 +353,11 @@ describe('Private Execution test suite', () => {
         ),
       );
 
-      const newEncryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
-      );
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
         new Fr(result.encryptedLogs.getSerializedLength()),
       );
@@ -417,20 +409,14 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(40n));
 
-      const newEncryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
-      );
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(2);
 
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
-      expect(encryptedRecipientLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
+      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
         new Fr(result.encryptedLogs.getSerializedLength()),
-      );
-
-      const readRequests = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.noteHashReadRequests),
       );
 
       const readRequests = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests).map(r => r.value);
@@ -465,13 +451,11 @@ describe('Private Execution test suite', () => {
       expect(recipientNote.note.items[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.note.items[0]).toEqual(new Fr(balance - amountToTransfer));
 
-      const newEncryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
-      );
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(2);
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
-      expect(encryptedRecipientLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
+      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
         new Fr(result.encryptedLogs.getSerializedLength()),
       );
@@ -920,13 +904,11 @@ describe('Private Execution test suite', () => {
       );
       expect(noteHash).toEqual(innerNoteHash);
 
-      const newEncryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(result.callStackItem.publicInputs.encryptedLogsHashes),
-      );
+      const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
         new Fr(result.encryptedLogs.getSerializedLength()),
       );
@@ -1001,13 +983,11 @@ describe('Private Execution test suite', () => {
       );
       expect(noteHash).toEqual(innerNoteHash);
 
-      const newEncryptedLogs = sideEffectArrayToValueArray(
-        nonEmptySideEffects(execInsert.callStackItem.publicInputs.encryptedLogsHashes),
-      );
+      const newEncryptedLogs = getNonEmptyItems(execInsert.callStackItem.publicInputs.encryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog).toEqual(Fr.fromBuffer(execInsert.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(execInsert.encryptedLogs.logs[0].hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
         new Fr(result.encryptedLogs.getSerializedLength()),
       );
