@@ -84,7 +84,7 @@ pub enum ExpressionOrMemory {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AssertionPayload {
     StaticString(String),
-    Dynamic(u64, Vec<ExpressionOrMemory>),
+    Dynamic(/* error_selector */ u64, Vec<ExpressionOrMemory>),
 }
 
 #[derive(Debug, Copy, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
