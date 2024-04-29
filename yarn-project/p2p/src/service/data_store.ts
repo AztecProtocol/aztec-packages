@@ -19,30 +19,33 @@ type BatchOp = {
 };
 
 export class AztecDatastore implements Datastore {
-  #memoryDatastore: Map<Uint8Array, MemoryItem>;
+  #memoryDatastore: Map<string, MemoryItem>;
   #dbDatastore: AztecMap<string, Uint8Array>;
+  #dirtyItems = new Set<string>();
 
   #batchOps: BatchOp[] = [];
 
   // private dirtyItems = new Set<string>();
-  // private threshold: number;
+  private threshold: number;
   private maxMemoryItems: number;
 
-  constructor(db: AztecKVStore, { maxMemoryItems = 50 /*, threshold = 5 */ }) {
+  constructor(db: AztecKVStore, { maxMemoryItems, threshold } = { maxMemoryItems: 50, threshold: 5 }) {
     this.#memoryDatastore = new Map();
     this.#dbDatastore = db.openMap('p2p_datastore');
 
     this.maxMemoryItems = maxMemoryItems;
-    // this.threshold = threshold;
+    this.threshold = threshold;
   }
 
   has(key: Key): boolean {
-    return this.#memoryDatastore.has(key.uint8Array()) || this.#dbDatastore.has(key.toString());
+    return this.#memoryDatastore.has(key.toString()) || this.#dbDatastore.has(key.toString());
   }
 
-  get(key: Key): Uint8Array {
-    const keyStr = key.uint8Array();
+  async get(key: Key): Promise<Uint8Array> {
+    // console.log('getting data', key);
+    const keyStr = key.toString();
     const memoryItem = this.#memoryDatastore.get(keyStr);
+    // console.log('res', memoryItem);
     if (memoryItem) {
       memoryItem.lastAccessedMs = Date.now();
       return memoryItem.data;
@@ -50,29 +53,40 @@ export class AztecDatastore implements Datastore {
     const dbItem = this.#dbDatastore.get(key.toString());
 
     if (!dbItem) {
-      throw new Error(`Key not found: ${keyStr}`);
+      throw new Error(`Key not found: ${key.toString()}`);
     }
+
+    // don't call this._memoryDatastore.set directly
+    // we want to get through prune() logic with fromDb as true
+    await this._put(key, dbItem, true);
+
     return dbItem;
   }
 
-  async put(key: Key, val: Uint8Array): Promise<Key> {
+  private async _put(key: Key, val: Uint8Array, fromDb = false): Promise<Key> {
     while (this.#memoryDatastore.size >= this.maxMemoryItems) {
-      // it's likely this is called only 1 time
       await this.pruneMemoryDatastore();
     }
-
-    const keyStr = key.uint8Array();
+    const keyStr = key.toString();
     const memoryItem = this.#memoryDatastore.get(keyStr);
     if (memoryItem) {
       // update existing
       memoryItem.lastAccessedMs = Date.now();
       memoryItem.data = val;
     } else {
-      // new
+      // new entry
       this.#memoryDatastore.set(keyStr, { data: val, lastAccessedMs: Date.now() });
     }
 
+    if (!fromDb) {
+      await this.addDirtyItem(keyStr);
+    }
+
     return key;
+  }
+
+  put(key: Key, val: Uint8Array): Promise<Key> {
+    return this._put(key, val, false);
   }
 
   async *putMany(source: AwaitIterable<Pair>): AwaitIterable<Key> {
@@ -86,7 +100,7 @@ export class AztecDatastore implements Datastore {
     for await (const key of source) {
       yield {
         key,
-        value: this.get(key),
+        value: await this.get(key),
       };
     }
   }
@@ -99,7 +113,7 @@ export class AztecDatastore implements Datastore {
   }
 
   async delete(key: Key): Promise<void> {
-    this.#memoryDatastore.delete(key.uint8Array());
+    this.#memoryDatastore.delete(key.toString());
     await this.#dbDatastore.delete(key.toString());
   }
 
@@ -119,17 +133,71 @@ export class AztecDatastore implements Datastore {
         });
       },
       commit: async () => {
-        // Assuming the underlying storage has a way to handle these as a transaction
         for (const op of this.#batchOps) {
           if (op.type === 'put' && op.value) {
-            await this.#dbDatastore.set(op.key.toString(), new Uint8Array(op.value)); // Type conversion as needed
+            await this.put(op.key, op.value);
           } else if (op.type === 'del') {
-            await this.#dbDatastore.delete(op.key.toString());
+            await this.delete(op.key);
           }
         }
         this.#batchOps = []; // Clear operations after commit
       },
     };
+  }
+
+  query(q: Query): AwaitIterable<Pair> {
+    let it = this.all(); //
+    const { prefix, filters, orders, offset, limit } = q;
+
+    if (prefix != null) {
+      it = filter(it, e => e.key.toString().startsWith(`/${prefix}`));
+    }
+
+    if (Array.isArray(filters)) {
+      it = filters.reduce((it, f) => filter(it, f), it);
+    }
+
+    if (Array.isArray(orders)) {
+      it = orders.reduce((it, f) => sort(it, f), it);
+    }
+
+    if (offset != null) {
+      let i = 0;
+      it = filter(it, () => i++ >= offset);
+    }
+
+    if (limit != null) {
+      it = take(it, limit);
+    }
+
+    return it;
+  }
+
+  queryKeys(q: KeyQuery): AsyncIterable<Key> {
+    let it = map(this.all(), ({ key }) => key);
+    const { prefix, filters, orders, offset, limit } = q;
+    if (prefix != null) {
+      it = filter(it, e => e.toString().startsWith(`/${prefix}`));
+    }
+
+    if (Array.isArray(filters)) {
+      it = filters.reduce((it, f) => filter(it, f), it);
+    }
+
+    if (Array.isArray(orders)) {
+      it = orders.reduce((it, f) => sort(it, f), it);
+    }
+
+    if (offset != null) {
+      let i = 0;
+      it = filter(it, () => i++ >= offset);
+    }
+
+    if (limit != null) {
+      it = take(it, limit);
+    }
+
+    return it;
   }
 
   private async *all(): AsyncIterable<Pair> {
@@ -148,62 +216,23 @@ export class AztecDatastore implements Datastore {
     }
   }
 
-  query(q: Query): AwaitIterable<Pair> {
-    let it = this.all(); //
+  private async addDirtyItem(key: string): Promise<void> {
+    this.#dirtyItems.add(key);
 
-    if (q.prefix != null) {
-      const prefix = q.prefix;
-      it = filter(it, e => e.key.toString().startsWith(prefix));
+    if (this.#dirtyItems.size >= this.threshold) {
+      await this.commitDirtyItems();
     }
-
-    if (Array.isArray(q.filters)) {
-      it = q.filters.reduce((it, f) => filter(it, f), it);
-    }
-
-    if (Array.isArray(q.orders)) {
-      it = q.orders.reduce((it, f) => sort(it, f), it);
-    }
-
-    if (q.offset != null) {
-      let i = 0;
-      const offset = q.offset;
-      it = filter(it, () => i++ >= offset);
-    }
-
-    if (q.limit != null) {
-      it = take(it, q.limit);
-    }
-
-    return it;
   }
 
-  queryKeys(q: KeyQuery): AsyncIterable<Key> {
-    let it = map(this.all(), ({ key }) => key);
-
-    if (q.prefix != null) {
-      const prefix = q.prefix;
-      it = filter(it, e => e.toString().startsWith(prefix));
+  private async commitDirtyItems(): Promise<void> {
+    for (const key of this.#dirtyItems) {
+      const memoryItem = this.#memoryDatastore.get(key);
+      if (memoryItem) {
+        await this.#dbDatastore.set(key, memoryItem.data);
+      }
     }
 
-    if (Array.isArray(q.filters)) {
-      it = q.filters.reduce((it, f) => filter(it, f), it);
-    }
-
-    if (Array.isArray(q.orders)) {
-      it = q.orders.reduce((it, f) => sort(it, f), it);
-    }
-
-    const { offset, limit } = q;
-    if (offset != null) {
-      let i = 0;
-      it = filter(it, () => i++ >= offset);
-    }
-
-    if (limit != null) {
-      it = take(it, limit);
-    }
-
-    return it;
+    this.#dirtyItems.clear();
   }
 
   /**
@@ -211,7 +240,7 @@ export class AztecDatastore implements Datastore {
    */
   private async pruneMemoryDatastore(): Promise<void> {
     let oldestAccessedMs = Date.now() + 1000;
-    let oldestKey: Uint8Array | undefined = undefined;
+    let oldestKey: string | undefined = undefined;
     let oldestValue: Uint8Array | undefined = undefined;
 
     for (const [key, value] of this.#memoryDatastore) {

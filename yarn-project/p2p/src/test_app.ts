@@ -19,7 +19,7 @@ import { peerIdFromString } from '@libp2p/peer-id';
 import { tcp } from '@libp2p/tcp';
 // import { multiaddr } from '@multiformats/multiaddr';
 import { pipe } from 'it-pipe';
-import { type Components, type Libp2p, createLibp2p } from 'libp2p';
+import { type Libp2p, createLibp2p } from 'libp2p';
 
 import { type P2PConfig, getP2PConfigEnvVars } from './config.js';
 import { AztecDatastore } from './service/data_store.js';
@@ -28,9 +28,9 @@ import { createLibP2PPeerId } from './service/libp2p_service.js';
 
 // import { AztecPeerDb, type AztecPeerStore } from './service/peer_store.js';
 
-type AztecComponents = {
-  datastore: AztecDatastore;
-};
+// type AztecComponents = {
+//   datastore: AztecDatastore;
+// };
 
 const { PRIVATE_KEY /*DATA_DIR*/ } = process.env;
 
@@ -98,8 +98,9 @@ export class P2PTestApp {
       }
       if (!msg.length) {
         this.logger.info(`Empty message received from peer ${incoming.connection.remotePeer}`);
+      } else {
+        this.logger.info(`\n\n MSG from peer ${incoming.connection.remotePeer}: ${msg.toString('hex')}\n\n`);
       }
-      this.logger.info(`\n\n MSG from peer ${incoming.connection.remotePeer}: ${msg.toString('hex')}\n\n`);
     });
 
     await this.libP2PNode.start();
@@ -108,6 +109,7 @@ export class P2PTestApp {
       const { msg, msgId, propagationSource } = e.detail;
       this.logger.info(
         `Received PUBSUB message.
+        Data: ${msg.data.toString()}
         ID: ${msgId}
         From ${propagationSource}
         Topic: ${msg.topic}`,
@@ -118,7 +120,7 @@ export class P2PTestApp {
     this.subscribeToTopic(TEST_TOPIC);
 
     // Send some data to connected peers on test topic
-    /*this.messageInterval =*/ setInterval(async () => {
+    setInterval(async () => {
       try {
         await this.publishToTopic(TEST_TOPIC, Buffer.from('33'));
       } catch (err) {
@@ -149,6 +151,7 @@ export class P2PTestApp {
       this.logger.info(`Discovered peer ${(await enr.peerId()).toString()}. Adding to libp2p peer list`);
       try {
         const stream = await this.libP2PNode.dialProtocol(peerMultiAddr, this.protocolId);
+        // await this.libP2PNode.peerStore.save(await enr.peerId(), enr);
 
         // dial successful, add to DB as well
         // if (!this.peerStore.getPeer(peerIdStr)) {
@@ -176,7 +179,7 @@ export class P2PTestApp {
 
     // console.log('bootnode tcp multiaddrs: ', bootNodeMultiAddrs);
 
-    const datastore = new AztecDatastore(AztecLmdbStore.open('p2p_test_app'), { maxMemoryItems: 50 });
+    const datastore = new AztecDatastore(AztecLmdbStore.open('p2p_test_app'));
 
     const libp2p = await createLibp2p({
       start: false,
