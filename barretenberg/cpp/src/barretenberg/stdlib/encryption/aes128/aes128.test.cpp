@@ -34,7 +34,7 @@ TEST(stdlib_aes128, encrypt_64_bytes)
         return converted;
     };
 
-    auto builder = Builder();
+    Builder builder;
 
     std::vector<field_pt> in_field{
         witness_pt(&builder, fr(convert_bytes(in))),

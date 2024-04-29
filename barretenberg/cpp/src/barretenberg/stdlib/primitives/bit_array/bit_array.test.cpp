@@ -46,7 +46,6 @@ TYPED_TEST(BitArrayTest, test_uint32_input_output_consistency)
 
     EXPECT_EQ(result.size(), 2UL);
 
-    // Maybe problem
     auto a_result = static_cast<uint32_t>(result[0].get_value());
     auto b_result = static_cast<uint32_t>(result[1].get_value());
 
