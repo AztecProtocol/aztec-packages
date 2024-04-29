@@ -29,3 +29,5 @@ unconstrained fn get_number_sequence(_size: Field) -> [Field] {}
 ```
 
 The timeout for when using an external RPC oracle resolver can be set with the `NARGO_FOREIGN_CALL_TIMEOUT` environment variable. This timeout is in units of milliseconds.
+
+Alternatively, a Noir program can be run with a mock oracle set up, which will default to answering every oracle call with a single zero-value `Field`. Note that this will work only for oracle calls that expect a return value of a single field element.
