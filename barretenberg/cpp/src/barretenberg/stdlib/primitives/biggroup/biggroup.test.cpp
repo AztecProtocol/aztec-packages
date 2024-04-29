@@ -10,11 +10,11 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
 
+using namespace bb;
+
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-
-using namespace bb;
 
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
@@ -41,6 +41,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     using element = typename g1::element;
 
     using Builder = typename Curve::Builder;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
         info("num gates = ", builder.get_num_gates());
@@ -82,6 +84,45 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_add_points_at_infnity()
+    {
+        Builder builder;
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            input_b.self_set_infinity();
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            // create copy of a with different witness
+            element_ct a_alternate = element_ct::from_witness(&builder, input_a);
+            element_ct a_negated = element_ct::from_witness(&builder, -input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            element_ct c = a + b;
+            element_ct d = b + a;
+            element_ct e = b + b;
+            element_ct f = a + a;
+            element_ct g = a + a_alternate;
+            element_ct h = a + a_negated;
+
+            affine_element c_expected = affine_element(element(input_a) + element(input_b));
+            affine_element d_expected = affine_element(element(input_b) + element(input_a));
+            affine_element e_expected = affine_element(element(input_b) + element(input_b));
+            affine_element f_expected = affine_element(element(input_a) + element(input_a));
+            affine_element g_expected = affine_element(element(input_a) + element(input_a));
+            affine_element h_expected = affine_element(element(input_a) + element(-input_a));
+
+            EXPECT_EQ(c.get_value(), c_expected);
+            EXPECT_EQ(d.get_value(), d_expected);
+            EXPECT_EQ(e.get_value(), e_expected);
+            EXPECT_EQ(f.get_value(), f_expected);
+            EXPECT_EQ(g.get_value(), g_expected);
+            EXPECT_EQ(h.get_value(), h_expected);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_sub()
     {
         Builder builder;
@@ -105,6 +146,45 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             EXPECT_EQ(c_x_result, c_expected.x);
             EXPECT_EQ(c_y_result, c_expected.y);
+        }
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_sub_points_at_infnity()
+    {
+        Builder builder;
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            input_b.self_set_infinity();
+            element_ct a = element_ct::from_witness(&builder, input_a);
+            // create copy of a with different witness
+            element_ct a_alternate = element_ct::from_witness(&builder, input_a);
+            element_ct a_negated = element_ct::from_witness(&builder, -input_a);
+            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            element_ct c = a - b;
+            element_ct d = b - a;
+            element_ct e = b - b;
+            element_ct f = a - a;
+            element_ct g = a - a_alternate;
+            element_ct h = a - a_negated;
+
+            affine_element c_expected = affine_element(element(input_a) - element(input_b));
+            affine_element d_expected = affine_element(element(input_b) - element(input_a));
+            affine_element e_expected = affine_element(element(input_b) - element(input_b));
+            affine_element f_expected = affine_element(element(input_a) - element(input_a));
+            affine_element g_expected = affine_element(element(input_a) - element(input_a));
+            affine_element h_expected = affine_element(element(input_a) - element(-input_a));
+
+            EXPECT_EQ(c.get_value(), c_expected);
+            EXPECT_EQ(d.get_value(), d_expected);
+            EXPECT_EQ(e.get_value(), e_expected);
+            EXPECT_EQ(f.get_value(), f_expected);
+            EXPECT_EQ(g.get_value(), g_expected);
+            EXPECT_EQ(h.get_value(), h_expected);
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -833,9 +913,19 @@ TYPED_TEST(stdlib_biggroup, add)
 
     TestFixture::test_add();
 }
+TYPED_TEST(stdlib_biggroup, add_points_at_infinity)
+{
+
+    TestFixture::test_add_points_at_infnity();
+}
 TYPED_TEST(stdlib_biggroup, sub)
 {
     TestFixture::test_sub();
+}
+TYPED_TEST(stdlib_biggroup, sub_points_at_infinity)
+{
+
+    TestFixture::test_sub_points_at_infnity();
 }
 TYPED_TEST(stdlib_biggroup, dbl)
 {

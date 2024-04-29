@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 namespace bb::stdlib {
 
 /**

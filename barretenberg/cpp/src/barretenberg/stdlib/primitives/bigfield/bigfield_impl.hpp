@@ -1563,6 +1563,57 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
 }
 
 /**
+ * @brief Validate whether two bigfield elements are equal to each other
+ * @details To evaluate whether `(a == b)`, we use result boolean `r` to evaluate the following logic:
+ *          (n.b all algebra involving bigfield elements is done in the bigfield)
+ *              1. If `r == 1` , `a - b == 0`
+ *              2. If `r == 0`, `a - b` posesses an inverse `I` i.e. `(a - b) * I - 1 == 0`
+ *          We efficiently evaluate this logic by evaluating a single expression `(a - b)*X = Y`
+ *          We use conditional assignment logic to define `X, Y` to be the following:
+ *              If `r == 1` then `X = 1, Y = 0`
+ *              If `r == 0` then `X = I, Y = 1`
+ *          This allows us to evaluate `operator==` using only 1 bigfield multiplication operation.
+ *          We can check the product equals 0 or 1 by directly evaluating the binary basis/prime basis limbs of Y.
+ *          i.e. if `r == 1` then `(a - b)*X` should have 0 for all limb values
+ *               if `r == 0` then `(a - b)*X` should have 1 in the least significant binary basis limb and 0 elsewhere
+ * @tparam Builder
+ * @tparam T
+ * @param other
+ * @return bool_t<Builder>
+ */
+template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::operator==(const bigfield& other) const
+{
+    Builder* ctx = context ? context : other.get_context();
+    auto lhs = get_value() % modulus_u512;
+    auto rhs = other.get_value() % modulus_u512;
+    bool is_equal_raw = (lhs == rhs);
+    bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
+
+    bigfield diff = (*this) - other;
+
+    // TODO: get native values efficiently (i.e. if u512 value fits in a u256, subtract off modulus until u256 fits
+    // into finite field)
+    native diff_native = native((diff.get_value() % modulus_u512).lo);
+    native inverse_native = is_equal_raw ? 0 : diff_native.invert();
+
+    bigfield inverse = bigfield::from_witness(ctx, inverse_native);
+
+    bigfield multiplicand = bigfield::conditional_assign(is_equal, one(), inverse);
+
+    bigfield product = diff * multiplicand;
+
+    field_t result = field_t<Builder>::conditional_assign(is_equal, 0, 1);
+
+    product.prime_basis_limb.assert_equal(result);
+    product.binary_basis_limbs[0].element.assert_equal(result);
+    product.binary_basis_limbs[1].element.assert_equal(0);
+    product.binary_basis_limbs[2].element.assert_equal(0);
+    product.binary_basis_limbs[3].element.assert_equal(0);
+
+    return is_equal;
+}
+
+/**
  * REDUCTION CHECK
  *
  * When performing bigfield operations, we need to ensure the maximum value is less than:
@@ -1747,6 +1798,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
         std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
         return;
     } else if (other.is_constant()) {
+        // TODO: wtf?
         // evaluate a strict equality - make sure *this is reduced first, or an honest prover
         // might not be able to satisfy these constraints.
         field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);

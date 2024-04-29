@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
 namespace bb::stdlib {
 
@@ -481,17 +482,17 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
 
     const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-    std::vector<bool_t<C>> naf_entries(num_rounds + 1);
+    std::vector<bool_t> naf_entries(num_rounds + 1);
 
     // if boolean is false => do NOT flip y
     // if boolean is true => DO flip y
     // first entry is skew. i.e. do we subtract one from the final result or not
     if (scalar_multiplier.get_bit(0) == false) {
         // add skew
-        naf_entries[num_rounds] = bool_t<C>(witness_t(ctx, true));
+        naf_entries[num_rounds] = bool_t(witness_t(ctx, true));
         scalar_multiplier += uint256_t(1);
     } else {
-        naf_entries[num_rounds] = bool_t<C>(witness_t(ctx, false));
+        naf_entries[num_rounds] = bool_t(witness_t(ctx, false));
     }
     for (size_t i = 0; i < num_rounds - 1; ++i) {
         bool next_entry = scalar_multiplier.get_bit(i + 1);
@@ -499,7 +500,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         // This is a VERY hacky workaround to ensure that UltraPlonkBuilder will apply a basic
         // range constraint per bool, and not a full 1-bit range gate
         if (next_entry == false) {
-            bool_t<C> bit(ctx, true);
+            bool_t bit(ctx, true);
             bit.context = ctx;
             bit.witness_index = witness_t<C>(ctx, true).witness_index; // flip sign
             bit.witness_bool = true;
@@ -512,7 +513,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             }
             naf_entries[num_rounds - i - 1] = bit;
         } else {
-            bool_t<C> bit(ctx, false);
+            bool_t bit(ctx, false);
             bit.witness_index = witness_t<C>(ctx, false).witness_index; // don't flip sign
             bit.witness_bool = false;
             if constexpr (HasPlookup<C>) {
@@ -525,7 +526,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             naf_entries[num_rounds - i - 1] = bit;
         }
     }
-    naf_entries[0] = bool_t<C>(ctx, false); // most significant entry is always true
+    naf_entries[0] = bool_t(ctx, false); // most significant entry is always true
 
     // validate correctness of NAF
     if constexpr (!Fr::is_composite) {
@@ -542,7 +543,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         Fr accumulator_result = Fr::accumulate(accumulators);
         scalar.assert_equal(accumulator_result);
     } else {
-        const auto reconstruct_half_naf = [](bool_t<C>* nafs, const size_t half_round_length) {
+        const auto reconstruct_half_naf = [](bool_t* nafs, const size_t half_round_length) {
             // Q: need constraint to start from zero?
             field_t<C> negative_accumulator(0);
             field_t<C> positive_accumulator(0);

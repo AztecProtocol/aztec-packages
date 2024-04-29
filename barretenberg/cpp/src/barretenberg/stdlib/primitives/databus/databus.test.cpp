@@ -6,6 +6,8 @@
 #include "barretenberg/stdlib_circuit_builders/goblin_ultra_circuit_builder.hpp"
 #include "databus.hpp"
 
+using namespace bb;
+
 using Builder = GoblinUltraCircuitBuilder;
 using field_ct = stdlib::field_t<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
