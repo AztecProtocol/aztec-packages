@@ -90,7 +90,6 @@ bool_t<C> schnorr_signature_verification_result(const byte_array<C>& message,
     bool_t<C> valid = (output_lo == sig.e.lo) && (output_hi == sig.e.hi);
     return valid;
 }
-// namespace proof_system::plonk
 
 #define VERIFY_SIGNATURE_INTERNAL(circuit_type)                                                                        \
     template std::array<field_t<circuit_type>, 2> schnorr_verify_signature_internal<circuit_type>(                     \

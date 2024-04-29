@@ -185,7 +185,6 @@ TEST(stdlib_keccak, test_single_block)
     Builder builder = Builder();
     std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz01";
     std::vector<uint8_t> input_v(input.begin(), input.end());
-    info(input_v.size());
 
     byte_array input_arr(&builder, input_v);
     byte_array output = stdlib::keccak<Builder>::hash(input_arr);

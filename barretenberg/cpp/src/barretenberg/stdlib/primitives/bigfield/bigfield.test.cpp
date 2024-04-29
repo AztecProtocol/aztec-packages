@@ -512,19 +512,18 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                                fr(uint256_t(inputs[3]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
             fq_ct e = (a - b) * (c - d);
             fq expected = (inputs[0] - inputs[1]) * (inputs[2] - inputs[3]);
-            (void)expected;
-            (void)e;
-            // expected = expected.from_montgomery_form();
-            // uint512_t result = e.get_value();
 
-            // EXPECT_EQ(result.lo.data[0], expected.data[0]);
-            // EXPECT_EQ(result.lo.data[1], expected.data[1]);
-            // EXPECT_EQ(result.lo.data[2], expected.data[2]);
-            // EXPECT_EQ(result.lo.data[3], expected.data[3]);
-            // EXPECT_EQ(result.hi.data[0], 0ULL);
-            // EXPECT_EQ(result.hi.data[1], 0ULL);
-            // EXPECT_EQ(result.hi.data[2], 0ULL);
-            // EXPECT_EQ(result.hi.data[3], 0ULL);
+            expected = expected.from_montgomery_form();
+            uint512_t result = e.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
         }
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
