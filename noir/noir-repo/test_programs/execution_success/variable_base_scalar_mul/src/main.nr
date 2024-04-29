@@ -6,8 +6,8 @@ fn main(point_x: pub Field, point_y: pub Field, scalar_low: pub Field, scalar_hi
 
     let point = std::scalar_mul::EmbeddedCurvePoint { x: point_x, y: point_y };
 
-    let double = std::scalar_mul::embedded_curve_add(point, point);
-    let triple = std::scalar_mul::embedded_curve_add(point, double);
+    let double = point.double();
+    let triple = point + double;
 
     assert(triple.x == res[0]);
     assert(triple.y == res[1]);
