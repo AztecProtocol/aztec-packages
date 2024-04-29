@@ -404,7 +404,7 @@ pub(crate) fn convert_black_box_call(
         BlackBoxFunc::AES128Encrypt => {
             if let (
                 [inputs, BrilligVariable::BrilligArray(iv), BrilligVariable::BrilligArray(key)],
-                [outputs],
+                [_, outputs],
             ) = (function_arguments, function_results)
             {
                 let inputs = convert_array_or_vector(brillig_context, inputs, bb_func);

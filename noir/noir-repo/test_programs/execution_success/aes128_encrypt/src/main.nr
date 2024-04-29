@@ -21,6 +21,21 @@ unconstrained fn decode_hex<N, M>(s: str<N>) -> [u8; M] {
     }
     result
 }
+
+unconstrained fn cipher_unconstrained(inputs: str<12>, iv: str<16>, key: str<16>) -> [u8; 16] {
+    let mut bytes: [u8] = &[];
+    let input_as_bytes = inputs.as_bytes();
+    for i in 0..12 {
+        bytes = bytes.push_back(input_as_bytes[i]);
+    }
+    let result_slice = std::aes128::aes128_encrypt_slice(bytes, iv.as_bytes(), key.as_bytes());
+    let mut result: [u8; 16] = [0; 16];
+    for i in 0..16 {
+        result[i] = result_slice[i];
+    }
+    result
+}
+
 fn main(inputs: str<12>, iv: str<16>, key: str<16>, output: str<32>) {
     let mut bytes: [u8] = &[];
     let input_as_bytes = inputs.as_bytes();
@@ -31,5 +46,9 @@ fn main(inputs: str<12>, iv: str<16>, key: str<16>, output: str<32>) {
     let output_bytes: [u8; 16] = decode_hex(output);
     for i in 0..16 {
         assert(result[i] == output_bytes[i]);
+    }
+    let result_unconstrained = cipher_unconstrained(inputs, iv, key);
+    for i in 0..16 {
+        assert(result_unconstrained[i] == output_bytes[i]);
     }
 }

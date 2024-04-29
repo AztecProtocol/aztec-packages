@@ -12,6 +12,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
 
     using field_ct = bb::stdlib::field_t<Builder>;
 
+    // Packs 16 bytes from the inputs (plaintext, iv, key) into a field element
     const auto convert_input = [&](std::span<const AES128Input, 16> inputs) {
         field_ct converted = 0;
         for (const auto& input : inputs) {
@@ -22,6 +23,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         return converted;
     };
 
+    // Packs 16 bytes from the outputs (witness indexes) into a field element for comparison
     const auto convert_output = [&](std::span<const uint32_t, 16> outputs) {
         field_ct converted = 0;
         for (const auto& output : outputs) {
@@ -32,8 +34,10 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         return converted;
     };
 
-    ASSERT(constraint.inputs.size() % 16 == 0); // check input is multiple of 16
+    // Check input is multiple of 16. Plaintext is expected to be prepadded, preferably using PKCS7
+    ASSERT(constraint.inputs.size() % 16 == 0);
 
+    // Perform the conversions from array of bytes to field elements
     std::vector<field_ct> converted_inputs;
     for (size_t i = 0; i < constraint.inputs.size(); i += 16) {
         std::span<const AES128Input, 16> inputs{ &constraint.inputs[i], 16 };
