@@ -24,7 +24,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
     using witness_ct = stdlib::witness_t<Builder>;
     using public_witness_ct = stdlib::public_witness_t<Builder>;
 
-    static void fibbonaci(Builder& builder)
+    static field_ct fibbonaci(Builder& builder)
     {
         field_ct a(witness_ct(&builder, fr::one()));
         field_ct b(witness_ct(&builder, fr::one()));
@@ -38,6 +38,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
         return c;
     }
+
     static uint64_t fidget(Builder& builder)
     {
         field_ct a(public_witness_ct(&builder, fr::one())); // a is a legit wire value in our circuit
@@ -279,19 +280,15 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    // static void test_field_fibbonaci()
-    // {
-    //     Builder builder = Builder();
-    //     auto gates_before = builder.get_num_gates();
-    //     fibbonaci(builder);
-    //     auto gates_after = builder.get_num_gates();
-    //     auto& block = builder.blocks.arithmetic;
-    //     EXPECT_EQ(builder.get_variable(block.w_l()[block.size() - 1]), fr(4181));
-    //     EXPECT_EQ(gates_after - gates_before, 18UL);
+    static void test_field_fibbonaci()
+    {
+        Builder builder = Builder();
 
-    //     bool result = CircuitChecker::check(builder);
-    //     EXPECT_EQ(result, true);
-    // }
+        EXPECT_EQ(fibbonaci(builder).get_value(), fr(4181));
+
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
 
     static void test_field_pythagorean()
     {
@@ -984,10 +981,10 @@ TYPED_TEST(stdlib_field, test_prefix_increment)
 {
     TestFixture::test_prefix_increment();
 }
-// TYPED_TEST(stdlib_field, test_field_fibbonaci)
-// {
-//     TestFixture::test_field_fibbonaci();
-// }
+TYPED_TEST(stdlib_field, test_field_fibbonaci)
+{
+    TestFixture::test_field_fibbonaci();
+}
 TYPED_TEST(stdlib_field, test_field_pythagorean)
 {
     TestFixture::test_field_pythagorean();
