@@ -1,4 +1,4 @@
-import { type GrumpkinPrivateKey, type PublicKey } from '@aztec/circuits.js';
+import { GeneratorIndex, type GrumpkinPrivateKey, type PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { sha256 } from '@aztec/foundation/crypto';
 import { Point } from '@aztec/foundation/fields';
@@ -19,7 +19,7 @@ import { createCipheriv, createDecipheriv } from 'browserify-cipher';
 export function deriveAESSecret(ecdhPubKey: PublicKey, ecdhPrivKey: GrumpkinPrivateKey): Buffer {
   const curve = new Grumpkin();
   const sharedSecret = curve.mul(ecdhPubKey, ecdhPrivKey);
-  const secretBuffer = Buffer.concat([sharedSecret.toBuffer(), numToUInt8(1)]);
+  const secretBuffer = Buffer.concat([sharedSecret.toBuffer(), numToUInt8(GeneratorIndex.SYMMETRIC_KEY)]);
   const hash = sha256(secretBuffer);
   return hash;
 }

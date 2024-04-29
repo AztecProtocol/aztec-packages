@@ -210,4 +210,5 @@ export enum GeneratorIndex {
   NOTE_NULLIFIER = 52,
   INNER_NOTE_HASH = 53,
   NOTE_CONTENT_HASH = 54,
+  SYMMETRIC_KEY = 1,
 }
