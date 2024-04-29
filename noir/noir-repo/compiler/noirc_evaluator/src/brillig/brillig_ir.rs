@@ -144,14 +144,6 @@ pub(crate) mod tests {
     pub(crate) struct DummyBlackBoxSolver;
 
     impl BlackBoxFunctionSolver for DummyBlackBoxSolver {
-        fn aes128_encrypt(
-            &self,
-            inputs: &[u8],
-            iv: [u8; 16],
-            key: [u8; 16],
-        ) -> Result<Vec<u8>, BlackBoxResolutionError> {
-            Ok(vec![0_u8; inputs.len()])
-        }
         fn schnorr_verify(
             &self,
             _public_key_x: &FieldElement,
