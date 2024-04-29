@@ -8,7 +8,7 @@ use dep::types::{
     transaction::tx_request::TxRequest
 };
 
-struct PrivateKernekInitHints {
+struct PrivateKernelInitHints {
     note_hash_nullifier_counters: [u32; MAX_NEW_NOTE_HASHES_PER_CALL],
 }
 
@@ -16,7 +16,7 @@ struct PrivateKernekInitHints {
 struct PrivateKernelInitCircuitPrivateInputs {
     tx_request: TxRequest,
     private_call: PrivateCallData,
-    hints: PrivateKernekInitHints,
+    hints: PrivateKernelInitHints,
 }
 
 impl PrivateKernelInitCircuitPrivateInputs {
@@ -94,7 +94,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::private_kernel_init::{PrivateKernekInitHints, PrivateKernelInitCircuitPrivateInputs};
+    use crate::private_kernel_init::{PrivateKernelInitHints, PrivateKernelInitCircuitPrivateInputs};
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, note_hash::NoteHash,
@@ -114,14 +114,14 @@ mod tests {
     struct PrivateKernelInitInputsBuilder {
         tx_request: TxRequest,
         private_call: PrivateCallDataBuilder,
-        hints: PrivateKernekInitHints,
+        hints: PrivateKernelInitHints,
     }
 
     impl PrivateKernelInitInputsBuilder {
         pub fn new() -> Self {
             let private_call = PrivateCallDataBuilder::new();
             let tx_request = private_call.build_tx_request();
-            let hints = PrivateKernekInitHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
+            let hints = PrivateKernelInitHints { note_hash_nullifier_counters: [0; MAX_NEW_NOTE_HASHES_PER_CALL] };
 
             PrivateKernelInitInputsBuilder { tx_request, private_call, hints }
         }
