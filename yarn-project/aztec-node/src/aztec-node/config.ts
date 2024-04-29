@@ -26,7 +26,7 @@ export type AztecNodeConfig = ArchiverConfig &
  * @returns A valid aztec node config.
  */
 export function getConfigEnvVars(): AztecNodeConfig {
-  const { SEQ_DISABLED, PROVER_DISABLED, ARCHIVER_URL } = process.env;
+  const { SEQ_DISABLED, PROVER_DISABLED = '', ARCHIVER_URL } = process.env;
 
   const allEnvVars: AztecNodeConfig = {
     ...getSequencerVars(),
@@ -36,7 +36,7 @@ export function getConfigEnvVars(): AztecNodeConfig {
     ...getProverEnvVars(),
     disableSequencer: !!SEQ_DISABLED,
     archiverUrl: ARCHIVER_URL,
-    disableProver: PROVER_DISABLED === '1',
+    disableProver: ['1', 'true'].includes(PROVER_DISABLED),
   };
 
   return allEnvVars;

@@ -42,6 +42,6 @@ export function getProverEnvVars(): ProverConfig {
     bbBinaryPath: BB_BINARY_PATH,
     bbWorkingDirectory: BB_WORKING_DIRECTORY,
     proverAgents,
-    realProofs: PROVER_REAL_PROOFS === '1',
+    realProofs: ['1', 'true'].includes(PROVER_REAL_PROOFS),
   };
 }
