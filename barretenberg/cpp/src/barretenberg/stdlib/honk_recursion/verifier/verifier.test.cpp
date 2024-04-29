@@ -19,11 +19,7 @@ namespace bb::stdlib::recursion::honk {
  * @tparam RecursiveFlavor defines the recursive verifier, what the arithmetisation of its circuit should be and what
  * types of proofs it recursively verifies.
  */
-<<<<<<< HEAD
-template <typename RecursiveFlavor> class HonkRecursiveVerifierTest : public testing::Test {
-=======
 template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing::Test {
->>>>>>> 666d34cd1a (unify honk recursive verifiers)
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
@@ -35,19 +31,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
 
-<<<<<<< HEAD
-    // Types for recursive verifier circuit
-    using OuterFlavor = typename RecursiveFlavor::NativeFlavor;
-    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
-=======
     // Defines types for the outer circuit, i.e. the circuit of the recursive verifier
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterFlavor = std::conditional_t<IsGoblinBuilder<OuterBuilder>, GoblinUltraFlavor, UltraFlavor>;
->>>>>>> 666d34cd1a (unify honk recursive verifiers)
-    using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
@@ -220,7 +205,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
-        {
+        if constexpr (!IsSimulator<OuterBuilder>) {
+            using OuterFlavor = std::conditional_t<IsGoblinBuilder<OuterBuilder>, GoblinUltraFlavor, UltraFlavor>;
+            using OuterProver = UltraProver_<OuterFlavor>;
+            using OuterVerifier = UltraVerifier_<OuterFlavor>;
+            using OuterProverInstance = ProverInstance_<OuterFlavor>;
             auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
             OuterProver prover(instance);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
@@ -268,16 +257,12 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-<<<<<<< HEAD
-using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<CircuitSimulatorBN254>,
-                               GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
-=======
 using Flavors = testing::Types<GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
                                GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
->>>>>>> 666d34cd1a (unify honk recursive verifiers)
+                               UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>,
+                               UltraRecursiveFlavor_<CircuitSimulatorBN254>,
+                               GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
 

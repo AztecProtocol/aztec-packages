@@ -318,7 +318,7 @@ concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, GoblinUltraFlavor>;
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, GoblinUltraFlavor,
                                     GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
-                                    GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+                                    GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 template <typename T> 
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>, 
@@ -326,7 +326,7 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                        GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>
-/*,GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>*/>;
+,GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 
 template <typename T> concept IπsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
@@ -337,7 +337,7 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            UltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, 
                                                            UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            GoblinUltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                                           GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>>;
+                                                           GoblinUltraRecursiveFlavor_<GoblinUltraCircuitBuilder>, GoblinUltraRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 template <typename Container, typename Element>
 inline std::string flavor_get_label(Container&& container, const Element& element) {
