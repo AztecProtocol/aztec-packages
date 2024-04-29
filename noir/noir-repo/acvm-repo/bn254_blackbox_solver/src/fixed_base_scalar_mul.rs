@@ -7,7 +7,7 @@ use acir::{BlackBoxFunc, FieldElement};
 
 use crate::BlackBoxResolutionError;
 
-/// Performs fixed-base scalar multiplication by calling variable_base_scalar_mul with a predefined generator point.
+/// Performs fixed-base scalar multiplication using the curve's generator point.
 pub fn fixed_base_scalar_mul(
     low: &FieldElement,
     high: &FieldElement,
