@@ -7,7 +7,6 @@ import {
   createBlackBoxSolver,
   WasmBlackBoxFunctionSolver,
   executeCircuitWithBlackBoxSolver,
-  RawAssertionPayload,
   ExecutionError,
 } from '@noir-lang/acvm_js';
 import { Abi, CompiledCircuit } from '@noir-lang/types';
@@ -34,9 +33,9 @@ const defaultForeignCallHandler: ForeignCallHandler = async (name: string, args:
 
 // Payload is any since it can be of any type defined by the circuit dev.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ErrorWithPayload = Error & { payload?: any };
+export type ErrorWithPayload = ExecutionError & { decodedAssertionPayload?: any };
 
-function parseErrorPayload(abi: Abi, originalError: ExecutionError): ErrorWithPayload {
+function parseErrorPayload(abi: Abi, originalError: ExecutionError): Error {
   const payload = originalError.rawAssertionPayload;
   if (!payload) return originalError;
   const enrichedError = originalError as ErrorWithPayload;
@@ -50,7 +49,7 @@ function parseErrorPayload(abi: Abi, originalError: ExecutionError): ErrorWithPa
       enrichedError.message = `Circuit execution failed: ${decodedPayload}`;
     } else {
       // If not, attach the payload to the original error
-      enrichedError.payload = decodedPayload;
+      enrichedError.decodedAssertionPayload = decodedPayload;
     }
   } catch (_errorDecoding) {
     // Ignore errors decoding the payload
