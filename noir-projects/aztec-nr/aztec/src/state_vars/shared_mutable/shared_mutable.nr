@@ -34,7 +34,12 @@ impl<T, DELAY> SharedMutable<T, DELAY> {
         let context = self.context.public.unwrap();
         let mut scheduled_value_change: ScheduledValueChange<T> = public_storage::read(self.get_derived_storage_slot());
 
-        scheduled_value_change.schedule_change(new_value, context.block_number() as u32, DELAY);
+        let block_number = context.block_number() as u32;
+        // TODO: make this configurable
+        // https://github.com/AztecProtocol/aztec-packages/issues/5501
+        let block_of_change = block_number + DELAY;
+
+        scheduled_value_change.schedule_change(new_value, block_number, DELAY, block_of_change);
 
         public_storage::write(self.get_derived_storage_slot(), scheduled_value_change);
     }
