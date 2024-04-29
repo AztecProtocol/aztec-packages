@@ -101,7 +101,6 @@ void assert_check_subtree_membership(field_t<Builder> const& root,
                                      std::string const& msg = "assert_check_subtree_membership")
 {
     auto exists = check_subtree_membership(root, hashes, value, index, at_height, is_updating_tree);
-    exists.context = root.context;
     exists.assert_equal(true, msg);
 }
 

@@ -36,9 +36,7 @@ namespace bb {
 // ECCVM which is instantiated on Grumpkin
 class CircuitSimulatorBN254 {
   public:
-    using FF = bb::fr;                                                           // IOU templating
-    static constexpr merkle::HashType merkle_hash_type = merkle::HashType::NONE; // UGH
-    static constexpr pedersen::CommitmentType commitment_type = pedersen::CommitmentType::NONE;
+    using FF = bb::fr;
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr std::string_view NAME_STRING = "SIMULATOR";
     bool contains_recursive_proof = false;

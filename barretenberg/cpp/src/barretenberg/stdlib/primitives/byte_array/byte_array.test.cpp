@@ -123,22 +123,6 @@ TYPED_TEST(ByteArrayTest, set_bit)
     STDLIB_TYPE_ALIASES
     auto builder = Builder();
 
-    // byte_array_ct arr(&composer, std::vector<uint8_t>{ 0x01, 0x02, 0x03, 0x04 });
-    // // arr[0]     arr[1]     arr[2]     arr[3]
-    // // 0000'0001, 0000'0010, 0000'0011, 0000,0100
-    // //         ^          ^          ^          ^
-    // //        24         16          8          0
-
-    // arr.set_bit(24, bool_ct(witness_ct(&composer, false)));
-    // arr.set_bit(18, bool_ct(witness_ct(&composer, true)));
-    // arr.set_bit(16, bool_ct(witness_ct(&composer, true)));
-    // arr.set_bit(15, bool_ct(witness_ct(&composer, true)));
-    // arr.set_bit(0, bool_ct(witness_ct(&composer, true)));
-    // // arr[0]     arr[1]     arr[2]     arr[3]
-    // // 0000'0000, 0000'0111, 1000'0011, 0000,0101
-    // //         ^          ^          ^          ^
-    // //        24          16         8          0
-
     byte_array_ct arr(&builder, std::vector<uint8_t>{ 0x01, 0x02, 0x03, 0x04 });
 
     arr.set_bit(16, bool_ct(witness_ct(&builder, true)));
