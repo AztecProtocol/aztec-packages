@@ -273,5 +273,5 @@ template class uint_plookup<bb::CircuitSimulatorBN254, uint32_t>;
 template class uint_plookup<bb::UltraCircuitBuilder, uint64_t>;
 template class uint_plookup<bb::GoblinUltraCircuitBuilder, uint64_t>;
 template class uint_plookup<bb::CircuitSimulatorBN254, uint64_t>;
-;
+
 } // namespace bb::stdlib

@@ -201,6 +201,7 @@ TEST(stdlib_keccak, test_single_block)
 
 TEST(stdlib_keccak, test_double_block)
 {
+
     GTEST_SKIP() << "Bug in constant case?";
 
     Builder builder = Builder();

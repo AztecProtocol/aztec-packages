@@ -527,6 +527,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
                 ctx->create_range_constraint(
                     bit.get_value(), 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             } else if constexpr (HasPlookup<C>) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/665)
                 ctx->create_new_range_constraint(
                     bit.witness_index, 1, "biggroup_nafs: compute_naf extracted too many bits in next_entry case");
             } else {

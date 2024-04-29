@@ -815,9 +815,9 @@ stdlib::byte_array<Builder> keccak<Builder>::hash(byte_array_ct& input, const ui
     ASSERT(uint256_t(num_bytes.get_value()) <= input.size());
 
     const auto constant_case = [&] { // if buffer is constant, compute hash and return w/o creating constraints
-        byte_array_ct output(nullptr, static_cast<uint32_t>(num_bytes.get_value() >> 1));
+        byte_array_ct output(nullptr, 32);
         const std::vector<uint8_t> result = hash_native(input.get_value());
-        for (size_t i = 0; i < static_cast<uint32_t>(num_bytes.get_value() >> 1); ++i) {
+        for (size_t i = 0; i < 32; ++i) {
             output.set_byte(i, result[i]);
         }
         return output;
