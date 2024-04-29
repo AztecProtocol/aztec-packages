@@ -11,10 +11,12 @@ on:
       runner_action:
         description: "The action to take with the self-hosted runner (start, stop, restart)."
         required: false
+
 concurrency:
   # force parallelism in master
   group: ci-${{ github.ref_name == 'master' && github.run_id || github.ref_name }}
   cancel-in-progress: true
+
 jobs:
   setup:
     uses: ./.github/workflows/setup-runner.yml
@@ -64,22 +66,35 @@ jobs:
       matrix:
         test: ${{ fromJson( needs.build.outputs.e2e_list )}}
     steps:
-      - {
-          uses: actions/checkout@v4,
-          with: { ref: "${{ github.event.pull_request.head.sha }}" },
-        }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           # must be globally unique for build x runner
           concurrency_key: e2e-${{ inputs.username || github.actor }}-x86-${{ matrix.test }}
-      - name: Test
+      - name: Test and upload logs
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 25
-        run: earthly-ci -P --no-output +${{ matrix.test }} --e2e_mode=cache
-      # TODO
-      # - name: Upload logs
-      #   run: BRANCH=${{ github.ref_name }} PULL_REQUEST=${{ github.event.number }} scripts/ci/upload_logs_to_s3 ./yarn-project/end-to-end/log
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --no-output +${{ matrix.test }} --e2e_mode=cache
+
+  bench-summary:
+    needs: build
+    runs-on: ${{ inputs.username || github.actor }}-x86
+    steps:
+      - uses: actions/checkout@v4,
+        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
+          concurrency_key: build-${{ inputs.username || github.actor }}-x86
+      - name: "Build and upload bench aggregate file"
+        working-directory: ./yarn-project/scripts
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY +bench-aggregate
+      - name: "Generate summary comment if pull request"
+        working-directory: ./yarn-project/scripts
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_COMMENTER_GITHUB_TOKEN }} +bench-comment
+        if: ${{ github.event_name == 'pull_request' }}
 
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)

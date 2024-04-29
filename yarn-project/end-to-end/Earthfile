@@ -80,11 +80,13 @@ E2E_TEST:
   ELSE
     DO +E2E_TEST_FROM_BUILD --test=$test --compose_file=$compose_file --enable_gas=$enable_gas --debug=$debug
   END
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh ./log
 
 # Define e2e tests
 e2e-tests:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh ./log
 
 flakey-e2e-tests:
   FROM ../+end-to-end
@@ -132,16 +134,14 @@ guides-dapp-testing:
 #   ARG e2e_mode=local
 #   DO +E2E_TEST --test=guides/up_quick_start.test.ts --e2e_mode=$e2e_mode
 
-# TODO hanging
-# bench-publish-rollup:
-#   ARG e2e_mode=local
-#   DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml
+bench-publish-rollup:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --compose_file=./scripts/docker-compose-no-sandbox.yml
 
-# TODO hanging
-# bench-process-history:
-#   ARG e2e_mode=local
-#   DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode  --compose_file=./scripts/docker-compose-no-sandbox.yml
+bench-process-history:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --compose_file=./scripts/docker-compose-no-sandbox.yml
 
-# bench-tx-size:
-#   ARG e2e_mode=local
-#   DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+bench-tx-size:
+  ARG e2e_mode=local
+  DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
