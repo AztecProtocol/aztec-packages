@@ -14,6 +14,7 @@
    2) Precomputing for all possible size pairs is probably feasible and might be a better solution than instantiating
    many instances separately. Then perhaps we could infer input type to `extend`.
 
+   3) There should be more thorough testing of this class in isolation.
  */
 namespace bb {
 
