@@ -3,13 +3,10 @@ use noirc_errors::CustomDiagnostic as Diagnostic;
 use noirc_errors::Span;
 use thiserror::Error;
 
+use crate::ast::{BinaryOpKind, FunctionReturnType, IntegerBitSize, Signedness};
 use crate::hir::resolution::errors::ResolverError;
 use crate::hir_def::expr::HirBinaryOp;
 use crate::hir_def::types::Type;
-use crate::BinaryOpKind;
-use crate::FunctionReturnType;
-use crate::IntegerBitSize;
-use crate::Signedness;
 
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum Source {
@@ -65,8 +62,6 @@ pub enum TypeCheckError {
     VariableMustBeMutable { name: String, span: Span },
     #[error("No method named '{method_name}' found for type '{object_type}'")]
     UnresolvedMethodCall { method_name: String, object_type: Type, span: Span },
-    #[error("Comparisons are invalid on Field types. Try casting the operands to a sized integer type first")]
-    InvalidComparisonOnField { span: Span },
     #[error("Integers must have the same signedness LHS is {sign_x:?}, RHS is {sign_y:?}")]
     IntegerSignedness { sign_x: Signedness, sign_y: Signedness, span: Span },
     #[error("Integers must have the same bit width LHS is {bit_width_x}, RHS is {bit_width_y}")]
@@ -76,7 +71,7 @@ pub enum TypeCheckError {
     #[error("{kind} cannot be used in a unary operation")]
     InvalidUnaryOp { kind: String, span: Span },
     #[error("Bitwise operations are invalid on Field types. Try casting the operands to a sized integer type first.")]
-    InvalidBitwiseOperationOnField { span: Span },
+    FieldBitwiseOp { span: Span },
     #[error("Integer cannot be used with type {typ}")]
     IntegerTypeMismatch { typ: Type, span: Span },
     #[error("Cannot use an integer and a Field in a binary operation, try converting the Field into an integer first")]
@@ -224,12 +219,11 @@ impl From<TypeCheckError> for Diagnostic {
             | TypeCheckError::TupleIndexOutOfBounds { span, .. }
             | TypeCheckError::VariableMustBeMutable { span, .. }
             | TypeCheckError::UnresolvedMethodCall { span, .. }
-            | TypeCheckError::InvalidComparisonOnField { span }
             | TypeCheckError::IntegerSignedness { span, .. }
             | TypeCheckError::IntegerBitWidth { span, .. }
             | TypeCheckError::InvalidInfixOp { span, .. }
             | TypeCheckError::InvalidUnaryOp { span, .. }
-            | TypeCheckError::InvalidBitwiseOperationOnField { span, .. }
+            | TypeCheckError::FieldBitwiseOp { span, .. }
             | TypeCheckError::IntegerTypeMismatch { span, .. }
             | TypeCheckError::FieldComparison { span, .. }
             | TypeCheckError::AmbiguousBitWidth { span, .. }

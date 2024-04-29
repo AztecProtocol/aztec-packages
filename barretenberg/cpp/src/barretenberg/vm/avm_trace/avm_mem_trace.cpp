@@ -170,6 +170,9 @@ void AvmMemTraceBuilder::store_in_mem_trace(
     case IntermRegister::IC:
         sub_clk = SUB_CLK_STORE_C;
         break;
+    case IntermRegister::ID:
+        sub_clk = SUB_CLK_STORE_D;
+        break;
     }
 
     insert_in_mem_trace(clk, sub_clk, addr, val, w_in_tag, r_in_tag, w_in_tag, true);
@@ -179,7 +182,7 @@ void AvmMemTraceBuilder::store_in_mem_trace(
  * @brief Handle a read memory operation specific to MOV opcode. Load the corresponding
  *        value to the intermediate register ia. A memory trace entry for the load
  *        operation is added. It is permissive in the sense that we do not enforce tag
- *        matching with against any instruction tag. In addition, the specific selector
+ *        matching against any instruction tag. In addition, the specific selector
  *        for MOV opcode is enabled.
  *
  * @param clk Main clock
@@ -190,20 +193,119 @@ void AvmMemTraceBuilder::store_in_mem_trace(
  */
 AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_mov_opcode(uint32_t const clk, uint32_t const addr)
 {
-    MemEntry memEntry = memory.contains(addr) ? memory.at(addr) : MemEntry{};
+    MemEntry mem_entry = memory.contains(addr) ? memory.at(addr) : MemEntry{};
 
     mem_trace.emplace_back(MemoryTraceEntry{
         .m_clk = clk,
         .m_sub_clk = SUB_CLK_LOAD_A,
         .m_addr = addr,
-        .m_val = memEntry.val,
-        .m_tag = memEntry.tag,
-        .r_in_tag = memEntry.tag,
-        .w_in_tag = memEntry.tag,
-        .m_sel_mov = true,
+        .m_val = mem_entry.val,
+        .m_tag = mem_entry.tag,
+        .r_in_tag = mem_entry.tag,
+        .w_in_tag = mem_entry.tag,
+        .m_sel_mov_a = true,
     });
 
-    return memEntry;
+    return mem_entry;
+}
+
+/**
+ * @brief Handle a read memory operation specific to CMOV opcode. Load the corresponding
+ *        values to the intermediate register ia, ib, id. Three memory trace entries for
+ *        these load operations are added. They are permissive in the sense that we do not
+ *        enforce tag matching against any instruction tag. In addition, the specific selector
+ *        for CMOV opcode is enabled.
+ *
+ * @param clk Main clock
+ * @param a_addr Memory address of the first value candidate a.
+ * @param b_addr Memory address of the second value candidate b.
+ * @param cond_addr Memory address of the conditional value.
+ *
+ * @return Result of the read operation containing the value and the tag of the memory cell
+ *         at the supplied address.
+ */
+std::array<AvmMemTraceBuilder::MemEntry, 3> AvmMemTraceBuilder::read_and_load_cmov_opcode(uint32_t clk,
+                                                                                          uint32_t a_addr,
+                                                                                          uint32_t b_addr,
+                                                                                          uint32_t cond_addr)
+{
+    MemEntry a_mem_entry = memory.contains(a_addr) ? memory.at(a_addr) : MemEntry{};
+    MemEntry b_mem_entry = memory.contains(b_addr) ? memory.at(b_addr) : MemEntry{};
+    MemEntry cond_mem_entry = memory.contains(cond_addr) ? memory.at(cond_addr) : MemEntry{};
+
+    bool mov_b = cond_mem_entry.val == 0;
+
+    AvmMemoryTag r_w_in_tag = mov_b ? b_mem_entry.tag : a_mem_entry.tag;
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_A,
+        .m_addr = a_addr,
+        .m_val = a_mem_entry.val,
+        .m_tag = a_mem_entry.tag,
+        .r_in_tag = r_w_in_tag,
+        .w_in_tag = r_w_in_tag,
+        .m_sel_mov_a = !mov_b,
+        .m_sel_cmov = true,
+    });
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_B,
+        .m_addr = b_addr,
+        .m_val = b_mem_entry.val,
+        .m_tag = b_mem_entry.tag,
+        .r_in_tag = r_w_in_tag,
+        .w_in_tag = r_w_in_tag,
+        .m_sel_mov_b = mov_b,
+        .m_sel_cmov = true,
+    });
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_D,
+        .m_addr = cond_addr,
+        .m_val = cond_mem_entry.val,
+        .m_tag = cond_mem_entry.tag,
+        .r_in_tag = r_w_in_tag,
+        .w_in_tag = r_w_in_tag,
+        .m_sel_cmov = true,
+    });
+
+    return { a_mem_entry, b_mem_entry, cond_mem_entry };
+}
+
+/**
+ * @brief Handle a read memory operation specific to CAST opcode. Load the corresponding
+ *        value to the intermediate register ia. A memory trace entry for the load
+ *        operation is added. It is permissive in the sense that we do not enforce tag
+ *        matching against any instruction tag. The write instruction tag w_in_tag
+ *        is passed and added in the memory trace entry.
+ *
+ * @param clk Main clock
+ * @param addr Memory address of the source offset
+ * @param w_in_tag Write instruction instruction tag (tag the value is casted to)
+ *
+ * @return Result of the read operation containing the value and the tag of the memory cell
+ *         at the supplied address.
+ */
+AvmMemTraceBuilder::MemEntry AvmMemTraceBuilder::read_and_load_cast_opcode(uint32_t clk,
+                                                                           uint32_t addr,
+                                                                           AvmMemoryTag w_in_tag)
+{
+    MemEntry mem_entry = memory.contains(addr) ? memory.at(addr) : MemEntry{};
+
+    mem_trace.emplace_back(MemoryTraceEntry{
+        .m_clk = clk,
+        .m_sub_clk = SUB_CLK_LOAD_A,
+        .m_addr = addr,
+        .m_val = mem_entry.val,
+        .m_tag = mem_entry.tag,
+        .r_in_tag = mem_entry.tag,
+        .w_in_tag = w_in_tag,
+    });
+
+    return mem_entry;
 }
 
 /**
@@ -237,6 +339,9 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::read_and_load_from_memory(uint32
     case IntermRegister::IC:
         sub_clk = SUB_CLK_LOAD_C;
         break;
+    case IntermRegister::ID:
+        sub_clk = SUB_CLK_LOAD_D;
+        break;
     }
 
     FF val = memory.contains(addr) ? memory.at(addr).val : 0;
@@ -262,6 +367,9 @@ AvmMemTraceBuilder::MemRead AvmMemTraceBuilder::indirect_read_and_load_from_memo
         break;
     case IndirectRegister::IND_C:
         sub_clk = SUB_CLK_IND_LOAD_C;
+        break;
+    case IndirectRegister::IND_D:
+        sub_clk = SUB_CLK_IND_LOAD_D;
         break;
     }
 

@@ -1,5 +1,6 @@
 import { inflate } from 'pako';
 
+import { type Fr } from '../fields/fields.js';
 import { type FunctionSelector } from './function_selector.js';
 
 /**
@@ -241,6 +242,16 @@ export interface DebugInfo {
 }
 
 /**
+ * The debug information for a given program (a collection of functions)
+ */
+export interface ProgramDebugInfo {
+  /**
+   * A list of debug information that matches with each function in a program
+   */
+  debug_infos: Array<DebugInfo>;
+}
+
+/**
  * Maps a file ID to its metadata for debugging purposes.
  */
 export type DebugFileMap = Record<
@@ -256,6 +267,34 @@ export type DebugFileMap = Record<
     path: string;
   }
 >;
+
+/**
+ * Type representing a note in use in the contract.
+ */
+export type ContractNote = {
+  /**
+   * Note identifier
+   */
+  id: Fr;
+  /**
+   * Type of the note (e.g., 'TransparentNote')
+   */
+  typ: string;
+};
+
+/**
+ * Type representing a field layout in the storage of a contract.
+ */
+export type FieldLayout = {
+  /**
+   * Slot in which the field is stored.
+   */
+  slot: Fr;
+  /**
+   * Type being stored at the slot (e.g., 'Map<AztecAddress, PublicMutable<U128>>')
+   */
+  typ: string;
+};
 
 /**
  * Defines artifact of a contract.
@@ -282,6 +321,14 @@ export interface ContractArtifact {
     structs: Record<string, AbiType[]>;
     globals: Record<string, AbiValue[]>;
   };
+  /**
+   * Storage layout
+   */
+  storageLayout: Record<string, FieldLayout>;
+  /**
+   * The notes used in the contract.
+   */
+  notes: Record<string, ContractNote>;
 
   /**
    * The map of file ID to the source code and path of the file.
@@ -355,10 +402,13 @@ export function getFunctionDebugMetadata(
   functionArtifact: FunctionArtifact,
 ): FunctionDebugMetadata | undefined {
   if (functionArtifact.debugSymbols && contractArtifact.fileMap) {
-    const debugSymbols = JSON.parse(
+    const programDebugSymbols = JSON.parse(
       inflate(Buffer.from(functionArtifact.debugSymbols, 'base64'), { to: 'string', raw: true }),
     );
-    return { debugSymbols, files: contractArtifact.fileMap };
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5813)
+    // We only support handling debug info for the contract function entry point.
+    // So for now we simply index into the first debug info.
+    return { debugSymbols: programDebugSymbols.debug_infos[0], files: contractArtifact.fileMap };
   }
   return undefined;
 }
@@ -383,27 +433,27 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
 
 /**
  * Returns an initializer from the contract.
- * @param initalizerNameOrArtifact - The name of the constructor, or the artifact of the constructor, or undefined
+ * @param initializerNameOrArtifact - The name of the constructor, or the artifact of the constructor, or undefined
  * to pick the default initializer.
  */
 export function getInitializer(
   contract: ContractArtifact,
-  initalizerNameOrArtifact: string | undefined | FunctionArtifact,
+  initializerNameOrArtifact: string | undefined | FunctionArtifact,
 ): FunctionArtifact | undefined {
-  if (typeof initalizerNameOrArtifact === 'string') {
-    const found = contract.functions.find(f => f.name === initalizerNameOrArtifact);
+  if (typeof initializerNameOrArtifact === 'string') {
+    const found = contract.functions.find(f => f.name === initializerNameOrArtifact);
     if (!found) {
-      throw new Error(`Constructor method ${initalizerNameOrArtifact} not found in contract artifact`);
+      throw new Error(`Constructor method ${initializerNameOrArtifact} not found in contract artifact`);
     } else if (!found.isInitializer) {
-      throw new Error(`Method ${initalizerNameOrArtifact} is not an initializer`);
+      throw new Error(`Method ${initializerNameOrArtifact} is not an initializer`);
     }
     return found;
-  } else if (initalizerNameOrArtifact === undefined) {
+  } else if (initializerNameOrArtifact === undefined) {
     return getDefaultInitializer(contract);
   } else {
-    if (!initalizerNameOrArtifact.isInitializer) {
-      throw new Error(`Method ${initalizerNameOrArtifact.name} is not an initializer`);
+    if (!initializerNameOrArtifact.isInitializer) {
+      throw new Error(`Method ${initializerNameOrArtifact.name} is not an initializer`);
     }
-    return initalizerNameOrArtifact;
+    return initializerNameOrArtifact;
   }
 }

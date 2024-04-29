@@ -5,13 +5,10 @@ import {
   type DebugLogger,
   ExtendedNote,
   Fr,
-  type GrumpkinPrivateKey,
-  GrumpkinScalar,
   Note,
   type PXE,
-  type PublicKey,
-  computeMessageSecretHash,
-  generatePublicKey,
+  computeSecretHash,
+  deriveKeys,
 } from '@aztec/aztec.js';
 import { computePartialAddress } from '@aztec/circuits.js';
 import { EscrowContract } from '@aztec/noir-contracts.js/Escrow';
@@ -20,9 +17,6 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_escrow_contract', () => {
-  const pendingShieldsStorageSlot = new Fr(5);
-  const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
   let pxe: PXE;
   let wallet: AccountWallet;
   let recipientWallet: AccountWallet;
@@ -35,8 +29,8 @@ describe('e2e_escrow_contract', () => {
   let owner: AztecAddress;
   let recipient: AztecAddress;
 
-  let escrowPrivateKey: GrumpkinPrivateKey;
-  let escrowPublicKey: PublicKey;
+  let escrowSecretKey: Fr;
+  let escrowPublicKeysHash: Fr;
 
   beforeEach(async () => {
     // Setup environment
@@ -51,20 +45,20 @@ describe('e2e_escrow_contract', () => {
 
     // Generate private key for escrow contract, register key in pxe service, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
-    escrowPrivateKey = GrumpkinScalar.random();
-    escrowPublicKey = generatePublicKey(escrowPrivateKey);
-    const escrowDeployment = EscrowContract.deployWithPublicKey(escrowPublicKey, wallet, owner);
+    escrowSecretKey = Fr.random();
+    escrowPublicKeysHash = deriveKeys(escrowSecretKey).publicKeysHash;
+    const escrowDeployment = EscrowContract.deployWithPublicKeysHash(escrowPublicKeysHash, wallet, owner);
     const escrowInstance = escrowDeployment.getInstance();
-    await pxe.registerAccount(escrowPrivateKey, computePartialAddress(escrowInstance));
+    await pxe.registerAccount(escrowSecretKey, computePartialAddress(escrowInstance));
     escrowContract = await escrowDeployment.send().deployed();
-    logger(`Escrow contract deployed at ${escrowContract.address}`);
+    logger.info(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Token contract and mint funds for the escrow contract
     token = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
     const mintAmount = 100n;
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
@@ -74,22 +68,22 @@ describe('e2e_escrow_contract', () => {
       note,
       owner,
       token.address,
-      pendingShieldsStorageSlot,
-      noteTypeId,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
     await pxe.addNote(extendedNote);
 
     await token.methods.redeem_shield(escrowContract.address, mintAmount, secret).send().wait();
 
-    logger(`Token contract deployed at ${token.address}`);
+    logger.info(`Token contract deployed at ${token.address}`);
   }, 100_000);
 
   afterEach(() => teardown(), 30_000);
 
   const expectBalance = async (who: AztecAddress, expectedBalance: bigint) => {
     const balance = await token.methods.balance_of_private(who).simulate({ from: who });
-    logger(`Account ${who} balance: ${balance}`);
+    logger.info(`Account ${who} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
@@ -98,7 +92,7 @@ describe('e2e_escrow_contract', () => {
     await expectBalance(recipient, 0n);
     await expectBalance(escrowContract.address, 100n);
 
-    logger(`Withdrawing funds from token contract to ${recipient}`);
+    logger.info(`Withdrawing funds from token contract to ${recipient}`);
     await escrowContract.methods.withdraw(token.address, 30, recipient).send().wait();
 
     await expectBalance(owner, 0n);
@@ -113,10 +107,10 @@ describe('e2e_escrow_contract', () => {
   }, 60_000);
 
   it('moves funds using multiple keys on the same tx (#1010)', async () => {
-    logger(`Minting funds in token contract to ${owner}`);
+    logger.info(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await token.methods.mint_private(mintAmount, secretHash).send().wait();
 
@@ -125,8 +119,8 @@ describe('e2e_escrow_contract', () => {
       note,
       owner,
       token.address,
-      pendingShieldsStorageSlot,
-      noteTypeId,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
       receipt.txHash,
     );
     await pxe.addNote(extendedNote);

@@ -4,12 +4,11 @@ use crate::abis::function_selector::FunctionSelector;
 use crate::abis::contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage;
 use crate::contract_class_id::ContractClassId;
 use crate::abis::side_effect::SideEffect;
+use crate::traits::is_empty;
 use crate::utils::{uint256::U256, field::field_from_bytes_32_trunc};
 use crate::constants::{
     FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__OUTER_NULLIFIER,
-    GENERATOR_INDEX__VK, GENERATOR_INDEX__CONSTRUCTOR, GENERATOR_INDEX__PARTIAL_ADDRESS,
-    GENERATOR_INDEX__CONTRACT_ADDRESS, GENERATOR_INDEX__NOTE_HASH_NONCE,
-    GENERATOR_INDEX__UNIQUE_NOTE_HASH
+    GENERATOR_INDEX__VK, GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__UNIQUE_NOTE_HASH
 };
 use crate::traits::Hash;
 use crate::messaging::l2_to_l1_message::L2ToL1Message;
@@ -119,13 +118,33 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
-pub fn compute_logs_hash(previous_log_hash: Field, current_log_hash: Field) -> Field {
-    accumulate_sha256(
-        [
-        previous_log_hash,
-        current_log_hash
-    ]
-    )
+pub fn compute_tx_logs_hash<MAX_ENCRYPTED_LOGS_PER_TX>(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
+    // TODO(Miranda): Below is flat hashing which would reduce constraints (we now only hash once in tail) - convert to this?
+
+    // // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
+    // // Ideally we would define a new global here but for now we assert in case MAX_LOGS changes
+    // assert(MAX_ENCRYPTED_LOGS_PER_TX * 32 == 256);
+    // let mut hash_input_flattened = [0; 256];
+    // for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+    //     let input_as_bytes = logs[offset].value.to_be_bytes(32);
+    //     for byte_index in 0..32 {
+    //         hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
+    //     }
+    // }
+    // // This differs from accumulate_sha256 as we could increase MAX_LOGS and
+    // // ideally we would push to a slice then hash, but in practice compilation was very slow
+    // // Hardcode to 256 bytes for now
+    // sha256_to_field(hash_input_flattened)
+
+    // Assuming logs are pre-sorted
+    let mut accumulated_logs_hash = 0;
+    for i in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+        if !is_empty(logs[i]) {
+            accumulated_logs_hash = accumulate_sha256([accumulated_logs_hash, logs[i].value]);
+        }
+    }
+
+    accumulated_logs_hash
 }
 
 pub fn compute_note_hash_nonce(first_nullifier: Field, commitment_index: u64) -> Field {
@@ -148,26 +167,12 @@ pub fn compute_unique_siloed_note_hash(nonce: Field, siloed_note_hash: Field) ->
     )
 }
 
-pub fn compute_unique_siloed_note_hashes<N>(
-    first_nullifier: Field,
-    siloed_note_hashes: [SideEffect; N]
-) -> [SideEffect; N] {
-    let mut unique_siloed_note_hashes = [SideEffect::empty(); N];
-    for i in 0..N {
-        let siloed_note_hash = siloed_note_hashes[i];
-        if siloed_note_hash.value != 0 {
-            let nonce = compute_note_hash_nonce(first_nullifier, i);
-            unique_siloed_note_hashes[i] = SideEffect {
-                value: compute_unique_siloed_note_hash(nonce, siloed_note_hash.value),
-                counter: siloed_note_hash.counter
-                };
-        }
-    }
-    unique_siloed_note_hashes
-}
-
 pub fn pedersen_hash<N>(inputs: [Field; N], hash_index: u32) -> Field {
     dep::std::hash::pedersen_hash_with_separator(inputs, hash_index)
+}
+
+pub fn poseidon2_hash<N>(inputs: [Field; N]) -> Field {
+    dep::std::hash::poseidon2::Poseidon2::hash(inputs, N)
 }
 
 #[test]

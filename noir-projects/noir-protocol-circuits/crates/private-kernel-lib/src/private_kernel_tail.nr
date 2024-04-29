@@ -7,7 +7,7 @@ use dep::types::{
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
+    MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
     grumpkin_private_key::GrumpkinPrivateKey, utils::arrays::array_length
 };
@@ -21,6 +21,10 @@ struct PrivateKernelTailCircuitPrivateInputs {
     sorted_new_nullifiers_indexes: [u64; MAX_NEW_NULLIFIERS_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints,
     nullifier_commitment_hints: [u64; MAX_NEW_NULLIFIERS_PER_TX],
+    sorted_encrypted_log_hashes: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_encrypted_log_hashes_indexes: [u64; MAX_ENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes: [SideEffect; MAX_UNENCRYPTED_LOGS_PER_TX],
+    sorted_unencrypted_log_hashes_indexes: [u64; MAX_UNENCRYPTED_LOGS_PER_TX],
     master_nullifier_secret_keys: [GrumpkinPrivateKey; MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX],
 }
 
@@ -49,29 +53,33 @@ impl PrivateKernelTailCircuitPrivateInputs {
             self.sorted_new_note_hashes_indexes,
             self.sorted_new_nullifiers,
             self.sorted_new_nullifiers_indexes,
-            self.nullifier_commitment_hints
+            self.nullifier_commitment_hints,
+            self.sorted_encrypted_log_hashes,
+            self.sorted_encrypted_log_hashes_indexes,
+            self.sorted_unencrypted_log_hashes,
+            self.sorted_unencrypted_log_hashes_indexes
         );
         composer.compose().finish()
     }
 }
 
 mod tests {
-    use dep::std::unsafe;
     use crate::private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
     use dep::reset_kernel_lib::{
         tests::nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder,
-        read_request_reset::{PendingReadHint, ReadRequestState, ReadRequestStatus}
+        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
     };
     use dep::types::constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::KernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}
+        side_effect::{SideEffect, SideEffectLinkedToNoteHash, Ordered}, gas::Gas
     },
-        hash::compute_unique_siloed_note_hashes,
+        grumpkin_private_key::GrumpkinPrivateKey,
+        hash::{compute_note_hash_nonce, compute_unique_siloed_note_hash, accumulate_sha256},
         tests::{fixture_builder::FixtureBuilder, sort::sort_get_sorted_hints},
         utils::{arrays::{array_eq, array_length}}, traits::{Empty, is_empty, is_empty_array}
     };
@@ -98,12 +106,16 @@ mod tests {
 
         // A helper function that uses the first nullifer in the previous kernel to compute the unique siloed
         // note_hashes for the given note_hashes.
-        pub fn compute_unique_siloed_note_hashes<N>(
-            self,
-            note_hashes: [SideEffect; N]
-        ) -> [SideEffect; N] {
+        pub fn compute_unique_siloed_note_hashes<N>(self, note_hashes: [SideEffect; N]) -> [Field; N] {
             let first_nullifier = self.previous_kernel.new_nullifiers.get_unchecked(0);
-            compute_unique_siloed_note_hashes(first_nullifier.value, note_hashes)
+            let mut unique_siloed_note_hashes = [0; N];
+            for i in 0..N {
+                if note_hashes[i].value != 0 {
+                    let nonce = compute_note_hash_nonce(first_nullifier.value, i);
+                    unique_siloed_note_hashes[i] = compute_unique_siloed_note_hash(nonce, note_hashes[i].value);
+                }
+            }
+            unique_siloed_note_hashes
         }
 
         pub fn add_pending_note_hash_read_request(&mut self, note_hash_index: u64) {
@@ -150,6 +162,20 @@ mod tests {
                 sorted_nullifier_commitment_hints[i] = sorted_new_nullifiers_indexes[self.nullifier_commitment_hints[i]];
             }
 
+            let sorted = sort_get_sorted_hints(
+                self.previous_kernel.encrypted_logs_hashes.storage,
+                |a: SideEffect, b: SideEffect| a.counter < b.counter
+            );
+            let sorted_encrypted_log_hashes = sorted.sorted_array;
+            let sorted_encrypted_log_hashes_indexes = sorted.sorted_index_hints;
+
+            let sorted = sort_get_sorted_hints(
+                self.previous_kernel.unencrypted_logs_hashes.storage,
+                |a: SideEffect, b: SideEffect| a.counter < b.counter
+            );
+            let sorted_unencrypted_log_hashes = sorted.sorted_array;
+            let sorted_unencrypted_log_hashes_indexes = sorted.sorted_index_hints;
+
             let kernel = PrivateKernelTailCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
                 sorted_new_note_hashes,
@@ -159,7 +185,11 @@ mod tests {
                 sorted_new_nullifiers_indexes,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_commitment_hints: sorted_nullifier_commitment_hints,
-                master_nullifier_secret_keys: unsafe::zeroed()
+                sorted_encrypted_log_hashes,
+                sorted_encrypted_log_hashes_indexes,
+                sorted_unencrypted_log_hashes,
+                sorted_unencrypted_log_hashes_indexes,
+                master_nullifier_secret_keys: [GrumpkinPrivateKey::empty(); MAX_NULLIFIER_KEY_VALIDATION_REQUESTS_PER_TX]
             };
             kernel.native_private_kernel_circuit_tail()
         }
@@ -171,6 +201,14 @@ mod tests {
         pub fn succeeded(&mut self) {
             let _ = self.execute();
         }
+    }
+
+    #[test]
+    unconstrained fn execution_succeeded() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        let public_inputs = builder.execute();
+
+        assert(is_empty(public_inputs.start_state));
     }
 
     #[test]
@@ -205,6 +243,38 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.rollup_validation_requests.max_block_number.unwrap(), 13);
+    }
+
+    #[test]
+    fn logs_are_handled_as_expected() {
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        // Logs for the previous call stack.
+        let prev_encrypted_logs_hash = 80;
+        let prev_encrypted_log_preimages_length = 13;
+        let prev_unencrypted_logs_hash = 956;
+        let prev_unencrypted_log_preimages_length = 24;
+        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.set_unencrypted_logs(
+            prev_unencrypted_logs_hash,
+            prev_unencrypted_log_preimages_length
+        );
+        // Logs for the current call stack.
+        let unencrypted_logs_hash = 26;
+        let unencrypted_log_preimages_length = 50;
+        builder.previous_kernel.set_unencrypted_logs(unencrypted_logs_hash, unencrypted_log_preimages_length);
+
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
+        assert_eq(
+            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+        );
+
+        let expected_encrypted_logs_hash = accumulate_sha256([0, prev_encrypted_logs_hash]);
+        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
+        let mut expected_unencrypted_logs_hash = accumulate_sha256([0, prev_unencrypted_logs_hash]);
+        expected_unencrypted_logs_hash = accumulate_sha256([expected_unencrypted_logs_hash, unencrypted_logs_hash]);
+        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
     }
 
     #[test]
@@ -271,7 +341,7 @@ mod tests {
         assert(
             array_eq(
                 public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
+                [new_nullifiers[0].value, new_nullifiers[2].value]
             )
         );
     }
@@ -298,7 +368,7 @@ mod tests {
         assert(
             array_eq(
                 public_inputs.end.new_nullifiers,
-                [new_nullifiers[0], new_nullifiers[2]]
+                [new_nullifiers[0].value, new_nullifiers[2].value]
             )
         );
     }
@@ -317,7 +387,7 @@ mod tests {
 
         // Only the first nullifier is left after squashing.
         assert(is_empty_array(public_inputs.end.new_note_hashes));
-        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0]]));
+        assert(array_eq(public_inputs.end.new_nullifiers, [new_nullifiers[0].value]));
     }
 
     #[test]
@@ -341,17 +411,13 @@ mod tests {
         builder.previous_kernel.new_note_hashes.extend_from_array(reversed_note_hashes);
         builder.previous_kernel.new_nullifiers.extend_from_array(reversed_nullifiers);
 
-        let sorted_unique_note_hashes = compute_unique_siloed_note_hashes(
-            // tx nullifier is part of non revertible accumulated data
-            builder.previous_kernel.new_nullifiers.get_unchecked(0).value,
-            sorted_note_hashes
-        );
+        let sorted_unique_note_hashes = builder.compute_unique_siloed_note_hashes(sorted_note_hashes);
 
         let public_inputs = builder.execute();
 
         for i in 0..10 {
             assert(public_inputs.end.new_note_hashes[i].eq(sorted_unique_note_hashes[i]));
-            assert(public_inputs.end.new_nullifiers[i].eq(sorted_nullifiers[i]));
+            assert(public_inputs.end.new_nullifiers[i].eq(sorted_nullifiers[i].value));
         }
     }
 
@@ -421,5 +487,15 @@ mod tests {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.new_nullifiers = BoundedVec::new();
         builder.failed();
+    }
+
+    #[test]
+    unconstrained fn set_teardown_gas_as_gas_used() {
+        // TODO(gas): When we compute DA gas used, we'll have to include it here as well.
+        let mut builder = PrivateKernelTailInputsBuilder::new();
+        builder.previous_kernel.tx_context.gas_settings.teardown_gas_limits = Gas::new(300, 300, 300);
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.end.gas_used, Gas::new(300, 300, 300));
     }
 }

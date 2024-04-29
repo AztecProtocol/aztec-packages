@@ -58,7 +58,7 @@ export function createPrivateFunctionMembershipProof(
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());
   const artifactTreeSiblingPath = artifactTree.getSiblingPath(artifactTreeLeafIndex).map(Fr.fromBuffer);
 
-  log.trace(`Computed proof for private function with selector ${selector.toString()}`, {
+  log.debug(`Computed proof for private function with selector ${selector.toString()}`, {
     functionArtifactHash,
     functionMetadataHash,
     functionLeaf: '0x' + functionLeaf.toString('hex'),
@@ -82,7 +82,7 @@ export function createPrivateFunctionMembershipProof(
 
 /**
  * Verifies that a private function with a membership proof as emitted by the ClassRegisterer contract is valid,
- * as defined in the yellow paper at contract-deployment/classes:
+ * as defined in the protocol specs at contract-deployment/classes:
  *
  * ```
  * // Load contract class from local db
@@ -118,7 +118,7 @@ export function isValidPrivateFunctionMembershipProof(
     ),
   );
   if (!contractClass.privateFunctionsRoot.equals(computedPrivateFunctionTreeRoot)) {
-    log.trace(`Private function tree root mismatch`, {
+    log.debug(`Private function tree root mismatch`, {
       expectedPrivateFunctionTreeRoot: contractClass.privateFunctionsRoot,
       computedPrivateFunctionTreeRoot: computedPrivateFunctionTreeRoot,
       computedFunctionLeaf: '0x' + functionLeaf.toString('hex'),
@@ -142,7 +142,7 @@ export function isValidPrivateFunctionMembershipProof(
     metadataHash: fn.artifactMetadataHash,
   });
   if (!contractClass.artifactHash.equals(computedArtifactHash)) {
-    log.trace(`Artifact hash mismatch`, {
+    log.debug(`Artifact hash mismatch`, {
       expected: contractClass.artifactHash,
       computedArtifactHash,
       computedFunctionArtifactHash: functionArtifactHash,

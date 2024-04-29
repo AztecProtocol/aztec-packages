@@ -1,10 +1,8 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Delegator {
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteViewerOptions, emit_unencrypted_log,
-        PublicMutable, PrivateSet
-    };
+    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteViewerOptions, PublicMutable, PrivateSet, Deserialize};
     use dep::value_note::value_note::ValueNote;
+    use dep::delegated_on::DelegatedOn;
 
     #[aztec(storage)]
     struct Storage {
@@ -15,35 +13,26 @@ contract Delegator {
     #[aztec(private)]
     fn private_delegate_set_value(
         target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 2]
-    ) {
+        value: Field,
+        owner: AztecAddress
+    ) -> Field {
         // Call the target private function
-        let return_values = context.delegate_call_private_function(target_contract, target_selector, args);
-        // Copy the return value from the call to this function's return values
-        return_values[0]
+        DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context)
     }
 
     #[aztec(private)]
-    fn enqueued_delegate_set_value(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 1]
-    ) {
-        context.delegate_call_public_function(target_contract, target_selector, args);
+    fn enqueued_delegate_set_value(target_contract: AztecAddress, value: Field) {
+        DelegatedOn::at(target_contract).public_set_value(value).delegate_enqueue(&mut context)
     }
 
     #[aztec(public)]
-    fn public_delegate_set_value(
-        target_contract: AztecAddress,
-        target_selector: FunctionSelector,
-        args: [Field; 1]
-    ) {
-        let _ = context.delegate_call_public_function(target_contract, target_selector, args);
+    fn public_delegate_set_value(target_contract: AztecAddress, value: Field) -> Field {
+        DelegatedOn::at(target_contract).public_set_value(value).delegate_call(&mut context)
     }
 
     unconstrained fn view_private_value(amount: Field, owner: AztecAddress) -> pub Field {
-        let options = NoteViewerOptions::new().select(ValueNote::properties().value, amount, Option::none()).select(
+        let mut options = NoteViewerOptions::new();
+        options = options.select(ValueNote::properties().value, amount, Option::none()).select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()

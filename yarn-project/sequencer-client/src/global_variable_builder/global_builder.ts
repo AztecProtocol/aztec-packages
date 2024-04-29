@@ -1,4 +1,4 @@
-import { type AztecAddress, type EthAddress, GlobalVariables } from '@aztec/circuits.js';
+import { type AztecAddress, type EthAddress, GasFees, GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -86,10 +86,17 @@ export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
       lastTimestamp = new Fr(lastTimestamp.value + 1n);
     }
 
-    this.log(
-      `Built global variables for block ${blockNumber}: (${chainId}, ${version}, ${blockNumber}, ${lastTimestamp}, ${coinbase}, ${feeRecipient})`,
+    const gasFees = GasFees.default();
+    const globalVariables = new GlobalVariables(
+      chainId,
+      version,
+      blockNumber,
+      lastTimestamp,
+      coinbase,
+      feeRecipient,
+      gasFees,
     );
-
-    return new GlobalVariables(chainId, version, blockNumber, lastTimestamp, coinbase, feeRecipient);
+    this.log.debug(`Built global variables for block ${blockNumber}`, globalVariables.toJSON());
+    return new GlobalVariables(chainId, version, blockNumber, lastTimestamp, coinbase, feeRecipient, gasFees);
   }
 }

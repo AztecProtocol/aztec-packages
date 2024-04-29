@@ -25,25 +25,22 @@ use regex::Regex;
 use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 
+use crate::ast::{
+    ArrayLiteral, BinaryOpKind, BlockExpression, Distinctness, Expression, ExpressionKind,
+    ForRange, FunctionDefinition, FunctionKind, FunctionReturnType, Ident, ItemVisibility, LValue,
+    LetStatement, Literal, NoirFunction, NoirStruct, NoirTypeAlias, Param, Path, PathKind, Pattern,
+    Statement, StatementKind, UnaryOp, UnresolvedGenerics, UnresolvedTraitConstraint,
+    UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression, Visibility, ERROR_IDENT,
+};
 use crate::graph::CrateId;
-use crate::hir::def_map::{LocalModuleId, ModuleDefId, TryFromModuleDefId, MAIN_FUNCTION};
+use crate::hir::def_map::{ModuleDefId, TryFromModuleDefId, MAIN_FUNCTION};
+use crate::hir::{def_map::CrateDefMap, resolution::path_resolver::PathResolver};
 use crate::hir_def::stmt::{HirAssignStatement, HirForStatement, HirLValue, HirPattern};
 use crate::node_interner::{
     DefinitionId, DefinitionKind, DependencyId, ExprId, FuncId, GlobalId, NodeInterner, StmtId,
     StructId, TraitId, TraitImplId, TraitMethodId, TypeAliasId,
 };
-use crate::{
-    hir::{def_map::CrateDefMap, resolution::path_resolver::PathResolver},
-    BlockExpression, Expression, ExpressionKind, FunctionKind, Ident, Literal, NoirFunction,
-    StatementKind,
-};
-use crate::{
-    ArrayLiteral, BinaryOpKind, Distinctness, ForRange, FunctionDefinition, FunctionReturnType,
-    Generics, ItemVisibility, LValue, NoirStruct, NoirTypeAlias, Param, Path, PathKind, Pattern,
-    Shared, Statement, StructType, Type, TypeAlias, TypeVariable, TypeVariableKind, UnaryOp,
-    UnresolvedGenerics, UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData,
-    UnresolvedTypeExpression, Visibility, ERROR_IDENT,
-};
+use crate::{Generics, Shared, StructType, Type, TypeAlias, TypeVariable, TypeVariableKind};
 use fm::FileId;
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span, Spanned};
@@ -57,6 +54,7 @@ use crate::hir_def::{
 };
 
 use super::errors::{PubPosition, ResolverError};
+use super::import::PathResolution;
 
 const SELF_TYPE_NAME: &str = "Self";
 
@@ -245,6 +243,7 @@ impl<'a> Resolver<'a> {
             name: name.clone(),
             attributes: Attributes::empty(),
             is_unconstrained: false,
+            is_comptime: false,
             visibility: ItemVisibility::Public, // Trait functions are always public
             generics: generics.clone(),
             parameters: vecmap(parameters, |(name, typ)| Param {
@@ -476,7 +475,7 @@ impl<'a> Resolver<'a> {
     /// Translates an UnresolvedType into a Type and appends any
     /// freshly created TypeVariables created to new_variables.
     fn resolve_type_inner(&mut self, typ: UnresolvedType, new_variables: &mut Generics) -> Type {
-        use UnresolvedTypeData::*;
+        use crate::ast::UnresolvedTypeData::*;
 
         let resolved_type = match typ.typ {
             FieldElement => Type::FieldElement,
@@ -501,6 +500,7 @@ impl<'a> Resolver<'a> {
                 let fields = self.resolve_type_inner(*fields, new_variables);
                 Type::FmtString(Box::new(resolved_size), Box::new(fields))
             }
+            Code => Type::Code,
             Unit => Type::Unit,
             Unspecified => Type::Error,
             Error => Type::Error,
@@ -688,9 +688,13 @@ impl<'a> Resolver<'a> {
 
         // If we cannot find a local generic of the same name, try to look up a global
         match self.path_resolver.resolve(self.def_maps, path.clone()) {
-            Ok(ModuleDefId::GlobalId(id)) => {
+            Ok(PathResolution { module_def_id: ModuleDefId::GlobalId(id), error }) => {
                 if let Some(current_item) = self.current_item {
                     self.interner.add_global_dependency(current_item, id);
+                }
+
+                if let Some(error) = error {
+                    self.push_err(error.into());
                 }
                 Some(Type::Constant(self.eval_global_as_array_length(id, path)))
             }
@@ -922,6 +926,23 @@ impl<'a> Resolver<'a> {
         let name_ident = HirIdent::non_trait_method(id, location);
 
         let attributes = func.attributes().clone();
+        let has_inline_attribute = attributes.is_inline();
+        let should_fold = attributes.is_foldable();
+        if !self.inline_attribute_allowed(func) {
+            if has_inline_attribute {
+                self.push_err(ResolverError::InlineAttributeOnUnconstrained {
+                    ident: func.name_ident().clone(),
+                });
+            } else if should_fold {
+                self.push_err(ResolverError::FoldAttributeOnUnconstrained {
+                    ident: func.name_ident().clone(),
+                });
+            }
+        }
+        // Both the #[fold] and #[inline(tag)] alter a function's inline type and code generation in similar ways.
+        // In certain cases such as type checking (for which the following flag will be used) both attributes
+        // indicate we should code generate in the same way. Thus, we unify the attributes into one flag here.
+        let has_inline_or_fold_attribute = has_inline_attribute || should_fold;
 
         let mut generics = vecmap(&self.generics, |(_, typevar, _)| typevar.clone());
         let mut parameters = vec![];
@@ -1002,8 +1023,6 @@ impl<'a> Resolver<'a> {
             .map(|(name, typevar, _span)| (name.clone(), typevar.clone()))
             .collect();
 
-        let should_fold = attributes.is_foldable();
-
         FuncMeta {
             name: name_ident,
             kind: func.kind,
@@ -1018,7 +1037,7 @@ impl<'a> Resolver<'a> {
             has_body: !func.def.body.is_empty(),
             trait_constraints: self.resolve_trait_constraints(&func.def.where_clause),
             is_entry_point: self.is_entry_point_function(func),
-            should_fold,
+            has_inline_or_fold_attribute,
         }
     }
 
@@ -1032,7 +1051,7 @@ impl<'a> Resolver<'a> {
     /// True if the 'pub' keyword is allowed on parameters in this function
     /// 'pub' on function parameters is only allowed for entry point functions
     fn pub_allowed(&self, func: &NoirFunction) -> bool {
-        self.is_entry_point_function(func)
+        self.is_entry_point_function(func) || func.attributes().is_foldable()
     }
 
     fn is_entry_point_function(&self, func: &NoirFunction) -> bool {
@@ -1052,6 +1071,12 @@ impl<'a> Resolver<'a> {
         } else {
             func.name() == MAIN_FUNCTION
         }
+    }
+
+    fn inline_attribute_allowed(&self, func: &NoirFunction) -> bool {
+        // Inline attributes are only relevant for constrained functions
+        // as all unconstrained functions are not inlined
+        !func.def.is_unconstrained
     }
 
     fn declare_numeric_generics(&mut self, params: &[Type], return_type: &Type) {
@@ -1165,7 +1190,7 @@ impl<'a> Resolver<'a> {
 
     pub fn resolve_global_let(
         &mut self,
-        let_stmt: crate::LetStatement,
+        let_stmt: LetStatement,
         global_id: GlobalId,
     ) -> HirStatement {
         self.current_item = Some(DependencyId::Global(global_id));
@@ -1202,15 +1227,14 @@ impl<'a> Resolver<'a> {
                 })
             }
             StatementKind::Constrain(constrain_stmt) => {
-                let span = constrain_stmt.0.span;
-                let assert_msg_call_expr_id =
-                    self.resolve_assert_message(constrain_stmt.1, span, constrain_stmt.0.clone());
                 let expr_id = self.resolve_expression(constrain_stmt.0);
+                let assert_message_expr_id =
+                    constrain_stmt.1.map(|assert_expr_id| self.resolve_expression(assert_expr_id));
 
                 HirStatement::Constrain(HirConstrainStatement(
                     expr_id,
                     self.file,
-                    assert_msg_call_expr_id,
+                    assert_message_expr_id,
                 ))
             }
             StatementKind::Expression(expr) => {
@@ -1269,54 +1293,18 @@ impl<'a> Resolver<'a> {
                 HirStatement::Continue
             }
             StatementKind::Error => HirStatement::Error,
+            StatementKind::Comptime(statement) => {
+                let statement = self.resolve_stmt(*statement, span);
+                HirStatement::Comptime(self.interner.push_stmt(statement))
+            }
         }
-    }
-
-    fn resolve_assert_message(
-        &mut self,
-        assert_message_expr: Option<Expression>,
-        span: Span,
-        condition: Expression,
-    ) -> Option<ExprId> {
-        let assert_message_expr = assert_message_expr?;
-
-        if matches!(
-            assert_message_expr,
-            Expression { kind: ExpressionKind::Literal(Literal::Str(..)), .. }
-        ) {
-            return Some(self.resolve_expression(assert_message_expr));
-        }
-
-        let is_in_stdlib = self.path_resolver.module_id().krate.is_stdlib();
-        let assert_msg_call_path = if is_in_stdlib {
-            ExpressionKind::Variable(Path {
-                segments: vec![Ident::from("internal"), Ident::from("resolve_assert_message")],
-                kind: PathKind::Crate,
-                span,
-            })
-        } else {
-            ExpressionKind::Variable(Path {
-                segments: vec![
-                    Ident::from("std"),
-                    Ident::from("internal"),
-                    Ident::from("resolve_assert_message"),
-                ],
-                kind: PathKind::Dep,
-                span,
-            })
-        };
-        let assert_msg_call_args = vec![assert_message_expr.clone(), condition];
-        let assert_msg_call_expr = Expression::call(
-            Expression { kind: assert_msg_call_path, span },
-            assert_msg_call_args,
-            span,
-        );
-        Some(self.resolve_expression(assert_msg_call_expr))
     }
 
     pub fn intern_stmt(&mut self, stmt: Statement) -> StmtId {
         let hir_stmt = self.resolve_stmt(stmt.kind, stmt.span);
-        self.interner.push_stmt(hir_stmt)
+        let id = self.interner.push_stmt(hir_stmt);
+        self.interner.push_statement_location(id, stmt.span, self.file);
+        id
     }
 
     fn resolve_lvalue(&mut self, lvalue: LValue) -> HirLValue {
@@ -1327,73 +1315,25 @@ impl<'a> Resolver<'a> {
 
                 HirLValue::Ident(ident.0, Type::Error)
             }
-            LValue::MemberAccess { object, field_name } => {
-                let object = Box::new(self.resolve_lvalue(*object));
-                HirLValue::MemberAccess { object, field_name, field_index: None, typ: Type::Error }
-            }
-            LValue::Index { array, index } => {
+            LValue::MemberAccess { object, field_name, span } => HirLValue::MemberAccess {
+                object: Box::new(self.resolve_lvalue(*object)),
+                field_name,
+                location: Location::new(span, self.file),
+                field_index: None,
+                typ: Type::Error,
+            },
+            LValue::Index { array, index, span } => {
                 let array = Box::new(self.resolve_lvalue(*array));
                 let index = self.resolve_expression(index);
-                HirLValue::Index { array, index, typ: Type::Error }
+                let location = Location::new(span, self.file);
+                HirLValue::Index { array, index, location, typ: Type::Error }
             }
-            LValue::Dereference(lvalue) => {
+            LValue::Dereference(lvalue, span) => {
                 let lvalue = Box::new(self.resolve_lvalue(*lvalue));
-                HirLValue::Dereference { lvalue, element_type: Type::Error }
+                let location = Location::new(span, self.file);
+                HirLValue::Dereference { lvalue, location, element_type: Type::Error }
             }
         }
-    }
-
-    // Issue an error if the given private function is being called from a non-child module, or
-    // if the given pub(crate) function is being called from another crate
-    fn check_can_reference_function(
-        &mut self,
-        func: FuncId,
-        span: Span,
-        visibility: ItemVisibility,
-    ) {
-        let function_module = self.interner.function_module(func);
-        let current_module = self.path_resolver.module_id();
-
-        let same_crate = function_module.krate == current_module.krate;
-        let krate = function_module.krate;
-        let current_module = current_module.local_id;
-        let name = self.interner.function_name(&func).to_string();
-        match visibility {
-            ItemVisibility::Public => (),
-            ItemVisibility::Private => {
-                if !same_crate
-                    || !self.module_descendent_of_target(
-                        krate,
-                        function_module.local_id,
-                        current_module,
-                    )
-                {
-                    self.errors.push(ResolverError::PrivateFunctionCalled { span, name });
-                }
-            }
-            ItemVisibility::PublicCrate => {
-                if !same_crate {
-                    self.errors.push(ResolverError::NonCrateFunctionCalled { span, name });
-                }
-            }
-        }
-    }
-
-    // Returns true if `current` is a (potentially nested) child module of `target`.
-    // This is also true if `current == target`.
-    fn module_descendent_of_target(
-        &self,
-        krate: CrateId,
-        target: LocalModuleId,
-        current: LocalModuleId,
-    ) -> bool {
-        if current == target {
-            return true;
-        }
-
-        self.def_maps[&krate].modules[current.0]
-            .parent
-            .map_or(false, |parent| self.module_descendent_of_target(krate, target, parent))
     }
 
     fn resolve_local_variable(&mut self, hir_ident: HirIdent, var_scope_index: usize) {
@@ -1489,15 +1429,6 @@ impl<'a> Resolver<'a> {
                                 if let Some(current_item) = self.current_item {
                                     self.interner.add_function_dependency(current_item, id);
                                 }
-
-                                if self.interner.function_visibility(id) != ItemVisibility::Public {
-                                    let span = hir_ident.location.span;
-                                    self.check_can_reference_function(
-                                        id,
-                                        span,
-                                        self.interner.function_visibility(id),
-                                    );
-                                }
                             }
                             DefinitionKind::Global(global_id) => {
                                 if let Some(current_item) = self.current_item {
@@ -1581,7 +1512,9 @@ impl<'a> Resolver<'a> {
                 collection: self.resolve_expression(indexed_expr.collection),
                 index: self.resolve_expression(indexed_expr.index),
             }),
-            ExpressionKind::Block(block_expr) => self.resolve_block(block_expr),
+            ExpressionKind::Block(block_expr) => {
+                HirExpression::Block(self.resolve_block(block_expr))
+            }
             ExpressionKind::Constructor(constructor) => {
                 let span = constructor.type_name.span();
 
@@ -1648,6 +1581,7 @@ impl<'a> Resolver<'a> {
 
             // The quoted expression isn't resolved since we don't want errors if variables aren't defined
             ExpressionKind::Quote(block) => HirExpression::Quote(block),
+            ExpressionKind::Comptime(block) => HirExpression::Comptime(self.resolve_block(block)),
         };
 
         // If these lines are ever changed, make sure to change the early return
@@ -1936,7 +1870,7 @@ impl<'a> Resolver<'a> {
                 }
 
                 if let Ok(ModuleDefId::TraitId(trait_id)) =
-                    self.path_resolver.resolve(self.def_maps, trait_bound.trait_path.clone())
+                    self.resolve_path(trait_bound.trait_path.clone())
                 {
                     let the_trait = self.interner.get_trait(trait_id);
                     if let Some(method) =
@@ -1971,17 +1905,23 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_path(&mut self, path: Path) -> Result<ModuleDefId, ResolverError> {
-        self.path_resolver.resolve(self.def_maps, path).map_err(ResolverError::PathResolutionError)
+        let path_resolution = self.path_resolver.resolve(self.def_maps, path)?;
+
+        if let Some(error) = path_resolution.error {
+            self.push_err(error.into());
+        }
+
+        Ok(path_resolution.module_def_id)
     }
 
-    fn resolve_block(&mut self, block_expr: BlockExpression) -> HirExpression {
+    fn resolve_block(&mut self, block_expr: BlockExpression) -> HirBlockExpression {
         let statements =
             self.in_new_scope(|this| vecmap(block_expr.statements, |stmt| this.intern_stmt(stmt)));
-        HirExpression::Block(HirBlockExpression { statements })
+        HirBlockExpression { statements }
     }
 
     pub fn intern_block(&mut self, block: BlockExpression) -> ExprId {
-        let hir_block = self.resolve_block(block);
+        let hir_block = HirExpression::Block(self.resolve_block(block));
         self.interner.push_expr(hir_block)
     }
 

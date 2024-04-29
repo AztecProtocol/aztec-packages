@@ -18,8 +18,8 @@ describe('e2e_counter_contract', () => {
 
     counterContract = await CounterContract.deploy(wallet, 0, owner).send().deployed();
 
-    logger(`Counter contract deployed at ${counterContract.address}`);
-  }, 25_000);
+    logger.info(`Counter contract deployed at ${counterContract.address}`);
+  }, 45_000);
 
   afterAll(() => teardown());
 

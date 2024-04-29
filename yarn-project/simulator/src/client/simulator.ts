@@ -9,14 +9,13 @@ import {
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import { type WasmBlackBoxFunctionSolver, createBlackBoxSolver } from '@noir-lang/acvm_js';
 
 import { createSimulationError } from '../common/errors.js';
-import { PackedArgsCache } from '../common/packed_args_cache.js';
+import { PackedValuesCache } from '../common/packed_values_cache.js';
 import { ClientExecutionContext } from './client_execution_context.js';
 import { type DBOracle } from './db_oracle.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
@@ -61,7 +60,6 @@ export class AcirSimulator {
    * @param request - The transaction request.
    * @param entryPointArtifact - The artifact of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
-   * @param portalContractAddress - The address of the portal contract.
    * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
    * @returns The result of the execution.
    */
@@ -69,7 +67,6 @@ export class AcirSimulator {
     request: TxExecutionRequest,
     entryPointArtifact: FunctionArtifactWithDebugMetadata,
     contractAddress: AztecAddress,
-    portalContractAddress: EthAddress,
     msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
     if (entryPointArtifact.functionType !== FunctionType.SECRET) {
@@ -92,7 +89,6 @@ export class AcirSimulator {
     const callContext = new CallContext(
       msgSender,
       contractAddress,
-      portalContractAddress,
       FunctionSelector.fromNameAndParameters(entryPointArtifact.name, entryPointArtifact.parameters),
       false,
       false,
@@ -100,12 +96,12 @@ export class AcirSimulator {
     );
     const context = new ClientExecutionContext(
       contractAddress,
-      request.argsHash,
+      request.firstCallArgsHash,
       request.txContext,
       callContext,
       header,
       request.authWitnesses,
-      PackedArgsCache.create(request.packedArguments),
+      PackedValuesCache.create(request.argsOfCalls),
       new ExecutionNoteCache(),
       this.db,
       curve,
@@ -139,7 +135,7 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
   ) {
     if (entryPointArtifact.functionType !== FunctionType.UNCONSTRAINED) {
-      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as constrained`);
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as unconstrained`);
     }
 
     const context = new ViewDataOracle(contractAddress, [], this.db, this.node);
@@ -194,7 +190,7 @@ export class AcirSimulator {
     const maxNoteFields = (artifact.parameters[artifact.parameters.length - 1].type as ArrayType).length;
     if (maxNoteFields < note.items.length) {
       throw new Error(
-        `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please consider increasing the allowed field size to accommodate all notes generated from the contract.`,
+        `The note being processed has ${note.items.length} fields, while "compute_note_hash_and_nullifier" can only handle a maximum of ${maxNoteFields} fields. Please reduce the number of fields in your note.`,
       );
     }
 

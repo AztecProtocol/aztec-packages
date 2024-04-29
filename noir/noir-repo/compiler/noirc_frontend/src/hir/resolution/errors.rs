@@ -2,7 +2,7 @@ pub use noirc_errors::Span;
 use noirc_errors::{CustomDiagnostic as Diagnostic, FileDiagnostic};
 use thiserror::Error;
 
-use crate::{parser::ParserError, Ident, Type};
+use crate::{ast::Ident, parser::ParserError, Type};
 
 use super::import::PathResolutionError;
 
@@ -25,7 +25,7 @@ pub enum ResolverError {
     #[error("path is not an identifier")]
     PathIsNotIdent { span: Span },
     #[error("could not resolve path")]
-    PathResolutionError(PathResolutionError),
+    PathResolutionError(#[from] PathResolutionError),
     #[error("Expected")]
     Expected { span: Span, expected: String, got: String },
     #[error("Duplicate field in constructor")]
@@ -49,7 +49,7 @@ pub enum ResolverError {
     #[error("Integer too large to be evaluated in an array length context")]
     IntegerTooLarge { span: Span },
     #[error("No global or generic type parameter found with the given name")]
-    NoSuchNumericTypeVariable { path: crate::Path },
+    NoSuchNumericTypeVariable { path: crate::ast::Path },
     #[error("Closures cannot capture mutable variables")]
     CapturedMutableVariable { span: Span },
     #[error("Test functions are not allowed to have any parameters")]
@@ -72,10 +72,6 @@ pub enum ResolverError {
     NumericConstantInFormatString { name: String, span: Span },
     #[error("Closure environment must be a tuple or unit type")]
     InvalidClosureEnvironment { typ: Type, span: Span },
-    #[error("{name} is private and not visible from the current module")]
-    PrivateFunctionCalled { name: String, span: Span },
-    #[error("{name} is not visible from the current crate")]
-    NonCrateFunctionCalled { name: String, span: Span },
     #[error("Nested slices are not supported")]
     NestedSlices { span: Span },
     #[error("#[recursive] attribute is only allowed on entry points to a program")]
@@ -90,6 +86,10 @@ pub enum ResolverError {
     JumpInConstrainedFn { is_break: bool, span: Span },
     #[error("break/continue are only allowed within loops")]
     JumpOutsideLoop { is_break: bool, span: Span },
+    #[error("#[inline(tag)] attribute is only allowed on constrained functions")]
+    InlineAttributeOnUnconstrained { ident: Ident },
+    #[error("#[fold] attribute is only allowed on constrained functions")]
+    FoldAttributeOnUnconstrained { ident: Ident },
 }
 
 impl ResolverError {
@@ -292,13 +292,6 @@ impl From<ResolverError> for Diagnostic {
             ResolverError::InvalidClosureEnvironment { span, typ } => Diagnostic::simple_error(
                 format!("{typ} is not a valid closure environment type"),
                 "Closure environment must be a tuple or unit type".to_string(), span),
-            // This will be upgraded to an error in future versions
-            ResolverError::PrivateFunctionCalled { span, name } => Diagnostic::simple_warning(
-                format!("{name} is private and not visible from the current module"),
-                format!("{name} is private"), span),
-            ResolverError::NonCrateFunctionCalled { span, name } => Diagnostic::simple_warning(
-                    format!("{name} is not visible from the current crate"),
-                    format!("{name} is only visible within its crate"), span),
             ResolverError::NestedSlices { span } => Diagnostic::simple_error(
                 "Nested slices are not supported".into(),
                 "Try to use a constant sized array instead".into(),
@@ -351,6 +344,30 @@ impl From<ResolverError> for Diagnostic {
                     span,
                 )
             },
+            ResolverError::InlineAttributeOnUnconstrained { ident } => {
+                let name = &ident.0.contents;
+
+                let mut diag = Diagnostic::simple_error(
+                    format!("misplaced #[inline(tag)] attribute on unconstrained function {name}. Only allowed on constrained functions"),
+                    "misplaced #[inline(tag)] attribute".to_string(),
+                    ident.0.span(),
+                );
+
+                diag.add_note("The `#[inline(tag)]` attribute specifies to the compiler whether it should diverge from auto-inlining constrained functions".to_owned());
+                diag
+            }
+            ResolverError::FoldAttributeOnUnconstrained { ident } => {
+                let name = &ident.0.contents;
+
+                let mut diag = Diagnostic::simple_error(
+                    format!("misplaced #[fold] attribute on unconstrained function {name}. Only allowed on constrained functions"),
+                    "misplaced #[fold] attribute".to_string(),
+                    ident.0.span(),
+                );
+
+                diag.add_note("The `#[fold]` attribute specifies whether a constrained function should be treated as a separate circuit rather than inlined into the program entry point".to_owned());
+                diag
+            }
         }
     }
 }

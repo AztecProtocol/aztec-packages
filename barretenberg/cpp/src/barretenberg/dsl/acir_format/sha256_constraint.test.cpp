@@ -17,13 +17,13 @@ class Sha256Tests : public ::testing::Test {
 TEST_F(Sha256Tests, TestSha256Compression)
 {
 
-    std::vector<Sha256Input> inputs;
-    for (uint32_t i = 1; i < 17; ++i) {
-        inputs.push_back({ .witness = i, .num_bits = 32 });
+    std::array<Sha256Input, 16> inputs;
+    for (size_t i = 0; i < 16; ++i) {
+        inputs[i] = { .witness = static_cast<uint32_t>(i + 1), .num_bits = 32 };
     }
-    std::vector<Sha256Input> hash_values;
-    for (uint32_t i = 17; i < 25; ++i) {
-        hash_values.push_back({ .witness = i, .num_bits = 32 });
+    std::array<Sha256Input, 8> hash_values;
+    for (size_t i = 0; i < 8; ++i) {
+        hash_values[i] = { .witness = static_cast<uint32_t>(i + 17), .num_bits = 32 };
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
@@ -44,7 +44,6 @@ TEST_F(Sha256Tests, TestSha256Compression)
                                   .blake2s_constraints = {},
                                   .blake3_constraints = {},
                                   .keccak_constraints = {},
-                                  .keccak_var_constraints = {},
                                   .keccak_permutations = {},
                                   .pedersen_constraints = {},
                                   .pedersen_hash_constraints = {},
@@ -55,7 +54,8 @@ TEST_F(Sha256Tests, TestSha256Compression)
                                   .bigint_from_le_bytes_constraints = {},
                                   .bigint_to_le_bytes_constraints = {},
                                   .bigint_operations = {},
-                                  .constraints = {},
+                                  .poly_triple_constraints = {},
+                                  .quad_constraints = {},
                                   .block_constraints = {} };
 
     WitnessVector witness{ 0,

@@ -13,8 +13,11 @@ template <typename Builder>
 void build_constraints(Builder& builder, AcirFormat const& constraint_system, bool has_valid_witness_assignments)
 {
     // Add arithmetic gates
-    for (const auto& constraint : constraint_system.constraints) {
+    for (const auto& constraint : constraint_system.poly_triple_constraints) {
         builder.create_poly_gate(constraint);
+    }
+    for (const auto& constraint : constraint_system.quad_constraints) {
+        builder.create_big_mul_gate(constraint);
     }
 
     // Add logic constraint
@@ -64,9 +67,6 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
     // Add keccak constraints
     for (const auto& constraint : constraint_system.keccak_constraints) {
         create_keccak_constraints(builder, constraint);
-    }
-    for (const auto& constraint : constraint_system.keccak_var_constraints) {
-        create_keccak_var_constraints(builder, constraint);
     }
     for (const auto& constraint : constraint_system.keccak_permutations) {
         create_keccak_permutations(builder, constraint);

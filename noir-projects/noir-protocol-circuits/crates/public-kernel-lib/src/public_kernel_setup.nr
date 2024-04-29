@@ -3,13 +3,13 @@ use dep::types::abis::{
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
     kernel_data::PublicKernelData, public_call_data::PublicCallData
 };
-use dep::std::unsafe;
 
 struct PublicKernelSetupCircuitPrivateInputs {
     // Note: One might think that our previous_kernel ought to be
     // a PrivateKernelTailData. However, we instead supply a PublicKernelData.
     // This is because PrivateKernelTailData is a subset of PublicKernelData.
-    // And we just initialize the missing values to zero in TS before passing it to the circuit.
+    // And we just initialize the missing values to zero in TS before passing it to the circuit,
+    // except for the constants.global_variables which we populate with the current block values.
     // This is a bit of a hack, but it allows us to reuse the setup circuit until
     // the setup phase of the public kernel is complete. Maybe in a perfect world we would 
     // have a SetupInit, SetupInner, etc, but this will change anyway once the public VM is able to 
@@ -26,7 +26,7 @@ impl PublicKernelSetupCircuitPrivateInputs {
 
     fn public_kernel_setup(self) -> PublicKernelCircuitPublicInputs {
         // construct the circuit outputs
-        let mut public_inputs: PublicKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs = PublicKernelCircuitPublicInputsBuilder::empty();
         // since this phase is non-revertible, we must assert the public call did not revert
         common::validate_public_call_non_revert(self.public_call);
         common::initialize_revert_code(self.previous_kernel, self.public_call, &mut public_inputs);
@@ -37,8 +37,16 @@ impl PublicKernelSetupCircuitPrivateInputs {
         // validate the inputs common to all invocation circumstances
         common::validate_inputs(self.public_call);
 
+        // validate constants injected into the public call are correct or set them if this is the first public call
+        common::initialize_from_or_validate_public_call_variables(self.previous_kernel, self.public_call, &mut public_inputs);
+
         // validate the inputs unique to having a previous private kernel
         self.validate_inputs();
+
+        common::validate_start_gas(self.public_call, self.previous_kernel);
+        common::validate_transaction_fee_is_zero(self.public_call);
+
+        common::update_non_revertible_gas_used(self.public_call, &mut public_inputs);
 
         // Pops the item from the call stack and validates it against the current execution.
         let call_request = public_inputs.end_non_revertible.public_call_stack.pop();
@@ -47,13 +55,6 @@ impl PublicKernelSetupCircuitPrivateInputs {
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
         common::update_public_end_non_revertible_values(self.public_call, &mut public_inputs);
-
-        common::accumulate_unencrypted_logs(
-            self.public_call,
-            self.previous_kernel.public_inputs.end.unencrypted_logs_hash,
-            self.previous_kernel.public_inputs.end.unencrypted_log_preimages_length,
-            &mut public_inputs
-        );
 
         public_inputs.finish()
     }
@@ -69,13 +70,13 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        call_request::CallRequest, function_selector::FunctionSelector,
+        call_request::CallRequest, function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
         public_call_data::PublicCallData, read_request::ReadRequest
     },
         address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        contrakt::storage_read::StorageRead, hash::compute_logs_hash,
+        contrakt::storage_read::StorageRead,
         tests::{fixture_builder::FixtureBuilder, public_call_data_builder::PublicCallDataBuilder},
         utils::{arrays::{array_eq, array_length}}
     };
@@ -445,23 +446,26 @@ mod tests {
         let prev_encrypted_log_preimages_length = 13;
         let prev_unencrypted_logs_hash = 956;
         let prev_unencrypted_log_preimages_length = 24;
-        builder.previous_revertible.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-        builder.previous_revertible.set_unencrypted_logs(
+        builder.previous_kernel.set_encrypted_logs(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
+        builder.previous_kernel.set_unencrypted_logs(
             prev_unencrypted_logs_hash,
             prev_unencrypted_log_preimages_length
         );
 
         let public_inputs = builder.execute();
 
-        assert_eq(public_inputs.end.encrypted_log_preimages_length, prev_encrypted_log_preimages_length);
         assert_eq(
-            public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
+            public_inputs.end_non_revertible.encrypted_log_preimages_length, prev_encrypted_log_preimages_length
+        );
+        assert_eq(
+            public_inputs.end_non_revertible.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
-        assert_eq(public_inputs.end.encrypted_logs_hash, prev_encrypted_logs_hash);
-
-        let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end_non_revertible.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
+        assert_eq(
+            public_inputs.end_non_revertible.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash
+        );
+        assert_eq(public_inputs.end_non_revertible.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test]
@@ -494,6 +498,70 @@ mod tests {
     fn fails_if_public_call_reverted() {
         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
         builder.public_call.public_inputs.revert_code = 1;
+
+        builder.failed();
+    }
+
+    #[test]
+    fn updates_non_revertible_gas_used() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        // Transaction gas limit is 1k
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000, 1000);
+
+        // Revertible has already used 100
+        builder.previous_revertible.gas_used = Gas::new(100, 100, 100);
+
+        // And non-revertible has used another 200
+        builder.previous_kernel.gas_used = Gas::new(200, 200, 200);
+
+        // So this call starts with 700 gas left
+        builder.public_call.public_inputs.start_gas_left = Gas::new(700, 700, 700);
+
+        // And uses 300, ending with 400 left
+        builder.public_call.public_inputs.end_gas_left = Gas::new(400, 400, 400);
+
+        // So the updated gas used by non-revertible must go up by 300, and revertible must stay the same
+        let output = builder.execute();
+        assert_eq(output.end_non_revertible.gas_used, Gas::new(500, 500, 500));
+        assert_eq(output.end.gas_used, Gas::new(100, 100, 100));
+    }
+
+    #[test(should_fail_with="Start gas for public phase does not match transaction gas left")]
+    fn validates_start_gas() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.start_gas_left = Gas::new(200, 100, 100);
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with="Transaction fee must be zero on setup and app phases")]
+    fn validates_transaction_fee() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.transaction_fee = 10;
+
+        builder.failed();
+    }
+
+    #[test]
+    fn propagates_global_variables_if_empty() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        builder.public_call.public_inputs.global_variables.block_number = 11;
+
+        let public_inputs = builder.execute();
+
+        assert_eq(public_inputs.constants.global_variables.block_number, 11);
+    }
+
+    #[test(should_fail_with="Global variables injected into the public call do not match constants")]
+    fn validates_global_variables() {
+        let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+
+        builder.previous_kernel.global_variables.block_number = 10;
+        builder.public_call.public_inputs.global_variables.block_number = 11;
 
         builder.failed();
     }

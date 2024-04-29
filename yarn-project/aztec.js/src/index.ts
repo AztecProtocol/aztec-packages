@@ -25,6 +25,8 @@ export {
   Contract,
   ContractBase,
   ContractMethod,
+  ContractStorageLayout,
+  ContractNotes,
   SentTx,
   BatchCall,
   DeployMethod,
@@ -56,7 +58,7 @@ export { AuthWitnessProvider } from './account/index.js';
 export { AccountContract } from './account/index.js';
 export { AccountManager } from './account_manager/index.js';
 
-export { AccountWalletWithPrivateKey, AccountWallet, Wallet, SignerlessWallet } from './wallet/index.js';
+export { AccountWalletWithSecretKey, AccountWallet, Wallet, SignerlessWallet } from './wallet/index.js';
 
 // // TODO https://github.com/AztecProtocol/aztec-packages/issues/2632 --> FunctionSelector might not need to be exposed
 // // here once the issue is resolved.
@@ -73,7 +75,14 @@ export {
   INITIAL_L2_BLOCK_NUM,
 } from '@aztec/circuits.js';
 
-export { computeMessageSecretHash } from '@aztec/circuits.js/hash';
+export { computeSecretHash } from '@aztec/circuits.js/hash';
+
+export {
+  computeAppNullifierSecretKey,
+  deriveKeys,
+  deriveMasterIncomingViewingSecretKey,
+  deriveMasterNullifierSecretKey,
+} from '@aztec/circuits.js/keys';
 
 export { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
 
@@ -83,7 +92,7 @@ export {
   Body,
   CompleteAddress,
   ExtendedNote,
-  FunctionCall,
+  type FunctionCall,
   GrumpkinPrivateKey,
   L1ToL2Message,
   L1Actor,
@@ -98,7 +107,7 @@ export {
   MerkleTreeId,
   Note,
   PXE,
-  PackedArguments,
+  PackedValues,
   PartialAddress,
   PublicKey,
   SyncStatus,

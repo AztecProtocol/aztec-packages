@@ -19,8 +19,8 @@ describe('e2e_voting_contract', () => {
 
     votingContract = await EasyPrivateVotingContract.deploy(wallet, owner).send().deployed();
 
-    logger(`Counter contract deployed at ${votingContract.address}`);
-  }, 25_000);
+    logger.info(`Counter contract deployed at ${votingContract.address}`);
+  }, 45_000);
 
   afterAll(() => teardown());
 

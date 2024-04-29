@@ -81,7 +81,8 @@ contract PendingNoteHashes {
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
-        let options = NoteGetterOptions::new().set_limit(1);
+        let mut options = NoteGetterOptions::new();
+        options = options.set_limit(1);
         let note = owner_balance.get_notes(options)[0].unwrap();
 
         assert(expected_value == note.value);
@@ -114,13 +115,13 @@ contract PendingNoteHashes {
         get_then_nullify_fn_selector: FunctionSelector
     ) {
         // nested call to create/insert note
-        let _callStackItem1 = context.call_private_function(
+        let _res = context.call_private_function(
             inputs.call_context.storage_contract_address,
             insert_fn_selector,
             [amount, owner.to_field()]
         );
         // nested call to read and nullify that note
-        let _callStackItem2 = context.call_private_function(
+        let _res = context.call_private_function(
             inputs.call_context.storage_contract_address,
             get_then_nullify_fn_selector,
             [amount, owner.to_field()]

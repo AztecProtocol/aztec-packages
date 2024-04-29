@@ -1,10 +1,10 @@
 import { type FunctionData, PrivateCallStackItem, PrivateCircuitPublicInputs } from '@aztec/circuits.js';
-import { type AbiType, type FunctionArtifactWithDebugMetadata, decodeReturnValues } from '@aztec/foundation/abi';
+import { type FunctionArtifactWithDebugMetadata } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { extractReturnWitness } from '../acvm/deserialize.js';
+import { witnessMapToFields } from '../acvm/deserialize.js';
 import { Oracle, acvm, extractCallStack } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
 import { type ClientExecutionContext } from './client_execution_context.js';
@@ -22,11 +22,11 @@ export async function executePrivateFunction(
   log = createDebugLogger('aztec:simulator:secret_execution'),
 ): Promise<ExecutionResult> {
   const functionSelector = functionData.selector;
-  log(`Executing external function ${contractAddress}:${functionSelector}(${artifact.name})`);
+  log.verbose(`Executing external function ${contractAddress}:${functionSelector}(${artifact.name})`);
   const acir = artifact.bytecode;
   const initialWitness = context.getInitialWitness(artifact);
   const acvmCallback = new Oracle(context);
-  const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback).catch(
+  const acirExecutionResult = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, acvmCallback).catch(
     (err: Error) => {
       throw new ExecutionError(
         err.message,
@@ -39,25 +39,19 @@ export async function executePrivateFunction(
       );
     },
   );
-
-  const returnWitness = extractReturnWitness(acir, partialWitness);
+  const partialWitness = acirExecutionResult.partialWitness;
+  const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
   const publicInputs = PrivateCircuitPublicInputs.fromFields(returnWitness);
 
   const encryptedLogs = context.getEncryptedLogs();
   const unencryptedLogs = context.getUnencryptedLogs();
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
-  publicInputs.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
   publicInputs.encryptedLogPreimagesLength = new Fr(encryptedLogs.getSerializedLength());
-  publicInputs.unencryptedLogsHash = Fr.fromBuffer(unencryptedLogs.hash());
   publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
   const callStackItem = new PrivateCallStackItem(contractAddress, functionData, publicInputs);
 
-  // Mocking the return type to be an array of 4 fields
-  // TODO: @LHerskind must be updated as we are progressing with the macros to get the information
-  const returnTypes: AbiType[] = [{ kind: 'array', length: 4, type: { kind: 'field' } }];
-  const mockArtifact = { ...artifact, returnTypes };
-  const returnValues = decodeReturnValues(mockArtifact, publicInputs.returnValues);
+  const rawReturnValues = await context.unpackReturns(publicInputs.returnsHash);
 
   const noteHashReadRequestPartialWitnesses = context.getNoteHashReadRequestPartialWitnesses(
     publicInputs.noteHashReadRequests,
@@ -66,13 +60,13 @@ export async function executePrivateFunction(
   const nestedExecutions = context.getNestedExecutions();
   const enqueuedPublicFunctionCalls = context.getEnqueuedPublicFunctionCalls();
 
-  log(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
+  log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return {
     acir,
     partialWitness,
     callStackItem,
-    returnValues,
+    returnValues: rawReturnValues,
     noteHashReadRequestPartialWitnesses,
     newNotes,
     vk: Buffer.from(artifact.verificationKey!, 'hex'),

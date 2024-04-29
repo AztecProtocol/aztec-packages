@@ -11,7 +11,6 @@ void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared
     auto [proving_key, relation_params, alphas] = oink_prover.prove();
     instance->proving_key = std::move(proving_key);
     instance->relation_parameters = std::move(relation_params);
-    instance->prover_polynomials = ProverPolynomials(instance->proving_key);
     instance->alphas = std::move(alphas);
 }
 
@@ -47,8 +46,26 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     // Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
     // and the computation of Lagrange basis for k instances
-    auto vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
-    std::vector<FF> lagranges{ FF(1) - challenge, challenge };
+    FF vanishing_polynomial_at_challenge;
+    std::array<FF, ProverInstances::NUM> lagranges;
+    constexpr FF inverse_two = FF(2).invert();
+    if constexpr (ProverInstances::NUM == 2) {
+        vanishing_polynomial_at_challenge = challenge * (challenge - FF(1));
+        lagranges = { FF(1) - challenge, challenge };
+    } else if constexpr (ProverInstances::NUM == 3) {
+        vanishing_polynomial_at_challenge = challenge * (challenge - FF(1)) * (challenge - FF(2));
+        lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * inverse_two,
+                      challenge * (FF(2) - challenge),
+                      challenge * (challenge - FF(1)) / FF(2) };
+    } else if constexpr (ProverInstances::NUM == 4) {
+        constexpr FF inverse_six = FF(6).invert();
+        vanishing_polynomial_at_challenge = challenge * (challenge - FF(1)) * (challenge - FF(2)) * (challenge - FF(3));
+        lagranges = { (FF(1) - challenge) * (FF(2) - challenge) * (FF(3) - challenge) * inverse_six,
+                      challenge * (FF(2) - challenge) * (FF(3) - challenge) * inverse_two,
+                      challenge * (challenge - FF(1)) * (FF(3) - challenge) * inverse_two,
+                      challenge * (challenge - FF(1)) * (challenge - FF(2)) * inverse_six };
+    }
+    static_assert(ProverInstances::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::move(instances[0]);
@@ -62,7 +79,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     next_accumulator->gate_challenges = instances.next_gate_challenges;
 
     // Initialize accumulator proving key polynomials
-    auto accumulator_polys = next_accumulator->proving_key.get_all();
+    auto accumulator_polys = next_accumulator->proving_key.polynomials.get_all();
     run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
         for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
             auto& acc_poly = accumulator_polys[poly_idx];
@@ -74,7 +91,7 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
 
     // Fold the proving key polynomials
     for (size_t inst_idx = 1; inst_idx < ProverInstances::NUM; inst_idx++) {
-        auto input_polys = instances[inst_idx]->proving_key.get_all();
+        auto input_polys = instances[inst_idx]->proving_key.polynomials.get_all();
         run_loop_in_parallel(Flavor::NUM_FOLDED_ENTITIES, [&](size_t start_idx, size_t end_idx) {
             for (size_t poly_idx = start_idx; poly_idx < end_idx; poly_idx++) {
                 auto& acc_poly = accumulator_polys[poly_idx];
@@ -123,10 +140,6 @@ std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverIns
     };
     next_accumulator->relation_parameters = folded_relation_parameters;
     next_accumulator->proving_key = std::move(instances[0]->proving_key);
-    // Derive the prover polynomials from the proving key polynomials since we only fold the unshifted polynomials. This
-    // is extremely cheap since we only call .share() and .shifted() polynomial functions. We need the folded prover
-    // polynomials for the decider.
-    next_accumulator->prover_polynomials = ProverPolynomials(next_accumulator->proving_key);
     return next_accumulator;
 }
 
@@ -197,4 +210,10 @@ FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstanc
 
 template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 2>>;
 template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 2>>;
+
+template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 3>>;
+template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 3>>;
+
+template class ProtoGalaxyProver_<ProverInstances_<UltraFlavor, 4>>;
+template class ProtoGalaxyProver_<ProverInstances_<GoblinUltraFlavor, 4>>;
 } // namespace bb

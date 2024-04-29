@@ -31,8 +31,8 @@ mod test {
         hir::def_map::{CrateDefMap, LocalModuleId},
         parse_program,
     };
-    use arena::Arena;
     use fm::FileManager;
+    use noirc_arena::Arena;
 
     pub(crate) fn has_parser_error(errors: &[(CompilationError, FileId)]) -> bool {
         errors.iter().any(|(e, _f)| matches!(e, CompilationError::ParseError(_)))
@@ -780,6 +780,7 @@ mod test {
                 HirStatement::Error => panic!("Invalid HirStatement!"),
                 HirStatement::Break => panic!("Unexpected break"),
                 HirStatement::Continue => panic!("Unexpected continue"),
+                HirStatement::Comptime(_) => panic!("Unexpected comptime"),
             };
             let expr = interner.expression(&expr_id);
 
@@ -1033,19 +1034,19 @@ mod test {
     fn resolve_complex_closures() {
         let src = r#"
             fn main(x: Field) -> pub Field {
-                let closure_without_captures = |x| x + x;
+                let closure_without_captures = |x: Field| -> Field { x + x };
                 let a = closure_without_captures(1);
 
-                let closure_capturing_a_param = |y| y + x;
+                let closure_capturing_a_param = |y: Field| -> Field { y + x };
                 let b = closure_capturing_a_param(2);
 
-                let closure_capturing_a_local_var = |y| y + b;
+                let closure_capturing_a_local_var = |y: Field| -> Field { y + b };
                 let c = closure_capturing_a_local_var(3);
 
-                let closure_with_transitive_captures = |y| {
+                let closure_with_transitive_captures = |y: Field| -> Field {
                     let d = 5;
-                    let nested_closure = |z| {
-                        let doubly_nested_closure = |w| w + x + b;
+                    let nested_closure = |z: Field| -> Field {
+                        let doubly_nested_closure = |w: Field| -> Field { w + x + b };
                         a + z + y + d + x + doubly_nested_closure(4) + x + y
                     };
                     let res = nested_closure(5);
@@ -1280,5 +1281,37 @@ fn lambda$f1(mut env$l1: (Field)) -> Field {
             fn main(_arg: Outer<1>) {}
         "#;
         assert_eq!(get_program_errors(src).len(), 0);
+    }
+
+    #[test]
+    fn deny_inline_attribute_on_unconstrained() {
+        let src = r#"
+            #[inline(never)]
+            unconstrained fn foo(x: Field, y: Field) {
+                assert(x != y);
+            }
+        "#;
+        let errors = get_program_errors(src);
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(
+            errors[0].0,
+            CompilationError::ResolverError(ResolverError::InlineAttributeOnUnconstrained { .. })
+        ));
+    }
+
+    #[test]
+    fn deny_fold_attribute_on_unconstrained() {
+        let src = r#"
+            #[fold]
+            unconstrained fn foo(x: Field, y: Field) {
+                assert(x != y);
+            }
+        "#;
+        let errors = get_program_errors(src);
+        assert_eq!(errors.len(), 1);
+        assert!(matches!(
+            errors[0].0,
+            CompilationError::ResolverError(ResolverError::FoldAttributeOnUnconstrained { .. })
+        ));
     }
 }

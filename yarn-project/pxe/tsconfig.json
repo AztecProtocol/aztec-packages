@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../builder"
+    },
+    {
       "path": "../circuit-types"
     },
     {
@@ -23,9 +26,6 @@
     },
     {
       "path": "../kv-store"
-    },
-    {
-      "path": "../noir-compiler"
     },
     {
       "path": "../noir-protocol-circuits-types"

@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.35.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.35.0...aztec-package-v0.35.1) (2024-04-16)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
+## [0.35.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.34.0...aztec-package-v0.35.0) (2024-04-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* pay fee for account init ([#5601](https://github.com/AztecProtocol/aztec-packages/issues/5601))
+
+### Features
+
+* Pay fee for account init ([#5601](https://github.com/AztecProtocol/aztec-packages/issues/5601)) ([aca804f](https://github.com/AztecProtocol/aztec-packages/commit/aca804f96ca9e74b6b553449333e195c0639b151))
+
+## [0.34.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.33.0...aztec-package-v0.34.0) (2024-04-10)
+
+
+### Miscellaneous
+
+* Reduce log verbosity in local e2e tests ([#5622](https://github.com/AztecProtocol/aztec-packages/issues/5622)) ([c496a10](https://github.com/AztecProtocol/aztec-packages/commit/c496a105eac3b78e53b7d42d4a64e88e3a4759a5))
+
+## [0.33.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.32.1...aztec-package-v0.33.0) (2024-04-09)
+
+
+### Features
+
+* Jest fast transpile. no more ts-jest. ([#5530](https://github.com/AztecProtocol/aztec-packages/issues/5530)) ([1912802](https://github.com/AztecProtocol/aztec-packages/commit/19128024292a91d0f947f397ab1b0dc2cd7ef7aa))
+* **SimulateTx:** Simulate constrained transaction execution with return values ([#5432](https://github.com/AztecProtocol/aztec-packages/issues/5432)) ([0249737](https://github.com/AztecProtocol/aztec-packages/commit/0249737e8b925406e9278b80fc7adc0f6ab5468d))
+
 ## [0.32.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.32.0...aztec-package-v0.32.1) (2024-04-02)
 
 

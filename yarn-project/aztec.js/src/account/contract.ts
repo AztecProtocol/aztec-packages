@@ -1,8 +1,9 @@
 import { type CompleteAddress } from '@aztec/circuit-types';
+import { type Fr } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type NodeInfo } from '@aztec/types/interfaces';
 
-import { type AccountInterface } from './interface.js';
+import { type AccountInterface, type AuthWitnessProvider } from './interface.js';
 
 // docs:start:account-contract-interface
 /**
@@ -25,9 +26,16 @@ export interface AccountContract {
    * The account interface is responsible for assembling tx requests given requested function calls, and
    * for creating signed auth witnesses given action identifiers (message hashes).
    * @param address - Address where this account contract is deployed.
+   * @param publicKeysHash - Hash of the public keys used to authorize actions.
    * @param nodeInfo - Info on the chain where it is deployed.
    * @returns An account interface instance for creating tx requests and authorizing actions.
    */
-  getInterface(address: CompleteAddress, nodeInfo: NodeInfo): AccountInterface;
+  getInterface(address: CompleteAddress, publicKeysHash: Fr, nodeInfo: NodeInfo): AccountInterface;
+
+  /**
+   * Returns the auth witness provider for the given address.
+   * @param address - Address for which to create auth witnesses.
+   */
+  getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider;
 }
 // docs:end:account-contract-interface

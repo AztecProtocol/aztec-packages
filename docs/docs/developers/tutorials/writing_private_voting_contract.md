@@ -16,7 +16,7 @@ To keep things simple, we won't create ballots or allow for delegate voting.
 
 ## Prerequisites
 
-- You have followed the [quickstart](../getting_started/quickstart.md) to install `aztec-nargo`, `aztec-cli` and `aztec-sandbox`.
+- You have followed the [quickstart](../getting_started/quickstart.md) to install `aztec-nargo` and `aztec-sandbox`.
 - Running Aztec Sandbox
 
 ## Set up a project
@@ -39,9 +39,15 @@ Your file structure should look something like this:
 
 The file `main.nr` will soon turn into our smart contract!
 
-We will need the Aztec library to create this contract. In your `Nargo.toml` you should see `[dependencies]` - paste this bellow it.
+We will need the Aztec library to create this contract. Add the following content to `Nargo.toml`:
 
 ```toml
+[package]
+name = "private_voting"
+type = "contract"
+authors = [""]
+compiler_version = ">=0.18.0"
+
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 ```
@@ -64,11 +70,13 @@ Inside this, paste these imports:
 
 We are using various utils within the Aztec library:
 
-- `Context` and `PrivateContext` - exposes things such as the contract address, msg_sender, etc
-- `AztecAddress` - A type for storing an address on Aztec
-- `FunctionSelector` - Used for computing a selector to call a function
-- `Map` - A data storage type for storing candidates with the number of votes they have
-- `PublicMutable` - A type of storage, which holds a mutable public value. We'll store votes as PublicMutables
+- `context` - exposes things such as the contract address, msg_sender, etc
+- `context.request_nullifier_secret_key` - get your secret key to help us create a randomized nullifier
+- `FunctionSelector::from_signature` - compute a function selector from signature so we can call functions from other functions
+- `state_vars::{Map, PublicMutable}` - we will use a Map to store the votes (key = voteId, value = number of votes), and PublicMutable to hold our public values that we mentioned earlier
+- `types::type_serialization::{..}` - various serialization methods for defining how to use these types
+- `types::address::{AztecAddress},` - our admin will be held as an address
+- `constants::EMPTY_NULLIFIED_COMMITMENT,` - this will come in useful when creating our nullifier
 
 ## Set up storage
 
@@ -147,43 +155,13 @@ The easiest way to compile the contract is with `aztec-nargo`. Run the following
 aztec-nargo compile
 ```
 
-This will create a new directory called `target` and a JSON artifact inside it.
-
-Once it is compiled you can [deploy](../contracts/deploying_contracts/how_to_deploy_contract.md) it to the sandbox. Ensure your [sandbox is running](../sandbox/references/sandbox-reference.md). 
-
-In the terminal where your sandbox is running, you will see some pre-registered accounts. You can use these as the addresses in the next commands. You can also run `aztec-cli get-accounts` to get this information.
-
-Run this command to deloy your contract:
+This will create a new directory called `target` and a JSON artifact inside it. To optionally create a typescript interface, run:
 
 ```bash
-aztec-cli deploy ./target/private_voting-Voting.json --args $ADMIN_ADDRESS
+aztec-builder target -o src/artifacts
 ```
 
-The constructor takes an address as an argument to set the admin.
-
-You should see a success message with the contract address. Now we can start calling functions! You will need to pass this contract address as an argument when calling functions.
-
-Cast a vote like this:
-
-```bash
-aztec-cli send cast_vote --contract-artifact ./target/private_voting-Voting.json --contract-address $CONTRACT_ADDRESS --args 1 --private-key $PRIVATE_KEY
-```
-
-You can get the contract address from the sandbox terminal or the message printed when you deployed the contract. You can also get a private key from the sandbox terminal, or generate one with `aztec-cli generate-private-key`.
-
-This should return a `mined` success message.
-
-You can now try running this command again to ensure our nullifier works.
-
-Get the number of votes like this:
-
-```bash
-aztec-cli call get_vote --contract-artifact ./target/private_voting-Voting.json --contract-address $CONTRACT_ADDRESS --args 1
-```
-
-This should return `1n`.
-
-You can follow this pattern to test `end_vote()` and access control of other functions. Find more information about calling functions from the CLI [here](../sandbox/references/cli-commands.md).
+Once it is compiled you can [deploy](../contracts/deploying_contracts/how_to_deploy_contract.md) it to the sandbox. This is out of scope for this tutorial but you can learn how to do this in the [Aztec.js getting-started guide](../getting_started/aztecjs-getting-started.md).
 
 ## Next steps
 

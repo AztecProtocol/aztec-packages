@@ -1,9 +1,9 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { type AztecAddress, BatchCall, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
-import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { AztecAddress, SignerlessWallet, type Wallet } from '@aztec/aztec.js';
+import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multi-call';
+import { CANONICAL_KEY_REGISTRY_ADDRESS } from '@aztec/circuits.js';
 import {
   type DeployL1Contracts,
   type L1ContractAddresses,
@@ -30,7 +30,10 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
+import { GasTokenContract } from '@aztec/noir-contracts.js/GasToken';
+import { KeyRegistryContract } from '@aztec/noir-contracts.js/KeyRegistry';
 import { getCanonicalGasToken } from '@aztec/protocol-contracts/gas-token';
+import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 
 import {
@@ -156,7 +159,7 @@ async function initL1GasPortal(
     {} as any,
   );
 
-  logger(
+  logger.info(
     `Initialized Gas Portal at ${l1ContractAddresses.gasPortalAddress} to bridge between L1 ${l1ContractAddresses.gasTokenAddress} to L2 ${l2GasTokenAddress}`,
   );
 }
@@ -172,14 +175,50 @@ async function deployCanonicalL2GasToken(deployer: Wallet, l1ContractAddresses: 
     return;
   }
 
-  const batch = new BatchCall(deployer, [
-    (await registerContractClass(deployer, canonicalGasToken.artifact)).request(),
-    deployInstance(deployer, canonicalGasToken.instance).request(),
-  ]);
+  const gasToken = await GasTokenContract.deploy(deployer, gasPortalAddress)
+    .send({ contractAddressSalt: canonicalGasToken.instance.salt, universalDeploy: true })
+    .deployed();
 
-  await batch.send().wait();
+  if (gasToken.address !== canonicalGasToken.address) {
+    throw new Error(
+      `Deployed Gas Token address ${gasToken.address} does not match expected address ${canonicalGasToken.address}`,
+    );
+  }
 
-  logger(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
+  logger.info(`Deployed Gas Token on L2 at ${canonicalGasToken.address}`);
+}
+
+/**
+ * Deploys the key registry on L2.
+ */
+async function deployCanonicalKeyRegistry(deployer: Wallet) {
+  const canonicalKeyRegistry = getCanonicalKeyRegistry();
+
+  // We check to see if there exists a contract at the canonical Key Registry address with the same contract class id as we expect. This means that
+  // the key registry has already been deployed to the correct address.
+  if (
+    (await deployer.getContractInstance(canonicalKeyRegistry.address))?.contractClassId.equals(
+      canonicalKeyRegistry.contractClass.id,
+    ) &&
+    (await deployer.isContractClassPubliclyRegistered(canonicalKeyRegistry.contractClass.id))
+  ) {
+    return;
+  }
+
+  const keyRegistry = await KeyRegistryContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalKeyRegistry.instance.salt, universalDeploy: true })
+    .deployed();
+
+  if (
+    !keyRegistry.address.equals(canonicalKeyRegistry.address) ||
+    !keyRegistry.address.equals(AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS))
+  ) {
+    throw new Error(
+      `Deployed Key Registry address ${keyRegistry.address} does not match expected address ${canonicalKeyRegistry.address}, or they both do not equal CANONICAL_KEY_REGISTRY_ADDRESS`,
+    );
+  }
+
+  logger.info(`Deployed Key Registry on L2 at ${canonicalKeyRegistry.address}`);
 }
 
 /** Sandbox settings. */
@@ -210,9 +249,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const node = await createAztecNode(aztecNodeConfig);
   const pxe = await createAztecPXE(node);
 
+  await deployCanonicalKeyRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
+  );
+
   if (config.enableGas) {
     await deployCanonicalL2GasToken(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint()),
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.chainId, aztecNodeConfig.version)),
       aztecNodeConfig.l1Contracts,
     );
   }

@@ -6,15 +6,18 @@ use std::{
 };
 
 use crate::{
+    ast::IntegerBitSize,
     hir::type_check::TypeCheckError,
     node_interner::{ExprId, NodeInterner, TraitId, TypeAliasId},
-    IntegerBitSize,
 };
 use iter_extended::vecmap;
 use noirc_errors::{Location, Span};
 use noirc_printable_type::PrintableType;
 
-use crate::{node_interner::StructId, Ident, Signedness};
+use crate::{
+    ast::{Ident, Signedness},
+    node_interner::StructId,
+};
 
 use super::expr::{HirCallExpression, HirExpression, HirIdent};
 
@@ -543,11 +546,11 @@ impl TypeBinding {
 pub struct TypeVariableId(pub usize);
 
 impl Type {
-    pub fn default_int_type() -> Type {
+    pub fn default_int_or_field_type() -> Type {
         Type::FieldElement
     }
 
-    pub fn default_range_loop_type() -> Type {
+    pub fn default_int_type() -> Type {
         Type::Integer(Signedness::Unsigned, IntegerBitSize::SixtyFour)
     }
 
@@ -589,6 +592,7 @@ impl Type {
                 TypeBinding::Bound(binding) => binding.is_bindable(),
                 TypeBinding::Unbound(_) => true,
             },
+            Type::Alias(alias, args) => alias.borrow().get_type(args).is_bindable(),
             _ => false,
         }
     }
@@ -603,6 +607,15 @@ impl Type {
 
     pub fn is_unsigned(&self) -> bool {
         matches!(self.follow_bindings(), Type::Integer(Signedness::Unsigned, _))
+    }
+
+    pub fn is_numeric(&self) -> bool {
+        use Type::*;
+        use TypeVariableKind as K;
+        matches!(
+            self.follow_bindings(),
+            FieldElement | Integer(..) | Bool | TypeVariable(_, K::Integer | K::IntegerOrField)
+        )
     }
 
     fn contains_numeric_typevar(&self, target_id: TypeVariableId) -> bool {
@@ -716,6 +729,54 @@ impl Type {
         }
     }
 
+    /// True if this type can be used as a parameter to an ACIR function that is not `main` or a contract function.
+    /// This encapsulates functions for which we may not want to inline during compilation.
+    ///
+    /// The inputs allowed for a function entry point differ from those allowed as input to a program as there are
+    /// certain types which through compilation we know what their size should be.
+    /// This includes types such as numeric generics.
+    pub(crate) fn is_valid_non_inlined_function_input(&self) -> bool {
+        match self {
+            // Type::Error is allowed as usual since it indicates an error was already issued and
+            // we don't need to issue further errors about this likely unresolved type
+            Type::FieldElement
+            | Type::Integer(_, _)
+            | Type::Bool
+            | Type::Unit
+            | Type::Constant(_)
+            | Type::TypeVariable(_, _)
+            | Type::NamedGeneric(_, _)
+            | Type::Error => true,
+
+            Type::FmtString(_, _)
+            // To enable this we would need to determine the size of the closure outputs at compile-time.
+            // This is possible as long as the output size is not dependent upon a witness condition.
+            | Type::Function(_, _, _)
+            | Type::Slice(_)
+            | Type::MutableReference(_)
+            | Type::Forall(_, _)
+            // TODO: probably can allow code as it is all compile time
+            | Type::Code
+            | Type::TraitAsType(..) => false,
+
+            Type::Alias(alias, generics) => {
+                let alias = alias.borrow();
+                alias.get_type(generics).is_valid_non_inlined_function_input()
+            }
+
+            Type::Array(length, element) => {
+                length.is_valid_non_inlined_function_input() && element.is_valid_non_inlined_function_input()
+            }
+            Type::String(length) => length.is_valid_non_inlined_function_input(),
+            Type::Tuple(elements) => elements.iter().all(|elem| elem.is_valid_non_inlined_function_input()),
+            Type::Struct(definition, generics) => definition
+                .borrow()
+                .get_fields(generics)
+                .into_iter()
+                .all(|(_, field)| field.is_valid_non_inlined_function_input()),
+        }
+    }
+
     /// Returns the number of `Forall`-quantified type variables on this type.
     /// Returns 0 if this is not a Type::Forall
     pub fn generic_count(&self) -> usize {
@@ -777,7 +838,7 @@ impl std::fmt::Display for Type {
             Type::TypeVariable(var, TypeVariableKind::Normal) => write!(f, "{}", var.borrow()),
             Type::TypeVariable(binding, TypeVariableKind::Integer) => {
                 if let TypeBinding::Unbound(_) = &*binding.borrow() {
-                    write!(f, "{}", TypeVariableKind::Integer.default_type())
+                    write!(f, "{}", Type::default_int_type())
                 } else {
                     write!(f, "{}", binding.borrow())
                 }
@@ -1696,11 +1757,12 @@ impl BinaryTypeOperator {
 impl TypeVariableKind {
     /// Returns the default type this type variable should be bound to if it is still unbound
     /// during monomorphization.
-    pub(crate) fn default_type(&self) -> Type {
+    pub(crate) fn default_type(&self) -> Option<Type> {
         match self {
-            TypeVariableKind::IntegerOrField | TypeVariableKind::Normal => Type::default_int_type(),
-            TypeVariableKind::Integer => Type::default_range_loop_type(),
-            TypeVariableKind::Constant(length) => Type::Constant(*length),
+            TypeVariableKind::IntegerOrField => Some(Type::default_int_or_field_type()),
+            TypeVariableKind::Integer => Some(Type::default_int_type()),
+            TypeVariableKind::Constant(length) => Some(Type::Constant(*length)),
+            TypeVariableKind::Normal => None,
         }
     }
 }
@@ -1734,12 +1796,12 @@ impl From<&Type> for PrintableType {
             },
             Type::TypeVariable(binding, TypeVariableKind::Integer) => match &*binding.borrow() {
                 TypeBinding::Bound(typ) => typ.into(),
-                TypeBinding::Unbound(_) => Type::default_range_loop_type().into(),
+                TypeBinding::Unbound(_) => Type::default_int_type().into(),
             },
             Type::TypeVariable(binding, TypeVariableKind::IntegerOrField) => {
                 match &*binding.borrow() {
                     TypeBinding::Bound(typ) => typ.into(),
-                    TypeBinding::Unbound(_) => Type::default_int_type().into(),
+                    TypeBinding::Unbound(_) => Type::default_int_or_field_type().into(),
                 }
             }
             Type::Bool => PrintableType::Boolean,

@@ -69,7 +69,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = memory.get(this.noteHashOffset).toFr();
-    context.persistableState.writeNoteHash(noteHash);
+    context.persistableState.writeNoteHash(context.environment.storageAddress, noteHash);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
@@ -80,19 +80,31 @@ export class NullifierExists extends Instruction {
   static type: string = 'NULLIFIEREXISTS';
   static readonly opcode: Opcode = Opcode.NULLIFIEREXISTS;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT32, OperandType.UINT32];
+  static readonly wireFormat = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
+  ];
 
-  constructor(private indirect: number, private nullifierOffset: number, private existsOffset: number) {
+  constructor(
+    private indirect: number,
+    private nullifierOffset: number,
+    private addressOffset: number,
+    private existsOffset: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { reads: 1, writes: 1, indirect: this.indirect };
+    const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
     const nullifier = memory.get(this.nullifierOffset).toFr();
-    const exists = await context.persistableState.checkNullifierExists(context.environment.storageAddress, nullifier);
+    const address = memory.get(this.addressOffset).toFr();
+    const exists = await context.persistableState.checkNullifierExists(address, nullifier);
 
     memory.set(this.existsOffset, exists ? new Uint8(1) : new Uint8(0));
 

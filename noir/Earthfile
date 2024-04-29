@@ -12,6 +12,7 @@ nargo:
       noir-repo/noir_stdlib \
       noir-repo/tooling \
       noir-repo/test_programs \
+      noir-repo/utils \
       noir-repo/Cargo.lock \
       noir-repo/Cargo.toml \
       noir-repo
@@ -26,13 +27,14 @@ nargo:
     SAVE IMAGE aztecprotocol/nargo
 
 packages:
+    BUILD ../barretenberg/ts/+build # prefetch
     FROM node:20
 
     RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
     RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
     RUN apt update && apt install -y jq libc++1
 
-    # `noir-repo` is nested inside of `noir` so we copy `bb.js` as such to account 
+    # `noir-repo` is nested inside of `noir` so we copy `bb.js` as such to account
     # for the extra nested folder specified in portalled package paths
     COPY ../barretenberg/ts/+build/build /usr/src/../barretenberg/ts
 
@@ -48,6 +50,7 @@ packages:
       noir-repo/scripts \
       noir-repo/test_programs \
       noir-repo/tooling \
+      noir-repo/utils \      
       noir-repo/Cargo.lock \
       noir-repo/.yarnrc.yml \
       noir-repo/.yarn \
@@ -58,7 +61,6 @@ packages:
       noir-repo/*.json \
       noir-repo/*.js \
       noir-repo/.github \
-      noir-repo/.envrc \
       noir-repo
 
     COPY noir-repo/.github/scripts noir-repo/.github/scripts
@@ -106,8 +108,8 @@ build:
 # FROM scratch
 # COPY --from=builder /usr/src/noir/README.md /usr/src/noir/README.md
 
-# TODO 
-# test: 
+# TODO
+# test:
 # FROM rust:bullseye
 # ARG COMMIT_HASH
 # ENV COMMIT_HASH=${COMMIT_HASH}

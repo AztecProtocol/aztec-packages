@@ -5,12 +5,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
 import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex } from '../constants.gen.js';
-import type { SideEffect, SideEffectLinkedToNoteHash } from '../structs/index.js';
-import { VerificationKey } from '../structs/verification_key.js';
+import { type SideEffect, type SideEffectLinkedToNoteHash, VerificationKey } from '../structs/index.js';
 
 /**
  * Computes a hash of a given verification key.
@@ -31,27 +29,6 @@ export function hashVK(vkBuf: Buffer) {
     Buffer.from('1418144d5b080fcac24cdb7649bdadf246a6cb2426e324bedb94fb05118f023a', 'hex'),
   ]);
   return pedersenHashBuffer(toHash);
-  // barretenberg::evaluation_domain eval_domain = barretenberg::evaluation_domain(circuit_size);
-
-  // std::vector<uint8_t> preimage_data;
-
-  // preimage_data.push_back(static_cast<uint8_t>(proof_system::CircuitType(circuit_type)));
-
-  // const uint256_t domain = eval_domain.domain; // montgomery form of circuit_size
-  // const uint256_t generator = eval_domain.generator; //coset_generator(0)
-  // const uint256_t public_inputs = num_public_inputs;
-
-  // write(preimage_data, static_cast<uint16_t>(uint256_t(generator))); // maybe 1?
-  // write(preimage_data, static_cast<uint32_t>(uint256_t(domain))); // try circuit_size
-  // write(preimage_data, static_cast<uint32_t>(public_inputs));
-  // for (const auto& [tag, selector] : commitments) {
-  //     write(preimage_data, selector.y);
-  //     write(preimage_data, selector.x);
-  // }
-
-  // write(preimage_data, eval_domain.root);  // fr::one()
-
-  // return crypto::pedersen_hash::hash_buffer(preimage_data, hash_index);
 }
 
 /**
@@ -61,7 +38,7 @@ export function hashVK(vkBuf: Buffer) {
  * @returns A commitment nonce.
  */
 export function computeCommitmentNonce(nullifierZero: Fr, commitmentIndex: number): Fr {
-  return pedersenHash([nullifierZero, numToUInt32BE(commitmentIndex, 32)], GeneratorIndex.NOTE_HASH_NONCE);
+  return pedersenHash([nullifierZero, commitmentIndex], GeneratorIndex.NOTE_HASH_NONCE);
 }
 
 /**
@@ -76,13 +53,33 @@ export function siloNoteHash(contract: AztecAddress, innerNoteHash: Fr): Fr {
 }
 
 /**
- * Computes a unique commitment. It includes a nonce which contains data that guarantees the commitment will be unique.
- * @param nonce - The contract address.
- * @param siloedCommitment - An siloed commitment.
- * @returns A unique commitment.
+ * Computes a note content hash.
+ * @param noteContent - The note content (e.g. note.items).
+ * @returns A note content hash.
  */
-export function computeUniqueCommitment(nonce: Fr, siloedCommitment: Fr): Fr {
-  return pedersenHash([nonce, siloedCommitment], GeneratorIndex.UNIQUE_NOTE_HASH);
+export function computeNoteContentHash(noteContent: Fr[]): Fr {
+  return pedersenHash(noteContent, GeneratorIndex.NOTE_CONTENT_HASH);
+}
+
+/**
+ * Computes an inner note hash, given a storage slot and a note hash.
+ * @param storageSlot - The storage slot.
+ * @param noteHash - The note hash.
+ * @returns An inner note hash.
+ */
+export function computeInnerNoteHash(storageSlot: Fr, noteHash: Fr): Fr {
+  return pedersenHash([storageSlot, noteHash], GeneratorIndex.INNER_NOTE_HASH);
+}
+
+/**
+ * Computes a unique note hash.
+ * @dev Includes a nonce which contains data that guarantees the resulting note hash will be unique.
+ * @param nonce - The contract address.
+ * @param siloedNoteHash - An siloed note hash.
+ * @returns A unique note hash.
+ */
+export function computeUniqueNoteHash(nonce: Fr, siloedNoteHash: Fr): Fr {
+  return pedersenHash([nonce, siloedNoteHash], GeneratorIndex.UNIQUE_NOTE_HASH);
 }
 
 /**
@@ -157,12 +154,13 @@ export function computeNullifierHash(input: SideEffectLinkedToNoteHash) {
 }
 
 /**
- * Given a secret, it computes its pedersen hash - used to send l1 to l2 messages
- * @param secret - the secret to hash - secret could be generated however you want e.g. `Fr.random()`
- * @returns the hash
+ * Computes a hash of a secret.
+ * @dev This function is used to generate secrets for the L1 to L2 message flow and for the TransparentNote.
+ * @param secret - The secret to hash (could be generated however you want e.g. `Fr.random()`)
+ * @returns The hash
  */
-export function computeMessageSecretHash(secretMessage: Fr) {
-  return pedersenHash([secretMessage], GeneratorIndex.L1_TO_L2_MESSAGE_SECRET);
+export function computeSecretHash(secret: Fr) {
+  return pedersenHash([secret], GeneratorIndex.SECRET_HASH);
 }
 
 export function computeL1ToL2MessageNullifier(
@@ -171,6 +169,6 @@ export function computeL1ToL2MessageNullifier(
   secret: Fr,
   messageIndex: bigint,
 ) {
-  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.NULLIFIER);
+  const innerMessageNullifier = pedersenHash([messageHash, secret, messageIndex], GeneratorIndex.MESSAGE_NULLIFIER);
   return siloNullifier(contract, innerMessageNullifier);
 }

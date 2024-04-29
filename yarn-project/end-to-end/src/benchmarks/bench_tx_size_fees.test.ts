@@ -1,5 +1,5 @@
 import {
-  type AccountWalletWithPrivateKey,
+  type AccountWalletWithSecretKey,
   type AztecAddress,
   type EthAddress,
   type FeePaymentMethod,
@@ -7,8 +7,8 @@ import {
   PrivateFeePaymentMethod,
   PublicFeePaymentMethod,
   TxStatus,
-  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
+import { GasSettings } from '@aztec/circuits.js';
 import { FPCContract, GasTokenContract, TokenContract } from '@aztec/noir-contracts.js';
 import { getCanonicalGasTokenAddress } from '@aztec/protocol-contracts/gas-token';
 
@@ -19,7 +19,7 @@ import { publicDeployAccounts, setup } from '../fixtures/utils.js';
 jest.setTimeout(50_000);
 
 describe('benchmarks/tx_size_fees', () => {
-  let aliceWallet: AccountWalletWithPrivateKey;
+  let aliceWallet: AccountWalletWithSecretKey;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
   let gas: GasTokenContract;
@@ -29,7 +29,7 @@ describe('benchmarks/tx_size_fees', () => {
 
   // setup the environment
   beforeAll(async () => {
-    const { wallets, aztecNode, deployL1ContractsValues } = await setup(3);
+    const { wallets, aztecNode, deployL1ContractsValues } = await setup(3, {}, {}, true);
 
     gasPortalAddress = deployL1ContractsValues.l1ContractAddresses.gasPortalAddress;
 
@@ -39,7 +39,6 @@ describe('benchmarks/tx_size_fees', () => {
 
     await aztecNode.setConfig({
       feeRecipient: sequencerAddress,
-      allowedFeePaymentContractClasses: [getContractClassFromArtifact(FPCContract.artifact).id],
     });
 
     await publicDeployAccounts(aliceWallet, wallets);
@@ -55,31 +54,24 @@ describe('benchmarks/tx_size_fees', () => {
   // mint tokens
   beforeAll(async () => {
     await Promise.all([
-      gas.methods.mint_public(aliceWallet.getAddress(), 1000n).send().wait(),
-      token.methods.privately_mint_private_note(1000n).send().wait(),
-      token.methods.mint_public(aliceWallet.getAddress(), 1000n).send().wait(),
-
-      gas.methods.mint_public(fpc.address, 1000n).send().wait(),
+      gas.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait(),
+      gas.methods.mint_public(fpc.address, 100e9).send().wait(),
     ]);
+    await token.methods.privately_mint_private_note(100e9).send().wait();
+    await token.methods.mint_public(aliceWallet.getAddress(), 100e9).send().wait();
   });
 
-  it.each<() => Promise<FeePaymentMethod | undefined>>([
-    () => Promise.resolve(undefined),
-    () => NativeFeePaymentMethod.create(aliceWallet),
-    () => Promise.resolve(new PublicFeePaymentMethod(token.address, fpc.address, aliceWallet)),
-    () => Promise.resolve(new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet)),
-  ])('sends a tx with a fee', async createPaymentMethod => {
+  it.each<[string, () => Promise<FeePaymentMethod | undefined>]>([
+    ['no', () => Promise.resolve(undefined)],
+    ['native fee', () => NativeFeePaymentMethod.create(aliceWallet)],
+    ['public fee', () => Promise.resolve(new PublicFeePaymentMethod(token.address, fpc.address, aliceWallet))],
+    ['private fee', () => Promise.resolve(new PrivateFeePaymentMethod(token.address, fpc.address, aliceWallet))],
+  ] as const)('sends a tx with a fee with %s payment method', async (_name, createPaymentMethod) => {
     const paymentMethod = await createPaymentMethod();
+    const gasSettings = GasSettings.default();
     const tx = await token.methods
       .transfer(aliceWallet.getAddress(), bobAddress, 1n, 0)
-      .send({
-        fee: paymentMethod
-          ? {
-              maxFee: 3n,
-              paymentMethod,
-            }
-          : undefined,
-      })
+      .send({ fee: paymentMethod ? { gasSettings, paymentMethod } : undefined })
       .wait();
 
     expect(tx.status).toEqual(TxStatus.MINED);

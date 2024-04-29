@@ -9,8 +9,11 @@
   "exports": {
     ".": "./dest/index.js",
     "./hash": "./dest/hash/index.js",
+    "./keys": "./dest/keys/index.js",
     "./barretenberg": "./dest/barretenberg/index.js",
     "./testing": "./dest/tests/index.js",
+    "./testing/fixtures": "./dest/tests/fixtures.js",
+    "./interfaces": "./dest/interfaces/index.js",
     "./utils": "./dest/utils/index.js",
     "./types": "./dest/types/index.js",
     "./constants": "./dest/constants.gen.js",
@@ -32,7 +35,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "remake-constants": "node --loader ts-node/esm src/scripts/constants.in.ts && prettier -w src/constants.gen.ts && cd ../../l1-contracts && ./.foundry/bin/forge fmt",
+    "remake-constants": "node --loader ts-node/esm src/scripts/constants.in.ts && prettier -w src/constants.gen.ts && cd ../../l1-contracts && ../foundry/bin/forge fmt",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
   },
   "dependencies": {
@@ -75,6 +78,14 @@
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "reporters": [
+      [
+        "default",
+        {
+          "summaryThreshold": 9999
+        }
+      ]
+    ]
   }
 }

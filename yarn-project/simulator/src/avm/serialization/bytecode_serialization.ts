@@ -1,3 +1,4 @@
+import { DAGasLeft, L1GasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { Keccak, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
 import {
   Add,
@@ -32,8 +33,6 @@ import {
   NoteHashExists,
   NullifierExists,
   Or,
-  Origin,
-  Portal,
   Return,
   Revert,
   SLoad,
@@ -81,9 +80,7 @@ const INSTRUCTION_SET = () =>
     [Cast.opcode, Cast],
     [Address.opcode, Address],
     [StorageAddress.opcode, StorageAddress],
-    [Origin.opcode, Origin],
     [Sender.opcode, Sender],
-    [Portal.opcode, Portal],
     [FeePerL1Gas.opcode, FeePerL1Gas],
     [FeePerL2Gas.opcode, FeePerL2Gas],
     [FeePerDAGas.opcode, FeePerDAGas],
@@ -102,9 +99,9 @@ const INSTRUCTION_SET = () =>
 
     // Machine State
     // Machine State - Gas
-    //[L1gasleft.opcode, L1gasleft],
-    //[L2gasleft.opcode, L2gasleft],
-    //[Dagasleft.opcode, Dagasleft],
+    [L1GasLeft.opcode, L1GasLeft],
+    [L2GasLeft.opcode, L2GasLeft],
+    [DAGasLeft.opcode, DAGasLeft],
     // Machine State - Internal Control Flow
     [Jump.opcode, Jump],
     [JumpI.opcode, JumpI],

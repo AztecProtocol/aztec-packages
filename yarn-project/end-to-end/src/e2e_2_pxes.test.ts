@@ -5,11 +5,10 @@ import {
   type DebugLogger,
   ExtendedNote,
   Fr,
-  GrumpkinScalar,
   Note,
   type PXE,
   type Wallet,
-  computeMessageSecretHash,
+  computeSecretHash,
   retryUntil,
 } from '@aztec/aztec.js';
 import { ChildContract, TokenContract } from '@aztec/noir-contracts.js';
@@ -30,6 +29,7 @@ describe('e2e_2_pxes', () => {
   let walletB: Wallet;
   let logger: DebugLogger;
   let teardownA: () => Promise<void>;
+  let teardownB: () => Promise<void>;
 
   beforeEach(async () => {
     ({
@@ -43,14 +43,13 @@ describe('e2e_2_pxes', () => {
     ({
       pxe: pxeB,
       wallets: [walletB],
+      teardown: teardownB,
     } = await setupPXEService(1, aztecNode!, {}, undefined, true));
   }, 100_000);
 
   afterEach(async () => {
+    await teardownB();
     await teardownA();
-    if ((pxeB as any).stop) {
-      await (pxeB as any).stop();
-    }
   });
 
   const awaitUserSynchronized = async (wallet: Wallet, owner: AztecAddress) => {
@@ -75,34 +74,38 @@ describe('e2e_2_pxes', () => {
     // Then check the balance
     const contractWithWallet = await TokenContract.at(tokenAddress, wallet);
     const balance = await contractWithWallet.methods.balance_of_private(owner).simulate({ from: owner });
-    logger(`Account ${owner} balance: ${balance}`);
+    logger.info(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
 
   const deployTokenContract = async (initialAdminBalance: bigint, admin: AztecAddress, pxe: PXE) => {
-    logger(`Deploying Token contract...`);
+    logger.info(`Deploying Token contract...`);
     const contract = await TokenContract.deploy(walletA, admin, 'TokenName', 'TokenSymbol', 18).send().deployed();
 
     if (initialAdminBalance > 0n) {
       await mintTokens(contract, admin, initialAdminBalance, pxe);
     }
 
-    logger('L2 contract deployed');
+    logger.info('L2 contract deployed');
 
     return contract.instance;
   };
 
   const mintTokens = async (contract: TokenContract, recipient: AztecAddress, balance: bigint, pxe: PXE) => {
     const secret = Fr.random();
-    const secretHash = computeMessageSecretHash(secret);
+    const secretHash = computeSecretHash(secret);
 
     const receipt = await contract.methods.mint_private(balance, secretHash).send().wait();
 
-    const storageSlot = new Fr(5);
-    const noteTypeId = new Fr(84114971101151129711410111011678111116101n); // TransparentNote
-
     const note = new Note([new Fr(balance), secretHash]);
-    const extendedNote = new ExtendedNote(note, recipient, contract.address, storageSlot, noteTypeId, receipt.txHash);
+    const extendedNote = new ExtendedNote(
+      note,
+      recipient,
+      contract.address,
+      TokenContract.storage.pending_shields.slot,
+      TokenContract.notes.TransparentNote.id,
+      receipt.txHash,
+    );
     await pxe.addNote(extendedNote);
 
     await contract.methods.redeem_shield(recipient, balance, secret).send().wait();
@@ -163,9 +166,9 @@ describe('e2e_2_pxes', () => {
   }, 120_000);
 
   const deployChildContractViaServerA = async () => {
-    logger(`Deploying Child contract...`);
+    logger.info(`Deploying Child contract...`);
     const contract = await ChildContract.deploy(walletA).send().deployed();
-    logger('Child contract deployed');
+    logger.info('Child contract deployed');
 
     return contract.instance;
   };
@@ -241,13 +244,13 @@ describe('e2e_2_pxes', () => {
   });
 
   it('permits migrating an account from one PXE to another', async () => {
-    const privateKey = GrumpkinScalar.random();
-    const account = getUnsafeSchnorrAccount(pxeA, privateKey, Fr.random());
+    const secretKey = Fr.random();
+    const account = getUnsafeSchnorrAccount(pxeA, secretKey, Fr.random());
     const completeAddress = account.getCompleteAddress();
     const wallet = await account.waitSetup();
 
     await expect(wallet.isAccountStateSynchronized(completeAddress.address)).resolves.toBe(true);
-    const accountOnB = getUnsafeSchnorrAccount(pxeB, privateKey, account.salt);
+    const accountOnB = getUnsafeSchnorrAccount(pxeB, secretKey, account.salt);
     const walletOnB = await accountOnB.getWallet();
 
     // need to register first otherwise the new PXE won't know about the account
@@ -298,13 +301,13 @@ describe('e2e_2_pxes', () => {
     const transferAmount2 = 323n;
 
     // setup an account that is shared across PXEs
-    const sharedPrivateKey = GrumpkinScalar.random();
-    const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedPrivateKey, Fr.random());
+    const sharedSecretKey = Fr.random();
+    const sharedAccountOnA = getUnsafeSchnorrAccount(pxeA, sharedSecretKey, Fr.random());
     const sharedAccountAddress = sharedAccountOnA.getCompleteAddress();
     const sharedWalletOnA = await sharedAccountOnA.waitSetup();
     await expect(sharedWalletOnA.isAccountStateSynchronized(sharedAccountAddress.address)).resolves.toBe(true);
 
-    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedPrivateKey, sharedAccountOnA.salt);
+    const sharedAccountOnB = getUnsafeSchnorrAccount(pxeB, sharedSecretKey, sharedAccountOnA.salt);
     await sharedAccountOnB.register();
     const sharedWalletOnB = await sharedAccountOnB.getWallet();
 

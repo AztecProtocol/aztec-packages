@@ -59,7 +59,8 @@ contract InclusionProofs {
         // docs:start:get_note_from_pxe
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -109,7 +110,8 @@ contract InclusionProofs {
     ) {
         // 2) Get the note from PXE
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -139,7 +141,8 @@ contract InclusionProofs {
     ) {
         // 1) Get the note from PXE.
         let private_values = storage.private_values.at(owner);
-        let mut options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -164,7 +167,8 @@ contract InclusionProofs {
     #[aztec(private)]
     fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner);
-        let options = NoteGetterOptions::new().select(
+        let mut options = NoteGetterOptions::new();
+        options = options.select(
             ValueNote::properties().owner,
             owner.to_field(),
             Option::none()
@@ -194,10 +198,15 @@ contract InclusionProofs {
         }
     }
 
+    #[aztec(public)]
+    fn push_nullifier_public(nullifier: Field) {
+        context.push_new_nullifier(nullifier, 0);
+    }
+
     // Proves nullifier existed at latest block
     #[aztec(public)]
     fn test_nullifier_inclusion_from_public(nullifier: Field) {
-        prove_nullifier_inclusion(nullifier, context);
+        assert(context.nullifier_exists(nullifier, context.this_address()));
     }
 
     #[aztec(private)]

@@ -60,7 +60,7 @@ describe('e2e_cross_chain_messaging', () => {
     logger = logger_;
     aztecNode = aztecNode_;
     teardown = teardown_;
-    logger('Successfully deployed contracts and initialized portal');
+    logger.info('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
   afterEach(async () => {
@@ -101,7 +101,7 @@ describe('e2e_cross_chain_messaging', () => {
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
 
     // time to withdraw the funds again!
-    logger('Withdrawing funds from L2');
+    logger.info('Withdrawing funds from L2');
 
     // docs:start:authwit_to_another_sc
     // 4. Give approval to bridge to burn owner's funds:
@@ -245,11 +245,16 @@ describe('e2e_cross_chain_messaging', () => {
       secretHashForL2MessageConsumption,
     );
 
+    // get message leaf index, needed for claiming in public
+    const maybeIndexAndPath = await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash, 0n);
+    expect(maybeIndexAndPath).toBeDefined();
+    const messageLeafIndex = maybeIndexAndPath![0];
+
     // 3. Consume L1 -> L2 message and try to mint publicly on L2  - should fail
     await expect(
       l2Bridge
         .withWallet(user2Wallet)
-        .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption)
+        .methods.claim_public(ownerAddress, bridgeAmount, secretForL2MessageConsumption, messageLeafIndex)
         .prove(),
     ).rejects.toThrow(`No non-nullified L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 120_000);

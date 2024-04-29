@@ -1,17 +1,14 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
-    GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET, GENERATOR_INDEX__NULLIFIER, ARGS_HASH_CHUNK_COUNT,
+    GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, ARGS_HASH_CHUNK_COUNT,
     GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH
 },
-    traits::Hash, hash::{pedersen_hash, silo_nullifier}
+    traits::Hash, hash::{pedersen_hash, poseidon2_hash, silo_nullifier, sha256_to_field}
 };
 
-use dep::protocol_types::hash::sha256_to_field;
-
 pub fn compute_secret_hash(secret: Field) -> Field {
-    // TODO(#1205) This is probably not the right index to use
-    pedersen_hash([secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)
+    pedersen_hash([secret], GENERATOR_INDEX__SECRET_HASH)
 }
 
 pub fn compute_message_hash(
@@ -47,7 +44,7 @@ pub fn compute_message_hash(
 pub fn compute_message_nullifier(message_hash: Field, secret: Field, leaf_index: Field) -> Field {
     pedersen_hash(
         [message_hash, secret, leaf_index],
-        GENERATOR_INDEX__NULLIFIER
+        GENERATOR_INDEX__MESSAGE_NULLIFIER
     )
 }
 
@@ -89,21 +86,24 @@ pub fn hash_args(args: [Field]) -> Field {
     if args.len() == 0 {
         0
     } else {
+        assert(args.len() < ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH);
         let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
-        for i in 0..ARGS_HASH_CHUNK_COUNT {
-            let mut chunk_hash = 0;
-            let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
-            if start_chunk_index < args.len() {
-                let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
-                for j in 0..ARGS_HASH_CHUNK_LENGTH {
-                    let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
-                    if item_index < args.len() {
-                        chunk_args[j] = args[item_index];
-                    }
-                }
-                chunk_hash = pedersen_hash(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS);
+        let mut current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
+
+        let mut current_chunk_index = 0;
+        let mut index_inside_current_chunk = 0;
+        for i in 0..args.len() {
+            current_chunk_values[index_inside_current_chunk] = args[i];
+            index_inside_current_chunk+=1;
+            if index_inside_current_chunk == ARGS_HASH_CHUNK_LENGTH {
+                chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
+                current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
+                current_chunk_index+=1;
+                index_inside_current_chunk = 0;
             }
-            chunks_hashes[i] = chunk_hash;
+        }
+        if index_inside_current_chunk > 0 {
+            chunks_hashes[current_chunk_index] = pedersen_hash(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
         }
         pedersen_hash(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
     }

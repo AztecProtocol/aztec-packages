@@ -37,7 +37,7 @@ jobs:
           sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
           rm -rf clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             barretenberg/cpp/build
@@ -60,7 +60,7 @@ jobs:
           INSTALL_URL: https://raw.githubusercontent.com/noir-lang/noirup/main/install
           NOIRUP_BIN_URL: https://raw.githubusercontent.com/noir-lang/noirup/main/noirup
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -90,7 +90,7 @@ jobs:
 
       - name: Compare gates reports
         id: gates_diff
-        uses: TomAFrench/noir-gates-diff@e7cf131b7e7f044c01615f93f0b855f65ddc02d4
+        uses: vezenovm/noir-gates-diff@acf12797860f237117e15c0d6e08d64253af52b6
         with:
           report: protocol_circuits_report.json
           summaryQuantile: 0 # Display any diff in gate count

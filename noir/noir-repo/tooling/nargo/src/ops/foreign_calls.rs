@@ -10,71 +10,16 @@ pub trait ForeignCallExecutor {
     fn execute(
         &mut self,
         foreign_call: &ForeignCallWaitInfo,
-    ) -> Result<NargoForeignCallResult, ForeignCallError>;
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum NargoForeignCallResult {
-    BrilligOutput(ForeignCallResult),
-    ResolvedAssertMessage(String),
-}
-
-impl NargoForeignCallResult {
-    pub fn get_assert_message(self) -> Option<String> {
-        match self {
-            Self::ResolvedAssertMessage(msg) => Some(msg),
-            _ => None,
-        }
-    }
-
-    pub fn get_brillig_output(self) -> Option<ForeignCallResult> {
-        match self {
-            Self::BrilligOutput(foreign_call_result) => Some(foreign_call_result),
-            _ => None,
-        }
-    }
-}
-
-impl From<ForeignCallResult> for NargoForeignCallResult {
-    fn from(value: ForeignCallResult) -> Self {
-        Self::BrilligOutput(value)
-    }
-}
-
-impl From<String> for NargoForeignCallResult {
-    fn from(value: String) -> Self {
-        Self::ResolvedAssertMessage(value)
-    }
-}
-
-impl From<FieldElement> for NargoForeignCallResult {
-    fn from(value: FieldElement) -> Self {
-        let foreign_call_result: ForeignCallResult = value.into();
-        foreign_call_result.into()
-    }
-}
-
-impl From<Vec<FieldElement>> for NargoForeignCallResult {
-    fn from(values: Vec<FieldElement>) -> Self {
-        let foreign_call_result: ForeignCallResult = values.into();
-        foreign_call_result.into()
-    }
-}
-
-impl From<Vec<ForeignCallParam>> for NargoForeignCallResult {
-    fn from(values: Vec<ForeignCallParam>) -> Self {
-        let foreign_call_result: ForeignCallResult = values.into();
-        foreign_call_result.into()
-    }
+    ) -> Result<ForeignCallResult, ForeignCallError>;
 }
 
 /// This enumeration represents the Brillig foreign calls that are natively supported by nargo.
 /// After resolution of a foreign call, nargo will restart execution of the ACVM
 pub enum ForeignCall {
     Print,
-    AssertMessage,
     CreateMock,
     SetMockParams,
+    GetMockLastParams,
     SetMockReturns,
     SetMockTimes,
     ClearMock,
@@ -90,9 +35,9 @@ impl ForeignCall {
     pub(crate) fn name(&self) -> &'static str {
         match self {
             ForeignCall::Print => "print",
-            ForeignCall::AssertMessage => "assert_message",
             ForeignCall::CreateMock => "create_mock",
             ForeignCall::SetMockParams => "set_mock_params",
+            ForeignCall::GetMockLastParams => "get_mock_last_params",
             ForeignCall::SetMockReturns => "set_mock_returns",
             ForeignCall::SetMockTimes => "set_mock_times",
             ForeignCall::ClearMock => "clear_mock",
@@ -102,9 +47,9 @@ impl ForeignCall {
     pub(crate) fn lookup(op_name: &str) -> Option<ForeignCall> {
         match op_name {
             "print" => Some(ForeignCall::Print),
-            "assert_message" => Some(ForeignCall::AssertMessage),
             "create_mock" => Some(ForeignCall::CreateMock),
             "set_mock_params" => Some(ForeignCall::SetMockParams),
+            "get_mock_last_params" => Some(ForeignCall::GetMockLastParams),
             "set_mock_returns" => Some(ForeignCall::SetMockReturns),
             "set_mock_times" => Some(ForeignCall::SetMockTimes),
             "clear_mock" => Some(ForeignCall::ClearMock),
@@ -122,6 +67,8 @@ struct MockedCall {
     name: String,
     /// Optionally match the parameters
     params: Option<Vec<ForeignCallParam>>,
+    /// The parameters with which the mock was last called
+    last_called_params: Option<Vec<ForeignCallParam>>,
     /// The result to return when this mock is called
     result: ForeignCallResult,
     /// How many times should this mock be called before it is removed
@@ -134,6 +81,7 @@ impl MockedCall {
             id,
             name,
             params: None,
+            last_called_params: None,
             result: ForeignCallResult { values: vec![] },
             times_left: None,
         }
@@ -161,8 +109,15 @@ pub struct DefaultForeignCallExecutor {
 impl DefaultForeignCallExecutor {
     pub fn new(show_output: bool, resolver_url: Option<&str>) -> Self {
         let oracle_resolver = resolver_url.map(|resolver_url| {
-            let transport_builder =
+            let mut transport_builder =
                 Builder::new().url(resolver_url).expect("Invalid oracle resolver URL");
+
+            if let Some(Ok(timeout)) =
+                std::env::var("NARGO_FOREIGN_CALL_TIMEOUT").ok().map(|timeout| timeout.parse())
+            {
+                let timeout_duration = std::time::Duration::from_millis(timeout);
+                transport_builder = transport_builder.timeout(timeout_duration);
+            };
             Client::with_transport(transport_builder.build())
         });
         DefaultForeignCallExecutor {
@@ -185,7 +140,11 @@ impl DefaultForeignCallExecutor {
         Ok((id, params))
     }
 
-    fn find_mock_by_id(&mut self, id: usize) -> Option<&mut MockedCall> {
+    fn find_mock_by_id(&self, id: usize) -> Option<&MockedCall> {
+        self.mocked_responses.iter().find(|response| response.id == id)
+    }
+
+    fn find_mock_by_id_mut(&mut self, id: usize) -> Option<&mut MockedCall> {
         self.mocked_responses.iter_mut().find(|response| response.id == id)
     }
 
@@ -206,13 +165,6 @@ impl DefaultForeignCallExecutor {
         Ok(())
     }
 
-    fn execute_assert_message(
-        foreign_call_inputs: &[ForeignCallParam],
-    ) -> Result<NargoForeignCallResult, ForeignCallError> {
-        let display_string = Self::format_printable_value(foreign_call_inputs, true)?;
-        Ok(display_string.into())
-    }
-
     fn format_printable_value(
         foreign_call_inputs: &[ForeignCallParam],
         skip_newline: bool,
@@ -229,16 +181,15 @@ impl ForeignCallExecutor for DefaultForeignCallExecutor {
     fn execute(
         &mut self,
         foreign_call: &ForeignCallWaitInfo,
-    ) -> Result<NargoForeignCallResult, ForeignCallError> {
+    ) -> Result<ForeignCallResult, ForeignCallError> {
         let foreign_call_name = foreign_call.function.as_str();
         match ForeignCall::lookup(foreign_call_name) {
             Some(ForeignCall::Print) => {
                 if self.show_output {
                     Self::execute_print(&foreign_call.inputs)?;
                 }
-                Ok(ForeignCallResult::default().into())
+                Ok(ForeignCallResult::default())
             }
-            Some(ForeignCall::AssertMessage) => Self::execute_assert_message(&foreign_call.inputs),
             Some(ForeignCall::CreateMock) => {
                 let mock_oracle_name = Self::parse_string(&foreign_call.inputs[0]);
                 assert!(ForeignCall::lookup(&mock_oracle_name).is_none());
@@ -250,35 +201,47 @@ impl ForeignCallExecutor for DefaultForeignCallExecutor {
             }
             Some(ForeignCall::SetMockParams) => {
                 let (id, params) = Self::extract_mock_id(&foreign_call.inputs)?;
-                self.find_mock_by_id(id)
+                self.find_mock_by_id_mut(id)
                     .unwrap_or_else(|| panic!("Unknown mock id {}", id))
                     .params = Some(params.to_vec());
 
-                Ok(ForeignCallResult::default().into())
+                Ok(ForeignCallResult::default())
+            }
+            Some(ForeignCall::GetMockLastParams) => {
+                let (id, _) = Self::extract_mock_id(&foreign_call.inputs)?;
+                let mock =
+                    self.find_mock_by_id(id).unwrap_or_else(|| panic!("Unknown mock id {}", id));
+
+                let last_called_params = mock
+                    .last_called_params
+                    .clone()
+                    .unwrap_or_else(|| panic!("Mock {} was never called", mock.name));
+
+                Ok(last_called_params.into())
             }
             Some(ForeignCall::SetMockReturns) => {
                 let (id, params) = Self::extract_mock_id(&foreign_call.inputs)?;
-                self.find_mock_by_id(id)
+                self.find_mock_by_id_mut(id)
                     .unwrap_or_else(|| panic!("Unknown mock id {}", id))
                     .result = ForeignCallResult { values: params.to_vec() };
 
-                Ok(ForeignCallResult::default().into())
+                Ok(ForeignCallResult::default())
             }
             Some(ForeignCall::SetMockTimes) => {
                 let (id, params) = Self::extract_mock_id(&foreign_call.inputs)?;
                 let times =
                     params[0].unwrap_field().try_to_u64().expect("Invalid bit size of times");
 
-                self.find_mock_by_id(id)
+                self.find_mock_by_id_mut(id)
                     .unwrap_or_else(|| panic!("Unknown mock id {}", id))
                     .times_left = Some(times);
 
-                Ok(ForeignCallResult::default().into())
+                Ok(ForeignCallResult::default())
             }
             Some(ForeignCall::ClearMock) => {
                 let (id, _) = Self::extract_mock_id(&foreign_call.inputs)?;
                 self.mocked_responses.retain(|response| response.id != id);
-                Ok(ForeignCallResult::default().into())
+                Ok(ForeignCallResult::default())
             }
             None => {
                 let mock_response_position = self
@@ -292,6 +255,9 @@ impl ForeignCallExecutor for DefaultForeignCallExecutor {
                             .mocked_responses
                             .get_mut(response_position)
                             .expect("Invalid position of mocked response");
+
+                        mock.last_called_params = Some(foreign_call.inputs.clone());
+
                         let result = mock.result.values.clone();
 
                         if let Some(times_left) = &mut mock.times_left {
@@ -314,9 +280,12 @@ impl ForeignCallExecutor for DefaultForeignCallExecutor {
 
                         let parsed_response: ForeignCallResult = response.result()?;
 
-                        Ok(parsed_response.into())
+                        Ok(parsed_response)
                     }
-                    (None, None) => panic!("Unknown foreign call {}", foreign_call_name),
+                    (None, None) => panic!(
+                        "No mock for foreign call {}({:?})",
+                        foreign_call_name, &foreign_call.inputs
+                    ),
                 }
             }
         }
@@ -388,7 +357,7 @@ mod tests {
         };
 
         let result = executor.execute(&foreign_call);
-        assert_eq!(result.unwrap(), ForeignCallResult { values: foreign_call.inputs }.into());
+        assert_eq!(result.unwrap(), ForeignCallResult { values: foreign_call.inputs });
 
         server.close();
     }

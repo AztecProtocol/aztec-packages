@@ -62,7 +62,6 @@ TEST_F(EcOperations, TestECOperations)
         .blake2s_constraints = {},
         .blake3_constraints = {},
         .keccak_constraints = {},
-        .keccak_var_constraints = {},
         .keccak_permutations = {},
         .pedersen_constraints = {},
         .pedersen_hash_constraints = {},
@@ -73,7 +72,8 @@ TEST_F(EcOperations, TestECOperations)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
-        .constraints = {},
+        .poly_triple_constraints = {},
+        .quad_constraints = {},
         .block_constraints = {},
     };
 

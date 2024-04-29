@@ -47,7 +47,7 @@ export function createUnconstrainedFunctionMembershipProof(
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());
   const artifactTreeSiblingPath = artifactTree.getSiblingPath(artifactTreeLeafIndex).map(Fr.fromBuffer);
 
-  log.trace(`Computed proof for unconstrained function with selector ${selector.toString()}`, {
+  log.debug(`Computed proof for unconstrained function with selector ${selector.toString()}`, {
     functionArtifactHash,
     functionMetadataHash,
     artifactMetadataHash,
@@ -66,7 +66,7 @@ export function createUnconstrainedFunctionMembershipProof(
 
 /**
  * Verifies that an unconstrained function with a membership proof as emitted by the ClassRegisterer contract is valid,
- * as defined in the yellow paper at contract-deployment/classes:
+ * as defined in the protocol specs at contract-deployment/classes:
  *
  * ```
  * // Load contract class from local db
@@ -102,7 +102,7 @@ export function isValidUnconstrainedFunctionMembershipProof(
     metadataHash: fn.artifactMetadataHash,
   });
   if (!contractClass.artifactHash.equals(computedArtifactHash)) {
-    log.trace(`Artifact hash mismatch`, {
+    log.debug(`Artifact hash mismatch`, {
       expected: contractClass.artifactHash,
       computedArtifactHash,
       computedFunctionArtifactHash: functionArtifactHash,

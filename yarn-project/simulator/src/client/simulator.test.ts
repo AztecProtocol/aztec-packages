@@ -1,14 +1,19 @@
-import { type AztecNode, Note } from '@aztec/circuit-types';
-import { CompleteAddress } from '@aztec/circuits.js';
-import { computeUniqueCommitment, siloNoteHash } from '@aztec/circuits.js/hash';
+import { type AztecNode, CompleteAddress, Note } from '@aztec/circuit-types';
+import { GeneratorIndex, computeAppNullifierSecretKey, deriveKeys } from '@aztec/circuits.js';
+import {
+  computeInnerNoteHash,
+  computeNoteContentHash,
+  computeUniqueNoteHash,
+  siloNoteHash,
+} from '@aztec/circuits.js/hash';
 import {
   ABIParameterVisibility,
   type FunctionArtifactWithDebugMetadata,
   getFunctionArtifact,
 } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -21,18 +26,30 @@ describe('Simulator', () => {
   let node: MockProxy<AztecNode>;
 
   let simulator: AcirSimulator;
-  const ownerPk = GrumpkinScalar.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-  const ownerCompleteAddress = CompleteAddress.fromPrivateKeyAndPartialAddress(ownerPk, Fr.random());
-  const owner = ownerCompleteAddress.address;
-  const ownerNullifierSecretKey = GrumpkinScalar.random();
-  const ownerNullifierPublicKey = Point.random();
+  let owner: AztecAddress;
+  let contractAddress: AztecAddress;
+  let appNullifierSecretKey: Fr;
 
   beforeEach(() => {
+    const ownerSk = Fr.fromString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
+    const allOwnerKeys = deriveKeys(ownerSk);
+
+    const ownerMasterNullifierPublicKey = allOwnerKeys.masterNullifierPublicKey;
+    const ownerMasterNullifierSecretKey = allOwnerKeys.masterNullifierSecretKey;
+
+    contractAddress = AztecAddress.random();
+
+    const ownerPartialAddress = Fr.random();
+    const ownerCompleteAddress = CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
+    owner = ownerCompleteAddress.address;
+
+    appNullifierSecretKey = computeAppNullifierSecretKey(ownerMasterNullifierSecretKey, contractAddress);
+
     oracle = mock<DBOracle>();
     node = mock<AztecNode>();
-    oracle.getNullifierKeyPair.mockResolvedValue({
-      secretKey: ownerNullifierSecretKey,
-      publicKey: ownerNullifierPublicKey,
+    oracle.getNullifierKeys.mockResolvedValue({
+      masterNullifierPublicKey: ownerMasterNullifierPublicKey,
+      appNullifierSecretKey,
     });
     oracle.getCompleteAddress.mockResolvedValue(ownerCompleteAddress);
 
@@ -41,10 +58,9 @@ describe('Simulator', () => {
 
   describe('computeNoteHashAndNullifier', () => {
     const artifact = getFunctionArtifact(TokenContractArtifact, 'compute_note_hash_and_nullifier');
-    const contractAddress = AztecAddress.random();
     const nonce = Fr.random();
-    const storageSlot = Fr.random();
-    const noteTypeId = new Fr(8411110710111078111116101n); // TokenNote
+    const storageSlot = TokenContractArtifact.storageLayout['balances'].slot;
+    const noteTypeId = TokenContractArtifact.notes['TokenNote'].id;
 
     const createNote = (amount = 123n) => new Note([new Fr(amount), owner.toField(), Fr.random()]);
 
@@ -52,14 +68,14 @@ describe('Simulator', () => {
       oracle.getFunctionArtifactByName.mockResolvedValue(artifact);
 
       const note = createNote();
-      const tokenNoteHash = pedersenHash(note.items);
-      const innerNoteHash = pedersenHash([storageSlot, tokenNoteHash]);
+      const tokenNoteHash = computeNoteContentHash(note.items);
+      const innerNoteHash = computeInnerNoteHash(storageSlot, tokenNoteHash);
       const siloedNoteHash = siloNoteHash(contractAddress, innerNoteHash);
-      const uniqueSiloedNoteHash = computeUniqueCommitment(nonce, siloedNoteHash);
-      const innerNullifier = pedersenHash([
+      const uniqueSiloedNoteHash = computeUniqueNoteHash(nonce, siloedNoteHash);
+      const innerNullifier = poseidon2Hash([
         uniqueSiloedNoteHash,
-        ownerNullifierSecretKey.low,
-        ownerNullifierSecretKey.high,
+        appNullifierSecretKey,
+        GeneratorIndex.NOTE_NULLIFIER,
       ]);
 
       const result = await simulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, noteTypeId, note);

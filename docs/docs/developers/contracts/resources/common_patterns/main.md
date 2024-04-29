@@ -20,7 +20,7 @@ We call this the "authentication witness" pattern or authwit for short.
 Here you approve a contract to burn funds on your behalf.
 
 - Approve in public domain:
-  #include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract.test.ts typescript
+  #include_code authwit_public_transfer_example /yarn-project/end-to-end/src/e2e_token_contract/transfer_public.test.ts typescript
 
 Here you approve someone to transfer funds publicly on your behalf
 
@@ -38,11 +38,12 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 ### Reading public storage in private
 
-You can't read public storage in private domain. But nevertheless reading public storage is desirable. There are two ways:
+You can't read public storage in private domain. But nevertheless reading public storage is desirable. This is the naive way:
 
-1. For public storage that changes infrequently, use the slow updates tree! Learn more about it [here](../../../../learn/concepts/communication/public_private_calls/slow_updates_tree.md).
+<!-- TODO https://github.com/AztecProtocol/aztec-packages/issues/5508: mention SharedMutable as an alternative
+-->
 
-2. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
+- You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
 
 ```rust
 struct Storage {

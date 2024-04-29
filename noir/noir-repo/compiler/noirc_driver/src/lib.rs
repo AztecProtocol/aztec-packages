@@ -12,12 +12,15 @@ use noirc_abi::{AbiParameter, AbiType, AbiValue};
 use noirc_errors::{CustomDiagnostic, FileDiagnostic};
 use noirc_evaluator::create_program;
 use noirc_evaluator::errors::RuntimeError;
+use noirc_evaluator::ssa::SsaProgramArtifact;
 use noirc_frontend::debug::build_debug_crate_file;
 use noirc_frontend::graph::{CrateId, CrateName};
 use noirc_frontend::hir::def_map::{Contract, CrateDefMap};
 use noirc_frontend::hir::Context;
 use noirc_frontend::macros_api::MacroProcessor;
-use noirc_frontend::monomorphization::{monomorphize, monomorphize_debug, MonomorphizationError};
+use noirc_frontend::monomorphization::{
+    errors::MonomorphizationError, monomorphize, monomorphize_debug,
+};
 use noirc_frontend::node_interner::FuncId;
 use noirc_frontend::token::SecondaryAttribute;
 use std::path::Path;
@@ -68,6 +71,10 @@ pub struct CompileOptions {
     /// Display the ACIR for compiled circuit
     #[arg(long)]
     pub print_acir: bool,
+
+    /// Pretty print benchmark times of each code generation pass
+    #[arg(long, hide = true)]
+    pub benchmark_codegen: bool,
 
     /// Treat all warnings as errors
     #[arg(long, conflicts_with = "silence_warnings")]
@@ -418,11 +425,13 @@ fn compile_contract_inner(
             bytecode: function.program,
             debug: function.debug,
             is_unconstrained: modifiers.is_unconstrained,
+            names: function.names,
         });
     }
 
     if errors.is_empty() {
-        let debug_infos: Vec<_> = functions.iter().map(|function| function.debug.clone()).collect();
+        let debug_infos: Vec<_> =
+            functions.iter().flat_map(|function| function.debug.clone()).collect();
         let file_map = filter_relevant_files(&debug_infos, &context.file_manager);
 
         let out_structs = contract
@@ -513,25 +522,40 @@ pub fn compile_no_check(
     }
     let visibility = program.return_visibility;
 
-    let (program, debug, warnings, input_witnesses, return_witnesses) =
-        create_program(program, options.show_ssa, options.show_brillig, options.force_brillig)?;
+    let SsaProgramArtifact {
+        program,
+        debug,
+        warnings,
+        main_input_witnesses,
+        main_return_witnesses,
+        names,
+        error_types,
+    } = create_program(
+        program,
+        options.show_ssa,
+        options.show_brillig,
+        options.force_brillig,
+        options.benchmark_codegen,
+    )?;
 
-    let abi =
-        abi_gen::gen_abi(context, &main_function, input_witnesses, return_witnesses, visibility);
+    let abi = abi_gen::gen_abi(
+        context,
+        &main_function,
+        main_input_witnesses,
+        main_return_witnesses,
+        visibility,
+        error_types,
+    );
     let file_map = filter_relevant_files(&debug, &context.file_manager);
 
     Ok(CompiledProgram {
         hash,
-        // TODO(https://github.com/noir-lang/noir/issues/4428)
         program,
-        // TODO(https://github.com/noir-lang/noir/issues/4428)
-        // Debug info is only relevant for errors at execution time which is not yet supported
-        // The CompileProgram `debug` field is used in multiple places and is better
-        // left to be updated once execution of multiple ACIR functions is enabled
-        debug: debug[0].clone(),
+        debug,
         abi,
         file_map,
         noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
         warnings,
+        names,
     })
 }

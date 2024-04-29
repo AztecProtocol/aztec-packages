@@ -168,7 +168,7 @@ Transactions are initiated in the private context, then move to the L2 public co
 
 Step 1. Private Execution
 
-Users provide inputs and execute locally on a their device for privacy reasons. Outputs of the private execution are commitment and nullifier updates, a proof of correct execution and any return data to pass to the public execution context.
+Users provide inputs and execute locally on their device for privacy reasons. Outputs of the private execution are commitment and nullifier updates, a proof of correct execution and any return data to pass to the public execution context.
 
 Step 2. Public Execution
 
@@ -202,7 +202,6 @@ We are importing:
 - Types from `aztec::prelude`
 - `compute_secret_hash` that will help with the shielding and unshieling, allowing someone to claim a token from private to public
 - Types for storing note types 
-
 
 For more detail on execution contexts, see [Contract Communication](../../learn/concepts/communication/main).
 
@@ -429,7 +428,7 @@ aztec-nargo compile
 Once your contract is compiled, optionally generate a typescript interface with the following command:
 
 ```bash
-aztec-cli codegen target -o src/artifacts --ts
+aztec-builder target -o src/artifacts
 ```
 
 ## Next Steps
@@ -438,7 +437,7 @@ aztec-cli codegen target -o src/artifacts --ts
 
 Review the end to end tests for reference:
 
-https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract.test.ts
+https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/*.test.ts
 
 ### Token Bridge Contract
 

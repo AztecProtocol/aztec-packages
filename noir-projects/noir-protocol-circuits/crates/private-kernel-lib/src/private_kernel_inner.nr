@@ -1,5 +1,4 @@
 use crate::common;
-use dep::std::unsafe;
 use dep::types::{
     abis::{
     kernel_data::PrivateKernelData, private_kernel::private_call_data::PrivateCallData,
@@ -27,7 +26,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     }
 
     pub fn native_private_kernel_circuit_inner(self) -> PrivateKernelCircuitPublicInputs {
-        let mut public_inputs : PrivateKernelCircuitPublicInputsBuilder = unsafe::zeroed();
+        let mut public_inputs  = PrivateKernelCircuitPublicInputsBuilder::empty();
 
         common::validate_previous_kernel_values(self.previous_kernel.public_inputs.end);
 
@@ -69,11 +68,10 @@ mod tests {
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         max_block_number::MaxBlockNumber, side_effect::{SideEffect, SideEffectLinkedToNoteHash}
     },
-        address::{AztecAddress, EthAddress}, hash::compute_logs_hash,
+        address::{AztecAddress, EthAddress},
         messaging::l2_to_l1_message::L2ToL1Message, utils::{arrays::array_length},
         tests::{private_call_data_builder::PrivateCallDataBuilder, fixture_builder::FixtureBuilder}
     };
-    use dep::std::unsafe;
 
     struct PrivateKernelInnerInputsBuilder {
         previous_kernel: FixtureBuilder,
@@ -376,15 +374,6 @@ mod tests {
     }
 
     #[test(should_fail_with = "invalid array")]
-    fn input_validation_malformed_arrays_return_values() {
-        let mut builder = PrivateKernelInnerInputsBuilder::new();
-
-        builder.private_call.public_inputs.return_values.extend_from_array([0, 553]);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with = "invalid array")]
     fn input_validation_malformed_arrays_read_requests() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
@@ -452,6 +441,20 @@ mod tests {
             [
             L2ToL1Message::empty(),
             L2ToL1Message { recipient: EthAddress::from_field(6), content: 888 }
+        ]
+        );
+
+        builder.failed();
+    }
+
+    #[test(should_fail_with = "invalid array")]
+    fn input_validation_malformed_arrays_logs() {
+        let mut builder = PrivateKernelInnerInputsBuilder::new();
+
+        builder.private_call.public_inputs.encrypted_logs_hashes.extend_from_array(
+            [
+            SideEffect { value: 0, counter: 0 },
+            SideEffect { value: 9123, counter: 1 }
         ]
         );
 
@@ -546,7 +549,7 @@ mod tests {
     #[test]
     fn propagate_max_block_number_request() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.private_call.request_max_block_number(42);
+        builder.private_call.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 42);
@@ -558,7 +561,7 @@ mod tests {
         builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
         // A private call requesting a larger max_block_number should not change the current one as that constraint is
         // already satisfied.
-        builder.private_call.request_max_block_number(42);
+        builder.private_call.set_tx_max_block_number(42);
         let public_inputs = builder.execute();
 
         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
@@ -653,7 +656,7 @@ mod tests {
     }
 
     #[test]
-    fn native_logs_are_hashed_as_expected() {
+    fn native_logs_are_set_as_expected() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
 
         // Logs for the current call stack.
@@ -684,11 +687,10 @@ mod tests {
             public_inputs.end.unencrypted_log_preimages_length, unencrypted_log_preimages_length + prev_unencrypted_log_preimages_length
         );
 
-        let expected_encrypted_logs_hash = compute_logs_hash(prev_encrypted_logs_hash, encrypted_logs_hash);
-        assert_eq(public_inputs.end.encrypted_logs_hash, expected_encrypted_logs_hash);
-
-        let expected_unencrypted_logs_hash = compute_logs_hash(prev_unencrypted_logs_hash, unencrypted_logs_hash);
-        assert_eq(public_inputs.end.unencrypted_logs_hash, expected_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.encrypted_logs_hashes[0].value, prev_encrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[0].value, prev_unencrypted_logs_hash);
+        assert_eq(public_inputs.end.encrypted_logs_hashes[1].value, encrypted_logs_hash);
+        assert_eq(public_inputs.end.unencrypted_logs_hashes[1].value, unencrypted_logs_hash);
     }
 
     #[test(should_fail_with="new_note_hashes must be empty for static calls")]

@@ -7,7 +7,7 @@ Smart contracts rely on storage, acting as the persistent memory on the blockcha
 To learn how to define a storage struct, read [this guide](../../writing_contracts/storage/define_storage.md).
 To learn more about storage slots, read [this explainer](../../writing_contracts/storage/storage_slots.md).
 
-You control this storage in Aztec using the `Storage` struct. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.
+You control this storage in Aztec using a struct annotated with `#[aztec(storage)]`. This struct serves as the housing unit for all your smart contract's state variables - the data it needs to keep track of and maintain.
 
 These state variables come in two forms: public and private. Public variables are visible to anyone, and private variables remain hidden within the contract.
 
@@ -26,7 +26,7 @@ On this and the following pages in this section, you’ll learn:
 
 Public state variables can be read by anyone, while private state variables can only be read by their owner (or people whom the owner has shared the decrypted data or note viewing key with).
 
-Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (pre-images) are only known by the sender and those able to decrypt them - see ([state model](../../../../learn/concepts/hybrid_state/main.md) and [private/public execution](../../../../learn/concepts/communication/public_private_calls/main.md)) for more background.
+Public state follows the Ethereum style account model, where each contract has its own key-value datastore. Private state follows a UTXO model, where note contents (pre-images) are only known by the sender and those able to decrypt them - see ([state model](../../../../learn/concepts/hybrid_state/main.md) and [private/public execution](../../../../learn/concepts/communication/public_private_calls.md)) for more background.
 
 ## Storage struct
 
@@ -94,5 +94,5 @@ require(minters[msg.sender], "caller is not minter");
 ## Concepts mentioned
 
 - [State Model](../../../../learn/concepts/hybrid_state/main.md)
-- [Public-private execution](../../../../learn/concepts/communication/public_private_calls/main.md)
+- [Public-private execution](../../../../learn/concepts/communication/public_private_calls.md)
 - [Function Contexts](../../writing_contracts/functions/context.md)

@@ -1,9 +1,10 @@
 pub(crate) mod data_bus;
 
-use std::{borrow::Cow, rc::Rc};
+use std::{borrow::Cow, collections::BTreeMap, rc::Rc};
 
 use acvm::FieldElement;
 use noirc_errors::Location;
+use noirc_frontend::monomorphization::ast::InlineType;
 
 use crate::ssa::ir::{
     basic_block::BasicBlockId,
@@ -17,8 +18,8 @@ use super::{
     ir::{
         basic_block::BasicBlock,
         dfg::{CallStack, InsertInstructionResult},
-        function::{InlineType, RuntimeType},
-        instruction::{ConstrainError, InstructionId, Intrinsic},
+        function::RuntimeType,
+        instruction::{ConstrainError, ErrorSelector, ErrorType, InstructionId, Intrinsic},
     },
     ssa_gen::Ssa,
 };
@@ -35,6 +36,7 @@ pub(crate) struct FunctionBuilder {
     current_block: BasicBlockId,
     finished_functions: Vec<Function>,
     call_stack: CallStack,
+    error_types: BTreeMap<ErrorSelector, ErrorType>,
 }
 
 impl FunctionBuilder {
@@ -50,6 +52,7 @@ impl FunctionBuilder {
             current_function: new_function,
             finished_functions: Vec::new(),
             call_stack: CallStack::new(),
+            error_types: BTreeMap::default(),
         }
     }
 
@@ -99,7 +102,7 @@ impl FunctionBuilder {
     /// Consume the FunctionBuilder returning all the functions it has generated.
     pub(crate) fn finish(mut self) -> Ssa {
         self.finished_functions.push(self.current_function);
-        Ssa::new(self.finished_functions)
+        Ssa::new(self.finished_functions, self.error_types)
     }
 
     /// Add a parameter to the current function with the given parameter type.
@@ -263,7 +266,7 @@ impl FunctionBuilder {
         &mut self,
         lhs: ValueId,
         rhs: ValueId,
-        assert_message: Option<Box<ConstrainError>>,
+        assert_message: Option<ConstrainError>,
     ) {
         self.insert_instruction(Instruction::Constrain(lhs, rhs, assert_message), None);
     }
@@ -310,7 +313,8 @@ impl FunctionBuilder {
         index: ValueId,
         value: ValueId,
     ) -> ValueId {
-        self.insert_instruction(Instruction::ArraySet { array, index, value }, None).first()
+        self.insert_instruction(Instruction::ArraySet { array, index, value, mutable: false }, None)
+            .first()
     }
 
     /// Insert an instruction to increment an array's reference count. This only has an effect
@@ -323,6 +327,12 @@ impl FunctionBuilder {
     /// in unconstrained code where arrays are reference counted and copy on write.
     pub(crate) fn insert_dec_rc(&mut self, value: ValueId) {
         self.insert_instruction(Instruction::DecrementRc { value }, None);
+    }
+
+    /// Insert an enable_side_effects_if instruction. These are normally only automatically
+    /// inserted during the flattening pass when branching is removed.
+    pub(crate) fn insert_enable_side_effects_if(&mut self, condition: ValueId) {
+        self.insert_instruction(Instruction::EnableSideEffects { condition }, None);
     }
 
     /// Terminates the current block with the given terminator instruction
@@ -467,6 +477,10 @@ impl FunctionBuilder {
             }
         }
     }
+
+    pub(crate) fn record_error_type(&mut self, selector: ErrorSelector, typ: ErrorType) {
+        self.error_types.insert(selector, typ);
+    }
 }
 
 impl std::ops::Index<ValueId> for FunctionBuilder {
@@ -500,7 +514,6 @@ mod tests {
     use acvm::FieldElement;
 
     use crate::ssa::ir::{
-        function::{InlineType, RuntimeType},
         instruction::{Endian, Intrinsic},
         map::Id,
         types::Type,

@@ -248,29 +248,6 @@ impl<'block> BrilligBlock<'block> {
                 self.convert_ssa_binary(binary, dfg, result_var);
             }
             Instruction::Constrain(lhs, rhs, assert_message) => {
-                let assert_message = if let Some(error) = assert_message {
-                    match error.as_ref() {
-                        ConstrainError::Static(string) => Some(string.clone()),
-                        ConstrainError::Dynamic(call_instruction) => {
-                            let Instruction::Call { func, arguments } = call_instruction else {
-                                unreachable!("expected a call instruction")
-                            };
-
-                            let Value::Function(func_id) = &dfg[*func] else {
-                                unreachable!("expected a function value")
-                            };
-
-                            self.convert_ssa_function_call(*func_id, arguments, dfg, &[]);
-
-                            // Dynamic assert messages are handled in the generated function call.
-                            // We then don't need to attach one to the constrain instruction.
-                            None
-                        }
-                    }
-                } else {
-                    None
-                };
-
                 let condition = SingleAddrVariable {
                     address: self.brillig_context.allocate_register(),
                     bit_size: 1,
@@ -281,8 +258,28 @@ impl<'block> BrilligBlock<'block> {
                     dfg,
                     condition,
                 );
-
-                self.brillig_context.constrain_instruction(condition, assert_message);
+                match assert_message {
+                    Some(ConstrainError::UserDefined(selector, values)) => {
+                        let payload_values =
+                            vecmap(values, |value| self.convert_ssa_value(*value, dfg));
+                        let payload_as_params = vecmap(values, |value| {
+                            let value_type = dfg.type_of_value(*value);
+                            FunctionContext::ssa_type_to_parameter(&value_type)
+                        });
+                        self.brillig_context.codegen_constrain_with_revert_data(
+                            condition,
+                            payload_values,
+                            payload_as_params,
+                            selector.to_u64(),
+                        );
+                    }
+                    Some(ConstrainError::Intrinsic(message)) => {
+                        self.brillig_context.codegen_constrain(condition, Some(message.clone()));
+                    }
+                    None => {
+                        self.brillig_context.codegen_constrain(condition, None);
+                    }
+                }
                 self.brillig_context.deallocate_single_addr(condition);
             }
             Instruction::Allocate => {
@@ -670,7 +667,7 @@ impl<'block> BrilligBlock<'block> {
                         BrilligBinaryOp::LessThanEquals,
                     );
 
-                    self.brillig_context.constrain_instruction(condition, assert_message.clone());
+                    self.brillig_context.codegen_constrain(condition, assert_message.clone());
                     self.brillig_context.deallocate_single_addr(condition);
                     self.brillig_context.deallocate_single_addr(left);
                     self.brillig_context.deallocate_single_addr(right);
@@ -802,7 +799,7 @@ impl<'block> BrilligBlock<'block> {
         );
 
         self.brillig_context
-            .constrain_instruction(condition, Some("Array index out of bounds".to_owned()));
+            .codegen_constrain(condition, Some("Array index out of bounds".to_owned()));
 
         if should_deallocate_size {
             self.brillig_context.deallocate_single_addr(size_as_register);
@@ -1503,10 +1500,8 @@ impl<'block> BrilligBlock<'block> {
                     condition,
                     BrilligBinaryOp::LessThanEquals,
                 );
-                self.brillig_context.constrain_instruction(
-                    condition,
-                    Some("attempt to add with overflow".to_string()),
-                );
+                self.brillig_context
+                    .codegen_constrain(condition, Some("attempt to add with overflow".to_string()));
                 self.brillig_context.deallocate_single_addr(condition);
             }
             (BrilligBinaryOp::Sub, false) => {
@@ -1519,7 +1514,7 @@ impl<'block> BrilligBlock<'block> {
                     condition,
                     BrilligBinaryOp::LessThanEquals,
                 );
-                self.brillig_context.constrain_instruction(
+                self.brillig_context.codegen_constrain(
                     condition,
                     Some("attempt to subtract with overflow".to_string()),
                 );
@@ -1549,7 +1544,7 @@ impl<'block> BrilligBlock<'block> {
                             BrilligBinaryOp::UnsignedDiv,
                         );
                         ctx.binary_instruction(division, left, condition, BrilligBinaryOp::Equals);
-                        ctx.constrain_instruction(
+                        ctx.codegen_constrain(
                             condition,
                             Some("attempt to multiply with overflow".to_string()),
                         );
@@ -1778,7 +1773,7 @@ pub(crate) fn type_of_binary_operation(lhs_type: &Type, rhs_type: &Type) -> Type
         (Type::Numeric(lhs_type), Type::Numeric(rhs_type)) => {
             assert_eq!(
                 lhs_type, rhs_type,
-                "lhs and rhs types in a binary operation are always the same"
+                "lhs and rhs types in a binary operation are always the same but got {lhs_type} and {rhs_type}"
             );
             Type::Numeric(*lhs_type)
         }

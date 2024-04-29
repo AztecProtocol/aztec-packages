@@ -13,21 +13,13 @@ import { TxContext } from './tx_context.js';
  */
 export class TxRequest {
   constructor(
-    /**
-     * Sender.
-     */
+    /** Sender. */
     public origin: AztecAddress,
-    /**
-     * Function data representing the function to call.
-     */
+    /** Function data representing the function to call. */
     public functionData: FunctionData,
-    /**
-     * Pedersen hash of function arguments.
-     */
+    /** Pedersen hash of function arguments. */
     public argsHash: Fr,
-    /**
-     * Transaction context.
-     */
+    /** Transaction context. */
     public txContext: TxContext,
   ) {}
 
