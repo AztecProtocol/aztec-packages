@@ -46,15 +46,8 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         converted_outputs.emplace_back(convert_output(outputs));
     }
 
-    printf("input buffer size = %lu \n", constraint.inputs.size());
-    printf("converted input buffer size = %lu \n", converted_inputs.size());
-
     const auto output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(
         converted_inputs, convert_input(constraint.iv), convert_input(constraint.key));
-
-    printf("generated output buffer size = %lu \n", output_bytes.size());
-    printf("output buffer size = %lu \n", constraint.outputs.size());
-    printf("converted output buffer size = %lu \n", converted_outputs.size());
 
     for (size_t i = 0; i < output_bytes.size(); ++i) {
         builder.assert_equal(output_bytes[i].normalize().witness_index, converted_outputs[i].normalize().witness_index);

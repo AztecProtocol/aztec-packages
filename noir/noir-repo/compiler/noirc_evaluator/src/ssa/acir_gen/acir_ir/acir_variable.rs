@@ -1301,14 +1301,17 @@ impl AcirContext {
             }
             BlackBoxFunc::AES128Encrypt => {
                 let invalid_input = "aes128_encrypt - operation requires a plaintext to encrypt";
-                let aes_block_size = 16;
 
                 output_count = match inputs.first().expect(invalid_input) {
                     AcirValue::Array(values) => {
                         let input_size = values.len();
-                        Ok::<usize, RuntimeError>(
-                            input_size + (aes_block_size - (input_size % aes_block_size)),
-                        )
+                        if input_size % 16 != 0 {
+                            return Err(RuntimeError::InternalError(InternalError::General {
+                                message: "aes128_encrypt input size must be a multiple of the block size (16)".to_string(),
+                                call_stack: self.get_call_stack(),
+                            }));
+                        }
+                        Ok::<usize, RuntimeError>(input_size)
                     }
                     _ => {
                         return Err(RuntimeError::InternalError(InternalError::General {
