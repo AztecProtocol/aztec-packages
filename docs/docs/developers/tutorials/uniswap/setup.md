@@ -22,16 +22,6 @@ Inside `ISwapRouter.sol` paste this:
 
 This is an interface for the Uniswap V3 Router, providing token swapping functionality. The contract defines methods for token swaps, both between two tokens or via a multi-hop path. Our portal will interact with the Uniswap V3 Router via this interface to perform token swaps on L1. We’ll see more about this in the next step.
 
-We will also need to create a file for a Portals data structure. Inside `l1-contracts/contracts` create a new file called `DataStructures.sol`:
-
-```bash
-cd ../contracts && touch DataStructures.sol
-```
-
-Paste this inside:
-
-#include_code portals_data_structures /l1-contracts/test/portals/DataStructures.sol solidity
-
 ## Create another Aztec project
 
 In `aztec-contracts` create a new Aztec contract project.

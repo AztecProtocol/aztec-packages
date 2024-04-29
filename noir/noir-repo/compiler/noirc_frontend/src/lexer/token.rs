@@ -581,10 +581,6 @@ impl Attributes {
     pub fn is_foldable(&self) -> bool {
         self.function.as_ref().map_or(false, |func_attribute| func_attribute.is_foldable())
     }
-
-    pub fn is_inline(&self) -> bool {
-        self.function.as_ref().map_or(false, |func_attribute| func_attribute.is_inline())
-    }
 }
 
 /// An Attribute can be either a Primary Attribute or a Secondary Attribute
@@ -645,10 +641,6 @@ impl Attribute {
             ["test"] => Attribute::Function(FunctionAttribute::Test(TestScope::None)),
             ["recursive"] => Attribute::Function(FunctionAttribute::Recursive),
             ["fold"] => Attribute::Function(FunctionAttribute::Fold),
-            ["inline", tag] => {
-                validate(tag)?;
-                Attribute::Function(FunctionAttribute::Inline(tag.to_string()))
-            }
             ["test", name] => {
                 validate(name)?;
                 let malformed_scope =
@@ -701,7 +693,6 @@ pub enum FunctionAttribute {
     Test(TestScope),
     Recursive,
     Fold,
-    Inline(String),
 }
 
 impl FunctionAttribute {
@@ -734,13 +725,6 @@ impl FunctionAttribute {
     pub fn is_foldable(&self) -> bool {
         matches!(self, FunctionAttribute::Fold)
     }
-
-    /// Check whether we have an `inline` attribute
-    /// Although we also do not want to inline foldable functions,
-    /// we keep the two attributes distinct for clarity.
-    pub fn is_inline(&self) -> bool {
-        matches!(self, FunctionAttribute::Inline(_))
-    }
 }
 
 impl fmt::Display for FunctionAttribute {
@@ -752,7 +736,6 @@ impl fmt::Display for FunctionAttribute {
             FunctionAttribute::Oracle(ref k) => write!(f, "#[oracle({k})]"),
             FunctionAttribute::Recursive => write!(f, "#[recursive]"),
             FunctionAttribute::Fold => write!(f, "#[fold]"),
-            FunctionAttribute::Inline(ref k) => write!(f, "#[inline({k})]"),
         }
     }
 }
@@ -798,7 +781,6 @@ impl AsRef<str> for FunctionAttribute {
             FunctionAttribute::Test { .. } => "",
             FunctionAttribute::Recursive => "",
             FunctionAttribute::Fold => "",
-            FunctionAttribute::Inline(string) => string,
         }
     }
 }
