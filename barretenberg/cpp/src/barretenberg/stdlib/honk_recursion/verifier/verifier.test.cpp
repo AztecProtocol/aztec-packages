@@ -174,8 +174,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        info("Recursive Verifier: num gates before verify = ", outer_circuit.num_gates);
         auto pairing_points = verifier.verify_proof(inner_proof);
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+        outer_circuit.finalize_circuit();
+        info("Recursive Verifier: num gates after finalization = ", outer_circuit.num_gates);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
