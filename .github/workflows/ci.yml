@@ -76,13 +76,13 @@ jobs:
       - name: Test and upload logs
         working-directory: ./yarn-project/end-to-end/
         timeout-minutes: 25
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --no-output +${{ matrix.test }} --e2e_mode=cache
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --no-output +${{ matrix.test }} --e2e_mode=cache
 
   bench-summary:
     needs: build
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
-      - uses: actions/checkout@v4,
+      - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
       - uses: ./.github/ci-setup-action
         with:
@@ -90,10 +90,10 @@ jobs:
           concurrency_key: build-${{ inputs.username || github.actor }}-x86
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY +bench-aggregate
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} +bench-aggregate
       - name: "Generate summary comment if pull request"
         working-directory: ./yarn-project/scripts
-        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_COMMENTER_GITHUB_TOKEN }} +bench-comment
+        run: earthly-ci -P --secret AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} --secret AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${{ secrets.AZTEC_BOT_COMMENTER_GITHUB_TOKEN }} +bench-comment
         if: ${{ github.event_name == 'pull_request' }}
 
   # barretenberg (prover) native and AVM (public VM) tests
