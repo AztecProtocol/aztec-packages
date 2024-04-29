@@ -16,4 +16,9 @@ fn main(
 
     assert(triple.x == res[0]);
     assert(triple.y == res[1]);
+
+    // Multiplying the point by 1 should return the same point
+    let res = std::scalar_mul::variable_base_embedded_curve(point_x, point_y, 1, 0);
+    assert(point_x == res[0]);
+    assert(point_y == res[1]);
 }
