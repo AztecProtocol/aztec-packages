@@ -40,7 +40,7 @@ TEST(rom_table, rom_table_read_write_consistency)
             const auto to_add = table[index];
             const auto after_n = builder.num_gates;
             // should cost 1 gates (the ROM read adds 1 extra gate when the proving key is constructed)
-            // (but not for 1st entry, the 1st ROM read also builts the ROM table, which will cost table_size * 2gates)
+            // (but not for 1st entry, the 1st ROM read also builts the ROM table, which will cost table_size * 2 gates)
             if (i != 0) {
                 EXPECT_EQ(after_n - before_n, 1ULL);
             }

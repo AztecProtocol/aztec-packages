@@ -89,9 +89,8 @@ TYPED_TEST(StdlibPedersen, Small)
 {
     TestFixture::test_pedersen();
 };
+
 TYPED_TEST(StdlibPedersen, HashConstants)
 {
     TestFixture::test_hash_constants();
 };
-
-// PROBLEM POSSIBLY

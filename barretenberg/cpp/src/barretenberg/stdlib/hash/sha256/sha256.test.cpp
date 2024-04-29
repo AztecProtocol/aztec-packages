@@ -16,7 +16,7 @@ using namespace bb::stdlib;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-using Builder = UltraCircuitBuilder; // GET THIS TO BE SIMULATOR
+using Builder = UltraCircuitBuilder;
 
 using byte_array_ct = byte_array<Builder>;
 using packed_byte_array_ct = packed_byte_array<Builder>;

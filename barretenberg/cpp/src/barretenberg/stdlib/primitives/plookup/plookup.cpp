@@ -90,7 +90,6 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
     return lookup[ColumnIdx::C2][0];
 }
 
-// instantiate  with circuit simulator
 template class plookup_read<bb::UltraCircuitBuilder>;
 template class plookup_read<bb::GoblinUltraCircuitBuilder>;
 template class plookup_read<bb::CircuitSimulatorBN254>;

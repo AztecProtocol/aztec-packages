@@ -10,7 +10,7 @@ using namespace bb;
 using namespace bb::stdlib;
 using namespace bb::crypto;
 
-using Builder = bb::UltraCircuitBuilder;
+using Builder = UltraCircuitBuilder;
 using bool_ct = bool_t<Builder>;
 using byte_array_ct = byte_array<Builder>;
 using field_ct = field_t<Builder>;

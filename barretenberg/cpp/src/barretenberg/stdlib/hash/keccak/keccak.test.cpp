@@ -7,12 +7,12 @@
 
 using namespace bb;
 
-typedef UltraCircuitBuilder Builder; // SIMULATO R
-typedef stdlib::byte_array<Builder> byte_array;
-typedef stdlib::public_witness_t<Builder> public_witness_t;
-typedef stdlib::field_t<Builder> field_ct;
-typedef stdlib::witness_t<Builder> witness_ct;
-typedef stdlib::uint32<Builder> uint32_ct;
+using Builder = UltraCircuitBuilder;
+using byte_array = stdlib::byte_array<Builder>;
+using public_witness_t = stdlib::public_witness_t<Builder>;
+using field_ct = stdlib::field_t<Builder>;
+using witness_ct = stdlib::witness_t<Builder>;
+using uint32_ct = stdlib::uint32<Builder>;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();

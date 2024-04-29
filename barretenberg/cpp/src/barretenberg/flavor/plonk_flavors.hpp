@@ -2,7 +2,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp"
 #include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
@@ -152,15 +151,4 @@ class Ultra {
         return output;
     }
 };
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/672)
-class SimulatorBN254 {
-  public:
-    using CircuitBuilder = bb::CircuitSimulatorBN254;
-    static transcript::Manifest create_manifest(const size_t num_public_inputs)
-    {
-        return Ultra::create_manifest(num_public_inputs);
-    }
-};
-
 } // namespace bb::plonk::flavor

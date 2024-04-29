@@ -71,32 +71,9 @@ void schnorr_verify_signature(const byte_array<C>& message,
                               const cycle_group<C>& pub_key,
                               const schnorr_signature_bits<C>& sig)
 {
-    if constexpr (IsSimulator<C>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
-        const auto deconvert_signature = [](const schnorr_signature_bits<C>& sig) {
-            auto s_vector = to_buffer(grumpkin::fr(static_cast<uint256_t>(sig.s_lo.get_value()) +
-                                                   (static_cast<uint256_t>(sig.s_hi.get_value()) << 128)));
-            auto e_vector = to_buffer(static_cast<uint256_t>(sig.e_lo.get_value()) +
-                                      (static_cast<uint256_t>(sig.e_hi.get_value()) << 128));
-
-            std::array<uint8_t, 32> s_array{ 0 };
-            std::array<uint8_t, 32> e_array{ 0 };
-            std::copy(s_vector.begin(), s_vector.end(), s_array.begin());
-            std::copy(e_vector.begin(), e_vector.end(), e_array.begin());
-
-            return crypto::schnorr_signature{ .s = s_array, .e = e_array };
-        };
-        bool signature_valid =
-            crypto::schnorr_verify_signature<crypto::Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-                message.get_value(), { pub_key.x.get_value(), pub_key.y.get_value() }, deconvert_signature(sig));
-        if (!signature_valid) {
-            message.get_context()->failure("Schnorr verification failed in simulation");
-        }
-    } else {
-        auto [output_lo, output_hi] = schnorr_verify_signature_internal(message, pub_key, sig);
-        output_lo.assert_equal(sig.e.lo, "verify signature failed");
-        output_hi.assert_equal(sig.e.hi, "verify signature failed");
-    }
+    auto [output_lo, output_hi] = schnorr_verify_signature_internal(message, pub_key, sig);
+    output_lo.assert_equal(sig.e.lo, "verify signature failed");
+    output_hi.assert_equal(sig.e.hi, "verify signature failed");
 }
 
 /**
@@ -109,26 +86,6 @@ bool_t<C> schnorr_signature_verification_result(const byte_array<C>& message,
                                                 const cycle_group<C>& pub_key,
                                                 const schnorr_signature_bits<C>& sig)
 {
-    if constexpr (IsSimulator<C>) {
-        const auto deconvert_signature = [](const schnorr_signature_bits<C>& sig) {
-            auto s_vector = to_buffer(grumpkin::fr(static_cast<uint256_t>(sig.s_lo.get_value()) +
-                                                   (static_cast<uint256_t>(sig.s_hi.get_value()) << 128)));
-            auto e_vector = to_buffer(static_cast<uint256_t>(sig.e_lo.get_value()) +
-                                      (static_cast<uint256_t>(sig.e_hi.get_value()) << 128));
-
-            std::array<uint8_t, 32> s_array{ 0 };
-            std::array<uint8_t, 32> e_array{ 0 };
-            std::copy(s_vector.begin(), s_vector.end(), s_array.begin());
-            std::copy(e_vector.begin(), e_vector.end(), e_array.begin());
-
-            return crypto::schnorr_signature{ .s = s_array, .e = e_array };
-        };
-        bool signature_valid =
-            crypto::schnorr_verify_signature<crypto::Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
-                message.get_value(), { pub_key.x.get_value(), pub_key.y.get_value() }, deconvert_signature(sig));
-
-        return signature_valid;
-    }
     auto [output_lo, output_hi] = schnorr_verify_signature_internal(message, pub_key, sig);
     bool_t<C> valid = (output_lo == sig.e.lo) && (output_hi == sig.e.hi);
     return valid;

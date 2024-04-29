@@ -23,7 +23,6 @@ namespace bb::crypto {
  *
  * @tparam Hash the hash-function used as random-oracle
  * @tparam G1 Group over which the signature is produced
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
  * @param message what are we signing over?
  * @param pubkey the pubkey of the signer
  * @param R the nonce
