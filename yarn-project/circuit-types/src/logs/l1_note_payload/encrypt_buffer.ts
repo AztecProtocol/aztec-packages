@@ -15,6 +15,8 @@ import { createCipheriv, createDecipheriv } from 'browserify-cipher';
  * @param ecdhPubKey - The ECDH public key represented as a PublicKey object.
  * @param ecdhPrivKey - The ECDH private key represented as a Buffer object.
  * @returns A Buffer containing the derived AES secret key.
+ * TODO(#5726): This function is called point_to_symmetric_key in Noir. I don't like that name much since point is not
+ * the only input of the function. Unify naming once we have a better name.
  */
 export function deriveAESSecret(ecdhPubKey: PublicKey, ecdhPrivKey: GrumpkinPrivateKey): Buffer {
   const curve = new Grumpkin();
