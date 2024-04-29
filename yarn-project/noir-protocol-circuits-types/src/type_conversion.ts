@@ -47,6 +47,7 @@ import {
   MaxBlockNumber,
   type MembershipWitness,
   type MergeRollupInputs,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
   NUM_BYTES_PER_SHA256,
   type NonMembershipHint,
@@ -88,9 +89,11 @@ import {
   PublicKernelCircuitPublicInputs,
   type PublicKernelData,
   type PublicKernelTailCircuitPrivateInputs,
+  type RECURSIVE_PROOF_LENGTH,
   ReadRequest,
   ReadRequestContext,
   type ReadRequestStatus,
+  type RecursiveProof,
   RevertCode,
   RollupValidationRequests,
   type RootParityInput,
@@ -105,12 +108,16 @@ import {
   TxContext,
   type TxRequest,
   ValidationRequests,
+  type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
 
 import { type BaseParityInputs as BaseParityInputsNoir } from './types/parity_base_types.js';
-import { type RootParityInputs as RootParityInputsNoir } from './types/parity_root_types.js';
+import {
+  type RootParityInput as ParityRootParityInputNoir,
+  type RootParityInputs as RootParityInputsNoir,
+} from './types/parity_root_types.js';
 import {
   type CallContext as CallContextNoir,
   type CallRequest as CallRequestNoir,
@@ -205,8 +212,8 @@ import {
   type ParityPublicInputs as ParityPublicInputsNoir,
   type PartialStateReference as PartialStateReferenceNoir,
   type PreviousRollupData as PreviousRollupDataNoir,
-  type RootParityInput as RootParityInputNoir,
   type RootRollupInputs as RootRollupInputsNoir,
+  type RootRollupParityInput as RootRollupParityInputNoir,
   type RootRollupPublicInputs as RootRollupPublicInputsNoir,
   type StateReference as StateReferenceNoir,
 } from './types/rollup_root_types.js';
@@ -1188,6 +1195,7 @@ export function mapCombinedConstantDataFromNoir(combinedConstantData: CombinedCo
   return new CombinedConstantData(
     mapHeaderFromNoir(combinedConstantData.historical_header),
     mapTxContextFromNoir(combinedConstantData.tx_context),
+    mapGlobalVariablesFromNoir(combinedConstantData.global_variables),
   );
 }
 
@@ -1200,6 +1208,7 @@ export function mapCombinedConstantDataToNoir(combinedConstantData: CombinedCons
   return {
     historical_header: mapHeaderToNoir(combinedConstantData.historicalHeader),
     tx_context: mapTxContextToNoir(combinedConstantData.txContext),
+    global_variables: mapGlobalVariablesToNoir(combinedConstantData.globalVariables),
   };
 }
 
@@ -1260,6 +1269,13 @@ export function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
     vk: {},
     vk_index: mapFieldToNoir(new Fr(kernelData.vkIndex)),
     vk_path: mapTuple(kernelData.vkPath, mapFieldToNoir),
+  };
+}
+
+export function mapVerificationKeyToNoir(key: VerificationKeyAsFields) {
+  return {
+    key: mapTuple(key.key, mapFieldToNoir),
+    hash: mapFieldToNoir(key.hash),
   };
 }
 
@@ -1547,6 +1563,7 @@ export function mapPublicCircuitPublicInputsToNoir(
     unencrypted_logs_hashes: mapTuple(publicInputs.unencryptedLogsHashes, mapSideEffectToNoir),
     unencrypted_log_preimages_length: mapFieldToNoir(publicInputs.unencryptedLogPreimagesLength),
     historical_header: mapHeaderToNoir(publicInputs.historicalHeader),
+    global_variables: mapGlobalVariablesToNoir(publicInputs.globalVariables),
     prover_address: mapAztecAddressToNoir(publicInputs.proverAddress),
     revert_code: mapRevertCodeToNoir(publicInputs.revertCode),
     start_gas_left: mapGasToNoir(publicInputs.startGasLeft),
@@ -1681,6 +1698,22 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
   };
 }
 
+export function mapRootRollupRecursiveProofToNoir(proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>) {
+  return {
+    fields: mapTuple(proof.proof, mapFieldToNoir),
+  };
+}
+
+export function mapRootRollupParityInputToNoir(
+  rootParityInput: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+): RootRollupParityInputNoir {
+  return {
+    proof: mapRootRollupRecursiveProofToNoir(rootParityInput.proof),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
+    public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
+  };
+}
+
 /**
  * Naos the root rollup inputs to noir.
  * @param rootRollupInputs - The circuits.js root rollup inputs.
@@ -1689,7 +1722,7 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
 export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
   return {
     previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
-    l1_to_l2_roots: mapRootParityInputToNoir(rootRollupInputs.l1ToL2Roots),
+    l1_to_l2_roots: mapRootRollupParityInputToNoir(rootRollupInputs.l1ToL2Roots),
     new_l1_to_l2_messages: mapTuple(rootRollupInputs.newL1ToL2Messages, mapFieldToNoir),
     new_l1_to_l2_message_tree_root_sibling_path: mapTuple(
       rootRollupInputs.newL1ToL2MessageTreeRootSiblingPath,
@@ -1703,16 +1736,24 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
   };
 }
 
-export function mapRootParityInputToNoir(rootParityInput: RootParityInput): RootParityInputNoir {
+export function mapRecursiveProofToNoir(proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>) {
   return {
-    proof: {},
+    fields: mapTuple(proof.proof, mapFieldToNoir),
+  };
+}
+
+export function mapRootParityInputToNoir(
+  rootParityInput: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>,
+): ParityRootParityInputNoir {
+  return {
+    proof: mapRecursiveProofToNoir(rootParityInput.proof),
+    verification_key: mapVerificationKeyToNoir(rootParityInput.verificationKey),
     public_inputs: mapParityPublicInputsToNoir(rootParityInput.publicInputs),
   };
 }
 
 export function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): ParityPublicInputsNoir {
   return {
-    aggregation_object: {},
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
     converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
   };
@@ -1740,7 +1781,6 @@ export function mapRootRollupPublicInputsFromNoir(
  */
 export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
   return new ParityPublicInputs(
-    AggregationObject.makeFake(),
     mapFieldFromNoir(parityPublicInputs.sha_root),
     mapFieldFromNoir(parityPublicInputs.converted_root),
   );
