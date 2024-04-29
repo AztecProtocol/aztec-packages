@@ -1,4 +1,4 @@
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6058): rename this file to something more generic
+// TODO(https://github.com/noir-lang/noir/issues/4932): rename this file to something more generic
 use ark_ec::AffineRepr;
 use ark_ff::MontConfig;
 use num_bigint::BigUint;

@@ -1,6 +1,6 @@
 use crate::ops::Add;
 
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061)
+// TODO(https://github.com/noir-lang/noir/issues/4931)
 struct EmbeddedCurvePoint {
     x: Field,
     y: Field,
@@ -33,7 +33,7 @@ pub fn fixed_base_embedded_curve(
 // docs:end:fixed_base_embedded_curve
 {}
 
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6061): use a point struct instead of two fields
+// TODO(https://github.com/noir-lang/noir/issues/4931): use a point struct instead of two fields
 #[foreign(variable_base_scalar_mul)]
 pub fn variable_base_embedded_curve(
     point_x: Field, // x coordinate of a point to multiply the scalar with
