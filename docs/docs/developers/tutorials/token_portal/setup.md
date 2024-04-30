@@ -41,7 +41,9 @@ We will hold our projects inside of `packages` to follow the design of the proje
 
 Inside `packages` create a new directory `aztec-contracts`:
 
-`cd packages && mkdir aztec-contracts`
+```bash
+cd packages && mkdir aztec-contracts
+```
 
 Inside `aztec-contracts` create a new contract project like this:
 
@@ -142,8 +144,8 @@ In `package.json`, add:
 ```json
 "type": "module",
 "scripts": {
-  "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest)",
-}
+  "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest)"
+},
 ```
 
 Your `package.json` should look something like this (do not copy and paste):
