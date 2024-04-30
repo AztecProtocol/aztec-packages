@@ -20,19 +20,17 @@ export class LogsCache {
 
   // /**
   //  * Remove the encrypted log for a nullified note.
-  //  * @param innerNoteHash - Inner note hash of the note. If this value equals 0, it means the
-  //  * note being nullified is from a previous transaction (and thus not a new note).
+  //  * This fn should only be called if the note's innerNoteHash != 0.
+  //  * @param noteHashCounter - Side effect counter of the note.
   //  */
-  // public nullifyNote(innerNoteHash: Fr) {
-  //   if (!innerNoteHash.equals(Fr.ZERO)) {
-  //     // Find and remove the matching new note if the emitted innerNoteHash is not empty.
-  //     const log = this.encryptedLogsLinkedToNotes.get(innerNoteHash.toBigInt()) ?? false;
-  //     // TODO: throw here? Will the log always be here?
-  //     if (!log) {
-  //       throw new Error('Attempt to remove a pending note log that does not exist.');
-  //     }
-  //     this.encryptedLogsLinkedToNotes.delete(innerNoteHash.toBigInt());
-  //   }
+  // public nullifyNote(noteHashCounter: Fr) {
+  //  // Find and remove the matching new note if the emitted innerNoteHash is not empty.
+  //  const log = this.encryptedLogsLinkedToNotes.get(noteHashCounter.toBigInt()) ?? false;
+  //  // TODO: throw here? Will the log always be here?
+  //  if (!log) {
+  //    throw new Error('Attempt to remove a pending note log that does not exist.');
+  //  }
+  //  this.encryptedLogsLinkedToNotes.delete(noteHashCounter.toBigInt());
   // }
 
   /**

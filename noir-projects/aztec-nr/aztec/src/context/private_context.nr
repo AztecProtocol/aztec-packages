@@ -270,7 +270,7 @@ impl PrivateContext {
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
-        self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + log_slice.len().to_field();
+        self.unencrypted_log_preimages_length += 44 + log_slice.len().to_field();
         // call oracle
         let _void = emit_unencrypted_log_private_internal(contract_address, event_selector, log);
     }
@@ -294,7 +294,7 @@ impl PrivateContext {
         self.unencrypted_logs_hashes.push(side_effect);
         self.side_effect_counter = self.side_effect_counter + 1;
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
-        self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + N*32;
+        self.unencrypted_log_preimages_length += 44 + N*32;
     }
 
     pub fn emit_encrypted_log<N, M, L>(
@@ -320,7 +320,7 @@ impl PrivateContext {
         self.side_effect_counter = self.side_effect_counter + 1;
         let encrypted_log_byte_len = 112 + 32*(N + 3);
         // + processed log len (4)
-        self.encrypted_log_preimages_length = self.encrypted_log_preimages_length + encrypted_log_byte_len + 4;
+        self.encrypted_log_preimages_length += encrypted_log_byte_len + 4;
     }
 
     pub fn call_private_function<ARGS_COUNT>(

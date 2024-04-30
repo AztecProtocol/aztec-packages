@@ -4,7 +4,6 @@ import {
   BatchCall,
   type DebugLogger,
   Fr,
-  Grumpkin,
   type PXE,
   type Wallet,
   deriveKeys,

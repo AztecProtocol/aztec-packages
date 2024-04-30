@@ -72,9 +72,7 @@ impl PublicContext {
             unencrypted_logs_hashes: BoundedVec::new(),
             unencrypted_log_preimages_length: 0,
             historical_header: inputs.historical_header,
-            prover_address: AztecAddress::zero()
-            // encrypted_logs_preimages: Vec::new(),
-            // unencrypted_logs_preimages: Vec::new(),
+            prover_address: AztecAddress::zero(),
         }
     }
 
