@@ -77,10 +77,9 @@ HOST_WORKDIR='${PWD}' # The location to store log outpus. Will use ~/.aztec wher
 ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-DEPLOY_AZTEC_CONTRACTS='true' # Option to deploy the Aztec contracts when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
-AZTEC_NODE_PORT=8079 # The port that the Aztec node wil be listening to (default: 8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
+SANDBOX_PORT=8080 # The port that Aztec Sandbox wil be listening to (default: 8080)
 
 # Ethereum Forking (Optional: not enabled by default) #
 FORK_BLOCK_NUMBER=0 # The block number to fork from
@@ -133,7 +132,6 @@ SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
 **PXE**
 
 Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
-`DEPLOY_AZTEC_CONTRACTS` cannot be used here as the PXE does not control an Ethereum account.
 
 ```sh
 AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
@@ -168,24 +166,37 @@ You can find the cheat code reference [here](../../sandbox/references/cheat_code
 We have shipped a number of example contracts in the `@aztec/noir-contracts.js` [npm package](https://www.npmjs.com/package/@aztec/noir-contracts.js). This is included with the sandbox by default so you are able to use these contracts to test with. 
 
 ```bash
+AppSubscriptionContractArtifact
+AuthContractArtifact
 BenchmarkingContractArtifact
 CardGameContractArtifact
 ChildContractArtifact
+ClaimContractArtifact
+ContractClassRegistererContractArtifact
+ContractInstanceDeployerContractArtifact
 CounterContractArtifact
+CrowdfundingContractArtifact
+DelegatedOnContractArtifact
+DelegatorContractArtifact
 DocsExampleContractArtifact
 EasyPrivateTokenContractArtifact
 EasyPrivateVotingContractArtifact
 EcdsaAccountContractArtifact
 EscrowContractArtifact
+FPCContractArtifact
+GasTokenContractArtifact
 ImportTestContractArtifact
 InclusionProofsContractArtifact
 LendingContractArtifact
+MultiCallEntrypointContractArtifact
 ParentContractArtifact
 PendingNoteHashesContractArtifact
 PriceFeedContractArtifact
+ReaderContractArtifact
 SchnorrAccountContractArtifact
 SchnorrHardcodedAccountContractArtifact
 SchnorrSingleKeyAccountContractArtifact
+SlowTreeContractArtifact
 StatefulTestContractArtifact
 TestContractArtifact
 TokenBlacklistContractArtifact
