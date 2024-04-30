@@ -211,7 +211,7 @@ describe('e2e_nested_contract', () => {
       expect(rct.status).toEqual('mined');
       const decryptedLogs = tx.encryptedLogs
         .unrollLogs()
-        .map(l => TaggedNote.fromEncryptedBuffer(l.data, keys.masterIncomingViewingSecretKey, new Grumpkin()));
+        .map(l => TaggedNote.fromEncryptedBuffer(l.data, keys.masterIncomingViewingSecretKey));
       const notevalues = decryptedLogs.map(l => l?.notePayload.note.items[0]);
       expect(notevalues[0]).toEqual(new Fr(10));
       expect(notevalues[1]).toEqual(new Fr(11));
