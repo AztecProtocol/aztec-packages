@@ -4,9 +4,6 @@ FROM node:18.19.0
 ARG --global use_local_builds=false
 
 # These args are loaded from the EARTHLY_BUILD_ARGS set in setup_env
-ARG --global COMMIT_HASH
-ARG --global PULL_REQUEST
-ARG --global BRANCH
 
 build:
   FROM ../+scripts-prod --use_local_builds=$use_local_builds
@@ -16,6 +13,9 @@ build:
 
 download-logs:
   # Downloads logs for the current PR and saves them as an artifact, to be consumed by bench-aggregate.
+  ARG COMMIT_HASH
+  ARG PULL_REQUEST
+  ARG BRANCH
   FROM +build
   LET LOG_FOLDER=/usr/var/logs
   LET BENCH_FOLDER=/usr/var/bench
@@ -30,6 +30,9 @@ download-logs:
 bench-aggregate:
   # Copies logs downloaded from download-logs and aggregates them using bench-aggregate.
   # No aggregation is done if there is a log missing from the benchmark jobs.
+  ARG COMMIT_HASH
+  ARG PULL_REQUEST
+  ARG BRANCH
   FROM +build
   LET LOG_FOLDER=/usr/var/logs
   LET BENCH_FOLDER=/usr/var/bench
@@ -51,6 +54,9 @@ bench-comment:
   # an Earthly container because it needs access to the .git folder, and we cannot run it with a
   # LOCALLY statement because Earthly does not support secrets when running locally (and we need)
   # the AWS access keys to access S3. This step is then manually run in the ci.yml.
+  ARG COMMIT_HASH
+  ARG PULL_REQUEST
+  ARG BRANCH
   FROM +build
   LET BENCH_FOLDER=/usr/var/bench
   ENV BENCH_FOLDER=$BENCH_FOLDER
