@@ -37,3 +37,4 @@ scripts:
     FROM ubuntu:lunar
     RUN apt-get update && apt-get install -y awscli
     COPY scripts /usr/src/scripts
+    SAVE ARTIFACT /usr/src/scripts

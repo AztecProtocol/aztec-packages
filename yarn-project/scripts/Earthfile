@@ -17,7 +17,9 @@ ENV BRANCH=$BRANCH
 
 build:
   FROM ../+scripts-prod
+  COPY ../../+scripts/usr/src/scripts /usr/src/scripts
   RUN apt-get update && apt-get install awscli -y
+  WORKDIR /usr/src
 
 download-logs:
   FROM +build
@@ -27,9 +29,9 @@ download-logs:
 bench-aggregate:
   FROM +build
   COPY +download-logs/logs $LOG_FOLDER
-  WORKDIR /usr/src/yarn-project/scripts
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY ./scripts/logs/check_logs_for_benchmark.sh \
-    && (yarn bench-aggregate && ./scripts/logs/upload_aggregated_benchmarks_to_s3.sh) \
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
+    ./scripts/logs/check_logs_for_benchmark.sh \
+    && ((cd /usr/src/yarn-project/scripts && yarn bench-aggregate) && ./scripts/logs/upload_aggregated_benchmarks_to_s3.sh) \
     || true
   SAVE ARTIFACT $BENCH_FOLDER bench
 
@@ -38,6 +40,6 @@ bench-comment:
   COPY +bench-aggregate/bench $BENCH_FOLDER
   RUN --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     [ -f $BENCH_FOLDER/benchmarks.json ] \
-    && (./scripts/logs/download_base_benchmark_from_s3.sh && yarn bench-comment) \
+    && (./scripts/logs/download_base_benchmark_from_s3.sh && (cd /usr/src/yarn-project/scripts && yarn bench-comment)) \
     || true
   
