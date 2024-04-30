@@ -5,7 +5,7 @@ COMMIT_HASH=$(git rev-parse HEAD)
 # Setup environment variables
 echo "Setting up environment variables..."
 echo "FORCE_COLOR=1" >> $GITHUB_ENV
-echo "EARTHLY_BUILD_ARGS=\"PULL_REQUEST=$PULL_REQUEST,BRANCH=$BRANCH,COMMIT_HASH=$COMMIT_HASH\"" >> $GITHUB_ENV
+echo "EARTHLY_BUILD_ARGS=PULL_REQUEST=$PULL_REQUEST,BRANCH=$BRANCH,COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_ENV
 
 # Docker login
 echo "Logging in to Docker..."
