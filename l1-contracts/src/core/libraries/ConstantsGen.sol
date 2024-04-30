@@ -97,8 +97,8 @@ library Constants {
   uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
     0x1585e564a60e6ec974bc151b62705292ebfc75c33341986a47fd9749cedb567e;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
-  uint256 internal constant GAS_FEES_LENGTH = 3;
-  uint256 internal constant GAS_LENGTH = 3;
+  uint256 internal constant GAS_FEES_LENGTH = 2;
+  uint256 internal constant GAS_LENGTH = 2;
   uint256 internal constant GAS_SETTINGS_LENGTH =
     GAS_LENGTH * 2 + GAS_FEES_LENGTH /* inclusion_fee */ + 1;
   uint256 internal constant CALL_CONTEXT_LENGTH = 6;
@@ -144,8 +144,9 @@ library Constants {
     + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL + (SIDE_EFFECT_LENGTH * MAX_NEW_NOTE_HASHES_PER_CALL)
     + (SIDE_EFFECT_LINKED_TO_NOTE_HASH_LENGTH * MAX_NEW_NULLIFIERS_PER_CALL)
     + (L2_TO_L1_MESSAGE_LENGTH * MAX_NEW_L2_TO_L1_MSGS_PER_CALL) + 2
-    + (SIDE_EFFECT_LENGTH * MAX_UNENCRYPTED_LOGS_PER_CALL) + 1 + HEADER_LENGTH + AZTEC_ADDRESS_LENGTH /* revert_code */
-    + 1 + 2 * GAS_LENGTH /* transaction_fee */ + 1;
+    + (SIDE_EFFECT_LENGTH * MAX_UNENCRYPTED_LOGS_PER_CALL) + 1 + HEADER_LENGTH
+    + GLOBAL_VARIABLES_LENGTH + AZTEC_ADDRESS_LENGTH /* revert_code */ + 1 + 2 * GAS_LENGTH /* transaction_fee */
+    + 1;
   uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH =
     AZTEC_ADDRESS_LENGTH + FUNCTION_DATA_LENGTH + PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
   uint256 internal constant ENQUEUE_PUBLIC_FUNCTION_CALL_RETURN_LENGTH =
@@ -161,4 +162,7 @@ library Constants {
   uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 64;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
+  uint256 internal constant RECURSIVE_PROOF_LENGTH = 93;
+  uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 109;
+  uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 114;
 }
