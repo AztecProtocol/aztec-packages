@@ -63,6 +63,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
         true, false, true, false
     };
 
+    template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
+    {
+        // WORKTODO: comments
+        return in.q_busread.value_at(0).is_zero() && in.q_busread.value_at(1).is_zero() &&
+               in.calldata_read_counts.value_at(0).is_zero() && in.calldata_read_counts.value_at(1).is_zero() &&
+               in.return_data_read_counts.value_at(0).is_zero() && in.return_data_read_counts.value_at(1).is_zero();
+    }
+
     // Interface for easy access of databus components by column (bus_idx)
     template <size_t bus_idx, typename AllEntities> struct BusData;
 

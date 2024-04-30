@@ -289,8 +289,28 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
-            std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
+
+        // Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
+            // info("NOT SKIPPABLE!");
+            // If not, accumulate normally
+            Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                 extended_univariates,
+                                 relation_parameters,
+                                 scaling_factor);
+        } else {
+            // info("SKIPPABLE!");
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(extended_univariates)) {
+                // info("NOT skipping!", relation_idx);
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_univariates,
+                                     relation_parameters,
+                                     scaling_factor);
+            } else {
+                // info("Skipping!", relation_idx);
+            }
+        }
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
@@ -330,6 +350,7 @@ template <class ProverInstances_> class ProtoGalaxyProver_ {
         extended_univariates.resize(num_threads);
 
         // Accumulate the contribution from each sub-relation
+        // num_threads = 1;
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
