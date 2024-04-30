@@ -36,13 +36,13 @@ rm -rf $current_dir/acir_artifacts
 mkdir -p $current_dir/acir_artifacts
 
 # Gather directories to process.
-dirs_to_process=()
-for dir in $base_path/*; do
-    if [[ ! -d $dir ]] || [[ " ${excluded_dirs[@]} " =~ " $(basename "$dir") " ]]; then
-        continue
-    fi
-    dirs_to_process+=("$dir")
-done
+dirs_to_process=("$base_path/aes128_encrypt")
+# for dir in $base_path/*; do
+#     if [[ ! -d $dir ]] || [[ " ${excluded_dirs[@]} " =~ " $(basename "$dir") " ]]; then
+#         continue
+#     fi
+#     dirs_to_process+=("$dir")
+# done
 
 # Process each directory in parallel
 pids=()

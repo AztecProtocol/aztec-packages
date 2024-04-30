@@ -1336,15 +1336,7 @@ impl AcirContext {
                         }));
                     }
                 }?;
-                if input_size % 16 != 0 {
-                    return Err(RuntimeError::InternalError(InternalError::General {
-                        message:
-                            "aes128_encrypt input size must be a multiple of the block size (16)"
-                                .to_string(),
-                        call_stack: self.get_call_stack(),
-                    }));
-                }
-                output_count = input_size;
+                output_count = input_size + (16 - input_size % 16);
                 (vec![], vec![FieldElement::from(output_count as u128)])
             }
             _ => (vec![], vec![]),
