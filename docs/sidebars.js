@@ -213,8 +213,8 @@ const sidebars = {
       },
       items: [
         "developers/getting_started/quickstart",
-        "developers/getting_started/aztecnr-getting-started",
         "developers/getting_started/aztecjs-getting-started",
+        "developers/getting_started/aztecnr-getting-started",
       ],
     },
 
@@ -226,9 +226,10 @@ const sidebars = {
         id: "developers/tutorials/main",
       },
       items: [
-        "developers/tutorials/writing_token_contract",
         "developers/tutorials/writing_private_voting_contract",
+        "developers/tutorials/writing_token_contract",
         "developers/tutorials/crowdfunding/donations",
+
         {
           label: "Writing a DApp",
           type: "category",
@@ -436,6 +437,7 @@ const sidebars = {
               items: [
                 "developers/contracts/references/storage/private_state",
                 "developers/contracts/references/storage/public_state",
+                "developers/contracts/references/storage/shared_state",
               ],
             },
             {
