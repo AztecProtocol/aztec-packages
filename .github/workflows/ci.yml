@@ -86,7 +86,9 @@ jobs:
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        with: { ref: "${{ github.event.pull_request.head.sha }}" }
+        with:
+          fetch-depth: 100 # Downloading base benchmark from master requires access to history
+          ref: "${{ github.event.pull_request.head.sha }}"
       - uses: ./.github/ci-setup-action
         with:
           dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
