@@ -1,6 +1,5 @@
 import { type AztecNode, type FunctionCall, type Note, type TxExecutionRequest } from '@aztec/circuit-types';
 import { CallContext, FunctionData } from '@aztec/circuits.js';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import {
   type ArrayType,
   type FunctionArtifactWithDebugMetadata,
@@ -80,8 +79,6 @@ export class AcirSimulator {
       );
     }
 
-    const curve = new Grumpkin();
-
     const header = await this.db.getHeader();
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
@@ -106,7 +103,6 @@ export class AcirSimulator {
       new ExecutionNoteCache(),
       new LogsCache(),
       this.db,
-      curve,
       this.node,
       startSideEffectCounter,
     );
