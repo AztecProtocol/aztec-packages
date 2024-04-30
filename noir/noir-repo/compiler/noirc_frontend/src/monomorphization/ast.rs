@@ -11,6 +11,8 @@ use crate::{
     token::{Attributes, FunctionAttribute},
 };
 
+use super::HirType;
+
 /// The monomorphized AST is expression-based, all statements are also
 /// folded into this expression enum. Compared to the HIR, the monomorphized
 /// AST has several differences:
