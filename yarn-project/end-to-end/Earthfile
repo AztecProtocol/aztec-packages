@@ -18,6 +18,7 @@ E2E_TEST_LOCAL:
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
   ENV DEBUG=$debug
+  ENV JOB_NAME=$EARTHLY_TARGET_NAME
   WITH DOCKER \
     --load aztecprotocol/aztec:latest=../+aztec \
     --load aztecprotocol/end-to-end:latest=../+end-to-end \
@@ -39,6 +40,7 @@ E2E_TEST_FROM_CACHE:
   ENV TEST=$test
   ENV DEBUG=$debug
   ENV AZTEC_DOCKER_TAG=$aztec_docker_tag
+  ENV JOB_NAME=$EARTHLY_TARGET_NAME
   # need a different project name for each to run in parallel
   LET project_name=$(echo $test | sed 's/[./]/_/g')
   IF docker compose > /dev/null 2>&1
@@ -60,6 +62,7 @@ E2E_TEST_FROM_BUILD:
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
   ENV DEBUG=$debug
+  ENV JOB_NAME=$EARTHLY_TARGET_NAME
   COPY $compose_file $compose_file
   # For ARM, we do use WITH DOCKER as we don't have many e2e tests, but note E2E_TEST_FROM_CACHE
   WITH DOCKER \
