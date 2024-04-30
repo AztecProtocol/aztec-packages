@@ -75,6 +75,11 @@ class UltraFlavor {
     template <size_t NUM_INSTANCES>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
+    template <size_t NUM_INSTANCES>
+    using OptimisedProtogalaxyTupleOfTuplesOfUnivariates =
+        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
+                                                                   NUM_INSTANCES,
+                                                                   /*optimised=*/true>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
@@ -230,6 +235,13 @@ class UltraFlavor {
                               z_lookup_shift)     // column 42
 
         auto get_wires() { return RefArray{ w_l, w_r, w_o, w_4 }; };
+        auto get_selectors()
+        {
+            return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_arith, q_delta_range, q_elliptic, q_aux, q_lookup };
+        }
+        auto get_sigmas() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        auto get_ids() { return RefArray{ id_1, id_2, id_3, id_4 }; };
+        auto get_tables() { return RefArray{ table_1, table_2, table_3, table_4 }; };
         // Gemini-specific getters.
         auto get_unshifted()
         {
@@ -265,27 +277,71 @@ class UltraFlavor {
 
   public:
     /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
-     * from ProvingKey.
+     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
+     * evaluated at one point.
      */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey> {
+    class AllValues : public AllEntities<FF> {
+      public:
+        using Base = AllEntities<FF>;
+        using Base::Base;
+    };
+
+    /**
+     * @brief A container for polynomials handles.
+     */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/966): use inheritance
+    class ProverPolynomials : public AllEntities<Polynomial> {
+      public:
+        // Define all operations as default, except copy construction/assignment
+        ProverPolynomials() = default;
+        ProverPolynomials(size_t circuit_size)
+        { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+            for (auto& poly : get_unshifted()) {
+                poly = Polynomial{ circuit_size };
+            }
+            set_shifted();
+        }
+        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
+        ProverPolynomials(const ProverPolynomials& o) = delete;
+        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
+        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
+        ~ProverPolynomials() = default;
+        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
+        [[nodiscard]] AllValues get_row(const size_t row_idx) const
+        {
+            AllValues result;
+            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
+                result_field = polynomial[row_idx];
+            }
+            return result;
+        }
+
+        // Set all shifted polynomials based on their to-be-shifted counterpart
+        void set_shifted()
+        {
+            for (auto [shifted, to_be_shifted] : zip_view(get_shifted(), get_to_be_shifted())) {
+                shifted = to_be_shifted.shifted();
+            }
+        }
+    };
+    /**
+     * @brief The proving key is responsible for storing the polynomials used by the prover.
+     *
+     */
+    class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial>, WitnessEntities<Polynomial>, CommitmentKey>;
+        using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
+
+        ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
+            : Base(circuit_size, num_public_inputs)
+            , polynomials(circuit_size){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         std::array<Polynomial, 4> sorted_polynomials;
-
-        auto get_to_be_shifted()
-        {
-            return RefArray{ this->table_1, this->table_2, this->table_3,      this->table_4, this->w_l,     this->w_r,
-                             this->w_o,     this->w_4,     this->sorted_accum, this->z_perm,  this->z_lookup };
-        };
-        // The plookup wires that store plookup read data.
-        auto get_table_column_wires() { return RefArray{ w_l, w_r, w_o }; };
+        ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
         void compute_sorted_accumulator_polynomials(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
@@ -309,7 +365,7 @@ class UltraFlavor {
          */
         void compute_sorted_list_accumulator(const FF& eta, const FF& eta_two, const FF& eta_three)
         {
-            auto sorted_list_accumulator = Polynomial{ this->circuit_size };
+            auto& sorted_list_accumulator = polynomials.sorted_accum;
 
             // Construct s via Horner, i.e. s = s_1 + η(s_2 + η(s_3 + η*s_4))
             for (size_t i = 0; i < this->circuit_size; ++i) {
@@ -319,7 +375,6 @@ class UltraFlavor {
                 T0 += sorted_polynomials[0][i];
                 sorted_list_accumulator[i] = T0;
             }
-            sorted_accum = sorted_list_accumulator.share();
         }
 
         /**
@@ -336,7 +391,7 @@ class UltraFlavor {
             // The plookup memory record values are computed at the indicated indices as
             // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
             // (See plookup_auxiliary_widget.hpp for details)
-            auto wires = get_wires();
+            auto wires = polynomials.get_wires();
 
             // Compute read record values
             for (const auto& gate_idx : memory_read_records) {
@@ -372,10 +427,7 @@ class UltraFlavor {
             relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
             // Compute permutation and lookup grand product polynomials
-            auto prover_polynomials = ProverPolynomials(*this);
-            compute_grand_products<UltraFlavor>(*this, prover_polynomials, relation_parameters);
-            this->z_perm = prover_polynomials.z_perm;
-            this->z_lookup = prover_polynomials.z_lookup;
+            compute_grand_products<UltraFlavor>(this->polynomials, relation_parameters);
         }
     };
 
@@ -402,53 +454,98 @@ class UltraFlavor {
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
-            for (auto [polynomial, commitment] : zip_view(proving_key.get_precomputed_polynomials(), this->get_all())) {
+            for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
-    };
-    /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
-     * evaluated at one point.
-     */
-    class AllValues : public AllEntities<FF> {
-      public:
-        using Base = AllEntities<FF>;
-        using Base::Base;
-    };
-
-    /**
-     * @brief A container for polynomials handles.
-     */
-    class ProverPolynomials : public AllEntities<Polynomial> {
-      public:
-        ProverPolynomials(ProvingKey& proving_key)
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
+        VerificationKey(const size_t circuit_size,
+                        const size_t num_public_inputs,
+                        const size_t pub_inputs_offset,
+                        const Commitment& q_m,
+                        const Commitment& q_c,
+                        const Commitment& q_l,
+                        const Commitment& q_r,
+                        const Commitment& q_o,
+                        const Commitment& q_4,
+                        const Commitment& q_arith,
+                        const Commitment& q_delta_range,
+                        const Commitment& q_elliptic,
+                        const Commitment& q_aux,
+                        const Commitment& q_lookup,
+                        const Commitment& sigma_1,
+                        const Commitment& sigma_2,
+                        const Commitment& sigma_3,
+                        const Commitment& sigma_4,
+                        const Commitment& id_1,
+                        const Commitment& id_2,
+                        const Commitment& id_3,
+                        const Commitment& id_4,
+                        const Commitment& table_1,
+                        const Commitment& table_2,
+                        const Commitment& table_3,
+                        const Commitment& table_4,
+                        const Commitment& lagrange_first,
+                        const Commitment& lagrange_last)
         {
-            for (auto [prover_poly, key_poly] : zip_view(this->get_unshifted(), proving_key.get_all())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == flavor_get_label(proving_key, key_poly));
-                prover_poly = key_poly.share();
-            }
-            for (auto [prover_poly, key_poly] : zip_view(this->get_shifted(), proving_key.get_to_be_shifted())) {
-                ASSERT(flavor_get_label(*this, prover_poly) == (flavor_get_label(proving_key, key_poly) + "_shift"));
-                prover_poly = key_poly.shifted();
-            }
+            this->circuit_size = circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = num_public_inputs;
+            this->pub_inputs_offset = pub_inputs_offset;
+            this->q_m = q_m;
+            this->q_c = q_c;
+            this->q_l = q_l;
+            this->q_r = q_r;
+            this->q_o = q_o;
+            this->q_4 = q_4;
+            this->q_arith = q_arith;
+            this->q_delta_range = q_delta_range;
+            this->q_elliptic = q_elliptic;
+            this->q_aux = q_aux;
+            this->q_lookup = q_lookup;
+            this->sigma_1 = sigma_1;
+            this->sigma_2 = sigma_2;
+            this->sigma_3 = sigma_3;
+            this->sigma_4 = sigma_4;
+            this->id_1 = id_1;
+            this->id_2 = id_2;
+            this->id_3 = id_3;
+            this->id_4 = id_4;
+            this->table_1 = table_1;
+            this->table_2 = table_2;
+            this->table_3 = table_3;
+            this->table_4 = table_4;
+            this->lagrange_first = lagrange_first;
+            this->lagrange_last = lagrange_last;
         }
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials() = default;
-        ProverPolynomials& operator=(const ProverPolynomials&) = delete;
-        ProverPolynomials(const ProverPolynomials& o) = delete;
-        ProverPolynomials(ProverPolynomials&& o) noexcept = default;
-        ProverPolynomials& operator=(ProverPolynomials&& o) noexcept = default;
-        ~ProverPolynomials() = default;
-        [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
-        [[nodiscard]] AllValues get_row(const size_t row_idx) const
-        {
-            AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
-                result_field = polynomial[row_idx];
-            }
-            return result;
-        }
+        MSGPACK_FIELDS(circuit_size,
+                       num_public_inputs,
+                       pub_inputs_offset,
+                       q_m,
+                       q_c,
+                       q_l,
+                       q_r,
+                       q_o,
+                       q_4,
+                       q_arith,
+                       q_delta_range,
+                       q_elliptic,
+                       q_aux,
+                       q_lookup,
+                       sigma_1,
+                       sigma_2,
+                       sigma_3,
+                       sigma_4,
+                       id_1,
+                       id_2,
+                       id_3,
+                       id_4,
+                       table_1,
+                       table_2,
+                       table_3,
+                       table_4,
+                       lagrange_first,
+                       lagrange_last);
     };
 
     /**
@@ -472,6 +569,12 @@ class UltraFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
+    /**
+     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
+     */
+    template <size_t LENGTH, size_t SKIP_COUNT>
+    using OptimisedProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.

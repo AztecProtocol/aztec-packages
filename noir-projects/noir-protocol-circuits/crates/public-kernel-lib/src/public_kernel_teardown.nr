@@ -32,11 +32,11 @@ impl PublicKernelTeardownCircuitPrivateInputs {
     }
 
     // Validates the transaction fee injected into the app circuit is properly computed from gas_used and block gas_fees
-    fn validate_transaction_fee(self) {
+    fn validate_transaction_fee(self, public_inputs: PublicKernelCircuitPublicInputsBuilder) {
         let transaction_fee = self.public_call.call_stack_item.public_inputs.transaction_fee;
         // Note that teardown_gas is already included in end.gas_used as it was injected by the private kernel
         let total_gas_used = self.previous_kernel.public_inputs.end.gas_used.add(self.previous_kernel.public_inputs.end_non_revertible.gas_used);
-        let block_gas_fees = self.previous_kernel.public_inputs.constants.global_variables.gas_fees;
+        let block_gas_fees = public_inputs.constants.global_variables.gas_fees;
         let inclusion_fee = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.inclusion_fee;
         let computed_transaction_fee = total_gas_used.compute_fee(block_gas_fees) + inclusion_fee;
 
@@ -44,10 +44,8 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         //     "Validating tx fee: total_gas_used.da={0} total_gas_used.l1={1} total_gas_used.l2={2} block_fee_per_gas.da={3} block_fee_per_gas.l1={4} block_fee_per_gas.l2={5} inclusion_fee={6} computed={7} actual={8}",
         //     [
         //     total_gas_used.da_gas as Field,
-        //     total_gas_used.l1_gas as Field,
         //     total_gas_used.l2_gas as Field,
         //     block_gas_fees.fee_per_da_gas as Field,
-        //     block_gas_fees.fee_per_l1_gas as Field,
         //     block_gas_fees.fee_per_l2_gas as Field,
         //     inclusion_fee,
         //     computed_transaction_fee,
@@ -84,7 +82,7 @@ impl PublicKernelTeardownCircuitPrivateInputs {
         common::validate_call_against_request(self.public_call, call_request);
 
         self.validate_start_gas();
-        self.validate_transaction_fee();
+        self.validate_transaction_fee(public_inputs);
 
         common::update_validation_requests(self.public_call, &mut public_inputs);
 
@@ -415,7 +413,7 @@ mod tests {
     #[test(should_fail_with="Start gas for teardown phase does not match teardown gas allocation")]
     fn validates_start_gas() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-        builder.public_call.public_inputs.start_gas_left = Gas::new(10, 20, 30);
+        builder.public_call.public_inputs.start_gas_left = Gas::new(10, 30);
 
         builder.failed();
     }
