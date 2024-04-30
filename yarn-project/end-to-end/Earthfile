@@ -35,7 +35,7 @@ E2E_TEST_FROM_CACHE:
   ENV DEBUG=$debug
   ENV AZTEC_DOCKER_TAG=$aztec_docker_tag
   # need a different project name for each to run in parallel
-  LET project_name=$(echo $test | sed 's/\./_/g')
+  LET project_name=$(echo $test | sed 's/[./]/_/g')
   IF docker compose > /dev/null 2>&1
     LET CMD="docker compose"
   ELSE
@@ -86,7 +86,7 @@ UPLOAD_LOGS:
   ARG e2e_mode=local
   COPY ./log /usr/var/log
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    [ $e2e_mode == 'local' ] \
+    [ $e2e_mode == 'cache' ] \
       && /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log \
       || true
 
