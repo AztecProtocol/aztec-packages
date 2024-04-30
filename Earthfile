@@ -25,3 +25,7 @@ build:
 
 test-end-to-end:
     BUILD ./yarn-project/end-to-end/+test-all
+
+release-meta:
+    COPY .release-please-manifest.json /usr/src/.release-please-manifest.json
+    SAVE ARTIFACT /usr/src /usr/src

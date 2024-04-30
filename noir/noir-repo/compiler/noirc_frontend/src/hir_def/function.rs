@@ -6,9 +6,9 @@ use std::rc::Rc;
 use super::expr::{HirBlockExpression, HirExpression, HirIdent};
 use super::stmt::HirPattern;
 use super::traits::TraitConstraint;
+use crate::ast::{Distinctness, FunctionKind, FunctionReturnType, Visibility};
 use crate::node_interner::{ExprId, NodeInterner, TraitImplId};
-use crate::FunctionKind;
-use crate::{Distinctness, FunctionReturnType, Type, TypeVariable, Visibility};
+use crate::{Type, TypeVariable};
 
 /// A Hir function is a block expression
 /// with a list of statements
@@ -24,8 +24,8 @@ impl HirFunction {
         HirFunction(expr_id)
     }
 
-    pub const fn as_expr(&self) -> &ExprId {
-        &self.0
+    pub const fn as_expr(&self) -> ExprId {
+        self.0
     }
 
     pub fn block(&self, interner: &NodeInterner) -> HirBlockExpression {
@@ -126,8 +126,8 @@ pub struct FuncMeta {
     pub is_entry_point: bool,
 
     /// True if this function is marked with an attribute
-    /// that indicates it should not be inlined, such as for folding.
-    pub should_fold: bool,
+    /// that indicates it should not be inlined, such as `fold` or `inline(never)`
+    pub has_inline_or_fold_attribute: bool,
 }
 
 impl FuncMeta {

@@ -41,15 +41,6 @@ export class Sender extends EnvironmentGetterInstruction {
   }
 }
 
-export class FeePerL1Gas extends EnvironmentGetterInstruction {
-  static type: string = 'FEEPERL1GAS';
-  static readonly opcode: Opcode = Opcode.FEEPERL1GAS;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return env.feePerL1Gas;
-  }
-}
-
 export class FeePerL2Gas extends EnvironmentGetterInstruction {
   static type: string = 'FEEPERL2GAS';
   static readonly opcode: Opcode = Opcode.FEEPERL2GAS;
@@ -65,15 +56,6 @@ export class FeePerDAGas extends EnvironmentGetterInstruction {
 
   protected getEnvironmentValue(env: AvmExecutionEnvironment) {
     return env.feePerDaGas;
-  }
-}
-
-export class Portal extends EnvironmentGetterInstruction {
-  static type: string = 'PORTAL';
-  static readonly opcode: Opcode = Opcode.PORTAL;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return env.portal.toField();
   }
 }
 
@@ -125,24 +107,6 @@ export class Timestamp extends EnvironmentGetterInstruction {
 //         const {coinbase} = machineState.executionEnvironment.globals;
 
 //         machineState.memory.set(this.destOffset, coinbase);
-
-//         this.incrementPc(machineState);
-//     }
-// }
-
-// // TODO: are these even needed within the block? (both block gas limit variables - why does the execution env care?)
-// export class BlockL1GasLimit extends EnvironmentGetterInstruction {
-//     static type: string = 'BLOCKL1GASLIMIT';
-//     static numberOfOperands = 1;
-
-//     constructor(private destOffset: number) {
-//         super();
-//     }
-
-//     async execute(machineState: AvmMachineState, _journal: AvmJournal): Promise<void> {
-//         const {blockL1GasLimit} = machineState.executionEnvironment.globals;
-
-//         machineState.memory.set(this.destOffset, blockL1GasLimit);
 
 //         this.incrementPc(machineState);
 //     }

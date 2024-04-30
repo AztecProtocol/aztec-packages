@@ -5,8 +5,7 @@ mod util;
 // Has two separate flows for private and public respectively
 // Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1
 contract Uniswap {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable};
-    use dep::aztec::oracle::context::get_portal_address;
+    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable, SharedImmutable};
     use dep::aztec::context::gas::GasOpts;
 
     use dep::authwit::auth::{
@@ -25,8 +24,15 @@ contract Uniswap {
         // tracks the nonce used to create the approval message for burning funds
         // gets incremented each time after use to prevent replay attacks
         nonce_for_burn_approval: PublicMutable<Field>,
+        portal_address: SharedImmutable<EthAddress>,
     }
     // docs:end:uniswap_setup
+
+    #[aztec(public)]
+    #[aztec(initializer)]
+    fn constructor(portal_address: EthAddress) {
+        storage.portal_address.initialize(portal_address);
+    }
 
     // docs:start:swap_public
     #[aztec(public)]
@@ -65,8 +71,8 @@ contract Uniswap {
         Uniswap::at(context.this_address())._approve_bridge_and_exit_input_asset_to_L1(input_asset, input_asset_bridge, input_amount).call(&mut context);
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
-        let input_asset_bridge_portal_address = get_portal_address(input_asset_bridge);
-        let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge);
+        let input_asset_bridge_portal_address = TokenBridge::at(input_asset_bridge).get_portal_address_public().call(&mut context);
+        let output_asset_bridge_portal_address = TokenBridge::at(output_asset_bridge).get_portal_address_public().call(&mut context);
         // ensure portal exists - else funds might be lost
         assert(
             !input_asset_bridge_portal_address.is_zero(), "L1 portal address of input_asset's bridge is 0"
@@ -85,7 +91,7 @@ contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1
         );
-        context.message_portal(context.this_portal_address(), content_hash);
+        context.message_portal(storage.portal_address.read_public(), content_hash);
     }
     // docs:end:swap_public
 
@@ -123,8 +129,8 @@ contract Uniswap {
 
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
-        let input_asset_bridge_portal_address = get_portal_address(input_asset_bridge);
-        let output_asset_bridge_portal_address = get_portal_address(output_asset_bridge);
+        let input_asset_bridge_portal_address = TokenBridge::at(input_asset_bridge).get_portal_address().call(&mut context);
+        let output_asset_bridge_portal_address = TokenBridge::at(output_asset_bridge).get_portal_address().call(&mut context);
         // ensure portal exists - else funds might be lost
         assert(
             !input_asset_bridge_portal_address.is_zero(), "L1 portal address of input_asset's bridge is 0"
@@ -143,7 +149,7 @@ contract Uniswap {
             secret_hash_for_L1_to_l2_message,
             caller_on_L1
         );
-        context.message_portal(context.this_portal_address(), content_hash);
+        context.message_portal(storage.portal_address.read_private(), content_hash);
     }
     // docs:end:swap_private
 
@@ -198,11 +204,12 @@ contract Uniswap {
         // increment nonce_for_burn_approval so it won't be used again
         storage.nonce_for_burn_approval.write(nonce_for_burn_approval + 1);
 
+        let this_portal_address = storage.portal_address.read_public();
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge).exit_to_l1_public(
-            context.this_portal_address(),
+            this_portal_address,
             amount,
-            context.this_portal_address(),
+            this_portal_address,
             nonce_for_burn_approval
         ).call(&mut context)
     }
@@ -216,12 +223,13 @@ contract Uniswap {
             token.eq(TokenBridge::at(token_bridge).get_token().call(&mut context)), "input_asset address is not the same as seen in the bridge contract"
         );
     }
-    // docs:end:assert_token_is_same
-
+    
     // /// Unconstrained ///
 
     // this method exists solely for e2e tests to test that nonce gets incremented each time.
     unconstrained fn nonce_for_burn_approval() -> pub Field {
         storage.nonce_for_burn_approval.read()
     }
+    // docs:end:assert_token_is_same
+
 }

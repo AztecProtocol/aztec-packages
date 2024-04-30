@@ -38,11 +38,11 @@ Note - you could also create a note and send it to the user. The problem is ther
 
 ### Reading public storage in private
 
-You can't read public storage in private domain. But nevertheless reading public storage is desirable. There are two ways:
+You can't read public storage in private domain. But nevertheless reading public storage is desirable. There are two ways to achieve the desired effect:
 
-1. For public storage that changes infrequently, use the slow updates tree! Learn more about it [here](../../../../learn/concepts/communication/public_private_calls/slow_updates_tree.md).
+1. For public values that change infrequently, you can use [shared state](../../references/storage/shared_state.md).
 
-2. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
+1. You pass the data as a parameter to your private method and later assert in public that the data is correct. E.g.:
 
 ```rust
 struct Storage {
