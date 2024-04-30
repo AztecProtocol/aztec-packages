@@ -112,7 +112,7 @@ Since public execution can only be performed by the sequencer, public functions 
 
 Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted inncluding state changes caused by the private part, such as new notes or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
 
-#include_code enqueue /noir-projects/noir-contracts/contracts/app_subscription_contract/src/main.nr rust
+#include_code enqueue_public /noir-projects/noir-contracts/contracts/app_subscription_contract/src/main.nr rust
 
 It is also possible to create public functions that can _only_ be invoked by privately enqueing a call from the same contract, which can very useful to update public state after private exection (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[aztec(internal)]`.
 
@@ -134,7 +134,7 @@ Since private calls are always run in a user's device, it is not possible to per
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 
-#include_code public_call /noir-projects/noir-contracts/contracts/app_subscription_contract/src/main.nr rust
+#include_code public_call /noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
 
 :::note
 This is the same function that was called by privately enqueuing a call to it! Public functions can be called either directly in a public context, or asynchronously by enqueuing in a private context.
