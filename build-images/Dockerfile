@@ -23,6 +23,51 @@ FROM ubuntu:noble AS wasi-sdk
 COPY --from=wasi-sdk-build /opt/wasi-sdk /opt/wasi-sdk
 
 ########################################################################################################################
+# Build osxcross.
+FROM ubuntu:noble AS osxcross-build
+RUN export DEBIAN_FRONTEND="noninteractive" \
+    && apt-get update \
+    && apt-get install --no-install-recommends -y \
+        bash \
+        binutils-multiarch-dev \
+        build-essential \
+        ca-certificates \
+        clang \
+        git \
+        libbz2-dev \
+        libmpc-dev \
+        libmpfr-dev \
+        libgmp-dev \
+        liblzma-dev \
+        libpsi3-dev \
+        libssl-dev \
+        libxml2-dev \
+        libz-dev \
+        lzma-dev \
+        make \
+        patch \
+        python3 \
+        uuid-dev \
+        wget \
+        xz-utils \
+        zlib1g-dev \
+        cmake \
+        curl \
+    && apt-get -y autoremove \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+WORKDIR /usr/src/osxcross
+ARG OSX_CROSS_COMMIT="ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b"
+RUN git clone https://github.com/tpoechtrager/osxcross.git . && git reset --hard $OSX_CROSS_COMMIT
+ARG OSX_SDK="MacOSX14.0.sdk"
+ARG OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz"
+RUN curl -sSL "$OSX_SDK_URL" -o "./tarballs/$OSX_SDK.tar.xz" \
+    && OSX_VERSION_MIN=14.0 UNATTENDED=1 ENABLE_COMPILER_RT_INSTALL=1 TARGET_DIR=/opt/osxcross ./build.sh \
+    && rm -rf ./tarballs/$OSX_SDK.tar.xz /opt/osxcross/SDK/$OSX_SDK
+FROM scratch AS osxcross
+COPY --from=osxcross-build /opt/osxcross /opt/osxcross
+
+########################################################################################################################
 # Build foundry.
 FROM ubuntu:noble AS foundry
 RUN apt update && apt install -y git cargo
@@ -72,6 +117,11 @@ RUN apt update && \
 
 # Install wasi-sdk.
 COPY --from=aztecprotocol/wasi-sdk:22.0 /opt/wasi-sdk /opt/wasi-sdk
+
+# Install osxcross. Requires developer to mount SDK from their mac host.
+COPY --from=aztecprotocol/osxcross:14.0 /opt/osxcross /opt/osxcross
+ENV PATH="/opt/osxcross/bin:$PATH"
+ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry

@@ -8,8 +8,6 @@ wasmtime:
 
 source:
     FROM ../../build-images+build
-    COPY +osxcross/osxcross /osxcross
-    RUN apt-get update && apt-get install -y clang
     WORKDIR /usr/src/barretenberg
     # cpp source
     COPY --dir src/barretenberg src/CMakeLists.txt src
@@ -18,52 +16,11 @@ source:
     # for debugging rebuilds
     RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
-osxcross:
-    FROM ubuntu:noble
-    RUN export DEBIAN_FRONTEND="noninteractive" \
-        && apt-get update \
-        && apt-get install --no-install-recommends -y \
-            bash \
-            binutils-multiarch-dev \
-            build-essential \
-            ca-certificates \
-            clang \
-            git \
-            libbz2-dev \
-            libmpc-dev \
-            libmpfr-dev \
-            libgmp-dev \
-            liblzma-dev \
-            libpsi3-dev \
-            libssl-dev \
-            libxml2-dev \
-            libz-dev \
-            lzma-dev \
-            make \
-            patch \
-            python3 \
-            uuid-dev \
-            wget \
-            xz-utils \
-            zlib1g-dev \
-            cmake \
-            curl \
-        && apt-get -y autoremove \
-        && apt-get clean \
-        && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-    WORKDIR /usr/src/osxcross
-    LET OSX_CROSS_COMMIT="ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b"
-    RUN git clone https://github.com/tpoechtrager/osxcross.git . && git reset --hard $OSX_CROSS_COMMIT
-    LET OSX_SDK="MacOSX14.0.sdk"
-    LET OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz"
-    RUN curl -sSL "$OSX_SDK_URL" -o "./tarballs/$OSX_SDK.tar.xz"
-    RUN OSX_VERSION_MIN=14.0 UNATTENDED=1 ENABLE_COMPILER_RT_INSTALL=1 TARGET_DIR=/osxcross ./build.sh
-    SAVE ARTIFACT /osxcross
-
 preset-darwin-arm64:
     FROM +source
-    ENV PATH="/osxcross/bin:$PATH"
-    ENV LD_LIBRARY_PATH="/osxcross/lib:$LD_LIBRARY_PATH"
+    LET OSX_SDK="MacOSX14.0.sdk"
+    LET OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz"
+    RUN curl -sSL "$OSX_SDK_URL" | tar -xJ -C /opt/osxcross/SDK && rm -rf /opt/osxcross/SDK/$OSX_SDK/System
     RUN cmake --preset darwin-arm64 -Bbuild && cmake --build build --target bb
     SAVE ARTIFACT build/bin AS LOCAL build-darwin-arm64/bin
 

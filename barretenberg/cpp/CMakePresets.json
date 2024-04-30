@@ -37,13 +37,13 @@
       "inherits": "default",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_TOOLCHAIN_FILE": "/osxcross/toolchain.cmake"
+        "CMAKE_TOOLCHAIN_FILE": "/opt/osxcross/toolchain.cmake"
       },
       "environment": {
         "OSXCROSS_HOST": "arm64-apple-darwin23",
-        "OSXCROSS_TARGET_DIR": "/osxcross",
+        "OSXCROSS_TARGET_DIR": "/opt/osxcross",
         "OSXCROSS_TARGET": "darwin23",
-        "OSXCROSS_SDK": "/osxcross/SDK/MacOSX14.0.sdk"
+        "OSXCROSS_SDK": "/opt/osxcross/SDK/MacOSX14.0.sdk"
       }
     },
     {
