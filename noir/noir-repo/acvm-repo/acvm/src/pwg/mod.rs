@@ -498,6 +498,31 @@ impl<'a, B: BlackBoxFunctionSolver> ACVM<'a, B> {
         }
     }
 
+    fn map_brillig_error(&self, mut err: OpcodeResolutionError) -> OpcodeResolutionError {
+        match &mut err {
+            OpcodeResolutionError::BrilligFunctionFailed { call_stack, payload } => {
+                // Some brillig errors have static strings as payloads, we can resolve them here
+                let last_location =
+                    call_stack.last().expect("Call stacks should have at least one item");
+                let assertion_descriptor =
+                    self.assertion_payloads.iter().find_map(|(loc, payload)| {
+                        if loc == last_location {
+                            Some(payload)
+                        } else {
+                            None
+                        }
+                    });
+
+                if let Some(AssertionPayload::StaticString(string)) = assertion_descriptor {
+                    *payload = Some(ResolvedAssertionPayload::String(string.clone()));
+                }
+
+                err
+            }
+            _ => err,
+        }
+    }
+
     pub fn step_into_brillig(&mut self) -> StepResult<'a, B> {
         let Opcode::BrilligCall { id, inputs, outputs, predicate } =
             &self.opcodes[self.instruction_pointer]
