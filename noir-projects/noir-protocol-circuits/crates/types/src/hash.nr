@@ -119,22 +119,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
 }
 
 pub fn compute_tx_logs_hash<MAX_ENCRYPTED_LOGS_PER_TX>(logs: [SideEffect; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
-    // TODO(Miranda): Below is flat hashing which would reduce constraints (we now only hash once in tail) - convert to this?
-
-    // // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
-    // // Ideally we would define a new global here but for now we assert in case MAX_LOGS changes
-    // assert(MAX_ENCRYPTED_LOGS_PER_TX * 32 == 256);
-    // let mut hash_input_flattened = [0; 256];
-    // for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-    //     let input_as_bytes = logs[offset].value.to_be_bytes(32);
-    //     for byte_index in 0..32 {
-    //         hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-    //     }
-    // }
-    // // This differs from accumulate_sha256 as we could increase MAX_LOGS and
-    // // ideally we would push to a slice then hash, but in practice compilation was very slow
-    // // Hardcode to 256 bytes for now
-    // sha256_to_field(hash_input_flattened)
+    // TODO(Miranda): Consider flat hashing logs once we have a slice method to push to
 
     // Assuming logs are pre-sorted
     let mut accumulated_logs_hash = 0;
