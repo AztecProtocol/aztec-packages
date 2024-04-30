@@ -71,7 +71,7 @@ export enum Opcode {
   // Gadgets
   KECCAK,
   POSEIDON2,
-  SHA256, // temp - may be removed, but alot of contracts rely on it
+  SHA256COMPRESSION,
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
 }
 

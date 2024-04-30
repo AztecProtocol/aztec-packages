@@ -7,7 +7,7 @@ use acvm::FieldElement;
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
-    SECOND_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
+    SECOND_OPERAND_INDIRECT, THIRD_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program};
@@ -849,6 +849,42 @@ fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> Avm
 /// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
+        BlackBoxOp::Sha256Compression {
+            input,
+            hash_values,
+            output,
+        } => {
+            let inputs_offset = input.pointer.0;
+            let inputs_size_offset = input.size.0;
+            let state_offset = hash_values.pointer.0;
+            let state_size_offset = hash_values.size.0;
+            let output_offset = output.pointer.0;
+
+            avm_instrs.push(AvmInstruction {
+                opcode: AvmOpcode::SHA256COMPRESSION,
+                indirect: Some(
+                    ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT | THIRD_OPERAND_INDIRECT,
+                ),
+                operands: vec![
+                    AvmOperand::U32 {
+                        value: output_offset as u32,
+                    },
+                    AvmOperand::U32 {
+                        value: state_offset as u32,
+                    },
+                    AvmOperand::U32 {
+                        value: state_size_offset as u32,
+                    },
+                    AvmOperand::U32 {
+                        value: inputs_offset as u32,
+                    },
+                    AvmOperand::U32 {
+                        value: inputs_size_offset as u32,
+                    },
+                ],
+                ..Default::default()
+            });
+        }
         BlackBoxOp::PedersenHash {
             inputs,
             domain_separator,

@@ -1,7 +1,8 @@
-import { keccak256, pedersenHash, poseidon2Permutation, sha256 } from '@aztec/foundation/crypto';
+import { keccak256, pedersenHash, poseidon2Permutation, sha256Compression } from '@aztec/foundation/crypto';
 
 import { type AvmContext } from '../avm_context.js';
-import { Field, Uint8 } from '../avm_memory_types.js';
+import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
+import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -90,9 +91,9 @@ export class Keccak extends Instruction {
   }
 }
 
-export class Sha256 extends Instruction {
-  static type: string = 'SHA256';
-  static readonly opcode: Opcode = Opcode.SHA256;
+export class Sha256Compression extends Instruction {
+  static type: string = 'SHA256COMPRESSION';
+  static readonly opcode: Opcode = Opcode.SHA256COMPRESSION;
 
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [
@@ -101,34 +102,49 @@ export class Sha256 extends Instruction {
     OperandType.UINT32,
     OperandType.UINT32,
     OperandType.UINT32,
+    OperandType.UINT32,
+    OperandType.UINT32,
   ];
 
   constructor(
     private indirect: number,
-    private dstOffset: number,
-    private messageOffset: number,
-    private messageSizeOffset: number,
+    private outputOffset: number,
+    private stateOffset: number,
+    private stateSizeOffset: number,
+    private inputsOffset: number,
+    private inputsSizeOffset: number,
   ) {
     super();
   }
 
-  // pub fn sha256_slice(input: [u8]) -> [u8; 32]
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.dstOffset, this.messageOffset, this.messageSizeOffset],
+    const [outputOffset, stateOffset, stateSizeOffset, inputsOffset, inputsSizeOffset] = Addressing.fromWire(
+      this.indirect,
+    ).resolve(
+      [this.outputOffset, this.stateOffset, this.stateSizeOffset, this.inputsOffset, this.inputsSizeOffset],
       memory,
     );
-    const messageSize = memory.get(messageSizeOffset).toNumber();
-    const memoryOperations = { reads: messageSize + 1, writes: 32, indirect: this.indirect };
+    const stateSize = memory.get(stateSizeOffset).toNumber();
+    const inputsSize = memory.get(inputsSizeOffset).toNumber();
+    if (stateSize !== 8) {
+      throw new InstructionExecutionError('`state` argument to SHA256 compression must be of length 8');
+    }
+    if (inputsSize !== 16) {
+      throw new InstructionExecutionError('`inputs` argument to SHA256 compression must be of length 16');
+    }
+    // +2 to account for both size offsets (stateSizeOffset and inputsSizeOffset)
+    // Note: size of output is same as size of state
+    const memoryOperations = { reads: stateSize + inputsSize + 2, writes: stateSize, indirect: this.indirect };
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const messageData = Buffer.concat(memory.getSlice(messageOffset, messageSize).map(word => word.toBuffer()));
-    const hashBuffer = sha256(messageData);
+    const state = Uint32Array.from(memory.getSlice(stateOffset, stateSize).map(word => word.toNumber()));
+    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, inputsSize).map(word => word.toNumber()));
+    const output = sha256Compression(state, inputs);
 
-    // We need to convert the hashBuffer because map doesn't work as expected on an Uint8Array (Buffer).
-    const res = [...hashBuffer].map(byte => new Uint8(byte));
-    memory.setSlice(dstOffset, res);
+    // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
+    const res = [...output].map(word => new Uint32(word));
+    memory.setSlice(outputOffset, res);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();

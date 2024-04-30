@@ -11,7 +11,7 @@ import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '
 import { AvmContext } from '../avm_context.js';
 import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
-import { Field, Uint8 } from '../avm_memory_types.js';
+import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { HostStorage } from '../journal/host_storage.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 
@@ -120,6 +120,10 @@ export function anyAvmContextInputs() {
 
 export function randomMemoryBytes(length: number): Uint8[] {
   return [...Array(length)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
+}
+
+export function randomMemoryUint32s(length: number): Uint32[] {
+  return [...Array(length)].map(_ => new Uint32(Math.floor(Math.random() * 0xffffffff)));
 }
 
 export function randomMemoryFields(length: number): Field[] {
