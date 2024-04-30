@@ -1,9 +1,6 @@
 VERSION 0.8
 
 ARG --global use_local_builds=false
-ARG --global PULL_REQUEST
-ARG --global BRANCH
-ARG --global COMMIT_HASH
 
 # requires first saving the images locally with ../+export-end-to-end
 
@@ -95,6 +92,9 @@ E2E_TEST:
 UPLOAD_LOGS:
   FUNCTION
   ARG e2e_mode=cache
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
   LOCALLY
   LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
   FROM ../../+scripts
@@ -150,25 +150,32 @@ guides-dapp-testing:
 # guides-sample-dapp:
 #   ARG e2e_mode=local
 #   DO +E2E_TEST --test=sample-dapp --e2e_mode=$e2e_mode
-#   DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 # TODO currently hangs for hour+
 # guides-up-quick-start:
 #   ARG e2e_mode=local
 #   DO +E2E_TEST --test=guides/up_quick_start.test.ts --e2e_mode=$e2e_mode
-#   DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 bench-publish-rollup:
   ARG e2e_mode=local
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
   DO +E2E_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-process-history:
   ARG e2e_mode=local
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
   DO +E2E_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-tx-size:
   ARG e2e_mode=local
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
   DO +E2E_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --e2e_mode=$e2e_mode --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
