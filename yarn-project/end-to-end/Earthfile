@@ -14,6 +14,7 @@ E2E_TEST_LOCAL:
   ARG compose_file=./scripts/docker-compose.yml
   ARG enable_gas=""
   ARG debug="aztec:*"
+  ARG EARTHLY_TARGET_NAME
   LOCALLY
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
@@ -35,6 +36,7 @@ E2E_TEST_FROM_CACHE:
   ARG enable_gas=""
   ARG debug="aztec:*"
   ARG aztec_docker_tag
+  ARG EARTHLY_TARGET_NAME
   LOCALLY
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
@@ -58,6 +60,7 @@ E2E_TEST_FROM_BUILD:
   ARG compose_file=./scripts/docker-compose.yml
   ARG enable_gas=""
   ARG debug="aztec:*"
+  ARG EARTHLY_TARGET_NAME
   FROM earthly/dind:alpine-3.19-docker-25.0.2-r0
   ENV ENABLE_GAS=$enable_gas
   ENV TEST=$test
