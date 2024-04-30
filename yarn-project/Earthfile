@@ -49,7 +49,7 @@ build-from-deps:
 
 # Rather than building dependencies, it relies on local artifacts, downloaded using bootstrap cache,
 # to build each image. This saves from having to build bb from source when trying to debug anything
-# earthly delated locally.
+# earthly related locally.
 build-from-local:
     FROM node:18.19.0
     RUN apt update && apt install -y jq curl perl && rm -rf /var/lib/apt/lists/* && apt-get clean
