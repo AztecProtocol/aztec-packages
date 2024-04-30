@@ -167,11 +167,6 @@ pub fn create_program(
         "The generated ACIRs should match the supplied function signatures"
     );
 
-    let error_types = error_types
-        .into_iter()
-        .map(|(error_typ_id, error_typ)| (error_typ_id, error_typ))
-        .collect();
-
     let mut program_artifact = SsaProgramArtifact::new(generated_brillig, error_types);
     // For setting up the ABI we need separately specify main's input and return witnesses
     let mut is_main = true;
