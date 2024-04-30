@@ -39,10 +39,16 @@ template <class Flavor> class ExecutionTrace_ {
 
     /**
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
+     * @note By default, this method constructs an exectution trace that is sorted by gate type. Optionally, it
+     * constructs a trace that is both sorted and "structured" in the sense that each block/gate-type has a fixed amount
+     * of space within the wire polynomials, regardless of how many actual constraints of each type exist. This is
+     * useful primarily for folding since it guarantees that the set of relations that must be executed at each row is
+     * consistent across all instances.
      *
      * @param builder
+     * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
-    static void populate(Builder& builder, ProvingKey&);
+    static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
 
   private:
     /**
@@ -70,17 +76,18 @@ template <class Flavor> class ExecutionTrace_ {
      */
     static void add_memory_records_to_proving_key(TraceData& trace_data,
                                                   Builder& builder,
-                                                  typename Flavor::ProvingKey& proving_key) requires
-        IsUltraPlonkOrHonk<Flavor>;
+                                                  typename Flavor::ProvingKey& proving_key)
+        requires IsUltraPlonkOrHonk<Flavor>;
 
     /**
      * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data
      *
      * @param builder
      * @param dyadic_circuit_size
+     * @param is_structured whether or not the trace is to be structured with a fixed block size
      * @return TraceData
      */
-    static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size);
+    static TraceData construct_trace_data(Builder& builder, size_t dyadic_circuit_size, bool is_structured = false);
 
     /**
      * @brief Populate the public inputs block
@@ -98,8 +105,8 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @param proving_key
      */
-    static void add_ecc_op_wires_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key) requires
-        IsGoblinFlavor<Flavor>;
+    static void add_ecc_op_wires_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key)
+        requires IsGoblinFlavor<Flavor>;
 };
 
 } // namespace bb

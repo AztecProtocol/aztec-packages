@@ -4,6 +4,7 @@ mod poseidon2;
 
 use crate::default::Default;
 use crate::uint128::U128;
+use crate::sha256::{digest, sha256_var};
 
 // docs:start:sha256
 pub fn sha256<N>(input: [u8; N]) -> [u8; 32]
