@@ -71,6 +71,32 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   return { api, acirComposer, circuitSize, subgroupSize };
 }
 
+async function initUltraHonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1) {
+  const api = await Barretenberg.new({ threads });
+
+  const circuitSize = await getGates(bytecodePath, api);
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
+  const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
+  if (subgroupSize > MAX_CIRCUIT_SIZE) {
+    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
+  }
+
+  debug(`circuit size: ${circuitSize}`);
+  debug(`subgroup size: ${subgroupSize}`);
+  debug('loading crs...');
+  // Plus 1 needed! (Move +1 into Crs?)
+  const crs = await Crs.new(subgroupSize + 1, crsPath);
+
+  // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
+  await api.commonInitSlabAllocator(subgroupSize);
+
+  // Load CRS into wasm global CRS state.
+  // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
+  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+
+  return { api, circuitSize, subgroupSize };
+}
+
 async function initGoblin(bytecodePath: string, crsPath: string) {
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove this subgroup size hack
   const hardcodedGrumpkinSubgroupSizeHack = 262144;
@@ -358,10 +384,56 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
   }
 }
 
-// export async function proveHonk(bytecodePath: string, witnessPath: string, outputPath: string) {
+export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
+  const { api } = await initUltraHonk(bytecodePath, crsPath);
+  try {
+    debug(`creating proof...`);
+    const bytecode = getBytecode(bytecodePath);
+    const witness = getWitness(witnessPath);
+    const proof = await api.acirProveUltraHonk(bytecode, witness);
+    debug(`done.`);
 
-// }
+    if (outputPath === '-') {
+      process.stdout.write(proof);
+      debug(`proof written to stdout`);
+    } else {
+      writeFileSync(outputPath, proof);
+      debug(`proof written to: ${outputPath}`);
+    }
+  } finally {
+    await api.destroy();
+  }
+}
 
+export async function writeVkUltraHonk(bytecodePath: string, crsPath: string, outputPath: string) {
+  const { api } = await initUltraHonk(bytecodePath, crsPath);
+  try {
+    const bytecode = getBytecode(bytecodePath);
+    debug('initing verification key...');
+    const vk = await api.acirWriteVkUltraHonk(bytecode);
+
+    if (outputPath === '-') {
+      process.stdout.write(vk);
+      debug(`vk written to stdout`);
+    } else {
+      writeFileSync(outputPath, vk);
+      debug(`vk written to: ${outputPath}`);
+    }
+  } finally {
+    await api.destroy();
+  }
+}
+
+export async function verifyUltraHonk(proofPath: string, vkPath: string) {
+  const { api, acirComposer } = await initLite();
+  try {
+    const verified = await api.acirVerifyUltraHonk(readFileSync(proofPath), new RawBuffer(readFileSync(vkPath)));
+    debug(`verified: ${verified}`);
+    return verified;
+  } finally {
+    await api.destroy();
+  }
+}
 const program = new Command();
 
 program.option('-v, --verbose', 'enable verbose logging', false);
@@ -507,6 +579,38 @@ program
   .action(({ outputPath }) => {
     handleGlobalOptions();
     acvmInfo(outputPath);
+  });
+
+program
+  .command('prove_ultra_honk')
+  .description('Generate a proof and write it to a file.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
+  .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
+  .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
+    handleGlobalOptions();
+    await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath);
+  });
+
+program
+  .command('write_vk_ultra_honk')
+  .description('Output verification key.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
+  .action(async ({ bytecodePath, outputPath, crsPath }) => {
+    handleGlobalOptions();
+    await writeVkUltraHonk(bytecodePath, crsPath, outputPath);
+  });
+
+program
+  .command('verify_ultra_honk')
+  .description('Verify a proof. Process exists with success or failure code.')
+  .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
+  .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
+  .action(async ({ proofPath, vk }) => {
+    handleGlobalOptions();
+    const result = await verifyUltraHonk(proofPath, vk);
+    process.exit(result ? 0 : 1);
   });
 
 program.name('bb.js').parse(process.argv);

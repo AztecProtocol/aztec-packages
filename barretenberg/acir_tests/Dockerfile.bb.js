@@ -15,6 +15,8 @@ COPY . .
 ENV VERBOSE=1
 # Run double_verify_proof through bb.js on node to check 512k support.
 RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify ./run_acir_tests.sh double_verify_proof
+# RUn a single arbitrary test for separate prove and verify for UltraHonk
+RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh double_verify_proof
 # Run a single arbitrary test not involving recursion through bb.js for UltraHonk
 RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_ultra_honk ./run_acir_tests.sh 6_array
 # Run a single arbitrary test not involving recursion through bb.js for GoblinUltraHonk
