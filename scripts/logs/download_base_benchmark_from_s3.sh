@@ -28,4 +28,6 @@ if [ -n "${PULL_REQUEST:-}" ]; then
   set -e
 
   echo "No base commit data found"
+else
+  echo "Not on a pull request, skipping download of base benchmark data"
 fi
