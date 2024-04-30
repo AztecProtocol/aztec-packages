@@ -65,6 +65,6 @@ bench-comment:
   RUN echo "Bench folder contents $(ls $BENCH_FOLDER)"
   RUN --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     [ -f $BENCH_FOLDER/benchmark.json ] \
-      && (cd /usr/src/yarn-project/scripts && yarn bench-comment) \
+      && (cd /usr/src/yarn-project/scripts && AZTEC_BOT_COMMENTER_GITHUB_TOKEN=$AZTEC_BOT_COMMENTER_GITHUB_TOKEN yarn bench-comment) \
       || echo "No benchmark file found in $BENCH_FOLDER"
   
