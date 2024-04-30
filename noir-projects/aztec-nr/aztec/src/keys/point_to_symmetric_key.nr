@@ -15,6 +15,7 @@ pub fn point_to_symmetric_key(secret: GrumpkinScalar, point: GrumpkinPoint) -> [
 
 #[test]
 fn check_point_to_symmetric_key() {
+    // Value taken from "derive shared secret" test in encrypt_buffer.test.ts
     let secret = GrumpkinScalar::new(
         0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
         0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
@@ -25,6 +26,7 @@ fn check_point_to_symmetric_key() {
     );
 
     let key = point_to_symmetric_key(secret, point);
+    // The following value gets updated when running encrypt_buffer.test.ts with AZTEC_GENERATE_TEST_DATA=1
     let expected_key = [
         25, 176, 196, 77, 91, 235, 218, 204, 186, 157, 195, 137, 205, 53, 141, 10, 90, 174, 222, 204, 191, 49, 246, 123, 99, 87, 121, 67, 99, 117, 50, 29
     ];
