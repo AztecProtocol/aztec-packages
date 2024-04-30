@@ -26,28 +26,32 @@ Check the [Dev Tools section](https://github.com/noir-lang/awesome-noir#dev-tool
 
 ## Project setup
 
-Create a new project with `aztec-nargo new --contract token_contract`.
+Create a new project with:
+
+```bash
+aztec-nargo new --contract token_contract
+```
 
 Your file structure should look something like this:
 
 ```tree
 .
-| | |--private_voting
-| | |  |--src
-| | |  |  |--main.nr
-| | |  |--Nargo.toml
+|--private_voting
+|  |--src
+|  |  |--main.nr
+|  |--Nargo.toml
 ```
 
 Inside `Nargo.toml` paste the following:
 
-```
+```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
 authwit={ git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
 compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/compressed-string"}
 ```
- 
- We will be working within `main.nr` for the rest of the tutorial.
+
+We will be working within `main.nr` for the rest of the tutorial.
 
 ## Contract Interface
 
@@ -199,8 +203,8 @@ We are importing:
 
 - `CompressedString` to hold the token symbol
 - Types from `aztec::prelude`
-- `compute_secret_hash` that will help with the shielding and unshieling, allowing someone to claim a token from private to public
-- Types for storing note types 
+- `compute_secret_hash` that will help with the shielding and unshielding, allowing someone to claim a token from private to public
+- Types for storing note types
 
 For more detail on execution contexts, see [Contract Communication](../../learn/concepts/communication/main).
 
