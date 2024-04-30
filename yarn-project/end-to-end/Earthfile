@@ -1,5 +1,7 @@
 VERSION 0.8
 
+ARG --global use_local_builds=false
+
 # requires first saving the images locally with ../+export-end-to-end
 
 # run locally and build
@@ -14,8 +16,8 @@ E2E_TEST_LOCAL:
   ENV TEST=$test
   ENV DEBUG=$debug
   WITH DOCKER \
-    --load aztecprotocol/aztec:latest=../+aztec \
-    --load aztecprotocol/end-to-end:latest=../+end-to-end \
+    --load aztecprotocol/aztec:latest=(../+aztec --use_local_builds=$use_local_builds) \
+    --load aztecprotocol/end-to-end:latest=(../+end-to-end --use_local_builds=$use_local_builds) \
     --load aztecprotocol/foundry-nightly-de33b6af53005037b463318d2628b5cfcaf3991:latest=../../foundry/+build
     # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
     RUN docker compose -f $compose_file up --exit-code-from=end-to-end --force-recreate
