@@ -34,7 +34,6 @@ jobs:
     secrets: inherit
 
   build:
-    if: false
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     outputs:
@@ -60,7 +59,6 @@ jobs:
 
   # all the end-to-end integration tests for aztec
   e2e:
-    if: false
     needs: build
     runs-on: ${{ inputs.username || github.actor }}-x86
     strategy:
@@ -112,7 +110,6 @@ jobs:
   # barretenberg (prover) native and AVM (public VM) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
-    if: false
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
@@ -133,7 +130,6 @@ jobs:
         run: earthly-ci --no-output +test --hardware_concurrency=64
 
   noir-projects:
-    if: false
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
@@ -150,7 +146,6 @@ jobs:
         run: earthly-ci --no-output ./noir-projects/+test
 
   yarn-project-formatting:
-    if: false
     needs: setup
     runs-on: ${{ github.actor }}-x86
     steps:
@@ -168,7 +163,6 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+format-check
 
   yarn-project-test:
-    if: false
     needs: noir-projects
     runs-on: ${{ github.actor }}-x86
     steps:
@@ -186,7 +180,6 @@ jobs:
         run: earthly-ci --no-output ./yarn-project/+test
 
   docs-preview:
-    if: false
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
@@ -204,7 +197,6 @@ jobs:
 
   # push benchmarking binaries to dockerhub registry
   bb-bench-binaries:
-    if: false
     needs: setup
     runs-on: ${{ inputs.username || github.actor }}-x86
     steps:
@@ -222,7 +214,6 @@ jobs:
         run: earthly-ci --push +bench-binaries
 
   setup-bench:
-    if: false
     uses: ./.github/workflows/setup-runner.yml
     needs: bb-bench-binaries
     with:
@@ -236,7 +227,6 @@ jobs:
     secrets: inherit
 
   bb-bench:
-    if: false
     runs-on: ${{ inputs.username || github.actor }}-bench-x86
     needs: setup-bench
     steps:
@@ -267,8 +257,7 @@ jobs:
       - bb-bench
       - yarn-project-formatting
       - yarn-project-test
-    # if: always()
-    if: false
+    if: always()
     steps:
       - run: |
           echo "e2e status: ${{ needs.e2e.result }}"
@@ -292,8 +281,7 @@ jobs:
         yarn-project-test,
       ]
     runs-on: ubuntu-latest
-    # if: ${{ github.ref == 'refs/heads/master' && failure() }}
-    if: false
+    if: ${{ github.ref == 'refs/heads/master' && failure() }}
     steps:
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
