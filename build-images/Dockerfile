@@ -69,10 +69,11 @@ COPY --from=osxcross-build /opt/osxcross /opt/osxcross
 
 ########################################################################################################################
 # Build foundry.
-FROM ubuntu:noble AS foundry
+FROM ubuntu:noble AS foundry-build
 RUN apt update && apt install -y git cargo
+ARG TAG
 RUN ulimit -n 65535 && \
-    git clone --depth 1 --branch nightly-de33b6af53005037b463318d2628b5cfcaf39916 \
+    git clone --depth 1 --branch nightly-$TAG \
         https://github.com/foundry-rs/foundry.git && \
     cd foundry && cargo build --profile local && \
     mkdir -p /opt/foundry/bin && \
@@ -80,6 +81,8 @@ RUN ulimit -n 65535 && \
         mv ./target/local/$t /opt/foundry/bin/$t; \
         strip /opt/foundry/bin/$t; \
     done
+FROM scratch AS foundry
+COPY --from=foundry-build /opt/foundry /opt/foundry
 
 ########################################################################################################################
 # This image contains *just* what's needed to perform a full build of the aztec project.
@@ -124,7 +127,7 @@ ENV PATH="/opt/osxcross/bin:$PATH"
 ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
 # Install foundry.
-COPY --from=foundry /opt/foundry /opt/foundry
+COPY --from=aztecprotocol/foundry:de33b6af53005037b463318d2628b5cfcaf39916 /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
 # Install rust and cross-compilers. Noir specifically uses 1.74.1.
@@ -137,7 +140,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
     chmod -R a+w /opt/rust
 
 # Install yq
-RUN curl -L https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
+RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
         -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
 # Install yarn
@@ -230,6 +233,14 @@ RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 # - It provides docker via the hosts docker instance, mounted at /var/lib/docker.sock.
 # - It uses an entrypoint script at runtime to perform uid/gid alignment with the host and drop into user account.
 FROM basebox as devbox
+
+# Install docker client. Will use mounted host docker socket.
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --batch --yes --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+        | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && apt-get update && apt-get install -y docker-ce-cli
+ADD https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker /etc/bash_completion.d/docker.sh
+
 RUN apt install -y gosu
 ENV TERM=xterm-256color
 # Detect if the host machine is Mac, if so set an env var, and disable prompts vcs info for performance.
