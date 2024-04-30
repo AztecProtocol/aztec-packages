@@ -87,6 +87,9 @@ const {
   TEMP_DIR = '/tmp',
   ACVM_BINARY_PATH = '',
   ACVM_WORKING_DIRECTORY = '',
+  BB_BINARY_PATH = '',
+  BB_WORKING_DIRECTORY = '',
+  BB_RELEASE_DIR = 'cpp/build/bin',
 } = process.env;
 
 const getAztecUrl = () => {
@@ -111,6 +114,28 @@ const getACVMConfig = async (logger: DebugLogger) => {
     };
   } catch (err) {
     logger.error(`Native ACVM not available, error: ${err}`);
+    return undefined;
+  }
+};
+
+// Determines if we have access to the bb binary and a tmp folder for temp files
+export const getBBConfig = async (logger: DebugLogger) => {
+  try {
+    const expectedBBPath = BB_BINARY_PATH
+      ? BB_BINARY_PATH
+      : `${path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/', BB_RELEASE_DIR)}/bb`;
+    await fs.access(expectedBBPath, fs.constants.R_OK);
+    const tempWorkingDirectory = `${TEMP_DIR}/${randomBytes(4).toString('hex')}`;
+    const bbWorkingDirectory = BB_WORKING_DIRECTORY ? BB_WORKING_DIRECTORY : `${tempWorkingDirectory}/bb`;
+    await fs.mkdir(bbWorkingDirectory, { recursive: true });
+    logger.info(`Using native BB binary at ${expectedBBPath} with working directory ${bbWorkingDirectory}`);
+    return {
+      bbWorkingDirectory,
+      expectedBBPath,
+      directoryToCleanup: BB_WORKING_DIRECTORY ? undefined : tempWorkingDirectory,
+    };
+  } catch (err) {
+    logger.error(`Native BB not available, error: ${err}`);
     return undefined;
   }
 };
@@ -194,7 +219,7 @@ export async function setupPXEService(
   /**
    * The PXE instance.
    */
-  pxe: PXE;
+  pxe: PXEService;
   /**
    * The wallets to be used.
    */

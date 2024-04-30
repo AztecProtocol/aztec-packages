@@ -6,6 +6,7 @@ import {
   type PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
+  Proof,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { siloNoteHash } from '@aztec/circuits.js/hash';
@@ -87,5 +88,9 @@ export class TestProofCreator implements ProofCreator {
       publicInputs: result,
       proof: proof,
     };
+  }
+
+  createAppCircuitProof(_1: Map<number, string>, _2: Buffer): Promise<Proof> {
+    return Promise.resolve(new Proof(Buffer.alloc(0)));
   }
 }

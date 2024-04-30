@@ -16,6 +16,7 @@ import {
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
+  type Proof,
   type SideEffect,
   type SideEffectLinkedToNoteHash,
   type TxRequest,
@@ -107,11 +108,17 @@ export class KernelProver {
           .map(() => NoteHashReadRequestMembershipWitness.empty(BigInt(0))),
       );
 
+      const proof = await this.proofCreator.createAppCircuitProof(
+        currentExecution.partialWitness,
+        currentExecution.acir,
+      );
+
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         privateCallRequests,
         publicCallRequests,
         noteHashReadRequestMembershipWitnesses,
+        proof,
       );
 
       if (firstIteration) {
@@ -210,6 +217,7 @@ export class KernelProver {
     privateCallRequests: CallRequest[],
     publicCallRequests: CallRequest[],
     noteHashReadRequestMembershipWitnesses: NoteHashReadRequestMembershipWitness[],
+    proof: Proof,
   ) {
     const { contractAddress, functionData } = callStackItem;
 
@@ -234,9 +242,6 @@ export class KernelProver {
     // TODO(#262): Use real acir hash
     // const acirHash = keccak256(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
-
-    // TODO
-    const proof = makeEmptyProof();
 
     return PrivateCallData.from({
       callStackItem,

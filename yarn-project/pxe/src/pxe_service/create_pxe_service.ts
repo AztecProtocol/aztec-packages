@@ -13,7 +13,8 @@ import { join } from 'path';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
-import { ProverFactory } from '../kernel_prover/prover_factory.js';
+import { BBNativeProofCreator } from '../kernel_prover/bb_prover/bb_native_proof_creator.js';
+import { TestProofCreator } from '../kernel_prover/test/test_circuit_prover.js';
 import { PXEService } from './pxe_service.js';
 
 /**
@@ -42,10 +43,15 @@ export async function createPXEService(
     await initStoreForRollup(AztecLmdbStore.open(keyStorePath), l1Contracts.rollupAddress),
   );
   const db = new KVPxeDatabase(await initStoreForRollup(AztecLmdbStore.open(pxeDbPath), l1Contracts.rollupAddress));
+  // (@PhilWindle) Temporary validation until WASM is implemented
+  if (config.proverEnabled && (!config.bbBinaryPath || !config.bbWorkingDirectory)) {
+    throw new Error(`Prover must be configured with binary path and working directory`);
+  }
+  const prover = !config.proverEnabled
+    ? new TestProofCreator()
+    : new BBNativeProofCreator(config.bbBinaryPath!, config.bbWorkingDirectory!);
 
-  const proverFactory = new ProverFactory(config);
-
-  const server = new PXEService(keyStore, aztecNode, db, proverFactory, config, logSuffix);
+  const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);
   for (const contract of [
     getCanonicalClassRegisterer(),
     getCanonicalInstanceDeployer(),

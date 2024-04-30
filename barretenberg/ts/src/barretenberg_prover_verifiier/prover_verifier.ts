@@ -148,6 +148,13 @@ export class BarretenbergProverVerifier {
     return await this.api.acirVerifyProof(this.acirComposer, proof);
   }
 
+  /** @description Verifies a raw proof */
+  async verifyRawProof(proof: Buffer): Promise<boolean> {
+    await this.instantiate();
+    await this.api.acirInitVerificationKey(this.acirComposer);
+    return await this.api.acirVerifyProof(this.acirComposer, proof);
+  }
+
   async getVerificationKey(): Promise<Uint8Array> {
     await this.instantiate();
     await this.api.acirInitVerificationKey(this.acirComposer);

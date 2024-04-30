@@ -8,6 +8,7 @@ import {
   type Proof,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
+import { type ACVMField } from '@aztec/simulator';
 
 /**
  * Represents the output of the proof creation process for init and inner private kernel circuit.
@@ -23,21 +24,6 @@ export type ProofOutput<PublicInputsType> = {
    */
   proof: Proof;
 };
-
-/**
- * Represents the output of the proof creation process for final ordering private kernel circuit.
- * Contains the public inputs required for the final ordering private kernel circuit and the generated proof.
- */
-// export interface ProofOutputFinal {
-//   /**
-//    * The public inputs required for the proof generation process.
-//    */
-//   publicInputs: PrivateKernelTailCircuitPublicInputs;
-//   /**
-//    * The zk-SNARK proof for the kernel execution.
-//    */
-//   proof: Proof;
-// }
 
 /**
  * ProofCreator provides functionality to create and validate proofs, and retrieve
@@ -81,4 +67,13 @@ export interface ProofCreator {
   createProofTail(
     privateKernelInputsTail: PrivateKernelTailCircuitPrivateInputs,
   ): Promise<ProofOutput<PrivateKernelTailCircuitPublicInputs>>;
+
+  /**
+   * Creates a proof for an app circuit.
+   *
+   * @param partialWitness - The witness produced via circuit simulation
+   * @param bytecode - The circuit bytecode in gzipped bincode format
+   * @returns A Promise resolving to a Proof object
+   */
+  createAppCircuitProof(partialWitness: Map<number, ACVMField>, bytecode: Buffer): Promise<Proof>;
 }
