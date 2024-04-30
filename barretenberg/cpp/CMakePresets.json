@@ -32,6 +32,29 @@
       }
     },
     {
+      "name": "darwin-arm64",
+      "displayName": "Apple arm64 Cross-compile",
+      "inherits": "default",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "/osxcross/toolchain.cmake"
+      },
+      "environment": {
+        "OSXCROSS_HOST": "arm64-apple-darwin23",
+        "OSXCROSS_TARGET_DIR": "/osxcross",
+        "OSXCROSS_TARGET": "darwin23",
+        "OSXCROSS_SDK": "/osxcross/SDK/MacOSX14.0.sdk"
+      }
+    },
+    {
+      "name": "darwin-amd64",
+      "displayName": "Apple amd64 Cross-compile",
+      "inherits": "darwin-arm64",
+      "environment": {
+        "OSXCROSS_HOST": "x86_64-apple-darwin23"
+      }
+    },
+    {
       "name": "clang16",
       "displayName": "Build with Clang-16",
       "description": "Build with globally installed Clang-16",
@@ -456,18 +479,14 @@
       "configurePreset": "wasm-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm"
-      ]
+      "targets": ["barretenberg.wasm"]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm"
-      ]
+      "targets": ["barretenberg.wasm"]
     },
     {
       "name": "xray",
