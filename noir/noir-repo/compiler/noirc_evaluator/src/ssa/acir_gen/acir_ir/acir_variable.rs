@@ -1326,18 +1326,9 @@ impl AcirContext {
             }
             BlackBoxFunc::AES128Encrypt => {
                 let invalid_input = "aes128_encrypt - operation requires a plaintext to encrypt";
-
-                output_count = match inputs.first().expect(invalid_input) {
-                    AcirValue::Array(values) => {
-                        let input_size = values.len();
-                        if input_size % 16 != 0 {
-                            return Err(RuntimeError::InternalError(InternalError::General {
-                                message: "aes128_encrypt input size must be a multiple of the block size (16)".to_string(),
-                                call_stack: self.get_call_stack(),
-                            }));
-                        }
-                        Ok::<usize, RuntimeError>(input_size)
-                    }
+                let input_size = match inputs.first().expect(invalid_input) {
+                    AcirValue::Array(values) => Ok::<usize, RuntimeError>(values.len()),
+                    AcirValue::DynamicArray(dyn_array) => Ok::<usize, RuntimeError>(dyn_array.len),
                     _ => {
                         return Err(RuntimeError::InternalError(InternalError::General {
                             message: "aes128_encrypt requires an array of inputs".to_string(),
@@ -1345,6 +1336,15 @@ impl AcirContext {
                         }));
                     }
                 }?;
+                if input_size % 16 != 0 {
+                    return Err(RuntimeError::InternalError(InternalError::General {
+                        message:
+                            "aes128_encrypt input size must be a multiple of the block size (16)"
+                                .to_string(),
+                        call_stack: self.get_call_stack(),
+                    }));
+                }
+                output_count = input_size;
                 (vec![], vec![FieldElement::from(output_count as u128)])
             }
             _ => (vec![], vec![]),
