@@ -61,29 +61,20 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. If you want to e.g. run a PXE separately to a node, you can:
-Start a node:
-
-```bash
-aztec start --node [node] --archiver [archiverOptions]
-```
-
-Then start a PXE on a separate terminal that connects to that node:
-
-```bash
-aztec start --pxe nodeUrl=http://localhost:8080
-```
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node.Eg if you want to run a PXE separately to a node, you can [read this guide](../guides/run_more_than_one_pxe_sandbox.md)/
 
 ## Environment Variables
 
 There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
 
+To change them, you can open `~/.aztec/docker-compose.yml` and edit them directly.
+
 **Sandbox**
 
 ```sh
 DEBUG=aztec:* # The level of debugging logs to be displayed. using "aztec:*" will log everything.
-ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 HOST_WORKDIR='${PWD}' # The location to store log outpus. Will use ~/.aztec where the docker-compose.yml file is stored by default.
+ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
 CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 DEPLOY_AZTEC_CONTRACTS='true' # Option to deploy the Aztec contracts when sandbox starts. (default: true)
