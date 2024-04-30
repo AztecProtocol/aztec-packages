@@ -78,7 +78,6 @@ impl PrivateCircuitPublicInputsBuilder {
         };
         public_inputs.call_context = call_context;
         public_inputs.args_hash = args_hash;
-        public_inputs.historical_header = fixtures::HEADER;
         public_inputs.chain_id = 0;
         public_inputs.version = 1;
         public_inputs.gas_settings = GasSettings::default();

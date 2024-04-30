@@ -1,73 +1,76 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use crate::reset::read_request::{PendingReadHint, ReadRequestStatus, ReadValueHint, SettledReadHint};
 use dep::types::{
-    abis::{nullifier_leaf_preimage::NullifierLeafPreimage},
-    constants::{MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT},
+    abis::{note_hash_leaf_preimage::NoteHashLeafPreimage},
+    constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT},
     merkle_tree::MembershipWitness
 };
 
-struct NullifierSettledReadHint {
+struct NoteHashSettledReadHint {
     read_request_index: u64,
-    membership_witness: MembershipWitness<NULLIFIER_TREE_HEIGHT>,
-    leaf_preimage: NullifierLeafPreimage,
+    membership_witness: MembershipWitness<NOTE_HASH_TREE_HEIGHT>,
+    leaf_preimage: NoteHashLeafPreimage,
 }
 
-impl ReadValueHint for NullifierSettledReadHint {
+impl ReadValueHint for NoteHashSettledReadHint {
     fn read_request_index(self) -> u64 {
         self.read_request_index
     }
 }
 
-impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for NullifierSettledReadHint {
-    fn membership_witness(self) -> MembershipWitness<NULLIFIER_TREE_HEIGHT> {
+impl SettledReadHint<NOTE_HASH_TREE_HEIGHT, NoteHashLeafPreimage> for NoteHashSettledReadHint {
+    fn membership_witness(self) -> MembershipWitness<NOTE_HASH_TREE_HEIGHT> {
         self.membership_witness
     }
 
-    fn leaf_preimage(self) -> NullifierLeafPreimage {
+    fn leaf_preimage(self) -> NoteHashLeafPreimage {
         self.leaf_preimage
     }
 
     fn nada(read_request_len: u64) -> Self {
-        NullifierSettledReadHint {
+        NoteHashSettledReadHint {
             read_request_index: read_request_len,
             membership_witness: MembershipWitness::empty(),
-            leaf_preimage: NullifierLeafPreimage::empty()
+            leaf_preimage: NoteHashLeafPreimage::empty()
         }
     }
 }
 
-struct NullifierReadRequestHints {
-    read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    pending_read_hints: [PendingReadHint; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
-    settled_read_hints: [NullifierSettledReadHint; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+struct NoteHashReadRequestHints {
+    read_request_statuses: [ReadRequestStatus; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    pending_read_hints: [PendingReadHint; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    settled_read_hints: [NoteHashSettledReadHint; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
 }
 
 mod tests {
-    use crate::nullifier_read_request_reset::NullifierSettledReadHint;
+    use crate::note_hash_read_request_reset::NoteHashSettledReadHint;
     use crate::reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus, reset_read_requests};
     use dep::types::{
         address::AztecAddress,
-        abis::{nullifier::Nullifier, nullifier_leaf_preimage::NullifierLeafPreimage, read_request::ReadRequestContext},
-        constants::NULLIFIER_TREE_HEIGHT, hash::silo_nullifier, merkle_tree::MembershipWitness,
+        abis::{
+        note_hash::NoteHashContext, note_hash_leaf_preimage::NoteHashLeafPreimage,
+        read_request::ReadRequestContext
+    },
+        constants::NOTE_HASH_TREE_HEIGHT, hash::silo_note_hash, merkle_tree::MembershipWitness,
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };
 
     global contract_address = AztecAddress::from_field(123);
 
-    // Create 4 nullifiers. 10 and 11 are settled. 12 and 13 are pending.
-    global inner_nullifiers = [10, 11, 12, 13];
-    global nullifiers = inner_nullifiers.map(|n| silo_nullifier(contract_address, n));
+    // Create 4 note hashes. 10 and 11 are settled. 12 and 13 are pending.
+    global inner_note_hashes = [10, 11, 12, 13];
+    global note_hashes = inner_note_hashes.map(|n| silo_note_hash(contract_address, n));
 
-    // Create 5 read requests. 0 and 3 are reading settled nullifiers. 1, 2 and 4 are reading pending nullifiers.
+    // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
     global read_requests = [
-        ReadRequestContext { value: inner_nullifiers[1], counter: 11, contract_address }, // settled
-        ReadRequestContext { value: inner_nullifiers[3], counter: 13, contract_address }, // pending
-        ReadRequestContext { value: inner_nullifiers[2], counter: 39, contract_address }, // pending
-        ReadRequestContext { value: inner_nullifiers[0], counter: 46, contract_address }, // settled
-        ReadRequestContext { value: inner_nullifiers[3], counter: 78, contract_address }, // pending
+        ReadRequestContext { value: inner_note_hashes[1], counter: 11, contract_address }, // settled
+        ReadRequestContext { value: inner_note_hashes[3], counter: 13, contract_address }, // pending
+        ReadRequestContext { value: inner_note_hashes[2], counter: 39, contract_address }, // pending
+        ReadRequestContext { value: inner_note_hashes[0], counter: 46, contract_address }, // settled
+        ReadRequestContext { value: inner_note_hashes[3], counter: 78, contract_address }, // pending
     ];
 
-    global pending_values = [Nullifier { value: nullifiers[2], counter: 2, note_hash: 0 }, Nullifier { value: nullifiers[3], counter: 8, note_hash: 0 }];
+    global pending_values = [NoteHashContext { value: note_hashes[2], counter: 2, nullifier_counter: 0 }, NoteHashContext { value: note_hashes[3], counter: 8, nullifier_counter: 0 }];
     global pending_read_hints = [
         PendingReadHint { read_request_index: 1, pending_value_index: 1 },
         PendingReadHint { read_request_index: 2, pending_value_index: 0 },
@@ -75,13 +78,11 @@ mod tests {
     ];
 
     global leaf_preimages = [
-        NullifierLeafPreimage { nullifier: nullifiers[0], next_nullifier: nullifiers[1], next_index: 1 },
-        NullifierLeafPreimage { nullifier: nullifiers[1], next_nullifier: 0, next_index: 0 },
+        NoteHashLeafPreimage { value: note_hashes[0] },
+        NoteHashLeafPreimage { value: note_hashes[1] },
     ];
 
     fn read_request_statuses() -> [ReadRequestStatus; 5] {
-        // Failed when assigned to global: 
-        // The application panicked (crashed). Message:  no entry found for key
         [
             ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 0 },
             ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 0 },
@@ -91,24 +92,24 @@ mod tests {
         ]
     }
 
-    fn build_tree<N>() -> NonEmptyMerkleTree<2, NULLIFIER_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT - 1, 1> {
+    fn build_tree<N>() -> NonEmptyMerkleTree<2, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT - 1, 1> {
         NonEmptyMerkleTree::new(
-            [leaf_preimages[0].hash(), leaf_preimages[1].hash()],
-            [0; NULLIFIER_TREE_HEIGHT],
-            [0; NULLIFIER_TREE_HEIGHT - 1],
+            [leaf_preimages[0].as_leaf(), leaf_preimages[1].as_leaf()],
+            [0; NOTE_HASH_TREE_HEIGHT],
+            [0; NOTE_HASH_TREE_HEIGHT - 1],
             [0; 1]
         )
     }
 
-    fn get_settled_read_hints() -> ([NullifierSettledReadHint; 2], Field) {
+    fn get_settled_read_hints() -> ([NoteHashSettledReadHint; 2], Field) {
         let tree = build_tree();
         let hints = [
-            NullifierSettledReadHint {
+            NoteHashSettledReadHint {
                 read_request_index: 0,
                 membership_witness: MembershipWitness { leaf_index: 1, sibling_path: tree.get_sibling_path(1) },
                 leaf_preimage: leaf_preimages[1]
             },
-            NullifierSettledReadHint {
+            NoteHashSettledReadHint {
                 read_request_index: 3,
                 membership_witness: MembershipWitness { leaf_index: 0, sibling_path: tree.get_sibling_path(0) },
                 leaf_preimage: leaf_preimages[0]
@@ -119,7 +120,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reset_nullifier_read_requests_all() {
+    fn test_reset_read_requests_all() {
         let (settled_read_hints, tree_root) = get_settled_read_hints();
         let unverified_read_requests = reset_read_requests(
             read_requests,
@@ -133,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reset_nullifier_read_requests_partial() {
+    fn test_reset_read_requests_partial() {
         let mut partial_read_request_statuses = read_request_statuses();
         partial_read_request_statuses[2] = ReadRequestStatus::empty();
         partial_read_request_statuses[4] = ReadRequestStatus::empty();
@@ -152,8 +153,8 @@ mod tests {
         assert(unverified_read_requests.get(1) == read_requests[4]);
     }
 
-    #[test(should_fail_with="Value of the nullifier does not match read request")]
-    fn test_reset_nullifier_read_requests_wrong_hinted_value() {
+    #[test(should_fail_with="Value of the note hash does not match read request")]
+    fn test_reset_note_hash_read_requests_wrong_hinted_value() {
         let mut tainted_pending_values = pending_values;
         // Tweak the value to be something different.
         tainted_pending_values[0].value += 1;
@@ -169,8 +170,8 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Read request counter must be greater than the counter of the nullifier")]
-    fn test_reset_nullifier_read_requests_invalid_counter() {
+    #[test(should_fail_with="Read request counter must be greater than the counter of the note hash")]
+    fn test_reset_note_hash_read_requests_invalid_counter() {
         let hint = pending_read_hints[0];
         let pending_read = read_requests[hint.read_request_index];
         let mut tainted_pending_values = pending_values;
@@ -188,8 +189,27 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with="Value of the nullifier leaf does not match read request")]
-    fn test_reset_nullifier_read_requests_invalid_leaf() {
+    #[test(should_fail_with="Read request counter must be less than the nullifier counter of the note hash")]
+    fn test_reset_note_hash_read_requests_invalid_nullifier_counter() {
+        let hint = pending_read_hints[0];
+        let pending_read = read_requests[hint.read_request_index];
+        let mut tainted_pending_values = pending_values;
+        // Tweak the nullifier counter to be less than the read request.
+        tainted_pending_values[hint.pending_value_index].nullifier_counter = pending_read.counter - 1;
+
+        let (settled_read_hints, tree_root) = get_settled_read_hints();
+        let _ = reset_read_requests(
+            read_requests,
+            tainted_pending_values,
+            read_request_statuses(),
+            pending_read_hints,
+            settled_read_hints,
+            tree_root
+        );
+    }
+
+    #[test(should_fail_with="Value of the note hash leaf does not match read request")]
+    fn test_reset_note_hash_read_requests_invalid_leaf() {
         let (settled_read_hints, tree_root) = get_settled_read_hints();
 
         let mut tained_read_requests = read_requests;
