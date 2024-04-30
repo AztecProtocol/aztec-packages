@@ -313,6 +313,11 @@ template <typename FF_> class UltraHonkArith {
         UltraHonkTraceBlock poseidon_external;
         UltraHonkTraceBlock poseidon_internal;
 
+        // This is a set of fixed block sizes that accomodates the circuits currently processed in the ClientIvc bench.
+        // Note 1: The individual block sizes do NOT need to be powers of 2, this is just for conciseness.
+        // Note 2: Current sizes result in a full trace size of 2^18. It's not possible to define a fixed structure
+        // that accomdates both the kernel and the function circuit while remaining under 2^17. This is because the
+        // circuits differ in structure but are also both designed to be "full" within the 2^17 size.
         std::array<size_t, 10> fixed_block_sizes{
             1 << 10, // ecc_op;
             1 << 7,  // pub_inputs;
@@ -330,7 +335,7 @@ template <typename FF_> class UltraHonkArith {
         {
             aux.has_ram_rom = true;
             pub_inputs.is_pub_inputs = true;
-            // Set fixed block sizes for use in structiured trace
+            // Set fixed block sizes for use in structured trace
             for (auto [block, size] : zip_view(this->get(), fixed_block_sizes)) {
                 block.set_fixed_size(size);
             }
@@ -344,15 +349,15 @@ template <typename FF_> class UltraHonkArith {
 
         void summarize() const
         {
-            info("Gate blocks summary: (size/capacity)");
+            info("Gate blocks summary: (actual gates / fixed capacity)");
             info("goblin ecc op:\t", ecc_op.size(), "/", ecc_op.get_fixed_size());
             info("pub inputs:\t", pub_inputs.size(), "/", pub_inputs.get_fixed_size());
             info("arithmetic:\t", arithmetic.size(), "/", arithmetic.get_fixed_size());
             info("delta range:\t", delta_range.size(), "/", delta_range.get_fixed_size());
-            info("elliptic:\t\t", elliptic.size(), "/", elliptic.get_fixed_size());
-            info("auxiliary:\t\t", aux.size(), "/", aux.get_fixed_size());
-            info("lookups:\t\t", lookup.size(), "/", lookup.get_fixed_size());
-            info("busread:\t\t", busread.size(), "/", busread.get_fixed_size());
+            info("elliptic:\t", elliptic.size(), "/", elliptic.get_fixed_size());
+            info("auxiliary:\t", aux.size(), "/", aux.get_fixed_size());
+            info("lookups:\t", lookup.size(), "/", lookup.get_fixed_size());
+            info("busread:\t", busread.size(), "/", busread.get_fixed_size());
             info("poseidon ext:\t", poseidon_external.size(), "/", poseidon_external.get_fixed_size());
             info("poseidon int:\t", poseidon_internal.size(), "/", poseidon_internal.get_fixed_size());
             info("");
