@@ -1,5 +1,10 @@
 VERSION 0.8
 
+ARG --global use_local_builds=false
+ARG --global PULL_REQUEST
+ARG --global BRANCH
+ARG --global COMMIT_HASH
+
 # requires first saving the images locally with ../+export-end-to-end
 
 # run locally and build
@@ -83,18 +88,18 @@ E2E_TEST:
 
 UPLOAD_LOGS:
   FUNCTION
-  ARG e2e_mode=local
+  ARG e2e_mode=cache
+  LOCALLY
+  LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
+  FROM ../../+scripts
   COPY ./log /usr/var/log
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    [ $e2e_mode == 'cache' ] \
-      && /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log \
-      || true
+    PULL_REQUEST=$PULL_REQUEST BRANCH=$BRANCH COMMIT_HASH=$COMMIT_HASH E2E_MODE=$e2e_mode /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
 
 # Define e2e tests
 e2e-tests:
   FROM ../+end-to-end
   RUN yarn test ./src/e2e
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh ./log
 
 flakey-e2e-tests:
   FROM ../+end-to-end
@@ -103,42 +108,34 @@ flakey-e2e-tests:
 e2e-sandbox-example:
   ARG e2e_mode=local
   DO +E2E_TEST --test=e2e_sandbox_example.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 uniswap-trade-on-l1-from-l2:
   ARG e2e_mode=local
   DO +E2E_TEST --test=uniswap_trade_on_l1_from_l2.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 integration-l1-publisher:
   ARG e2e_mode=local
   DO +E2E_TEST --test=integration_l1_publisher.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 e2e-browser:
   ARG e2e_mode=local
   DO +E2E_TEST --test=e2e_aztec_js_browser.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 pxe:
   ARG e2e_mode=local
   DO +E2E_TEST --test=pxe.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 e2e-docs-examples:
   ARG e2e_mode=local
   DO +E2E_TEST --test=docs_examples.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 guides-writing-an-account-contract:
   ARG e2e_mode=local
   DO +E2E_TEST --test=guides/writing_an_account_contract.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 guides-dapp-testing:
   ARG e2e_mode=local
   DO +E2E_TEST --test=guides/dapp_testing.test.ts --e2e_mode=$e2e_mode
-  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode
 
 # TODO intermittent failure
 # guides-sample-dapp:

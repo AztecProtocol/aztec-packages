@@ -11,9 +11,15 @@ set -eu
 LOG_FOLDER=$1
 BUCKET_NAME="aztec-ci-artifacts"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
+E2E_MODE="${COMMIT_HASH:-local}"
 
 if [ ! -d "$LOG_FOLDER" ] || [ -z "$(ls -A "$LOG_FOLDER")" ]; then
   echo "No logs in folder $LOG_FOLDER to upload"
+  exit 0
+fi
+
+if [ "$E2E_MODE" == "local" ]; then
+  echo "Skipping upload since running in local mode"
   exit 0
 fi
 
