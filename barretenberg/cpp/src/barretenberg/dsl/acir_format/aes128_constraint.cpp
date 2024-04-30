@@ -1,9 +1,5 @@
 #include "aes128_constraint.hpp"
 #include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
-#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
-#include "round.hpp"
-#include <cstddef>
-#include <cstdint>
 
 namespace acir_format {
 
@@ -50,7 +46,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         converted_outputs.emplace_back(convert_output(outputs));
     }
 
-    const auto output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(
+    const std::vector<field_ct> output_bytes = bb::stdlib::aes128::encrypt_buffer_cbc<Builder>(
         converted_inputs, convert_input(constraint.iv), convert_input(constraint.key));
 
     for (size_t i = 0; i < output_bytes.size(); ++i) {

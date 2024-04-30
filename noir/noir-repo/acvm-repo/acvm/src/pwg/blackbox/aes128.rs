@@ -21,10 +21,10 @@ pub(super) fn solve_aes128_encryption_opcode(
     let iv = to_u8_array(initial_witness, iv)?;
     let key = to_u8_array(initial_witness, key)?;
 
-    let cyphertext = aes128_encrypt(&scalars, iv, key)?;
+    let ciphertext = aes128_encrypt(&scalars, iv, key)?;
 
     // Write witness assignments
-    for (output_witness, value) in outputs.iter().zip(cyphertext.into_iter()) {
+    for (output_witness, value) in outputs.iter().zip(ciphertext.into_iter()) {
         insert_value(output_witness, FieldElement::from(value as u128), initial_witness)?;
     }
 

@@ -50,10 +50,10 @@ pub(crate) fn evaluate_black_box<Solver: BlackBoxFunctionSolver>(
                 to_u8_vec(read_heap_array(memory, key)).try_into().map_err(|_| {
                     BlackBoxResolutionError::Failed(bb_func, "Invalid ley length".to_string())
                 })?;
-            let cyphertext = aes128_encrypt(&inputs, iv, key)?;
+            let ciphertext = aes128_encrypt(&inputs, iv, key)?;
 
-            memory.write(outputs.size, cyphertext.len().into());
-            memory.write_slice(memory.read_ref(outputs.pointer), &to_value_vec(&cyphertext));
+            memory.write(outputs.size, ciphertext.len().into());
+            memory.write_slice(memory.read_ref(outputs.pointer), &to_value_vec(&ciphertext));
 
             Ok(())
         }

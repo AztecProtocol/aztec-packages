@@ -31,7 +31,7 @@ void build_constraints(Builder& builder, AcirFormat const& constraint_system, bo
         builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
     }
 
-    // Add keccak constraints
+    // Add aes128 constraints
     for (const auto& constraint : constraint_system.aes128_constraints) {
         create_aes128_constraints(builder, constraint);
     }
