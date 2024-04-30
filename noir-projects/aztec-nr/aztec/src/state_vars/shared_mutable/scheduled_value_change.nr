@@ -119,13 +119,13 @@ impl<T> ScheduledValueChange<T> {
         &mut self,
         new_value: T,
         current_block_number: u32,
-        delay: u32,
+        minimum_delay: u32,
         block_of_change: u32
     ) {
+        assert(block_of_change >= current_block_number + minimum_delay);
+
         self.pre = self.get_current_at(current_block_number);
         self.post = new_value;
-
-        assert(block_of_change >= current_block_number + delay);
         self.block_of_change = block_of_change;
     }
 }
