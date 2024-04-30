@@ -339,13 +339,6 @@ class ECCVMFlavor {
      * @brief A container for univariates used during Protogalaxy and sumcheck.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-    /**
-     * @brief A container for univariates used during Protogalaxy folding in 'optimised' mode.
-     * @details Univariates in the optimised version skip some redundant computation the result of which we already know
-     * (optimistically)
-     */
-    template <size_t LENGTH, size_t SKIP_COUNT>
-    using OptimisedProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
