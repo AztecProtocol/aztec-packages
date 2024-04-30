@@ -1,33 +1,40 @@
 VERSION 0.8
 FROM node:18.19.0
 
-LET LOG_FOLDER=/usr/var/logs
-LET BENCH_FOLDER=/usr/var/bench
-
-ENV LOG_FOLDER=$LOG_FOLDER
-ENV BENCH_FOLDER=$BENCH_FOLDER
+ARG --global use_local_builds=false
 
 # These args are loaded from the EARTHLY_BUILD_ARGS set in setup_env
-ARG COMMIT_HASH
-ARG PULL_REQUEST
-ARG BRANCH
-ENV COMMIT_HASH=$COMMIT_HASH
-ENV PULL_REQUEST=$PULL_REQUEST
-ENV BRANCH=$BRANCH
+ARG --global COMMIT_HASH
+ARG --global PULL_REQUEST
+ARG --global BRANCH
 
 build:
-  FROM ../+scripts-prod
-  COPY ../../+scripts/usr/src/scripts /usr/src/scripts
+  FROM ../+scripts-prod --use_local_builds=$use_local_builds
   RUN apt-get update && apt-get install awscli -y
+  COPY ../../+scripts/scripts /usr/src/scripts
   WORKDIR /usr/src
 
 download-logs:
   FROM +build
+  LET LOG_FOLDER=/usr/var/logs
+  LET BENCH_FOLDER=/usr/var/bench
+  ENV LOG_FOLDER=$LOG_FOLDER
+  ENV BENCH_FOLDER=$BENCH_FOLDER
+  ENV COMMIT_HASH=$COMMIT_HASH
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY ./scripts/logs/download_logs_from_s3.sh 
   SAVE ARTIFACT $LOG_FOLDER logs
 
 bench-aggregate:
   FROM +build
+  LET LOG_FOLDER=/usr/var/logs
+  LET BENCH_FOLDER=/usr/var/bench
+  ENV LOG_FOLDER=$LOG_FOLDER
+  ENV BENCH_FOLDER=$BENCH_FOLDER
+  ENV COMMIT_HASH=$COMMIT_HASH
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
   COPY +download-logs/logs $LOG_FOLDER
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     ./scripts/logs/check_logs_for_benchmark.sh \
@@ -38,8 +45,15 @@ bench-aggregate:
 bench-comment:
   FROM +build
   COPY +bench-aggregate/bench $BENCH_FOLDER
+  LET LOG_FOLDER=/usr/var/logs
+  LET BENCH_FOLDER=/usr/var/bench
+  ENV LOG_FOLDER=$LOG_FOLDER
+  ENV BENCH_FOLDER=$BENCH_FOLDER
+  ENV COMMIT_HASH=$COMMIT_HASH
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
   RUN --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    [ -f $BENCH_FOLDER/benchmarks.json ] \
+    [ -f $BENCH_FOLDER/benchmark.json ] \
     && (./scripts/logs/download_base_benchmark_from_s3.sh && (cd /usr/src/yarn-project/scripts && yarn bench-comment)) \
     || true
   

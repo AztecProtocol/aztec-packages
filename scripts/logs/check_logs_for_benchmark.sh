@@ -7,6 +7,8 @@ set -eu
 LOG_FOLDER="${LOG_FOLDER:-log}"
 E2E_SRC_FOLDER=/usr/src/yarn-project/end-to-end/src
 
+echo "Checking log files in $LOG_FOLDER"
+
 # Only generate the aggregated benchmark if we've managed to retrieve all the needed log files
 # If these runs were skipped due to no changes in their rebuild-patterns, then there's no need
 # to recompute the aggregated benchmark. Note that if one benchmark did run but others didn't,

@@ -7,6 +7,8 @@ BUCKET_NAME="aztec-ci-artifacts"
 LOG_FOLDER="${LOG_FOLDER:-log}"
 COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
 
+echo "Downloading logs from S3 for commit $COMMIT_HASH in branch ${BRANCH:-} at pull request ${PULL_REQUEST:-none}"
+
 # Paths from upload_logs_to_s3
 if [ "${BRANCH:-}" = "master" ]; then
   LOG_SOURCE_FOLDER="logs-v1/master/$COMMIT_HASH"
@@ -25,7 +27,10 @@ fi
 mkdir -p $LOG_FOLDER
 
 # Download benchmark log files from S3 LOG_SOURCE_FOLDER into local LOG_FOLDER
+echo "Downloading benchmark log files from $BUCKET_NAME/$LOG_SOURCE_FOLDER to $LOG_FOLDER"
 aws s3 cp "s3://${BUCKET_NAME}/${LOG_SOURCE_FOLDER}/" $LOG_FOLDER --exclude '*' --include 'bench*.jsonl' --recursive
 
 # Download barretenberg log files, these are direct benchmarks and separate from the above
 aws s3 cp "s3://${BUCKET_NAME}/${BARRETENBERG_BENCH_SOURCE_FOLDER}/" $LOG_FOLDER --exclude '*' --include '*_bench.json' --recursive
+
+echo "Downloaded log files $(ls $LOG_FOLDER)"
