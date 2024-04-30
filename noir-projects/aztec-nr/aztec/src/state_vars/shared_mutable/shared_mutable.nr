@@ -189,8 +189,6 @@ mod test {
     global pre_delay = 20;
     global post_delay = 15;
 
-    global new_delay = 17;
-
     fn setup(private: bool) -> (SharedMutable<Field>, Field) {
         let block_number = 40;
         let context = create_context(block_number, private);
@@ -252,6 +250,10 @@ mod test {
         OracleMock::mock("storageWrite").returns([0; 3])
     }
 
+    fn mock_delay_change_write() -> OracleMock {
+        OracleMock::mock("storageWrite").returns([0; 1])
+    }
+
     fn assert_value_change_write(
         state_var: SharedMutable<Field>,
         mock: OracleMock,
@@ -261,6 +263,17 @@ mod test {
     ) {
         let fields = ScheduledValueChange::new(pre, post, block_of_change as u32).serialize();
         assert_eq(mock.get_last_params(), (state_var.get_value_change_storage_slot(), fields));
+    }
+
+    fn assert_delay_change_write(
+        state_var: SharedMutable<Field>,
+        mock: OracleMock,
+        pre: Field,
+        post: Field,
+        block_of_change: Field
+    ) {
+        let fields = ScheduledDelayChange::new(pre as u32, post as u32, block_of_change as u32).serialize();
+        assert_eq(mock.get_last_params(), (state_var.get_delay_change_storage_slot(), fields));
     }
 
     #[test]
@@ -428,6 +441,78 @@ mod test {
             post_value,
             new_value,
             block_number + pre_delay
+        );
+    }
+
+    #[test]
+    fn test_schedule_delay_increase_before_change() {
+        let (state_var, block_number) = setup(false);
+
+        // Delay change in future, current delay is pre
+        mock_delay_change_read(state_var, pre_delay, post_delay, block_number + 1);
+        let write_mock = mock_delay_change_write();
+
+        let new_delay = pre_delay + 1;
+        state_var.schedule_delay_change(new_delay as u32);
+
+        // The previous scheduled change is lost, change is immediate (due to increase)
+        assert_delay_change_write(state_var, write_mock, pre_delay, new_delay, block_number);
+    }
+
+    #[test]
+    fn test_schedule_delay_reduction_before_change() {
+        let (state_var, block_number) = setup(false);
+
+        // Delay change in future, current delay is pre
+        mock_delay_change_read(state_var, pre_delay, post_delay, block_number + 1);
+        let write_mock = mock_delay_change_write();
+
+        let new_delay = pre_delay - 1;
+        state_var.schedule_delay_change(new_delay as u32);
+
+        // The previous scheduled change is lost, change delay equals difference (due to reduction)
+        assert_delay_change_write(
+            state_var,
+            write_mock,
+            pre_delay,
+            new_delay,
+            block_number + pre_delay - new_delay
+        );
+    }
+
+    #[test]
+    fn test_schedule_delay_increase_after_change() {
+        let (state_var, block_number) = setup(false);
+
+        // Delay change in the past, current delay is post
+        mock_delay_change_read(state_var, pre_delay, post_delay, block_number - 1);
+        let write_mock = mock_delay_change_write();
+
+        let new_delay = post_delay + 1;
+        state_var.schedule_delay_change(new_delay as u32);
+
+        // The current value becomes pre, change is immediate (due to increase)
+        assert_delay_change_write(state_var, write_mock, post_delay, new_delay, block_number);
+    }
+
+    #[test]
+    fn test_schedule_delay_reduction_after_change() {
+        let (state_var, block_number) = setup(false);
+
+        // Delay change in the past, current delay is post
+        mock_delay_change_read(state_var, pre_delay, post_delay, block_number - 1);
+        let write_mock = mock_delay_change_write();
+
+        let new_delay = post_delay - 1;
+        state_var.schedule_delay_change(new_delay as u32);
+
+        // The current value becomes pre, change delay equals difference (due to reduction)
+        assert_delay_change_write(
+            state_var,
+            write_mock,
+            post_delay,
+            new_delay,
+            block_number + post_delay - new_delay
         );
     }
 
