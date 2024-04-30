@@ -100,7 +100,7 @@ Contract functions marked with `#[aztec(private)]` can only be called privately,
 
 #### Private Calls
 
-Private functions from other contracts can be called either regularly or statically by using the `.call()` and `.static_call` functions. They will also be 'executed' (i.e. proved) in the user's device, and `static_call` will fail if any state changes are attempted (like the EVM's `STATICCALL`). 
+Private functions from other contracts can be called either regularly or statically by using the `.call()` and `.static_call` functions. They will also be 'executed' (i.e. proved) in the user's device, and `static_call` will fail if any state changes are attempted (like the EVM's `STATICCALL`).
 
 #include_code private_call /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
 
@@ -108,9 +108,9 @@ Unlike the EVM however, private execution doesn't revert in the traditional way:
 
 #### Public Calls
 
-Since public execution can only be performed by the sequencer, public functions cannot be executed in a private context. It is possible however to _enqueue_ a public function call during private execution, requesting the sequencer to run it during inclusion of the transaction.
+Since public execution can only be performed by the sequencer, public functions cannot be executed in a private context. It is possible however to _enqueue_ a public function call during private execution, requesting the sequencer to run it during inclusion of the transaction. It will be [executed in public](#public-execution) normally, including the possibility to enqueue static public calls.
 
-Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted inncluding state changes caused by the private part, such as new commitments or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
+Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted inncluding state changes caused by the private part, such as new notes or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
 
 #include_code enqueue /noir-projects/noir-contracts/contracts/app_subscription_contract/src/main.nr rust
 
@@ -128,9 +128,9 @@ To learn about alternative ways to acess public state privately, look into [Shar
 
 ### Public Execution
 
-Contract functions marked with `#[aztec(public)]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private.
+Contract functions marked with `#[aztec(public)]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
 
-Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is know about it is its correctness and side-effects (new commitments and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
+Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is know about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 

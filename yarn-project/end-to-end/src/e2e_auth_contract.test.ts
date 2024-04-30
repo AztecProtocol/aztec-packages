@@ -52,7 +52,9 @@ describe('e2e_auth_contract', () => {
   });
 
   it('non-admin canoot set authorized', async () => {
-    await expect(contract.withWallet(admin).methods.set_authorized(authorized.getAddress()).send().wait()).rejects.toThrow('caller_is_n');
+    await expect(
+      contract.withWallet(other).methods.set_authorized(authorized.getAddress()).send().wait(),
+    ).rejects.toThrow('caller is not admin');
   });
 
   it('admin sets authorized', async () => {
