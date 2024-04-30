@@ -191,3 +191,21 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
     *out_vkey = to_heap_buffer(vkey_as_fields);
     write(out_key_hash, vk_hash);
 }
+
+WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+{
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+    auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
+
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness);
+
+    UltraProver prover{ builder };
+    auto proof = prover.construct_proof();
+    *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
+}
+
+WASM_EXPORT void acir_verify_proof(uint8_t const* proof_buf, bool* result)
+{
+    auto proof = from_buffer<std::vector<bb::fr>>(proof_buf);
+    auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+}

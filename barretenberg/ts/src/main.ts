@@ -358,6 +358,10 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
   }
 }
 
+// export async function proveHonk(bytecodePath: string, witnessPath: string, outputPath: string) {
+
+// }
+
 const program = new Command();
 
 program.option('-v, --verbose', 'enable verbose logging', false);
