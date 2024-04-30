@@ -79,7 +79,7 @@ CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
-SANDBOX_PORT=8080 # The port that Aztec Sandbox wil be listening to (default: 8080)
+AZTEC_NODE_PORT=8080 # The port that Aztec Sandbox wil be listening to (default: 8080)
 
 # Ethereum Forking (Optional: not enabled by default) #
 FORK_BLOCK_NUMBER=0 # The block number to fork from
