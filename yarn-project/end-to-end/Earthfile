@@ -93,8 +93,11 @@ UPLOAD_LOGS:
   LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
   FROM ../../+scripts
   COPY ./log /usr/var/log
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
-    PULL_REQUEST=$PULL_REQUEST BRANCH=$BRANCH COMMIT_HASH=$COMMIT_HASH E2E_MODE=$e2e_mode /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
+  ENV COMMIT_HASH=$COMMIT_HASH
+  ENV E2E_MODE=$e2e_mode
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
 
 # Define e2e tests
 e2e-tests:
