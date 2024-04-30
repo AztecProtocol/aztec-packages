@@ -4,15 +4,15 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
 namespace bb::eccvm {
-
 static constexpr size_t NUM_SCALAR_BITS = 128;
 static constexpr size_t WNAF_SLICE_BITS = 4;
-static constexpr size_t NUM_WNAF_SLICES = (NUM_SCALAR_BITS + WNAF_SLICE_BITS - 1) / WNAF_SLICE_BITS;
+static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = NUM_SCALAR_BITS / WNAF_SLICE_BITS; // 32
 static constexpr uint64_t WNAF_MASK = static_cast<uint64_t>((1ULL << WNAF_SLICE_BITS) - 1ULL);
 static constexpr size_t POINT_TABLE_SIZE = 1ULL << (WNAF_SLICE_BITS);
 static constexpr size_t WNAF_SLICES_PER_ROW = 4;
 static constexpr size_t ADDITIONS_PER_ROW = 4;
 
+// WORKTODO: naming: raw ops? ECCVM op?
 template <typename CycleGroup> struct VMOperation {
     bool add = false;
     bool mul = false;
@@ -39,7 +39,7 @@ template <typename CycleGroup> struct ScalarMul {
     uint32_t pc;
     uint256_t scalar;
     typename CycleGroup::affine_element base_point;
-    std::array<int, NUM_WNAF_SLICES> wnaf_slices;
+    std::array<int, NUM_WNAF_DIGITS_PER_SCALAR> wnaf_digits;
     bool wnaf_skew;
     // size bumped by 1 to record base_point.dbl()
     std::array<typename CycleGroup::affine_element, POINT_TABLE_SIZE + 1> precomputed_table;

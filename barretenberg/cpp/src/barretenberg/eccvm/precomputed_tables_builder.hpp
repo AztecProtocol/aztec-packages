@@ -4,18 +4,18 @@
 
 namespace bb {
 
-class ECCVMPrecomputedTablesBuilder {
+class ECCVMPointTablePrecomputationBuilder {
   public:
     using CycleGroup = bb::g1;
     using FF = grumpkin::fr;
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
 
-    static constexpr size_t NUM_WNAF_SLICES = bb::eccvm::NUM_WNAF_SLICES;
+    static constexpr size_t NUM_WNAF_DIGITS_PER_SCALAR = bb::eccvm::NUM_WNAF_DIGITS_PER_SCALAR;
     static constexpr size_t WNAF_SLICES_PER_ROW = bb::eccvm::WNAF_SLICES_PER_ROW;
     static constexpr size_t WNAF_SLICE_BITS = bb::eccvm::WNAF_SLICE_BITS;
 
-    struct PrecomputeState {
+    struct PointTablePrecoputationRow {
         int s1 = 0;
         int s2 = 0;
         int s3 = 0;
@@ -33,15 +33,15 @@ class ECCVMPrecomputedTablesBuilder {
         AffineElement precompute_double{ 0, 0 };
     };
 
-    static std::vector<PrecomputeState> compute_precompute_state(
+    static std::vector<PointTablePrecoputationRow> compute_rows(
         const std::vector<bb::eccvm::ScalarMul<CycleGroup>>& ecc_muls)
     {
-        static constexpr size_t num_rows_per_scalar = NUM_WNAF_SLICES / WNAF_SLICES_PER_ROW;
+        static constexpr size_t num_rows_per_scalar = NUM_WNAF_DIGITS_PER_SCALAR / WNAF_SLICES_PER_ROW;
         const size_t num_precompute_rows = num_rows_per_scalar * ecc_muls.size() + 1;
-        std::vector<PrecomputeState> precompute_state(num_precompute_rows);
+        std::vector<PointTablePrecoputationRow> precompute_state(num_precompute_rows);
 
         // start with empty row (shiftable polynomials must have 0 as first coefficient)
-        precompute_state[0] = PrecomputeState{};
+        precompute_state[0] = PointTablePrecoputationRow{};
 
         // current impl doesn't work if not 4
         static_assert(WNAF_SLICES_PER_ROW == 4);
@@ -49,11 +49,11 @@ class ECCVMPrecomputedTablesBuilder {
         run_loop_in_parallel(ecc_muls.size(), [&](size_t start, size_t end) {
             for (size_t j = start; j < end; j++) {
                 const auto& entry = ecc_muls[j];
-                const auto& slices = entry.wnaf_slices;
+                const auto& slices = entry.wnaf_digits;
                 uint256_t scalar_sum = 0;
 
                 for (size_t i = 0; i < num_rows_per_scalar; ++i) {
-                    PrecomputeState row;
+                    PointTablePrecoputationRow row;
                     const int slice0 = slices[i * WNAF_SLICES_PER_ROW];
                     const int slice1 = slices[i * WNAF_SLICES_PER_ROW + 1];
                     const int slice2 = slices[i * WNAF_SLICES_PER_ROW + 2];
