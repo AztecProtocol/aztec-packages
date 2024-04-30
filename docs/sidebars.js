@@ -213,8 +213,8 @@ const sidebars = {
       },
       items: [
         "developers/getting_started/quickstart",
-        "developers/getting_started/aztecnr-getting-started",
         "developers/getting_started/aztecjs-getting-started",
+        "developers/getting_started/aztecnr-getting-started",
       ],
     },
 
@@ -226,8 +226,9 @@ const sidebars = {
         id: "developers/tutorials/main",
       },
       items: [
-        "developers/tutorials/writing_token_contract",
         "developers/tutorials/writing_private_voting_contract",
+        "developers/tutorials/writing_token_contract",
+        "developers/tutorials/crowdfunding/donations",
 
         {
           label: "Writing a DApp",
@@ -762,8 +763,12 @@ const sidebars = {
       type: "category",
       link: { type: "doc", id: "protocol-specs/gas-and-fees/index" },
       items: [
-        "protocol-specs/gas-and-fees/fee-payments-and-metering",
+        "protocol-specs/gas-and-fees/fee-payment-asset",
+        "protocol-specs/gas-and-fees/specifying-gas-fee-info",
+        "protocol-specs/gas-and-fees/tx-setup-and-teardown",
+        "protocol-specs/gas-and-fees/kernel-tracking",
         "protocol-specs/gas-and-fees/fee-schedule",
+        "protocol-specs/gas-and-fees/published-gas-and-fee-data",
       ],
     },
     {

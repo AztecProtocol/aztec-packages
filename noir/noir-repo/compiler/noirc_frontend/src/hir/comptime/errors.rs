@@ -1,11 +1,12 @@
 use crate::{hir::def_collector::dc_crate::CompilationError, Type};
 use acvm::FieldElement;
 use noirc_errors::{CustomDiagnostic, Location};
+use noirc_errors::{CustomDiagnostic, Location};
 
 use super::value::Value;
 
 /// The possible errors that can halt the interpreter.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Debug, Clone)]
 pub enum InterpreterError {
     ArgumentCountMismatch { expected: usize, actual: usize, location: Location },
     TypeMismatch { expected: Type, value: Value, location: Location },
