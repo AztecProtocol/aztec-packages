@@ -39,7 +39,7 @@ bench-aggregate:
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     ./scripts/logs/check_logs_for_benchmark.sh \
     && ((cd /usr/src/yarn-project/scripts && yarn bench-aggregate) && ./scripts/logs/upload_aggregated_benchmarks_to_s3.sh) \
-    || true
+    || mkdir -p $BENCH_FOLDER
   SAVE ARTIFACT $BENCH_FOLDER bench
 
 bench-comment:
