@@ -45,6 +45,8 @@ TEST(Protogalaxy, CombinerOn2Instances)
                     /*log_circuit_size=*/1, idx * 128);
                 restrict_to_standard_arithmetic_relation(prover_polynomials);
                 // This ensures that the combiner accumulator for second instance = 0
+                // The value is computed by generating the python script values, computing the resulting accumulator and
+                // taking the value at index 1
                 if (idx == NUM_INSTANCES - 1) {
                     prover_polynomials.q_c[0] -= 13644570;
                 }
