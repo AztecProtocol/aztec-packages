@@ -15,7 +15,7 @@ build:
   WORKDIR /usr/src
 
 download-logs:
-  # Downloads logs for the current PR and saves them as an artifact
+  # Downloads logs for the current PR and saves them as an artifact, to be consumed by bench-aggregate.
   FROM +build
   LET LOG_FOLDER=/usr/var/logs
   LET BENCH_FOLDER=/usr/var/bench
@@ -46,21 +46,18 @@ bench-aggregate:
   SAVE ARTIFACT $BENCH_FOLDER bench
 
 bench-comment:
-  LET BENCH_FOLDER=/usr/var/bench
-  # Download base benchmark file locally so we have access to git to find out the right commit
-  LOCALLY
-  ENV BENCH_FOLDER=$BENCH_FOLDER
-  ENV COMMIT_HASH=$COMMIT_HASH
-  ENV PULL_REQUEST=$PULL_REQUEST
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p $BENCH_FOLDER && ../../scripts/logs/download_base_benchmark_from_s3.sh
-  # Use the scripts image to run bench comment after loading the benchmark from bench-aggregate 
-  # and the base benchmark from the local step
+  # Use the scripts image to run bench comment after loading the benchmark from bench-aggregate.
+  # Requires base-benchmark to be downloaded outside of this target. Note we cannot run it within
+  # an Earthly container because it needs access to the .git folder, and we cannot run it with a
+  # LOCALLY statement because Earthly does not support secrets when running locally (and we need)
+  # the AWS access keys to access S3. This step is then manually run in the ci.yml.
   FROM +build
+  LET BENCH_FOLDER=/usr/var/bench
   ENV BENCH_FOLDER=$BENCH_FOLDER
   ENV COMMIT_HASH=$COMMIT_HASH
   ENV PULL_REQUEST=$PULL_REQUEST
   ENV BRANCH=$BRANCH
-  COPY $BENCH_FOLDER/base-benchmark.json $BENCH_FOLDER/base-benchmark.json
+  COPY ./bench/base-benchmark.json $BENCH_FOLDER/base-benchmark.json
   COPY +bench-aggregate/bench $BENCH_FOLDER
   RUN --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY \
     [ -f $BENCH_FOLDER/benchmark.json ] \

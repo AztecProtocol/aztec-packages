@@ -14,6 +14,8 @@ if [ -n "${PULL_REQUEST:-}" ]; then
   MASTER_COMMIT_HASH=$(curl -s "https://api.github.com/repos/AztecProtocol/aztec-packages/pulls/${PULL_REQUEST##*/}" | jq -r '.base.sha')
   MASTER_COMMIT_HASHES=($(git log $MASTER_COMMIT_HASH --format="%H" -n 50))
 
+  mkdir -p $BENCH_FOLDER
+
   set +e
   echo "Searching for base benchmark data starting from commit $MASTER_COMMIT_HASH"
   for commit_hash in "${MASTER_COMMIT_HASHES[@]}"; do
