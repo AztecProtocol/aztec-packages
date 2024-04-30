@@ -1,12 +1,8 @@
 VERSION 0.8
 FROM node:18.19.0
 
-ARG --global use_local_builds=false
-
-# These args are loaded from the EARTHLY_BUILD_ARGS set in setup_env
-
 build:
-  FROM ../+scripts-prod --use_local_builds=$use_local_builds
+  FROM ../+scripts-prod
   RUN apt-get update && apt-get install awscli -y
   COPY ../../+scripts/scripts /usr/src/scripts
   WORKDIR /usr/src

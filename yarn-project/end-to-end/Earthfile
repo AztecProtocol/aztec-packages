@@ -1,7 +1,5 @@
 VERSION 0.8
 
-ARG --global use_local_builds=false
-
 # requires first saving the images locally with ../+export-end-to-end
 
 # run locally and build
