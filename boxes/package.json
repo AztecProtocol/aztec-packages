@@ -3,6 +3,7 @@
   "packageManager": "yarn@4.1.0",
   "version": "0.4.2",
   "type": "module",
+  "private": true,
   "scripts": {
     "compile": "yarn workspaces foreach -A -v run compile",
     "build": "yarn workspaces foreach -A -v run build",
@@ -12,18 +13,6 @@
     "boxes/*"
   ],
   "bin": "bin.js",
-  "resolutions": {
-    "@aztec/accounts": "portal:../yarn-project/accounts",
-    "@aztec/aztec.js": "portal:../yarn-project/aztec.js",
-    "@aztec/circuits.js": "portal:../yarn-project/circuits.js",
-    "@aztec/entrypoints": "portal:../yarn-project/entrypoints",
-    "@aztec/foundation": "portal:../yarn-project/foundation",
-    "@aztec/bb.js": "portal:../barretenberg/ts",
-    "@aztec/circuit-types": "portal:../yarn-project/circuit-types",
-    "@aztec/ethereum": "portal:../yarn-project/ethereum",
-    "@aztec/protocol-contracts": "portal:../yarn-project/protocol-contracts",
-    "@aztec/types": "portal:../yarn-project/types"
-  },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
     "@inquirer/confirm": "^3.0.0",
