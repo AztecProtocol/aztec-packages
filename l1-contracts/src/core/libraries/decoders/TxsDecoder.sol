@@ -259,7 +259,8 @@ library TxsDecoder {
     // padded to MAX_LOGS * 32 bytes
     // NB: this assumes MAX_ENCRYPTED_LOGS_PER_TX == MAX_UNENCRYPTED_LOGS_PER_TX
     flattenedLogHashes = bytes.concat(
-      flattenedLogHashes, new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
+      flattenedLogHashes,
+      new bytes(Constants.MAX_ENCRYPTED_LOGS_PER_TX * 32 - flattenedLogHashes.length)
     );
 
     bytes32 kernelPublicInputsLogsHash = Hash.sha256ToField(flattenedLogHashes);
