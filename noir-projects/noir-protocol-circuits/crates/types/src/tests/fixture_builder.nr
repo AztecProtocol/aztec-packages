@@ -250,8 +250,7 @@ impl FixtureBuilder {
         KernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
-    pub fn add_new_note_hash(&mut self, unsiloed_value: Field) {
-        let value = silo_note_hash(self.storage_contract_address, unsiloed_value);
+    pub fn add_new_note_hash(&mut self, value: Field) {
         self.new_note_hashes.push(NoteHashContext { value, counter: self.next_counter(), nullifier_counter: 0 });
     }
 
@@ -260,7 +259,8 @@ impl FixtureBuilder {
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
                 let mocked_value = self.get_mocked_note_hash_value(index_offset + i);
-                self.add_new_note_hash(mocked_value);
+                let value = silo_note_hash(self.storage_contract_address, mocked_value);
+                self.add_new_note_hash(value);
             }
         }
     }
