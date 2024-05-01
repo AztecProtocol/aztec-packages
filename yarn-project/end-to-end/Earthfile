@@ -5,6 +5,7 @@ E2E_COMPOSE_TEST:
   ARG test
   ARG compose_file=./scripts/docker-compose.yml
   ARG debug="aztec:*"
+  ARG EARTHLY_TARGET_NAME
   LOCALLY
   ENV TEST=$test
   ENV DEBUG=$debug
@@ -21,6 +22,20 @@ E2E_COMPOSE_TEST:
     # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
     RUN $CMD -p $project_name -f $compose_file up --exit-code-from=end-to-end --force-recreate
   END
+
+UPLOAD_LOGS:
+  FUNCTION
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  LOCALLY
+  LET COMMIT_HASH="${COMMIT_HASH:-$(git rev-parse HEAD)}"
+  FROM ../../+scripts
+  COPY ./log /usr/var/log
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
+  ENV COMMIT_HASH=$COMMIT_HASH
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY /usr/src/scripts/logs/upload_logs_to_s3.sh /usr/var/log
 
 # Define e2e tests
 e2e-tests:
@@ -57,19 +72,29 @@ guides-dapp-testing:
 
 # TODO intermittent failure
 # guides-sample-dapp:
-#  DO +E2E_COMPOSE_TEST --test=sample-dapp
+#   DO +E2E_COMPOSE_TEST --test=sample-dapp
 
 # TODO currently hangs for hour+
 # guides-up-quick-start:
 #   DO +E2E_COMPOSE_TEST --test=guides/up_quick_start.test.ts
 
-# TODO hanging
-# bench-publish-rollup:
-#   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
+bench-publish-rollup:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_publish_rollup.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
-# TODO hanging
-# bench-process-history:
-#   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
+bench-process-history:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_process_history.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
-# bench-tx-size:
-#   DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"  --compose_file=./scripts/docker-compose-no-sandbox.yml
+bench-tx-size:
+  ARG PULL_REQUEST
+  ARG BRANCH
+  ARG COMMIT_HASH
+  DO +E2E_COMPOSE_TEST --test=benchmarks/bench_tx_size_fees.test.ts --debug="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml
+  DO +UPLOAD_LOGS --e2e_mode=$e2e_mode --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
