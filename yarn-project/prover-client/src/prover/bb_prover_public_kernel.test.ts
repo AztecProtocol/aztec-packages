@@ -22,11 +22,11 @@ describe('prover/bb_prover/public-kernel', () => {
       return BBNativeRollupProver.new(bbConfig);
     };
     context = await TestContext.new(logger, 1, buildProver);
-  }, 60_000);
+  });
 
   afterAll(async () => {
     await context.cleanup();
-  }, 5000);
+  });
 
   it('proves the public kernel circuits', async () => {
     const tx = mockTx(1000, {
@@ -69,13 +69,13 @@ describe('prover/bb_prover/public-kernel', () => {
       if (request.type === PublicKernelType.TAIL) {
         await expect(
           context.prover.getPublicTailProof(request).then(result => {
-            proof = result[1];
+            proof = result.proof;
           }),
         ).resolves.not.toThrow();
       } else {
         await expect(
           context.prover.getPublicKernelProof(request).then(result => {
-            proof = result[1];
+            proof = result.proof;
           }),
         ).resolves.not.toThrow();
       }
@@ -83,5 +83,5 @@ describe('prover/bb_prover/public-kernel', () => {
       logger.verbose(`Verifying kernel type: ${PublicKernelType[request.type]}`);
       await expect(context.prover.verifyProof(artifact, proof)).resolves.not.toThrow();
     }
-  }, 60_000);
+  });
 });

@@ -53,7 +53,7 @@ describe('e2e_dapp_subscription', () => {
   const PRIVATELY_MINTED_BANANAS = BigInt(600e9);
 
   const FEE_AMOUNT = 1n;
-  const MAX_FEE = BigInt(30e9);
+  const MAX_FEE = BigInt(20e9);
 
   const GAS_SETTINGS = GasSettings.default();
 
@@ -121,7 +121,7 @@ describe('e2e_dapp_subscription', () => {
       [aliceAddress, sequencerAddress, subscriptionContract.address, bananaFPC.address],
       [0n, 0n, INITIAL_GAS_BALANCE, INITIAL_GAS_BALANCE],
     );
-  }, 180_000);
+  });
 
   it('should allow Alice to subscribe by paying privately with bananas', async () => {
     /**

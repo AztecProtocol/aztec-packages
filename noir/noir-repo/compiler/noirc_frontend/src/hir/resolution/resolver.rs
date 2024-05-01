@@ -1292,15 +1292,14 @@ impl<'a> Resolver<'a> {
                 })
             }
             StatementKind::Constrain(constrain_stmt) => {
-                let span = constrain_stmt.0.span;
-                let assert_msg_call_expr_id =
-                    self.resolve_assert_message(constrain_stmt.1, span, constrain_stmt.0.clone());
                 let expr_id = self.resolve_expression(constrain_stmt.0);
+                let assert_message_expr_id =
+                    constrain_stmt.1.map(|assert_expr_id| self.resolve_expression(assert_expr_id));
 
                 HirStatement::Constrain(HirConstrainStatement(
                     expr_id,
                     self.file,
-                    assert_msg_call_expr_id,
+                    assert_message_expr_id,
                 ))
             }
             StatementKind::Expression(expr) => {

@@ -13,6 +13,7 @@ import {
   LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
+  type ProcessOutput,
   type ProverClient,
   PublicDataWitness,
   type SequencerConfig,
@@ -150,7 +151,7 @@ export class AztecNodeService implements AztecNode {
     const simulationProvider = await getSimulationProvider(config, log);
     const prover = config.disableProver
       ? await DummyProver.new()
-      : await TxProver.new(config, worldStateSynchronizer, simulationProvider);
+      : await TxProver.new(config, simulationProvider, worldStateSynchronizer);
 
     // now create the sequencer
     const sequencer = config.disableSequencer
@@ -191,6 +192,10 @@ export class AztecNodeService implements AztecNode {
    */
   public getSequencer(): SequencerClient | undefined {
     return this.sequencer;
+  }
+
+  public getProver(): ProverClient {
+    return this.prover;
   }
 
   /**
@@ -634,7 +639,7 @@ export class AztecNodeService implements AztecNode {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
-  public async simulatePublicCalls(tx: Tx) {
+  public async simulatePublicCalls(tx: Tx): Promise<ProcessOutput> {
     this.log.info(`Simulating tx ${tx.getTxHash()}`);
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
 
@@ -660,6 +665,7 @@ export class AztecNodeService implements AztecNode {
       new WASMSimulator(),
     );
     const processor = await publicProcessorFactory.create(prevHeader, newGlobalVariables);
+    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
     const [processedTxs, failedTxs, returns] = await processor.process([tx]);
     if (failedTxs.length) {
       this.log.warn(`Simulated tx ${tx.getTxHash()} fails: ${failedTxs[0].error}`);
@@ -671,7 +677,15 @@ export class AztecNodeService implements AztecNode {
       throw reverted[0].revertReason;
     }
     this.log.info(`Simulated tx ${tx.getTxHash()} succeeds`);
-    return returns[0];
+    const [processedTx] = processedTxs;
+    return {
+      constants: processedTx.data.constants,
+      encryptedLogs: processedTx.encryptedLogs,
+      unencryptedLogs: processedTx.unencryptedLogs,
+      end: processedTx.data.end,
+      revertReason: processedTx.revertReason,
+      publicReturnValues: returns[0],
+    };
   }
 
   public setConfig(config: Partial<SequencerConfig>): Promise<void> {
