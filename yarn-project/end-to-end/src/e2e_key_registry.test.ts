@@ -57,7 +57,6 @@ describe('Key Registry', () => {
         GeneratorIndex.PUBLIC_KEYS_HASH,
       ]);
 
-      
       // TODO(#5726): Move the following line to AztecAddress class?
       accountAddedToRegistry = AztecAddress.fromField(
         poseidon2Hash([publicKeysHash, partialAddress, GeneratorIndex.CONTRACT_ADDRESS_V1]),
@@ -161,7 +160,7 @@ describe('Key Registry', () => {
         .send()
         .wait();
 
-      // We check if our registered nullifier key is equal to the key obtained from the getter by 
+      // We check if our registered nullifier key is equal to the key obtained from the getter by
       // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       const emptyNullifierPublicKey = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
@@ -191,22 +190,22 @@ describe('Key Registry', () => {
           .send()
           .wait();
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
-      // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
-      const emptyNullifierPublicKey = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
-        .simulate();
+        // We check if our rotated nullifier key is equal to the key obtained from the getter by
+        // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
+        const emptyNullifierPublicKey = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+          .simulate();
 
-      expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
+        expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
 
-      // We check it again after a delay and expect that the change has been applied and consequently the assert is true
-      await delay(5);
+        // We check it again after a delay and expect that the change has been applied and consequently the assert is true
+        await delay(5);
 
-      const nullifierPublicKey = await testContract.methods
-        .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
-        .simulate();
+        const nullifierPublicKey = await testContract.methods
+          .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
+          .simulate();
 
-      expect(new Fr(nullifierPublicKey)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
+        expect(new Fr(nullifierPublicKey)).toEqual(poseidon2Hash(firstNewMasterNullifierPublicKey.toFields()));
       });
     });
 
@@ -225,9 +224,9 @@ describe('Key Registry', () => {
 
         await action.send().wait();
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
-      // reading our registry contract from the test contract. We expect this value to be the old one, because the new one hasn't been applied
-      const oldNullifierPublicKey = await testContract.methods
+        // We check if our rotated nullifier key is equal to the key obtained from the getter by
+        // reading our registry contract from the test contract. We expect this value to be the old one, because the new one hasn't been applied
+        const oldNullifierPublicKey = await testContract.methods
           .test_shared_mutable_private_getter_for_registry_contract(1, wallets[0].getAddress())
           .simulate();
 
@@ -288,7 +287,7 @@ describe('Key Registry', () => {
         .send()
         .wait();
 
-      // We check if our registered nullifier key is equal to the key obtained from the getter by 
+      // We check if our registered nullifier key is equal to the key obtained from the getter by
       // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       await expect(
         testContract.methods
@@ -363,7 +362,7 @@ describe('Key Registry', () => {
       await expect(
         testContract.methods.test_nullifier_key_freshness(randAddress, masterNullifierPublicKey).send().wait(),
       ).rejects.toThrow(`Cannot satisfy constraint 'computed_address.eq(address)'`);
-    })
+    });
 
     it('adds a recipient to our pxe, and checks the key freshness with and without adding an entry to our key registry', async () => {
       // TODO: (#5834) Refactor complete address to move the public keys
@@ -394,7 +393,7 @@ describe('Key Registry', () => {
         .send()
         .wait();
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
+      // We check if our rotated nullifier key is equal to the key obtained from the getter by
       // reading our registry contract from the test contract. We expect this to be 0 because the change has not been applied yet
       const emptyNullifierPublicKey = await testContract.methods
         .test_shared_mutable_private_getter_for_registry_contract(1, accountAddedToRegistry)
@@ -402,7 +401,7 @@ describe('Key Registry', () => {
 
       expect(new Fr(emptyNullifierPublicKey)).toEqual(Fr.ZERO);
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter. We expect this to succeed because even though the change 
+      // We check if our rotated nullifier key is equal to the key obtained from the getter. We expect this to succeed because even though the change
       // has not been applied yet to the registry, we have manually the keys to our pxe
       await testContract.methods
         .test_nullifier_key_freshness(accountAddedToRegistry, masterNullifierPublicKey)
@@ -427,7 +426,7 @@ describe('Key Registry', () => {
         .send()
         .wait();
 
-      // We check if our rotated nullifier key is equal to the key obtained from the getter by 
+      // We check if our rotated nullifier key is equal to the key obtained from the getter by
       // reading our registry contract from the test contract. We expect this to fail because the change has not been applied yet
       await expect(
         testContract.methods

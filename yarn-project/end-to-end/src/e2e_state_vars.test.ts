@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Fr, type Wallet } from '@aztec/aztec.js';
 import { AuthContract, DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -8,7 +8,6 @@ import { setup } from './fixtures/utils.js';
 const TIMEOUT = 100_000;
 
 describe('e2e_state_vars', () => {
-  let pxe: PXE;
   jest.setTimeout(TIMEOUT);
 
   let wallet: Wallet;
@@ -20,7 +19,7 @@ describe('e2e_state_vars', () => {
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
-    ({ teardown, wallet, pxe } = await setup(2));
+    ({ teardown, wallet } = await setup(2));
     contract = await DocsExampleContract.deploy(wallet).send().deployed();
   });
 
