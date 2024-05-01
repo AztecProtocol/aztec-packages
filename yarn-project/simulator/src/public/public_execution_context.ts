@@ -145,7 +145,7 @@ export class PublicExecutionContext extends TypedOracle {
    * Emit an unencrypted log.
    * @param log - The unencrypted log to be emitted.
    */
-  public override emitUnencryptedLog(log: UnencryptedL2Log) {
+  public override emitUnencryptedLog(log: UnencryptedL2Log, _counter: number) {
     this.unencryptedLogs.push(log);
     this.allUnencryptedLogs.push(log);
     this.log.verbose(`Emitted unencrypted log: "${log.toHumanReadable()}"`);

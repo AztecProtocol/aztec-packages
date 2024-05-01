@@ -284,7 +284,7 @@ impl PublicContextInterface for PublicContext {
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
         self.unencrypted_log_preimages_length = self.unencrypted_log_preimages_length + 44 + log_slice.len().to_field();
         // Call oracle to broadcast log
-        let _void = emit_unencrypted_log_oracle(contract_address, event_selector, log);
+        let _void = emit_unencrypted_log_oracle(contract_address, event_selector, log, side_effect.counter);
     }
 
     fn call_public_function<RETURNS_COUNT>(
@@ -353,7 +353,8 @@ fn nullifier_exists_oracle(nullifier: Field) -> Field {}
 fn emit_unencrypted_log_oracle<T>(
     _contract_address: AztecAddress,
     _event_selector: Field,
-    _message: T
+    _message: T,
+    _counter: u32,
 ) -> Field {}
 
 struct FunctionReturns<N> {

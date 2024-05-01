@@ -294,6 +294,7 @@ export class Oracle {
     [publicKeyX]: ACVMField[],
     [publicKeyY]: ACVMField[],
     log: ACVMField[],
+    [counter]: ACVMField[],
   ): ACVMField[] {
     const publicKey = new Point(fromACVMField(publicKeyX), fromACVMField(publicKeyY));
     const encLog = this.typedOracle.emitEncryptedLog(
@@ -302,6 +303,7 @@ export class Oracle {
       Fr.fromString(noteTypeId),
       publicKey,
       log.map(fromACVMField),
+      +counter,
     );
     // TODO(1139): We should encrypt in the circuit, but instead we inject here
     // encryption output is 112 + 32 * (N + 3) bytes, for log len N
@@ -314,22 +316,11 @@ export class Oracle {
     return encLogFields;
   }
 
-  emitUnencryptedLog([contractAddress]: ACVMField[], [eventSelector]: ACVMField[], message: ACVMField[]): ACVMField {
-    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
-    const log = new UnencryptedL2Log(
-      AztecAddress.fromString(contractAddress),
-      EventSelector.fromField(fromACVMField(eventSelector)),
-      logPayload,
-    );
-
-    this.typedOracle.emitUnencryptedLog(log);
-    return toACVMField(0);
-  }
-
-  emitContractClassUnencryptedLog(
+  emitUnencryptedLog(
     [contractAddress]: ACVMField[],
     [eventSelector]: ACVMField[],
     message: ACVMField[],
+    [counter]: ACVMField[],
   ): ACVMField {
     const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
     const log = new UnencryptedL2Log(
@@ -338,7 +329,24 @@ export class Oracle {
       logPayload,
     );
 
-    const logHash = this.typedOracle.emitContractClassUnencryptedLog(log);
+    this.typedOracle.emitUnencryptedLog(log, +counter);
+    return toACVMField(0);
+  }
+
+  emitContractClassUnencryptedLog(
+    [contractAddress]: ACVMField[],
+    [eventSelector]: ACVMField[],
+    message: ACVMField[],
+    [counter]: ACVMField[],
+  ): ACVMField {
+    const logPayload = Buffer.concat(message.map(fromACVMField).map(f => f.toBuffer()));
+    const log = new UnencryptedL2Log(
+      AztecAddress.fromString(contractAddress),
+      EventSelector.fromField(fromACVMField(eventSelector)),
+      logPayload,
+    );
+
+    const logHash = this.typedOracle.emitContractClassUnencryptedLog(log, +counter);
     return toACVMField(logHash);
   }
 

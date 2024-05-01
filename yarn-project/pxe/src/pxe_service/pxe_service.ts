@@ -45,6 +45,8 @@ import {
   type AcirSimulator,
   type ExecutionResult,
   collectEnqueuedPublicFunctionCalls,
+  collectSortedEncryptedLogs,
+  collectSortedUnencryptedLogs,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -651,8 +653,8 @@ export class PXEService implements PXE {
     this.log.debug(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
 
-    const unencryptedLogs = new UnencryptedTxL2Logs([executionResult.allUnencryptedLogs]);
-    const encryptedLogs = new EncryptedTxL2Logs([executionResult.allEncryptedLogs]);
+    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
+    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
     // HACK(#1639): Manually patches the ordering of the public call stack

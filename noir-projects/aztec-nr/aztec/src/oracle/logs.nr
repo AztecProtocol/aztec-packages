@@ -9,7 +9,8 @@ fn emit_encrypted_log_oracle<N, M>(
     _storage_slot: Field,
     _note_type_id: Field,
     _encryption_pub_key: GrumpkinPoint,
-    _preimage: [Field; N]
+    _preimage: [Field; N],
+    _counter: u32,
 ) -> [Field; M] {}
 
 unconstrained pub fn emit_encrypted_log<N, M>(
@@ -17,13 +18,15 @@ unconstrained pub fn emit_encrypted_log<N, M>(
     storage_slot: Field,
     note_type_id: Field,
     encryption_pub_key: GrumpkinPoint,
-    preimage: [Field; N]
+    preimage: [Field; N],
+    counter: u32
 ) -> [Field; M] {
     emit_encrypted_log_oracle(
         contract_address,
         storage_slot,
         note_type_id,
         encryption_pub_key,
-        preimage
+        preimage,
+        counter
     )
 }

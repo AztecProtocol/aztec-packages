@@ -272,7 +272,7 @@ impl PrivateContext {
         // 44 = addr (32) + selector (4) + raw log len (4) + processed log len (4)
         self.unencrypted_log_preimages_length += 44 + log_slice.len().to_field();
         // call oracle
-        let _void = emit_unencrypted_log_private_internal(contract_address, event_selector, log);
+        let _void = emit_unencrypted_log_private_internal(contract_address, event_selector, log, side_effect.counter);
     }
 
     // This fn exists separately from emit_unencrypted_log because sha hashing the preimage
@@ -288,7 +288,8 @@ impl PrivateContext {
         let log_hash = emit_contract_class_unencrypted_log_private_internal(
             contract_address,
             event_selector,
-            log
+            log,
+            self.side_effect_counter
         );
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
         self.unencrypted_logs_hashes.push(side_effect);
@@ -312,7 +313,8 @@ impl PrivateContext {
             storage_slot,
             note_type_id,
             encryption_pub_key,
-            preimage
+            preimage,
+            self.side_effect_counter
         );
         let log_hash = compute_encrypted_log_hash(encrypted_log);
         let side_effect = SideEffect { value: log_hash, counter: self.side_effect_counter };
@@ -644,31 +646,34 @@ impl PackedReturns {
 fn emit_unencrypted_log_oracle_private<T>(
     _contract_address: AztecAddress,
     _event_selector: Field,
-    _message: T
+    _message: T,
+    _counter: u32
 ) -> Field {}
 
 unconstrained pub fn emit_unencrypted_log_private_internal<T>(
     contract_address: AztecAddress,
     event_selector: Field,
-    message: T
+    message: T,
+    counter: u32
 ) -> Field {
-    // https://github.com/AztecProtocol/aztec-packages/issues/885
-    emit_unencrypted_log_oracle_private(contract_address, event_selector, message)
+    emit_unencrypted_log_oracle_private(contract_address, event_selector, message, counter)
 }
 
 #[oracle(emitContractClassUnencryptedLog)]
 fn emit_contract_class_unencrypted_log_private<N>(
     contract_address: AztecAddress,
     event_selector: Field,
-    message: [Field; N]
+    message: [Field; N],
+    counter: u32
 ) -> Field {}
 
 
 unconstrained pub fn emit_contract_class_unencrypted_log_private_internal<N>(
     contract_address: AztecAddress,
     event_selector: Field,
-    message: [Field; N]
+    message: [Field; N],
+    counter: u32
 ) -> Field {
-    emit_contract_class_unencrypted_log_private(contract_address, event_selector, message)
+    emit_contract_class_unencrypted_log_private(contract_address, event_selector, message, counter)
 }
 

@@ -1,4 +1,11 @@
-import { type AztecNode, type L1ToL2Message, Note, PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
+import {
+  type AztecNode,
+  EncryptedFunctionL2Logs,
+  type L1ToL2Message,
+  Note,
+  PackedValues,
+  TxExecutionRequest,
+} from '@aztec/circuit-types';
 import {
   AppendOnlyTreeSnapshot,
   CallContext,
@@ -56,6 +63,7 @@ import { MessageLoadOracleInputs } from '../acvm/index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
 import { type DBOracle } from './db_oracle.js';
+import { type ExecutionResult, collectSortedUnencryptedLogs } from './execution_result.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
@@ -163,6 +171,11 @@ describe('Private Execution test suite', () => {
     return trees[name];
   };
 
+  const getEncryptedSerializedLength = (result: ExecutionResult) => {
+    const fnLogs = new EncryptedFunctionL2Logs(result.encryptedLogs.map(l => l.log));
+    return fnLogs.getSerializedLength();
+  };
+
   beforeAll(() => {
     logger = createDebugLogger('aztec:test:private_execution');
 
@@ -215,7 +228,7 @@ describe('Private Execution test suite', () => {
       const newUnencryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.unencryptedLogsHashes);
       expect(newUnencryptedLogs).toHaveLength(1);
 
-      const functionLogs = result.allUnencryptedLogs;
+      const functionLogs = collectSortedUnencryptedLogs(result);
       expect(functionLogs.logs).toHaveLength(1);
 
       const [unencryptedLog] = newUnencryptedLogs;
@@ -234,7 +247,7 @@ describe('Private Execution test suite', () => {
 
       const newUnencryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.unencryptedLogsHashes);
       expect(newUnencryptedLogs).toHaveLength(1);
-      const functionLogs = result.allUnencryptedLogs;
+      const functionLogs = collectSortedUnencryptedLogs(result);
       expect(functionLogs.logs).toHaveLength(1);
 
       const [unencryptedLog] = newUnencryptedLogs;
@@ -326,9 +339,9 @@ describe('Private Execution test suite', () => {
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(result.encryptedLogs.getSerializedLength()),
+        new Fr(getEncryptedSerializedLength(result)),
       );
     });
 
@@ -357,9 +370,9 @@ describe('Private Execution test suite', () => {
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(result.encryptedLogs.getSerializedLength()),
+        new Fr(getEncryptedSerializedLength(result)),
       );
     });
 
@@ -413,10 +426,10 @@ describe('Private Execution test suite', () => {
       expect(newEncryptedLogs).toHaveLength(2);
 
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
-      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
+      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
+      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[1].log.hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(result.encryptedLogs.getSerializedLength()),
+        new Fr(getEncryptedSerializedLength(result)),
       );
 
       const readRequests = getNonEmptyItems(result.callStackItem.publicInputs.noteHashReadRequests).map(r => r.value);
@@ -454,10 +467,10 @@ describe('Private Execution test suite', () => {
       const newEncryptedLogs = getNonEmptyItems(result.callStackItem.publicInputs.encryptedLogsHashes);
       expect(newEncryptedLogs).toHaveLength(2);
       const [encryptedChangeLog, encryptedRecipientLog] = newEncryptedLogs;
-      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
-      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[1].hash()));
+      expect(encryptedChangeLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
+      expect(encryptedRecipientLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[1].log.hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(result.encryptedLogs.getSerializedLength()),
+        new Fr(getEncryptedSerializedLength(result)),
       );
     });
   });
@@ -908,9 +921,9 @@ describe('Private Execution test suite', () => {
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(result.encryptedLogs[0].log.hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(result.encryptedLogs.getSerializedLength()),
+        new Fr(getEncryptedSerializedLength(result)),
       );
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
@@ -987,9 +1000,9 @@ describe('Private Execution test suite', () => {
       expect(newEncryptedLogs).toHaveLength(1);
 
       const [encryptedLog] = newEncryptedLogs;
-      expect(encryptedLog.value).toEqual(Fr.fromBuffer(execInsert.encryptedLogs.logs[0].hash()));
+      expect(encryptedLog.value).toEqual(Fr.fromBuffer(execInsert.encryptedLogs[0].log.hash()));
       expect(result.callStackItem.publicInputs.encryptedLogPreimagesLength).toEqual(
-        new Fr(result.encryptedLogs.getSerializedLength()),
+        new Fr(getEncryptedSerializedLength(result)),
       );
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
