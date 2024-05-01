@@ -4,8 +4,9 @@ import type { PeerId } from '@libp2p/interface';
 import { SemVer } from 'semver';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { DiscV5Service, PeerDiscoveryState } from './discV5_service.js';
+import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
+import { PeerDiscoveryState } from './service.js';
 
 describe('Discv5Service', () => {
   let bootNode: BootstrapNode;

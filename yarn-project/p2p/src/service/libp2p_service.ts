@@ -125,7 +125,6 @@ export class LibP2PService implements P2PService {
 
     // Subscribe to standard topics by default
     this.subscribeToTopic(this.messageCreator.getTopic());
-    // this.subscribeToTopic(GossipTopic.BLOCK);
 
     // add gossipsub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
