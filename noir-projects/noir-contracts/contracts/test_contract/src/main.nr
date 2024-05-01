@@ -382,7 +382,7 @@ contract Test {
     fn test_shared_mutable_private_getter<T>(
         contract_address_to_read: AztecAddress,
         storage_slot_of_shared_mutable: Field
-    ) where T: FromField, T: ToField {
+    ) -> Field where T: FromField, T: ToField {
         // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
         let test: SharedMutablePrivateGetter<T, 5> = SharedMutablePrivateGetter::new(
             context,
