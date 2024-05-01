@@ -3,16 +3,20 @@ import {
   CallRequest,
   GasSettings,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  Nullifier,
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   Proof,
   type PublicCallRequest,
   SideEffect,
-  SideEffectLinkedToNoteHash,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { makePublicCallRequest } from '@aztec/circuits.js/testing';
+import {
+  makeCombinedAccumulatedData,
+  makeCombinedConstantData,
+  makePublicCallRequest,
+} from '@aztec/circuits.js/testing';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
@@ -23,7 +27,7 @@ import { type ContractInstanceWithAddress, SerializableContractInstance } from '
 import { EncryptedL2Log } from './logs/encrypted_l2_log.js';
 import { EncryptedFunctionL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
 import { ExtendedNote } from './notes/index.js';
-import { type ProcessReturnValues, SimulatedTx, Tx, TxHash } from './tx/index.js';
+import { type ProcessOutput, type ProcessReturnValues, SimulatedTx, Tx, TxHash } from './tx/index.js';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
@@ -59,7 +63,7 @@ export const mockTx = (
 
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
-  const firstNullifier = new SideEffectLinkedToNoteHash(new Fr(seed + 1), new Fr(seed + 2), Fr.ZERO);
+  const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
   const encryptedLogs = hasLogs ? EncryptedTxL2Logs.random(2, 3) : EncryptedTxL2Logs.empty(); // 2 priv function invocations creating 3 encrypted logs each
   const unencryptedLogs = hasLogs ? UnencryptedTxL2Logs.random(2, 1) : UnencryptedTxL2Logs.empty(); // 2 priv function invocations creating 1 unencrypted log each
   data.constants.txContext.gasSettings = GasSettings.default();
@@ -114,7 +118,15 @@ export const mockTxForRollup = (seed = 1, { hasLogs = false }: { hasLogs?: boole
 export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
   const tx = mockTx(seed, { hasLogs });
   const dec: ProcessReturnValues = [new Fr(1n), new Fr(2n), new Fr(3n), new Fr(4n)];
-  return new SimulatedTx(tx, dec, dec);
+  const output: ProcessOutput = {
+    constants: makeCombinedConstantData(),
+    encryptedLogs: tx.encryptedLogs,
+    unencryptedLogs: tx.unencryptedLogs,
+    end: makeCombinedAccumulatedData(),
+    revertReason: undefined,
+    publicReturnValues: dec,
+  };
+  return new SimulatedTx(tx, dec, output);
 };
 
 export const randomContractArtifact = (): ContractArtifact => ({

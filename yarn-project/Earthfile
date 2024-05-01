@@ -47,6 +47,10 @@ build:
     ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
     RUN ./bootstrap.sh full
 
+build-dev:
+    FROM +build
+    SAVE ARTIFACT /usr/src /usr/src
+
 aztec-prod:
     FROM +build
     RUN yarn workspaces focus @aztec/aztec --production && yarn cache clean
@@ -75,6 +79,11 @@ end-to-end:
     WORKDIR /usr/src/yarn-project/end-to-end
     ENTRYPOINT ["yarn", "test"]
 
+scripts-prod:
+    FROM +build
+    RUN yarn workspaces focus @aztec/scripts --production && yarn cache clean
+    SAVE ARTIFACT /usr/src /usr/src
+
 all:
     BUILD +aztec
     BUILD +cli
@@ -101,3 +110,8 @@ format-check:
 test:
     FROM +build
     RUN yarn test
+
+run-e2e:
+    ARG test
+    FROM +end-to-end
+    RUN DEBUG=aztec:* yarn test $test

@@ -2,16 +2,14 @@ use crate::{
     abis::{
     gas::Gas, gas_settings::GasSettings, call_context::CallContext,
     call_request::{CallerContext, CallRequest},
-    accumulated_data::{
-    CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-    PublicAccumulatedData, PublicAccumulatedDataBuilder
-},
-    combined_constant_data::CombinedConstantData,
+    accumulated_data::{CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder, PublicAccumulatedData},
+    global_variables::GlobalVariables, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
     kernel_data::{PrivateKernelData, PublicKernelData, KernelData}, max_block_number::MaxBlockNumber,
+    note_hash::NoteHashContext, nullifier::Nullifier,
     nullifier_key_validation_request::NullifierKeyValidationRequestContext,
     public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-    read_request::ReadRequestContext, side_effect::{SideEffect, SideEffectLinkedToNoteHash},
+    read_request::ReadRequestContext, side_effect::SideEffect,
     validation_requests::{ValidationRequests, ValidationRequestsBuilder}
 },
     address::AztecAddress,
@@ -35,10 +33,11 @@ struct FixtureBuilder {
     // Constant data.
     historical_header: Header,
     tx_context: TxContext,
+    global_variables: GlobalVariables,
     
     // Accumulated data.
-    new_note_hashes: BoundedVec<SideEffect, MAX_NEW_NOTE_HASHES_PER_TX>,
-    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_TX>,
+    new_note_hashes: BoundedVec<NoteHashContext, MAX_NEW_NOTE_HASHES_PER_TX>,
+    new_nullifiers: BoundedVec<Nullifier, MAX_NEW_NULLIFIERS_PER_TX>,
     new_l2_to_l1_msgs: BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_TX>,
     encrypted_logs_hashes: BoundedVec<SideEffect, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<SideEffect, MAX_UNENCRYPTED_LOGS_PER_TX>,
@@ -50,6 +49,7 @@ struct FixtureBuilder {
     private_call_stack: BoundedVec<CallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     gas_used: Gas,
+    non_revertible_gas_used: Gas,
 
     // Validation requests.
     max_block_number: MaxBlockNumber,
@@ -109,12 +109,18 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: 0,
             counter: 0,
             start_state: PartialStateReference::empty(),
-            gas_used: Gas::empty()
+            gas_used: Gas::empty(),
+            non_revertible_gas_used: Gas::empty(),
+            global_variables: GlobalVariables::empty()
         }
     }
 
     pub fn to_constant_data(self) -> CombinedConstantData {
-        CombinedConstantData { historical_header: self.historical_header, tx_context: self.tx_context }
+        CombinedConstantData {
+            historical_header: self.historical_header,
+            tx_context: self.tx_context,
+            global_variables: self.global_variables
+        }
     }
 
     pub fn to_private_accumulated_data(self) -> PrivateAccumulatedData {
@@ -128,31 +134,31 @@ impl FixtureBuilder {
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
             private_call_stack: self.private_call_stack,
             public_call_stack: self.public_call_stack,
-            gas_used: self.gas_used
+            gas_used: self.gas_used,
+            non_revertible_gas_used: self.non_revertible_gas_used
         };
         public_inputs.finish()
     }
 
     pub fn to_public_accumulated_data(self) -> PublicAccumulatedData {
-        let public_inputs = PublicAccumulatedDataBuilder {
-            new_note_hashes: self.new_note_hashes,
-            new_nullifiers: self.new_nullifiers,
-            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs,
-            encrypted_logs_hashes: self.encrypted_logs_hashes,
-            unencrypted_logs_hashes: self.unencrypted_logs_hashes,
+        PublicAccumulatedData {
+            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.to_note_hash()),
+            new_nullifiers: self.new_nullifiers.storage,
+            new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
+            encrypted_logs_hashes: self.encrypted_logs_hashes.storage,
+            unencrypted_logs_hashes: self.unencrypted_logs_hashes.storage,
             encrypted_log_preimages_length: self.encrypted_log_preimages_length,
             unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
-            public_data_update_requests: self.public_data_update_requests,
-            public_call_stack: self.public_call_stack,
+            public_data_update_requests: self.public_data_update_requests.storage,
+            public_call_stack: self.public_call_stack.storage,
             gas_used: self.gas_used
-        };
-        public_inputs.finish()
+        }
     }
 
     pub fn to_combined_accumulated_data(self) -> CombinedAccumulatedData {
         CombinedAccumulatedData {
-            new_note_hashes: self.new_note_hashes.storage.map(|n: SideEffect| n.value),
-            new_nullifiers: self.new_nullifiers.storage.map(|n: SideEffectLinkedToNoteHash| n.value),
+            new_note_hashes: self.new_note_hashes.storage.map(|n: NoteHashContext| n.value),
+            new_nullifiers: self.new_nullifiers.storage.map(|n: Nullifier| n.value),
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             encrypted_logs_hash: self.encrypted_logs_hash,
             unencrypted_logs_hash: self.unencrypted_logs_hash,
@@ -244,21 +250,23 @@ impl FixtureBuilder {
         KernelData { public_inputs, proof: self.proof, vk: self.vk, vk_index: self.vk_index, vk_path: self.vk_path }
     }
 
+    pub fn add_new_note_hash(&mut self, value: Field) {
+        self.new_note_hashes.push(NoteHashContext { value, counter: self.next_counter(), nullifier_counter: 0 });
+    }
+
     pub fn append_new_note_hashes(&mut self, num_new_note_hashes: u64) {
         let mocked_value_offset = self.new_note_hashes.len() + 1;
         for i in 0..MAX_NEW_NOTE_HASHES_PER_TX {
             if i < num_new_note_hashes {
                 // The empty value is its index + 1.
-                self.new_note_hashes.push(
-                    SideEffect { value: (i + mocked_value_offset) as Field, counter: self.next_counter() }
-                );
+                self.add_new_note_hash((i + mocked_value_offset) as Field);
             }
         }
     }
 
     pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
         let value = silo_nullifier(self.storage_contract_address, unsiloed_nullifier);
-        self.new_nullifiers.push(SideEffectLinkedToNoteHash { value, note_hash: 0, counter: self.next_counter() });
+        self.new_nullifiers.push(Nullifier { value, note_hash: 0, counter: self.next_counter() });
     }
 
     pub fn append_new_nullifiers(&mut self, num_extra_nullifier: u64) {
@@ -374,7 +382,7 @@ impl FixtureBuilder {
         self.public_call_stack.push(call_stack_item);
     }
 
-    pub fn capture_min_revertible_side_effect_counter(&mut self) {
+    pub fn end_setup(&mut self) {
         self.min_revertible_side_effect_counter = self.counter;
     }
 
@@ -424,6 +432,7 @@ impl Empty for FixtureBuilder {
             storage_contract_address: AztecAddress::zero(),
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
+            global_variables: GlobalVariables::empty(),
             new_note_hashes: BoundedVec::new(),
             new_nullifiers: BoundedVec::new(),
             new_l2_to_l1_msgs: BoundedVec::new(),
@@ -451,6 +460,7 @@ impl Empty for FixtureBuilder {
             counter: 0,
             start_state: PartialStateReference::empty(),
             gas_used: Gas::empty(),
+            non_revertible_gas_used: Gas::empty(),
         }
     }
 }
