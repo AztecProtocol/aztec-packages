@@ -1,5 +1,5 @@
 VERSION 0.8
-FROM ubuntu:lunar
+FROM ubuntu:noble
 
 build-ci:
     BUILD ./avm-transpiler/+build
@@ -16,15 +16,22 @@ build-ci:
     BUILD ./yarn-project/+end-to-end
     BUILD ./yarn-project/+aztec
 
-build-ci-small:
-    BUILD ./yarn-project/end-to-end/+e2e-escrow-contract
-
 build:
     # yarn-project has the entry point to Aztec
     BUILD ./yarn-project/+build
 
 test-end-to-end:
-    BUILD ./yarn-project/end-to-end/+test-all
+    BUILD ./yarn-project/end-to-end+e2e-tests
 
 bench:
   RUN echo hi
+
+release-meta:
+    COPY .release-please-manifest.json /usr/src/.release-please-manifest.json
+    SAVE ARTIFACT /usr/src /usr/src
+
+scripts:
+    FROM ubuntu:lunar
+    RUN apt-get update && apt-get install -y awscli
+    COPY scripts /usr/src/scripts
+    SAVE ARTIFACT /usr/src/scripts scripts

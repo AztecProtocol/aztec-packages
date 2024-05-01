@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     kernel_data::PrivateKernelData,
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder, PublicKernelCircuitPublicInputs},
-    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}
+    note_hash::NoteHashContext, nullifier::Nullifier, side_effect::{SideEffect, Ordered}, gas::Gas
 },
     constants::{
     MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
@@ -91,8 +91,6 @@ impl KernelCircuitPublicInputsComposer {
 
         self.silo_values();
 
-        self.set_gas_used();
-
         *self
     }
 
@@ -105,18 +103,21 @@ impl KernelCircuitPublicInputsComposer {
     }
 
     pub fn finish(self) -> KernelCircuitPublicInputs {
-        self.public_inputs.finish_tail()
+        let teardown_gas = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
+        let inputs = self.public_inputs.finish_tail(teardown_gas);
+        let limits = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+        assert(inputs.end.gas_used.within(limits), "The gas used exceeds the gas limits");
+        inputs
     }
 
     pub fn finish_to_public(self) -> PublicKernelCircuitPublicInputs {
         let min_revertible_side_effect_counter = self.previous_kernel.public_inputs.min_revertible_side_effect_counter;
-        self.public_inputs.finish_to_public(min_revertible_side_effect_counter)
-    }
-
-    fn set_gas_used(&mut self) {
-        // TODO(gas): Compute DA gas used here and add to public_inputs.(end,end_non_revertible).gas_used
         let teardown_gas = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.teardown_gas_limits;
-        self.public_inputs.end.gas_used = teardown_gas;
+        let inputs = self.public_inputs.finish_to_public(teardown_gas, min_revertible_side_effect_counter);
+        let limits = self.previous_kernel.public_inputs.constants.tx_context.gas_settings.gas_limits;
+        let total_gas_used = inputs.end.gas_used + inputs.end_non_revertible.gas_used;
+        assert(total_gas_used.within(limits), "The gas used exceeds the gas limits");
+        inputs
     }
 
     fn silo_values(&mut self) {

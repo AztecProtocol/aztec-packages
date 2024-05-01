@@ -79,6 +79,9 @@ export const DEFAULT_GAS_LIMIT = 1_000_000_000;
 export const DEFAULT_TEARDOWN_GAS_LIMIT = 100_000_000;
 export const DEFAULT_MAX_FEE_PER_GAS = 10;
 export const DEFAULT_INCLUSION_FEE = 0;
+export const DA_BYTES_PER_FIELD = 32;
+export const DA_GAS_PER_BYTE = 16;
+export const FIXED_DA_GAS = 512;
 export const CANONICAL_KEY_REGISTRY_ADDRESS = 0x1585e564a60e6ec974bc151b62705292ebfc75c33341986a47fd9749cedb567en;
 export const AZTEC_ADDRESS_LENGTH = 1;
 export const GAS_FEES_LENGTH = 2;
@@ -212,4 +215,5 @@ export enum GeneratorIndex {
   NOTE_NULLIFIER = 52,
   INNER_NOTE_HASH = 53,
   NOTE_CONTENT_HASH = 54,
+  SYMMETRIC_KEY = 55,
 }
